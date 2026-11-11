@@ -64,27 +64,27 @@ describe('PlatformNav', () => {
   })
 
   test('marks the matching subsection active, not the overview', () => {
-    pathname.value = '/app/platform/knowledge'
+    pathname.value = '/app/platform/countries'
     render(<PlatformNav />)
 
     const current = screen.getAllByRole('link', { current: 'page' })
     expect(current).toHaveLength(2)
-    for (const link of current) expect(link.textContent).toContain('Base knowledge')
+    for (const link of current) expect(link.textContent).toContain('Countries')
   })
 
   test('stays active on a nested subsection route', () => {
-    pathname.value = '/app/platform/norms/some-detail'
+    pathname.value = '/app/platform/countries/AT'
     render(<PlatformNav />)
 
     const current = screen.getAllByRole('link', { current: 'page' })
     expect(current.length).toBeGreaterThan(0)
-    for (const link of current) expect(link.textContent).toContain('Norm catalog')
+    for (const link of current) expect(link.textContent).toContain('Countries')
   })
 
   test('does not mark a sibling route active on a shared prefix', () => {
-    // `/app/platform/norms-draft` is not under `/app/platform/norms`; matching
+    // `/app/platform/countries-draft` is not under `/app/platform/countries`; matching
     // must stop at a path boundary, not at any shared prefix.
-    pathname.value = '/app/platform/norms-draft'
+    pathname.value = '/app/platform/countries-draft'
     render(<PlatformNav />)
 
     expect(screen.queryAllByRole('link', { current: 'page' })).toHaveLength(0)

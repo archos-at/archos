@@ -363,6 +363,18 @@ def test_successful_submit_forwards_identity_and_scope(client, prod_token, submi
     }
 
 
+def test_a_temporary_conversation_is_said_to_the_worker_beside_the_identity(client, prod_token, submit_mock):
+    """ADR-0180 rule 2: the worker reads the flag from the usage context to skip its reflection."""
+    resp = _post(client, _valid_body(temporary_conversation=True, memory_reflection_enabled=True))
+    assert resp.status_code == 200
+
+    kwargs = submit_mock.await_args.kwargs
+    assert kwargs["usage_context"]["temporary_conversation"] is True
+    assert "temporary_conversation" not in kwargs["usage_context"]["identity"]
+    # The organization's flag travels unchanged: the worker decides, and names the skip.
+    assert kwargs["memory_reflection_enabled"] is True
+
+
 def test_owner_falls_back_to_user_id_when_no_email(client, prod_token, submit_mock):
     resp = _post(client, _valid_body(owner_email=None))
     assert resp.status_code == 200

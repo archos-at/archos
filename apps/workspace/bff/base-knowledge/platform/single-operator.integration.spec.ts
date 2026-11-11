@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * One operator alone on dev (migration 0229, `./single-operator.ts`) against a
+ * One operator alone on dev (migration 0233, `./single-operator.ts`) against a
  * REAL Postgres, through the service the route and the door both call:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -59,7 +59,7 @@ describe('the single-operator suite is not silently skipped in CI', () => {
   })
 })
 
-describe.skipIf(!url)('one operator alone on a deployment that says so (migration 0229)', () => {
+describe.skipIf(!url)('one operator alone on a deployment that says so (migration 0233)', () => {
   let service: typeof import('./service')
   let store: typeof import('./store')
   let onboarding: typeof import('./onboarding')

@@ -10,6 +10,8 @@ vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.f
 vi.mock('@/lib/project-profile/prompt-view', () => ({ loadProjectPromptView: vi.fn() }))
 vi.mock('@/lib/org-instructions/service', () => ({ resolveOrgInstructions: vi.fn() }))
 vi.mock('@/lib/projects/memory-service', () => ({ buildProjectMemoryDigest: vi.fn() }))
+vi.mock('@/lib/personal-memory/service', () => ({ buildPersonalMemoryDigest: vi.fn() }))
+vi.mock('@/lib/conversations/temporary', () => ({ isTemporaryConversation: vi.fn() }))
 vi.mock('@/lib/projects/proposal-decisions', async (original) => ({
   ...(await original<typeof import('@/lib/projects/proposal-decisions')>()),
   buildProposalDecisionsBlock: vi.fn(),
@@ -52,9 +54,12 @@ import { withTenant, withPlatformAccess } from '@/lib/db/tenant-context'
 import { loadProjectPromptView } from '@/lib/project-profile/prompt-view'
 import { resolveOrgInstructions } from '@/lib/org-instructions/service'
 import { buildProjectMemoryDigest } from '@/lib/projects/memory-service'
+import { buildPersonalMemoryDigest } from '@/lib/personal-memory/service'
+import { isTemporaryConversation } from '@/lib/conversations/temporary'
 import { buildProposalDecisionsBlock } from '@/lib/projects/proposal-decisions'
 import { buildReviewDecisionsBlock } from '@/lib/documents/review-decisions'
 import { drewOnOtherProjects, isSoloAudience } from '@/lib/conversations/cross-project-use'
+import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
 import { countPendingInboxItems } from '@/lib/inbox/repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { listConversationProposals } from '@/lib/proposals/repository'
@@ -106,9 +111,12 @@ beforeEach(() => {
   vi.mocked(loadProjectPromptView).mockResolvedValue(LARGE_PROFILE)
   vi.mocked(resolveOrgInstructions).mockResolvedValue('Standing instructions')
   vi.mocked(buildProjectMemoryDigest).mockResolvedValue('Digest')
+  vi.mocked(buildPersonalMemoryDigest).mockResolvedValue(null)
+  vi.mocked(isTemporaryConversation).mockResolvedValue(false)
   vi.mocked(buildProposalDecisionsBlock).mockResolvedValue('Proposal decisions')
   vi.mocked(buildReviewDecisionsBlock).mockResolvedValue('Review decisions')
   vi.mocked(isSoloAudience).mockReturnValue(true)
+  vi.mocked(readConversationAudience).mockResolvedValue({} as never)
   vi.mocked(countPendingInboxItems).mockResolvedValue(3)
   vi.mocked(listRunsInProject).mockResolvedValue([])
   vi.mocked(listConversationProposals).mockResolvedValue([])
@@ -175,6 +183,8 @@ describe('POST /api/internal/turn-context', () => {
       projectContext: LARGE_PROFILE,
       projectMemory: 'Digest\n\nProposal decisions\n\nReview decisions',
       orgInstructions: 'Standing instructions',
+      personalMemory: null,
+      temporary: false,
       drewOnOtherProjects: false,
       referenceProjects: null,
       workspace: expect.stringContaining('WORKSPACE v1'),
@@ -195,6 +205,96 @@ describe('POST /api/internal/turn-context', () => {
     expect(buildProjectMemoryDigest).toHaveBeenCalledWith('proj_1', 'org_1', expect.objectContaining({ query: 'fire safety' }))
     expect(buildReviewDecisionsBlock).toHaveBeenCalledWith('s_text-conversation', 'org_1')
     expect(resolveOrgInstructions).toHaveBeenCalledWith('org_1')
+  })
+
+  it('hands the turn the asker’s personal memory, read as the envelope’s person, and answers without it when it fails (ADR-0180)', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValueOnce('PERSONAL_MEMORY v1\n- [preference] "Answers in short paragraphs."')
+    const { data } = await (await call()).json()
+    expect(data.personalMemory).toBe('PERSONAL_MEMORY v1\n- [preference] "Answers in short paragraphs."')
+    // The owner is the verified envelope's person, inside that person's tenant scope.
+    expect(buildPersonalMemoryDigest).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_1' })
+    expect(withTenant).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_1' }, expect.any(Function))
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.mocked(buildPersonalMemoryDigest).mockRejectedValueOnce(new Error('db down'))
+    const response = await call()
+    expect(response.status).toBe(200)
+    expect((await response.json()).data.personalMemory).toBeNull()
+    warn.mockRestore()
+  })
+
+  it('keeps personal memory out of a conversation others read: the answer is theirs to read too', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
+    vi.mocked(isSoloAudience).mockReturnValue(false)
+
+    const { data } = await (await call()).json()
+
+    expect(data.personalMemory).toBeNull()
+    expect(buildPersonalMemoryDigest).not.toHaveBeenCalled()
+    // The same audience read words the WORKSPACE block: one read, two uses.
+    expect(data.workspace).toContain('shared (others read it')
+    expect(readConversationAudience).toHaveBeenCalledTimes(1)
+  })
+
+  it('delivers personal memory in a solo conversation, reading the audience once', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
+
+    const { data } = await (await call()).json()
+
+    expect(data.personalMemory).toContain('Leads the fire-safety reviews.')
+    expect(isSoloAudience).toHaveBeenCalledWith(expect.anything(), 'user_1')
+    expect(readConversationAudience).toHaveBeenCalledTimes(1)
+    expect(readConversationAudience).toHaveBeenCalledWith(expect.anything(), 'org_1', 's_text-conversation')
+  })
+
+  it('fails closed: no personal memory when the audience cannot be read', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
+    vi.mocked(readConversationAudience).mockRejectedValueOnce(new Error('db down'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const response = await call()
+
+    expect(response.status).toBe(200)
+    expect((await response.json()).data.personalMemory).toBeNull()
+    expect(buildPersonalMemoryDigest).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('delivers personal memory on a turn without a conversation, asking for no audience', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
+
+    const { data } = await (await call({}, signedHeaders({ conversationId: null }))).json()
+
+    expect(data.personalMemory).toContain('Leads the fire-safety reviews.')
+    expect(readConversationAudience).not.toHaveBeenCalled()
+  })
+
+  it('says a temporary conversation is temporary, and still delivers both memories for reading (ADR-0180 rule 2)', async () => {
+    vi.mocked(isTemporaryConversation).mockResolvedValue(true)
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
+
+    const { data } = await (await call()).json()
+
+    expect(data.temporary).toBe(true)
+    expect(isTemporaryConversation).toHaveBeenCalledWith('s_text-conversation', 'org_1')
+    // Only writing is off: what is already known still reaches the turn.
+    expect(data.projectMemory).toContain('Digest')
+    expect(data.personalMemory).toContain('Leads the fire-safety reviews.')
+    expect(buildProjectMemoryDigest).toHaveBeenCalled()
+  })
+
+  it('is not temporary by default, and the schema refuses a turn context that does not say', async () => {
+    const { data } = await (await call()).json()
+    expect(data.temporary).toBe(false)
+    const { temporary: _dropped, ...without } = data
+    expect(turnContextResponseSchema.safeParse(without).success).toBe(false)
+  })
+
+  it('fails the turn context when it cannot tell whether the conversation is temporary', async () => {
+    vi.mocked(isTemporaryConversation).mockRejectedValueOnce(new Error('db down'))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect((await call()).status).toBe(500)
+    error.mockRestore()
   })
 
   it('says in Server-Timing where the build spent its time, the memory read naming its dense channel', async () => {

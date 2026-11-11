@@ -52,7 +52,7 @@ export const MAX_CHANGE_REQUESTS = 200
 
 /**
  * Every change request read and write runs here. On a deployment set to one operator alone (`./single-operator.ts`)
- * the transaction tells the triggers so (migration 0229); otherwise it sets nothing.
+ * the transaction tells the triggers so (migration 0233); otherwise it sets nothing.
  */
 export function platformTransaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!singleOperator()) return withPlatformAccess(REASON, () => getDb().transaction(fn))
@@ -101,7 +101,7 @@ export async function setChangeRequestStatus(
 }
 
 export async function listChangeRequests(
-  filter: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState },
+  filter: { status?: ChangeRequestStatus; countryId?: string; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState },
   page: { offset: number; limit: number } = { offset: 0, limit: MAX_CHANGE_REQUESTS },
 ): Promise<ChangeRequestSummary[]> {
   const rows = await withPlatformAccess(REASON, () =>
@@ -114,6 +114,7 @@ export async function listChangeRequests(
       .where(
         and(
           filter.status ? eq(knowledgeChangeRequests.status, filter.status) : undefined,
+          filter.countryId ? eq(knowledgeChangeRequests.countryId, filter.countryId) : undefined,
           filter.origin ? eq(knowledgeChangeRequests.origin, filter.origin) : undefined,
           filter.secondReview ? eq(knowledgeChangeRequests.secondReview, filter.secondReview) : undefined,
         ),
@@ -470,7 +471,7 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
 const SOURCE_UNCHECKED_FOUR_EYES =
   'A record cites an operator-supplied capture, or a capture or a text nobody fetched from a reviewed source (uploaded, only named in the base corpus, or fetched through a source that is still in a draft or that one person released alone), and nobody but its author has checked it against its source. Another person checks it (sourceChecked on platform-knowledge-change-request-review); to approve alone, cite a fetched capture and attach the text with platform-knowledge-text-import, both through a built-in source or a released source another person approved.'
 
-/** On one operator's deployment the author's own source check counts (migration 0229), so the way out is theirs. */
+/** On one operator's deployment the author's own source check counts (migration 0233), so the way out is theirs. */
 const SOURCE_UNCHECKED_SINGLE_OPERATOR =
   'A record cites an operator-supplied capture, or a capture or a text nobody fetched from a reviewed source, and nobody has checked it against its source. This deployment lets one operator work alone: check the source yourself, mark sourceChecked on your verdicts with platform-knowledge-change-request-review, then approve with an override.'
 

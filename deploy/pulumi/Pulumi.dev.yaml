@@ -190,7 +190,7 @@ config:
   grid-oib:workosAuthkitDomain: grateful-view-25-staging.authkit.app
   grid-oib:registryUsername: matthiasbigl
   # One operator reviews, approves alone and publishes a country's knowledge
-  # change request (KNOWLEDGE_SINGLE_OPERATOR, migration 0229): the owner's
+  # change request (KNOWLEDGE_SINGLE_OPERATOR, migration 0233): the owner's
   # decision of 2026-11-11, for dev only. Never set it in Pulumi.prod.yaml.
   grid-oib:knowledgeSingleOperator: "true"
   # ── Observability / OTel Collector + Aspire dashboard (ADR-0029) ──

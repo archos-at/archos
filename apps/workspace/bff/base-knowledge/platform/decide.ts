@@ -97,7 +97,7 @@ async function rejectRequest(tx: Tx, request: ChangeRequestRow, actor: Actor): P
  * to one operator alone, where none is due, every claim must be accepted first), one somebody
  * marked edited or rejected still blocks, and the trigger marks the request
  * single with a second review due (migration 0214); on a deployment set to one
- * operator alone it marks it single with none due (migration 0229).
+ * operator alone it marks it single with none due (migration 0233).
  */
 async function approveSubmitted(tx: Tx, request: ChangeRequestRow, input: Input, actor: Actor): Promise<Decided> {
   if (request.status !== 'submitted') throw new ConflictError(`The change request is ${request.status}; only a submitted one is approved.`)
@@ -119,7 +119,7 @@ async function approveSubmitted(tx: Tx, request: ChangeRequestRow, input: Input,
     decisionSource: actor.decisionSource,
     ...(input.override ? { overrideReason: input.override.reason } : {}),
   })
-  // The trigger marked an override `single`, with a second review due unless one operator works alone (migration 0229).
+  // The trigger marked an override `single`, with a second review due unless one operator works alone (migration 0233).
   const marked = (await lockChangeRequest(tx, request.id)) ?? request
   const marks = { approval: marked.approval, secondReview: marked.secondReview }
   const alone = input.override ? revisions.map((revision) => revision.revisionId) : []

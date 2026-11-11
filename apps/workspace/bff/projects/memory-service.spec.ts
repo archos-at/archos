@@ -11,6 +11,7 @@ vi.mock('@/lib/db', () => ({
 // assert on the exact conditions the service builds, without a database.
 vi.mock('drizzle-orm', () => ({
   eq: (col: unknown, val: unknown) => ({ op: 'eq', col, val }),
+  inArray: (col: unknown, values: unknown[]) => ({ op: 'inArray', col, values }),
   and: (...conditions: unknown[]) => ({ op: 'and', conditions }),
   or: (...conditions: unknown[]) => ({ op: 'or', conditions }),
   isNull: (col: unknown) => ({ op: 'isNull', col }),
@@ -74,7 +75,7 @@ vi.mock('@/lib/upload-screening/service', async () => {
 })
 
 import { getDb } from '@/lib/db'
-import { BadRequestError } from '@/lib/api/errors'
+import { BadRequestError, ConflictError } from '@/lib/api/errors'
 import { sourceFoldersOfCollections } from '@/lib/authz/folder-access'
 import { embedNote } from '@/lib/knowledge/embeddings'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
@@ -96,6 +97,9 @@ import {
 
 const eq = (col: unknown, val: unknown) => ({ op: 'eq', col, val })
 const and = (...conditions: unknown[]) => ({ op: 'and', conditions })
+const inArray = (col: unknown, values: unknown[]) => ({ op: 'inArray', col, values })
+/** What a supersede matches on: the lifecycle's sources of `supersede`, an active note only. */
+const supersedable = inArray('pm.status', ['active'])
 const or = (...conditions: unknown[]) => ({ op: 'or', conditions })
 const isNull = (col: unknown) => ({ op: 'isNull', col })
 /** Open memory only: the visibility condition every reader without clearance gets. */
@@ -136,7 +140,8 @@ describe('updateProjectMemoryItem tenancy guard', () => {
     expect(where).toHaveBeenCalledWith(
       and(
         eq('pm.id', 'item-1'),
-        and(eq('pm.scope', 'organization'), eq('pm.organizationId', 'org-1'), openOnly)
+        and(eq('pm.scope', 'organization'), eq('pm.organizationId', 'org-1'), openOnly),
+        undefined
       )
     )
   })
@@ -152,7 +157,7 @@ describe('updateProjectMemoryItem tenancy guard', () => {
 
     expect(result).toEqual({ id: 'item-1' })
     expect(where).toHaveBeenCalledWith(
-      and(eq('pm.id', 'item-1'), and(eq('pm.projectId', 'proj-1'), openOnly))
+      and(eq('pm.id', 'item-1'), and(eq('pm.projectId', 'proj-1'), openOnly), inArray('pm.status', ['dismissed', 'active']))
     )
   })
 
@@ -168,9 +173,59 @@ describe('updateProjectMemoryItem tenancy guard', () => {
     expect(where).toHaveBeenCalledWith(
       and(
         eq('pm.id', 'item-1'),
-        and(eq('pm.projectId', 'proj-1'), memoryVisibleTo(['proj_x_raaaaaaaaaaaa', 'proj_x_rbbbbbbbbbbbb']))
+        and(eq('pm.projectId', 'proj-1'), memoryVisibleTo(['proj_x_raaaaaaaaaaaa', 'proj_x_rbbbbbbbbbbbb'])),
+        undefined
       )
     )
+  })
+})
+
+describe('a note moves only as its lifecycle allows (ADR-0179)', () => {
+  const owner = { projectId: 'proj-1', organizationId: 'org-1', readableFolderIds: [] }
+  /** The UPDATE matches nothing; the follow-up read finds the note in `held`, or finds none. */
+  const mockRefusedMove = (held: string | null) => {
+    const updateWhere = vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) })
+    const limit = vi.fn().mockResolvedValue(held ? [{ status: held }] : [])
+    const selectWhere = vi.fn().mockReturnValue({ limit })
+    vi.mocked(getDb).mockReturnValue(
+      asDb({
+        update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: updateWhere }) }),
+        select: vi.fn().mockReturnValue({ from: vi.fn().mockReturnValue({ where: selectWhere }) }),
+      })
+    )
+    return { updateWhere }
+  }
+
+  it.each([
+    ['restore a dismissed or superseded note', 'active', ['active', 'superseded', 'dismissed']],
+    ['dismiss an active note', 'dismissed', ['dismissed', 'active']],
+    ['supersede an active note', 'superseded', ['superseded', 'active']],
+  ] as const)('may %s: the UPDATE matches on the states that may become it', async (_what, to, from) => {
+    const { updateWhere } = mockRefusedMove(null)
+
+    await updateProjectMemoryItem(owner, 'item-1', { status: to })
+
+    expect(updateWhere).toHaveBeenCalledWith(
+      and(eq('pm.id', 'item-1'), and(eq('pm.projectId', 'proj-1'), openOnly), inArray('pm.status', [...from]))
+    )
+  })
+
+  it('answers 409 invalid-transition for a dismissed note asked to become superseded', async () => {
+    mockRefusedMove('dismissed')
+
+    const move = updateProjectMemoryItem(owner, 'item-1', { status: 'superseded' })
+
+    await expect(move).rejects.toBeInstanceOf(ConflictError)
+    await expect(move).rejects.toMatchObject({
+      status: 409,
+      message: 'A dismissed note cannot become superseded',
+      details: { reason: 'invalid-transition', from: 'dismissed', to: 'superseded', allowed: ['active'] },
+    })
+  })
+
+  it('stays a null (the route’s 404) for a note the caller cannot reach', async () => {
+    mockRefusedMove(null)
+    expect(await updateProjectMemoryItem(owner, 'item-1', { status: 'dismissed' })).toBeNull()
   })
 })
 
@@ -205,6 +260,139 @@ describe('a note is stored masked (ADR-0086)', () => {
     await updateProjectMemoryItem({ organizationId: 'org-1' }, 'item-1', { pinned: true })
 
     expect(set.mock.calls[0][0]).not.toHaveProperty('content')
+  })
+})
+
+describe('an edited note is matched by what it says now', () => {
+  /** Two updates in order: the edit itself, then the write of its new vector. */
+  const mockEdit = (edited: unknown[], embedded: unknown[] = edited) => {
+    const returning = vi.fn().mockResolvedValueOnce(edited).mockResolvedValueOnce(embedded)
+    const where = vi.fn().mockReturnValue({ returning })
+    const set = vi.fn().mockReturnValue({ where })
+    vi.mocked(getDb).mockReturnValue(asDb({ update: vi.fn().mockReturnValue({ set }) }))
+    return { set, where, returning }
+  }
+  const owner = { projectId: 'proj-1', organizationId: 'org-1', readableFolderIds: [] }
+
+  beforeEach(() => {
+    vi.mocked(embedNote).mockReset().mockResolvedValue(null)
+  })
+
+  it('drops the old vector in the statement that changes the text', async () => {
+    const { set } = mockEdit([makeMemoryItem({ id: 'item-1', content: 'Die Attika ist 1,20 m hoch' })])
+
+    await updateProjectMemoryItem(owner, 'item-1', { content: 'Die Attika ist 1,20 m hoch' })
+
+    expect(set).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        content: 'Die Attika ist 1,20 m hoch',
+        embedding: null,
+        embeddingModel: null,
+        embeddedAt: null,
+      })
+    )
+  })
+
+  it('embeds the new text and stores the vector only while the row still holds that text', async () => {
+    const edited = makeMemoryItem({ id: 'item-1', kind: 'derived_fact', content: 'Die Attika ist 1,20 m hoch' })
+    const stored = { ...edited, embeddingModel: 'model-a' }
+    const { set, where } = mockEdit([edited], [stored])
+    vi.mocked(embedNote).mockResolvedValue({ vector: [0.1, 0.2], fingerprint: 'model-a' })
+
+    const result = await updateProjectMemoryItem(owner, 'item-1', { content: 'Die Attika ist 1,20 m hoch' })
+
+    expect(embedNote).toHaveBeenCalledWith('[derived_fact] Die Attika ist 1,20 m hoch')
+    expect(set).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ embedding: [0.1, 0.2], embeddingModel: 'model-a' })
+    )
+    // A vector made from this text never lands on a row edited again meanwhile.
+    expect(where).toHaveBeenNthCalledWith(
+      2,
+      and(eq('pm.id', 'item-1'), eq('pm.content', 'Die Attika ist 1,20 m hoch'))
+    )
+    expect(result).toBe(stored)
+  })
+
+  it('keeps the vector when the edit changes neither text nor kind', async () => {
+    const { set } = mockEdit([makeMemoryItem({ id: 'item-1' })])
+
+    await updateProjectMemoryItem(owner, 'item-1', { pinned: true })
+
+    expect(set).toHaveBeenCalledTimes(1)
+    expect(set).not.toHaveBeenCalledWith(expect.objectContaining({ embedding: null }))
+    expect(embedNote).not.toHaveBeenCalled()
+  })
+
+  it('answers the edited row when no embedder is reachable; the backfill embeds it later', async () => {
+    const edited = makeMemoryItem({ id: 'item-1', content: 'Neu' })
+    const { set } = mockEdit([edited])
+
+    expect(await updateProjectMemoryItem(owner, 'item-1', { content: 'Neu' })).toBe(edited)
+    expect(set).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['a project note', owner],
+    ['an organization note', { organizationId: 'org-1' }],
+  ])('answers 409 when another note of the shelf already says the edited text (%s)', async (_what, shelf) => {
+    const returning = vi.fn().mockRejectedValue(Object.assign(new Error('duplicate key'), { code: '23505' }))
+    const set = vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning }) })
+    vi.mocked(getDb).mockReturnValue(asDb({ update: vi.fn().mockReturnValue({ set }) }))
+
+    const edit = updateProjectMemoryItem(shelf, 'item-1', { content: 'Die Attika ist 1,20 m hoch' })
+
+    await expect(edit).rejects.toBeInstanceOf(ConflictError)
+    await expect(edit).rejects.toMatchObject({ status: 409, message: 'Another note already says this' })
+  })
+})
+
+describe('a note never holds a secret, whichever door it came through', () => {
+  const noDb = () => vi.mocked(getDb).mockReturnValue(asDb({}))
+
+  it.each([
+    ['a password', 'Projektserver-Zugang: Tulpe#4471!', 'a password or access code'],
+    ['an API key', 'Planportal: sk-live-9f3a7c21d8e44b0aa1', 'an API key or access token'],
+    ['a labelled login', 'Bauamt-Portal Login m.huber, Kennwort Sommer2024', 'a password or access code'],
+  ])('refuses %s typed by a person, before anything is read or written', async (_what, content, named) => {
+    noDb()
+    const write = createProjectMemoryItem({
+      scope: 'project',
+      projectId: 'proj-1',
+      organizationId: 'org-1',
+      kind: 'derived_fact',
+      provenanceType: 'user',
+      content,
+    })
+
+    await expect(write).rejects.toBeInstanceOf(BadRequestError)
+    await expect(write).rejects.toThrow(`A memory note cannot hold ${named}.`)
+    expect(embedNote).not.toHaveBeenCalled()
+  })
+
+  it('refuses a secret in an edit', async () => {
+    noDb()
+    await expect(
+      updateProjectMemoryItem({ organizationId: 'org-1' }, 'item-1', { content: 'WLAN-Passwort: Baustelle#7' })
+    ).rejects.toThrow('A memory note cannot hold a password or access code.')
+  })
+
+  it('refuses a contact detail an agent writes to a shared shelf, and lets a person write one', async () => {
+    noDb()
+    const note = {
+      scope: 'organization' as const,
+      projectId: null,
+      organizationId: 'org-1',
+      kind: 'derived_fact' as const,
+      content: 'Statiker Huber: +43 664 1234567',
+    }
+    await expect(createProjectMemoryItem({ ...note, provenanceType: 'agent' })).rejects.toThrow(
+      'A note in shared memory cannot hold a phone number.'
+    )
+    await expect(createProjectMemoryItem({ ...note, provenanceType: 'distillation' })).rejects.toThrow(BadRequestError)
+    // A person's write gets past the guard: the first read is what fails on the empty database stub.
+    await expect(createProjectMemoryItem({ ...note, provenanceType: 'user' })).rejects.not.toBeInstanceOf(BadRequestError)
   })
 })
 
@@ -514,7 +702,7 @@ describe('createProjectMemoryItem write-time de-duplication', () => {
    * what handles losing that race.
    */
   it('refreshes rather than duplicating when a colleague already saved the same memory', async () => {
-    const { values, set } = mockCreateChain({ id: 'existing-1', confidence: 'medium' })
+    const { values, set } = mockCreateChain({ id: 'existing-1', confidence: 'medium', content: 'The roof load is 2 kN/m².' })
 
     const result = await createProjectMemoryItem({
       scope: 'organization',
@@ -567,7 +755,7 @@ describe('createProjectMemoryItem write-time de-duplication', () => {
   })
 
   it('refreshes the existing row (no insert) when a normalized-equal item exists', async () => {
-    const { values, set, update } = mockCreateChain({ id: 'dup-1', confidence: 'medium' })
+    const { values, set, update } = mockCreateChain({ id: 'dup-1', confidence: 'medium', content: 'The roof load is 2 kN/m2' })
 
     const result = await createProjectMemoryItem({
       scope: 'project',
@@ -743,7 +931,7 @@ describe('createProjectMemoryItem paraphrase de-duplication', () => {
     // The old entry is retired in the same transaction.
     expect(transaction).toHaveBeenCalledTimes(1)
     expect(txSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'superseded' }))
-    expect(txWhere).toHaveBeenCalledWith(and(eq('pm.id', 'stale-1'), eq('pm.status', 'active')))
+    expect(txWhere).toHaveBeenCalledWith(and(eq('pm.id', 'stale-1'), supersedable))
   })
 
   /**
@@ -798,6 +986,178 @@ describe('createProjectMemoryItem paraphrase de-duplication', () => {
   })
 
   /**
+   * A correction that carries no negation: one value changed in an otherwise
+   * identical sentence. Every pair shares nine tokens or more, so the lexical
+   * gate (0.8 Jaccard) matches it with no embedder, and the polarity check saw
+   * nothing: the write merged, the stale value stayed and looked confirmed.
+   */
+  it.each([
+    [
+      'a dimension',
+      'Die Attika im Bauteil B ist laut Schnitt A-A 1,10 m hoch.',
+      'Die Attika im Bauteil B ist laut Schnitt A-A 1,20 m hoch.',
+    ],
+    [
+      'a date',
+      'Die Bauverhandlung im Projekt Lindengasse findet laut Bescheid der Baupolizei am 12.03.2027 statt.',
+      'Die Bauverhandlung im Projekt Lindengasse findet laut Bescheid der Baupolizei am 19.03.2027 statt.',
+    ],
+    [
+      'a quantity with its unit',
+      'Die Decke im Lager Bauteil C traegt laut Statik vom Buero Huber 5 kN/m2 Nutzlast.',
+      'Die Decke im Lager Bauteil C traegt laut Statik vom Buero Huber 7,5 kN/m2 Nutzlast.',
+    ],
+    [
+      'a count',
+      'Im Bauteil A sind laut Einreichplan vom Buero Huber insgesamt 24 Wohnungen und zwei Stiegenhaeuser geplant.',
+      'Im Bauteil A sind laut Einreichplan vom Buero Huber insgesamt 26 Wohnungen und zwei Stiegenhaeuser geplant.',
+    ],
+    [
+      'a count written as a word',
+      'Im Bauteil A sind laut Einreichplan vom Buero Huber insgesamt 24 Wohnungen und zwei Stiegenhaeuser geplant.',
+      'Im Bauteil A sind laut Einreichplan vom Buero Huber insgesamt 24 Wohnungen und drei Stiegenhaeuser geplant.',
+    ],
+    [
+      'a named alternative',
+      'Die Fassade im Bauteil B wird laut Beschluss der Bauherrin in Laerche ausgefuehrt.',
+      'Die Fassade im Bauteil B wird laut Beschluss der Bauherrin in Eiche ausgefuehrt.',
+    ],
+    [
+      'two numbers that changed places',
+      'Im Bauteil A sind laut Einreichplan vom Buero Huber 2 Stiegen und 3 Aufzuege geplant.',
+      'Im Bauteil A sind laut Einreichplan vom Buero Huber 3 Stiegen und 2 Aufzuege geplant.',
+    ],
+  ])('supersedes when a near-duplicate changes %s', async (_what, before, after) => {
+    const stale = makeMemoryItem({ id: 'stale-1', kind: 'derived_fact', content: before })
+    const { values, set, transaction, txSet, txWhere } = mockSupersedeChain([[], [stale]])
+    const superseded: string[] = []
+
+    const result = await createProjectMemoryItem(
+      { scope: 'project', projectId: 'proj-1', organizationId: 'org-1', kind: 'derived_fact', content: after },
+      { onSuperseded: (id) => superseded.push(id) }
+    )
+
+    expect(result).toEqual({ id: 'new-1' })
+    expect(set).not.toHaveBeenCalled()
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({ content: after, supersedesId: 'stale-1' }))
+    expect(transaction).toHaveBeenCalledTimes(1)
+    expect(txSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'superseded' }))
+    expect(txWhere).toHaveBeenCalledWith(and(eq('pm.id', 'stale-1'), supersedable))
+    expect(superseded).toEqual(['stale-1'])
+  })
+
+  it('records the corrected value beside a human-curated note instead of dropping it', async () => {
+    const human = makeMemoryItem({
+      id: 'human-1',
+      kind: 'derived_fact',
+      provenanceType: 'user',
+      verification: 'user_confirmed',
+      content: 'Die Attika im Bauteil B ist laut Schnitt A-A 1,10 m hoch.',
+    })
+    const { values, set, txSet } = mockSupersedeChain([[], [human]])
+
+    await createProjectMemoryItem({
+      scope: 'project',
+      projectId: 'proj-1',
+      organizationId: 'org-1',
+      kind: 'derived_fact',
+      content: 'Die Attika im Bauteil B ist laut Schnitt A-A 1,20 m hoch.',
+    })
+
+    expect(set).not.toHaveBeenCalled()
+    expect(txSet).not.toHaveBeenCalled()
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({ conflictsWithId: 'human-1' }))
+  })
+
+  it('merges a near-duplicate that only adds words: no word of the held note was swapped', async () => {
+    const held = makeMemoryItem({
+      id: 'held-1',
+      kind: 'constraint',
+      content: 'The client requires fire resistance class REI 90 for the hall',
+    })
+    const { values, set, txWhere } = mockSupersedeChain([[], [held]])
+
+    await createProjectMemoryItem({
+      scope: 'project',
+      projectId: 'proj-1',
+      organizationId: 'org-1',
+      kind: 'constraint',
+      content: 'The client requires fire resistance class REI 90 for the hall building',
+    })
+
+    expect(values).not.toHaveBeenCalled()
+    expect(txWhere).not.toHaveBeenCalled()
+    expect(set).toHaveBeenCalledWith(expect.not.objectContaining({ content: expect.anything() }))
+  })
+
+  it('retires both the near-duplicate it corrects and the entry the caller named', async () => {
+    const stale = makeMemoryItem({
+      id: 'stale-1',
+      kind: 'derived_fact',
+      content: 'Die Attika im Bauteil B ist laut Schnitt A-A 1,10 m hoch.',
+    })
+    const named = makeMemoryItem({ id: 'named-1', kind: 'constraint', content: 'Attikahoehe ist noch offen' })
+    const { values, txWhere } = mockSupersedeChain([[], [stale], [named], [named]])
+    const superseded: string[] = []
+
+    await createProjectMemoryItem(
+      {
+        scope: 'project',
+        projectId: 'proj-1',
+        organizationId: 'org-1',
+        kind: 'derived_fact',
+        content: 'Die Attika im Bauteil B ist laut Schnitt A-A 1,20 m hoch.',
+      },
+      { supersedesContent: 'Attikahoehe ist noch offen', onSuperseded: (id) => superseded.push(id) }
+    )
+
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({ supersedesId: 'stale-1' }))
+    expect(txWhere).toHaveBeenCalledWith(and(eq('pm.id', 'named-1'), supersedable))
+    expect(superseded).toEqual(['stale-1', 'named-1'])
+  })
+
+  it('takes the incoming text when the index calls two notes equal that assert different bounds', async () => {
+    const held = makeMemoryItem({ id: 'dup-1', kind: 'constraint', content: 'Fluchtweg im Bauteil B: ≥ 40 m' })
+    const { values, set } = mockSupersedeChain([[held]])
+
+    await createProjectMemoryItem({
+      scope: 'project',
+      projectId: 'proj-1',
+      organizationId: 'org-1',
+      kind: 'constraint',
+      content: 'Fluchtweg im Bauteil B: ≤ 40 m',
+    })
+
+    expect(values).not.toHaveBeenCalled()
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'Fluchtweg im Bauteil B: ≤ 40 m', embedding: null, embeddingModel: null })
+    )
+  })
+
+  it('keeps the old text when the new note says nothing the old one does not', async () => {
+    const existing = makeMemoryItem({
+      id: 'dup-1',
+      kind: 'derived_fact',
+      content: 'Die Attika im Bauteil B ist laut Schnitt A-A vom Buero Huber 1,10 m hoch.',
+    })
+    const { values, set } = mockSupersedeChain([[], [existing]])
+
+    await createProjectMemoryItem({
+      scope: 'project',
+      projectId: 'proj-1',
+      organizationId: 'org-1',
+      kind: 'derived_fact',
+      // The same number written another way, and two words fewer.
+      content: 'Attika im Bauteil B ist laut Schnitt A-A vom Buero Huber 1,1 m hoch',
+      confidence: 'high',
+    })
+
+    expect(values).not.toHaveBeenCalled()
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ confidence: 'high' }))
+    expect(set).not.toHaveBeenCalledWith(expect.objectContaining({ content: expect.anything() }))
+  })
+
+  /**
    * The agent-driven path: reflection (and the `remember` tool) quote the entry
    * they are overturning verbatim out of the digest they were shown. A rewrite
    * that shares few tokens with the entry it replaces is invisible to the
@@ -825,7 +1185,7 @@ describe('createProjectMemoryItem paraphrase de-duplication', () => {
 
     expect(values).toHaveBeenCalledWith(expect.objectContaining({ supersedesId: 'stale-3' }))
     expect(txSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'superseded' }))
-    expect(txWhere).toHaveBeenCalledWith(and(eq('pm.id', 'stale-3'), eq('pm.status', 'active')))
+    expect(txWhere).toHaveBeenCalledWith(and(eq('pm.id', 'stale-3'), supersedable))
   })
 
   /**

@@ -151,6 +151,24 @@ class EditionUse:
     text_status: str | None = None
 
 
+#: Most sources a turn carries (``MAX_CONTEXT_SOURCES`` in the TypeScript wire).
+MAX_SOURCES = 8
+
+
+@dataclass(frozen=True)
+class LawSource:
+    """A released public source a law lookup may read this turn: its key, the revision, its country, its record.
+
+    ``config`` is the record as ``public_sources.source.Source`` reads it, without the fixtures that proved it
+    before release (``public_sources.source.parse_released_source``). Which source answers is its country.
+    """
+
+    key: str
+    revision_id: str
+    country: str
+    config: dict = field(default_factory=dict, compare=False, hash=False)
+
+
 @dataclass(frozen=True)
 class KnowledgeContext:
     """What the turn may claim about the law of its site, and what it may retrieve."""
@@ -174,6 +192,10 @@ class KnowledgeContext:
     updated_since_last_answer: tuple[str, ...] = ()
     #: Law on the chain whose edition at the date the records cannot name, as ``work_id=reason``: no edition is assumed.
     undetermined: tuple[str, ...] = ()
+    #: The released sources with a law lookup of the countries the turn reads; empty where it reads none.
+    sources: tuple[LawSource, ...] = ()
+    #: Released sources the BFF could not carry this turn (too large, or past the cap): never read silently.
+    sources_dropped: tuple[str, ...] = ()
 
     @property
     def withholds_law(self) -> bool:
@@ -306,6 +328,18 @@ def _undetermined(value: object) -> tuple[str, ...]:
     )
 
 
+def _sources(value: object) -> tuple[LawSource, ...]:
+    """``sources`` as the BFF sends them; an item of any other shape is dropped. Pure."""
+    items = value if isinstance(value, list) else []
+    return tuple(
+        LawSource(key=item["key"], revision_id=item["revisionId"], country=item["country"], config=item["config"])
+        for item in items[:MAX_SOURCES]
+        if isinstance(item, dict)
+        and all(_text(item.get(name)) for name in ("key", "revisionId", "country"))
+        and isinstance(item.get("config"), dict)
+    )
+
+
 def parse_knowledge_context(raw: object) -> KnowledgeContext:
     """The turn context's ``knowledgeContext``; anything not its shape is ``knowledge_unavailable``. Pure."""
     if not isinstance(raw, dict):
@@ -344,6 +378,8 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         date=raw.get("date") if isinstance(raw.get("date"), str) else None,
         updated_since_last_answer=_strings(raw.get("updatedSinceLastAnswer"))[:MAX_PACKS],
         undetermined=_undetermined(raw.get("undetermined")),
+        sources=_sources(raw.get("sources")),
+        sources_dropped=_strings(raw.get("sourcesDropped"))[:MAX_SOURCES],
     )
 
 
@@ -362,6 +398,8 @@ def trace_metadata(context: KnowledgeContext) -> dict[str, object]:
         "base_updated_since_last_answer": ",".join(context.updated_since_last_answer),
         "building_law_uses": len(context.uses),
         "undetermined_editions": ";".join(context.undetermined),
+        "law_sources": ",".join(f"{source.key}@{source.revision_id}" for source in context.sources),
+        "law_sources_dropped": ",".join(context.sources_dropped),
     }
 
 

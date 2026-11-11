@@ -256,6 +256,9 @@ const BOUNDARY_MIGRATIONS = [
   // amendment): the case's body, layered like every revision body, and the run and its cases,
   // platform-private like the change-request tables (`secure_table(t, 'false')`).
   '0228_golden_cases.sql',
+  // Adds personal_memory (ADR-0180), keyed to the person as user_preferences
+  // is: `organization_id = current_org() AND user_id = current_user_id()`.
+  '0229_personal_memory.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

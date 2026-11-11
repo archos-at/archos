@@ -14,14 +14,24 @@ import {
   PinOff,
   Plus,
   Trash2,
+  Users,
 } from 'lucide-react'
+import {
+  MemoryListSkeleton,
+  MemoryNoteAction,
+  MemoryNoteActions,
+  MemoryNoteEditor,
+  MemoryNoteItem,
+  MemoryNoteText,
+} from '@/components/memory/memory-note-parts'
 import { PROJECT_MEMORY_KINDS, type ProjectMemoryItem, type ProjectMemoryKind } from '@/lib/db/schema/project-memory'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { FactLine } from '@/components/ui/fact-line'
 import { Field, FieldLabel } from '@/components/ui/field'
-import { Item, ItemActions, ItemContent, ItemList } from '@/components/ui/item'
+import { ItemContent, ItemList } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
 import { RaisedCard, RaisedCardBody } from '@/components/ui/raised-card'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -32,12 +42,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { FolderAccessMark } from '@/features/documents/components/folder-access-mark'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
+import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
+import { noteRefusalKind, type NoteRefusalKind } from '@/lib/knowledge/note-refusal'
+import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 
 /**
  * Project Memory panel — "What Piloti knows about this project".
@@ -89,6 +101,13 @@ function verificationLabel(verification: string, t: Translator): string {
     : verification
 }
 
+const KNOWN_CONFIDENCES = ['low', 'medium', 'high']
+
+/** „Sicherheit: mittel“, never the stored token; a value this build does not know is shown as it is. */
+function confidenceLabel(confidence: string, t: Translator): string {
+  return KNOWN_CONFIDENCES.includes(confidence) ? t(`memory.confidence.${confidence}`) : confidence
+}
+
 function provenanceLabel(provenanceType: string, t: Translator): string {
   return provenanceType === 'user' ? t('memory.provenance.user') : t('memory.provenance.grid')
 }
@@ -111,12 +130,25 @@ function formatWhen(isoDate: string, t: Translator, locale: string): string {
   }).format(date)
 }
 
-async function requestJson<T>(url: string, init?: RequestInit, t?: Translator): Promise<T> {
+/**
+ * `refused` says why a note was refused when the server named its kind
+ * (`details.kind`, `bff/knowledge/note-refusal.ts`); any other failure keeps
+ * the generic text.
+ */
+async function requestJson<T>(
+  url: string,
+  init?: RequestInit,
+  t?: Translator,
+  refused?: (kind: NoteRefusalKind) => string
+): Promise<T> {
   const res = await fetch(url, {
     ...init,
     headers: init?.body ? { 'Content-Type': 'application/json', ...init.headers } : init?.headers,
   })
   if (!res.ok) {
+    const body: unknown = res.status === 400 && refused ? await res.json().catch(() => null) : null
+    const kind = noteRefusalKind((body as { details?: unknown } | null)?.details)
+    if (kind && refused) throw new Error(refused(kind))
     throw new Error(
       t
         ? t('memory.errors.requestFailed', { status: res.status })
@@ -132,6 +164,9 @@ export function ProjectMemoryPanel({
   readOnly = false,
 }: ProjectMemoryPanelProps): JSX.Element {
   const t = useTranslations(projectsCopy)
+  const tNote = useTranslations(personalMemoryCopy)
+  const refused = (kind: NoteRefusalKind): string => tNote(`refused.${kind}`)
+  const kindLabels = useMemoryKindLabels()
   const { locale } = useLocale()
   const [items, setItems] = useState<MemoryItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -231,7 +266,8 @@ export function ProjectMemoryPanel({
           method: 'PATCH',
           body: JSON.stringify(body),
         },
-        t
+        t,
+        refused
       )
       replaceItem(item)
     } catch (err) {
@@ -266,7 +302,8 @@ export function ProjectMemoryPanel({
           method: 'POST',
           body: JSON.stringify({ kind: addKind, content }),
         },
-        t
+        t,
+        refused
       )
       setItems((prev) => (prev ? [item, ...prev] : [item]))
       setAddContent('')
@@ -324,6 +361,9 @@ export function ProjectMemoryPanel({
         <div className="min-w-0 flex-1 basis-56">
           <h2 className="text-foreground text-sm font-medium">{t('memory.heading')}</h2>
           <p className="text-muted-foreground mt-1 text-sm">{t('memory.description')}</p>
+          <FactLine icon={Users} className="mt-1.5" testId="memory-audience">
+            {t('memory.audience')}
+          </FactLine>
         </div>
         {!readOnly && (
           <Button
@@ -356,7 +396,7 @@ export function ProjectMemoryPanel({
                   <SelectContent>
                     {PROJECT_MEMORY_KINDS.map((kind) => (
                       <SelectItem key={kind} value={kind}>
-                        {t(`memory.kindSingular.${kind}`)}
+                        {kindLabels.kind(kind)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -431,18 +471,7 @@ export function ProjectMemoryPanel({
         />
       )}
 
-      {!error && items === null && (
-        <ItemList>
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Item key={index}>
-              <ItemContent className="space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-40" />
-              </ItemContent>
-            </Item>
-          ))}
-        </ItemList>
-      )}
+      {!error && items === null && <MemoryListSkeleton />}
 
       {!error && items !== null && groups.length === 0 && (
         <EmptyState
@@ -457,67 +486,31 @@ export function ProjectMemoryPanel({
           {groups.map((group) => (
             <Fragment key={group.kind}>
               <div className="bg-muted px-5 py-2">
-                <SectionLabel as="h3">{t(`memory.kinds.${group.kind}`)}</SectionLabel>
+                <SectionLabel as="h3">{kindLabels.group(group.kind)}</SectionLabel>
               </div>
               {group.items.map((item) => {
                 const busy = busyId === item.id
                 const isEditing = editingId === item.id
                 return (
-                  // A phone stacks the note over its actions. Beside the text,
-                  // four 44px buttons left the note about 130px, a column of
-                  // one word per line; beneath it the note has the full width
-                  // and the buttons keep their size.
-                  <Item key={item.id} className="group flex-col items-stretch gap-1 sm:flex-row sm:items-start sm:gap-3">
+                  <MemoryNoteItem key={item.id}>
                     <ItemContent>
                       {isEditing ? (
-                        <div className="space-y-2">
-                          <Field>
-                            <FieldLabel htmlFor={`memory-edit-${item.id}`}>
-                              {t('memory.edit')}
-                            </FieldLabel>
-                            <Textarea
-                              id={`memory-edit-${item.id}`}
-                              value={editDraft}
-                              onChange={(event) => setEditDraft(event.target.value)}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Escape') {
-                                  event.preventDefault()
-                                  setEditingId(null)
-                                }
-                              }}
-                              rows={2}
-                              autoFocus
-                            />
-                          </Field>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => submitEdit(item)}
-                              disabled={busy || editDraft.trim().length === 0}
-                            >
-                              {t('memory.save')}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingId(null)}
-                              disabled={busy}
-                            >
-                              {t('memory.cancel')}
-                            </Button>
-                          </div>
-                        </div>
+                        <MemoryNoteEditor
+                          id={`memory-edit-${item.id}`}
+                          label={t('memory.edit')}
+                          value={editDraft}
+                          onChange={setEditDraft}
+                          onSave={() => void submitEdit(item)}
+                          onCancel={() => setEditingId(null)}
+                          busy={busy}
+                          saveLabel={t('memory.save')}
+                          cancelLabel={t('memory.cancel')}
+                        />
                       ) : (
                         <>
-                          <p className="flex items-start gap-1.5 text-sm leading-relaxed">
-                            {item.pinned && (
-                              <Pin
-                                className="text-muted-foreground mt-1 size-3 shrink-0"
-                                aria-label={t('memory.pinned')}
-                              />
-                            )}
-                            <span className="min-w-0">{item.content}</span>
-                          </p>
+                          <MemoryNoteText pinned={item.pinned} pinnedLabel={t('memory.pinned')}>
+                            {item.content}
+                          </MemoryNoteText>
                           {item.restrictedFolderIds && item.restrictedFolderIds.length > 0 && (
                             <Badge
                               variant="outline"
@@ -558,7 +551,7 @@ export function ProjectMemoryPanel({
                                 {' · '}
                               </>
                             )}
-                            {t('memory.confidence', { confidence: item.confidence })}
+                            {confidenceLabel(item.confidence, t)}
                             {' · '}
                             {verificationLabel(item.verification, t)}
                             {' · '}
@@ -571,60 +564,41 @@ export function ProjectMemoryPanel({
                     </ItemContent>
 
                     {!isEditing && !readOnly && (
-                      <ItemActions className="duration-quick pointer-coarse:opacity-100 -mr-2 gap-1 opacity-0 max-sm:justify-end sm:mr-0 transition-opacity ease-out focus-within:opacity-100 group-hover:opacity-100 motion-reduce:opacity-100 motion-reduce:transition-none">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-foreground size-7"
-                          onClick={() => patchItem(item, { pinned: !item.pinned })}
-                          disabled={busy}
-                          aria-label={item.pinned ? t('memory.unpin') : t('memory.pin')}
+                      <MemoryNoteActions>
+                        <MemoryNoteAction
+                          icon={item.pinned ? PinOff : Pin}
+                          label={item.pinned ? t('memory.unpin') : t('memory.pin')}
                           title={item.pinned ? t('memory.unpinTitle') : t('memory.pinTitle')}
-                        >
-                          {item.pinned ? (
-                            <PinOff className="size-3.5" aria-hidden />
-                          ) : (
-                            <Pin className="size-3.5" aria-hidden />
-                          )}
-                        </Button>
+                          onClick={() => void patchItem(item, { pinned: !item.pinned })}
+                          disabled={busy}
+                        />
                         {item.verification !== 'user_confirmed' && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground hover:text-foreground size-7"
-                            onClick={() => patchItem(item, { verification: 'user_confirmed' })}
-                            disabled={busy}
-                            aria-label={t('memory.confirm')}
+                          <MemoryNoteAction
+                            icon={Check}
+                            label={t('memory.confirm')}
                             title={t('memory.confirmTitle')}
-                          >
-                            <Check className="size-3.5" aria-hidden />
-                          </Button>
+                            onClick={() => void patchItem(item, { verification: 'user_confirmed' })}
+                            disabled={busy}
+                          />
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-foreground size-7"
+                        <MemoryNoteAction
+                          icon={Pencil}
+                          label={t('memory.edit')}
+                          title={t('memory.editTitle')}
                           onClick={() => startEdit(item)}
                           disabled={busy}
-                          aria-label={t('memory.edit')}
-                          title={t('memory.editTitle')}
-                        >
-                          <Pencil className="size-3.5" aria-hidden />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-destructive size-7"
+                        />
+                        <MemoryNoteAction
+                          icon={Trash2}
+                          label={t('memory.removeAria')}
+                          title={t('memory.removeTitle')}
                           onClick={() => setConfirmingDeleteId(item.id)}
                           disabled={busy}
-                          aria-label={t('memory.removeAria')}
-                          title={t('memory.removeTitle')}
-                        >
-                          <Trash2 className="size-3.5" aria-hidden />
-                        </Button>
-                      </ItemActions>
+                          destructive
+                        />
+                      </MemoryNoteActions>
                     )}
-                  </Item>
+                  </MemoryNoteItem>
                 )
               })}
             </Fragment>

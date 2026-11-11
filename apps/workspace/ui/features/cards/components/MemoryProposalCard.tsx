@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
+import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/features/chat/store'
 import { useCardDecision } from '../hooks/use-card-decision'
@@ -83,8 +84,13 @@ function BrowserWrittenMemoryCard({
   decisionsMustPersist,
 }: Omit<MemoryProposalCardProps, 'proposalId' | 'supersedes'>) {
   const t = useTranslations(chatCopy)
+  const kindLabels = useMemoryKindLabels()
   // Same source as ProjectProfilePatchCard's projectId: the active chat store.
   const projectId = useChatStore((s) => s.projectId)
+  // A temporary chat keeps nothing (ADR-0180 rule 2). The routes this card
+  // writes through are the memory panels' own and are not told the
+  // conversation, so the card itself holds the rule for its own chat.
+  const temporary = useChatStore((s) => s.currentConversation?.temporary === true)
   const { decision, decide, canDecide } = useCardDecision(messageId, cardKey, {
     mustPersist: decisionsMustPersist,
   })
@@ -98,6 +104,10 @@ function BrowserWrittenMemoryCard({
     // Ignored while a save is in flight, rather than refused by `disabled`:
     // see the buttons below.
     if (isSubmitting) return
+    if (temporary) {
+      setError(t('memoryProposal.temporaryConversation'))
+      return
+    }
     setError(null)
     setSavingTo(savedDecision === 'savedProject' ? 'project' : 'org')
     setIsSubmitting(true)
@@ -153,7 +163,7 @@ function BrowserWrittenMemoryCard({
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-foreground">{title}</p>
         <Chip variant="muted" size="sm">
-          {t(`memoryProposal.kind.${kind}`)}
+          {kindLabels.kind(kind)}
         </Chip>
       </div>
 

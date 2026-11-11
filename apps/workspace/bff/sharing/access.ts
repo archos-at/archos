@@ -49,10 +49,12 @@ export interface ResourceAccess {
   /** Container, for deep links and for project-scoped follow-up queries. */
   container: { organizationId: string; projectId: string | null }
   /**
-   * Whether the caller may ESCALATE themselves to owner. True for project
-   * admins, who legitimately need to administer resources in their project but
-   * must not hold silent ownership of every private thread in it (spec SH-10).
-   * Escalation is a deliberate, audited act.
+   * Whether the caller may ESCALATE themselves to owner. True for a project
+   * admin who can already read the resource and does not own it: they
+   * legitimately need to administer resources in their project but must not
+   * hold silent ownership of every private thread in it (spec SH-10), nor take
+   * ownership of one they cannot read ({@link mayTakeOwnership}). Escalation is
+   * a deliberate, audited act, and the resource's owners are told.
    */
   canEscalate: boolean
   /**
@@ -82,6 +84,17 @@ function roleFromProjectRole(projectRole: ProjectRole): ResourceRole {
     case 'project-admin':
       return 'collaborator'
   }
+}
+
+/**
+ * Whether a caller may take ownership of a resource (ADR-0032 decision 5, as
+ * amended 2026-11-11): a project admin who can ALREADY read it and does not own
+ * it yet. Without a role there is no takeover: a private resource the admin is
+ * not party to stays out of reach, or "take ownership" would be a way to read a
+ * colleague's private chat. `escalateToOwner` asks for the role again itself.
+ */
+export function mayTakeOwnership(projectRole: ProjectRole | null, role: ResourceRole | null): boolean {
+  return projectRole === 'project-admin' && role !== null && !roleSatisfies(role, 'owner')
 }
 
 async function isContentLocked(
@@ -180,7 +193,7 @@ export async function resolveResourceAccess(
     // button that upserts a redundant grant, consumes a roster slot, and writes
     // `resource.ownership.escalated` with `previousRole: 'owner'` — an audit
     // record of an escalation that did not happen.
-    canEscalate: projectRole === 'project-admin' && !roleSatisfies(role, 'owner'),
+    canEscalate: mayTakeOwnership(projectRole, role),
   }
 }
 

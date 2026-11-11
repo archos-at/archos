@@ -18,7 +18,7 @@
  * `platform:knowledge:approve_alone` approves their own request with a reason.
  * The request is marked `single`, and another person's second review stays due.
  * On a deployment set to one operator alone (dev, `./single-operator.ts`) the
- * author's own verdicts count and no second review is due (migration 0229).
+ * author's own verdicts count and no second review is due (migration 0233).
  */
 
 import 'server-only'
@@ -95,13 +95,16 @@ export async function platformKnowledgeOverview(session: UserSession | null): Pr
 
 export async function listPlatformChangeRequests(
   session: UserSession | null,
-  query: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState; limit?: number; cursor?: string },
+  query: { status?: ChangeRequestStatus; countryId?: string; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState; limit?: number; cursor?: string },
 ): Promise<{ changeRequests: ChangeRequestSummary[]; nextCursor: string | null }> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
   const offset = query.cursor ? Number(query.cursor) : 0
   const limit = query.limit ?? CHANGE_REQUEST_PAGE
   // One more than the page says whether another follows.
-  const rows = await listChangeRequests({ status: query.status, origin: query.origin, secondReview: query.secondReview }, { offset, limit: limit + 1 })
+  const rows = await listChangeRequests(
+    { status: query.status, countryId: query.countryId, origin: query.origin, secondReview: query.secondReview },
+    { offset, limit: limit + 1 },
+  )
   return { changeRequests: rows.slice(0, limit), nextCursor: rows.length > limit ? String(offset + limit) : null }
 }
 

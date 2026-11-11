@@ -15,13 +15,15 @@ import { cn } from '@/lib/utils'
  *
  * Bounded at 18rem and dissolved at the bottom edge (`scroll-fade-bottom`),
  * so a turn that wrote six long notes scrolls inside the popover instead of
- * pushing it off a phone's screen.
+ * pushing it off a phone's screen. Its scrollbar is drawn in muted ink, not
+ * the app's faint grey thumb: on the popover's white that thumb was invisible,
+ * and a first reader saw the last row cut off with no sign there was more.
  */
 export function NoteList({ className, ...props }: HTMLAttributes<HTMLUListElement>): JSX.Element {
   return (
     <ul
       data-slot="note-list"
-      className={cn('scroll-fade-bottom max-h-72 divide-y overflow-y-auto', className)}
+      className={cn('scroll-fade-bottom max-h-72 divide-y overflow-y-auto [scrollbar-color:var(--color-muted-foreground)_transparent] [&::-webkit-scrollbar-thumb]:bg-muted-foreground/60', className)}
       {...props}
     />
   )
