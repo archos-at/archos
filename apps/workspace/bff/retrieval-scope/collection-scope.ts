@@ -81,12 +81,17 @@ export interface ScopeContext {
   includeBase?: boolean
 }
 
+/** The base knowledge corpus's collection name, from the deployment's configuration. */
+export function resolveBaseCollectionName(): string {
+  return process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
+}
+
 export function computeCollectionScope(
   _session: UserSession | null,
   context: ScopeContext,
 ): string[] {
   const scope: string[] = []
-  const base = context.baseCollection || process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
+  const base = context.baseCollection || resolveBaseCollectionName()
   if (context.includeBase !== false) scope.push(base)
 
   // Org-wide Archiv: shared across every project in the org, so it rides in the

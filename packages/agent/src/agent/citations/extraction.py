@@ -45,10 +45,10 @@ def extract_sources_from_tool_result(
        formats like knowledge layer citation keys). Its answer is final,
        including an empty one: a knowledge, RIS or read_passage text with no
        ``Citation:`` line states no source, and the URLs it happens to contain
-       belong to a passage body or to an error message.
-    2. For a tool with no registered parser (web search and anything new), fall
-       back to the generic URL extractor, which finds all URLs in any tool
-       output regardless of format.
+       belong to a passage body or to an error message. A web search's sources
+       are its result records (``web_results.py``), never an address in a page.
+    2. For a tool with no registered parser, fall back to the generic URL
+       extractor, which finds all URLs in any tool output regardless of format.
     3. If neither produces entries, register the tool result itself as a
        non-URL citation source.
 
@@ -57,8 +57,8 @@ def extract_sources_from_tool_result(
     job runner's callback. Those fall through to the text parsers below, which
     is what the parsers are still there for.
 
-    This means new sources (Bing, Perplexity, etc.) work automatically
-    without any parser registration — as long as their output contains URLs.
+    A new source tool works without a parser when its output contains URLs, and
+    registers every one: a tool that returns a page's text needs its own parser.
 
     The non-URL fallback is permissive on purpose: callers (Piloti and
     deep researchers) are responsible for deciding which tool calls are
@@ -208,9 +208,10 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
     convention: ``""`` and ``None`` mean the same thing to every reader
     downstream, and the entry states ``None``.
 
-    ``url`` stays unset: a hit states no URL, and a RIS passage is cited by its
+    ``url`` stays unset: a passage read at a legal database is cited by its
     key, not by its link. Giving it one would move it onto the registry's URL
-    identity and out of the document dedup.
+    identity and out of the document dedup. The address the producer states
+    travels as ``public_url``, which is no identity.
     """
     _keep_licensed_text(hit)
     return SourceEntry(
@@ -236,6 +237,11 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
         project_name=hit.project.name if hit.project else None,
         project_status=hit.project.status if hit.project else None,
         project_federal_state_note=hit.project.federal_state_note if hit.project else None,
+        work_id=(hit.work_id or "").strip() or None,
+        edition_id=(hit.edition_id or "").strip() or None,
+        public_url=(hit.public_url or "").strip() or None,
+        revision_index=hit.revision.index if hit.revision else None,
+        revision_date=hit.revision.date if hit.revision else None,
     )
 
 

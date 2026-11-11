@@ -97,10 +97,10 @@ def test_a_run_or_a_door_call_reads_the_countries_signed_onto_the_base_entry(mon
     assert country == models.Filter(should=[models.FieldCondition(key="country_id", match=models.MatchAny(any=["AT"]))])
 
 
-@pytest.mark.parametrize(("entry", "readable"), [({"countries": []}, False), ({}, None)])
-def test_an_empty_country_scope_reads_nothing_and_an_unscoped_one_is_unfiltered(monkeypatch, entry, readable):
-    """An empty ``countries`` list fails closed. No ``countries`` at all is what the BFF signs for a request
-    with no organization (anonymous); nothing is known to filter by, which is the documented case."""
+@pytest.mark.parametrize(("entry", "readable"), [({"countries": []}, False), ({}, False)])
+def test_a_base_entry_with_no_countries_or_an_empty_list_reads_nothing(monkeypatch, entry, readable):
+    """An empty ``countries`` list fails closed, and so does a request whose base entry has no ``countries``
+    at all: a request's silence is never "unscoped" (only a read of no request is, ``UNSCOPED``)."""
     from agent.common.knowledge_context import base_corpus_readable
     from agent.project_context import RequestContext
 

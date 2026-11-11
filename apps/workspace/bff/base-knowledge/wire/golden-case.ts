@@ -163,9 +163,7 @@ export const GOLDEN_SCORE_NAMES = [
   'golden-must-not-violations',
   'golden-seconds',
   'golden-cost-usd',
-  'edition-named',
   'claim-citation-resolves',
-  'law-cited-from-web',
 ] as const
 
 /** One case of a run, scored: what `knowledge_golden_run_cases.result` holds. */

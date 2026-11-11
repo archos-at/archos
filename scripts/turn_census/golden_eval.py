@@ -133,11 +133,10 @@ def score(case: dict[str, Any], answer: dict[str, Any]) -> dict[str, Any]:
     }
     if values:
         scores["golden-expected-values"] = round(sum(1 for check in values if check["passed"]) / len(values), 4)
-    if editions:
-        scores["edition-named"] = all(check["passed"] for check in editions)
+    # ``edition-named`` and ``law-cited-from-web`` are the agent's scores on every answered turn; the edition and
+    # web checks above decide ``golden-case-passed`` instead (``golden_scores`` module docstring).
     if citations:
         scores["claim-citation-resolves"] = all(check["passed"] for check in citations)
-        scores["law-cited-from-web"] = any(source.get("kind") == "web" for source in answer["sources"])
     return {
         "passed": passed,
         "failed": [f"{check['kind']}:{check['id']}" for check in checks if not check["passed"]],

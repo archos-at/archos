@@ -198,6 +198,17 @@ export const messages = pgTable('messages', {
 `messageType`, `errorData`, `fileData`, `cards`, `cardInteractions`,
 `enabledDataSources`, `messageFiles`.
 
+`citations` is the answer's sources in wire spelling, `{v, sources[]}`
+(`ui/features/chat/lib/citations/persistence.ts`; the BFF writes the same shape
+for an answer no browser stored, `bff/conversations/agent-answer-metadata.ts`).
+Since the citations design's slice 1 a source also keeps what its line states
+as it was resolved on the day of the answer: `role`, `work_id`, `edition_id`,
+`designation`, `edition_label`, `route`, `role_since`, `as_of`,
+`last_checked_at`, `freshness`, `language`, `text_status`, `public_url`,
+`retrieved_at`, `revision` (`shared/citation-line.ts`). Every field is
+optional and the column has no constraint on its shape, so no migration: a row
+stored before carries none and reads as a citation with no status line.
+
 `cardInteractions` is the user's answer to each interactive card of that answer
 — `{ "<cardType>-<index>": { decision, decidedAt } }`, `decision` from a closed
 union and `decidedAt` a UTC ISO instant (ADR-0030). It is why a settled

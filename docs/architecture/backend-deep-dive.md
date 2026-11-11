@@ -1109,9 +1109,11 @@ The text parsers in `citations/text_parsers.py`
 that hold the bytes without the records: a registry hydrated from the shared
 cache, a turn replayed out of Postgres, and the job runner's callback in
 `apps/agent-host/src/agent_host/jobs/callbacks.py`. A text those parsers find no
-`Citation:` line in carries no sources at all; the generic URL extractor beneath
-them reads the tools with no registered parser (web search), never a passage
-body. Nothing reads a FAILED call either: both capture loops skip a
+`Citation:` line in carries no sources at all. A web search is read by its
+result records (`citations/web_results.py`: one `<Document href>` header per
+hit, never an address inside a page's text, and no address `common/url_safety.py`
+refuses); the generic URL extractor beneath them reads only the tools with no
+registered parser, never a passage body. Nothing reads a FAILED call either: both capture loops skip a
 `ToolMessage` whose `status` is `error`, so the words a tool failure returns are
 the model's to act on and nobody's evidence. The contract test asserts the
 two readers produce the same entries
@@ -1495,7 +1497,13 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    `apps/workspace/tests/fixtures/knowledge-context.schema.json`. It is the turn's one answer to which
    law applies: the citation chip reads the same roles the gate does
    (`citations/roles.py`), so a citation never says binding where the gate says
-   information. The chain text is the turn context's
+   information. A cited passage finds its use by the id of the record it was
+   read as (`SourceEntry.edition_id`, `work_id`: a corpus point's
+   `knowledge_edition_id`, a legal-database passage's work by the identifier
+   its source record reads off the document), never by a URL, a host or a file
+   name's spelling, and the citation then carries the use's edition label,
+   route, dates, language and public address
+   ([`design/citations.md`](../design/citations.md), slice 1). The chain text is the turn context's
    `<building_law>` block (`law_gate.turn_building_law_block`), the only
    building-law text a turn reads, and a gate that withholds law shows the
    note instead. A cited base-corpus passage maps to its edition by its

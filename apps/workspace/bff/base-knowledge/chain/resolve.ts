@@ -235,6 +235,7 @@ function followRoutes(graph: KnowledgeGraph, seeds: readonly Binding[], relation
         const step: RouteStep = {
           via: 'relation',
           workId: from.workId,
+          editionId: from.editionId,
           relationId: relation.id,
           provision: relation.provision,
           mode: relation.mode,

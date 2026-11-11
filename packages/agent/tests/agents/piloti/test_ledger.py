@@ -131,3 +131,45 @@ class TestAssembleResultThreadsReadSources:
             turn_measurements=[],
         )
         assert state.read_sources is None
+
+
+class TestAClaimWithoutRecordsCapsLikeUnsettledLaw:
+    """Citations spec G27: law stated from the web caps the answer, whatever the gate (``common/binding_claims``)."""
+
+    MIRROR = SourceEntry(
+        url="https://www.jusline.at/gesetz/wgarg_2008/paragraf/50a",
+        title="§ 50a WGarG 2008 (Wiener Garagengesetz 2008) - JUSLINE Österreich",
+        source_type="generic",
+        tool_name="web_search_tool",
+    )
+
+    def _state(self, content: str, **fields):
+        final = FinalAnswer(messages=[AIMessage(content=content)], answered=True, content=content, **fields)
+        return assemble_result({}, final, turn_sources=[self.MIRROR], turn_measurements=[])
+
+    def test_law_cited_from_a_mirror_is_unsettled_and_scored(self, monkeypatch):
+        from agent.observability import langfuse_scores
+
+        emitted: list = []
+        monkeypatch.setattr(langfuse_scores, "emit_scores", lambda scores, **_: emitted.extend(scores) or len(scores))
+        state = self._state(
+            "§ 50a Wiener Garagengesetz 2008 sieht je nach Zone 70 % vor [1].", cited=(_cited(self.MIRROR, 1),)
+        )
+        assert state.answer_law_unsettled is True
+        assert {score.name: score.value for score in emitted} == {
+            "binding-claim-without-records": 1.0,
+            "law-cited-from-web": 1.0,
+        }
+
+    def test_an_answer_that_states_no_law_from_the_web_is_untouched(self, monkeypatch):
+        from agent.observability import langfuse_scores
+
+        emitted: list = []
+        monkeypatch.setattr(langfuse_scores, "emit_scores", lambda scores, **_: emitted.extend(scores) or len(scores))
+        page = SourceEntry(url="https://blog.example.org/a", title="Ein Artikel", source_type="generic")
+        state = self._state("Der Hersteller empfiehlt eine Wartung [1].", cited=(_cited(page, 1),))
+        assert state.answer_law_unsettled is False
+        assert {score.name: score.value for score in emitted} == {
+            "binding-claim-without-records": 0.0,
+            "law-cited-from-web": 0.0,
+        }

@@ -186,7 +186,7 @@ describe.skipIf(!url)('golden cases as records, and the golden run', () => {
     const settled = (key: string) => done.cases.find((entry) => entry.key === key)!
     expect(settled(STAIR)).toMatchObject({ state: 'settled', passed: true })
     expect(settled(STAIR).result).toMatchObject({ seconds: 36.3, costUsd: 0.042, confidence: 'high', traceId: '0af7651916cd43dd8448eb211c80319c' })
-    expect(settled(STAIR).result?.scores).toMatchObject({ 'golden-case-passed': true, 'golden-expected-values': 1, 'claim-citation-resolves': true, 'law-cited-from-web': false, 'golden-seconds': 36.3, 'golden-cost-usd': 0.042 })
+    expect(settled(STAIR).result?.scores).toMatchObject({ 'golden-case-passed': true, 'golden-expected-values': 1, 'claim-citation-resolves': true, 'golden-seconds': 36.3, 'golden-cost-usd': 0.042 })
     expect(settled(CLASS).passed).toBe(false)
     expect(settled(CLASS).result?.costUsd).toBeNull()
     expect(settled(CLASS).result?.checks.filter((check) => !check.passed).map((check) => `${check.kind}:${check.id}`)).toEqual(['citation:Fire Code', 'must_not:confident-with-gap'])

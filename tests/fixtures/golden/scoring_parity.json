@@ -39,9 +39,7 @@
           "golden-case-passed": false,
           "golden-must-not-violations": 1,
           "golden-expected-values": 1,
-          "edition-named": true,
-          "claim-citation-resolves": false,
-          "law-cited-from-web": false
+          "claim-citation-resolves": false
         },
         "unconfirmed": 0,
         "unverified": false
@@ -95,9 +93,7 @@
           "golden-case-passed": false,
           "golden-must-not-violations": 1,
           "golden-expected-values": 1,
-          "edition-named": true,
-          "claim-citation-resolves": true,
-          "law-cited-from-web": true
+          "claim-citation-resolves": true
         },
         "unconfirmed": 0,
         "unverified": false
@@ -129,8 +125,7 @@
           "golden-case-passed": true,
           "golden-must-not-violations": 0,
           "golden-expected-values": 1,
-          "claim-citation-resolves": true,
-          "law-cited-from-web": false
+          "claim-citation-resolves": true
         },
         "unconfirmed": 3,
         "unverified": false
@@ -174,8 +169,7 @@
           "golden-case-passed": false,
           "golden-must-not-violations": 1,
           "golden-expected-values": 0,
-          "claim-citation-resolves": true,
-          "law-cited-from-web": false
+          "claim-citation-resolves": true
         },
         "unconfirmed": 2,
         "unverified": false
@@ -210,9 +204,7 @@
           "golden-case-passed": false,
           "golden-must-not-violations": 1,
           "golden-expected-values": 1,
-          "edition-named": true,
-          "claim-citation-resolves": false,
-          "law-cited-from-web": false
+          "claim-citation-resolves": false
         },
         "unconfirmed": 0,
         "unverified": false
@@ -256,8 +248,7 @@
           "golden-case-passed": false,
           "golden-must-not-violations": 1,
           "golden-expected-values": 1,
-          "claim-citation-resolves": true,
-          "law-cited-from-web": false
+          "claim-citation-resolves": true
         },
         "unconfirmed": 2,
         "unverified": false
@@ -301,9 +292,7 @@
           "golden-case-passed": false,
           "golden-must-not-violations": 1,
           "golden-expected-values": 1,
-          "edition-named": true,
-          "claim-citation-resolves": true,
-          "law-cited-from-web": true
+          "claim-citation-resolves": true
         },
         "unconfirmed": 0,
         "unverified": false

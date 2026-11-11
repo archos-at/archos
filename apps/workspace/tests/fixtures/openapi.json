@@ -32511,6 +32511,29 @@
                                 "site_keyed"
                               ]
                             },
+                            "identifiers": {
+                              "default": {},
+                              "description": "How a work’s identifier is read from the address of a passage at this source, by the scheme the knowledge records name it under: {\"<scheme>\": {\"query\": \"<query parameter>\"}}. A cited passage finds its work, and so its role, by it.",
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                              },
+                              "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                  "query": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80
+                                  }
+                                },
+                                "required": [
+                                  "query"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
                             "terms": {
                               "type": "object",
                               "properties": {

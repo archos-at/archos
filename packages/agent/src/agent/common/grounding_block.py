@@ -26,14 +26,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import math
 import re
 import uuid
 from collections import OrderedDict
 from collections.abc import Iterator
 from contextvars import ContextVar
 from contextvars import Token
-from dataclasses import dataclass
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
@@ -55,6 +53,8 @@ from agent.common.provenance import provenance_label
 from agent.common.source_kinds import MAIL_LANE_LABEL
 from agent.common.source_kinds import MAIL_SOURCE_FORMAT
 from agent.common.source_kinds import Shelf
+from agent.common.source_records import SourceRegion
+from agent.common.source_records import SourceRevision
 from agent.common.turn_status import current_retrieval_round
 from agent.common.turn_status import emit_step
 from agent.common.wire_v2 import SourcesStep
@@ -66,55 +66,6 @@ logger = logging.getLogger(__name__)
 #: renderer adds it and every reader takes it back off, so a quote is never
 #: matched against it.
 TRUNCATION_MARKER = "... [truncated]"
-
-
-@dataclass(frozen=True)
-class SourceRegion:
-    """Where on a page a passage sits, as a box the viewer can draw (issue #433).
-
-    ``box`` is ``(x0, y0, x1, y1)`` normalised 0-1 over the page AS THE VIEWER
-    SHOWS IT: a whole rendered PDF page, or a whole uploaded image, top-left
-    origin. That is the frame the visual analysis read the picture in, so the
-    box needs no conversion, and it is why a region is only ever produced for
-    those two frames (``knowledge_layer.search.grounding_hits._hit_regions``). An embedded
-    raster's box is relative to the raster, whose placement on the page is not
-    stored, so it gets none rather than a box in the wrong place.
-
-    The box is the model's approximation of one depiction on the sheet (a
-    Grundriss, a Schnitt), not a measurement and not the single object a query
-    named. ``label`` is that depiction's title as read off the sheet, when it
-    had one.
-
-    A dataclass, not a model, because it rides on ``SourceEntry`` and
-    ``dataclasses.asdict`` is how the session registry is cached.
-    """
-
-    box: tuple[float, float, float, float]
-    label: str | None = None
-
-    def to_wire(self) -> dict[str, object]:
-        """The citation wire's spelling: ``{"box": [...], "label": ...}``, label omitted when unknown."""
-        payload: dict[str, object] = {"box": list(self.box)}
-        if self.label:
-            payload["label"] = self.label
-        return payload
-
-    @classmethod
-    def from_cached(cls, value: object) -> SourceRegion | None:
-        """Rebuild one from its ``asdict`` form, or ``None`` for anything malformed."""
-        if not isinstance(value, dict):
-            return None
-        box = value.get("box")
-        if not isinstance(box, (list, tuple)) or len(box) != 4:
-            return None
-        try:
-            x0, y0, x1, y1 = (float(part) for part in box)
-        except TypeError, ValueError:
-            return None
-        if not all(math.isfinite(part) for part in (x0, y0, x1, y1)):
-            return None
-        label = value.get("label")
-        return cls(box=(x0, y0, x1, y1), label=label if isinstance(label, str) and label else None)
 
 
 #: How a project's status reads on the ``Projekt:`` line, and back.
@@ -228,6 +179,22 @@ class GroundingHit(BaseModel):
     path: str | None = None
     #: The licence (``common/licensed_text.py``): ``licensed`` renders a ``Licence:`` line and a reference.
     licence: LicenceTerms | None = None
+    #: The knowledge record this text was read as (ADR-0168): the edition a corpus point is marked with at
+    #: ingest (its ``knowledge_edition_id``), or the work a live source's producer found by the identifier
+    #: the work's record carries. What a citation's role, route and edition are resolved by
+    #: (``citations/roles.py``): an id, never a file name, a URL or a host. RECORD fields only, never header
+    #: lines: an id is nothing the model should read or copy. A block read back by the text parser (a
+    #: replayed turn) carries none, as with :attr:`regions`, and its citation then states no role.
+    work_id: str | None = None
+    edition_id: str | None = None
+    #: Where a person opens this text in public: its address at the source it was read from. A RECORD
+    #: field only too. A link printed beside the ``Citation:`` key was what the answer copied instead of
+    #: the key (see the legal-database producer's ``_hit``). A display field: nothing is matched by it,
+    #: and it is not the entry's ``url``, which is a registry identity.
+    public_url: str | None = None
+    #: Which Fassung the text is (:class:`SourceRevision`). Record only, like :attr:`public_url`; a
+    #: citation key may carry the same day in its own words.
+    revision: SourceRevision | None = None
 
     @property
     def authored_by(self) -> str | None:

@@ -82,9 +82,7 @@ describe('scoreGoldenCase', () => {
       'golden-case-passed': true,
       'golden-must-not-violations': 0,
       'golden-expected-values': 1,
-      'edition-named': true,
       'claim-citation-resolves': true,
-      'law-cited-from-web': false,
     })
   })
 
@@ -105,10 +103,10 @@ describe('scoreGoldenCase', () => {
     expect(failed(base, { ...good, confidence: { level: 'medium', reason } })).toEqual([])
   })
 
-  it('fails a cited web source, and says the law was cited from the web', () => {
+  it('fails a cited web source by its must-not, and leaves law-cited-from-web to the agent’s own score', () => {
     const scored = scoreGoldenCase(base, { ...good, sources: [...good.sources, { name: 'A law portal', kind: 'web', url: 'https://law.example/fc' }] })
     expect(scored.checks.find((check) => check.id === 'web-copy')).toMatchObject({ passed: false, detail: 'cites "A law portal" (web)' })
-    expect(scored.scores['law-cited-from-web']).toBe(true)
+    expect(scored.scores).not.toHaveProperty('law-cited-from-web')
     expect(scored.scores['golden-must-not-violations']).toBe(1)
   })
 
@@ -203,13 +201,12 @@ describe('the recorded before-baseline', () => {
   it('B5, high confidence on a closed reason and cited from the source, keeps every must-not', () => {
     const verdict = verdicts.find((entry) => entry.baseline === 'B5')
     expect(verdict?.expect.scores['golden-must-not-violations']).toBe(0)
-    expect(verdict?.expect.scores['law-cited-from-web']).toBe(false)
+    expect(verdict?.expect.failed).not.toContain('must_not:law-from-web')
     expect(verdict?.expect.scores['claim-citation-resolves']).toBe(true)
   })
 
   it('B14 took its law from web pages, which the scorecard counted as three sources', () => {
     const verdict = verdicts.find((entry) => entry.baseline === 'B14')
     expect(verdict?.expect.failed).toContain('must_not:law-from-web')
-    expect(verdict?.expect.scores['law-cited-from-web']).toBe(true)
   })
 })

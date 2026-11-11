@@ -162,6 +162,59 @@ def test_python_imports_and_the_blanks_between_them_are_not_counted(checker):
     assert checker.counted_lines("x.py", source) == 3
 
 
+def test_typescript_comment_lines_are_not_counted_and_code_beside_a_comment_is(checker):
+    source = (
+        "/**\n"
+        " * What this does.\n"
+        " */\n"
+        "// one line\n"
+        "const a = 1 // counted: code with a trailing comment\n"
+        "/* closed on its line */\n"
+        "/* opens\n"
+        "   and ends */ const b = 2\n"
+        "const url = 'https://example.org' // not a comment line\n"
+        "\n"
+    )
+
+    # Kept: `const a`, the line where a block ends before code, `const url`, the blank.
+    assert checker.counted_lines("x.ts", source) == 4
+
+
+def test_python_comments_and_docstrings_are_not_counted_and_other_strings_are(checker):
+    source = (
+        '"""Module docstring.\n'
+        "\n"
+        'Two more lines."""\n'
+        "# a comment\n"
+        "def f():\n"
+        '    """What f does."""\n'
+        "    # why\n"
+        '    text = """\n'
+        "# inside a string: code\n"
+        '"""\n'
+        "    return text  # counted\n"
+    )
+
+    # Kept: `def f`, the three lines of the string assignment, `return`.
+    assert checker.counted_lines("x.py", source) == 5
+
+
+def test_a_function_is_measured_without_its_docstring(checker):
+    body = "    x = 1\n" * 58
+    documented = 'def f():\n    """One.\n\n    Two.\n    """\n' + body
+
+    assert checker.function_lengths(documented) == {"f": 59}
+
+
+def test_an_added_comment_does_not_grow_a_baselined_file(checker, repo):
+    add(repo, "src/big.ts", "const a = 1\n" * 700)
+    checker.main(["--rebaseline"])
+
+    add(repo, "src/big.ts", "/**\n * Why this file is like this.\n */\n// and a line\n" + "const a = 1\n" * 700)
+
+    assert checker.main([]) == 0
+
+
 def test_an_added_import_does_not_grow_a_baselined_file(checker, repo):
     add(repo, "src/big.ts", "const a = 1\n" * 700)
     checker.main(["--rebaseline"])

@@ -1,4 +1,4 @@
-// @disk-inputs: ../../packages/agent/src/agent/observability/golden_scores.py
+// @disk-inputs: ../../packages/agent/src/agent/observability/golden_scores.py, ../../packages/agent/src/agent/observability/law_source_scores.py, ../../packages/agent/src/agent/observability/langfuse_scores.py
 /**
  * @vitest-environment node
  *
@@ -18,7 +18,10 @@ vi.mock('server-only', () => ({}))
 import { GOLDEN_SCORE_NAMES, type GoldenCaseResult } from '@/lib/base-knowledge/wire/golden-case'
 import { goldenDatasetItemId, toGoldenScores } from './golden-run-score'
 
-const DECLARED = readFileSync(join(process.cwd(), '..', '..', 'packages', 'agent', 'src', 'agent', 'observability', 'golden_scores.py'), 'utf8')
+const catalogue = (file: string) => readFileSync(join(process.cwd(), '..', '..', 'packages', 'agent', 'src', 'agent', 'observability', file), 'utf8')
+const DECLARED = catalogue('golden_scores.py')
+/** Where the agent's four citation scores are declared: written on every answered turn, never by the golden run. */
+const AGENT_CITATION = catalogue('law_source_scores.py') + catalogue('langfuse_scores.py')
 
 /** Each declared score: its name, its data type and who writes it (`agent` when the definition names nobody). */
 const declared = [...DECLARED.matchAll(/ScoreDefinition\(\s*name="([a-z-]+)",\s*data_type="([A-Z]+)",[\s\S]*?\n {4}\),/g)].map((match) => ({
@@ -33,7 +36,7 @@ const result: GoldenCaseResult = {
     { kind: 'citation', id: 'Fire Code', passed: false, decides: true, detail: 'no cited source carries the designation' },
     { kind: 'value', id: 'height', passed: false, decides: false, detail: 'none is in the answer' },
   ],
-  scores: { 'golden-case-passed': false, 'golden-expected-values': 0.5, 'golden-must-not-violations': 0, 'claim-citation-resolves': false, 'law-cited-from-web': true, 'golden-seconds': 36.3 },
+  scores: { 'golden-case-passed': false, 'golden-expected-values': 0.5, 'golden-must-not-violations': 0, 'claim-citation-resolves': false, 'golden-seconds': 36.3 },
   unconfirmed: 1,
   confidence: 'high',
   seconds: 36.3,
@@ -48,10 +51,14 @@ describe('the golden run’s score names', () => {
     expect([...written].sort()).toEqual([...GOLDEN_SCORE_NAMES].sort())
   })
 
-  it('declare the six citation scores, three of them with no writer yet', () => {
+  it('declare the six citation scores once each: two here (one with no writer yet), four where the agent writes them', () => {
     const names = declared.map((definition) => definition.name)
-    expect(names).toEqual(expect.arrayContaining(['edition-named', 'citation-role-resolved', 'claim-citation-resolves', 'edition-agrees', 'law-cited-from-web', 'binding-claim-without-records']))
-    expect(declared.filter((definition) => definition.writer === 'agent').map((definition) => definition.name).sort()).toEqual(['binding-claim-without-records', 'citation-role-resolved', 'edition-agrees'])
+    expect(names).toEqual(expect.arrayContaining(['claim-citation-resolves', 'edition-agrees']))
+    expect(declared.filter((definition) => definition.writer === 'agent').map((definition) => definition.name)).toEqual(['edition-agrees'])
+    for (const name of ['edition-named', 'citation-role-resolved', 'law-cited-from-web', 'binding-claim-without-records']) {
+      expect(names, name).not.toContain(name)
+      expect(AGENT_CITATION, name).toMatch(new RegExp(`(name=)?"${name}"`))
+    }
   })
 })
 
@@ -65,7 +72,7 @@ describe('toGoldenScores', () => {
       expect(score.dataType, score.name).toBe(declared.find((definition) => definition.name === score.name)?.dataType)
       expect(score.metadata).toEqual({ golden_run_id: 'run-1', golden_case: 'xa-stair', country_id: 'XA' })
     }
-    expect(scores.find((score) => score.name === 'law-cited-from-web')?.value).toBe(1)
+    expect(scores.find((score) => score.name === 'claim-citation-resolves')?.value).toBe(0)
     expect(scores.find((score) => score.name === 'golden-expected-values')?.value).toBe(0.5)
   })
 

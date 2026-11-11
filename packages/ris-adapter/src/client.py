@@ -82,6 +82,12 @@ _ENGINE = engine_for(_SOURCE)
 
 DEFAULT_BASE_URL = _ACCESS.config.base_url
 
+
+def source_record():
+    """This adapter's source record (``configs/sources``): its hosts, and how an address states a work's identifier."""
+    return _SOURCE
+
+
 # Only documents hosted by RIS itself may be fetched through this adapter.
 ALLOWED_DOCUMENT_HOSTS = frozenset(_SOURCE.hosts)
 

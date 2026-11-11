@@ -141,11 +141,10 @@ export function scoreGoldenCase(golden: GoldenCase, answer: GoldenAnswer): Score
     'golden-must-not-violations': mustNot.filter((check) => !check.passed).length,
   }
   if (values.length > 0) scores['golden-expected-values'] = share(values)
-  if (edition.length > 0) scores['edition-named'] = edition.every((check) => check.passed)
   if (citations.length > 0) {
+    // `law-cited-from-web` is the agent's score on every answered turn (`law_source_scores`); a web source
+    // here fails the case through its `web-copy` must-not check instead of a second value under that name.
     scores['claim-citation-resolves'] = citations.every((check) => check.passed)
-    // The case says where its law is cited from: a web page among the sources is law taken from the web.
-    scores['law-cited-from-web'] = answer.sources.some((source) => source.kind === 'web')
   }
   return { passed, checks, scores, unconfirmed: checks.filter((check) => !check.decides).length, unverified }
 }

@@ -179,6 +179,7 @@ def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguo
     effect with no re-ingest (ADR-0049).
     """
     from agent.common.grounding_block import GroundingHit
+    from agent.common.licensed_text import EDITION_KEY
     from agent.common.licensed_text import licence_from_metadata
 
     metadata = chunk.metadata or {}
@@ -213,7 +214,27 @@ def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguo
         path=estate_path(shelf, folder_path, chunk.file_name) if chunk.file_name else None,
         # The office layer marks a licensed point at upload; the renderer keeps its text out of the transcript.
         licence=licence_from_metadata(metadata),
+        revision=_hit_revision(chunk.file_name, shelf),
+        # The edition the point was marked with at ingest (`vector_store.writes.licence_mark`): what the
+        # citation's role and edition are resolved by. Absent on a point no record names.
+        edition_id=_metadata_text(metadata.get(EDITION_KEY)),
     )
+
+
+def _hit_revision(file_name: str | None, shelf):
+    """What an office or project document's own name says about its Fassung (index, day); None for the base
+    corpus, whose editions the knowledge records name, and for a name that states neither."""
+    from knowledge_layer.revision_series import parse_revision_name
+
+    from agent.common.grounding_block import SourceRevision
+    from agent.common.source_kinds import Shelf
+
+    if not file_name or shelf is None or shelf == Shelf.BASE:
+        return None
+    named = parse_revision_name(file_name)
+    if named is None:
+        return None
+    return SourceRevision(index=named.index.value if named.index else None, date=named.date)
 
 
 def _page_end(chunk, page: int | None) -> int | None:
