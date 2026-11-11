@@ -98,7 +98,20 @@ describe('RecordBody', () => {
     expect(shown).toHaveTextContent('Asked for: Nordland')
     expect(shown).toHaveTextContent('Facts: storeys = 4')
     expect(shown).toHaveTextContent('longest escape route: “40 m”')
-    expect(shown).toHaveTextContent('Rests on: MC 2 2023 (“MC 2 2023”)')
+    expect(shown).toHaveTextContent('Rests on: MC 2 · 2023 (“MC 2 2023”)')
     expect(shown).toHaveTextContent('Must not: cite a source of kind web')
+  })
+
+  test('names a text by its work and edition, never by its record id', () => {
+    const name = namer(MAP, [
+      revision('work', 'work:oib-rl-1-erlaeuterungen', { kind: 'model_code', title: 'Erläuternde Bemerkungen zu OIB-Richtlinie 1' }),
+      revision('edition', 'edition:oib-rl-1-erlaeuterungen-2023', { workId: 'work:oib-rl-1-erlaeuterungen', label: 'Ausgabe Mai 2023' }),
+      revision('manifestation', 'manifestation:oib-rl-1-erlaeuterungen-2023-text', { editionId: 'edition:oib-rl-1-erlaeuterungen-2023', corpusFile: 'oib-rl-1-erlaeuterungen-2023-text.pdf' }),
+      revision('manifestation', 'manifestation:elsewhere-text', { editionId: 'edition:released-before', corpusFile: 'elsewhere.pdf' }),
+    ])
+    expect(name('manifestation:oib-rl-1-erlaeuterungen-2023-text')).toBe('Erläuternde Bemerkungen zu OIB-Richtlinie 1 · Ausgabe Mai 2023')
+    expect(name('edition:mc-2-2023')).toBe('MC 2 · 2023')
+    // A text for an edition released before this request: its file, still no id.
+    expect(name('manifestation:elsewhere-text')).toBe('elsewhere.pdf')
   })
 })

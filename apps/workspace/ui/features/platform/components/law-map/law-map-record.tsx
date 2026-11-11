@@ -27,18 +27,31 @@ const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : [])
 const strings = (value: unknown): string[] => list(value).filter((one): one is string => typeof one === 'string')
 const bodyOf = (revision: RevisionView): Body => Object.fromEntries(revision.claims.map((claim) => [claim.path, claim.value]))
 
-/** A record id in words: a region, an edition or any record of the request by its name, else the id. */
+/**
+ * A record id in words, never the id where the request names it: a region by its name, a work by its designation
+ * or title, an edition as its work and label ("Erläuternde Bemerkungen zu OIB-Richtlinie 1 · Ausgabe Mai 2023"),
+ * a text as its edition, else as its file.
+ */
 export function namer(map: LawMap, revisions: readonly RevisionView[]): (id: string) => string {
   const byId = new Map(revisions.map((revision) => [revision.recordId, bodyOf(revision)]))
-  return (id) => {
+  const workName = (body: Body | undefined): string | null => {
+    const identifiers = isObject(body?.identifiers) ? body.identifiers : {}
+    return text(identifiers.designation) ?? text(body?.title) ?? text(body?.name)
+  }
+  const name = (id: string): string => {
     const territory = map.territories.get(id)
     if (territory) return territory.name
-    const edition = map.editions.get(id)
-    if (edition) return [map.topics.find((topic) => topic.workId === edition.workId)?.designation, edition.label].filter(Boolean).join(' ')
     const body = byId.get(id)
-    const identifiers = isObject(body?.identifiers) ? body.identifiers : {}
-    return text(identifiers.designation) ?? text(body?.title) ?? text(body?.name) ?? text(body?.label) ?? id
+    const edition = map.editions.get(id)
+    if (edition || (body && text(body.workId))) {
+      const workId = edition?.workId ?? String(body?.workId)
+      const work = map.topics.find((topic) => topic.workId === workId)?.designation ?? workName(byId.get(workId))
+      return [work, edition?.label ?? text(body?.label)].filter(Boolean).join(' · ') || id
+    }
+    if (body && text(body.editionId)) return byId.has(String(body.editionId)) || map.editions.has(String(body.editionId)) ? name(String(body.editionId)) : (text(body.corpusFile) ?? id)
+    return workName(body) ?? text(body?.label) ?? text(body?.question) ?? id
   }
+  return name
 }
 
 /** One line of a record in words, with its label when it has one. */

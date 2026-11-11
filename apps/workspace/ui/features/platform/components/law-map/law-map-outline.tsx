@@ -88,7 +88,7 @@ function EditionLine({ o, edition, name }: { o: Outline; edition: LawMapEdition;
   return (
     <li className="flex flex-col gap-0.5" data-testid={`edition-${edition.id}`}>
       <span>
-        {name(edition.id) || `${name(edition.workId)} ${edition.label}`}
+        {name(edition.id)}
         {edition.issuedOn ? <span className="text-muted-foreground">{` · ${t('published', { date: date(edition.issuedOn) })}`}</span> : null}
       </span>
       <span className="text-muted-foreground text-xs">

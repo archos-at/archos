@@ -103,32 +103,73 @@ export function reviewUnitsOf(map: LawMap, view: View): ReviewUnit[] {
   for (const statement of map.statements) add(statement.key, 'statement', [...statement.recordIds, statement.actWorkId])
   for (const statute of map.statutes) add(`statute:${statute.workId}`, 'statute', [statute.workId])
   add('regions', 'regions', [...map.territories.keys()])
-  for (const batch of batchesOf(view.revisions, taken)) add(`batch:${batch.label}`, 'batch', batch.ids, batch.label)
+  for (const batch of batchesOf(view.revisions, taken, view.captures)) add(`batch:${batch.label}`, 'batch', batch.ids, batch.label)
   const kinds = [...new Set(view.revisions.filter((revision) => !taken.has(revision.recordId)).map((revision) => revision.type))]
   for (const type of kinds) add(`kind:${type}`, 'kind', view.revisions.filter((revision) => revision.type === type).map((revision) => revision.recordId), type)
   return units
 }
 
 /**
- * The editions not yet in a unit, by series and year, each with its texts and
- * the works whose newest edition it holds: one decision ("these are the 2023
- * guidelines, and these files are their texts") for what a publisher issued together.
+ * The editions not yet in a unit, by publisher and year, each with its texts
+ * and the works whose newest edition it holds: one decision ("these are the
+ * 2023 guidelines and their companion documents, and these files are their
+ * texts") for what a publisher issued together. Editions of one year are one
+ * publisher's when they share a mark of it: the work's issuer, the site their
+ * text was taken from, or the series. The batch is named for the series most
+ * of its works carry ("OIB-Richtlinie 2023", Erläuterungen and Leitfäden included).
  */
-function batchesOf(revisions: readonly RevisionView[], taken: ReadonlySet<string>): { label: string; ids: string[] }[] {
+function batchesOf(revisions: readonly RevisionView[], taken: ReadonlySet<string>, captures: View['captures']): { label: string; ids: string[] }[] {
   const byRecord = new Map(revisions.map((revision) => [revision.recordId, revision]))
+  const captureUrl = new Map((captures ?? []).map((capture) => [capture.captureId, capture.url]))
+  const hostsOf = (revision: RevisionView): string[] =>
+    revision.citations.flatMap((citation) => {
+      const url = citation.url ?? (citation.captureId ? captureUrl.get(citation.captureId) : undefined)
+      if (!url) return []
+      try {
+        return [new URL(url).hostname]
+      } catch {
+        return []
+      }
+    })
   const editions = revisions.filter((revision) => revision.type === 'edition' && !taken.has(revision.recordId))
-  const batches = new Map<string, string[]>()
-  const newest = new Map<string, { year: string; label: string }>()
-  for (const edition of editions) {
+  const textsOf = (edition: RevisionView) => revisions.filter((revision) => revision.type === 'manifestation' && claimOf(revision, 'editionId') === edition.recordId)
+  // One union-find over editions: two of a year join when they share a mark of their publisher.
+  const parent = editions.map((_, index) => index)
+  const root = (index: number): number => (parent[index] === index ? index : (parent[index] = root(parent[index] ?? index)))
+  const seen = new Map<string, number>()
+  const info = editions.map((edition, index) => {
     const workId = String(claimOf(edition, 'workId') ?? '')
+    const work = byRecord.get(workId)
+    const identifiers = work ? claimOf(work, 'identifiers') : null
+    const designated = Boolean(identifiers && typeof identifiers === 'object' && typeof (identifiers as Record<string, unknown>).designation === 'string')
+    const series = designated ? seriesOf(designationOf(work)) : null
+    const issuer = work && typeof claimOf(work, 'issuer') === 'string' ? String(claimOf(work, 'issuer')) : null
     const year = yearOf(edition)
-    const label = `${seriesOf(designationOf(byRecord.get(workId)) || workId)} ${year}`.trim()
-    const texts = revisions.filter((revision) => revision.type === 'manifestation' && claimOf(revision, 'editionId') === edition.recordId).map((revision) => revision.recordId)
-    batches.set(label, [...(batches.get(label) ?? []), edition.recordId, ...texts])
-    if (!newest.has(workId) || (newest.get(workId)?.year ?? '') < year) newest.set(workId, { year, label })
-  }
-  for (const [workId, { label }] of newest) if (byRecord.has(workId) && !taken.has(workId)) batches.get(label)?.unshift(workId)
-  return [...batches.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, ids]) => ({ label, ids }))
+    const marks = [issuer && `issuer:${issuer}`, series && `series:${series}`, ...textsOf(edition).flatMap(hostsOf).map((host) => `host:${host}`)].filter((mark): mark is string => Boolean(mark))
+    for (const mark of marks.length > 0 ? marks : [`work:${workId}`]) {
+      const other = seen.get(`${year}|${mark}`)
+      if (other === undefined) seen.set(`${year}|${mark}`, index)
+      else parent[root(index)] = root(other)
+    }
+    return { workId, series, year }
+  })
+  const batches = new Map<number, { ids: string[]; series: Map<string, number>; year: string; fallback: string }>()
+  const newest = new Map<string, { year: string; at: number }>()
+  editions.forEach((edition, index) => {
+    const { workId, series, year } = info[index]!
+    const at = root(index)
+    const batch = batches.get(at) ?? { ids: [], series: new Map<string, number>(), year, fallback: designationOf(byRecord.get(workId)) || workId }
+    if (series) batch.series.set(series, (batch.series.get(series) ?? 0) + 1)
+    batch.ids.push(edition.recordId, ...textsOf(edition).map((revision) => revision.recordId))
+    batches.set(at, batch)
+    if (!newest.has(workId) || (newest.get(workId)?.year ?? '') < year) newest.set(workId, { year, at })
+  })
+  for (const [workId, { at }] of newest) if (byRecord.has(workId) && !taken.has(workId)) batches.get(at)?.ids.unshift(workId)
+  return [...batches.values()]
+    .map((batch) => ({ label: `${[...batch.series.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? batch.fallback} ${batch.year}`.trim(), ids: batch.ids }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+    // Two publishers may share a series name in a year: each batch keeps a key of its own.
+    .map((batch, index, all) => (all.findIndex((one) => one.label === batch.label) === index ? batch : { ...batch, label: `${batch.label} (${index + 1})` }))
 }
 
 /** The review calls that give one verdict on every claim of a unit not yet carrying it, at most `VERDICTS_PER_CALL` each. */

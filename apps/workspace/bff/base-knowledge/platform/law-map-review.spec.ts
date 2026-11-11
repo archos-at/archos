@@ -102,3 +102,44 @@ describe('reviewUnitsOf', () => {
     expect(verdictCalls(big, 'rejected', { note: 'wrong date' }).map((call) => call.decisions.length)).toEqual([VERDICTS_PER_CALL, 1])
   })
 })
+
+describe('reviewUnitsOf on Austria’s guidelines and their companion documents', () => {
+  const OIB = 'Österreichisches Institut für Bautechnik'
+  const page = 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/'
+  const cited = (type: RevisionView['type'], recordId: string, body: Record<string, unknown>, url: string): RevisionView => ({ ...revision(type, recordId, body), citations: [{ url, quote: 'the words on the page' }] })
+  const LABEL: Record<string, string> = { '2015': 'Ausgabe März 2015', '2019': 'Ausgabe April 2019', '2023': 'Ausgabe Mai 2023', '2025': 'Ausgabe September 2025' }
+  /** A work with its editions and a text each, as the dev request holds them (`platform-knowledge-text-list`, 2026-11-11). */
+  const work = (key: string, title: string, years: string[], extra: Record<string, unknown>, editionKeys: Record<string, string> = {}): RevisionView[] => [
+    revision('work', `work:${key}`, { kind: 'model_code', title, territoryIds: ['AT'], ...extra }),
+    ...years.flatMap((year) => {
+      const edition = editionKeys[year] ?? `${key}-${year}`
+      return [
+        // An edition may cite the gazette that adopted it; its text cites the publisher.
+        cited('edition', `edition:${edition}`, { workId: `work:${key}`, label: edition.endsWith('rev-1') ? 'Ausgabe Mai 2023 Rev. 1' : LABEL[year] }, 'https://ris.example.at/lgbl/1'),
+        cited('manifestation', `manifestation:${edition}-text`, { editionId: `edition:${edition}`, corpusFile: `${edition}-text.pdf` }, page),
+      ]
+    }),
+  ]
+  const guideline = (n: string, years: string[]) => work(`oib-rl-${n.replace('.', '-')}`, `Richtlinie ${n}`, years, { identifiers: { designation: `OIB-Richtlinie ${n}` }, issuer: OIB })
+  // Half the companions name their issuer; the other half are known only by the site their text came from.
+  const companion = (key: string, title: string, years: string[], withIssuer: boolean, editionKeys?: Record<string, string>) => work(key, title, years, withIssuer ? { issuer: OIB } : {}, editionKeys)
+  const REQUEST: RevisionView[] = [
+    ...['1', '2', '2.1', '2.2', '2.3', '3', '4', '5'].flatMap((n) => guideline(n, ['2019', '2023'])),
+    ...guideline('6', ['2015', '2019', '2023', '2025']),
+    ...['1', '2', '2.1', '2.2', '2.3', '3', '4'].flatMap((n, index) => companion(`oib-rl-${n.replace('.', '-')}-erlaeuterungen`, `Erläuternde Bemerkungen zu OIB-Richtlinie ${n}`, ['2019', '2023'], index % 2 === 0)),
+    ...companion('oib-rl-1-leitfaden', 'Festlegung der Tragfähigkeit und Gebrauchstauglichkeit von bestehenden Tragwerken', ['2019', '2023'], true),
+    ...companion('oib-rl-2-leitfaden', 'Abweichungen im Brandschutz und Brandschutzkonzepte', ['2019', '2023'], false),
+    ...companion('oib-rl-6-leitfaden', 'Energietechnisches Verhalten von Gebäuden', ['2019', '2023', '2025'], true),
+    ...companion('oib-begriffsbestimmungen', 'Begriffsbestimmungen', ['2019', '2023', '2025'], false),
+    ...companion('oib-zitierte-normen', 'Zitierte Normen und sonstige technische Regelwerke', ['2019', '2023', '2023-rev', '2025'], true, { '2023-rev': 'oib-zitierte-normen-2023-rev-1' }),
+    ...companion('oib-rl-7-grundlagendokument', 'Nachhaltige Nutzung der natürlichen Ressourcen', ['2023'], false),
+  ]
+  const units = reviewUnitsOf(lawMapOf('AT', REQUEST, []), { revisions: REQUEST, captures: [], texts: [] })
+
+  it('confirms every guideline and companion of a year in one unit, with no unit of a text alone', () => {
+    expect(units.map((one) => one.key)).toEqual(['batch:OIB-Richtlinie 2015', 'batch:OIB-Richtlinie 2019', 'batch:OIB-Richtlinie 2023', 'batch:OIB-Richtlinie 2025'])
+    expect(units.flatMap((one) => one.revisions)).toHaveLength(REQUEST.length)
+    const of2023 = units.find((one) => one.key === 'batch:OIB-Richtlinie 2023')!
+    expect(of2023.revisions.map((one) => one.recordId)).toEqual(expect.arrayContaining(['manifestation:oib-rl-1-erlaeuterungen-2023-text', 'manifestation:oib-rl-2-leitfaden-2023-text', 'manifestation:oib-zitierte-normen-2023-rev-1-text', 'manifestation:oib-rl-7-grundlagendokument-2023-text']))
+  })
+})
