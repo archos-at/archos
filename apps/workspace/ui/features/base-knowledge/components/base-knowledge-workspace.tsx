@@ -234,6 +234,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           canManage={canManage}
           rootId={folders.rootId}
           folders={folders.folders}
+          territories={list.territories}
           onChanged={(entry) => {
             setOpenEntry(entry)
             if (!entry) location.go({ entryId: null })

@@ -35,6 +35,22 @@ const folder = (
   description: null,
 })
 
+/** What the office's records name: its country and its subdivisions, with their labels. */
+export const BASE_KNOWLEDGE_TERRITORIES = [
+  { id: 'AT', label: null },
+  ...[
+    ['AT-1', 'Burgenland'],
+    ['AT-2', 'Kärnten'],
+    ['AT-3', 'Niederösterreich'],
+    ['AT-4', 'Oberösterreich'],
+    ['AT-5', 'Salzburg'],
+    ['AT-6', 'Steiermark'],
+    ['AT-7', 'Tirol'],
+    ['AT-8', 'Vorarlberg'],
+    ['AT-9', 'Wien'],
+  ].map(([id, label]) => ({ id, label })),
+]
+
 export const BASE_KNOWLEDGE_FOLDERS: BaseKnowledgeFolders = {
   rootId: ROOT,
   nextCursor: null,
@@ -72,6 +88,7 @@ function entry(
     textUse: 'used',
     aiProcessingAttestedAt: '2026-10-01T00:00:00.000Z',
     folderId: FOLDER_IDS.access,
+    edition: null,
     createdAt: '2026-10-01T08:00:00.000Z',
     values: {
       kind: 'technical_standard',
@@ -79,6 +96,8 @@ function entry(
       designation: 'ÖNORM B 1600:2017',
       editionLabel: '2017-04-01',
       issuedOn: '2017-04-01',
+      inForceFrom: null,
+      inForceTo: null,
       territoryIds: [],
       issuer: 'Austrian Standards',
       addressees: [],

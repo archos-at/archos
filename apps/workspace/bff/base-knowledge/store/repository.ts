@@ -134,7 +134,7 @@ function bodiesOf(
       issuer: values.issuer,
       addressees: values.addressees,
     },
-    edition: { workId: ids.workId, label: values.editionLabel, issuedOn: values.issuedOn },
+    edition: { workId: ids.workId, label: values.editionLabel, issuedOn: values.issuedOn, inForceFrom: values.inForceFrom, inForceTo: values.inForceTo },
     copy: { editionId: ids.editionId, licenceClass: values.licenceClass, terms },
   }
 }
@@ -376,6 +376,8 @@ function assembleEntries(
         designation: workBody.identifiers.designation ?? null,
         editionLabel: editionBody.label,
         issuedOn: editionBody.issuedOn,
+        inForceFrom: editionBody.inForceFrom,
+        inForceTo: editionBody.inForceTo,
         territoryIds: workBody.territoryIds,
         issuer: workBody.issuer,
         addressees: workBody.addressees,

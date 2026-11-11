@@ -22,7 +22,7 @@ import {
   subtreeOf,
 } from '@/lib/base-knowledge/office/listing'
 import type { BaseKnowledgeList, ListEntriesQuery } from '@/lib/base-knowledge/wire'
-import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS } from '../_fixtures/base-knowledge'
+import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES } from '../_fixtures/base-knowledge'
 
 function list(url: URL, variant: string | null): BaseKnowledgeList {
   const entries = variant === 'empty' ? [] : BASE_KNOWLEDGE_ENTRIES
@@ -38,6 +38,7 @@ function list(url: URL, variant: string | null): BaseKnowledgeList {
   return {
     canManage: variant !== 'readonly',
     counts: countEntries(scoped),
+    territories: BASE_KNOWLEDGE_TERRITORIES,
     folderCounts: countByFolder(entries),
     entries: scoped.filter((entry) => matchesQuery(entry, query)).sort(byAttention),
     nextCursor: null,

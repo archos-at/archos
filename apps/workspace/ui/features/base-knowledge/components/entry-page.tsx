@@ -41,7 +41,7 @@ import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { EntryValues } from '@/lib/base-knowledge/wire'
 import type { KnowledgeCheckResult } from '@/lib/base-knowledge/wire/vocab'
 import { day, StatusChip, TextUseChip } from './entry-atoms'
-import { EntryForm } from './entry-form'
+import { EntryForm, type TerritoryChoice } from './entry-form'
 
 interface EntryPageProps {
   entry: BaseKnowledgeEntry | null
@@ -49,6 +49,8 @@ interface EntryPageProps {
   canManage: boolean
   rootId: string | null
   folders: readonly BaseKnowledgeFolder[]
+  /** Where an entry can apply, to pick from (`BaseKnowledgeList.territories`). */
+  territories: readonly TerritoryChoice[]
   /** After a change: reload the list; `null` when the entry is gone. */
   onChanged: (entry: BaseKnowledgeEntry | null) => void
 }
@@ -298,6 +300,7 @@ function SheetBody({
   canManage,
   rootId,
   folders,
+  territories,
   onChanged,
 }: Omit<EntryPageProps, 'entry' | 'onClose'> & { entry: BaseKnowledgeEntry }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
@@ -346,6 +349,7 @@ function SheetBody({
           onChange={setValues}
           disabled={!canManage || busy}
           showLicence={proposed}
+          territories={territories}
         />
       </section>
       {/* A proposal's licence statements are part of confirming it, so they come before the button; a confirmed copy's are their own action. */}

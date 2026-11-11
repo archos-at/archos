@@ -26,6 +26,7 @@ vi.mock('./repository', () => ({
 }))
 vi.mock('./mark', () => ({ markCopyPoints: vi.fn(async () => true) }))
 vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn(async () => new Map([['user-1', { name: 'Anna Berger' }]])) }))
+vi.mock('./territory-choices', () => ({ territoryChoices: vi.fn(async () => [{ id: 'AT', label: null }, { id: 'AT-9', label: 'Wien' }]) }))
 vi.mock('./folders', () => ({
   isStandardsFolder: vi.fn(async (_session: unknown, folderId: string) => folderId === 'folder-brandschutz'),
   standardsFolderRows: vi.fn(async () => ({
@@ -109,6 +110,8 @@ function stored(overrides: Partial<StoredEntry> = {}): StoredEntry {
       designation: 'ÖNORM B 1600:2017',
       editionLabel: '2017-04-01',
       issuedOn: '2017-04-01',
+      inForceFrom: null,
+      inForceTo: null,
       territoryIds: [],
       issuer: 'Austrian Standards',
       addressees: [],

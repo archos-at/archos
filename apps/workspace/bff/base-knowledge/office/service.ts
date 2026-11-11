@@ -63,7 +63,9 @@ import { renderBaseKnowledgeBlock } from './turn-block'
 import { officeAnswerLabel, type OfficeAnswerLabel } from './answer-label'
 import { platformKnowledge } from '../platform'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
+import { territoryChoices } from './territory-choices'
 import { isStandardsFolder, standardsFolderRows, standardsRoot } from './folders'
+import { editionStanding, inForceOn, seriesOf } from './editions'
 import { byAttention, countByFolder, countEntries, matchesQuery, subtreeOf } from './listing'
 
 
@@ -77,7 +79,16 @@ const reader = (session: AuthorizedSession) => shelfReaderFor(session, { scope: 
 type Names = ReadonlyMap<string, { name: string }>
 const NO_NAMES: Names = new Map()
 
-function toEntry(stored: StoredEntry, document: EntryDocument, now: Date, names: Names = NO_NAMES): BaseKnowledgeEntry {
+type Standing = ReturnType<typeof editionStanding>
+
+/** Each confirmed entry among its standard's editions, as of `now`. */
+const standingOf = (stored: readonly StoredEntry[], now: Date): Standing =>
+  editionStanding(
+    stored.map((entry) => ({ id: entry.workId, confirmed: entry.confirmed, values: entry.values, createdAt: entry.createdAt })),
+    now.toISOString().slice(0, 10),
+  )
+
+function toEntry(stored: StoredEntry, document: EntryDocument, now: Date, names: Names = NO_NAMES, standing?: Standing): BaseKnowledgeEntry {
   const confirmedBy = stored.confirmed ? (stored.provenance.confirmedBy ?? null) : null
   return {
     id: stored.workId,
@@ -94,6 +105,7 @@ function toEntry(stored: StoredEntry, document: EntryDocument, now: Date, names:
     aiProcessingAttestedAt: stored.terms.aiProcessingAttestedAt ?? null,
     freshness: freshnessOf(stored.values.kind, stored.confirmed ? stored.lastCheck : null, now),
     folderId: document.folderId,
+    edition: standing?.get(stored.workId) ?? null,
     createdAt: stored.createdAt.toISOString(),
   }
 }
@@ -109,16 +121,18 @@ export async function listBaseKnowledge(
 ): Promise<BaseKnowledgeList> {
   const canManage = canManageOfficeShelf(session)
   const stored = await readOfficeEntries(session.organizationId)
-  const [documents, names, folders] = await Promise.all([
+  const [documents, names, folders, territories] = await Promise.all([
     visibleOfficeDocuments(session.organizationId, stored.map((entry) => entry.documentId), await reader(session)),
     loadOrganizationDirectory(session.organizationId),
     query.folderId ? standardsFolderRows(session) : null,
+    territoryChoices(session.organizationId).catch(() => []),
   ])
   const inFolder = folders && query.folderId ? subtreeOf(query.folderId, [...(folders.root ? [folders.root] : []), ...folders.folders]) : null
   const now = new Date()
+  const standing = standingOf(stored, now)
   const visible = stored.flatMap((entry) => {
     const document = documents.get(entry.documentId)
-    return document ? [toEntry(entry, document, now, names)] : []
+    return document ? [toEntry(entry, document, now, names, standing)] : []
   })
   const entries = inFolder ? visible.filter((entry) => entry.folderId !== null && inFolder.has(entry.folderId)) : visible
   const matching = entries.filter((entry) => matchesQuery(entry, query)).sort(byAttention)
@@ -127,6 +141,7 @@ export async function listBaseKnowledge(
   return {
     canManage,
     counts: countEntries(entries),
+    territories,
     folderCounts: countByFolder(visible),
     entries: matching.slice(start, end),
     nextCursor: end < matching.length ? String(end) : null,
@@ -137,7 +152,8 @@ async function findEntry(
   session: AuthorizedSession,
   entryId: string
 ): Promise<{ stored: StoredEntry; entry: BaseKnowledgeEntry; document: EntryDocument }> {
-  const stored = (await readOfficeEntries(session.organizationId)).find((entry) => entry.workId === entryId)
+  const all = await readOfficeEntries(session.organizationId)
+  const stored = all.find((entry) => entry.workId === entryId)
   if (!stored) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
   const [documents, names] = await Promise.all([
     visibleOfficeDocuments(session.organizationId, [stored.documentId], await reader(session)),
@@ -145,7 +161,8 @@ async function findEntry(
   ])
   const document = documents.get(stored.documentId)
   if (!document) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
-  return { stored, entry: toEntry(stored, document, new Date(), names), document }
+  const now = new Date()
+  return { stored, entry: toEntry(stored, document, now, names, standingOf(all, now)), document }
 }
 
 export async function getBaseKnowledgeEntry(session: AuthorizedSession, entryId: string): Promise<BaseKnowledgeEntry> {
@@ -162,8 +179,8 @@ function merged(base: EntryValues, given: Partial<EntryValues>): EntryValues {
 
 /** The entry values a body states; a body's other fields (its statements, its document) are not values. */
 function valuesOf(body: Partial<EntryValues>): Partial<EntryValues> {
-  const { kind, title, designation, editionLabel, issuedOn, territoryIds, issuer, addressees, licenceClass } = body
-  return { kind, title, designation, editionLabel, issuedOn, territoryIds, issuer, addressees, licenceClass }
+  const { kind, title, designation, editionLabel, issuedOn, inForceFrom, inForceTo, territoryIds, issuer, addressees, licenceClass } = body
+  return { kind, title, designation, editionLabel, issuedOn, inForceFrom, inForceTo, territoryIds, issuer, addressees, licenceClass }
 }
 
 /**

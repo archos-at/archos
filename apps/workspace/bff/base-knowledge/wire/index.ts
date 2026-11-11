@@ -49,6 +49,8 @@ const entryFields = {
     .describe('e.g. "ÖNORM B 1600:2017".'),
   editionLabel: z.string().trim().min(1).max(120).describe('The edition as the masthead prints it, e.g. "2017-04-01".'),
   issuedOn: isoDate.nullable(),
+  inForceFrom: isoDate.nullable().describe('When this edition took effect; null: from issuedOn.'),
+  inForceTo: isoDate.nullable().describe('When it stopped applying, if withdrawn; a later edition ends it by itself.'),
   territoryIds: z.array(territoryId).max(20).describe('Where it applies; empty for a standard.'),
   issuer: z.string().trim().min(1).max(200).nullable(),
   addressees: z.array(addresseeSchema).max(10).describe('A directive’s authorities; empty otherwise.'),
@@ -150,6 +152,18 @@ export interface Freshness {
   overdue: boolean
 }
 
+/** One confirmed entry among the editions of its standard the office holds. */
+export interface EditionStanding {
+  /** Kind and designation without its edition (or title): what makes editions one standard. */
+  seriesKey: string
+  /** How many confirmed editions of it the office holds. */
+  editions: number
+  /** The edition in force today; the turn picks by the project's reference date instead. */
+  inForce: boolean
+  /** The entry of the next edition, when one followed this. */
+  supersededBy: string | null
+}
+
 export interface BaseKnowledgeEntry {
   id: string
   editionId: string
@@ -172,6 +186,8 @@ export interface BaseKnowledgeEntry {
   /** The user who confirmed the values in force, or last changed them; null while proposed or for an entry confirmed before this was kept. */
   confirmedBy: string | null
   freshness: Freshness
+  /** Where it stands among the office's editions of the same standard (`office/editions.ts`); null for a proposal. */
+  edition: EditionStanding | null
   /** The office shelf folder its document is filed in; null at the shelf root. */
   folderId: string | null
   /** The display name of `confirmedBy`; null when nobody confirmed or the directory cannot be read. */
@@ -191,6 +207,12 @@ export interface BaseKnowledgeList {
   canManage: boolean
   /** Before `attention`, `kind` and `q` narrow the page, so a filter can show what it would find. */
   counts: EntryCounts
+  /**
+   * Where an entry can apply, to pick from rather than type: the office's
+   * countries (label null: the client names a country by its locale) and the
+   * subdivisions its records name, with their labels.
+   */
+  territories: { id: string; label: string | null }[]
   /** Entries filed directly in each office shelf folder, over every entry the reader sees: what a folder tile holds. */
   folderCounts: Record<string, number>
   entries: BaseKnowledgeEntry[]

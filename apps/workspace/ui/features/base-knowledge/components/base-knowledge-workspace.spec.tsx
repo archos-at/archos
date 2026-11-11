@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { BaseKnowledgeList } from '@/lib/base-knowledge/wire'
-import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS } from '@/app/dev/_fixtures/base-knowledge'
+import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES } from '@/app/dev/_fixtures/base-knowledge'
 import { countByFolder, countEntries } from '@/lib/base-knowledge/office/listing'
 import { BaseKnowledgeWorkspace } from './base-knowledge-workspace'
 
@@ -25,6 +25,7 @@ vi.mock('next/navigation', () => ({
 const listOf = (entries = BASE_KNOWLEDGE_ENTRIES, canManage = true): BaseKnowledgeList => ({
   canManage,
   counts: countEntries(entries),
+  territories: BASE_KNOWLEDGE_TERRITORIES,
   folderCounts: countByFolder(entries),
   entries,
   nextCursor: null,

@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
-import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS } from '@/app/dev/_fixtures/base-knowledge'
+import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES } from '@/app/dev/_fixtures/base-knowledge'
 import { EntryPage } from './entry-page'
 
 const PROPOSAL = BASE_KNOWLEDGE_ENTRIES.find((entry) => entry.id === 'oenorm-b-1300')!
@@ -20,7 +20,7 @@ function renderSheet(entry: BaseKnowledgeEntry, onChanged = vi.fn()) {
   render(
     <I18nProvider initialLocale="de" fixedLocale>
       <TooltipProvider>
-        <EntryPage entry={entry} onBack={vi.fn()} canManage rootId={BASE_KNOWLEDGE_FOLDERS.rootId} folders={BASE_KNOWLEDGE_FOLDERS.folders} onChanged={onChanged} />
+        <EntryPage entry={entry} onBack={vi.fn()} canManage rootId={BASE_KNOWLEDGE_FOLDERS.rootId} folders={BASE_KNOWLEDGE_FOLDERS.folders} territories={BASE_KNOWLEDGE_TERRITORIES} onChanged={onChanged} />
       </TooltipProvider>
     </I18nProvider>,
   )
