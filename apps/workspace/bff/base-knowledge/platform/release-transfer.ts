@@ -10,13 +10,17 @@
  *   before any approval (0209, 0224), as for a page an operator pasted. A text comes in as its name and sha256; the
  *   operator attaches the same bytes (`platform-knowledge-text-import` or `-text-upload`) before it validates.
  *
+ * The bundle travels as a gzipped JSON file: a country's captured pages are megabytes, past what a tool result
+ * shows as text, and a file goes through the door whole (up to its inline limit) and back as an upload.
+ *
  * A record that names another country's record (a territory under a union, a relation into another pack) imports
  * only once that record is released on the importing deployment. The same bundle again changes nothing.
  */
 
 import 'server-only'
+import { gunzipSync, gzipSync } from 'node:zlib'
 import { and, inArray, isNull, sql } from 'drizzle-orm'
-import { ApiError, ConflictError, NotFoundError } from '@/lib/api/errors'
+import { ApiError, ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { sqlTextArray } from '@/lib/db/sql-list'
@@ -24,10 +28,11 @@ import { knowledgeRecords, type KnowledgeProvenance } from '@/lib/db/schema/know
 import { knowledgeCitationCaptures } from '@/lib/db/schema/knowledge-platform'
 import { citedCaptureIds, insertCapture, sha256Of } from './captures'
 import { recordIdOf, referencesOf } from './records'
-import { MAX_BUNDLE_RECORDS, RELEASE_BUNDLE_FORMAT, type ReleaseBundle, type ReleaseImportBody, type ReleaseImportResult } from './release-wire'
+import { MAX_BUNDLE_RECORDS, RELEASE_BUNDLE_FORMAT, type ReleaseBundle, releaseBundleSchema, type ReleaseImportBody, type ReleaseImportResult } from './release-wire'
+import { runKit } from './onboarding'
 import { requirePlatform } from './service-gate'
 import { canonicalJson, insertChangeRequestIn, insertProposedRecords, lockChangeRequest, platformTransaction } from './store'
-import { namedTerritories } from './validate'
+import { checkedOutsideKit, namedTerritories } from './validate'
 import { PROPOSED_RECORD_TYPES, type ProposedRecord, proposedRecordSchema } from './wire'
 
 const typeOrder = (record: ProposedRecord) => PROPOSED_RECORD_TYPES.indexOf(record.type)
@@ -35,19 +40,49 @@ const typeOrder = (record: ProposedRecord) => PROPOSED_RECORD_TYPES.indexOf(reco
 /** Every record id a record names: what must exist where it is imported. */
 const namedIds = (record: ProposedRecord) => [...referencesOf(record).map((reference) => reference.id), ...namedTerritories(record)]
 
+/** The bundle as the file the export answers: gzipped JSON, named after its country and release. */
+export function releaseFile(bundle: ReleaseBundle): Response {
+  return new Response(new Uint8Array(gzipSync(JSON.stringify(bundle))), {
+    headers: {
+      'Content-Type': 'application/gzip',
+      'Content-Disposition': `attachment; filename="knowledge-release-${bundle.countryId}-${bundle.releaseSeq}.json.gz"`,
+    },
+  })
+}
+
+/** The bundle a file holds, gzipped or not; refused whole when it is not one. */
+export function bundleOf(bytes: Buffer): ReleaseBundle {
+  let parsed: unknown
+  try {
+    const text = bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes, { maxOutputLength: 256 * 1024 * 1024 }) : bytes
+    parsed = JSON.parse(text.toString('utf8'))
+  } catch {
+    throw new UnprocessableError('The file is no release bundle: upload the file platform-knowledge-release-export answered, unchanged.')
+  }
+  const bundle = releaseBundleSchema.safeParse(parsed)
+  if (!bundle.success) {
+    const issues = bundle.error.issues.slice(0, 20).map((issue) => ({ path: issue.path.join('/'), message: issue.message }))
+    throw new UnprocessableError('The file is no release bundle this deployment reads; nothing was written.', { issues })
+  }
+  return bundle.data
+}
+
 /** The country's stable release as one bundle. Reads only. */
 export async function exportCountryRelease(session: UserSession | null, countryId: string): Promise<ReleaseBundle> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
   return platformTransaction(async (tx) => {
-    const heads = await tx.execute<{ id: string; provenance: KnowledgeProvenance; corpus_file: string | null; sha256: string | null }>(sql`
-      SELECT r.id, v.provenance, m.corpus_file, m.sha256
+    const heads = await tx.execute<{ id: string; provenance: KnowledgeProvenance; corpus_file: string | null; sha256: string | null; disputed: boolean }>(sql`
+      SELECT r.id, v.provenance, m.corpus_file, m.sha256, c.second_review IS NOT DISTINCT FROM 'disputed' AS disputed
       FROM knowledge_records r
       JOIN knowledge_revisions v ON v.revision_id = r.head_revision_id
+      LEFT JOIN knowledge_change_requests c ON c.id = v.change_request_id
       LEFT JOIN knowledge_manifestation_revisions m ON m.revision_id = r.head_revision_id
       WHERE r.organization_id IS NULL AND r.country_id = ${countryId}
       ORDER BY r.id LIMIT ${MAX_BUNDLE_RECORDS + 1}`)
     if (heads.length === 0) throw new NotFoundError(`${countryId} has no stable release on this deployment; publish it to stable first.`)
     if (heads.length > MAX_BUNDLE_RECORDS) throw new ConflictError(`${countryId} has more than ${MAX_BUNDLE_RECORDS} released records; one bundle carries fewer.`)
+    const disputed = heads.find((head) => head.disputed)
+    if (disputed) throw new ConflictError(`${disputed.id} was released by a request whose second review disputes it; settle that first (reject or roll it back).`)
     const records: ProposedRecord[] = []
     for (const head of heads) {
       const parsed = proposedRecordSchema.safeParse(head.provenance.proposal)
@@ -132,12 +167,12 @@ export async function importCountryRelease(
   return platformTransaction(async (tx) => {
     // One import of a bundle at a time: the second waits, then finds the first.
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${digest}, 0))`)
-    const [prior] = await tx.execute<{ id: string }>(sql`
-      SELECT c.id FROM knowledge_change_requests c
+    const [prior] = await tx.execute<{ id: string; status: string }>(sql`
+      SELECT c.id, c.status FROM knowledge_change_requests c
       WHERE c.country_id = ${bundle.countryId} AND c.status NOT IN ('rejected', 'rolled_back')
         AND EXISTS (SELECT 1 FROM knowledge_revisions v WHERE v.change_request_id = c.id AND v.provenance->'imported'->>'bundle' = ${digest})
       LIMIT 1`)
-    if (prior) return { changeRequestId: prior.id, status: 'unchanged', ...counts }
+    if (prior) return { changeRequestId: prior.id, status: 'unchanged', requestStatus: prior.status, ...counts }
     const released = outside.length === 0 ? [] : await tx.execute<{ id: string }>(sql`
       SELECT id FROM knowledge_records WHERE organization_id IS NULL AND head_revision_id IS NOT NULL AND id = ANY(${sqlTextArray(outside)})`)
     const missing = outside.filter((id) => !released.some((row) => row.id === id)).sort()
@@ -176,14 +211,17 @@ export async function importCountryRelease(
     }
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new ConflictError('The draft was not created; import again.')
+    const records = bundle.records.map((record) => onImportedCaptures(record, captureIds))
+    // The kit as a proposal runs it, before anything is kept: a bundle that fails here leaves no draft behind. A
+    // text's bytes and a source's fixtures are the api tier's to check; validate runs them once they are attached.
+    const later = new Map(records.filter(checkedOutsideKit).map((record) => [recordIdOf(record), []]))
+    const problems = await runKit(tx, request, records, later)
+    if (problems.length > 0) {
+      throw new UnprocessableError(`The release fails ${problems.length} check(s) here; nothing was written.`, { problems: problems.slice(0, 50) })
+    }
     // Each manifestation names the released file and its sha256: validate holds the attached bytes to it (KC-1).
     const pins = new Map(bundle.texts.map((text) => [`manifestation:${text.manifestationKey}`, text.sha256]))
-    await insertProposedRecords(
-      tx,
-      request,
-      bundle.records.map((record) => onImportedCaptures(record, captureIds)),
-      { createdBy: person.userId, proposedBy, pins, imported: { bundle: digest } },
-    )
-    return { changeRequestId: requestId, status: 'created', ...counts }
+    await insertProposedRecords(tx, request, records, { createdBy: person.userId, proposedBy, pins, imported: { bundle: digest } })
+    return { changeRequestId: requestId, status: 'created', requestStatus: 'draft', ...counts }
   })
 }

@@ -73,10 +73,10 @@ export async function draftManifestation(
   tx: Tx,
   requestId: string,
   recordId: string,
-): Promise<{ proposal: unknown; text: AttachedTextView | null; imported: boolean } | null> {
+): Promise<{ proposal: unknown; text: AttachedTextView | null; releasedSha256: string | null } | null> {
   const [row] = await newestManifestations(tx, requestId, recordId)
   if (!row) return null
-  return { proposal: row.provenance.proposal, text: named(row) ? textView(row) : null, imported: Boolean(row.provenance.imported) }
+  return { proposal: row.provenance.proposal, text: named(row) ? textView(row) : null, releasedSha256: row.provenance.imported?.sha256 ?? null }
 }
 
 /** The file a manifestation revision names, and the hash of the bytes it was proposed with. */

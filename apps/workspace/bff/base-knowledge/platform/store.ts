@@ -267,7 +267,8 @@ export async function insertProposedRecords(
     const kept = current?.provenance.text
     const text = context.text ?? (record.type === 'manifestation' && kept && kept.fileName === record.corpusFile ? kept : undefined)
     // A record imported from another deployment's release stays marked so when it is proposed again.
-    const imported = context.imported ?? current?.provenance.imported
+    const pin = context.pins?.get(recordId)
+    const imported = context.imported ? { ...context.imported, ...(pin ? { sha256: pin } : {}) } : current?.provenance.imported
     const revisionId = await appendRevision(
       tx,
       {

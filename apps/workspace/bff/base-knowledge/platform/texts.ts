@@ -103,8 +103,8 @@ async function nameTheText(
       throw new ConflictError('The manifestation was proposed again while its text was stored; nothing was named. Attach the text again.')
     }
     // An imported release names the bytes it was reviewed with (`./release-transfer.ts`): only those are attached to it.
-    if (current?.imported && record.corpusFile !== null && record.corpusFile !== text.fileName) {
-      throw new ApiError(409, 'TEXT_NOT_RELEASED', `The imported release names ${record.corpusFile}; these bytes are ${text.fileName}, so nothing was named.`, {
+    if (current?.releasedSha256 && current.releasedSha256 !== text.sha256) {
+      throw new ApiError(409, 'TEXT_NOT_RELEASED', `The imported release has sha256 ${current.releasedSha256} for this text; these bytes have ${text.sha256}, so nothing was named.`, {
         hint: 'Attach the PDF whose sha256 the import answered for this manifestation, fetched from its URL or uploaded.',
       })
     }

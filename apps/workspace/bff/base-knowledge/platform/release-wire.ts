@@ -30,7 +30,7 @@ const bundleCaptureSchema = z.object({
   contentType: z.string().max(200).nullable(),
   sha256: sha256Schema.describe('Of the bytes taken there.'),
   bytes: z.number().int().min(0),
-  text: z.string().nullable().describe('The text every quote was checked against.'),
+  text: z.string().max(2_000_000).nullable().describe('The text every quote was checked against.'),
   retrievedAt: z.iso.datetime({ offset: true }),
 })
 
@@ -57,16 +57,19 @@ export const releaseBundleSchema = z.object({
 export type ReleaseBundle = z.infer<typeof releaseBundleSchema>
 export type BundleText = z.infer<typeof bundleTextSchema>
 
-export const releaseImportBodySchema = z.object({
-  bundle: releaseBundleSchema.describe('What platform-knowledge-release-export answered on the other deployment, unchanged.'),
+/** The import's form fields, beside the bundle file (`files[0]`). */
+export const releaseImportFields = {
   title: z.string().trim().min(1).max(200).optional().describe('The draft’s title; "Import of <country> release <seq>" when absent.'),
-})
-export type ReleaseImportBody = z.infer<typeof releaseImportBodySchema>
+}
+export const releaseImportFieldsSchema = z.object(releaseImportFields)
+export type ReleaseImportBody = { bundle: ReleaseBundle; title?: string }
 
 export interface ReleaseImportResult {
   changeRequestId: string
-  /** `created`: a new draft; `unchanged`: this bundle was imported already into that open request, nothing was written. */
+  /** `created`: a new draft; `unchanged`: this bundle was imported already into that request, nothing was written. */
   status: 'created' | 'unchanged'
+  /** Where that request stands: `draft` for a new one; an earlier import may be submitted, approved or published. */
+  requestStatus: string
   records: number
   captures: number
   /** The texts to attach before the draft validates, each with the sha256 its bytes must have. */

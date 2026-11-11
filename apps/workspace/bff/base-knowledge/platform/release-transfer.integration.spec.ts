@@ -14,14 +14,17 @@
  * attached, with records equal to the source's. The import approves nothing: the draft waits for a person to check
  * every imported page against its source. The same bundle again changes nothing; other bytes are refused.
  *
- * Faked, because they are outside the database: WorkOS (the operators' permissions), the audit trail, and each
+ * Export and import go through the real platform door (MCP handler, catalog, dispatcher, routes): the bundle
+ * leaves as a file and comes back as an upload. Faked, because they are outside the database: WorkOS (the operators' permissions), the audit trail, and each
  * deployment's base corpus (the backend's), which holds files by name and sha256.
  */
 
-import { createHash } from 'node:crypto'
+import { createHash, webcrypto } from 'node:crypto'
+import { gunzipSync } from 'node:zlib'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { UserSession } from '@/lib/auth/types'
+import type { AuthorizedSession } from '@/lib/auth/types'
+import { doorScript, platformOperator, platformSession } from '@/lib/agent-api/testing/platform-door-script'
 
 const fixed = vi.hoisted(() => ({ platformOrg: 'org_platform_release_transfer' }))
 /** Each deployment's base corpus: file name to sha256. */
@@ -34,12 +37,15 @@ vi.mock('@/lib/authz/platform', async (importOriginal) => {
   return {
     ...real,
     getPlatformOrganizationId: async () => fixed.platformOrg,
+    hasPlatformPermission: async (session: { permissions?: string[] } | null, permission: string) => Boolean(session?.permissions?.includes(permission)),
     requirePlatformPermission: async (session: { permissions?: string[] } | null, permission: string) => {
       if (!session?.permissions?.includes(permission)) throw new real.PlatformAccessDeniedError(`Platform permission required: ${permission}`)
     },
   }
 })
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn(async () => undefined) }))
+vi.mock('@/lib/audit/after-commit', () => ({ recordAuditEventAfterCommit: vi.fn() }))
+vi.mock('@/lib/agent-api/telemetry', () => ({ recordOperationCalled: vi.fn(), recordOperationMissing: vi.fn() }))
 vi.mock('@/lib/knowledge/service', () => ({
   getKnowledgeBaseStatus: async () => ({
     files: [...corpora[corpora.current]].map(([fileName, currentSha256]) => ({ fileName, currentSha256, state: 'ingested' })),
@@ -53,8 +59,7 @@ vi.mock('@/lib/knowledge/service', () => ({
 const SOURCE_URL = process.env.TEST_RELEASE_SOURCE_DATABASE_URL
 const TARGET_URL = process.env.TEST_RELEASE_TARGET_DATABASE_URL
 const MANAGE = ['platform:settings:view', 'platform:knowledge:write', 'platform:knowledge:review']
-const person = (userId: string, permissions: string[]) =>
-  ({ userId, email: `${userId}@example.com`, organizationId: fixed.platformOrg, permissions }) as unknown as UserSession
+const person = (userId: string, permissions: string[]): AuthorizedSession => platformSession(fixed.platformOrg, userId, permissions)
 const author = person('user_release_author', MANAGE)
 const expert = person('user_release_expert', [...MANAGE, 'platform:knowledge:approve_as_domain_expert'])
 const importer = person('user_release_importer', MANAGE)
@@ -85,6 +90,26 @@ describe.skipIf(!SOURCE_URL || !TARGET_URL)('a country’s release, exported on 
   let textFileName: typeof import('./text-wire').textFileName
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
   let db: typeof import('@/lib/db')
+  let handler: ReturnType<typeof import('@/lib/agent-api/mcp-server').createAgentDoorHandler>
+  const { door, ok } = doorScript(() => handler)
+  type Bundle = import('./release-wire').ReleaseBundle
+
+  /** The file a door answer carries, as the client receives it. */
+  function fileOf(answer: Awaited<ReturnType<typeof door>>): { name: string; base64: string } {
+    const items = (answer.raw.result?.content ?? []) as unknown as { type: string; resource?: { uri: string; blob?: string } }[]
+    const resource = items.find((item) => item.type === 'resource' && item.resource?.blob)?.resource
+    expect(resource, JSON.stringify(answer.raw.result).slice(0, 500)).toBeDefined()
+    return { name: resource!.uri, base64: resource!.blob! }
+  }
+
+  const exported = async (who: AuthorizedSession, countryId: string) => {
+    const file = fileOf(await door(platformOperator(who), 'platform-knowledge-release-export', { params: { countryId } }))
+    return { file, bundle: JSON.parse(gunzipSync(Buffer.from(file.base64, 'base64')).toString('utf8')) as Bundle }
+  }
+  const importing = (who: AuthorizedSession, base64: string, name = 'release.json.gz') =>
+    door(platformOperator(who), 'platform-knowledge-release-import', {
+      body: { files: [{ name, mimeType: 'application/gzip', contentBase64: base64 }] },
+    })
 
   /** Point every module at one deployment's database and corpus. */
   async function on(deployment: 'source' | 'target') {
@@ -97,7 +122,7 @@ describe.skipIf(!SOURCE_URL || !TARGET_URL)('a country’s release, exported on 
     withPlatformAccess('release transfer spec', async () => [...(await db.getDb().execute<T>(query))])
 
   /** Every claim accepted, its source checked, by a person who wrote nothing in it; approved; published to stable. */
-  async function reviewAndPublish(id: string, by: UserSession) {
+  async function reviewAndPublish(id: string, by: AuthorizedSession) {
     const view = await store.readChangeRequest(id)
     await store.platformTransaction(async (tx) => {
       const decisions = view!.revisions.flatMap((revision) =>
@@ -159,11 +184,14 @@ describe.skipIf(!SOURCE_URL || !TARGET_URL)('a country’s release, exported on 
   /** A record as proposed, without the deployment's own capture ids. */
   const portable = (record: { citations: { captureId?: string }[] }) => ({ ...record, citations: record.citations.map(({ captureId: _id, ...rest }) => rest) })
 
-  let unionBundle: Awaited<ReturnType<typeof transfer.exportCountryRelease>>
-  let countryBundle: Awaited<ReturnType<typeof transfer.exportCountryRelease>>
+  let unionFile = ''
+  let countryFile = ''
+  let countryBundle: Bundle
 
   beforeAll(async () => {
+    Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
     process.env.APP_DATABASE_URL = SOURCE_URL
+    handler = (await import('@/lib/agent-api/mcp-server')).createAgentDoorHandler(() => undefined)
     db = await import('@/lib/db')
     withPlatformAccess = (await import('@/lib/db/tenant-context')).withPlatformAccess
     store = await import('./store')
@@ -183,11 +211,15 @@ describe.skipIf(!SOURCE_URL || !TARGET_URL)('a country’s release, exported on 
     await db.closeDb()
   })
 
-  it('exports a country’s stable release as one self-describing bundle, to a reviewer only', async () => {
-    await expect(transfer.exportCountryRelease(person('user_release_viewer', ['platform:settings:view']), 'XA')).rejects.toThrow(/platform:knowledge:review/)
-    countryBundle = await transfer.exportCountryRelease(author, 'XA')
-    unionBundle = await transfer.exportCountryRelease(author, 'XB')
+  it('exports a country’s stable release as one self-describing file, to a reviewer only', async () => {
+    const viewer = await door(platformOperator(person('user_release_viewer', ['platform:settings:view'])), 'platform-knowledge-release-export', { params: { countryId: 'XA' } })
+    expect(viewer.ok).toBe(false)
+    const country = await exported(author, 'XA')
+    countryFile = country.file.base64
+    countryBundle = country.bundle
+    unionFile = (await exported(author, 'XB')).file.base64
 
+    expect(country.file.name).toContain('knowledge-release-XA-')
     expect(countryBundle).toMatchObject({ format: 'knowledge-release/1', countryId: 'XA', requires: [{ recordId: 'XB', countryId: 'XB' }] })
     expect(countryBundle.records.map((record) => record.type)).toEqual(['territory', 'work', 'edition', 'manifestation'])
     expect(countryBundle.captures).toEqual([expect.objectContaining({ basis: 'operator_supplied', text: PAGE, sha256: captures.sha256Of(PAGE) })])
@@ -199,26 +231,39 @@ describe.skipIf(!SOURCE_URL || !TARGET_URL)('a country’s release, exported on 
 
   it('refuses a release that names a record the target has not released, and writes nothing', async () => {
     await on('target')
-    await expect(transfer.importCountryRelease(importer, { bundle: countryBundle })).rejects.toMatchObject({ code: 'REFERENCE_NOT_RELEASED', details: { missing: ['XB'] } })
+    const refused = await importing(importer, countryFile)
+    expect(refused.problem).toMatchObject({ code: 'REFERENCE_NOT_RELEASED', status: 422 })
     expect(await rows(sql`SELECT id FROM knowledge_change_requests`)).toEqual([])
     expect(await rows(sql`SELECT id FROM knowledge_citation_captures`)).toEqual([])
+    // Not a bundle at all: refused, nothing written.
+    expect((await importing(importer, Buffer.from('{"format":"other"}').toString('base64'), 'x.json')).problem).toMatchObject({ status: 422 })
   })
 
   it('takes the imports only from a writer, and imports the union first, reviewed and published on the target', async () => {
-    await expect(transfer.importCountryRelease(person('user_release_viewer', ['platform:settings:view']), { bundle: unionBundle })).rejects.toThrow(/platform:knowledge:write/)
-    const union = await transfer.importCountryRelease(importer, { bundle: unionBundle })
-    expect(union).toMatchObject({ status: 'created', records: 1, captures: 1, texts: [] })
-    expect(await onboarding.validatePlatformChangeRequest(importer, union.changeRequestId)).toMatchObject({ valid: true })
-    await submit(union.changeRequestId)
-    await reviewAndPublish(union.changeRequestId, prodExpert)
+    const viewer = await importing(person('user_release_viewer', ['platform:settings:view']), unionFile)
+    expect(viewer.ok).toBe(false)
+    const union = await importing(importer, unionFile)
+    expect(union.body).toMatchObject({ status: 'created', requestStatus: 'draft', records: 1, captures: 1, texts: [] })
+    const unionId = String(union.body.changeRequestId)
+    expect(await onboarding.validatePlatformChangeRequest(importer, unionId)).toMatchObject({ valid: true })
+    await submit(unionId)
+    await reviewAndPublish(unionId, prodExpert)
+  })
+
+  it('refuses a release that fails the kit here, leaving no draft behind', async () => {
+    const broken = { ...countryBundle, captures: [] }
+    await expect(transfer.importCountryRelease(importer, { bundle: broken })).rejects.toMatchObject({ code: 'UNPROCESSABLE', status: 422 })
+    expect(await rows(sql`SELECT id FROM knowledge_change_requests WHERE country_id = 'XA'`)).toEqual([])
   })
 
   let draftId = ''
 
   it('imports the country into a draft, and nothing more: no approval, no release, every page still to be checked', async () => {
-    const imported = await transfer.importCountryRelease(importer, { bundle: countryBundle }, 'agent')
+    const imported = await ok(platformOperator(importer), 'platform-knowledge-release-import', {
+      body: { files: [{ name: 'release.json.gz', mimeType: 'application/gzip', contentBase64: countryFile }] },
+    })
     expect(imported).toMatchObject({ status: 'created', records: 4, captures: 1, texts: countryBundle.texts })
-    draftId = imported.changeRequestId
+    draftId = String(imported.changeRequestId)
     const view = await store.readChangeRequest(draftId)
     expect(view).toMatchObject({ status: 'draft', countryId: 'XA', createdBy: importer.userId, approvals: [], releases: [], sourcesUnchecked: true })
     // Not fetched here: an operator-supplied capture, holding the source's text and its sha256.
@@ -228,7 +273,7 @@ describe.skipIf(!SOURCE_URL || !TARGET_URL)('a country’s release, exported on 
 
   it('answers the same bundle with the same draft, unchanged', async () => {
     const again = await transfer.importCountryRelease(importer, { bundle: countryBundle })
-    expect(again).toMatchObject({ status: 'unchanged', changeRequestId: draftId })
+    expect(again).toMatchObject({ status: 'unchanged', requestStatus: 'draft', changeRequestId: draftId })
     expect(await rows(sql`SELECT id FROM knowledge_change_requests WHERE country_id = 'XA'`)).toHaveLength(1)
     expect(await rows(sql`SELECT id FROM knowledge_citation_captures WHERE change_request_id = ${draftId}::uuid`)).toHaveLength(1)
   })
@@ -239,6 +284,13 @@ describe.skipIf(!SOURCE_URL || !TARGET_URL)('a country’s release, exported on 
     expect(before.problems).toEqual([expect.objectContaining({ code: 'KC-1', pointer: '/corpusFile', recordId: `manifestation:${TEXT_KEY}` })])
 
     const other = new File([Buffer.from('%PDF-1.7 another text')], 'code.pdf', { type: 'application/pdf' })
+    await expect(texts.uploadPlatformText(importer, draftId, TEXT_KEY, other)).rejects.toMatchObject({ code: 'TEXT_NOT_RELEASED' })
+    // Proposed again with no file, the record still holds its released bytes: other bytes are still refused.
+    await store.platformTransaction(async (tx) => {
+      const current = store.newestPerRecord(await store.requestRevisions(tx, draftId)).find((revision) => revision.recordId === `manifestation:${TEXT_KEY}`)
+      const unnamed = wire.proposedRecordSchema.parse({ ...current!.provenance.proposal, corpusFile: null })
+      await store.insertProposedRecords(tx, (await store.lockChangeRequest(tx, draftId))!, [unnamed], { createdBy: importer.userId, proposedBy: 'person' })
+    })
     await expect(texts.uploadPlatformText(importer, draftId, TEXT_KEY, other)).rejects.toMatchObject({ code: 'TEXT_NOT_RELEASED' })
     const same = new File([PDF], 'code.pdf', { type: 'application/pdf' })
     expect(await texts.uploadPlatformText(importer, draftId, TEXT_KEY, same)).toMatchObject({ status: 'written', text: { sha256: PDF_SHA } })
@@ -270,5 +322,7 @@ describe.skipIf(!SOURCE_URL || !TARGET_URL)('a country’s release, exported on 
     // Positive control: with the source checked, the same person approves.
     await reviewAndPublish(draftId, prodExpert)
     expect(await rows(sql`SELECT id FROM knowledge_records WHERE country_id = 'XA' AND head_revision_id IS NOT NULL`)).toHaveLength(4)
+    // Imported again once published: the request it went into, as it stands now.
+    expect(await transfer.importCountryRelease(importer, { bundle: countryBundle })).toMatchObject({ status: 'unchanged', requestStatus: 'published', changeRequestId: draftId })
   })
 })
