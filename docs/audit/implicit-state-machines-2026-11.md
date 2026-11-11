@@ -29,14 +29,16 @@ and most of `packages/agent/src/agent/common` beyond the claim queue.
 
 | Kind | Count | Declared before | Declared now |
 |---|---|---|---|
-| Persisted records (a status column, or timestamps read as one) | 43 | 3 | 8 |
-| Background runs and their mirrors | 22 | 0 | 0 |
+| Persisted records (a status column, or timestamps read as one) | 43 | 3 | 12 |
+| Background runs and their mirrors | 22 | 0 | 1 |
 | UI flows | 41 | 0 | 2 |
 | Wire and protocol vocabularies | 14 | 0 | 0 |
 
 "Declared before" are the project (ADR-0098), the document version (ADR-0104)
 and the platform change request (the trigger of migration 0218). "Declared now"
-adds annotation, agent wake, agent ask, root-sort run and mail import.
+adds annotation, agent wake, agent ask, root-sort run, mail import, document
+reading, task run, deletion queue and BIM model, the run ledger among the
+background runs, and the CMS social post in its own package.
 
 Four patterns account for most of the risk:
 
@@ -68,14 +70,14 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Root-sort run, `root_sort_runs.status` | judging, grouping, ready, applying, applied, undoing, undone, cancelled, failed | CAS with cursor, CHECK, one-in-work index | declared (read) |
 | Mail import, `mail_imports.status` | uploading, queued, importing, completed, failed, cancelled | CAS, CHECKs | declared (read) |
 | Platform change request, `knowledge_change_requests.status` + `second_review` | draft, submitted, approved, rejected, published, rolled_back | trigger (0218) holds every edge | declared in SQL only; TS has a list |
-| Document reading, `documents.status` | uploaded, pending, processing, completed, failed, quarantined, stored, cancelled | CHECK; one trigger edge (leaving quarantine); CAS only in reconcile | next (see order) |
+| Document reading, `documents.status` | uploaded, pending, processing, completed, failed, quarantined, stored, cancelled | CHECK; one trigger edge (leaving quarantine); CAS only in reconcile | declared (read by its converter). Dense: it mirrors the ingest backend; it rules out leaving quarantine except by release. Fixed on the way: a stale sweep or job failing a row it no longer owned |
 | Screening hold (derived from five columns) | held, passed, in flight | same predicate in SQL and TS, kept equal by hand | |
 | Inbound mail, `inbound_mails.status` | receiving, received, waiting, settled, dropped | CAS, many CHECKs, trigger freezes the sender verdict | |
 | Inbound mail part, `inbound_mail_parts.state` | waiting, filing, filed, dismissed, expired | CAS on a claim, CHECKs | |
 | Mail scan, `raw_scan_status` / `scan_status` | pending, clean, infected, failed, not_applicable | CHECKs | |
 | Mail-thread follow | active, ended (eight reasons), expired by clock | CAS, CHECKs | |
 | Proposed change, `proposed_changes.status` | proposed (+ apply lease), applied, partially_applied, failed, dismissed | CAS with a 5-minute lease, CHECKs | risk: lease without fencing |
-| Deletion queue, `deletion_queue.status` | pending, purging, purged, restored, failed | partial unique index, CAS; no CHECK; two writers in two languages (`purger/db.js`) | risk: a row at the attempt cap can be left `pending` and never claimed |
+| Deletion queue, `deletion_queue.status` | pending, purging, purged, restored, failed | partial unique index, CAS; no CHECK; two writers in two languages (`purger/db.js`) | declared. The stuck-row lead was real, in three forms, and is fixed; CHECK added (0223) |
 | Folder in the bin (three columns) | living, in the bin, tombstone | CHECK on the combination | |
 | Upload batch (two timestamps) | open, sealed, completed, reopened | CHECK, guarded UPDATEs | |
 | Project intake, `project_intakes.status` | waiting, reading, ready, failed, completed | CAS on the job id, CHECKs | |
@@ -83,11 +85,11 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Project memory, `project_memory.status` | proposed, active, superseded, dismissed | CAS for supersede; no CHECK | |
 | Inbox item (four timestamps) | unread, read, resolved, archived, inert | WHERE clauses; no CHECK | |
 | Mention request | open, answered, released, void | CAS; no CHECK | |
-| Task run, `task_runs.status` | queued, running, succeeded, failed, interrupted, skipped, error | CHECK; CAS on close, none on the worker outcome | risk: a late success may overwrite a reconciled row |
+| Task run, `task_runs.status` | queued, running, succeeded, failed, interrupted, skipped, error | CHECK; CAS on close, none on the worker outcome | declared. The late-overwrite lead was real and is fixed: the first ending to close the row stands |
 | Report filing, `task_runs.filing_status` | queued, filed, refused, failed | CAS; two CHECKs disagree on `queued` | |
 | Task definition schedule (four columns) | manual, once, schedule × enabled × due | row lock on the occurrence, CHECKs | |
 | Background job, `bff_job_queue.status` | queued, claimed, dead | CAS on the holder, CHECKs | mirror of Hatchet |
-| BIM model, `bim_models.status` | pending, extracting, ready, failed | none; no CHECK | risk: no attempt id, a slow run may land on a newer one |
+| BIM model, `bim_models.status` | pending, extracting, ready, failed | none; no CHECK | declared. The overlap lead was real and is fixed with a run id (0222) |
 | Knowledge index run | requested, queued, failed | CHECK | |
 | Platform lesson | candidate, active, retired | CHECK on the value; read-then-write | risk: check-then-act |
 | Product feedback (external ticket) | new, open, pending, on_hold, resolved | PostHog is the authority | |
@@ -99,7 +101,7 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Platform skill | draft, published (a boolean) | none | |
 | Folder card | fresh, stale, failed | CHECK | |
 | Push subscription (failure count) | active, failing(n), deleted | SQL increment | |
-| CMS social post (`apps/cms`) | draft, in_review, approved, scheduled, published, failed, archived | role matrix in a hook; enum | risk: hand-off sends before it records |
+| CMS social post (`apps/cms`) | draft, in_review, approved, scheduled, published, failed, archived | role matrix in a hook; enum | declared locally (`SOCIAL_MOVES`). The double-send lead was real and is fixed: the hand-off claims `sending` before it sends |
 | CMS post (`_status`, `stage`) | draft, published; writing, in_review | hook; enum | two unlinked axes |
 | OIB corpus file (four columns, `packages/agent`) | ingested, stale, pending, failed | CAS on the hash | ingested and failed at once is storable |
 | Quarantine decision audit | owed, sent, deleted | at least once | |
@@ -116,7 +118,7 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Failure category | transient, configuration, deterministic, quarantined, unknown | `ingest_failures.py`, mirrored in `retry-policy.ts` | already a table |
 | Research job, `job_info.status` | submitted, running, success, failure, interrupted | `apps/agent-host/.../jobs/` | the enum is the runtime vendor's; terminal set repeated four times |
 | Run ownership verdict | taken, alive, gone | `run_ownership.py` | |
-| Run ledger status | created, running, waiting, done, failed, cancelled, interrupted | `bff/runs/run-ledger-types.ts`, `common/run_ledger.py` | risk: no terminal guard on append; Python side writes plain strings |
+| Run ledger status | created, running, waiting, done, failed, cancelled, interrupted | `bff/runs/run-ledger-types.ts`, `common/run_ledger.py` | declared. The missing terminal guard was real: every salvaged run was stored `done`. Fixed |
 | Run ledger phase | planning, researching, checking, writing, filed | same | |
 | Reconcile verdict | closed, already-closed, waiting, failed | `bff/runs/reconcile.ts` | settles the ledger before the row's CAS |
 | Post-answer stage | ready, empty, skipped, failed, timeout, disabled | `packages/agent/.../stages/spec.py` | six states, three on the wire |
@@ -238,28 +240,35 @@ an order.
 
 ## The order to convert the rest in
 
-Ranked by what each fixes for a person, then by how safe the conversion is. Each
-is one change: declare, replace the literals at the writers, register.
+Five of the first list were done in the change that wrote this page: document
+reading, the run's ending (task run and ledger), the deletion queue, the BIM
+model and the CMS social post. Each began by verifying its lead, and all five
+leads held. What they left open, each a decision and not a conversion:
 
-1. **Document reading (`documents.status`)**. Eight states, about twelve write
-   sites in nine files, and the status every office looks at most. Declaring it
-   also settles the open questions the scan raised (whether `uploaded` is only
-   a birth state; the one writer with no compare).
-2. **Task run and run ledger together.** Decide the one word for a stopped run
-   (`interrupted`, `cancelled`, `canceled`) and give the ledger a terminal
-   guard, so a late worker cannot move a run that has ended.
-3. **Inbound mail and its parts.** The CHECKs are thorough; the edges exist only
-   in the writers.
-4. **Deletion queue.** Two writers in two languages and no CHECK. Verify the
-   attempt-cap lead first; if it holds, it is a bug with data-retention weight.
-5. **Proposed change.** Add `applying` as a state, or a fencing token, so a slow
-   apply cannot be claimed a second time.
-6. **The Python tier.** A `define_lifecycle` with the same shape, and the
+* **Re-screening a quarantined upload fails at the database** (`GQH01`): the
+  0122 trigger needs to let a quarantined row return to `uploaded` when the
+  write lifts nothing. In the gotchas register, with a spec waiting on it.
+* **Archiving a document does not cancel its running ingest job**, so the job
+  may write chunks after the archive purged them (unverified on the Python
+  side).
+* **`delegation.ts` can still reopen an ended run row** when the kill switch
+  fires during a submit; two files at their size limit stand in the way.
+* **Nothing records that a scheduled social post went out at Buffer.** That
+  needs a status poll per scheduled post.
+* **An entity erased over HTTP whose purger transaction then fails on its final
+  attempt** still reads `failed`.
+
+Still to convert, by what each fixes for a person:
+
+1. **Inbound mail and its parts.** The CHECKs are thorough; the edges exist only
+   in the writers. Do it when that flow next changes.
+2. **Proposed change.** Add `applying` as a state, or a fencing token, if applies
+   can run longer than the five-minute lease. Check the timings first.
+3. **The Python tier.** A `define_lifecycle` with the same shape, and the
    declarations generated into `contracts/` so the mirrored lists (job state,
-   file status, run ledger, annotation, document version) have one source.
-7. **The UI statecharts.** Dictation and the turn socket run on XState v5 now;
-   the chat turn fold can follow. The upload row needs a report id first (see
-   above); and one shared fetch-state hook for the
-   twelve components with two booleans.
-8. **The agent door.** A resource that serves the registry, so a calling agent
+   file status, annotation, document version) have one source. The run ledger's
+   moves are mirrored by hand today and held by a fixture.
+4. **The chat turn fold** on XState, if a defect ever calls for it; and one
+   shared fetch-state hook for the twelve components with two booleans.
+5. **The agent door.** A resource that serves the registry, so a calling agent
    can read which moves a record accepts before it asks for one.

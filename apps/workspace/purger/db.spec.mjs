@@ -9,6 +9,7 @@ import {
   markFailedPermanent,
   markPurged,
   reapStranded,
+  reofferExhausted,
   releaseHeld,
   MAX_ATTEMPTS,
 } from './db.js'
@@ -151,6 +152,36 @@ describe('releaseHeld', () => {
   })
 })
 
+describe('reofferExhausted', () => {
+  it("gives a 'pending' row with no attempts left its last one back, so the claim takes it again", async () => {
+    // claimNext asks `attempts < MAX_ATTEMPTS`: a pending row at the cap reads
+    // as waiting and is never purged.
+    const { fn, executed } = makeSql([{ id: 'a' }])
+
+    expect(await reofferExhausted(fn)).toBe(1)
+
+    const q = queries(executed)[0]
+    expect(q.text).toMatch(/^UPDATE deletion_queue SET attempts = \$ WHERE status = 'pending' AND attempts >= \$ RETURNING id$/)
+    expect(q.values).toEqual([MAX_ATTEMPTS - 1, MAX_ATTEMPTS])
+  })
+})
+
+describe('a late answer never moves a row that is no longer claimed', () => {
+  // Two holders can run one purge: the purger takes over a claim 15 minutes
+  // old, and „Endgültig löschen" claims in a request. Whoever answers second
+  // must not pull a `purged` row back to `pending` or `failed`.
+  it.each([
+    ['releaseHeld', (sql) => releaseHeld(sql, 'e1')],
+    ['markPurged', (sql) => markPurged(sql, 'e1')],
+    ['markFailed', (sql) => markFailed(sql, 'e1', 'boom')],
+    ['markFailedPermanent', (sql) => markFailedPermanent(sql, 'e1', 'boom')],
+  ])('%s writes only a row still purging', async (_name, run) => {
+    const { fn, executed } = makeSql()
+    await run(fn)
+    expect(queries(executed)[0].text).toMatch(/WHERE id = \$ AND status = 'purging'$/)
+  })
+})
+
 describe('markPurged', () => {
   it("marks 'purged', stamps purged_at, clears last_error", async () => {
     const { fn, executed } = makeSql()
@@ -160,6 +191,19 @@ describe('markPurged', () => {
     const q = queries(executed)[0]
     expect(q.text).toContain("SET status = 'purged', purged_at = now(), last_error = NULL")
     expect(q.values).toEqual(['e1'])
+  })
+
+  it('runs in the transaction it is given, the purge’s, and opens none of its own', async () => {
+    // A write of its own after the purge committed could fail alone, and the
+    // row of an erased entity then read `failed` once its attempts were spent.
+    const { fn, executed } = makeSql()
+    fn.begin = () => {
+      throw new Error('markPurged opened a transaction of its own')
+    }
+
+    await markPurged(fn, 'e1')
+
+    expect(executed).toHaveLength(1)
   })
 })
 
@@ -208,10 +252,10 @@ describe('platform scope', () => {
   it('steps up to the BYPASSRLS role before every statement', async () => {
     for (const run of [
       (sql) => releaseHeld(sql, 'e1'),
-      (sql) => markPurged(sql, 'e1'),
       (sql) => markFailed(sql, 'e1', 'boom'),
       (sql) => markFailedPermanent(sql, 'e1', 'boom'),
       (sql) => reapStranded(sql),
+      (sql) => reofferExhausted(sql),
     ]) {
       const { fn, executed } = makeSql()
       await run(fn)

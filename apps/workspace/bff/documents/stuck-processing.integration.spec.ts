@@ -220,6 +220,112 @@ describe.skipIf(!url)('background-work sweeps against live Postgres', () => {
     expect((await read('no-job'))?.metadata ?? {}).not.toHaveProperty('bffJobId')
   })
 
+  describe('a failure reported by work that no longer owns the row', () => {
+    const inOrg = <T,>(work: () => Promise<T>) => context.withTenant({ organizationId: ORG }, work)
+    const statusOf = async (name: string) =>
+      (await inOrg(() => documents.findDocumentInOrg(docs[name], ORG, internalRead('ingest'))))?.status
+
+    it('does not fail a document that was read to the end after the sweep listed it', async () => {
+      const dead = await seedJob(ORG, 'dead', 'converter down')
+      await seedDocument('retried-meanwhile', { ageMinutes: 45, jobId: dead })
+      const listed = (await documents.listStuckProcessingDocuments(minutesAgo(15), 100)).find(
+        (row) => row.id === docs['retried-meanwhile'],
+      )
+      expect(listed).toMatchObject({ jobStatus: 'dead', jobId: dead })
+
+      // While the sweep works through the rows before this one, a person reads
+      // the file again and the read finishes.
+      await documents.setDocumentIngestJob(docs['retried-meanwhile'], ORG, 'ingest-retry-1')
+      await documents.setDocumentReconciledStatus(
+        docs['retried-meanwhile'],
+        ORG,
+        { status: 'completed', errorMessage: null },
+        { status: 'pending', jobId: 'ingest-retry-1' },
+      )
+      expect(await statusOf('retried-meanwhile')).toBe('completed')
+
+      const moved = await inOrg(() =>
+        documents.markDocumentIngestFailed(docs['retried-meanwhile'], ORG, 'Ingestion could not be started', {
+          backgroundJobId: listed!.jobId,
+        }),
+      )
+      expect(moved).toBe(false)
+      expect(await statusOf('retried-meanwhile')).toBe('completed')
+    })
+
+    it('does not fail a row a newer round of local work has taken', async () => {
+      const dead = await seedJob(ORG, 'dead')
+      const next = await seedJob(ORG, 'queued')
+      await seedDocument('requeued-meanwhile', { ageMinutes: 45, jobId: dead })
+      await inOrg(() => documents.markDocumentProcessing(docs['requeued-meanwhile'], ORG))
+      await inOrg(() => documents.setDocumentBackgroundJob(docs['requeued-meanwhile'], ORG, next))
+
+      const moved = await inOrg(() =>
+        documents.markDocumentIngestFailed(docs['requeued-meanwhile'], ORG, 'boom', { backgroundJobId: dead }),
+      )
+      expect(moved).toBe(false)
+      expect(await statusOf('requeued-meanwhile')).toBe('processing')
+    })
+
+    it('does not fail an archived document when the conversion it was waiting on fails afterwards', async () => {
+      await seedDocument('archived-meanwhile', { ageMinutes: 1 })
+      await documents.markDocumentNotIndexed(docs['archived-meanwhile'], ORG)
+
+      const moved = await inOrg(() =>
+        documents.markDocumentIngestFailed(docs['archived-meanwhile'], ORG, 'boom', { storageKey: 'k/archived-meanwhile' }),
+      )
+      expect(moved).toBe(false)
+      expect(await statusOf('archived-meanwhile')).toBe('stored')
+    })
+
+    it('does not fail a row whose bytes were replaced while the job for the old ones ran', async () => {
+      await seedDocument('replaced-meanwhile', { ageMinutes: 1 })
+
+      const moved = await inOrg(() =>
+        documents.markDocumentIngestFailed(docs['replaced-meanwhile'], ORG, 'boom', { storageKey: 'k/the-old-bytes' }),
+      )
+      expect(moved).toBe(false)
+      expect(await statusOf('replaced-meanwhile')).toBe('processing')
+    })
+
+    it('fails the row the work still owns', async () => {
+      const dead = await seedJob(ORG, 'dead')
+      await seedDocument('still-owned', { ageMinutes: 45, jobId: dead })
+
+      const moved = await inOrg(() =>
+        documents.markDocumentIngestFailed(docs['still-owned'], ORG, 'boom', {
+          backgroundJobId: dead,
+          storageKey: 'k/still-owned',
+        }),
+      )
+      expect(moved).toBe(true)
+      expect(await statusOf('still-owned')).toBe('failed')
+    })
+
+    it('still fails a document from any state when a new read of it could not be started', async () => {
+      await seedDocument('reread-refused', { ageMinutes: 60, status: 'completed' })
+
+      await expect(inOrg(() => documents.markDocumentIngestFailed(docs['reread-refused'], ORG, 'boom'))).resolves.toBe(true)
+      expect(await statusOf('reread-refused')).toBe('failed')
+    })
+
+    it('keeps an archived document stored when the read that was running reports afterwards', async () => {
+      await seedDocument('archived-while-read', { ageMinutes: 1, status: 'uploaded' })
+      await documents.setDocumentIngestJob(docs['archived-while-read'], ORG, 'ingest-archived-1')
+      await documents.markDocumentNotIndexed(docs['archived-while-read'], ORG)
+
+      // The reconcile holds the row to what it read: `pending` under this job.
+      const moved = await documents.setDocumentReconciledStatus(
+        docs['archived-while-read'],
+        ORG,
+        { status: 'completed', errorMessage: null },
+        { status: 'pending', jobId: 'ingest-archived-1' },
+      )
+      expect(moved).toBe(false)
+      expect(await statusOf('archived-while-read')).toBe('stored')
+    })
+  })
+
   it('lists the report filings still queued after the window, oldest first, and no others', async () => {
     const seedRun = async (name: string, filingStatus: 'queued' | 'filed' | null, finishedMinutesAgo: number) => {
       await context.withTenant({ organizationId: ORG }, async () => {

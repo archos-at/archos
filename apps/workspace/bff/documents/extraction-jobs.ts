@@ -69,7 +69,9 @@ export async function runBimExtractJob(
         ),
     })
     if (outcome.status === 'failed') {
-      await markDocumentIngestFailed(input.documentId, organizationId, outcome.error ?? 'IFC extraction failed')
+      await markDocumentIngestFailed(input.documentId, organizationId, outcome.error ?? 'IFC extraction failed', {
+        storageKey: input.storageKey,
+      })
     }
   })
 }
@@ -123,7 +125,12 @@ async function failRowOnLastAttempt(
     await work()
   } catch (error) {
     if (attempt.last) {
-      await markDocumentIngestFailed(input.documentId, input.organizationId, message).catch(() => undefined)
+      // Only while the job still owns the row, as it did when it started
+      // (`jobStillOwnsRow`): the work may have dispatched the read before it
+      // threw, and a person may have archived or replaced the file meanwhile.
+      await markDocumentIngestFailed(input.documentId, input.organizationId, message, {
+        storageKey: input.storageKey,
+      }).catch(() => undefined)
     }
     throw error
   }
@@ -174,7 +181,7 @@ async function ingestThroughRendition(input: DispatchDocumentInput, fileName: st
   const indexesRendition = extractsFromRendition(fileName)
   if (indexesRendition && !renditionRef) {
     const message = refusedFile ? DRAWING_UNREADABLE_MESSAGE : RENDITION_REQUIRED_MESSAGE
-    await markDocumentIngestFailed(input.documentId, input.organizationId, message)
+    await markDocumentIngestFailed(input.documentId, input.organizationId, message, { storageKey: input.storageKey })
     return
   }
   await dispatchIngest(

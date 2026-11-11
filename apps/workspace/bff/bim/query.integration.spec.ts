@@ -118,7 +118,7 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     const { getDb, closeDb: close } = await import('@/lib/db')
     const tenantContext = await import('@/lib/db/tenant-context')
     withPlatformAccess = tenantContext.withPlatformAccess
-    const repository = await import('./repository')
+    const extraction = await import('./extraction-repository')
     const query = await import('./query')
     runBimQuery = query.runBimQuery
     bimQuerySchema = query.bimQuerySchema
@@ -181,13 +181,14 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     )
     PLACED_PROJECT = Array.from(placedRows)[0].id
     const documentId = await seedDocument(ORG, 'sample-building.ifc')
-    modelId = await repository.startBimModel({
+    const modelIdRun = await extraction.startBimModel({
       organizationId: ORG,
       projectId: PLACED_PROJECT,
       documentId,
     })
-    await repository.completeBimModel({
-      modelId,
+    modelId = modelIdRun.modelId
+    await extraction.completeBimModel({
+      run: modelIdRun,
       organizationId: ORG,
       summary,
       elements,
@@ -230,13 +231,14 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
         },
       ])
     const revisionDocumentId = await seedDocument(ORG, 'sample-building-v2.ifc')
-    revisionModelId = await repository.startBimModel({
+    const revisionModelIdRun = await extraction.startBimModel({
       organizationId: ORG,
       projectId: PLACED_PROJECT,
       documentId: revisionDocumentId,
     })
-    await repository.completeBimModel({
-      modelId: revisionModelId,
+    revisionModelId = revisionModelIdRun.modelId
+    await extraction.completeBimModel({
+      run: revisionModelIdRun,
       organizationId: ORG,
       summary,
       elements: revisionElements,
@@ -245,13 +247,14 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     })
 
     const otherBuildingDocumentId = await seedDocument(ORG, 'nebengebaeude.ifc')
-    otherBuildingId = await repository.startBimModel({
+    const otherBuildingIdRun = await extraction.startBimModel({
       organizationId: ORG,
       projectId: null,
       documentId: otherBuildingDocumentId,
     })
-    await repository.completeBimModel({
-      modelId: otherBuildingId,
+    otherBuildingId = otherBuildingIdRun.modelId
+    await extraction.completeBimModel({
+      run: otherBuildingIdRun,
       organizationId: ORG,
       summary,
       elements,
@@ -271,13 +274,14 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     FIXTURE_PROJECT = Array.from(projectRows)[0].id
 
     const otherDocumentId = await seedDocument(OTHER_ORG, 'other.ifc')
-    otherModelId = await repository.startBimModel({
+    const otherModelIdRun = await extraction.startBimModel({
       organizationId: OTHER_ORG,
       projectId: null,
       documentId: otherDocumentId,
     })
-    await repository.completeBimModel({
-      modelId: otherModelId,
+    otherModelId = otherModelIdRun.modelId
+    await extraction.completeBimModel({
+      run: otherModelIdRun,
       organizationId: OTHER_ORG,
       summary,
       elements,
@@ -297,13 +301,14 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     // took a flat `LIMIT` off the top would report `Pset_DoorCommon`, part of
     // `Pset_WallCommon`, and never see `Pset_WindowCommon` at all.
     const bigDocumentId = await seedDocument(ORG, 'big-building.ifc')
-    bigModelId = await repository.startBimModel({
+    const bigModelIdRun = await extraction.startBimModel({
       organizationId: ORG,
       projectId: null,
       documentId: bigDocumentId,
     })
-    await repository.completeBimModel({
-      modelId: bigModelId,
+    bigModelId = bigModelIdRun.modelId
+    await extraction.completeBimModel({
+      run: bigModelIdRun,
       organizationId: ORG,
       summary,
       elements: [],

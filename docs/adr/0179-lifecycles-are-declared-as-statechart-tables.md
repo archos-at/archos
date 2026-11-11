@@ -169,7 +169,9 @@ Two findings follow from that split and are not acted on here:
 * Bad, because a declaration says a move exists, not who may make it or what it
   stamps. Guards and effects stay in the service (the document version keeps
   its richer rows for exactly that reason).
-* Bad, because seven of 120 are converted. Until a machine is converted
+* Bad, because thirteen of 120 are converted (the first seven, then document
+  reading, task run, run ledger, deletion queue, BIM model and, locally in its
+  own package, the CMS social post). Until a machine is converted
   its rule is still the sum of its writers.
 * Bad, because the Python tier has no `defineLifecycle` yet. Its machines
   (ingest job, file status, research job, run ledger) stay implicit, and the

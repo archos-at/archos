@@ -70,6 +70,108 @@ Born as `draft`, `published`, `approved`. Final: `superseded`, `rejected`.
 | `approved` | `publish` | `published` |
 | `published` | `supersede` | `superseded` |
 
+## document-reading
+
+Whether the current bytes of a document were read into the index: uploaded, being read, readable, failed, held by the content gate, or kept unread. It mirrors the ingest backend, so most moves are legal; what it rules out is leaving quarantine any way but by a release.
+
+Stored in `documents.status`. Declared in [`bff/documents/reading-lifecycle.ts`](../../apps/workspace/bff/documents/reading-lifecycle.ts).
+
+```mermaid
+stateDiagram-v2
+  [*] --> uploaded
+  [*] --> stored
+  uploaded --> pending: dispatch
+  uploaded --> processing: process
+  uploaded --> failed: fail
+  uploaded --> stored: unindex
+  pending --> completed: complete
+  pending --> failed: fail
+  pending --> quarantined: quarantine
+  pending --> cancelled: cancel
+  pending --> processing: process
+  pending --> stored: unindex
+  pending --> uploaded: replace
+  processing --> pending: dispatch
+  processing --> completed: complete
+  processing --> failed: fail
+  processing --> quarantined: quarantine
+  processing --> stored: unindex
+  processing --> uploaded: replace
+  completed --> pending: dispatch
+  completed --> processing: process
+  completed --> failed: fail
+  completed --> stored: unindex
+  completed --> uploaded: replace, release, rescreen
+  failed --> pending: dispatch, resume
+  failed --> processing: process
+  failed --> completed: complete
+  failed --> stored: unindex
+  failed --> uploaded: replace, release, rescreen
+  quarantined --> uploaded: release
+  stored --> pending: dispatch
+  stored --> processing: process
+  stored --> failed: fail
+  stored --> uploaded: replace, release, rescreen
+  cancelled --> pending: dispatch
+  cancelled --> processing: process
+  cancelled --> completed: complete
+  cancelled --> failed: fail
+  cancelled --> stored: unindex
+  cancelled --> uploaded: replace, release, rescreen
+```
+
+Born as `uploaded`, `stored`. Final: none.
+
+| From | Move | To |
+|---|---|---|
+| `uploaded` | `dispatch` | `pending` |
+| `uploaded` | `process` | `processing` |
+| `uploaded` | `fail` | `failed` |
+| `uploaded` | `unindex` | `stored` |
+| `pending` | `complete` | `completed` |
+| `pending` | `fail` | `failed` |
+| `pending` | `quarantine` | `quarantined` |
+| `pending` | `cancel` | `cancelled` |
+| `pending` | `process` | `processing` |
+| `pending` | `unindex` | `stored` |
+| `pending` | `replace` | `uploaded` |
+| `processing` | `dispatch` | `pending` |
+| `processing` | `complete` | `completed` |
+| `processing` | `fail` | `failed` |
+| `processing` | `quarantine` | `quarantined` |
+| `processing` | `unindex` | `stored` |
+| `processing` | `replace` | `uploaded` |
+| `completed` | `dispatch` | `pending` |
+| `completed` | `process` | `processing` |
+| `completed` | `fail` | `failed` |
+| `completed` | `unindex` | `stored` |
+| `completed` | `replace` | `uploaded` |
+| `completed` | `release` | `uploaded` |
+| `completed` | `rescreen` | `uploaded` |
+| `failed` | `dispatch` | `pending` |
+| `failed` | `resume` | `pending` |
+| `failed` | `process` | `processing` |
+| `failed` | `complete` | `completed` |
+| `failed` | `unindex` | `stored` |
+| `failed` | `replace` | `uploaded` |
+| `failed` | `release` | `uploaded` |
+| `failed` | `rescreen` | `uploaded` |
+| `quarantined` | `release` | `uploaded` |
+| `stored` | `dispatch` | `pending` |
+| `stored` | `process` | `processing` |
+| `stored` | `fail` | `failed` |
+| `stored` | `replace` | `uploaded` |
+| `stored` | `release` | `uploaded` |
+| `stored` | `rescreen` | `uploaded` |
+| `cancelled` | `dispatch` | `pending` |
+| `cancelled` | `process` | `processing` |
+| `cancelled` | `complete` | `completed` |
+| `cancelled` | `fail` | `failed` |
+| `cancelled` | `unindex` | `stored` |
+| `cancelled` | `replace` | `uploaded` |
+| `cancelled` | `release` | `uploaded` |
+| `cancelled` | `rescreen` | `uploaded` |
+
 ## annotation
 
 A mark on a page of a document: proposed by the agent or set by a person, then resolved or dismissed.
@@ -261,3 +363,155 @@ Born as `uploading`. Final: `completed`, `failed`, `cancelled`.
 | `importing` | `complete` | `completed` |
 | `importing` | `fail` | `failed` |
 | `importing` | `cancel` | `cancelled` |
+
+## task-run
+
+One run of a task: queued, running, then one ending that stands whoever reports later.
+
+Stored in `task_runs.status`. Declared in [`bff/tasks/task-vocabulary.ts`](../../apps/workspace/bff/tasks/task-vocabulary.ts).
+
+```mermaid
+stateDiagram-v2
+  [*] --> queued
+  [*] --> running
+  [*] --> skipped
+  [*] --> error
+  queued --> running: start
+  queued --> succeeded: succeed
+  queued --> failed: fail
+  queued --> interrupted: interrupt
+  running --> succeeded: succeed
+  running --> failed: fail
+  running --> interrupted: interrupt
+  succeeded --> [*]
+  failed --> [*]
+  interrupted --> [*]
+  skipped --> [*]
+  error --> [*]
+```
+
+Born as `queued`, `running`, `skipped`, `error`. Final: `succeeded`, `failed`, `interrupted`, `skipped`, `error`.
+
+| From | Move | To |
+|---|---|---|
+| `queued` | `start` | `running` |
+| `queued` | `succeed` | `succeeded` |
+| `queued` | `fail` | `failed` |
+| `queued` | `interrupt` | `interrupted` |
+| `running` | `succeed` | `succeeded` |
+| `running` | `fail` | `failed` |
+| `running` | `interrupt` | `interrupted` |
+
+## run-ledger
+
+What a reader sees of a research run in the thread. An ended ledger stays ended; a run settled as done may still be marked interrupted when the worker says it was cut short.
+
+Stored in `messages.metadata.run_ledger.status`. Declared in [`bff/runs/run-ledger-types.ts`](../../apps/workspace/bff/runs/run-ledger-types.ts).
+
+```mermaid
+stateDiagram-v2
+  [*] --> created
+  created --> running: start
+  created --> waiting: ask
+  created --> done: finish
+  created --> failed: fail
+  created --> cancelled: cancel
+  running --> waiting: ask
+  running --> done: finish
+  running --> failed: fail
+  running --> cancelled: cancel
+  running --> interrupted: salvage
+  waiting --> running: resume
+  waiting --> done: finish
+  waiting --> failed: fail
+  waiting --> cancelled: cancel
+  done --> interrupted: salvage
+  failed --> [*]
+  cancelled --> [*]
+  interrupted --> [*]
+```
+
+Born as `created`. Final: `failed`, `cancelled`, `interrupted`.
+
+| From | Move | To |
+|---|---|---|
+| `created` | `start` | `running` |
+| `created` | `ask` | `waiting` |
+| `created` | `finish` | `done` |
+| `created` | `fail` | `failed` |
+| `created` | `cancel` | `cancelled` |
+| `running` | `ask` | `waiting` |
+| `running` | `finish` | `done` |
+| `running` | `fail` | `failed` |
+| `running` | `cancel` | `cancelled` |
+| `running` | `salvage` | `interrupted` |
+| `waiting` | `resume` | `running` |
+| `waiting` | `finish` | `done` |
+| `waiting` | `fail` | `failed` |
+| `waiting` | `cancel` | `cancelled` |
+| `done` | `salvage` | `interrupted` |
+
+## deletion
+
+A queued deletion of a project, folder or chat: waiting out its grace period, claimed by the purger or by a request, then purged, restored or failed.
+
+Stored in `deletion_queue.status`. Declared in [`bff/db/schema/deletion-queue.ts`](../../apps/workspace/bff/db/schema/deletion-queue.ts).
+
+```mermaid
+stateDiagram-v2
+  [*] --> pending
+  pending --> purging: claim
+  pending --> restored: restore
+  pending --> purged: close
+  purging --> purging: reclaim
+  purging --> purged: finish
+  purging --> pending: release
+  purging --> failed: fail
+  failed --> purging: retry
+  failed --> purged: close
+  purged --> [*]
+  restored --> [*]
+```
+
+Born as `pending`. Final: `purged`, `restored`.
+
+| From | Move | To |
+|---|---|---|
+| `pending` | `claim` | `purging` |
+| `pending` | `restore` | `restored` |
+| `pending` | `close` | `purged` |
+| `purging` | `reclaim` | `purging` |
+| `purging` | `finish` | `purged` |
+| `purging` | `release` | `pending` |
+| `purging` | `fail` | `failed` |
+| `failed` | `retry` | `purging` |
+| `failed` | `close` | `purged` |
+
+## bim-model
+
+The extraction of one IFC model. A newer run takes the row over, and only the run that started an extraction may finish or fail it.
+
+Stored in `bim_models.status`. Declared in [`bff/bim/types.ts`](../../apps/workspace/bff/bim/types.ts).
+
+```mermaid
+stateDiagram-v2
+  [*] --> pending
+  [*] --> extracting
+  pending --> extracting: start
+  extracting --> extracting: start
+  extracting --> ready: complete
+  extracting --> failed: fail
+  ready --> extracting: start
+  failed --> extracting: start
+```
+
+Born as `pending`, `extracting`. Final: none.
+
+| From | Move | To |
+|---|---|---|
+| `pending` | `start` | `extracting` |
+| `extracting` | `start` | `extracting` |
+| `extracting` | `complete` | `ready` |
+| `extracting` | `fail` | `failed` |
+| `ready` | `start` | `extracting` |
+| `failed` | `start` | `extracting` |

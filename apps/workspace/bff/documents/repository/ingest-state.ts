@@ -1,7 +1,7 @@
 /** Stuck, transient, failed and just-finished ingest documents. */
 
 import 'server-only'
-import { and, asc, eq, getTableColumns, inArray, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, asc, eq, getTableColumns, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { columnStatuses, IN_FLIGHT_DOCUMENT_STATUSES } from '../document-status'
@@ -9,7 +9,7 @@ import { documentShelf } from '../shelf'
 import { publishShelfChanged } from '../shelf-live'
 import { bffJobQueue } from '@/lib/db/schema/bff-job-queue'
 import { documents, type Document } from '@/lib/db/schema/documents'
-import { notQuarantined } from './mutations'
+import { statusAccepts } from './mutations'
 
 /**
  * The in-flight documents dispatched as the ingest jobs `jobIds`, in every
@@ -43,6 +43,8 @@ export interface StuckProcessingDocument {
   organizationId: string
   /** `dead` when its job failed every attempt, `null` when it has none (a row from before jobs, or a lost enqueue). */
   jobStatus: 'dead' | null
+  /** The dead job the row names, so a failure is written only while the row still names it. */
+  jobId: string | null
   lastError: string | null
 }
 
@@ -70,6 +72,7 @@ export async function listStuckProcessingDocuments(
         id: documents.id,
         organizationId: documents.organizationId,
         jobStatus: bffJobQueue.status,
+        jobId: bffJobQueue.jobId,
         lastError: bffJobQueue.lastError,
       })
       .from(documents)
@@ -92,8 +95,32 @@ export async function listStuckProcessingDocuments(
     id: row.id,
     organizationId: row.organizationId,
     jobStatus: row.jobStatus === 'dead' ? 'dead' : null,
+    jobId: row.jobId ?? null,
     lastError: row.lastError ?? null,
   }))
+}
+
+/**
+ * What local work knows of the row it was started for: the bytes it reads, the
+ * queue job it is. Either, or both.
+ */
+export interface LocalWorkOwnership {
+  storageKey?: string
+  backgroundJobId?: string | null
+}
+
+/**
+ * The row is still that work's: at `processing` (every other writer moves it
+ * off, and a new round of local work renames the job and, for new bytes, the
+ * key). The predicate `jobStillOwnsRow` asks before the work, as the write's
+ * own WHERE after it.
+ */
+function stillOwnedBy(owned: LocalWorkOwnership): SQL | undefined {
+  return and(
+    eq(documents.status, 'processing'),
+    ...(owned.storageKey ? [eq(documents.storageKey, owned.storageKey)] : []),
+    ...(owned.backgroundJobId ? [sql`${documents.metadata} ->> 'bffJobId' = ${owned.backgroundJobId}`] : []),
+  )
 }
 
 /**
@@ -107,24 +134,42 @@ export async function listStuckProcessingDocuments(
  * clears the last one (migration 0134): a dispatch that never reached the
  * backend says nothing about the bytes, and an earlier `deterministic` left
  * standing would refuse the retry this failure deserves.
+ *
+ * A caller that starts a read says so of the row as it is, whatever its state:
+ * a re-read that could not start fails a `completed` row, and that is the
+ * truth about the attempt. A caller reporting on work that began EARLIER (a
+ * queue job, the sweep over rows a dead job left behind) passes `owned`, and
+ * the write lands only while that work still owns the row. Without it a job on
+ * its last attempt failed a row a person had archived or re-read meanwhile:
+ * the document read `failed` although its bytes were indexed, or the job for
+ * its new bytes found the row no longer `processing` and left without reading
+ * them. Returns whether the row took the failure.
  */
 export async function markDocumentIngestFailed(
   documentId: string,
   organizationId: string,
   errorMessage: string,
-): Promise<void> {
+  owned?: LocalWorkOwnership,
+): Promise<boolean> {
   const db = getDb()
   const [row] = await withTenant({ organizationId }, () =>
     db
       .update(documents)
       .set({ status: 'failed', errorMessage, ingestFailureCategory: null, ingestRetryable: null, updatedAt: new Date() })
-      .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId), notQuarantined))
+      .where(
+        and(
+          eq(documents.id, documentId),
+          eq(documents.organizationId, organizationId),
+          owned ? stillOwnedBy(owned) : statusAccepts('fail'),
+        ),
+      )
       .returning({ projectId: documents.projectId, scope: documents.scope }),
   )
   // The one door every hard failure goes through (a dispatch refused, an IFC
   // extraction that failed, a row stuck in processing): the badge turns red
   // for everyone reading the shelf, not only for a tab that happens to poll it.
   if (row) publishShelfChanged(organizationId, documentShelf(row))
+  return Boolean(row)
 }
 
 /** What `document_ingest_finished` says about a row beyond the reconcile's own view. */

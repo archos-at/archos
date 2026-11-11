@@ -11,8 +11,13 @@
 import { AGENT_WAKE_LIFECYCLE, ANNOTATION_LIFECYCLE } from '@/lib/annotations/lifecycles'
 import { ASK_LIFECYCLE } from '@/lib/agent-asks/ask-wire'
 import { MAIL_IMPORT_LIFECYCLE } from '@/lib/db/schema/mail-imports'
+import { DOCUMENT_READING_LIFECYCLE } from '@/lib/documents/reading-lifecycle'
 import { DOCUMENT_VERSION_LIFECYCLE } from '@/lib/documents/version-lifecycle'
+import { BIM_MODEL_LIFECYCLE } from '@/lib/bim/types'
+import { DELETION_LIFECYCLE } from '@/lib/db/schema/deletion-queue'
 import { ROOT_SORT_LIFECYCLE } from '@/lib/filing/root-sort-types'
+import { RUN_LEDGER_LIFECYCLE } from '@/lib/runs/run-ledger-types'
+import { TASK_RUN_LIFECYCLE } from '@/lib/tasks/task-vocabulary'
 import { PROJECT_LIFECYCLE } from '@/lib/projects/project-status'
 import type { Lifecycle } from '@/shared/lifecycle/define-lifecycle'
 
@@ -38,6 +43,12 @@ export const LIFECYCLES: readonly RegisteredLifecycle[] = [
     what: 'One version of a document on its way through review to publication (ADR-0104).',
     where: 'bff/documents/version-lifecycle.ts',
     column: 'document_versions.state',
+  },
+  {
+    lifecycle: DOCUMENT_READING_LIFECYCLE,
+    what: 'Whether the current bytes of a document were read into the index: uploaded, being read, readable, failed, held by the content gate, or kept unread. It mirrors the ingest backend, so most moves are legal; what it rules out is leaving quarantine any way but by a release.',
+    where: 'bff/documents/reading-lifecycle.ts',
+    column: 'documents.status',
   },
   {
     lifecycle: ANNOTATION_LIFECYCLE,
@@ -68,5 +79,29 @@ export const LIFECYCLES: readonly RegisteredLifecycle[] = [
     what: 'The import of one mail archive into a project.',
     where: 'bff/db/schema/mail-imports.ts',
     column: 'mail_imports.status',
+  },
+  {
+    lifecycle: TASK_RUN_LIFECYCLE,
+    what: 'One run of a task: queued, running, then one ending that stands whoever reports later.',
+    where: 'bff/tasks/task-vocabulary.ts',
+    column: 'task_runs.status',
+  },
+  {
+    lifecycle: RUN_LEDGER_LIFECYCLE,
+    what: 'What a reader sees of a research run in the thread. An ended ledger stays ended; a run settled as done may still be marked interrupted when the worker says it was cut short.',
+    where: 'bff/runs/run-ledger-types.ts',
+    column: 'messages.metadata.run_ledger.status',
+  },
+  {
+    lifecycle: DELETION_LIFECYCLE,
+    what: 'A queued deletion of a project, folder or chat: waiting out its grace period, claimed by the purger or by a request, then purged, restored or failed.',
+    where: 'bff/db/schema/deletion-queue.ts',
+    column: 'deletion_queue.status',
+  },
+  {
+    lifecycle: BIM_MODEL_LIFECYCLE,
+    what: 'The extraction of one IFC model. A newer run takes the row over, and only the run that started an extraction may finish or fail it.',
+    where: 'bff/bim/types.ts',
+    column: 'bim_models.status',
   },
 ]
