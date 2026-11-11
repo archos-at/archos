@@ -4,6 +4,8 @@ Read at `origin/develop` `36dcfe7231` (2026-11-11). Marks: **V** read in the cod
 
 **Owner decisions, 2026-11-11.** No second country is planned now: plan row 10 (Germany) is deferred, and every other row is built country-neutral and proven with the synthetic test country instead of German fixtures; site placement by boundaries (row 8) waits for the second country, the address register as a record does not. The CI ratchet `scripts/check_country_in_code.py` (#1618) holds the line meanwhile; its burn-down is in `docs/architecture/country-extensibility.md`.
 
+**How a person brings a country in and reviews it** (the law map, claims against reference data, one release rule) is designed in [`country-onboarding-ux.md`](country-onboarding-ux.md); it carries out section 3.7 below.
+
 The founding idea (a country is data) holds up under every country I tested it against. The record model (works, editions, relations, rulesets, territories, change requests) carries Germany, Switzerland and the EU without a new concept. What does not hold yet is the half of the product that answers. Onboarding is data. Answering is still Austria in code.
 
 ---
