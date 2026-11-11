@@ -82,6 +82,14 @@ describe('the chain text', () => {
     )
   })
 
+  it('says a filing day is the reference date only as an assumption, and nothing of it on today', () => {
+    const filed = renderChainText(graph, resolveChain(graph, 'AT-9', '2023-06-01'), 'AT-9', undefined, true)
+    expect(filed.split('\n')[0]).toContain(
+      "on 2023-06-01, the project's filing day taken as the reference date (an assumption; transitional law not checked: say so), from the platform's",
+    )
+    expect(text('AT-9')).not.toContain('filing day')
+  })
+
   it('names a law whose edition is not determined, and why, instead of leaving it out silently', () => {
     const overlapping = graphFromProposals(
       [...records, { type: 'edition', key: 'bo-wien-2024b', workKey: 'bo-wien', label: 'Fassung 2024b', inForceFrom: '2024-06-01' }].map((record) =>

@@ -106,7 +106,7 @@ Chosen option 3.
   digest, with a stamp of the office's newest record revision and the
   platform's newest edition check, since neither moves a pack sequence; the
   resolved context is cached under
-  `knowledge-context-v3:<org>:<project>:<digest>` (the version moves with the cached shape), so a publish or a moved site
+  `knowledge-context-v4:<org>:<project>:<digest>` (the version moves with the cached shape), so a publish or a moved site
   is read on the next turn, and two offices with equal digests get two keys
   (`context/service.spec.ts`).
 - **Failure.** A read that throws gives `knowledge_unavailable`: retrieval,
