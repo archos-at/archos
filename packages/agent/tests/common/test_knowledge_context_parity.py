@@ -85,6 +85,8 @@ READ_KEYS: dict[str, str] = {
     "updatedSinceLastAnswer": "updated_since_last_answer",
     "text": "text",
     "undetermined": "undetermined",
+    "sources": "sources",
+    "sourcesDropped": "sources_dropped",
 }
 
 #: The context's properties the agent ignores, and why.

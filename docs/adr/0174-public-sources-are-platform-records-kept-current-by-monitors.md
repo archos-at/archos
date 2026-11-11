@@ -145,7 +145,7 @@ publish without them, whatever path reaches it.
 ### Consequences
 
 - Which kind a source is (2026-11-10, the one place this rule is written; the
-  package README points here). A source is **built in** when an engine's own
+  package README points here; retired by the amendment of 2026-11-11 below). A source is **built in** when an engine's own
   configuration is code-level: the agent's tools read it on every turn (the RIS
   adapter's controllers, Bundesland parameters and document paths, Fedlex's
   SPARQL). It lives in `configs/sources/`, is reviewed as code, ships with the
@@ -294,6 +294,54 @@ this record exists to end.
   `pdf-source-door.integration.spec.ts` (the three calls through the door,
   each refusal beside its control), `packages/public-sources/tests/test_pdf.py`
   and `apps/agent-host/tests/test_public_source_capture_route.py`.
+
+## Amendment, 2026-11-11: a source says how a lookup reads it, and "built in" is retired
+
+The rule under Consequences made a source **built in** when the agent's tools
+read its configuration on every turn. That rule is the exception the
+country-as-data plan (step 4) removes: under it, every country with a live
+legal database would get a package, and a published country could not be looked
+up. The answering half now reads records too.
+
+- **A source record carries a `lookup` block** (`public_sources.lookup`): the
+  locus grammar of its texts (the signs and words a provision is cited by), the
+  collections its search offers with what each holds, the territory filter (the
+  search argument, the access table, territory id to name), the case-law
+  signals, the search planner's term rules, and the words the lookup writes
+  back. A record names only operations and tables its access configuration
+  has (`Source._lookup_fits`). A proposed record carries it through the door
+  (`wire/source.ts`, `lookup`), validated by the api tier like `access` and
+  `engine`. The citation-style record (plan row 6) absorbs `locus` later, so no
+  second grammar is written.
+- **A turn carries its sources.** The knowledge context names the released
+  source records with a `lookup` block for the turn's retrieval countries
+  (`context/sources.ts`): key, revision, country and the configuration
+  without the fixtures that proved it before release, at most 8, a
+  configuration over 64,000 characters dropped and logged. It travels in the
+  context rather than through a route because a background run carries its
+  context in its payload and never reads the turn context. It is never
+  rendered into the prompt. The agent parses one with
+  `parse_released_source`, which checks everything but the fixtures and still
+  refuses a licensed source.
+- **Which source answers a lookup is the record's country**, never a table in
+  code: `law_gate.LAW_SOURCE_COUNTRIES` goes with the RIS package in the change
+  that renames the model tool (plan step 4b).
+- **Retiring "built in".** `configs/sources/at/ris` stays as the fallback while
+  no released record with a `lookup` block exists for Austria; a lookup that
+  falls back says so in its log. Austria's record is proposed through the door
+  from `configs/knowledge-packs/at-sources.json`, which
+  `scripts/source_record_payload.py` writes from the repository record (under
+  its own key, `at-ris-ogd`: a database record may not take a repository
+  record's id while the file exists), and `tests/test_source_record_payload.py`
+  keeps the two equal. Step 4b deletes the file once the record is published
+  on dev, and with it the built-in class above.
+- Confirmation: `packages/public-sources/tests/test_lookup_block.py`, the
+  parity rig (`packages/agent/tests/knowledge/test_law_lookup_parity.py`:
+  the lookup returns, for 26 recorded calls, the requests and the text the RIS
+  tool returned), `bff/base-knowledge/context/sources.spec.ts`,
+  `bff/base-knowledge/platform/at-sources.spec.ts`, and the step of
+  `synthetic-country-door.integration.spec.ts` in which the published XA
+  gazette reaches a turn in XA with no code naming it.
 
 ## More Information
 

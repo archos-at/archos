@@ -33123,6 +33123,11 @@
                               },
                               "description": "Recorded exchanges that prove the record with no live call."
                             },
+                            "lookup": {
+                              "description": "How a law lookup reads this source, in snake case (see public_sources.lookup): the language, the locus grammar of its texts, the collections its search offers, the territory filter and the wording. Without it, no lookup reads the source.",
+                              "type": "object",
+                              "additionalProperties": {}
+                            },
                             "citations": {
                               "default": [],
                               "maxItems": 10,
