@@ -1,11 +1,11 @@
-/** An IANA time zone the runtime knows (`Europe/Vienna`): what "today" in a territory is read in. */
+/** An IANA time zone the runtime knows: what "today" in a territory is read in. */
 
 import { z } from 'zod'
 
 export const zoneSchema = z
   .string()
   .trim()
-  .regex(/^[A-Za-z]+(?:\/[A-Za-z0-9_+-]+){1,2}$/, 'an IANA time zone such as Europe/Vienna')
+  .regex(/^[A-Za-z]+(?:\/[A-Za-z0-9_+-]+){1,2}$/, 'an IANA time zone name such as Area/City')
   .refine((zone) => {
     try {
       new Intl.DateTimeFormat('en-CA', { timeZone: zone })

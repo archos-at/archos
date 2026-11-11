@@ -30924,7 +30924,7 @@
                             },
                             "zone": {
                               "default": null,
-                              "description": "The IANA time zone a day is read in here (Europe/Vienna); null inherits the nearest parent that states one. Without any, an open procedure’s window is undetermined (zone_unknown).",
+                              "description": "The IANA time zone a day is read in here; null inherits the nearest parent that states one. Without any, an open procedure’s window is undetermined (zone_unknown).",
                               "anyOf": [
                                 {
                                   "type": "string",

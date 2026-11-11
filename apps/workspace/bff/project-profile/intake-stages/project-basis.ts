@@ -1,5 +1,6 @@
 /** Stage A, Projektbasis: master data, location and the kind of project. */
 
+import subdivisions from './site-subdivisions.json'
 import { FOUND_IN } from '../intake-options'
 import type { ProjectIntakeOption, ProjectIntakeStage } from '../intake-types'
 
@@ -25,22 +26,12 @@ const COUNTRY_OPTIONS: ProjectIntakeOption[] = [
  * drift. Deferred: a picker that offers the subdivisions of the site's country
  * from its released record, which deletes this.
  */
-export const SITE_SUBDIVISIONS = {
-  country: 'at',
-  label: 'Bundesland',
-  options: [
-    { token: 'vienna', label: 'Wien', territoryId: 'AT-9' },
-    { token: 'lower_austria', label: 'Niederösterreich', territoryId: 'AT-3' },
-    { token: 'upper_austria', label: 'Oberösterreich', territoryId: 'AT-4' },
-    { token: 'styria', label: 'Steiermark', territoryId: 'AT-6' },
-    { token: 'carinthia', label: 'Kärnten', territoryId: 'AT-2' },
-    { token: 'salzburg', label: 'Salzburg', territoryId: 'AT-5' },
-    { token: 'tyrol', label: 'Tirol', territoryId: 'AT-7' },
-    { token: 'vorarlberg', label: 'Vorarlberg', territoryId: 'AT-8' },
-    { token: 'burgenland', label: 'Burgenland', territoryId: 'AT-1' },
-  ],
-  outside: 'outside_austria',
-} as const
+export const SITE_SUBDIVISIONS = subdivisions as {
+  country: string
+  label: string
+  options: readonly { token: string; label: string; territoryId: string }[]
+  outside: string
+}
 
 const AUSTRIA = {
   label: SITE_SUBDIVISIONS.label,

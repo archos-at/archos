@@ -192,10 +192,7 @@ const territoryRecord = z.object({
     .default(null)
     .describe('How far the records go here (none, open, core, full); null inherits from the parent. Only a publish changes it.'),
   municipalLaw: z.boolean().nullable().default(null).describe('Whether this node’s own municipal law is held.'),
-  zone: zoneSchema
-    .nullable()
-    .default(null)
-    .describe('The IANA time zone a day is read in here (Europe/Vienna); null inherits the nearest parent that states one. Without any, an open procedure’s window is undetermined (zone_unknown).'),
+  zone: zoneSchema.nullable().default(null).describe('The IANA time zone a day is read in here; null inherits the nearest parent that states one. Without any, an open procedure’s window is undetermined (zone_unknown).'),
   ...common,
 })
   // `parentIds` and `datedParents` became `parents` (0219): a proposal still naming them is refused, never stripped.

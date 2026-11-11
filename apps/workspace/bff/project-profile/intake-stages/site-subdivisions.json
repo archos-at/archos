@@ -1,0 +1,52 @@
+{
+  "country": "at",
+  "label": "Bundesland",
+  "options": [
+    {
+      "token": "vienna",
+      "label": "Wien",
+      "territoryId": "AT-9"
+    },
+    {
+      "token": "lower_austria",
+      "label": "Niederösterreich",
+      "territoryId": "AT-3"
+    },
+    {
+      "token": "upper_austria",
+      "label": "Oberösterreich",
+      "territoryId": "AT-4"
+    },
+    {
+      "token": "styria",
+      "label": "Steiermark",
+      "territoryId": "AT-6"
+    },
+    {
+      "token": "carinthia",
+      "label": "Kärnten",
+      "territoryId": "AT-2"
+    },
+    {
+      "token": "salzburg",
+      "label": "Salzburg",
+      "territoryId": "AT-5"
+    },
+    {
+      "token": "tyrol",
+      "label": "Tirol",
+      "territoryId": "AT-7"
+    },
+    {
+      "token": "vorarlberg",
+      "label": "Vorarlberg",
+      "territoryId": "AT-8"
+    },
+    {
+      "token": "burgenland",
+      "label": "Burgenland",
+      "territoryId": "AT-1"
+    }
+  ],
+  "outside": "outside_austria"
+}
