@@ -26,4 +26,11 @@ describe('Austria’s source records, as the door takes them', () => {
     expect(parsed.records).toHaveLength(1)
     expect(parsed.records[0]).toMatchObject({ type: 'source', territoryId: payload.countryId, lookup: { language: 'de' } })
   })
+
+  it('carry the sites that republish the source, so a released record screens the web as the file did', () => {
+    const parsed = proposeRecordsBodySchema.parse({ records: payload.records })
+    const record = parsed.records[0] as { copyHosts?: string[]; hosts: string[] }
+    expect(record.copyHosts?.length).toBeGreaterThan(0)
+    expect(record.copyHosts?.filter((host) => record.hosts.includes(host))).toEqual([])
+  })
 })

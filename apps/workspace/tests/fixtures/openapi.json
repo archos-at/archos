@@ -32858,6 +32858,16 @@
                               },
                               "description": "Every host it may reach. Usable by this request’s tests for 24 hours, by everyone once published."
                             },
+                            "copyHosts": {
+                              "default": [],
+                              "description": "Sites that republish its texts: never fetched, never one of hosts.",
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+                              }
+                            },
                             "dataFlow": {
                               "default": "public_only",
                               "description": "site_keyed when a site point (a bbox, a coordinate) is sent: publishing it needs a privacy reviewer.",
