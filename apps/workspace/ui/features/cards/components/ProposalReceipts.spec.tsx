@@ -563,7 +563,7 @@ const operationProposal = (patch: Partial<OperationProposal> = {}): OperationPro
   kind: 'operation',
   payload: {
     operation: 'organization-instructions-set',
-    input: { body: { instructions: LONG_INSTRUCTIONS, tone: 'formal', limits: { words: 200, sources: ['norm', 'office'] } } },
+    input: { body: { instructions: LONG_INSTRUCTIONS, tone: 'formal', limits: { words: 200, sources: ['norm', 'office', 'project', 'web', 'measurement', 'correspondence', 'minutes'] } } },
     summary: 'Set the office instructions (instructions: Antworte immer…, tone: formal, limits: 2 fields)',
   },
   targets: [{ type: 'project', id: '6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f', name: 'Neubau Musterstraße' }],
@@ -706,6 +706,63 @@ describe('operation proposal with a proposal_id', () => {
     expect(values.documentIds?.[0]).not.toContain(documents[0])
     expect(values.note).toEqual(['kurz', null])
     expect(screen.getByTestId('operation-targets')).toHaveTextContent('Person Anna Berger')
+  })
+
+  it('shows a proposed calibration as the page clip and the line that is confirmed, above its inputs, and „Apply“ applies once', async () => {
+    const documentId = '3c2b1a0f-9e8d-4c7b-a6f5-4e3d2c1b0a9f'
+    const calibration = operationProposal({
+      payload: {
+        operation: 'drawing-calibration-set',
+        input: {
+          params: { id: documentId },
+          body: { page: 2, region: { x: 0.2, y: 0.3, w: 0.4, h: 0.2 }, from: { x: 0.25, y: 0.35 }, to: { x: 0.55, y: 0.45 }, lengthM: 4.25 },
+        },
+        summary: 'Set the scale of the drawing',
+      },
+      targets: [{ type: 'document', id: documentId, name: 'Grundriss EG.pdf' }],
+    })
+    const stored = serve(calibration)
+    server.use(
+      http.post(`/api/proposals/${PROPOSAL_ID}/apply`, () => {
+        stored.current = { ...calibration, ...decidedByAnna('applied', [{ label: 'x', ok: true }]) }
+        return HttpResponse.json({ proposal: stored.current })
+      })
+    )
+    const user = userEvent.setup()
+    render(<OperationReceipt proposalId={PROPOSAL_ID} title="Set the scale" operation="drawing-calibration-set" input={{}} />)
+
+    const preview = await screen.findByTestId('calibration-preview')
+    // The suite's IntersectionObserver never reports, so no page is fetched here: the line stands without „marked points“.
+    expect(screen.getByTestId('calibration-confirm')).toHaveTextContent(/^Reference length: 4\.25\sm, page 2$/)
+    expect(preview.querySelector('[data-place-thumbnail]')).not.toBeNull()
+    // The inputs stay, below the picture: what is decided is what is stored.
+    const input = screen.getByTestId('operation-input')
+    expect(input).toHaveTextContent('Length (m)4.25')
+    expect(preview.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // The picture does not stand in for reading: the region and the two points are nested values, and „Apply“ waits on each.
+    // Its region and its two points are short enough to be shown whole: nothing waits to be unfolded.
+    expect(screen.queryAllByRole('button', { name: /^Show all/ })).toEqual([])
+    expect(screen.queryByTestId('proposal-accept-blocked')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    await waitFor(() => expect(posts()).toEqual([`POST /api/proposals/${PROPOSAL_ID}/apply`]))
+    expect(await screen.findByTestId('proposal-status')).toHaveAttribute('data-status', 'applied')
+    // Decided: the receipt, not the preview (once the question has faded out).
+    await waitFor(() => expect(screen.queryByTestId('calibration-preview')).toBeNull())
+  })
+
+  it('draws no calibration preview for another operation, or for a calibration whose input the route would refuse', async () => {
+    serve(
+      operationProposal({
+        payload: { operation: 'drawing-calibration-set', input: { params: { id: 'not-a-uuid' }, body: { page: 1, lengthM: 4 } }, summary: 'Set the scale' },
+      })
+    )
+    render(<OperationReceipt proposalId={PROPOSAL_ID} title="Set the scale" operation="drawing-calibration-set" input={{}} />)
+
+    expect(await screen.findByRole('button', { name: 'Apply' })).toBeInTheDocument()
+    expect(screen.getByTestId('operation-input')).toHaveTextContent('Length (m)4')
+    expect(screen.queryByTestId('calibration-preview')).toBeNull()
   })
 
   it('offers „Apply“ at once when every value is short enough to be shown whole', async () => {

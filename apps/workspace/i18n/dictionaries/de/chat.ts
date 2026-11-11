@@ -883,6 +883,11 @@ export const chat: typeof en.chat = {
         visibility: 'Sichtbarkeit',
         permissions: 'Berechtigungen',
         sortOrder: 'Reihenfolge',
+        page: 'Seite',
+        region: 'Bereich',
+        from: 'Von',
+        to: 'Bis',
+        lengthM: 'Länge (m)',
       },
       // Eine Pfad-ID, nach dem Objekt benannt, das sie bezeichnet.
       targetType: {
@@ -894,6 +899,13 @@ export const chat: typeof en.chat = {
         upload_batch: 'Upload',
         proposal: 'Vorschlag',
         member: 'Person',
+      },
+      // Eine vorgeschlagene Kalibrierung (`drawing-calibration-set`): was mit „Übernehmen“ bestätigt wird.
+      calibration: {
+        confirm: 'Referenzstrecke: {length} zwischen den beiden markierten Punkten, Seite {page}',
+        // Solange kein Ausschnitt zu sehen ist (lädt noch, oder das Dokument ist für die lesende Person nicht zu öffnen).
+        confirmWithoutPicture: 'Referenzstrecke: {length}, Seite {page}',
+        picture: 'Seite {page}, Ausschnitt mit der Referenzstrecke',
       },
       inputLabel: 'Eingaben',
       // Ein langer Wert ist erst gekürzt; „Übernehmen“ wartet, bis jeder ganz gelesen ist.

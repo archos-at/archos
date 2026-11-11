@@ -475,13 +475,18 @@ def why_not_here(found: Corroboration, point: Point) -> str:
     nearest = min(found.checks, key=lambda check: _to_span(point, check.ends))
     if not nearest.agrees:
         return f"the dimension figure nearest this place ({inert(nearest.figure.text)}) does not agree with it"
+    if contains(agreeing_extent(found), point):
+        return ""
+    return "this place lies outside the part of the sheet the agreeing dimension figures span"
+
+
+def agreeing_extent(found: Corroboration) -> Box:
+    """The part of the sheet the agreeing dimensions span, grown by a quarter of its longer side."""
     places = [end for check in found.checks if check.agrees for end in check.ends]
     low_x, high_x = min(x for x, _ in places), max(x for x, _ in places)
     low_y, high_y = min(y for _, y in places), max(y for _, y in places)
     grow = 0.25 * max(high_x - low_x, high_y - low_y)
-    if low_x - grow <= point[0] <= high_x + grow and low_y - grow <= point[1] <= high_y + grow:
-        return ""
-    return "this place lies outside the part of the sheet the agreeing dimension figures span"
+    return (low_x - grow, low_y - grow, high_x + grow, high_y + grow)
 
 
 def _uncalibrated(

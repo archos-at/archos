@@ -581,6 +581,36 @@ otherwise to state as „not verified because“ in the closing checklist.
 * **Also:** `docs/architecture/proposed-changes.md` line 45 puts the `operation`
   kind in migration 0176 while line 95 says 0175. Read both migrations and make
   the document say what they do.
+* **The costing, as done** (four answers per route):
+
+  | | The `operation` kind with a richer receipt | A fifth kind `drawing_scale` |
+  |---|---|---|
+  | What exists | `proposeOperation`, the open-call index, the applier, the decisions block, `OperationReceipt`, the MCP App frame: all carry a `drawing-calibration-set` call unchanged once slice 4's operation is offered to the in-product agent | the same machinery, none of it reusable without a branch per kind |
+  | What it costs | one preview module in the receipt (the crop with the reference span, one sentence), one module in the engine that picks the reference, about 400 lines with specs; no migration | a migration for the kind's CHECK, a payload schema, an applier, a receipt body, a card model and its generated schemas, a decisions branch, the MCP App body: every list in `proposed-changes.md`, about 1,500 lines |
+  | What changes or is lost | the receipt shows the reference span and its length, not „1:N from the stored region, 8 of 8 agree“: the ratio, its source and the agreeing count are in the answer's text, not on the card. The value cannot be changed in the card | nothing lost; the card could show the ratio and take another value |
+  | Net | builds on what is there; a person checks one printed dimension by eye | pays 1,100 lines for two display fields and an input no proposal card has |
+
+  **Built on the `operation` kind.** The costing did not call for a fifth
+  kind, so nothing was put to the product owner as a blocker; the two things
+  the card does not show are listed for them in the pull request.
+* **As built:** the engine picks the reference
+  (`agent/drawings/sheet_proposal.py`): the longest agreeing dimension figure
+  inside the region, its two ends and its PRINTED value. A measurement on an
+  `estimated` region ends with the one call that proposes it
+  (`workspace__call`, `drawing-calibration-set`, the input given whole), and
+  the model makes the call: the tool files nothing itself, so the card exists
+  when the model follows the line, not by construction. The same sheet and
+  region give the same call, so a repeat opens no second card. A proposal is
+  offered only on a CORROBORATED estimate. Where the figures do not corroborate
+  the hint, the unit they are printed in is not settled, and a reference taken
+  from one could be wrong by ten behind a card that looks the same: that
+  region gets no card and is calibrated by hand in the review view. A region
+  with no hint gets none either. Accepting writes one active calibration as
+  the decider, through the route, under their own right.
+* **Not built:** the measured span's own crop on the answer (decision 9's
+  second way to a verdict). A verdict still needs a printed figure on the span
+  that agrees. Changing the value in the card. „Open the sheet with the
+  calibrate tool pre-filled“ from the card.
 
 ### 7. Proof and counting
 

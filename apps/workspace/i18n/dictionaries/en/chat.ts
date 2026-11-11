@@ -878,6 +878,11 @@ export const chat = {
         visibility: 'Visibility',
         permissions: 'Permissions',
         sortOrder: 'Order',
+        page: 'Page',
+        region: 'Region',
+        from: 'From',
+        to: 'To',
+        lengthM: 'Length (m)',
       },
       // A path id named after the object it resolved to.
       targetType: {
@@ -889,6 +894,13 @@ export const chat = {
         upload_batch: 'Upload',
         proposal: 'Proposal',
         member: 'Person',
+      },
+      // A proposed calibration (`drawing-calibration-set`): what „Apply“ confirms.
+      calibration: {
+        confirm: 'Reference length: {length} between the two marked points, page {page}',
+        // While no clip is on screen (still loading, or the reader may not open the document).
+        confirmWithoutPicture: 'Reference length: {length}, page {page}',
+        picture: 'Page {page}, clip with the reference length',
       },
       inputLabel: 'Inputs',
       // A long value is shortened at first; „Apply“ waits until every one has been read in full.

@@ -42,7 +42,7 @@ deciding person's session, and the decision is one row every reader sees.
 | Piece | Where |
 |---|---|
 | The contract (zod, shared by every slice) | `apps/workspace/bff/proposals/types.ts` |
-| The table and its CHECKs | `apps/workspace/migrations/0140_proposed_changes.sql`, the kinds and the card index in `0143_proposal_kinds.sql`, the shelf and the trace in `0146_proposal_shelves.sql`, the `operation` kind in `0176_operation_proposals.sql`, the organization shelf and the open-call index in `0177_organization_operation_proposals.sql`; mirrored in `src/lib/db/schema/proposed-changes.ts` |
+| The table and its CHECKs | `apps/workspace/migrations/0140_proposed_changes.sql`, the kinds and the card index in `0143_proposal_kinds.sql`, the shelf and the trace in `0146_proposal_shelves.sql`, the `operation` kind in `0175_operation_proposals.sql`, the organization shelf and the open-call index in `0176_organization_operation_proposals.sql` (the open-call index per person since `0178_open_operation_per_person.sql`); mirrored in `src/lib/db/schema/proposed-changes.ts` |
 | SQL | `src/lib/proposals/repository.ts` |
 | Rules: who may read, who may decide, how apply runs | `src/lib/proposals/service.ts` |
 | What differs per kind: payload, gate, refusal when proposed, summary, applier | `src/lib/proposals/kinds.ts` |
@@ -444,8 +444,8 @@ while failing open could tell the office what a restricted folder holds.
 ## The receipt card
 
 One card shows a proposal of any kind: `ProposalReceipt` is the frame and
-`ProposalReceipts.tsx` has the three bodies (`FileOperationReceipt`,
-`MemoryReceipt`, `ProfilePatchReceipt`). The three card components
+`ProposalReceipts.tsx` has the four bodies (`FileOperationReceipt`,
+`MemoryReceipt`, `ProfilePatchReceipt`, `OperationReceipt`). The three card components
 (`FileOperationProposalCard`, `MemoryProposalCard`, `ProjectProfilePatchCard`)
 pick it when the card has a `proposal_id`. The frame is what the kinds share and
 what must not drift between them:
@@ -484,6 +484,19 @@ What each body adds:
 | `memory` | the note, its kind and confidence, „Ersetzt: …“ for a correction, where it goes, and for an office note a second button, „Nur im Projekt merken“ (`memoryScope: 'project'`) | „Im Gedächtnis des Büros gemerkt.“ or „Im Projekt gemerkt.“ from the result's `scope` („Notiz gemerkt.“ for a row without one), or the failure's reason |
 | `project_profile` | the rationale and the Feld / Vorher / Nachher table, „Vorher“ being the profile as it is now | the table with „Nachher“ alone, because the profile holds the change by then; a failure's reason otherwise |
 | `operation` | the action's name; „Betrifft“, each target the call names (a project, a document, a folder, a conversation, and a person the call names by `userId`, from the organization directory the view already loads), by name where this reader may read it (`targets`, resolved per reader on every read and never stored), the id otherwise; every input whole, an id among them shown as that name with the id on hover, a long or multi-line value shown in part until unfolded, and „Übernehmen“ waiting (with the line that says why) until every such value has been unfolded once | „Die Aktion wurde ausgeführt.“, or the route's own reason for a failure |
+
+**An operation's inputs are shown whole.** A nested value short enough to be read on one line
+(`ONE_LINE_LENGTH`, 80 characters of JSON) is written on one line and waits for nothing; a longer or
+multi-line one is `long` and „Übernehmen“ waits until it was unfolded once (`lib/operation-input.ts`).
+
+**A proposed calibration shows what is confirmed.** For `drawing-calibration-set` whose input parses
+with the route's own schema, the open receipt draws the page clip of the region with the reference
+span on it and one line, „Referenzstrecke: 10,80 m zwischen den beiden markierten Punkten, Seite 1“,
+above the inputs (`CalibrationProposalPreview.tsx`; the thumbnail's `overlay` maps a page point to
+the drawn frame, because the drawn part is wider than the box). An input that does not parse shows
+nothing extra. Whatever `ProposalReceipts.tsx` imports lands in the MCP App view, which is one inline
+script with no cookie: the preview is replaced there by a stand-in that renders nothing
+(`STAND_INS` in `scripts/build-mcp-app-views.ts`; the size budget is in `view-build.spec.ts`).
 
 After a profile change is applied, by this reader or a colleague, the facts the
 thread's answers bind (`:project[key]`) are told to re-read; after a file
