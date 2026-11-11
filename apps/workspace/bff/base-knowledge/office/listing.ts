@@ -64,3 +64,10 @@ export function byAttention(a: BaseKnowledgeEntry, b: BaseKnowledgeEntry): numbe
   const label = (entry: BaseKnowledgeEntry) => entry.values.designation ?? entry.values.title
   return rank(a) - rank(b) || label(a).localeCompare(label(b), 'de', { numeric: true })
 }
+
+/** Entries filed directly in each folder, keyed by folder id; the shelf root's are not counted. */
+export function countByFolder(entries: readonly BaseKnowledgeEntry[]): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const entry of entries) if (entry.folderId) counts[entry.folderId] = (counts[entry.folderId] ?? 0) + 1
+  return counts
+}

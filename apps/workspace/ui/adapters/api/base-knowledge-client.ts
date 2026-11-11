@@ -8,25 +8,88 @@
 
 import type {
   BaseKnowledgeEntry,
+  BaseKnowledgeFolder,
+  BaseKnowledgeFolders,
   BaseKnowledgeList,
+  BulkEntriesBody,
+  BulkEntriesResult,
   ConfirmEntryBody,
+  CreateFolderBody,
   LicenceEntryBody,
+  ListEntriesQuery,
   RecordCheckBody,
+  UpdateEntryBody,
 } from '@/lib/base-knowledge/wire'
 import { ApiRequestError } from './api-error'
 
-export type { BaseKnowledgeEntry, BaseKnowledgeList }
+export type { BaseKnowledgeEntry, BaseKnowledgeFolder, BaseKnowledgeFolders, BaseKnowledgeList, BulkEntriesResult }
 
 const ENDPOINT = '/api/base-knowledge'
 const jsonHeaders: HeadersInit = { 'Content-Type': 'application/json' }
 
+/**
+ * A refusal is an RFC 9457 problem (base knowledge) or `{ error }` (the office
+ * shelf's folder routes); its text is what the person is told.
+ */
 async function json<T>(response: Response, what: string): Promise<T> {
-  if (!response.ok) throw new ApiRequestError(`Failed to ${what}: ${response.status}`, response.status)
+  if (!response.ok) {
+    const problem = (await response.json().catch(() => null)) as { detail?: unknown; error?: unknown } | null
+    const said = problem?.detail ?? problem?.error
+    const detail = typeof said === 'string' ? said : `Failed to ${what}: ${response.status}`
+    throw new ApiRequestError(detail, response.status)
+  }
   return (await response.json()) as T
 }
 
-export const listBaseKnowledge = async (): Promise<BaseKnowledgeList> =>
-  json(await fetch(`${ENDPOINT}?limit=200`), 'load base knowledge')
+/** What a list asks for: the wire's query, every field optional. */
+export type EntryQuery = Partial<Pick<ListEntriesQuery, 'q' | 'kind' | 'attention' | 'folderId' | 'cursor' | 'limit'>>
+
+export const listBaseKnowledge = async (query: EntryQuery = {}): Promise<BaseKnowledgeList> => {
+  const params = new URLSearchParams({ limit: String(query.limit ?? 50) })
+  for (const key of ['q', 'kind', 'attention', 'folderId', 'cursor'] as const) {
+    const value = query[key]
+    if (value) params.set(key, value)
+  }
+  return json(await fetch(`${ENDPOINT}?${params}`), 'load base knowledge')
+}
+
+export const getBaseKnowledgeEntry = async (entryId: string): Promise<BaseKnowledgeEntry> =>
+  json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}`), 'load the entry')
+
+/** Rename an office standards folder: an office shelf folder, through the shelf's own route. */
+export const renameBaseKnowledgeFolder = async (folderId: string, name: string): Promise<void> => {
+  await json(
+    await fetch(`/api/office-shelf/folders/${encodeURIComponent(folderId)}`, { method: 'PATCH', headers: jsonHeaders, body: JSON.stringify({ name }) }),
+    'rename the folder',
+  )
+}
+
+/** Delete one: its standards move up a level, never with it (the shelf's own delete). */
+export const deleteBaseKnowledgeFolder = async (folderId: string): Promise<void> => {
+  await json(await fetch(`/api/office-shelf/folders/${encodeURIComponent(folderId)}`, { method: 'DELETE' }), 'delete the folder')
+}
+
+export const listBaseKnowledgeFolders = async (): Promise<BaseKnowledgeFolders> =>
+  json(await fetch(`${ENDPOINT}/folders`), 'load base-knowledge folders')
+
+export const createBaseKnowledgeFolder = async (body: CreateFolderBody): Promise<BaseKnowledgeFolder> =>
+  json(await fetch(`${ENDPOINT}/folders`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }), 'create a folder')
+
+export const bulkBaseKnowledge = async (body: BulkEntriesBody): Promise<BulkEntriesResult> =>
+  json(await fetch(`${ENDPOINT}/bulk`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }), 'change entries')
+
+export const updateBaseKnowledge = async (entryId: string, body: UpdateEntryBody): Promise<BaseKnowledgeEntry> =>
+  json(
+    await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}`, { method: 'PATCH', headers: jsonHeaders, body: JSON.stringify(body) }),
+    'update base knowledge',
+  )
+
+/** A newer edition beside the entry: uploaded into its folder, proposed with its values. */
+export const addBaseKnowledgeEdition = async (entryId: string, file: File): Promise<BaseKnowledgeEntry> => {
+  const form = new FormData()
+  form.append('file', file)
+  return json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/editions`, { method: 'POST', body: form }), 'add an edition')
+}
 
 export const proposeBaseKnowledge = async (documentId: string): Promise<BaseKnowledgeEntry> =>
   json(
@@ -35,9 +98,10 @@ export const proposeBaseKnowledge = async (documentId: string): Promise<BaseKnow
   )
 
 /** Upload a file as base knowledge: stored and proposed, its text held until confirmed. */
-export const uploadBaseKnowledge = async (file: File): Promise<BaseKnowledgeEntry> => {
+export const uploadBaseKnowledge = async (file: File, folderId: string | null = null): Promise<BaseKnowledgeEntry> => {
   const form = new FormData()
   form.append('file', file)
+  if (folderId) form.append('folderId', folderId)
   return json(await fetch(`${ENDPOINT}/upload`, { method: 'POST', body: form }), 'upload base knowledge')
 }
 

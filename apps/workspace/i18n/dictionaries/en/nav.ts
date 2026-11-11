@@ -37,6 +37,8 @@ export const nav = {
     /** The tab that leads: work delegated to Piloti, one card per task (ADR-0051). */
     tasks: 'Tasks',
     officeShelf: 'Office filing',
+    // The office's standards, commentaries and directives, a place with folders (ADR-0163).
+    baseKnowledge: 'Office standards',
     search: 'Search',
     settings: 'Overview',
     // The intake wizard, labelled "Setup" in the product (⌘K palette only).

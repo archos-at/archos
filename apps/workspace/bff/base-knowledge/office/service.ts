@@ -64,7 +64,7 @@ import { officeAnswerLabel, type OfficeAnswerLabel } from './answer-label'
 import { platformKnowledge } from '../platform'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { isStandardsFolder, standardsFolderRows, standardsRoot } from './folders'
-import { byAttention, countEntries, matchesQuery, subtreeOf } from './listing'
+import { byAttention, countByFolder, countEntries, matchesQuery, subtreeOf } from './listing'
 
 
 function requireManage(session: AuthorizedSession): void {
@@ -116,17 +116,18 @@ export async function listBaseKnowledge(
   ])
   const inFolder = folders && query.folderId ? subtreeOf(query.folderId, [...(folders.root ? [folders.root] : []), ...folders.folders]) : null
   const now = new Date()
-  const entries = stored.flatMap((entry) => {
+  const visible = stored.flatMap((entry) => {
     const document = documents.get(entry.documentId)
-    if (!document || (inFolder && !(document.folderId && inFolder.has(document.folderId)))) return []
-    return [toEntry(entry, document, now, names)]
+    return document ? [toEntry(entry, document, now, names)] : []
   })
+  const entries = inFolder ? visible.filter((entry) => entry.folderId !== null && inFolder.has(entry.folderId)) : visible
   const matching = entries.filter((entry) => matchesQuery(entry, query)).sort(byAttention)
   const start = query.cursor ? Number(query.cursor) : 0
   const end = start + (query.limit ?? ENTRY_PAGE)
   return {
     canManage,
     counts: countEntries(entries),
+    folderCounts: countByFolder(visible),
     entries: matching.slice(start, end),
     nextCursor: end < matching.length ? String(end) : null,
   }

@@ -191,6 +191,8 @@ export interface BaseKnowledgeList {
   canManage: boolean
   /** Before `attention`, `kind` and `q` narrow the page, so a filter can show what it would find. */
   counts: EntryCounts
+  /** Entries filed directly in each office shelf folder, over every entry the reader sees: what a folder tile holds. */
+  folderCounts: Record<string, number>
   entries: BaseKnowledgeEntry[]
   /** Where the next page starts, or null on the last page. */
   nextCursor: string | null
