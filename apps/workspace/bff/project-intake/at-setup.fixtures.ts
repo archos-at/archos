@@ -7,11 +7,17 @@
  * and one that needs a database publishes them first (`setup-records.integration.spec.ts`).
  */
 
-import pack from '../../../../configs/knowledge-packs/at-setup.json'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { rulesetValuesSchema, type RulesetValues } from '@/lib/base-knowledge/wire/ruleset'
 import { siteReferenceOf } from '@/lib/site-resolution/registers'
 import { subdivisionTerritories } from './setup-scope'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
+
+/** Read at test time from the repo root: the image build has no `configs/` and no product code reads it. */
+const pack: { records: Array<{ key: string; values: unknown }> } = JSON.parse(
+  readFileSync(join(process.cwd(), '..', '..', 'configs', 'knowledge-packs', 'at-setup.json'), 'utf8')
+)
 
 /** The pack's records by key, as the wire's values. */
 export const AT_SETUP_VALUES: Readonly<Record<string, RulesetValues>> = Object.fromEntries(
