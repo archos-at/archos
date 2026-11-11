@@ -167,3 +167,23 @@ export function FloatingNote({ className, ...props }: ComponentProps<'p'>): JSX.
     />
   )
 }
+
+/**
+ * A small panel that floats over content in the toolbar's material: a few
+ * facts about the page under it and the controls that change them (the scale a
+ * drawing is calibrated to). The note's glass and edge at a panel's size; it
+ * scrolls inside itself rather than run off the stage.
+ */
+export function FloatingPanel({ className, ...props }: ComponentProps<'section'>): JSX.Element {
+  return (
+    <section
+      data-slot="floating-panel"
+      className={cn(
+        'border-base bg-popover/95 text-foreground flex max-h-full min-w-0 flex-col gap-3 overflow-y-auto rounded-surface border p-3 shadow-md backdrop-blur-md',
+        'contrast-more:bg-popover contrast-more:border-foreground/40',
+        className,
+      )}
+      {...props}
+    />
+  )
+}

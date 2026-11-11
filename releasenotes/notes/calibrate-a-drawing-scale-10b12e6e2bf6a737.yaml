@@ -1,0 +1,9 @@
+---
+# area: documents
+features:
+  - >
+    On a drawing exported as a PDF, you can now set the scale yourself in the
+    review view by clicking the two ends of a length you know, typing its true
+    length and framing the drawing it holds for. The resulting scale is shown
+    before you save it and can be withdrawn again, for offices with drawing
+    measurement switched on.
