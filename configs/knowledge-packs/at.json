@@ -181,7 +181,11 @@
         {
           "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LBG40028940"
         }
-      ]
+      ],
+      "identifiers": {
+        "ris_gesetzesnummer": "10000504",
+        "eli": "https://www.ris.bka.gv.at/eli/lgbl/BU/1998/10/"
+      }
     },
     {
       "type": "work",
@@ -213,7 +217,11 @@
         {
           "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LKT11000201"
         }
-      ]
+      ],
+      "identifiers": {
+        "ris_gesetzesnummer": "10000201",
+        "eli": "https://www.ris.bka.gv.at/eli/lgbl/KA/1996/62/"
+      }
     },
     {
       "type": "work",
@@ -245,7 +253,11 @@
         {
           "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LNO40085504"
         }
-      ]
+      ],
+      "identifiers": {
+        "ris_gesetzesnummer": "20001079",
+        "eli": "https://www.ris.bka.gv.at/eli/lgbl/NI/2015/1/"
+      }
     },
     {
       "type": "work",
@@ -277,7 +289,11 @@
         {
           "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LOO11000699"
         }
-      ]
+      ],
+      "identifiers": {
+        "ris_gesetzesnummer": "10000411",
+        "eli": "https://www.ris.bka.gv.at/eli/lgbl/OB/1994/66/"
+      }
     },
     {
       "type": "work",
@@ -309,7 +325,11 @@
         {
           "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LSB40029658"
         }
-      ]
+      ],
+      "identifiers": {
+        "ris_gesetzesnummer": "20001000",
+        "eli": "https://www.ris.bka.gv.at/eli/lgbl/SA/2016/1/"
+      }
     },
     {
       "type": "work",
@@ -341,7 +361,11 @@
         {
           "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LST40035828"
         }
-      ]
+      ],
+      "identifiers": {
+        "ris_gesetzesnummer": "20000070",
+        "eli": "https://www.ris.bka.gv.at/eli/lgbl/ST/1995/59/"
+      }
     },
     {
       "type": "work",
@@ -373,7 +397,11 @@
         {
           "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LTI40047551"
         }
-      ]
+      ],
+      "identifiers": {
+        "ris_gesetzesnummer": "20000911",
+        "eli": "https://www.ris.bka.gv.at/eli/lgbl/TI/2022/44/"
+      }
     },
     {
       "type": "work",
@@ -405,7 +433,11 @@
         {
           "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LVB40009302"
         }
-      ]
+      ],
+      "identifiers": {
+        "ris_gesetzesnummer": "20000734",
+        "eli": "https://www.ris.bka.gv.at/eli/lgbl/VO/2001/52/"
+      }
     },
     {
       "type": "work",

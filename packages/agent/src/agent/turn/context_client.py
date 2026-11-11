@@ -16,6 +16,7 @@ from agent.common import bff_http
 from agent.common.knowledge_context import UNAVAILABLE
 from agent.common.knowledge_context import KnowledgeContext
 from agent.common.knowledge_context import parse_knowledge_context
+from agent.knowledge.personal_memory import PERSONAL_MEMORY_HEADER
 from agent.project_context import MEMORY_HEADER_MAX_CHARS
 from agent.project_context import RequestContext
 from agent.project_context import normalize_org_instructions
@@ -67,6 +68,13 @@ class ContextBlocks:
     #: waited for the query embed). Scalars only, never content; empty from an
     #: older BFF. Recorded on the ``setup.project_context`` phase.
     timing: dict[str, float | str] = field(default_factory=dict)
+    #: The asker's personal notes (ADR-0180): the ``PERSONAL_MEMORY v1`` block,
+    #: which only that person reads. None from an older BFF or without notes.
+    personal_memory: str | None = None
+    #: The conversation is temporary (ADR-0180): nothing from it is kept.
+    #: Absent from an older BFF's answer, which reads as False; the BFF
+    #: refuses the write from such a conversation on its own.
+    temporary: bool = False
 
 
 #: The catalog is a dozen short lines; anything longer is cut at a line.
@@ -82,6 +90,10 @@ WORKSPACE_MAX_CHARS = 6500
 #: A header and at most 40 lines of 400 chars (``MAX_TURN_ENTRIES``,
 #: ``MAX_TURN_LINE_CHARS`` in ``lib/base-knowledge/office/turn-block.ts``).
 BASE_KNOWLEDGE_MAX_CHARS = 17_000
+
+#: The BFF sends at most 1,500 characters (20 notes); the slack keeps a block
+#: of exactly that length whole, since the cut below counts a newline per line.
+PERSONAL_MEMORY_MAX_CHARS = 1600
 
 #: As many labels as the block carries lines (``MAX_TURN_ENTRIES``).
 BASE_KNOWLEDGE_MAX_LABELS = 40
@@ -127,6 +139,17 @@ def _bounded_lines(value: str | None, max_chars: int) -> str | None:
         kept.append(line)
         used += len(line) + 1
     return "\n".join(kept) or None
+
+
+def _personal_memory(value: object) -> str | None:
+    """The asker's personal-memory block, bounded; anything that is not that block reads as none. Pure."""
+    block = _bounded_lines(value if isinstance(value, str) else None, PERSONAL_MEMORY_MAX_CHARS)
+    return block if block and block.startswith(PERSONAL_MEMORY_HEADER) else None
+
+
+def personal_memory_lines(block: str | None) -> int:
+    """How many notes the personal-memory block carries; 0 without one. Pure."""
+    return sum(1 for line in (block or "").splitlines() if line.startswith("- "))
 
 
 class TurnContextError(bff_http.BffError):
@@ -201,6 +224,8 @@ def _parse_blocks(body: object) -> ContextBlocks:
         # Absent is ``knowledge_unavailable`` (ADR-0175): the BFF sends one on every turn, so none fails closed.
         knowledge_context=parse_knowledge_context(data.get("knowledgeContext")),
         project_models=_model_kinds(data.get("projectModels")),
+        personal_memory=_personal_memory(data.get("personalMemory")),
+        temporary=data.get("temporary") is True,
     )
 
 

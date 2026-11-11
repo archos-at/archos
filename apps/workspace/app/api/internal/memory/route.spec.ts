@@ -33,6 +33,11 @@ vi.mock('@/lib/conversations/restricted-use-repository', () => ({
 vi.mock('@/lib/conversations/restricted-use', () => ({
   recordedForeignRestrictedFolders: vi.fn(async () => new Map()),
 }))
+// Which conversations are temporary (ADR-0180), keyed `organization/conversation` as the SQL scopes it.
+const temporary = vi.hoisted(() => ({ conversations: new Set<string>() }))
+vi.mock('@/lib/conversations/temporary-repository', () => ({
+  readConversationTemporary: vi.fn(async (id: string, org: string) => temporary.conversations.has(`${org}/${id}`)),
+}))
 vi.mock('@/lib/projects/repository', () => ({
   findProjectTenancy: vi.fn(async () => ({ organizationId: 'org_1', deletedAt: null })),
 }))
@@ -71,6 +76,7 @@ afterEach(() => {
   vi.unstubAllEnvs()
   vi.clearAllMocks()
   crossProject.recorded.clear()
+  temporary.conversations.clear()
 })
 
 describe('POST /api/internal/memory — a conversation that drew on another project (ADR-0094)', () => {
@@ -101,6 +107,55 @@ describe('POST /api/internal/memory — a conversation that drew on another proj
     vi.mocked(createProjectMemoryItemForProject).mockResolvedValue(makeMemoryItem())
 
     const response = await POST(makeRequest({ ...validProjectPayload, sourceConversationId: 's_plain' }, REAL_TOKEN))
+
+    expect(response.status).toBe(201)
+  })
+})
+
+describe('POST /api/internal/memory — a temporary conversation keeps nothing (ADR-0180)', () => {
+  it('refuses with 403 TEMPORARY_CONVERSATION before anything is written, for project and organization scope', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
+    vi.stubEnv('ALLOW_AGENT_ORG_MEMORY', 'true')
+    temporary.conversations.add('org_1/s_temporary')
+    vi.mocked(organizationExists).mockResolvedValue(true)
+
+    const project = await POST(makeRequest({ ...validProjectPayload, sourceConversationId: 's_temporary' }, REAL_TOKEN))
+    const organization = await POST(
+      makeRequest(
+        { scope: 'organization', organizationId: 'org_1', kind: 'derived_fact', content: 'x', sourceConversationId: 's_temporary' },
+        REAL_TOKEN
+      )
+    )
+
+    expect(project.status).toBe(403)
+    const body = await project.json()
+    expect(body.code).toBe('TEMPORARY_CONVERSATION')
+    expect(body.error).toBe('This conversation is temporary: nothing from it is kept in memory')
+    expect(organization.status).toBe(403)
+    expect((await organization.json()).code).toBe('TEMPORARY_CONVERSATION')
+    expect(createProjectMemoryItemForProject).not.toHaveBeenCalled()
+    expect(createProjectMemoryItem).not.toHaveBeenCalled()
+    expect(recordMemoryJudgeVerdict).not.toHaveBeenCalled()
+  })
+
+  it('writes from a conversation that is not temporary, from one whose row does not exist yet, and from none', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
+    temporary.conversations.add('org_1/s_temporary')
+    vi.mocked(createProjectMemoryItemForProject).mockResolvedValue(makeMemoryItem())
+
+    const kept = await POST(makeRequest({ ...validProjectPayload, sourceConversationId: 's_not_created_yet' }, REAL_TOKEN))
+    const unnamed = await POST(makeRequest(validProjectPayload, REAL_TOKEN))
+
+    expect(kept.status).toBe(201)
+    expect(unnamed.status).toBe(201)
+  })
+
+  it('judges the flag inside the writing organization: another organization’s temporary conversation refuses nothing here', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
+    temporary.conversations.add('org_other/s_temporary')
+    vi.mocked(createProjectMemoryItemForProject).mockResolvedValue(makeMemoryItem())
+
+    const response = await POST(makeRequest({ ...validProjectPayload, sourceConversationId: 's_temporary' }, REAL_TOKEN))
 
     expect(response.status).toBe(201)
   })
@@ -164,6 +219,23 @@ describe('POST /api/internal/memory', () => {
       }),
       expect.objectContaining({ supersedesContent: undefined })
     )
+  })
+
+  it('says whether the write created a row or refreshed a note that was already held', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
+    const written = new Date('2026-11-11T09:00:00Z')
+    vi.mocked(createProjectMemoryItemForProject).mockResolvedValueOnce(
+      makeMemoryItem({ id: 'item-new', projectId: PROJECT_ID, createdAt: written, updatedAt: written })
+    )
+    const created = await (await POST(makeRequest(validProjectPayload, REAL_TOKEN))).json()
+    expect(created.created).toBe(true)
+
+    // A restated note is refreshed in place: its `updated_at` moved, its row did not.
+    vi.mocked(createProjectMemoryItemForProject).mockResolvedValueOnce(
+      makeMemoryItem({ id: 'item-old', projectId: PROJECT_ID, createdAt: written, updatedAt: new Date('2026-11-12T09:00:00Z') })
+    )
+    const refreshed = await (await POST(makeRequest(validProjectPayload, REAL_TOKEN))).json()
+    expect(refreshed).toMatchObject({ item: { id: 'item-old' }, created: false })
   })
 
   it('threads the provenanceType through (distillation from the reflection stage)', async () => {

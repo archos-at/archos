@@ -9,7 +9,7 @@ import type { Applicability } from '../rulesets/applicability'
 import type { AppliesWhenTable } from '../wire/applies-when'
 import type { SourceRef } from './source-refs'
 import type { TerritoryParent } from './territory-chain'
-import type { BindingMode, ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
+import type { BindingMode, ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind, TextStatus } from '../wire/vocab'
 
 /** Who owns a record: the platform, or the office reading it. Another office's records are never in a graph. */
 export type GraphOwner = 'platform' | 'office'
@@ -62,6 +62,8 @@ export interface GraphEdition {
   appliesWhen?: AppliesWhenTable | null
   /** Where a person opens its text: the page its platform manifestation cites first; absent when none cites one. */
   sourceUrl?: string | null
+  /** The platform manifestation that holds its text: its language (BCP 47) and what that text is (authentic, a translation); absent when none is held. */
+  text?: { language: string; status: TextStatus } | null
 }
 
 export interface RelationAnchorPair {
@@ -107,6 +109,8 @@ export interface RouteStep {
   /** `territory` for law in its territory, else the relation it follows. */
   via: 'territory' | 'relation'
   workId: string
+  /** For a `relation` step, the edition of the declaring instrument the route came through; null for law read live at its source. */
+  editionId?: string | null
   /** The relation followed, for a `relation` step. */
   relationId?: string
   provision?: string | null

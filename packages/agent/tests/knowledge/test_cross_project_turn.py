@@ -84,7 +84,14 @@ class TestTheTurnLearnsIt:
             # The real type, so a flag added to it needs no edit here.
             lambda *_a, **_k: _awaitable(TurnFlags(enabled_stages=frozenset())),
         )
-        request = SimpleNamespace(organization_id="org", project_id="p1", user_id="u1", federal_state=None)
+        request = SimpleNamespace(
+            organization_id="org",
+            project_id="p1",
+            user_id="u1",
+            federal_state=None,
+            envelope_header=None,
+            envelope_signature=None,
+        )
 
         await turn_context._load_turn_context(request, conversation_id="c1", query_text="q", resolve_stages=False)
 

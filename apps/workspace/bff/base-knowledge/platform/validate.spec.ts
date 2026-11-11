@@ -273,4 +273,49 @@ describe('validateProposal', () => {
     // An edition of another work does not count.
     expect(kit(alone, 'AT', known, [{ ...published[0], workId: 'work:other' }])).toEqual([])
   })
+
+  describe('a golden case', () => {
+    const golden = (extra: Record<string, unknown> = {}) => ({
+      type: 'golden_case',
+      key: 'stair',
+      question: 'Wie lang darf der Fluchtweg sein?',
+      language: 'de-AT',
+      context: { territoryId: 'AT-9' },
+      expected: { values: [{ label: 'distance', anyOf: ['40 m'], grounding: 'text' }] },
+      ...extra,
+    })
+    const pointers = (records: unknown[], known: ReadonlyMap<string, KnownRecord> = KNOWN) => kit(parse(records), 'AT', known).map((p) => `${p.code} ${p.pointer}: ${p.detail}`)
+
+    it('passes with a site that exists and one thing an answer is held to (positive control)', () => {
+      expect(pointers([golden()])).toEqual([])
+      expect(pointers([golden({ context: {}, expected: {}, mustNot: [{ kind: 'source', id: 'no-web', sourceKinds: ['web'] }] })])).toEqual([])
+    })
+
+    it('names a case that holds an answer to nothing, by pointer', () => {
+      expect(pointers([golden({ expected: {} })])).toEqual(['KC-1 /expected: states nothing an answer is held to.'])
+    })
+
+    it('names a case whose every expectation is unconfirmed and that has no must-not: no run could pass or fail it', () => {
+      const unconfirmed = { values: [{ label: 'distance', anyOf: ['40 m'], grounding: 'unconfirmed' }] }
+      expect(pointers([golden({ expected: unconfirmed })])).toEqual([expect.stringMatching(/^KC-1 \/expected: has only unconfirmed expectations and no must-not/)])
+      expect(pointers([golden({ expected: unconfirmed, mustNot: [{ kind: 'source', id: 'no-web', sourceKinds: ['web'] }] })])).toEqual([])
+    })
+
+    it('names a must-not id used twice, an edition nobody proposed and a site that is not imported', () => {
+      const twice = [
+        { kind: 'phrase', id: 'gap', anyOf: ['offen'] },
+        { kind: 'source', id: 'gap', sourceKinds: ['web'] },
+      ]
+      expect(pointers([golden({ mustNot: twice })])).toEqual(['KC-1 /mustNot/1/id: the must-not "gap" is named twice.'])
+      const edition = { editionKey: 'code-2023', anyOf: ['Ausgabe 2023'], grounding: 'records' }
+      expect(pointers([golden({ expected: { edition } })])).toEqual([expect.stringMatching(/^KC-1 \/expected\/edition\/editionKey: names edition:code-2023, which is no edition/)])
+      expect(pointers([golden({ expected: { edition } })], new Map([...KNOWN, ['edition:code-2023', { type: 'edition', countryId: 'AT' }]]))).toEqual([])
+      expect(pointers([golden({ context: { territoryId: 'AT-8' } })])).toEqual([expect.stringMatching(/^KC-1 \/context\/territoryId: names territory AT-8/)])
+    })
+
+    it('is held to a captured quote like any record (KC-6)', () => {
+      expect(validateProposal(parse([golden()]), 'AT', KNOWN, CAPTURES).map((p) => p.code)).toEqual(['KC-6'])
+      expect(validateProposal(parse([golden({ citations: cited() })]), 'AT', KNOWN, CAPTURES)).toEqual([])
+    })
+  })
 })

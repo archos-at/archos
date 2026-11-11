@@ -25,30 +25,31 @@ status the citation chip shows stays the one the UI knows:
   building fact not yet known. The chain text says it neither binds nor does not bind; so does the chip.
 
 Fail closed: no context bound, or a gate that carries no uses, maps every passage to nothing.
-A base-corpus passage maps to an edition by its corpus file, and a passage
-read through a legal database (RIS) by an identity the edition's records carry
-(``sourceRefs``, ``{scheme, value}``: a Gesetzesnummer as the RIS URL's query
-parameter, an ELI by whole path segments of the URL; an unknown scheme never
-matches). An
-office's copy that happens to share a file name is the office's, and its label
-is the office layer's.
+
+A passage finds its edition BY ID, never by what its file is called or where it was fetched from: its
+producer states the knowledge record it read (``SourceEntry.edition_id`` / ``work_id``). A corpus point is
+marked with its edition at ingest (``knowledge_edition_id``); a live source's producer finds the work by
+the identifier the work's record carries (``knowledge_context.use_for_source_ref``). The role, the route,
+the edition's label and its dates are then read off the use with that id. No URL, host, file-name pattern
+or country is matched here, so a new country's sources need no code in this module.
+
+One bridge remains for a corpus point that predates the mark: its file name, compared whole with the
+names the edition's records list (``corpusFiles``). Records, not a pattern; a file the records name under
+another spelling is found once its points carry their edition (the corpus mark route re-marks without a
+re-ingest). An office's copy that happens to share a file name is the office's, and its label is the
+office layer's.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import parse_qs
-from urllib.parse import urlsplit
 
 from agent.citations.citation_keys import entry_shelf
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.entries import SourceEntry
-from agent.citations.source_identity import is_legal_database_source
 from agent.common.knowledge_context import EditionUse
-from agent.common.knowledge_context import SourceRef
 from agent.common.knowledge_context import turn_knowledge_context
-from agent.common.norm_registry import canonical_oib_file_name
 from agent.common.source_kinds import Shelf
 
 
@@ -64,71 +65,47 @@ class BindingClassification:
     binding_status: str = "unknown"
 
 
-#: The identity schemes a work's records carry and this module matches (``SOURCE_REF_SCHEMES`` in the
-#: TypeScript wire); any other scheme never matches.
-SOURCE_REF_SCHEMES: tuple[str, ...] = ("ris_gesetzesnummer", "eli")
+def _use_by_id(uses: tuple[EditionUse, ...], entry: SourceEntry) -> EditionUse | None:
+    """The use of the record a passage's producer stated; None when it stated none or the turn carries none.
 
-
-def _eli_segments(url: str) -> tuple[str, ...]:
-    """A URL as the segments an ELI is matched on: the host without ``www.`` (RIS links come both ways:
-    ``www.ris.bka.gv.at`` and the open-data ``ris.bka.gv.at``), then each path segment, lower case. Pure."""
-    parts = urlsplit(url.strip().lower())
-    return (parts.netloc.removeprefix("www."), *(segment for segment in parts.path.split("/") if segment))
-
-
-def _within_eli(url: str, eli: str) -> bool:
-    """Whether ``url`` is the work ``eli`` names or a part of it, by whole path segments: ``…/1930/11`` holds
-    ``…/1930/11/P63`` but not ``…/1930/110``, another law. A trailing ``/`` changes nothing. Pure."""
-    prefix = _eli_segments(eli)
-    return len(prefix) > 1 and _eli_segments(url)[: len(prefix)] == prefix
-
-
-def _law_number(url: str | None) -> str | None:
-    """The ``Gesetzesnummer`` query parameter of a RIS URL (``GeltendeFassung.wxe?…&Gesetzesnummer=20000006``)."""
-    query = parse_qs(urlsplit(url or "").query)
-    values = next((value for key, value in query.items() if key.lower() == "gesetzesnummer"), [])
-    return values[0] if values else None
-
-
-def _ref_matches(ref: SourceRef, entry: SourceEntry) -> bool:
-    """Whether one identity names the passage ``entry`` read, by its scheme; an unknown scheme never matches. Pure.
-
-    ``eli`` holds the passage's URL by whole path segments (host with or without ``www.``), and
-    ``ris_gesetzesnummer`` is the Gesetzesnummer its RIS URL asks for (``SOURCE_REF_SCHEMES``).
+    An edition id is the whole answer. A work id alone is a text read live at its source, the consolidated
+    wording in force: it is the work's use that holds no edition, else the work's only use; where the
+    records hold several editions of the work and none was stated, nothing is assumed.
     """
-    if ref.scheme == "eli":
-        return bool(entry.url) and _within_eli(entry.url, ref.value)
-    if ref.scheme == "ris_gesetzesnummer":
-        return _law_number(entry.url) == ref.value
-    return False
+    if entry.edition_id:
+        return next((use for use in uses if use.edition_id == entry.edition_id), None)
+    if not entry.work_id:
+        return None
+    of_work = [use for use in uses if use.work_id == entry.work_id]
+    live = next((use for use in of_work if use.edition_id is None), None)
+    return live or (of_work[0] if len(of_work) == 1 else None)
 
 
-def _use_for_legal_database(uses: tuple[EditionUse, ...], entry: SourceEntry) -> EditionUse | None:
-    """The edition a passage read through a legal database (RIS) is, by an identity its records carry."""
-    return next((use for use in uses if any(_ref_matches(ref, entry) for ref in use.source_refs)), None)
+def _use_by_corpus_file(uses: tuple[EditionUse, ...], entry: SourceEntry) -> EditionUse | None:
+    """The edition whose records list the base-corpus file a passage came from, compared whole (the bridge
+    for a point that carries no edition yet); None for any other shelf."""
+    if not entry.citation_key or entry_shelf(entry) is not Shelf.BASE:
+        return None
+    file_name, _page = parse_citation_key(entry.citation_key)
+    base_name = file_name.rsplit("/", 1)[-1].lower()
+    if not base_name:
+        return None
+    return next((use for use in uses if base_name in (name.lower() for name in use.corpus_files)), None)
 
 
 def use_for_entry(entry: SourceEntry) -> EditionUse | None:
     """The edition a passage is a text of, with its role here; None when the records do not say.
 
-    A base-corpus passage maps by its corpus file; a passage read through a legal database by the
-    identities the edition's manifestation records carry (``sourceRefs``). Anything else maps to nothing,
-    and its status is ``unknown`` (fail closed).
+    By the id of the record its producer stated; for a base-corpus point that states none, by the file
+    names the edition's records list. Anything else maps to nothing, and its status is ``unknown`` (fail
+    closed).
     """
     uses = turn_knowledge_context().uses
     if not uses:
         return None
-    if is_legal_database_source(entry):
-        return _use_for_legal_database(uses, entry)
-    if not entry.citation_key or entry_shelf(entry) is not Shelf.BASE:
-        return None
-    file_name, _page = parse_citation_key(entry.citation_key)
-    base_name = canonical_oib_file_name(file_name.rsplit("/", 1)[-1])
-    if not base_name:
-        return None
-    return next(
-        (use for use in uses if base_name in (canonical_oib_file_name(name) for name in use.corpus_files)), None
-    )
+    if entry.edition_id or entry.work_id:
+        return _use_by_id(uses, entry)
+    return _use_by_corpus_file(uses, entry)
 
 
 def binding_status_for(use: EditionUse) -> str:
@@ -156,7 +133,43 @@ def classification_for(use: EditionUse | None, *, place: bool) -> BindingClassif
 
 
 def role_fields(use: EditionUse | None) -> dict[str, Any]:
-    """The wire fields a source carries for its role; empty without one, so the payload is unchanged."""
+    """The wire fields a source carries for its edition's role here; empty without one, so the payload is unchanged.
+
+    Everything a citation's status line states, from the records and nowhere else (design §6.7): which
+    edition (``designation``, ``edition_label``), what it is here (``role``), through which instrument
+    (``route``) and from which day (``role_since``), as of which day that was resolved (``as_of``), and how
+    current the platform's check of it is (``last_checked_at``, ``freshness``, ``role_labels``), and which text
+    it is (``language``, ``text_status``). A field the records do not state is absent, never guessed. Pure.
+    """
     if use is None:
         return {}
-    return {"role": use.role, "role_qualifier": use.qualifier, "edition_id": use.edition_id}
+    route = use.route
+    return {
+        "role": use.role,
+        "role_qualifier": use.qualifier,
+        "work_id": use.work_id,
+        "edition_id": use.edition_id,
+        "designation": use.designation,
+        "edition_label": use.edition_label,
+        "route": (
+            {
+                key: value
+                for key, value in (
+                    ("work_id", route.work_id),
+                    ("designation", route.designation),
+                    ("edition_label", route.edition_label),
+                    ("provision", route.provision),
+                )
+                if value is not None
+            }
+            if route is not None
+            else None
+        ),
+        "role_since": use.role_since,
+        "as_of": use.date,
+        "last_checked_at": use.last_checked_at,
+        "freshness": use.freshness,
+        "role_labels": list(use.labels) or None,
+        "language": use.language,
+        "text_status": use.text_status,
+    }

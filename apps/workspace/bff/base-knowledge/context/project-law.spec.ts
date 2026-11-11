@@ -202,7 +202,7 @@ describe('lawOf', () => {
   it.each(['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', 'none'] as const)(
     'names nothing where the gate is %s, whatever the context holds',
     (state) => {
-      const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [], sourceUrl: null, applicability: null }
+      const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [], sourceUrl: null, route: null, roleSince: null, language: null, textStatus: null, applicability: null }
       const context = { gate: { state, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses: [use], text: null, retrieval: { countries: [] } }
       expect(lawOf(context, AT_SETUP_RECORDS)).toEqual({ gate: state, uses: [], factLabels: {} })
     },

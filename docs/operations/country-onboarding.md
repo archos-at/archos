@@ -91,6 +91,26 @@ territory of `at.json` (with its zone): propose both after the pack, validate,
 review, publish. A second record for one node and purpose makes the selection
 ambiguous and gives nothing.
 
+## The country's quality bar
+
+A country's golden cases are records too (`golden_case`, ADR-0165, amendment
+"golden cases are records"): propose them in a change request once the law they
+name is published, each citing the capture its expectation was read from. Mark
+what you could not check `grounding: unconfirmed`; the reviewer confirms or
+rewrites it, and until then it never decides a case. Austria's are
+`configs/knowledge-packs/at-golden-cases.json` (28 cases, 25 of 66 expectations
+unconfirmed).
+
+`platform-knowledge-golden-run {countryId}` asks the released cases through the
+answer path and scores them; with `changeRequestId` it runs the cases of a
+request published to preview. It asks as you, in the platform organization,
+which must be entitled to the country and have the switch for asking from another agent on, and it spends
+that organization's model budget. Step it with `-golden-run-advance` until it
+is finished. The verdicts are on the run (`-golden-run-get`) and in Langfuse,
+under the dataset `golden-cases`, one dataset run per golden run, so two runs
+compare case by case. Publishing does not wait for a run: read it before you
+ask for the publish.
+
 ## Keeping a country current
 
 The `source-monitor` sweep (every 15 minutes) checks each published source

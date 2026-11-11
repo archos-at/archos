@@ -10,6 +10,27 @@ export const turnContextResponseSchema = z.object({
   projectMemory: z.string().nullable(),
   orgInstructions: z.string().nullable(),
   /**
+   * The asker's personal memory (`lib/personal-memory/service.ts`, ADR-0180):
+   * what the agent keeps about this one person, bounded, under the header
+   * `PERSONAL_MEMORY v1`. Read under row-level security on the person, so it is
+   * never another member's. Delivered only where the asker alone reads the
+   * answer: a turn without a conversation, or a conversation that is solo for
+   * them (private, theirs, granted to nobody; one not created yet counts). In a
+   * conversation others read it is null, and so it is when the audience could
+   * not be read. Also null when the person holds no note or it could not be
+   * read; an older agent ignores it.
+   */
+  personalMemory: z.string().nullable(),
+  /**
+   * The turn's conversation is temporary (`lib/conversations/temporary.ts`,
+   * ADR-0180 rule 2): nothing from it is kept, so the agent skips its memory
+   * writers (`remember`, the reflection stage). The memory routes refuse such a
+   * write with `TEMPORARY_CONVERSATION` whatever the agent does. Reading is
+   * untouched: `projectMemory` and `personalMemory` are delivered as on any
+   * turn. False without a conversation, and for one whose row does not exist yet.
+   */
+  temporary: z.boolean(),
+  /**
    * The conversation drew on another project that still restricts its readers
    * (an active one, ADR-0094): the turn starts with every door a whole project
    * reads shut, memory included, instead of learning it from a refusal. Content

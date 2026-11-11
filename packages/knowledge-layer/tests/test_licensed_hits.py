@@ -41,6 +41,30 @@ def test_a_search_hit_carries_the_points_licence():
     assert _hit(_chunk()).licence is None
 
 
+def test_a_search_hit_states_the_edition_its_point_was_marked_with():
+    """What a citation's role and edition are resolved by: the id the ingest wrote on the point, never its file name."""
+    assert _hit(_chunk(knowledge_edition_id="edition:guideline-2-2021")).edition_id == "edition:guideline-2-2021"
+    assert _hit(_chunk()).edition_id is None
+
+
+def test_an_office_or_project_hit_states_what_its_name_says_about_its_revision():
+    """The index and the day ride the record (never a header line), so a citation can name the Fassung it read."""
+
+    def named(file_name: str, shelf: str = "project"):
+        chunk = _chunk()
+        chunk.file_name, chunk.metadata = file_name, {"collection": "proj_a", "shelf": shelf}
+        return _hit(chunk).revision
+
+    assert named("EG_Grundriss_Index_C_2026-08-14.pdf").model_dump() == {"index": "C", "date": "2026-08-14"}
+    assert named("Brandschutzkonzept_Stand_2026-09-02.pdf", "office_shelf").model_dump() == {
+        "index": None,
+        "date": "2026-09-02",
+    }
+    assert named("Raumprogramm.pdf") is None
+    # The base corpus's editions are named by the knowledge records, never guessed from a file name.
+    assert named("guideline_2_2026-08-14.pdf", "base") is None
+
+
 def _file(**row) -> SimpleNamespace:
     return SimpleNamespace(
         row=FileRow(file_name="oenorm_b_1600.pdf", shelf="office_shelf", collection="office-org-a", **row),

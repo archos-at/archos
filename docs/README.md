@@ -16,7 +16,9 @@ code, grouped by the question you arrived with. See the
    the system is, how the pieces fit, and what lives where in the checkout (§12).
 3. [`../CONTRIBUTING.md`](../CONTRIBUTING.md) for setup, branching, the merge gate.
 4. [`contributing/testing-and-verification.md`](contributing/testing-and-verification.md)
-   for `task verify` and the traps behind it.
+   for `task verify` and the traps behind it, and
+   [`contributing/local-stack.md`](contributing/local-stack.md) to run the whole
+   app on your machine, signed in, with one command (`task local:up`).
 5. [`contributing/code-conventions.md`](contributing/code-conventions.md) for
    house rules that already cost somebody an afternoon, and
    [`adr/README.md`](adr/README.md) for the decisions and why they went that way.
@@ -67,7 +69,7 @@ Start with [`system-overview.md`](architecture/system-overview.md), then
 | Collaboration and lifecycle | [`collaboration-lifecycle.md`](architecture/collaboration-lifecycle.md), [`adding-a-shareable-resource-type.md`](architecture/adding-a-shareable-resource-type.md), [`deletion-pipeline.md`](architecture/deletion-pipeline.md) |
 | Scale and cost | [`latency-and-caching-audit-2026-09.md`](audit/latency-and-caching-audit-2026-09.md), where a chat turn's seconds measurably go and what effort, search rounds and startup cost: [`turn-latency-measured-2026-09.md`](audit/turn-latency-measured-2026-09.md), [`scaling-review-2026-07.md`](audit/scaling-review-2026-07.md), [`scaling-review-2026-07-phase2.md`](audit/scaling-review-2026-07-phase2.md), [`rate-limiting-and-load-protection.md`](architecture/rate-limiting-and-load-protection.md), [`usage-budgets.md`](architecture/usage-budgets.md) |
 | Reach | [`country-extensibility.md`](architecture/country-extensibility.md), [`backend-message-localization.md`](architecture/backend-message-localization.md) |
-| Surfaces | [`design/design-language.md`](design/design-language.md), [`design/run-block.md`](design/run-block.md) (what a run looks like in the thread, and how its moves are ordered), [`design/streaming-chat-answer.md`](design/streaming-chat-answer.md) and every phase and edge of a turn with its fixture and check: [`design/lifecycles/chat-turn.md`](design/lifecycles/chat-turn.md), the chat wire being rebuilt on typed events: [`design/chat-wire-v2.md`](design/chat-wire-v2.md), which drawing an answer carries and when: [`design/answer-visuals.md`](design/answer-visuals.md), how rich an answer gets and the block dialect behind it: [`design/answer-richness.md`](design/answer-richness.md), how a diagram is read and drawn: [`architecture/diagrams.md`](architecture/diagrams.md), [`design/project-surfaces.md`](design/project-surfaces.md), [`design/answer-card-charter.md`](design/answer-card-charter.md) |
+| Surfaces | [`design/design-language.md`](design/design-language.md), [`design/run-block.md`](design/run-block.md) (what a run looks like in the thread, and how its moves are ordered), [`design/streaming-chat-answer.md`](design/streaming-chat-answer.md) and every phase and edge of a turn with its fixture and check: [`design/lifecycles/chat-turn.md`](design/lifecycles/chat-turn.md), the chat wire being rebuilt on typed events: [`design/chat-wire-v2.md`](design/chat-wire-v2.md), which drawing an answer carries and when: [`design/answer-visuals.md`](design/answer-visuals.md), how rich an answer gets and the block dialect behind it: [`design/answer-richness.md`](design/answer-richness.md), how a diagram is read and drawn: [`architecture/diagrams.md`](architecture/diagrams.md), [`design/project-surfaces.md`](design/project-surfaces.md), [`design/answer-card-charter.md`](design/answer-card-charter.md), what a citation must do for an architect, the gaps and the slices that close them: [`design/citations.md`](design/citations.md) |
 
 ## Working practices
 

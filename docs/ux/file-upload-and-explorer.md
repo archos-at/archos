@@ -326,6 +326,13 @@ already carried), with the MIME type in its tooltip; the date is on the Fassung.
   That is decoration pretending to be content; on a file surface a reader
   glancing at it sees "a document" and moves on. Skeleton bars now appear only
   while a preview is genuinely loading.
+- **What is shown belongs to one file.** Every load (`loadPreview` in
+  `use-file-preview-controller.tsx`) starts by dropping the last one's URLs, and
+  an answer for a file that is no longer selected is ignored. The pane's failure
+  states draw only without a URL, so a kept one hid them: a next file whose
+  preview request failed showed the previous file's picture under its own name.
+  A failed request now reads „could not be loaded“ with „Erneut versuchen“, and
+  a 404 reads as gone with the way out, whatever was open before.
 
 ## The card of a document that is still being read
 

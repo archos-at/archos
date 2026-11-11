@@ -54,7 +54,9 @@ Phase 3 — vocabulary and language surfaces (scoped per country):
    (`country_name`, `legal_source_tools`) when country #2 ships.
 7. Corpus filenames: `agent/common/oib_file_names.py` and the OIB readers in
    `norm_registry` (`oib_doc_class`, `oib_family_member`, `guess_display_title`)
-   parse the OIB's filenames and tie a passage to its edition by name, from
+   parse the OIB's filenames for a file's lane, class and title (a passage's
+   edition and role no longer read them: `citations/roles.py` resolves by the
+   record id the hit carries), from
    `agent/common/`, which should be country-neutral. Country #2's texts get their
    class and edition from the pack's manifestations instead, which is also the
    fix the name mapping bridges to (retrieval reading the chunk's `edition_id`).
@@ -184,6 +186,16 @@ OGD API v2.6 (`data.bka.gv.at`) and the fixture
   application map and no host. Those are already the record's (`tables:` in
   `source.yml`). Today's engine is named `ris_xml`, which is the publisher's
   name; the schema's own name is the neutral one to take.
+
+Status, 2026-11-11 (plan step 4a, #1624): the record carries its `lookup`
+block (the locus grammar, the applications as collections, the Bundesland
+filter, the words written back), a turn carries the released sources of its
+countries, Austria's record is a door payload
+(`configs/knowledge-packs/at-sources.json`), and the parity rig holds the
+country-neutral lookup to the RIS tool's requests and text on 26 recorded calls
+(`packages/agent/tests/knowledge/test_law_lookup_parity.py`). Step 4b renames
+the model tool and deletes the package, `LAW_SOURCE_COUNTRIES` and the
+repository file once the record is published on dev.
 
 The constraint (ADR-0162, kept by ADR-0175): **Austrian answers stay
 byte-identical.** `packages/ris-adapter/tests/test_source_record_parity.py`

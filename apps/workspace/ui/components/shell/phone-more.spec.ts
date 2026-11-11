@@ -48,8 +48,8 @@ describe('moreDestinations: what "Mehr" lists', () => {
     const keys = (flags: MoreFlags) => moreDestinations('p1', '/app/projects/p1/chat', flags).map((d) => d.key)
     // Suche is listed: the chat and Alle Dateien have no search on their title's line, so „Mehr“ is where it
     // is on every page.
-    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'search', 'profile', 'organization', 'platform', 'whats-new'])
-    expect(keys(NONE)).toEqual(['search', 'profile', 'whats-new'])
+    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'search', 'profile', 'memory', 'organization', 'platform', 'whats-new'])
+    expect(keys(NONE)).toEqual(['search', 'profile', 'memory', 'whats-new'])
     expect(keys({ ...ALL, showSkills: false })).not.toContain('automation')
     expect(keys({ ...ALL, canAccessOfficeShelf: false })).not.toContain('officeShelf')
   })
@@ -63,9 +63,9 @@ describe('moreDestinations: what "Mehr" lists', () => {
 
   test('the account links are gated as the avatar menu gates them', () => {
     const keys = (flags: Partial<MoreFlags>) => moreDestinations(null, '/app/projects', { ...NONE, ...flags }).map((d) => d.key)
-    expect(keys({})).toEqual(['profile', 'whats-new'])
-    expect(keys({ canViewOrganization: true })).toEqual(['profile', 'organization', 'whats-new'])
-    expect(keys({ canManageOrganization: true })).toEqual(['profile', 'organization', 'whats-new'])
-    expect(keys({ canManagePlatform: true })).toEqual(['profile', 'platform', 'whats-new'])
+    expect(keys({})).toEqual(['profile', 'memory', 'whats-new'])
+    expect(keys({ canViewOrganization: true })).toEqual(['profile', 'memory', 'organization', 'whats-new'])
+    expect(keys({ canManageOrganization: true })).toEqual(['profile', 'memory', 'organization', 'whats-new'])
+    expect(keys({ canManagePlatform: true })).toEqual(['profile', 'memory', 'platform', 'whats-new'])
   })
 })

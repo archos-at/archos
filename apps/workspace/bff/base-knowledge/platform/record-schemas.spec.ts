@@ -28,6 +28,12 @@ describe('recordSchemas', () => {
     expect(text).not.toContain('"examples":{"default":[]')
   })
 
+  it('writes the citation once, and every record’s citations reference it', () => {
+    expect(all.citation).toMatchObject({ type: 'object' })
+    for (const [type, schema] of Object.entries(all.recordTypes)) expect(JSON.stringify(schema), type).toContain('"items":{"$ref":"#/citation"}')
+    expect(JSON.stringify(all.recordTypes)).not.toContain('platform-knowledge-citation-capture')
+  })
+
   it('carries no table for a type that has none', () => {
     const work = recordSchemas(['work'])
     expect(Object.keys(work.recordTypes)).toEqual(['work'])

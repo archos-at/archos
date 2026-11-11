@@ -69,6 +69,12 @@ The expected values come from the published records and their RIS captures, neve
 
 ## The before-baseline, 2026-11-10
 
+*Since 2026-11-11 the 20 questions below, and the dev-acceptance scenarios A1 to A8, are golden cases with
+expected values (`configs/knowledge-packs/at-golden-cases.json`, ADR-0165, amendment "golden cases are records").
+The table stays as the measurement it was: seconds, self-reported confidence and counts. The golden run scores
+the same questions against what a right answer says; on the recorded answers of this baseline it fails B1, B9,
+B10 and B11, which this table shows as `high` (`tests/fixtures/golden/scoring_parity.json`).*
+
 Asked through the agent door on dev, one org, old path (the knowledge-context switches off for that org only). "Retrieval calls" counts the answer's retrieval tool calls from its message metadata; token usage per answer is not available on the door (`conversation-message-usage` is withheld as billing) and comes from the answer suite instead. The after-run asks the same 20 questions in the same projects.
 
 | # | Question | Project | Seconds | Confidence | Sources | Retrieval calls |

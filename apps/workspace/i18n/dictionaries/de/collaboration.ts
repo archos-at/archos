@@ -392,6 +392,12 @@ export const collaboration: typeof en.collaboration = {
         title: '{actor} hat Ihnen {subject} zugewiesen',
         body: 'Sie sind für diese Datei zuständig.',
       },
+      // Ein Projekt-Administrator hat die Eigentümerschaft übernommen (ADR-0032,
+      // Entscheidung 5). {subject} ist der Chat oder die Datei.
+      ownershipTaken: {
+        title: '{actor} hat die Eigentümerschaft von „{subject}“ übernommen',
+        body: 'Als Projekt-Administrator. Sie bleiben Eigentümer; die Übernahme steht im Audit-Protokoll.',
+      },
       // Ein Lauf ist zu Ende. {subject} ist der Name der Aufgabe.
       // Kein {actor}: die Arbeit hat Piloti getan, nicht eine Person.
       // ADR-0086: alles, was ein Upload gebracht hat, ist gelesen. {subject}

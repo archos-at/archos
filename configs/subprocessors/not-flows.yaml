@@ -255,6 +255,7 @@ packages:
     - 'py:regex'
     - 'py:shapely'
     - 'py:striprtf'
+    - 'py:validators'
   'assets it would fetch are self-hosted: Excalidraw fonts (EXCALIDRAW_ASSET_PATH), pdf.js cmaps and fonts (public/pdfjs), PDF fonts from local files, Geist from the package':
     - 'js:@excalidraw/excalidraw'
     - 'js:pdfjs-dist'

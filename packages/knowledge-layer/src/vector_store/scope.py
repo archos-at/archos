@@ -248,22 +248,29 @@ def scope_filter(
 
 
 def corpus_country_condition(scopes: Sequence[str]) -> models.Filter | None:
-    """The base corpus read only for the countries this request may see (ADR-0173); None when nothing says.
+    """The base corpus read only for the countries this request may see (ADR-0173); None only when unscoped.
 
     The one place every vector read passes (:func:`scope_filter`): a chat turn, a run, a door tool,
     ``read_passage``, the estate's file reads. A point passes when it is in one of the read's tenant
     scopes, or its ``country_id`` is one the request may read. A point without ``country_id`` passes
     nothing: an unmarked text is read by nobody (fail closed); the corpus that predates the field is
     marked Austrian by the sync's one-time backfill (``oib_sync.backfill_legacy_marks``).
+
+    Strict for a request, unscoped for none. ``corpus_countries`` answers a set for every request: the
+    turn's gate, else the countries signed onto the base entry, else the empty set when the request's
+    scope says nothing, which reads no base chunk (the ``__none__`` filter below). Only the explicit
+    ``UNSCOPED`` marker, answered for a read that belongs to no request (a script, the sync loop) or one
+    inside ``unscoped_corpus_reads()``, adds no country filter. A request's silence is never that marker.
     """
     if all(is_tenant_scope(scope) for scope in scopes):
         return None
+    from agent.common.knowledge_context import UNSCOPED
     from agent.common.knowledge_context import corpus_countries
 
     countries = corpus_countries()
-    if countries is None:
+    if countries is UNSCOPED:
         return None
-    # An empty list matches nothing; Qdrant refuses an empty MatchAny, so a value no point carries stands in.
+    # An empty set matches nothing; Qdrant refuses an empty MatchAny, so a value no point carries stands in.
     allowed = sorted(countries) or ["__none__"]
     should: list[Any] = [models.FieldCondition(key=COUNTRY_FIELD, match=models.MatchAny(any=allowed))]
     tenant = [scope for scope in scopes if is_tenant_scope(scope)]

@@ -321,6 +321,7 @@ def _finished(
         query_text=inputs.query_text,
         cards=cards,
         remembered_this_turn=registries.memory_writes,
+        noted_this_turn=registries.memory_notes,
         registry_collections=registries.source_collections,
         restricted_memory_writes=registries.restricted_memory_writes,
         earlier_restricted_notes=registries.shown_notes,
@@ -482,6 +483,9 @@ async def _answer(turn: _Turn, *, message_id: str, stream: bool) -> AsyncIterato
         memory_digest=turn.context.stage_facts.memory_digest,
         shown_notes=turn.shown_notes,
         restricted_scope=turn.context.restricted_scope,
+        temporary=turn.context.temporary,
+        personal_memory=turn.context.personal_memory,
+        answer_message_id=message_id if turn.context.stage_facts.ws_parent_id else None,
     ) as registries:
         answering = answer_turn(
             turn.agent,

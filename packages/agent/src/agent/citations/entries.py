@@ -101,6 +101,26 @@ class SourceEntry:
     # project is in another Land than the chat's. Carried to the precedent
     # chip's meta line; None when the producer stated none.
     project_federal_state_note: str | None = None
+    # THE KNOWLEDGE RECORD this text was read as, as its producer states it (``GroundingHit.work_id`` /
+    # ``edition_id``): what the citation's role, route and edition are resolved by (``citations/roles.py``).
+    # None for everything no record holds: an office or project document, the web.
+    work_id: str | None = None
+    edition_id: str | None = None
+    # WHERE A PERSON OPENS THE SOURCE in public, as its producer states it (``GroundingHit.public_url``): the
+    # address of the text at the source it was read from. It is NOT ``url``: ``url`` is a registry identity
+    # (one entry per URL, and what a source line may link), and a passage cited by its key has none. A
+    # display field: it dedups nothing, resolves nothing and decides no role. None for a corpus passage,
+    # whose edition's records name the address instead.
+    public_url: str | None = None
+    # The day this turn read the source (ISO, UTC), for a source read live over the network: what "abgerufen
+    # am" must say, however much later the citation is copied. Stamped once, when the registry first takes
+    # the entry (``SourceRegistry.add``); a corpus passage has none.
+    retrieved_at: str | None = None
+    # Which Fassung the text read is, as its producer states it (``GroundingHit.revision``): the index and
+    # the day an office or project document's own name carries, or the day a consolidated law is in force
+    # from as its source states it. None when nothing states one; never the day it was fetched.
+    revision_index: str | None = None
+    revision_date: str | None = None
 
 
 @dataclass

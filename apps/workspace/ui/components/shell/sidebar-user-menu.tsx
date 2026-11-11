@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import {
+  Brain,
   Building2,
   Check,
   ChevronsUpDown,
@@ -231,6 +232,13 @@ export function SidebarUserMenu({
           <Link href="/app/profile">
             <UserRound className="size-4 text-muted-foreground" aria-hidden />
             {t('userMenu.profile')}
+          </Link>
+        </DropdownMenuItem>
+        {/* The person's own notes (ADR-0180), beside the profile: both are about them, outside any project. */}
+        <DropdownMenuItem asChild className="gap-2">
+          <Link href="/app/memory" data-testid="user-menu-memory">
+            <Brain className="size-4 text-muted-foreground" aria-hidden />
+            {t('userMenu.memory')}
           </Link>
         </DropdownMenuItem>
         {(canViewOrganization || canManageOrganization) && (

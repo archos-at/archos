@@ -246,6 +246,7 @@ export const INBOX_TYPE_PRESENTATION: Record<InboxItemType, InboxTypePresentatio
   'conversation.activity': { icon: 'message-square', i18nKey: 'conversationActivity', tone: 'info' },
   'storage.quota_warning': { icon: 'hard-drive', i18nKey: 'storageQuotaWarning', tone: 'warning' },
   'document.assigned_to_you': { icon: 'user-plus', i18nKey: 'documentAssigned', tone: 'info' },
+  'resource.ownership_taken': { icon: 'shield-alert', i18nKey: 'ownershipTaken', tone: 'info' },
   'task_run.completed': { icon: 'check-circle', i18nKey: 'taskRunCompleted', tone: 'info' },
   'task_run.failed': { icon: 'alert-triangle', i18nKey: 'taskRunFailed', tone: 'warning' },
   // The clock is the run block's own glyph for `waiting`, so the row and the

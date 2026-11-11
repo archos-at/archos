@@ -18,6 +18,7 @@ from dataclasses import replace
 from typing import Any
 
 from agent.auth import get_current_principal
+from agent.common.bff_http import SignedEnvelope
 from agent.common.knowledge_context import UNAVAILABLE
 from agent.common.knowledge_context import KnowledgeContext
 from agent.common.platform_lessons import LessonsResolution
@@ -41,6 +42,7 @@ from agent.stages.flags import resolve_turn_flags
 from agent.turn.context_client import ContextBlocks
 from agent.turn.context_client import fetch_turn_context
 from agent.turn.context_client import office_convention_lines
+from agent.turn.context_client import personal_memory_lines
 from agent.turn.context_client import with_base_knowledge
 
 logger = logging.getLogger(__name__)
@@ -101,6 +103,12 @@ class TurnContext:
     #: ``spanned`` records it on the ``setup.project_context`` phase. Empty
     #: off the BFF path.
     phase_facts: dict[str, float | str] = field(default_factory=dict)
+    #: The asker's ``PERSONAL_MEMORY v1`` block (ADR-0180), which only they
+    #: read. Its own field, never part of ``project_context``: that one goes to
+    #: the clarifier and to deep research, whose report the project reads.
+    personal_memory: str | None = None
+    #: The conversation is temporary (ADR-0180): the turn keeps nothing.
+    temporary: bool = False
 
     @property
     def confined(self) -> bool:
@@ -330,6 +338,13 @@ async def _platform_lessons(conversation_id: str | None) -> LessonsResolution:
         return LessonsResolution(digest=None, arm="off")
 
 
+def _signed_envelope(request: RequestContext) -> SignedEnvelope | None:
+    """The turn's envelope as it arrived, for a stage that writes for the asker after the request is gone."""
+    if not request.envelope_header or not request.envelope_signature:
+        return None
+    return SignedEnvelope(header=request.envelope_header, signature=request.envelope_signature)
+
+
 def _record_base_knowledge(blocks: ContextBlocks) -> None:
     """The office's base-knowledge entries the turn was shown (ADR-0163), so Langfuse
     can compare answers with and without the office's own standards."""
@@ -339,6 +354,21 @@ def _record_base_knowledge(blocks: ContextBlocks) -> None:
     record_trace_metadata(base_knowledge_entries=sum(1 for line in lines if line.startswith("- ")))
     overdue = overdue_count(blocks.base_knowledge_labels)
     emit_scores([RuntimeScore("base-knowledge-overdue", overdue)], writer="turn-context")
+
+
+def _record_context_facts(blocks: ContextBlocks) -> None:
+    """What the turn was shown, on its trace: counts and flags, never a block's text."""
+    if blocks.workspace is not None:
+        # The office's conventions the turn was shown (ADR-0129): 0 on a turn
+        # without them, so Langfuse can compare filing answers with and without.
+        record_trace_metadata(office_conventions_lines=office_convention_lines(blocks.workspace))
+    _record_base_knowledge(blocks)
+    # ADR-0180: how many of the asker's own notes were in the prompt (0 without
+    # a block), and whether the conversation keeps nothing.
+    record_trace_metadata(
+        personal_memory_lines=personal_memory_lines(blocks.personal_memory),
+        temporary_conversation=blocks.temporary,
+    )
 
 
 async def _load_turn_context(
@@ -356,11 +386,7 @@ async def _load_turn_context(
     # Here, not in `_platform_lessons`: gather runs that in a child task, whose
     # context (and so whose trace contributions) the turn never sees again.
     record_lessons(lessons.arm, lessons.lesson_ids)
-    if blocks.workspace is not None:
-        # The office's conventions the turn was shown (ADR-0129): 0 on a turn
-        # without them, so Langfuse can compare filing answers with and without.
-        record_trace_metadata(office_conventions_lines=office_convention_lines(blocks.workspace))
-    _record_base_knowledge(blocks)
+    _record_context_facts(blocks)
     if blocks.drew_on_other_projects and (cross := current_cross_project_turn()) is not None:
         # An earlier turn drew on another project (ADR-0094): this one starts
         # with every door a whole project reads shut (`settle_restriction`).
@@ -377,6 +403,8 @@ async def _load_turn_context(
         knowledge_context=blocks.knowledge_context,
         project_models=blocks.project_models,
         phase_facts=blocks.timing,
+        personal_memory=blocks.personal_memory,
+        temporary=blocks.temporary,
         # The restriction is settled after the whole setup gather
         # (`settle_restriction`): the digest and the subject can each confine.
         deep_research_allowed=turn_flags.deep_research_allowed,
@@ -392,6 +420,9 @@ async def _load_turn_context(
             memory_digest=blocks.project_memory,
             federal_state=request.federal_state,
             enabled_stages=turn_flags.enabled_stages,
+            personal_memory=blocks.personal_memory,
+            temporary=blocks.temporary,
+            envelope=_signed_envelope(request),
         ),
     )
 

@@ -79,6 +79,7 @@ import { useLayoutStore } from '@/features/layout/store'
 import { useDocumentsStore } from '@/features/documents/store'
 import { getPosthogSessionId } from '@/lib/analytics/posthog'
 import { fetchRunMessage } from '../lib/commissioned-run'
+import { afterTemporarySettled } from '../lib/temporary-conversation'
 import {
   clampFocusRegion,
   openCanvasFocus,
@@ -1336,7 +1337,7 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         // room beside the chat. Omitted otherwise, so the server never offers the model the tool (ADR-0144).
         ...(clientTools.length ? { client_tools: clientTools } : {}),
       }
-      ensureDriver(conversationId).ask(question)
+      afterTemporarySettled(conversationId, () => ensureDriver(conversationId).ask(question))
       return true
     },
     [addErrorCard, collectSendMetadata, ensureDriver]

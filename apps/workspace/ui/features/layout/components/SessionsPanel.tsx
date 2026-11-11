@@ -85,6 +85,7 @@ import { listResearchRuns, type ResearchRun } from '@/adapters/api/research-runs
 import { useLayoutStore } from '../store'
 import { useChatStore } from '@/features/chat/store'
 import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal'
+import { SessionTemporaryMark, TEMPORARY_LABEL } from './session-temporary-mark'
 import { DeleteAllSessionsConfirmationModal } from './DeleteAllSessionsConfirmationModal'
 import { StopResearchConfirmationModal } from './StopResearchConfirmationModal'
 import { cancelJob } from '@/adapters/api/deep-research-client'
@@ -99,6 +100,8 @@ interface Session {
   hasCompletedReport?: boolean
   /** The reader may no longer read this chat (ADR-0088): a neutral title, no rename. */
   contentLocked?: boolean
+  /** Nothing from this chat is kept in memory (ADR-0180): a quiet mark, and said in the row's label. */
+  temporary?: boolean
 }
 
 /**
@@ -981,10 +984,6 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
     [handleSaveRename, handleCancelRename]
   )
 
-  const handleInputBlur = useCallback(() => {
-    handleSaveRename()
-  }, [handleSaveRename])
-
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setEditValue(e.target.value)
   }, [])
@@ -994,11 +993,12 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
   // One control, one name — the row's label carries the title AND the state its
   // icon depicts, so nothing on the row is visual-only.
   const statusKey = statusKeyFor(session, isSessionActive)
-  const rowLabel = isBusy
+  const stateLabel = isBusy
     ? t('sessionsPanel.sessionLabelBusy', { title: displayTitle })
     : statusKey
       ? t('sessionsPanel.sessionLabelWithStatus', { title: displayTitle, status: t(statusKey) })
       : t('sessionsPanel.sessionLabel', { title: displayTitle })
+  const rowLabel = session.temporary ? t(TEMPORARY_LABEL, { label: stateLabel }) : stateLabel
 
   return (
     <Item
@@ -1041,7 +1041,7 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
               value={editValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              onBlur={handleInputBlur}
+              onBlur={handleSaveRename}
               className="h-8 min-w-0 flex-1 px-2.5 pointer-coarse:h-11"
               aria-label={t('sessionsPanel.editTitle')}
             />
@@ -1084,6 +1084,7 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
                 >
                   {displayTitle}
                 </span>
+                {session.temporary && <SessionTemporaryMark />}
                 {sessionIso && (
                   <span
                     className="text-muted-foreground shrink-0 text-xs tabular-nums"

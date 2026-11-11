@@ -1109,9 +1109,11 @@ The text parsers in `citations/text_parsers.py`
 that hold the bytes without the records: a registry hydrated from the shared
 cache, a turn replayed out of Postgres, and the job runner's callback in
 `apps/agent-host/src/agent_host/jobs/callbacks.py`. A text those parsers find no
-`Citation:` line in carries no sources at all; the generic URL extractor beneath
-them reads the tools with no registered parser (web search), never a passage
-body. Nothing reads a FAILED call either: both capture loops skip a
+`Citation:` line in carries no sources at all. A web search is read by its
+result records (`citations/web_results.py`: one `<Document href>` header per
+hit, never an address inside a page's text, and no address `common/url_safety.py`
+refuses); the generic URL extractor beneath them reads only the tools with no
+registered parser, never a passage body. Nothing reads a FAILED call either: both capture loops skip a
 `ToolMessage` whose `status` is `error`, so the words a tool failure returns are
 the model's to act on and nobody's evidence. The contract test asserts the
 two readers produce the same entries
@@ -1495,7 +1497,13 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    `apps/workspace/tests/fixtures/knowledge-context.schema.json`. It is the turn's one answer to which
    law applies: the citation chip reads the same roles the gate does
    (`citations/roles.py`), so a citation never says binding where the gate says
-   information. The chain text is the turn context's
+   information. A cited passage finds its use by the id of the record it was
+   read as (`SourceEntry.edition_id`, `work_id`: a corpus point's
+   `knowledge_edition_id`, a legal-database passage's work by the identifier
+   its source record reads off the document), never by a URL, a host or a file
+   name's spelling, and the citation then carries the use's edition label,
+   route, dates, language and public address
+   ([`design/citations.md`](../design/citations.md), slice 1). The chain text is the turn context's
    `<building_law>` block (`law_gate.turn_building_law_block`), the only
    building-law text a turn reads, and a gate that withholds law shows the
    note instead. A cited base-corpus passage maps to its edition by its
@@ -2000,11 +2008,28 @@ The agent can now persist curated findings across turns. Full design:
   `organizationId`, `projectId` null).
 - **Read path**: `buildProjectMemoryDigest()`
   (`apps/workspace/bff/projects/memory-service.ts`) merges org-wide +
-  project items (active only; pinned first, then most recently updated,
-  bounded), tags each line with scope/kind/confidence/verification, and the
-  digest rides the WS upgrade as the `x-grid-project-memory` header
-  (`server.js` → `packages/agent/src/agent/project_context.py`), injected into prompts
-  alongside `x-grid-project-context`.
+  project items (active only; the pinned ones, then the ones recalled for
+  this turn's question, bounded) and tags each line with
+  scope/kind/confidence/verification. A signed-in chat turn does not get the
+  digest in a handshake header (ADR-0077): the agent calls
+  `POST /api/internal/turn-context` at turn setup and reads it from
+  `projectMemory` in the response
+  (`packages/agent/src/agent/turn/context_client.py`). A turn whose signed
+  scope holds restricted-folder collections also calls
+  `GET /api/internal/memory/digest` and takes that digest, which may carry
+  restricted notes. The `x-grid-project-memory` header is left in two places:
+  the handshake of a deployment where nobody signs in
+  (`apps/workspace/bff/turns/turn-headers.js`), and the job worker, which
+  fetches the digest from `GET /api/internal/memory/digest` and writes it into
+  its own request state (`apps/agent-host/src/agent_host/jobs/agent_job_setup.py`).
+  `packages/agent/src/agent/project_context.py` reads the header in both.
+- **Personal memory (ADR-0180)**: a third home, in a table of its own
+  (`personal_memory`, row-level security on the person). The same turn-context
+  response carries the asker's block as `personalMemory`, only when the asker
+  alone reads the answer, and `temporary`, which tells the agent to skip its
+  memory writers. The agent writes through `POST /api/internal/personal-memory`
+  (`packages/agent/src/agent/knowledge/personal_memory.py`). The design is in
+  `project-memory-design.md`, first section.
 
 ## 8b. Runtime model overrides & usage metering (2026-07-07)
 

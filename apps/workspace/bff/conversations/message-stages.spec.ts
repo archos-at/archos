@@ -93,6 +93,45 @@ describe('sanitizeMemoryReflectionStage', () => {
     ).toEqual({ items: [{ id: '9d2f6b41', kind: 'constraint', content: 'Das Projekt liegt in Wien.' }] })
   })
 
+  it('keeps what an item says about when it was written, where it went and what it replaced', () => {
+    const item = { id: 'n-1', kind: 'decision', content: 'Die Bauherrschaft will ein Flachdach.' }
+    expect(
+      sanitizeMemoryReflectionStage({
+        items: [
+          { ...item, provenance: 'agent', scope: 'organization' },
+          { ...item, id: 'n-2', supersedes: ' Die Bauherrschaft will ein Satteldach. ', restricted: true },
+        ],
+      })?.items,
+    ).toEqual([
+      { ...item, provenance: 'agent', scope: 'organization' },
+      { ...item, id: 'n-2', supersedes: 'Die Bauherrschaft will ein Satteldach.', restricted: true },
+    ])
+  })
+
+  it('reads a value outside the closed sets as the default it is absent for', () => {
+    // A client cannot mint a shelf, a provenance or a flag: jsonb on a hot table keeps closed values only.
+    const [stored] =
+      sanitizeMemoryReflectionStage({
+        items: [
+          {
+            id: 'n-1',
+            kind: 'decision',
+            content: 'Flachdach.',
+            provenance: 'user',
+            scope: 'personal',
+            restricted: 'yes',
+            supersedes: 7,
+            owner: 'user_2',
+          },
+        ],
+      })?.items ?? []
+    expect(stored).toEqual({ id: 'n-1', kind: 'decision', content: 'Flachdach.' })
+  })
+
+  it('has no place for a personal note: its kinds are refused (ADR-0180)', () => {
+    expect(sanitizeMemoryReflectionStage({ items: [{ id: 'p-1', kind: 'profile', content: 'Leitet die Einreichplanung.' }] })).toBeNull()
+  })
+
   it('drops an item whose kind is not one a project_memory row can carry', () => {
     // Not a display concern: the kind is a closed enum in the database, so a
     // value outside it describes a row that cannot exist — and letting it

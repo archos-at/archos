@@ -300,6 +300,11 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
    * before it lands, and the first answer arrived last and won: the pane showed
    * document A under document B's name. Every answer is checked against the
    * request that asked for it; a retired one changes nothing.
+   *
+   * What is shown belongs to one file too. Every load starts by dropping the
+   * URLs of the last one: kept, a next file whose request failed (a 404, a 500)
+   * drew the previous file's picture under its own name, and the failure's
+   * caption and retry, which only show without a URL, never appeared.
    */
   const previewRequest = useRef<AbortController | null>(null)
   const loadPreview = useCallback(() => {
@@ -309,12 +314,13 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     const { signal } = request
     setPreviewFailed(false)
     setPreviewGone(false)
+    setPreviewUrl(null)
+    setPreviewImageUrl(null)
 
     if (isTextual) {
       // Same three outcomes as the URL path, and deliberately the same states,
       // so the retry button and the "stop asking about it" way out work on a
       // `.md` exactly as they do on a PDF.
-      setPreviewUrl(null)
       setPreviewText(null)
       setIsLoading(true)
       let gone = false
@@ -348,10 +354,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     }
 
     setPreviewText(null)
-    if (!canPreview) {
-      setPreviewUrl(null)
-      return
-    }
+    if (!canPreview) return
 
     setIsLoading(true)
     setRenditionType(null)
@@ -390,10 +393,8 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
         if (isOfficeRendition && data?.url && data.contentType !== 'application/pdf') {
           noRendition = true
         }
-        if (noRendition) {
-          setPreviewUrl(null)
-          setPreviewImageUrl(null)
-        } else if (data?.url) {
+        if (noRendition) return
+        if (data?.url) {
           if (isOfficeRendition) setRenditionType(data.contentType)
           setPreviewUrl(data.url)
           // Absent for PDFs and for image formats the optimizer cannot process;
@@ -407,8 +408,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
       })
       .catch(() => {
         if (signal.aborted) return
-        setPreviewUrl(null)
-        setPreviewImageUrl(null)
         setPreviewFailed(true)
       })
       .finally(() => {

@@ -18,9 +18,16 @@ so the retrieval scope, the RIS tools and the round-0 prefetch ask
 
 from __future__ import annotations
 
+import contextlib
 import contextvars
+import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from dataclasses import field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent.project_context import RequestContext
 
 
 @dataclass(frozen=True)
@@ -77,6 +84,26 @@ ROUTE_VIAS: tuple[str, ...] = ("territory", "relation", "none")
 QUALIFIERS: tuple[str, ...] = ("uncurated", "office_maintained")
 
 
+#: How current an edition is by the platform's newest check (``FRESHNESS`` in the TypeScript wire).
+FRESHNESS: tuple[str, ...] = ("current", "check_due", "newer_known", "superseded")
+
+#: What an edition's held text is (``TEXT_STATUSES`` in the TypeScript wire).
+TEXT_STATUSES: tuple[str, ...] = ("authentic", "official_non_prevailing", "translation")
+
+#: The label tokens a use carries (``USE_LABELS`` in the TypeScript wire); a renderer words each.
+USE_LABELS: tuple[str, ...] = ("uncurated_source", "check_overdue", "unchecked_since", "depends_on_connecting_factor")
+
+
+@dataclass(frozen=True)
+class UseRoute:
+    """The instrument that declares an edition binding here: the last step of its route, as the records name it."""
+
+    work_id: str
+    designation: str | None = None
+    edition_label: str | None = None
+    provision: str | None = None
+
+
 @dataclass(frozen=True)
 class SourceRef:
     """One identity of an edition in a legal database, from its manifestation records: ``ris_gesetzesnummer``
@@ -105,6 +132,41 @@ class EditionUse:
     #: states no scope or its scope applies. The chain text then says neither binds nor does not bind, and so
     #: does the citation chip (``citations/roles.binding_status_for``).
     scope_unsettled: bool = False
+    #: The day the role holds on: the day the context was resolved for. A citation states its status as of it.
+    date: str | None = None
+    #: How current the edition is by the platform's newest check; None when the BFF sent no known token.
+    freshness: str | None = None
+    #: The platform's newest check, as a day; None when never checked or law read live.
+    last_checked_at: str | None = None
+    labels: tuple[str, ...] = ()
+    #: Where a person opens the edition's text in public, from its manifestation records.
+    source_url: str | None = None
+    #: The declaring instrument when the role came by a relation; None for law in its territory.
+    route: UseRoute | None = None
+    #: The first day a binding role holds from by the records; None for every other role.
+    role_since: str | None = None
+    #: The language of the edition's held text (BCP 47); None where no text is held.
+    language: str | None = None
+    #: What the held text is (``TEXT_STATUSES``); None where none is held.
+    text_status: str | None = None
+
+
+#: Most sources a turn carries (``MAX_CONTEXT_SOURCES`` in the TypeScript wire).
+MAX_SOURCES = 8
+
+
+@dataclass(frozen=True)
+class LawSource:
+    """A released public source a law lookup may read this turn: its key, the revision, its country, its record.
+
+    ``config`` is the record as ``public_sources.source.Source`` reads it, without the fixtures that proved it
+    before release (``public_sources.source.parse_released_source``). Which source answers is its country.
+    """
+
+    key: str
+    revision_id: str
+    country: str
+    config: dict = field(default_factory=dict, compare=False, hash=False)
 
 
 @dataclass(frozen=True)
@@ -130,6 +192,10 @@ class KnowledgeContext:
     updated_since_last_answer: tuple[str, ...] = ()
     #: Law on the chain whose edition at the date the records cannot name, as ``work_id=reason``: no edition is assumed.
     undetermined: tuple[str, ...] = ()
+    #: The released sources with a law lookup of the countries the turn reads; empty where it reads none.
+    sources: tuple[LawSource, ...] = ()
+    #: Released sources the BFF could not carry this turn (too large, or past the cap): never read silently.
+    sources_dropped: tuple[str, ...] = ()
 
     @property
     def withholds_law(self) -> bool:
@@ -171,6 +237,41 @@ def _scope_unsettled(raw: object) -> bool:
     return raw.get("verdict") != "applies" or bool(_strings(raw.get("open")))
 
 
+_ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _day(value: object) -> str | None:
+    """An ISO day as the BFF sends it; anything else is no date (never guessed). Pure."""
+    return value if isinstance(value, str) and _ISO_DAY.fullmatch(value) else None
+
+
+def _route(raw: object) -> UseRoute | None:
+    """A use's ``route``; None when absent, null or not the shape the BFF sends. Pure."""
+    if not isinstance(raw, dict):
+        return None
+    work_id = _text(raw.get("workId"))
+    if work_id is None:
+        return None
+    return UseRoute(
+        work_id=work_id,
+        designation=_text(raw.get("designation")),
+        edition_label=_text(raw.get("editionLabel")),
+        provision=_text(raw.get("provision")),
+    )
+
+
+def _language(value: object) -> str | None:
+    """A language tag as the records state it (BCP 47, bounded); anything else is none. Pure."""
+    text = _text(value)
+    return text.strip() if text and len(text.strip()) <= 35 else None
+
+
+def _public_url(value: object) -> str | None:
+    """A public address a person may open: https only, bounded; anything else is none. Pure."""
+    text = _text(value)
+    return text if text and text.startswith("https://") and len(text) <= 2000 else None
+
+
 def _use(raw: object) -> EditionUse | None:
     """One ``uses`` item; None when it is not the shape the BFF sends (dropped, never guessed). Pure."""
     if not isinstance(raw, dict):
@@ -190,6 +291,15 @@ def _use(raw: object) -> EditionUse | None:
         edition_label=_text(raw.get("editionLabel")),
         source_refs=_source_refs(raw.get("sourceRefs")),
         scope_unsettled=_scope_unsettled(raw.get("applicability")),
+        date=_day(raw.get("date")),
+        freshness=raw.get("freshness") if raw.get("freshness") in FRESHNESS else None,
+        last_checked_at=_day(raw.get("lastCheckedAt")),
+        labels=tuple(label for label in _strings(raw.get("labels")) if label in USE_LABELS),
+        source_url=_public_url(raw.get("sourceUrl")),
+        route=_route(raw.get("route")),
+        role_since=_day(raw.get("roleSince")),
+        language=_language(raw.get("language")),
+        text_status=raw.get("textStatus") if raw.get("textStatus") in TEXT_STATUSES else None,
     )
 
 
@@ -215,6 +325,18 @@ def _undetermined(value: object) -> tuple[str, ...]:
         f"{entry['workId']}={entry['reason']}"
         for entry in entries[:MAX_USES]
         if isinstance(entry, dict) and isinstance(entry.get("workId"), str) and isinstance(entry.get("reason"), str)
+    )
+
+
+def _sources(value: object) -> tuple[LawSource, ...]:
+    """``sources`` as the BFF sends them; an item of any other shape is dropped. Pure."""
+    items = value if isinstance(value, list) else []
+    return tuple(
+        LawSource(key=item["key"], revision_id=item["revisionId"], country=item["country"], config=item["config"])
+        for item in items[:MAX_SOURCES]
+        if isinstance(item, dict)
+        and all(_text(item.get(name)) for name in ("key", "revisionId", "country"))
+        and isinstance(item.get("config"), dict)
     )
 
 
@@ -256,6 +378,8 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         date=raw.get("date") if isinstance(raw.get("date"), str) else None,
         updated_since_last_answer=_strings(raw.get("updatedSinceLastAnswer"))[:MAX_PACKS],
         undetermined=_undetermined(raw.get("undetermined")),
+        sources=_sources(raw.get("sources")),
+        sources_dropped=_strings(raw.get("sourcesDropped"))[:MAX_SOURCES],
     )
 
 
@@ -274,7 +398,21 @@ def trace_metadata(context: KnowledgeContext) -> dict[str, object]:
         "base_updated_since_last_answer": ",".join(context.updated_since_last_answer),
         "building_law_uses": len(context.uses),
         "undetermined_editions": ";".join(context.undetermined),
+        "law_sources": ",".join(f"{source.key}@{source.revision_id}" for source in context.sources),
+        "law_sources_dropped": ",".join(context.sources_dropped),
     }
+
+
+def use_for_source_ref(context: KnowledgeContext, scheme: str, value: str) -> EditionUse | None:
+    """The use whose work carries the identifier ``{scheme, value}`` at its source; None when no record does. Pure.
+
+    How a live source's producer finds the record of the text it read: the identifier is one the work's
+    record states (``sourceRefs``), compared whole and by its scheme. Law read live has one use (no edition
+    held); where the work's editions are held, the one a route binds comes first.
+    """
+    wanted = (scheme, value.strip())
+    named = [use for use in context.uses if any((ref.scheme, ref.value) == wanted for ref in use.source_refs)]
+    return next((use for use in named if use.edition_id is None), named[0] if named else None)
 
 
 _turn_knowledge_context: contextvars.ContextVar[KnowledgeContext | None] = contextvars.ContextVar(
@@ -302,41 +440,95 @@ def turn_knowledge_context() -> KnowledgeContext:
 UNRELEASED_COUNTRY = "ZZ"
 
 
-def corpus_countries() -> frozenset[str] | None:
-    """The countries whose base-corpus chunks this read may see; None when nothing says.
+class _Unscoped:
+    """The marker type of :data:`UNSCOPED`; a class of its own so it can never be mistaken for a country set."""
 
-    Nothing says when there is no request at all (a script) or the signed base entry carries no ``countries``
-    field, which the BFF omits only for a request with no organization. An empty list is no country (fail
-    closed), not "unscoped".
+    def __repr__(self) -> str:
+        return "UNSCOPED"
 
-    The turn's own gate when its context is bound (the site's countries, ADR-0173); otherwise the
-    office's entitled countries the BFF signed onto the base corpus's entry of the collection scope,
-    which every door call carries too. ``vector_store.scope.scope_filter`` asks this on
-    every read, so no path to the base corpus goes around it.
+    def __bool__(self) -> bool:
+        return False
+
+
+#: "No country filter on the base corpus": the answer of :func:`corpus_countries` for a read that belongs to no
+#: request (a script, a sync loop, an internal service call), or that runs under :func:`unscoped_corpus_reads`.
+#: It is a marker, never an absence: an empty ``frozenset`` is the opposite, a request that may read no country.
+UNSCOPED = _Unscoped()
+
+_unscoped_reads: contextvars.ContextVar[bool] = contextvars.ContextVar("_unscoped_reads", default=False)
+
+
+@contextlib.contextmanager
+def unscoped_corpus_reads() -> Iterator[None]:
+    """Declare a block of code an operator or offline job that reads the whole base corpus, whatever countries.
+
+    For code that must run unfiltered while a request context happens to be bound (a platform path inside a
+    request). Never wrap code that answers a person: that code is bounded by its entitled countries.
+    """
+    token = _unscoped_reads.set(True)
+    try:
+        yield
+    finally:
+        _unscoped_reads.reset(token)
+
+
+def corpus_countries() -> frozenset[str] | _Unscoped:
+    """The countries whose base-corpus chunks this read may see, or :data:`UNSCOPED` for a read of no request.
+
+    Strict for a request, unscoped only for no request at all:
+
+    - the turn's own gate when its context is bound (the site's countries, ADR-0173);
+    - otherwise, for a request, the countries the BFF signed onto the base corpus's entry of the
+      collection scope. A request whose scope carries no such list (no base entry, a legacy bare
+      name, an entry without ``countries``) reads **no** country: an empty set, which
+      ``vector_store.scope.corpus_country_condition`` turns into the ``__none__`` filter. The BFF omits
+      ``countries`` only for a request with no organization, and signs an empty list there
+      (``collection-scope-request.ts``), so it reads none either;
+    - :data:`UNSCOPED` only for a read that belongs to no request: no organization, no user, no signed
+      envelope, no scope (a script, an offline job, the sync loop, an internal service call that signs
+      no context), or code that says so with :func:`unscoped_corpus_reads`.
+
+    ``vector_store.scope.scope_filter`` asks this on every read, so no path to the base corpus goes
+    around it.
     """
     context = _turn_knowledge_context.get()
     if context is not None:
         return context.retrieval_countries
+    if _unscoped_reads.get():
+        return UNSCOPED
     from agent.project_context import RequestContext
 
     try:
-        entries = RequestContext.from_context().collection_scope_entries or []
-    except Exception:  # noqa: BLE001 - no request context (a script, a test): nothing to filter by
-        return None
-    for entry in entries:
+        request = RequestContext.from_context()
+    except Exception:  # noqa: BLE001 - a context that cannot be read is a request we cannot vouch for
+        return frozenset()
+    if _belongs_to_no_request(request):
+        return UNSCOPED
+    for entry in request.collection_scope_entries or []:
         if isinstance(entry, dict) and entry.get("shelf") == "base" and isinstance(entry.get("countries"), list):
             return frozenset(country for country in entry["countries"] if isinstance(country, str))
-    return None
+    return frozenset()
+
+
+def _belongs_to_no_request(request: RequestContext) -> bool:
+    """Whether ``request`` is the empty context of a script or an unsigned internal call. Pure."""
+    return (
+        request.collection_scope_entries is None
+        and request.organization_id is None
+        and request.user_id is None
+        and request.envelope_header is None
+    )
 
 
 def base_corpus_readable() -> bool | None:
     """Whether this read may search the base corpus at all: some country is readable (:func:`corpus_countries`).
 
-    None only without any request (a script): nothing is known to filter by, and the vector store's own
-    filter (``corpus_country_condition``) says the same.
+    None only for a read of no request (a script, :data:`UNSCOPED`): nothing filters it, and the vector
+    store's own filter (``corpus_country_condition``) says the same. A request whose scope names no
+    countries is False, never None.
     """
     countries = corpus_countries()
-    return None if countries is None else bool(countries)
+    return None if countries is UNSCOPED else bool(countries)
 
 
 def law_tools_allowed(country: str) -> bool:

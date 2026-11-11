@@ -254,6 +254,63 @@
                   "none"
                 ]
               },
+              "route": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "workId": {
+                        "type": "string"
+                      },
+                      "designation": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "editionLabel": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "provision": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "workId",
+                      "designation",
+                      "editionLabel",
+                      "provision"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "roleSince": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "date": {
                 "type": "string",
                 "format": "date",
@@ -360,6 +417,32 @@
                   }
                 ]
               },
+              "language": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 35
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "textStatus": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "authentic",
+                      "official_non_prevailing",
+                      "translation"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "applicability": {
                 "anyOf": [
                   {
@@ -414,6 +497,8 @@
               "role",
               "qualifier",
               "via",
+              "route",
+              "roleSince",
               "date",
               "freshness",
               "lastCheckedAt",
@@ -424,6 +509,8 @@
               "editionLabel",
               "sourceRefs",
               "sourceUrl",
+              "language",
+              "textStatus",
               "applicability"
             ],
             "additionalProperties": false
@@ -487,6 +574,48 @@
               "reason"
             ],
             "additionalProperties": false
+          }
+        },
+        "sources": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "revisionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "country": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              "config": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            },
+            "required": [
+              "key",
+              "revisionId",
+              "country",
+              "config"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "sourcesDropped": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 80
           }
         }
       },

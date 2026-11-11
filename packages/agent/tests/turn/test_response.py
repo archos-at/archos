@@ -184,6 +184,12 @@ class TestPostAnswerTurnFacts:
     def test_memory_writes_cross(self):
         assert self._facts(_state(), remembered_this_turn=("Firma: Grid",)).remembered_this_turn == ("Firma: Grid",)
 
+    def test_the_notes_those_writes_created_cross(self):
+        from agent.knowledge.project_memory import TurnMemoryNote
+
+        note = TurnMemoryNote(id="n-1", kind="decision", content="Flachdach.", scope="project")
+        assert self._facts(_state(), noted_this_turn=(note,)).noted_this_turn == (note,)
+
     def test_an_open_scope_crosses_as_no_restriction(self):
         assert self._facts(_state(collection_scope=["oib_knowledge", "proj_1"])).restriction.restricted is False
         assert self._facts(_state()).restriction.restricted is False
