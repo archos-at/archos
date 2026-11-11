@@ -141,7 +141,7 @@ page groups its files by country and names, per file, the edition and the
 change request; a file no record names is in a group that says so.
 
 **The decision.** The storage and the country filter stay as they are, and no
-table is added. Seven rules do the work; the last four came out of two reviews
+table is added. Six rules do the work; the last three came out of two reviews
 of the first three (see "What the reviews found" below):
 
 - **Attach stores the file and names it in one step.** `text-import` and
