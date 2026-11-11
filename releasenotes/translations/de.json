@@ -4792,6 +4792,10 @@
     "de": "Wenn die Seitenzahl einer Fundstelle von der Seite in der PDF abweicht, wie es oft nach einem Deckblatt vorkommt, wird die zitierte Passage jetzt auch auf den Nachbarseiten gesucht. Lässt sie sich nicht finden, zeigt das Fenster einen Hinweis."
   },
   {
+    "en": "When a rule exists in more than one edition, the assistant now finds the passage of the edition that applies at your project's site first, so its answer cites that edition. An older or newer edition is still found when you ask about it.",
+    "de": "Wenn eine Regel in mehreren Ausgaben vorliegt, findet der Assistent jetzt zuerst die Passage aus jener Ausgabe, die am Standort Ihres Projekts gilt, und zitiert diese Ausgabe in seiner Antwort. Eine ältere oder neuere Ausgabe findet er weiterhin, wenn Sie danach fragen."
+  },
+  {
     "en": "When a scheduled task finishes or fails, you now hear about it in your inbox, with a link to the project's run history.",
     "de": "Ist ein geplanter Auftrag fertig oder fehlgeschlagen, erfahren Sie es jetzt im Posteingang, mit einem Link zur Laufhistorie des Projekts."
   },
