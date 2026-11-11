@@ -1,20 +1,13 @@
 /**
- * Citations an architect can paste somewhere: the line in the profession's form,
- * the quoted passages, and CSL-JSON for Zotero, Word and pandoc.
- *
- * The form is not here. It is the style record of the source's country
- * (`citation_style`, read by `useCitationStyles`) interpreted by
- * `@/shared/citation-style`; this module only hands the interpreter what the citation
- * model knows of a reference. Rendering CSL-JSON into APA, BibTeX or RIS is
- * `citation-export.ts`'s job.
- *
- * Nothing is invented: an unknown edition, page or date is absent from the output
- * rather than guessed. A fabricated Fundstelle is worse than a short one.
+ * Citations an architect can paste: the line, the quoted passages and CSL-JSON. The
+ * form is the office's `citation_style` record, interpreted by `@/shared/citation-style`;
+ * this maps the citation model onto it. Nothing is invented: an unknown edition, page
+ * or date is absent, never guessed.
  */
 
 import { type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
 import { FALLBACK_CITATION_STYLES } from '@/shared/citation-style-fallback'
-import { citationLine, quoteLine, styleFor, toCslItem as styledCslItem, type CitedSource, type CslItem } from '@/shared/citation-style'
+import { quoteLine, sourceLine, styleFor, toCslItem as styledCslItem, type CitedSource, type CslItem } from '@/shared/citation-style'
 import { refHost, refNumber, refPage, type CitationRef } from './citations'
 
 export type { CslItem } from '@/shared/citation-style'
@@ -46,28 +39,14 @@ const fingerprint = (text: string): string => {
   return (hash >>> 0).toString(36)
 }
 
-/** What the interpreter reads of a reference: the model's own fields, nothing derived. */
-export const citedSource = (ref: CitationRef): CitedSource => {
-  const { document } = ref
-  return {
-    id: cslId(ref),
-    // The model already resolved the name (stored title, then the derived one,
-    // then the file name), so the copied line and the chip say the same words.
-    title: document.title.trim(),
-    fileName: document.fileName,
-    kind: document.kind,
-    lane: document.lane,
-    laneLabel: document.laneLabel,
-    authority: document.authority,
-    tint: document.tint,
-    origin: document.origin,
-    url: document.url,
-    host: refHost(ref),
-    // The locus of THIS reference; a document-level reference names none.
-    locus: ref.locus?.clause,
-    page: refPage(ref),
-  }
-}
+/** What the interpreter reads of a reference: the model's document, and this reference's locus and page. */
+export const citedSource = (ref: CitationRef): CitedSource => ({
+  ...ref.document,
+  id: cslId(ref),
+  host: refHost(ref),
+  locus: ref.locus?.clause,
+  page: refPage(ref),
+})
 
 const styleOf = (ref: CitationRef, styles: CitationStylePayload) => styleFor(styles, ref.document.line?.language)
 
@@ -77,7 +56,7 @@ export const toCslItem = (ref: CitationRef, now: Date, styles = FALLBACK_CITATIO
 
 /** The reference line, in the style of the office's country, in the language of the source's text. */
 export const toTechnicalText = (ref: CitationRef, now: Date, styles = FALLBACK_CITATION_STYLES): string =>
-  citationLine(toCslItem(ref, now, styles), now, styleOf(ref, styles))
+  sourceLine(citedSource(ref), now, styles)
 
 /** The numbered bibliography for a whole answer. */
 export const toTechnicalTextList = (refs: CitationRef[], now: Date, styles = FALLBACK_CITATION_STYLES): string =>

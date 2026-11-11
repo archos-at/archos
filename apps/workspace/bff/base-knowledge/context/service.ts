@@ -7,7 +7,7 @@
  * entitlements, the project's site facts, the packs' newest stable sequence,
  * the day); the graph and its resolution are not. So the cheap ones make a
  * digest, and the resolved context is cached under
- * `knowledge-context-v3:<org>:<project>:<digest>`: the organization and the
+ * `knowledge-context-v5:<org>:<project>:<digest>`: the organization and the
  * project are in the key, never only in the digest, so two offices whose
  * inputs hash alike never share an entry (the tenant cache-key rule).
  *
@@ -40,6 +40,8 @@ import { rememberTurnContext } from './turn-snapshot'
 import { siteLeaves } from './site'
 import { lookupSourcesFor } from './sources'
 import type { KnowledgeContext, ProcedureContext } from './wire'
+
+type ReferenceDate = ProcedureContext['referenceDates'][string]
 
 /** How long a resolved context is reused: the digest changes with every input that decides it, so this only bounds the cache's size. */
 export const CONTEXT_TTL_MS = 10 * 60 * 1000
@@ -92,7 +94,7 @@ export function contextDigest(inputs: ContextDigestInputs): string {
 
 /** The cache key of a resolved context: the organization and the project before the digest, always. */
 export function contextCacheKey(organizationId: string, projectId: string | null, digest: string): string {
-  return `knowledge-context-v3:${organizationId}:${projectId ?? '-'}:${digest}`
+  return `knowledge-context-v5:${organizationId}:${projectId ?? '-'}:${digest}`
 }
 
 /**
@@ -129,7 +131,16 @@ export async function recordsStamp(organizationId: string): Promise<string> {
   return [row?.office, row?.checks].map((value) => (value ? new Date(value).toISOString() : '-')).join('/')
 }
 
-function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undefined>>, leaves: readonly SiteLeaf[]): ProcedureContext[] {
+/**
+ * A procedure's reference day until a reviewed reference-date rule names one (design §5.4, country-as-data §3.6): its
+ * filing day once that has come, an assumption the chain text says; otherwise undetermined, and the turn resolves on
+ * today. Pure.
+ */
+export function referenceDateOf(filedOn: string | null, today: string): ReferenceDate {
+  return filedOn && filedOn <= today ? { date: filedOn, basis: 'filed_on' } : { date: null, basis: 'undetermined' }
+}
+
+function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undefined>>, leaves: readonly SiteLeaf[], today: string): ProcedureContext[] {
   return PROCEDURE_IDS.filter((id) => profileHasProcedure(facts, id)).map((id) => {
     const procedure = procedureFromProfile(facts, id)
     return {
@@ -137,8 +148,7 @@ function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undef
       procedureType: procedure.procedureType,
       filedOn: procedure.filedOn,
       decidedOn: procedure.decidedOn,
-      // No reviewed reference-date rule is read here yet: "nicht bestimmt" (design §5.4), never a guess.
-      referenceDates: Object.fromEntries(leaves.map((leaf) => [leaf.territoryId, { date: null, basis: 'undetermined' as const }])),
+      referenceDates: Object.fromEntries(leaves.map((leaf) => [leaf.territoryId, referenceDateOf(procedure.filedOn, today)])),
     }
   })
 }
@@ -150,13 +160,15 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
   const readsGraph = Boolean(inputs.homeCountry && first && country && inputs.entitled.includes(country))
   const loaded = readsGraph && first ? await time('knowledge-graph', () => loadGraph(organizationId, first.territoryId)) : null
   const graph = loaded?.graph ?? (readsGraph ? null : { territories: new Map(), works: new Map(), editions: new Map(), relations: [] })
+  const reference = first ? inputs.procedures[0]?.referenceDates[first.territoryId] : undefined
   const context = resolveKnowledgeContext({
     homeCountry: inputs.homeCountry,
     entitled: new Set(inputs.entitled),
     sites: inputs.sites,
     graph,
     truncated: loaded?.truncated ?? false,
-    date: inputs.date,
+    date: reference?.date ?? inputs.date,
+    dateBasis: reference?.basis,
     now: new Date(),
     procedures: inputs.procedures,
     packSeqs: inputs.packSeqs,
@@ -218,7 +230,7 @@ export async function readContextInputs(organizationId: string, projectId: strin
     date,
     // `EU` follows any entitled member (ADR-0168), so its sequence is read too.
     packSeqs: await packSequences([...entitled, 'EU']),
-    procedures: proceduresOf(facts, sites),
+    procedures: proceduresOf(facts, sites, date),
     recordsStamp: stamp,
     buildings: projectBuildings(profile?.profile, date),
   }
@@ -227,7 +239,7 @@ export async function readContextInputs(organizationId: string, projectId: strin
 /** A site a caller states instead of a project's: a golden case's territory and the day its question is about. */
 export interface StatedSite {
   territoryId: string | null
-  /** A filing day the question is about; the context still resolves on today (the turn reads no reference-date rule yet). */
+  /** A filing day the question is about: the context resolves on it once it has come, as a project's would. */
   filedOn: string | null
 }
 
@@ -249,7 +261,7 @@ export async function knowledgeContextForStatedSite(organizationId: string, stat
             procedureType: null,
             filedOn: stated.filedOn,
             decidedOn: null,
-            referenceDates: Object.fromEntries(sites.map((leaf) => [leaf.territoryId, { date: null, basis: 'undetermined' as const }])),
+            referenceDates: Object.fromEntries(sites.map((leaf) => [leaf.territoryId, referenceDateOf(stated.filedOn, inputs.date)])),
           },
         ]
       : []

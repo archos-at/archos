@@ -23,7 +23,7 @@ export interface KnowledgeFile {
   chunkCount: number
   ingestedSha256: string | null
   currentSha256: string | null
-  /** The country a release marked the file with (ADR-0173); null when none did, `ZZ` when a rollback left it unreleased. */
+  /** The country a release marked the file with (ADR-0173); null when none did or a rollback left it unreleased; `ZZ` for a rollback from before the released flag. */
   countryId: string | null
   ingestedAt: string | null
   summary: string | null
@@ -466,9 +466,15 @@ export async function reingestKnowledgeBaseDocuments(
     throw new UpstreamError(`Knowledge backend returned ${res.status}`)
   }
   const body = await res.json().catch(() => ({}))
+  const queued: string[] = Array.isArray(body?.queued) ? body.queued.map(String) : []
+  // A release mark must land as released: a backend from before the flag records the country and leaves a
+  // withdrawn row withdrawn, so its answer is refused and the indexing job retries (ADR-0173).
+  const released = new Set(Array.isArray(body?.released) ? body.released.map(String) : [])
+  const unreleased = queued.filter((name) => Object.hasOwn(marks, name) && !released.has(name))
+  if (unreleased.length > 0) throw new UpstreamError(`Knowledge backend did not release ${unreleased.join(', ')}`)
   return {
     status: body?.status === 'noop' ? 'noop' : 'pending',
-    queued: Array.isArray(body?.queued) ? body.queued.map(String) : [],
+    queued,
     unknown: Array.isArray(body?.unknown) ? body.unknown.map(String) : [],
     message: asString(body?.message) ?? '',
   }
@@ -505,21 +511,24 @@ export async function streamKnowledgeBaseCorpus(): Promise<Response> {
 }
 
 /**
- * Set a base-corpus file's country on its chunks and its corpus row (ADR-0173),
- * so a later re-ingest stamps it again; its licence fields stay as they are. A
- * file with no chunks is nothing to mark. Throws on any other failure, so a job
- * retries it.
+ * Withdraw a base-corpus file (ADR-0173): mark its chunks and its corpus row
+ * unreleased (`released: false`), so no office reads it and a later re-ingest
+ * stamps it again; its country and licence fields stay as they are. The backend
+ * writes the row even for a file with no chunks and answers 200 then. Throws on
+ * any failure, a 404 included, and on an answer that does not echo the flag:
+ * a backend from before the flag ignores it, so the job retries it.
  */
-export async function markCorpusFileCountry(fileName: string, countryId: string): Promise<void> {
+export async function withdrawCorpusFile(fileName: string): Promise<void> {
   const name = requirePdfBasename(fileName)
   const backendUrl = getBackendUrl()
   const collection = process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
   const res = await fetch(`${backendUrl}/v1/collections/${encodeURIComponent(collection)}/knowledge-mark`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(backendUrl) },
-    body: JSON.stringify({ file_name: name, country_id: countryId }),
+    body: JSON.stringify({ file_name: name, released: false }),
     signal: AbortSignal.timeout(KNOWLEDGE_STATUS_TIMEOUT_MS),
   })
-  if (res.status === 404) return
   if (!res.ok) throw new UpstreamError(`Knowledge backend returned ${res.status} marking ${name}`)
+  const result = (await res.json().catch(() => null)) as { released?: unknown } | null
+  if (result?.released !== false) throw new UpstreamError(`Knowledge backend did not withdraw ${name}`)
 }

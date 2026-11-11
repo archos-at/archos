@@ -71,3 +71,42 @@ async def test_a_provision_the_gazette_does_not_hold_is_a_miss_in_its_own_words(
     result = await run_law_lookup(case, _upstream(), turn_record=XA_GAZETTE)
 
     assert result.output.startswith("No Gazette passage answered")
+
+
+#: The gazette's statute page at the address that states its number, as the record declares (``nr``).
+_NUMBERED_URL = f"{_CODE_URL}?nr=42"
+
+
+def _numbered(declares: dict) -> dict:
+    """XA's gazette serving the code at its numbered address, declaring ``declares`` as its identifiers."""
+    documents = [{"id": "code", "url": _NUMBERED_URL, "title": "Building Code"}]
+    return {**XA_GAZETTE, "identifiers": declares, "access": {"documents": documents}}
+
+
+def _code_use(value: str):
+    """XA's building code as the turn's records resolve it: read live, carrying its number at the gazette."""
+    from agent.common.knowledge_context import EditionUse
+    from agent.common.knowledge_context import SourceRef
+
+    ref = SourceRef(scheme="xa_gazette_number", value=value)
+    return EditionUse(work_id="work:xa-code", edition_id=None, role="binding", via="territory", source_refs=(ref,))
+
+
+@pytest.mark.parametrize(
+    ("declares", "carried", "work"),
+    [
+        ({"xa_gazette_number": {"query": "nr"}}, "42", "work:xa-code"),
+        ({"xa_gazette_number": {"query": "nr"}}, "43", None),  # the records name another number
+        ({}, "42", None),  # the source declares no scheme: an address decides nothing
+    ],
+)
+async def test_a_passage_from_the_gazette_finds_its_work_by_a_scheme_only_records_name(declares, carried, work):
+    """A country's identifier is a record: the gazette's record says its addresses state ``xa_gazette_number``
+    in ``nr``, the work's record carries the value, and no code names the scheme (country-as-data §3.5)."""
+    case = Case("xa-numbered", {"question": "How high may a building in Xanadu be?", "instrument": "§ 2 Building Code"})
+    upstream = Upstream(responses={_NUMBERED_URL: {"content_type": "text/html; charset=utf-8", "body": _PAGE}})
+
+    result = await run_law_lookup(case, upstream, turn_record=_numbered(declares), uses=(_code_use(carried),))
+
+    assert "No building in Xanadu is higher than the palace." in result.output
+    assert {record[3] for record in result.records} == {work}

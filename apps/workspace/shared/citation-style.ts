@@ -1,17 +1,6 @@
 /**
- * A citation line, interpreted from its country's style record (docs/design/citations.md
- * slice 2, country-as-data plan row 6).
- *
- * The form of a reference is data: a `citation_style` ruleset a country's change
- * request carries (its wire: `bff/base-knowledge/wire/citation-style.ts`). Which
- * sources are a standard or a law, who publishes them, the line's order and words,
- * the locus and page labels, the edition phrase and the date form all come from the
- * record; this interpreter knows no country. It writes CSL-JSON (what citation-js,
- * Zotero and Word read) and the line. A CSL style does not write the line: the browser
- * formats synchronously, citation-js cannot be bundled for it, and CSL has no field
- * for a country's locus grammar or edition phrase.
- *
- * Pure: the BFF and the UI both read it.
+ * The citation line's interpreter: it fills a country's `citation_style` record
+ * (docs/design/citations.md, slice 2) and knows no country. Pure; BFF and UI read it.
  */
 
 import type { CitationStyle, CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
@@ -69,6 +58,8 @@ export interface CitedSource {
   tint?: string
   origin?: string
   url?: string
+  /** The language of the text read; it picks the style's language. */
+  line?: { language?: string }
   /** The host of `url`, for a web page. */
   host?: string
   locus?: string
@@ -107,7 +98,8 @@ const kindOf = (source: CitedSource, { kinds }: CitationStyle) =>
 
 /** One source as a CSL-JSON item. `now` is passed in, so `accessed` is testable. */
 export function toCslItem(source: CitedSource, now: Date, style: CitationStyle): CslItem {
-  const { id, title, url } = source
+  const { id, url } = source
+  const title = source.title.trim()
   const { edition, issued } = parseEdition(`${title} ${source.fileName ?? ''}`, style)
   const page = source.page != null ? String(source.page) : undefined
   const section = source.locus?.trim() || undefined
@@ -147,6 +139,12 @@ export function citationLine(csl: CslItem, now: Date, style: CitationStyle): str
   })
 }
 
+/** The line of one source, in the style for its text's language. */
+export function sourceLine(source: CitedSource, now: Date, styles: CitationStylePayload): string {
+  const style = styleFor(styles, source.line?.language)
+  return citationLine(toCslItem(source, now, style), now, style)
+}
+
 /** A quoted passage with the source it is from, in the style's form. */
 export const quoteLine = (quote: string, source: CitedSource, style: CitationStyle): string =>
-  fillTemplate(style.quote, { quote, title: source.title, page: pageOf(source.page != null ? String(source.page) : undefined, style) })
+  fillTemplate(style.quote, { quote, title: source.title.trim(), page: pageOf(source.page != null ? String(source.page) : undefined, style) })

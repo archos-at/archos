@@ -169,3 +169,34 @@ def test_an_entitled_request_reads_only_its_countries(monkeypatch):
     entry = {"collection": CORPUS, "shelf": "base", "countries": ["QA"]}
     fields = {"organization_id": "org_1", "collection_scope_entries": [entry]}
     assert _scope_filter_over_points(monkeypatch, fields) == {1}
+
+
+def test_the_synthetic_country_reads_only_its_released_chunks():
+    """A released flag replaces the ``ZZ`` country (row 7): a withdrawn text keeps its country and is read by
+    nobody; a point from before the flag is read by its country alone, so the rollover hides nothing."""
+    from knowledge_layer.vector_store import RELEASED_FIELD
+    from knowledge_layer.vector_store import scope_filter
+    from qdrant_client import QdrantClient
+    from qdrant_client import models
+
+    client = QdrantClient(":memory:")
+    client.create_collection(
+        "t", vectors_config={"dense": models.VectorParams(size=2, distance=models.Distance.COSINE)}
+    )
+    payloads = {
+        1: {"scope": CORPUS, COUNTRY_FIELD: "XA", RELEASED_FIELD: True},
+        2: {"scope": CORPUS, COUNTRY_FIELD: "XA", RELEASED_FIELD: False},  # rolled back
+        3: {"scope": CORPUS, COUNTRY_FIELD: "XA"},  # marked before the flag
+        4: {"scope": CORPUS, RELEASED_FIELD: False},  # ingested with no release
+        5: {"scope": CORPUS, COUNTRY_FIELD: "XB", RELEASED_FIELD: True},
+        6: {"scope": CORPUS, COUNTRY_FIELD: "ZZ"},  # a rollback before the flag
+    }
+    client.upsert("t", [models.PointStruct(id=i, vector={"dense": [1.0, 0.0]}, payload=p) for i, p in payloads.items()])
+    set_turn_knowledge_context(KnowledgeContext(gate="core", retrieval_countries=frozenset({"XA"})))
+    try:
+        result = client.query_points(
+            "t", query=[1.0, 0.0], using="dense", query_filter=scope_filter([CORPUS]), limit=10
+        )
+    finally:
+        set_turn_knowledge_context(None)
+    assert {int(point.id) for point in result.points} == {1, 3}

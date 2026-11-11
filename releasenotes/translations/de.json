@@ -372,6 +372,10 @@
     "de": "Eine Datei, deren Lesen durch eine Unterbrechung abgebrochen wurde, wird jetzt als fehlgeschlagen angezeigt, mit einem erneuten Versuch, statt bei „Wird gelesen“ hängen zu bleiben und sich nicht mehr lesen zu lassen."
   },
   {
+    "en": "A file whose reading you stopped no longer reappears as failed after you reload the page.",
+    "de": "Eine Datei, deren Einlesen Sie abgebrochen haben, wird nach dem Neuladen der Seite nicht mehr als fehlgeschlagen angezeigt."
+  },
+  {
     "en": "A file whose upload is still on its way says „Wird hochgeladen“ again instead of „Wird gelesen“.",
     "de": "Bei einer Datei, deren Upload noch läuft, steht wieder „Wird hochgeladen“ statt „Wird gelesen“."
   },
@@ -622,6 +626,10 @@
   {
     "en": "A project whose creation failed partway through is no longer left unreachable for the person who created it.",
     "de": "Ein Projekt, dessen Anlegen auf halbem Weg scheiterte, bleibt für die Person, die es angelegt hat, nicht mehr unerreichbar."
+  },
+  {
+    "en": "A project with a filing date of today or earlier now gets its building-law answers, and the law named on its project page, on the editions in force that day, not today's. The answer says it took the filing date as the reference date and did not check transitional provisions.",
+    "de": "Ein Projekt mit einem Einreichdatum von heute oder früher erhält seine baurechtlichen Antworten und das auf seiner Projektseite angeführte Gesetz nun in der an diesem Tag geltenden Fassung statt in der heutigen. Die Antwort gibt an, dass sie das Einreichdatum als Stichtag herangezogen und Übergangsbestimmungen nicht geprüft hat."
   },
   {
     "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",
@@ -4790,6 +4798,10 @@
   {
     "en": "When a reference's page number differs from the page in the PDF, as it often does after a cover sheet, the quoted passage is now also searched for on the neighbouring pages. If it cannot be found, the window says so.",
     "de": "Wenn die Seitenzahl einer Fundstelle von der Seite in der PDF abweicht, wie es oft nach einem Deckblatt vorkommt, wird die zitierte Passage jetzt auch auf den Nachbarseiten gesucht. Lässt sie sich nicht finden, zeigt das Fenster einen Hinweis."
+  },
+  {
+    "en": "When a rule exists in more than one edition, the assistant now finds the passage of the edition that applies at your project's site first, so its answer cites that edition. An older or newer edition is still found when you ask about it.",
+    "de": "Wenn eine Regel in mehreren Ausgaben vorliegt, findet der Assistent jetzt zuerst die Passage aus jener Ausgabe, die am Standort Ihres Projekts gilt, und zitiert diese Ausgabe in seiner Antwort. Eine ältere oder neuere Ausgabe findet er weiterhin, wenn Sie danach fragen."
   },
   {
     "en": "When a scheduled task finishes or fails, you now hear about it in your inbox, with a link to the project's run history.",

@@ -15,6 +15,7 @@
  */
 
 import { chainAt, resolveChain } from '../chain/resolve'
+import { MAX_SOURCE_REFS } from '../chain/source-refs'
 import type { BuildingScope } from '../rulesets/applicability'
 import type { GraphEdition, KnowledgeGraph, ResolvedChain } from '../chain/graph'
 import { nameOf, renderChainText, keyOfUse, type UseNotes } from '../chain/text'
@@ -50,8 +51,10 @@ export interface ContextInputs {
   graph: KnowledgeGraph | null
   /** The graph hit its bound: what was left out reads as nothing, so the turn uses none of it. */
   truncated: boolean
-  /** The day in the office's zone the turn resolves at. */
+  /** The day the turn resolves at: today in the office's zone, or a procedure's reference day. */
   date: string
+  /** Why `date` is what it is: `filed_on` is an assumption the chain text states; anything else is today. */
+  dateBasis?: ProcedureContext['referenceDates'][string]['basis']
   now: Date
   procedures: readonly ProcedureContext[]
   /** The newest stable release sequence per pack. */
@@ -202,7 +205,7 @@ function contextUse(
     corpusFiles: [...(edition?.corpusFiles ?? [])],
     designation: work.designation ? nameOf(work.designation) : null,
     editionLabel: edition?.label ? nameOf(edition.label) : null,
-    sourceRefs: [...(work.sourceRefs ?? [])].slice(0, 8),
+    sourceRefs: [...(work.sourceRefs ?? [])].slice(0, MAX_SOURCE_REFS),
     sourceUrl: edition?.sourceUrl ?? null,
     language: edition?.text?.language ?? null,
     textStatus: edition?.text?.status ?? null,
@@ -216,7 +219,7 @@ function contextUse(
  * the agent reads, so the block and the uses never disagree. Null where no
  * law binds in its own territory by the records: there is no chain to read.
  */
-function textOf(graph: KnowledgeGraph, resolved: ResolvedChain, uses: readonly ContextUse[], leafId: string): string | null {
+function textOf(graph: KnowledgeGraph, resolved: ResolvedChain, uses: readonly ContextUse[], leafId: string, onFilingDay: boolean): string | null {
   const corrected = new Map(uses.map((use) => [keyOfUse(use), use]))
   const named = resolved.uses.flatMap((use) => {
     const context = corrected.get(keyOfUse(use))
@@ -226,7 +229,7 @@ function textOf(graph: KnowledgeGraph, resolved: ResolvedChain, uses: readonly C
   // A law whose edition is undetermined still reaches the turn: its "Not determined here" line says so, never silence.
   if (!lawHere && resolved.undetermined.length === 0) return null
   const notes = new Map<string, UseNotes>([...corrected].map(([key, use]) => [key, use]))
-  return capText(renderChainText(graph, { ...resolved, uses: named }, graph.territories.get(leafId)?.name ?? leafId, notes))
+  return capText(renderChainText(graph, { ...resolved, uses: named }, graph.territories.get(leafId)?.name ?? leafId, notes, onFilingDay))
 }
 
 /** The text within the wire's bound (`MAX_CONTEXT_TEXT_CHARS`): cut at a line, with a note saying so. */
@@ -284,6 +287,6 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
     ...base,
     uses,
     undetermined: resolved.undetermined.slice(0, MAX_CONTEXT_USES).map(({ workId, reason }) => ({ workId, reason })),
-    text: textOf(graph, resolved, uses, first.territoryId),
+    text: textOf(graph, resolved, uses, first.territoryId, inputs.dateBasis === 'filed_on'),
   }
 }

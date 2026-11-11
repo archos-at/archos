@@ -17,13 +17,13 @@
 
 import { buildCitationModel } from '@/features/chat/lib/citations/build'
 import { CITATION_PARAM, encodeCitationLink } from '@/features/chat/lib/citations/deep-link'
-import { citedLoci, isHttpUrl, refHost, type CitationRef } from '@/features/chat/lib/citations/model'
+import { citedLoci, isHttpUrl, refHost } from '@/features/chat/lib/citations/model'
 import { decodeCitations } from '@/features/chat/lib/citations/persistence'
 import { describeResource } from '@/lib/sharing/registry'
 import { sanitizeProvenance } from '@/lib/conversations/message-provenance'
 import { type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
 import { FALLBACK_CITATION_STYLES } from '@/shared/citation-style-fallback'
-import { citationLine, styleFor, toCslItem } from '@/shared/citation-style'
+import { sourceLine } from '@/shared/citation-style'
 import type { AskAnswerEvidence } from './ask-wire'
 
 interface EvidenceMessage {
@@ -38,18 +38,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 function threadPath(conversationId: string, projectId: string | null, origin: string | null): string {
   const path = describeResource('conversation').deepLink(conversationId, { projectId: projectId ?? undefined })
   return origin ? `${origin}${path}` : path
-}
-
-/** A source's line, as the browser's copy writes it, dated by the answer. */
-function lineOf(ref: CitationRef, styles: CitationStylePayload, answeredAt: Date): string {
-  const { document, locus } = ref
-  const style = styleFor(styles, document.line?.language)
-  const source = {
-    ...{ id: document.id, title: document.title.trim(), fileName: document.fileName, kind: document.kind },
-    ...{ lane: document.lane, laneLabel: document.laneLabel, authority: document.authority, tint: document.tint },
-    ...{ origin: document.origin, url: document.url, host: refHost(ref), locus: locus?.clause, page: locus?.page },
-  }
-  return citationLine(toCslItem(source, answeredAt, style), answeredAt, style)
 }
 
 function sourcesOf(
@@ -78,7 +66,8 @@ function sourcesOf(
         ...(locus.clause !== undefined && { clause: locus.clause }),
         kind: document.kind,
         url: outbound ?? `${base}&${CITATION_PARAM}=${encodeCitationLink({ document, locus })}`,
-        citation: lineOf({ document, locus }, thread.styles, answeredAt),
+        // The line the browser's copy writes, dated by the answer.
+        citation: sourceLine({ ...document, host: refHost({ document }), locus: locus.clause, page: locus.page }, answeredAt, thread.styles),
       })
     }
   }

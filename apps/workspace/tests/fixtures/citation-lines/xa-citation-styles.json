@@ -8,9 +8,7 @@
       "key": "xa-citation-style",
       "values": {
         "purpose": "citation_style",
-        "territoryIds": [
-          "XA"
-        ],
+        "territoryIds": ["XA"],
         "validFrom": "2026-01-01",
         "body": {
           "kind": "citation_style",
@@ -21,38 +19,18 @@
                 "language": "en",
                 "kinds": [
                   {
-                    "match": {
-                      "authorities": [],
-                      "tints": [],
-                      "lanePrefixes": [
-                        "external_standard"
-                      ],
-                      "origins": []
-                    },
+                    "match": {"lanePrefixes": ["external_standard"]},
                     "type": "standard",
                     "publisher": "Xanadu Standards Board",
                     "place": "Xanadu City"
                   },
                   {
-                    "match": {
-                      "authorities": [],
-                      "tints": [],
-                      "lanePrefixes": [
-                        "building_law"
-                      ],
-                      "origins": []
-                    },
+                    "match": {"lanePrefixes": ["building_law"]},
                     "type": "legislation",
                     "container": "Xanadu Law Gazette"
                   }
                 ],
-                "edition": {
-                  "word": "Edition",
-                  "label": [
-                    "{year} edition"
-                  ],
-                  "months": {}
-                },
+                "edition": {"word": "Edition", "label": ["{year} edition"], "months": {}},
                 "date": "{year}-{month}-{day}",
                 "bareLocus": "s. {locus}",
                 "page": "p. {page}",
@@ -66,55 +44,23 @@
                     ", {place}",
                     ". Retrieved {accessed} from {url}"
                   ],
-                  "legislation": [
-                    "{title}",
-                    ", {locus}",
-                    " ({container})",
-                    ". Retrieved {accessed} from {url}"
-                  ],
-                  "webpage": [
-                    "{title}",
-                    " ({container})",
-                    ". Retrieved {accessed} from {url}"
-                  ],
-                  "report": [
-                    "{title}",
-                    ", {locus}",
-                    ", {page}",
-                    " (file {note})"
-                  ]
+                  "legislation": ["{title}", ", {locus}", " ({container})", ". Retrieved {accessed} from {url}"],
+                  "webpage": ["{title}", " ({container})", ". Retrieved {accessed} from {url}"],
+                  "report": ["{title}", ", {locus}", ", {page}", " (file {note})"]
                 },
-                "quote": [
-                  "\"{quote}\" ({title}",
-                  ", {page}",
-                  ")"
-                ]
+                "quote": ["\"{quote}\" ({title}", ", {page}", ")"]
               },
               {
                 "language": "fr",
                 "kinds": [
                   {
-                    "match": {
-                      "authorities": [],
-                      "tints": [],
-                      "lanePrefixes": [
-                        "external_standard"
-                      ],
-                      "origins": []
-                    },
+                    "match": {"lanePrefixes": ["external_standard"]},
                     "type": "standard",
                     "publisher": "Xanadu Standards Board",
                     "place": "Xanadu City"
                   },
                   {
-                    "match": {
-                      "authorities": [],
-                      "tints": [],
-                      "lanePrefixes": [
-                        "building_law"
-                      ],
-                      "origins": []
-                    },
+                    "match": {"lanePrefixes": ["building_law"]},
                     "type": "legislation",
                     "container": "Xanadu Law Gazette"
                   }
@@ -123,35 +69,12 @@
                 "bareLocus": "ch. {locus}",
                 "page": "p. {page}",
                 "lines": {
-                  "standard": [
-                    "{title}",
-                    ", {locus}",
-                    ", {page}",
-                    " ({publisher})",
-                    ", consulté le {accessed} : {url}"
-                  ],
-                  "legislation": [
-                    "{title}",
-                    ", {locus}",
-                    ", {container}",
-                    ", consulté le {accessed} : {url}"
-                  ],
-                  "webpage": [
-                    "{title}",
-                    ", {container}",
-                    ", consulté le {accessed} : {url}"
-                  ],
-                  "report": [
-                    "{title}",
-                    ", {locus}",
-                    ", {page}"
-                  ]
+                  "standard": ["{title}", ", {locus}", ", {page}", " ({publisher})", ", consulté le {accessed} : {url}"],
+                  "legislation": ["{title}", ", {locus}", ", {container}", ", consulté le {accessed} : {url}"],
+                  "webpage": ["{title}", ", {container}", ", consulté le {accessed} : {url}"],
+                  "report": ["{title}", ", {locus}", ", {page}"]
                 },
-                "quote": [
-                  "« {quote} »",
-                  " — {title}",
-                  ", {page}"
-                ]
+                "quote": ["« {quote} »", " — {title}", ", {page}"]
               }
             ]
           }

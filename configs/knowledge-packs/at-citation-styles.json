@@ -8,9 +8,7 @@
       "key": "at-citation-style",
       "values": {
         "purpose": "citation_style",
-        "territoryIds": [
-          "AT"
-        ],
+        "territoryIds": ["AT"],
         "validFrom": "2026-01-01",
         "body": {
           "kind": "citation_style",
@@ -21,55 +19,21 @@
                 "language": "de",
                 "kinds": [
                   {
-                    "match": {
-                      "authorities": [
-                        "OIB"
-                      ],
-                      "tints": [
-                        "oib"
-                      ],
-                      "lanePrefixes": [
-                        "building_law_oib"
-                      ],
-                      "origins": []
-                    },
+                    "match": {"authorities": ["OIB"], "tints": ["oib"], "lanePrefixes": ["building_law_oib"]},
                     "type": "standard",
                     "publisher": "Österreichisches Institut für Bautechnik",
                     "place": "Wien"
                   },
+                  {"match": {"authorities": ["ÖNORM"]}, "type": "standard"},
                   {
-                    "match": {
-                      "authorities": [
-                        "ÖNORM"
-                      ],
-                      "tints": [],
-                      "lanePrefixes": [],
-                      "origins": []
-                    },
-                    "type": "standard"
-                  },
-                  {
-                    "match": {
-                      "authorities": [],
-                      "tints": [],
-                      "lanePrefixes": [
-                        "building_law"
-                      ],
-                      "origins": [
-                        "ris"
-                      ]
-                    },
+                    "match": {"lanePrefixes": ["building_law"], "origins": ["ris"]},
                     "type": "legislation",
                     "container": "Rechtsinformationssystem des Bundes (RIS)"
                   }
                 ],
                 "edition": {
                   "word": "Ausgabe",
-                  "label": [
-                    "Ausgabe",
-                    " {month}",
-                    " {year}"
-                  ],
+                  "label": ["Ausgabe", " {month}", " {year}"],
                   "months": {
                     "jänner": 1,
                     "januar": 1,
@@ -108,25 +72,10 @@
                     ", abgerufen am {accessed}: {url}",
                     "."
                   ],
-                  "webpage": [
-                    "{title}",
-                    ", {container}",
-                    ", abgerufen am {accessed}: {url}",
-                    "."
-                  ],
-                  "report": [
-                    "{title}",
-                    ", {locus}",
-                    ", {page}",
-                    " [{note}]",
-                    "."
-                  ]
+                  "webpage": ["{title}", ", {container}", ", abgerufen am {accessed}: {url}", "."],
+                  "report": ["{title}", ", {locus}", ", {page}", " [{note}]", "."]
                 },
-                "quote": [
-                  "„{quote}“",
-                  " — {title}",
-                  ", {page}"
-                ]
+                "quote": ["„{quote}“", " — {title}", ", {page}"]
               }
             ]
           }

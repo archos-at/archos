@@ -388,10 +388,7 @@
                   "properties": {
                     "scheme": {
                       "type": "string",
-                      "enum": [
-                        "ris_gesetzesnummer",
-                        "eli"
-                      ]
+                      "pattern": "^[a-z][a-z0-9_]{0,39}$"
                     },
                     "value": {
                       "type": "string",

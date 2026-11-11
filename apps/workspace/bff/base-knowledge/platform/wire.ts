@@ -31,7 +31,8 @@ import {
   TERRITORY_KINDS,
 } from '@/lib/base-knowledge/wire/vocab'
 import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
-import { sourceRecordFields } from '@/lib/base-knowledge/wire/source'
+import { identifierSchemeSchema, sourceRecordFields } from '@/lib/base-knowledge/wire/source'
+import { MAX_SOURCE_REFS } from '@/lib/base-knowledge/chain/source-refs'
 import { goldenCaseFields } from '@/lib/base-knowledge/wire/golden-case'
 import { appliesWhenTableSchema } from '@/lib/base-knowledge/wire/applies-when'
 import { transitionTableSchema } from '@/lib/base-knowledge/wire/time'
@@ -107,22 +108,22 @@ const workRecord = z.object({
     .default(['site'])
     .describe('What the work attaches to: site, office_seat (HOAI), client (VgV). Anything but site never binds by the site alone.'),
   identifiers: z
-    .object({
-      'ris_gesetzesnummer': z
-        .string()
-        .regex(/^\d{1,12}$/)
-        .optional()
-        .describe('RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. "20000006".'),
-      eli: z
-        .url()
-        .max(300)
-        .regex(/\/$/, 'an ELI ends with "/": a passage is this work only below that whole path segment')
-        .optional()
-        .describe('The European Legislation Identifier of the work, as a URL ending with "/"; a passage whose ELI path continues below it is this work (…/1930/11/ never matches …/1930/110/).'),
+    .record(
+      identifierSchemeSchema,
+      z.string().trim().min(1).max(300),
+    )
+    .refine((identifiers) => Object.keys(identifiers).length <= MAX_SOURCE_REFS, `at most ${MAX_SOURCE_REFS} identifiers`)
+    .superRefine((identifiers, ctx) => {
+      // ELI is a European standard, not a country's: the one scheme whose value is checked here.
+      const eli = identifiers.eli
+      if (eli !== undefined && !(z.url().safeParse(eli).success && eli.endsWith('/'))) {
+        ctx.addIssue({ code: 'custom', path: ['eli'], message: 'an ELI is a URL ending with "/"' })
+      }
     })
-    .strict()
     .default({})
-    .describe('The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.'),
+    .describe(
+      'The work’s identifiers at its source, {"<scheme>": "<value>"}: a passage read live there finds this work when its address carries the value where the country’s source record declares the scheme (`identifiers`, e.g. a query parameter); an undeclared scheme finds nothing. Copy each value from the captured page. At most ' + String(MAX_SOURCE_REFS) + '; `designation` is the work’s own field, not a scheme. `eli` (European Legislation Identifier) is a URL ending with "/", checked for shape only.',
+    ),
   ...common,
 })
 
@@ -255,11 +256,20 @@ const rulesetRecord = z.object({
 })
 
 /** A public source (ADR-0174): its key is the source id the fetcher, captures and monitors name. */
-const sourceRecord = z.object({
-  type: z.literal('source'),
-  ...sourceRecordFields,
-  ...common,
-})
+const sourceRecord = z
+  .object({
+    type: z.literal('source'),
+    ...sourceRecordFields,
+    ...common,
+  })
+  .superRefine((record, ctx) => {
+    // The fetcher refuses a record whose copies are its own hosts (public_sources `Source`): refused here,
+    // or it would be released and every lookup would fall back past it.
+    const own = new Set(record.hosts)
+    record.copyHosts.forEach((host, index) => {
+      if (own.has(host)) ctx.addIssue({ code: 'custom', path: ['copyHosts', index], message: `${host} is one of hosts, not a copy` })
+    })
+  })
 
 // A golden case (0228): one question of a country's quality bar (`wire/golden-case.ts`).
 const goldenCaseRecord = z.object({ type: z.literal('golden_case'), key: keySchema, ...goldenCaseFields(territoryIdSchema, keySchema), ...common })

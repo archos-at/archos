@@ -234,30 +234,34 @@ def _read_by_the_lookup(url: str, version_date: str = "") -> SourceEntry:
     chat never produces), no chat passage of a law had a role and nothing failed: the defect this is the
     ratchet for (the citations design's G3, dev acceptance A5).
     """
-    from ris_adapter.lookup.address import Address
-    from ris_adapter.lookup.passages import SCORE_ADDRESSED
-    from ris_adapter.lookup.passages import Passage
-    from ris_adapter.lookup.passages import citation_for
-    from ris_adapter.lookup.render import format_passages
-
     from agent.citations.extraction import extract_sources_from_tool_result
     from agent.common.grounding_block import begin_grounding_capture
     from agent.common.grounding_block import end_grounding_capture
+    from agent.knowledge.law_lookup.address import Address
+    from agent.knowledge.law_lookup.passages import SCORE_ADDRESSED
+    from agent.knowledge.law_lookup.passages import Passage
+    from agent.knowledge.law_lookup.passages import citation_for
+    from agent.knowledge.law_lookup.render import format_passages
+    from agent.knowledge.law_lookup.source import law_source
+
+    law = law_source("at-ris")
 
     passage = Passage(
         title="Bauordnung für Wien",
         url=url,
         collection="ris/LrKons/Wien",
         clause_label="§ 63 Abs 1",
-        citation=citation_for("Bauordnung für Wien", "§ 63 Abs 1", version_date),
+        citation=citation_for("Bauordnung für Wien", "§ 63 Abs 1", version_date, law),
         body="Dem Ansuchen um Baubewilligung sind anzuschließen …",
         score=SCORE_ADDRESSED,
         version_date=version_date,
     )
-    address = Address(kind="§", number="63", subsection="1", federal_state="W", federal_state_source="the question")
+    address = Address(kind="§", number="63", subsection="1", territory="W", territory_source="the question")
     token = begin_grounding_capture()
     try:
-        (entry,) = extract_sources_from_tool_result("ris_lookup", format_passages([passage], None, address))
+        (entry,) = extract_sources_from_tool_result(
+            "ris_lookup", format_passages([passage], None, address, law, "ris_lookup")
+        )
     finally:
         end_grounding_capture(token)
     return entry

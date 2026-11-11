@@ -9,8 +9,9 @@
  */
 
 import type { JSX } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { BookOpen, FileText, Gauge, ListChecks, Plug, Scale, ShieldCheck } from 'lucide-react'
+import { BookOpen, FilePlus2, FileText, Gauge, ListChecks, Plug, Scale, ShieldCheck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { StatCard } from '@/components/ui/stat-card'
@@ -21,6 +22,7 @@ import { platformCopy } from '@/i18n/namespaces/platform'
 import type { ChangeRequestSummary, CountryCoverage } from '@/lib/base-knowledge/platform/wire'
 import type { TextPlacementList, TextPlacementView } from '@/lib/base-knowledge/platform/text-wire'
 import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
+import { AddDocumentDialog } from './add-document-dialog'
 import { NextStepText } from './country-atoms'
 import { REQUEST_GROUPS, requestGroup, sectionOf, type CountryNextStep, type CountrySection } from './country-state'
 import type { Load } from './use-platform-json'
@@ -112,38 +114,49 @@ function byWork(texts: readonly TextPlacementView[]): { work: string; editions: 
 }
 
 export function WorksSection({
+  countryId,
   texts,
   drafts,
   onRetry,
   onOpen,
+  onAdded,
+  onReview,
 }: {
+  countryId: string
   texts: Load<TextPlacementList>
   drafts: ChangeRequestSummary[]
   onRetry: () => void
   onOpen: (id: string) => void
+  onAdded: () => void
+  onReview: (id: string) => void
 }): JSX.Element {
   const t = useTranslations(platformCopy)
+  const [adding, setAdding] = useState(false)
   const ready = texts.state === 'ready' ? texts.value.texts : null
   return (
     <div className="flex flex-col gap-6" data-testid="country-section-works">
       <SectionCard title={t('countryPages.works.addTitle')} description={t('countryPages.works.addDescription')}>
-        {drafts.length === 0 ? (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted-foreground text-sm">{t('countryPages.works.noDraft')}</p>
-            <ConnectAssistant />
+        <div className="flex flex-col gap-3">
+          <div>
+            <Button size="sm" onClick={() => setAdding(true)} data-testid="country-add-document">
+              <FilePlus2 className="size-3.5" aria-hidden />
+              {t('countryPages.addDocument.open')}
+            </Button>
           </div>
-        ) : (
-          <ul className="flex flex-col gap-2" data-testid="country-works-drafts">
-            {drafts.map((draft) => (
-              <li key={draft.id} className="flex items-center justify-between gap-3">
-                <span className="font-medium">{draft.title}</span>
-                <Button size="sm" variant="outline" onClick={() => onOpen(draft.id)}>
-                  {t('countryPages.works.attach')}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
+          {drafts.length > 0 ? (
+            <ul className="flex flex-col gap-2" data-testid="country-works-drafts">
+              {drafts.map((draft) => (
+                <li key={draft.id} className="flex items-center justify-between gap-3">
+                  <span className="font-medium">{draft.title}</span>
+                  <Button size="sm" variant="outline" onClick={() => onOpen(draft.id)}>
+                    {t('countryPages.works.attach')}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+        <AddDocumentDialog countryId={countryId} open={adding} onOpenChange={setAdding} onAdded={onAdded} onReview={onReview} />
       </SectionCard>
       <SectionCard
         title={t('countryPages.works.title')}

@@ -179,6 +179,14 @@
           "section": "features",
           "area": "building-law",
           "text": {
+            "en": "A project with a filing date of today or earlier now gets its building-law answers, and the law named on its project page, on the editions in force that day, not today's. The answer says it took the filing date as the reference date and did not check transitional provisions.",
+            "de": "Ein Projekt mit einem Einreichdatum von heute oder früher erhält seine baurechtlichen Antworten und das auf seiner Projektseite angeführte Gesetz nun in der an diesem Tag geltenden Fassung statt in der heutigen. Die Antwort gibt an, dass sie das Einreichdatum als Stichtag herangezogen und Übergangsbestimmungen nicht geprüft hat."
+          }
+        },
+        {
+          "section": "features",
+          "area": "building-law",
+          "text": {
             "en": "When you create a project you can state its country and, in Austria, its Bundesland. Left empty, the postal code of an Austrian address suggests the Bundesland, and you confirm it during setup.",
             "de": "Bei der Projekterstellung können Sie das Land und in Österreich das Bundesland angeben. Wenn Sie das Bundesland nicht angeben, schlägt die Postleitzahl einer österreichischen Adresse ein Bundesland vor, das Sie bei der Einrichtung bestätigen."
           }
@@ -477,6 +485,14 @@
           "text": {
             "en": "On a phone, „Mehr“ shows who is signed in and groups its entries by the project, the office and your account.",
             "de": "Auf dem Smartphone zeigt „Mehr“, wer angemeldet ist, und gruppiert die Einträge nach Projekt, Büro und Ihrem Konto."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "When a rule exists in more than one edition, the assistant now finds the passage of the edition that applies at your project's site first, so its answer cites that edition. An older or newer edition is still found when you ask about it.",
+            "de": "Wenn eine Regel in mehreren Ausgaben vorliegt, findet der Assistent jetzt zuerst die Passage aus jener Ausgabe, die am Standort Ihres Projekts gilt, und zitiert diese Ausgabe in seiner Antwort. Eine ältere oder neuere Ausgabe findet er weiterhin, wenn Sie danach fragen."
           }
         },
         {
@@ -925,6 +941,14 @@
           "text": {
             "en": "Files that had been read in full but showed as failed after a large upload show as read again the next time their folder is opened.",
             "de": "Dateien, die vollständig gelesen wurden, nach einem großen Upload jedoch als fehlgeschlagen angezeigt wurden, werden beim nächsten Öffnen ihres Ordners wieder als gelesen angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A file whose reading you stopped no longer reappears as failed after you reload the page.",
+            "de": "Eine Datei, deren Einlesen Sie abgebrochen haben, wird nach dem Neuladen der Seite nicht mehr als fehlgeschlagen angezeigt."
           }
         },
         {
