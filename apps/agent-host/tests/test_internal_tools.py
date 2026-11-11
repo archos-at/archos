@@ -225,7 +225,7 @@ def test_it_refuses_a_tool_that_is_not_on_the_allowlist(client: TestClient):
 
 
 def test_an_allowlisted_tool_the_config_does_not_bind_is_not_found(client: TestClient):
-    response = _post(client, "ris_lookup_tool", {"arguments": {"question": "x"}}, _headers())
+    response = _post(client, "law_lookup", {"arguments": {"question": "x"}}, _headers())
 
     assert response.status_code == 404
     assert response.json()["detail"]["error"] == "tool_not_configured"

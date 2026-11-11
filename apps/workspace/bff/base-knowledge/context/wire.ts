@@ -10,7 +10,7 @@
 import { z } from 'zod'
 import { useApplicabilitySchema } from '../wire/project-law'
 import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS, TEXT_STATUSES } from '../wire/vocab'
-import { sourceRefSchema } from '../chain/source-refs'
+import { MAX_SOURCE_REFS, sourceRefSchema } from '../chain/source-refs'
 
 /** Most uses a turn carries (design §5.5: works ≤ 40). */
 export const MAX_CONTEXT_USES = 40
@@ -107,7 +107,7 @@ export const contextUseSchema = z
     /** The edition's label (`Ausgabe Mai 2023`); null for law read live at its source. */
     editionLabel: z.string().nullable(),
     /** The work's identifiers at its source, sorted by scheme and value; [] when the record states none. */
-    sourceRefs: z.array(sourceRefSchema).max(8),
+    sourceRefs: z.array(sourceRefSchema).max(MAX_SOURCE_REFS),
     /** Where a person opens the edition's text: the page its manifestation cites first; null when none does. */
     sourceUrl: z.string().max(2000).nullable(),
     /** The language of the edition's held text (BCP 47, `de`, `fr-CH`); null where no text is held (law read live at its source). */
