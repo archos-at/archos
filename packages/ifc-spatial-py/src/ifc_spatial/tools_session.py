@@ -104,8 +104,9 @@ def open_model(cache: SpatialCache, register: Callable[[SpatialModel], str], arg
         # architect can act on — truncated upload, wrong format, too large
         # for a request process. That sentence is the answer; burying it
         # under a traceback would leave the agent with "es hat nicht
-        # funktioniert", which nobody can do anything with.
-        raise ToolError(f"Modell konnte nicht geöffnet werden: {error}") from None
+        # funktioniert", which nobody can do anything with. The cause stays
+        # attached: the agent's client reads there which refusal this was.
+        raise ToolError(f"Modell konnte nicht geöffnet werden: {error}") from error
     digest = register(model)
     return {
         "model": _short(digest),
