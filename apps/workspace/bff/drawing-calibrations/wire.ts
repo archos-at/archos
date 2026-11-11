@@ -10,9 +10,28 @@
  */
 import { z } from 'zod'
 import { pageQueryShape } from '@/lib/api/offset-page'
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 
 export const CALIBRATION_STATUSES = ['active', 'superseded', 'withdrawn'] as const
 export type CalibrationStatus = (typeof CALIBRATION_STATUSES)[number]
+
+/**
+ * A calibration's lifecycle (ADR-0179). It is born `active`. Setting the same
+ * region again supersedes it; a person withdraws it. Both ends are final:
+ * withdrawing the newer calibration does not revive the one it superseded.
+ */
+export const CALIBRATION_LIFECYCLE = defineLifecycle<CalibrationStatus, 'supersede' | 'withdraw'>({
+  id: 'drawing-calibration',
+  initial: 'active',
+  states: {
+    active: { on: { supersede: 'superseded', withdraw: 'withdrawn' } },
+    superseded: { type: 'final' },
+    withdrawn: { type: 'final' },
+  },
+})
+
+/** The most calibrations the internal read hands the measuring tool for one page. */
+export const MAX_PAGE_CALIBRATIONS = 50
 
 const share = z.number().finite().min(0).max(1)
 const EDGE = 1.000001
@@ -62,7 +81,17 @@ export const listCalibrationsQuerySchema = z
   .strict()
 export type ListCalibrationsQuery = z.infer<typeof listCalibrationsQuerySchema>
 
-export const calibrationParamsSchema = z.object({ id: z.string().uuid(), calibrationId: z.string().uuid() })
+export const calibrationDocumentParamsSchema = z.object({ id: z.string().uuid() })
+export const calibrationParamsSchema = calibrationDocumentParamsSchema.extend({ calibrationId: z.string().uuid() })
+
+/** What the measuring tool is given of an active calibration (`GET /api/internal/document-file?calibrationsPage=`). */
+export interface PageCalibration {
+  id: string
+  region: CalibrationRegion
+  from: CalibrationPoint
+  to: CalibrationPoint
+  lengthM: number
+}
 
 export const calibrationViewSchema = z.object({
   id: z.string().uuid(),

@@ -16,6 +16,7 @@
 
 import type { GeneratedContent } from './ai-generated-meta'
 import type { z } from 'zod'
+import type { KnownFeatureFlag } from '@/lib/authz/feature-flags'
 import type { OperationInput } from './dispatch'
 
 export type BodyEncoding = 'json' | 'multipart' | 'raw'
@@ -141,6 +142,14 @@ export interface AgentOperation {
    * Piloti in-product only ever proposes it.
    */
   readonly sensitivity?: Sensitivity
+  /**
+   * The entitlement or rollout flag the operation's route refuses without
+   * (`requireFeature`). The route stays the gate for a call; this is read where
+   * no call reaches the route yet: the in-product agent's write is filed as a
+   * proposal first, and one for an organization without the feature would be a
+   * card whose only outcome is a refusal on apply. So none is filed.
+   */
+  readonly feature?: KnownFeatureFlag
   /**
    * The call runs only on the person's own yes: a decision a model must not
    * make for them however the call reached the door (ADR-0122, amendment "a

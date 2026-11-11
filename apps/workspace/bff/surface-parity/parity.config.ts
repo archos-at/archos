@@ -211,8 +211,7 @@ export const SURFACE_CAPABILITIES = {
   },
   calibrateScale: {
     summary: 'Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for',
-    // No operations named yet: the list, set and withdraw operations arrive with the headless slice
-    // (drawing-measurement-build-spec.md, slice 4) and are added here when both are on one branch.
+    operations: ['drawing-calibration-list', 'drawing-calibration-set', 'drawing-calibration-withdraw'],
     // The calibrate tool: the layer takes the points and the region, the panel shows the ratio before saving and the page's active calibrations.
     canvas: { component: `${REVIEW}/calibration-panel.tsx` },
     chat: {

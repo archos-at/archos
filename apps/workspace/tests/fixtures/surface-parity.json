@@ -363,7 +363,11 @@
    "summary": "Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for",
    "tool": null,
    "annotationOp": null,
-   "operations": [],
+   "operations": [
+    "drawing-calibration-list",
+    "drawing-calibration-set",
+    "drawing-calibration-withdraw"
+   ],
    "canvas": {
     "kind": "rendering",
     "component": "features/documents/components/review/calibration-panel.tsx",
