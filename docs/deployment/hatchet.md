@@ -82,7 +82,10 @@ on a workflow of more than one task. That
 run writes its status `cancelled` with `metadata.superseded`, never as a
 person's cancel, and sends no settle push; a person's cancel marks the run id
 first (`ingest_run_hold.mark_stopped_by_person`) so the run can tell the two
-apart. Named tenant-scoped limits need engine ≥ 0.106.0; on our v0.114.2 they
+apart. A person's cancel also settles the status row `cancelled` and releases
+its hold (`held_until`); a run told to stop, for any of the three reasons,
+writes no live or failed status again and may only still write `completed`
+([Stopping a read](../technical-reference/document-ingestion.md#stopping-a-read-cancel)). Named tenant-scoped limits need engine ≥ 0.106.0; on our v0.114.2 they
 are exercised only by the CI engine job.
 
 Both pools count against the vision pool and Postgres's session locks
