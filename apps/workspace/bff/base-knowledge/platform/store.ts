@@ -91,7 +91,7 @@ export async function setChangeRequestStatus(
 }
 
 export async function listChangeRequests(
-  filter: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState },
+  filter: { status?: ChangeRequestStatus; countryId?: string; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState },
   page: { offset: number; limit: number } = { offset: 0, limit: MAX_CHANGE_REQUESTS },
 ): Promise<ChangeRequestSummary[]> {
   const rows = await withPlatformAccess(REASON, () =>
@@ -104,6 +104,7 @@ export async function listChangeRequests(
       .where(
         and(
           filter.status ? eq(knowledgeChangeRequests.status, filter.status) : undefined,
+          filter.countryId ? eq(knowledgeChangeRequests.countryId, filter.countryId) : undefined,
           filter.origin ? eq(knowledgeChangeRequests.origin, filter.origin) : undefined,
           filter.secondReview ? eq(knowledgeChangeRequests.secondReview, filter.secondReview) : undefined,
         ),

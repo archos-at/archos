@@ -73,7 +73,7 @@ export const platformKnowledgeOperations = [
     name: 'platform-knowledge-change-request-list',
     domain: 'platform',
     summary: 'List the platform’s knowledge change requests',
-    description: 'Newest first, at most 200; filter by `status`.',
+    description: 'Newest first, at most 200; filter by `status` and by `countryId` for one country.',
     method: 'GET',
     path: '/api/platform/knowledge/change-requests',
     query: listChangeRequestsQuerySchema,

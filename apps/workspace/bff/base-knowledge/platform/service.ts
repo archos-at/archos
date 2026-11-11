@@ -93,13 +93,16 @@ export async function platformKnowledgeOverview(session: UserSession | null): Pr
 
 export async function listPlatformChangeRequests(
   session: UserSession | null,
-  query: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState; limit?: number; cursor?: string },
+  query: { status?: ChangeRequestStatus; countryId?: string; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState; limit?: number; cursor?: string },
 ): Promise<{ changeRequests: ChangeRequestSummary[]; nextCursor: string | null }> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
   const offset = query.cursor ? Number(query.cursor) : 0
   const limit = query.limit ?? CHANGE_REQUEST_PAGE
   // One more than the page says whether another follows.
-  const rows = await listChangeRequests({ status: query.status, origin: query.origin, secondReview: query.secondReview }, { offset, limit: limit + 1 })
+  const rows = await listChangeRequests(
+    { status: query.status, countryId: query.countryId, origin: query.origin, secondReview: query.secondReview },
+    { offset, limit: limit + 1 },
+  )
   return { changeRequests: rows.slice(0, limit), nextCursor: rows.length > limit ? String(offset + limit) : null }
 }
 
