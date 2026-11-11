@@ -14,6 +14,12 @@ records, the source records and the turn's knowledge context. For citations that
   was read as. A corpus point is marked with its edition at ingest (`knowledge_edition_id`); a live source's
   producer finds the work by the identifier the work's record carries. Role, route, edition label and dates
   are read off the knowledge context by that id. Nothing is decided by matching a URL, a host or a file name.
+- **An identifier scheme is a word in the records, never a list in code.** A work's `identifiers` are an open
+  map `{<scheme>: <value>}` (scheme `^[a-z][a-z0-9_]{0,39}$`, value up to 300 characters, at most eight); a
+  source record declares how its addresses state each scheme (`identifiers: {<scheme>: {query: <param>}}`),
+  and a scheme means something exactly where a source record names it. Only `eli` is checked further (a URL
+  ending with `/`), because ELI is a European standard, not a country's. A work may name a scheme before its
+  source is onboarded: it finds nothing until one is (`platform/wire.ts`, `chain/source-refs.ts`).
 - **The public address is display.** It is offered to a reader and printed in an exported document. It
   decides no role.
 - **The form of a citation is a style per country, work kind and language, held in records.** Section 3 is

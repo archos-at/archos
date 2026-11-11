@@ -106,8 +106,9 @@ class UseRoute:
 
 @dataclass(frozen=True)
 class SourceRef:
-    """One identity of an edition in a legal database, from its manifestation records: ``ris_gesetzesnummer``
-    (``20000006``), ``ris_dokumentnummer``, ``eli`` (``https://…``). How each is matched: ``citations/roles.py``."""
+    """One identifier of a work at its source, as its record states it: ``scheme`` is an open word (``eli``, a
+    law number) that a source record declares under its ``identifiers``, and ``value`` is compared whole with
+    what that source reads off a passage's address (:func:`use_for_source_ref`). No scheme is named in code."""
 
     scheme: str
     value: str
@@ -125,7 +126,7 @@ class EditionUse:
     corpus_files: tuple[str, ...] = ()
     designation: str | None = None
     edition_label: str | None = None
-    #: The edition's identities in a legal database: what a RIS passage is matched by (``citations/roles.py``).
+    #: The work's identifiers at its source: what a passage read live there is matched by (:func:`use_for_source_ref`).
     source_refs: tuple[SourceRef, ...] = ()
     #: Whether the edition's own scope (``applicability``) leaves it open for this project: a person's check
     #: (``check``), a building fact not yet known (``open``), or ``not_applicable``. False when the edition

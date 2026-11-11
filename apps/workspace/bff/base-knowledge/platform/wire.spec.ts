@@ -33,17 +33,28 @@ describe('the record types an agent is told about', () => {
 describe('a work’s identifiers at its source', () => {
   const work = (identifiers: Record<string, string>) => proposedRecordSchema.safeParse({ type: 'work', key: 'bo-wien', kind: 'statute', title: 'Bauordnung für Wien', territoryIds: ['AT-9'], identifiers, citations: [] })
 
-  it('takes a RIS law number and an ELI that ends at a path segment', () => {
+  it('takes a law number under the scheme its source record declares, and an ELI that ends at a path segment', () => {
     expect(work({ 'ris_gesetzesnummer': '20000006', eli: 'https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/' }).success).toBe(true)
   })
 
-  it('refuses a scheme it does not know, a document number of one paragraph among them', () => {
-    expect(work({ 'ris_dokumentnummer': 'LWI40000225' }).success).toBe(false)
-    expect(work({ 'gesetzesnummer': '20000006' }).success).toBe(false)
+  it('takes a scheme no code names: a country’s identifier is a record, not a release', () => {
+    const parsed = work({ 'xa_gazette_number': '42' })
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toMatchObject({ identifiers: { 'xa_gazette_number': '42' } })
+  })
+
+  it('refuses a malformed scheme, the designation as a scheme, an empty value and more than eight schemes', () => {
+    expect(work({ 'Gesetzesnummer': '20000006' }).success).toBe(false)
+    expect(work({ '1st_number': '1' }).success).toBe(false)
+    expect(work({ 'law-number': '1' }).success).toBe(false)
+    expect(work({ designation: 'BO für Wien' }).success).toBe(false)
+    expect(work({ 'xa_gazette_number': ' ' }).success).toBe(false)
+    expect(work(Object.fromEntries(Array.from({ length: 9 }, (_, n) => [`scheme_${n}`, String(n)]))).success).toBe(false)
   })
 
   it('refuses an ELI that does not end with "/": …/1930/11 would also name …/1930/110', () => {
     expect(work({ eli: 'https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11' }).success).toBe(false)
+    expect(work({ eli: 'not a url/' }).success).toBe(false)
   })
 })
 

@@ -26,6 +26,15 @@ import { SOURCE_FORMATS, SOURCE_PROTOCOLS } from '@/shared/vocabularies.generate
 import { LICENCE_CLASSES, MONITOR_KINDS, SOURCE_DATA_FLOWS } from './vocab'
 
 /**
+ * The name of an identifier scheme (`eli`, a law number in a source's links):
+ * an open word, never a list in code. A source record declares how its
+ * addresses state each scheme (`identifiers` below) and a work record carries
+ * its value under the same word, so a scheme means something exactly where a
+ * source record names it (ADR-0174, `docs/design/citations.md`).
+ */
+export const identifierSchemeSchema = z.string().regex(/^[a-z][a-z0-9_]{0,39}$/)
+
+/**
  * The access types and format engines a source record may name. Their one list is the Python
  * registry that runs them (`ACCESS_TYPES`, `ENGINES` in `packages/public-sources`), generated
  * into `shared/vocabularies.generated.ts`: a new engine is code there, once, with no migration
@@ -201,7 +210,7 @@ export const sourceRecordFields = {
     .default('public_only')
     .describe('site_keyed when a site point (a bbox, a coordinate) is sent: publishing it needs a privacy reviewer.'),
   identifiers: z
-    .record(z.string().regex(/^[a-z][a-z0-9_]{0,39}$/), z.object({ query: z.string().min(1).max(80) }).strict())
+    .record(identifierSchemeSchema, z.object({ query: z.string().min(1).max(80) }).strict())
     .default({})
     .describe(
       'How a work’s identifier is read from the address of a passage at this source, by the scheme the knowledge records name it under: {"<scheme>": {"query": "<query parameter>"}}. A cited passage finds its work, and so its role, by it.',
