@@ -299,21 +299,18 @@ class Source(_Strict):
         engine_cls.config_model.model_validate(self.engine)
         for url in config.urls():
             self.require_allowed(url)
-        self._lookup_fits(config)
+        self._lookup_fits(access_cls, config)
         return self
 
-    def _lookup_fits(self, config) -> None:
-        """A lookup block names only operations and tables the access configuration has."""
+    def _lookup_fits(self, access_cls, config) -> None:
+        """A lookup block names only operations and tables the access configuration has, for every protocol."""
         if self.lookup is None:
             return
-        operations = getattr(config, "operations", None)
-        if operations is not None:
-            missing = [op for op in (self.lookup.search, self.lookup.document) if op and op not in operations]
-            if missing:
-                raise ValueError(f"lookup names operations the access configuration lacks: {missing}")
-        tables = getattr(config, "tables", None)
-        if tables is None:
-            return
+        offered = access_cls.operations_of(config)
+        missing = [op for op in (self.lookup.search, self.lookup.document) if op and op not in offered]
+        if missing:
+            raise ValueError(f"lookup names operations the {self.protocol} access does not offer: {missing}")
+        tables = getattr(config, "tables", None) or {}
         named = {
             "lookup.territory.table": self.lookup.territory.table if self.lookup.territory else "",
             "lookup.reference.prefix_table": self.lookup.reference.prefix_table,

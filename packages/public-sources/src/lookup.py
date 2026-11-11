@@ -152,7 +152,7 @@ class Lookup(_Strict):
     #: The access type's operations the lookup uses: a search (empty for a source that offers none, whose
     #: documents the record lists) and a document by its reference.
     search: str = ""
-    document: str = "document"
+    document: str = Field(default="document", min_length=1)
     locus: Locus
     collections: tuple[Collection, ...] = Field(min_length=1)
     territory: Territory | None = None

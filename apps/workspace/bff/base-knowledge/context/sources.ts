@@ -47,7 +47,7 @@ export async function lookupSourcesFor(countries: readonly string[]): Promise<Tu
   if (countries.length === 0) return { sources: [], dropped: [] }
   const rows = await withPlatformAccess('knowledge context: the released sources a turn may look law up in', () =>
     getDb().execute<SourceRow>(sql`
-      SELECT r.id AS record_id, b.revision_id, r.country_id, b.config
+      SELECT r.id AS record_id, b.revision_id, r.country_id, b.config - 'fixtures' AS config
       FROM knowledge_records r JOIN knowledge_source_revisions b ON b.revision_id = r.head_revision_id
       WHERE r.type = 'source' AND r.organization_id IS NULL AND r.country_id = ANY(${sqlTextArray([...countries])})
         AND b.config ? 'lookup'

@@ -92,3 +92,44 @@ def test_a_released_record_is_still_checked_and_a_licensed_one_refused():
         parse_released_source(
             {**raw, "lookup": {**raw["lookup"], "territory": {**raw["lookup"]["territory"], "table": "no_such_table"}}}
         )
+
+
+def test_a_lookup_names_only_what_a_fixed_protocol_serves():
+    from public_sources.access.web_document import WebDocument
+
+    assert WebDocument.served_operations == ("document",)
+    raw = _ris_raw()["lookup"]
+    with pytest.raises(ValueError, match="at least 1"):
+        Lookup.model_validate({**raw, "document": ""})
+
+
+def _listed_portal(**lookup) -> dict:
+    """A portal that lists its documents and offers no search (``web_document``), as released to a turn."""
+    return {
+        "id": "xa-gazette",
+        "title": "Gazette of Xanadu",
+        "territory": "XA",
+        "protocol": "web_document",
+        "format": "html_statute",
+        "hosts": ["gazette.xa.example"],
+        "terms": {"url": "https://gazette.xa.example/terms", "licence": "public_open", "checked": "2026-11-01"},
+        "access": {"documents": [{"id": "code", "url": "https://gazette.xa.example/code", "title": "Code"}]},
+        "engine": {"unit": "//section", "number": "./span"},
+        "lookup": {
+            "language": "en",
+            "locus": {"units": [{"sign": "§", "forms": ["§"], "word": False}], "subsection": ["para"]},
+            "collections": [{"id": "code", "kind": "statute"}],
+            "wording": {"source": "Gazette", "subdivision": "province"},
+            **lookup,
+        },
+    }
+
+
+def test_a_listed_portal_is_read_and_one_naming_what_it_cannot_serve_is_refused():
+    from public_sources.source import parse_released_source
+
+    assert parse_released_source(_listed_portal()).lookup.search == ""
+    with pytest.raises(SourceError, match="does not offer"):
+        parse_released_source(_listed_portal(search="search"))
+    with pytest.raises(SourceError, match="regions"):
+        parse_released_source(_listed_portal(territory={"argument": "region", "table": "regions"}))
