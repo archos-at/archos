@@ -28,6 +28,10 @@ monitor:
   # Its change feed is SOAP only (research, country-base-knowledge.md row "Law").
   kind: sha256
   interval_hours: 24
+  # The Bauordnung für Wien's page: a change to the page's shape shows here first.
+  probe:
+    operation: document
+    args: {segment: Landesnormen, reference: LWI40000225}
 
 access:
   base_url: https://data.bka.gv.at/ris/api/v2.6
@@ -229,7 +233,7 @@ lookup:
       kind: statute
       level: subdivision
       consolidated: true
-      guide: "consolidated STATE law — Bauordnungen, Bautechnikgesetze, Garagengesetze and all other Landesgesetze live here; ALWAYS set `federal_state` for building-law questions."
+      guide: "consolidated STATE law — Bauordnungen, Bautechnikgesetze, Garagengesetze and all other Landesgesetze live here; ALWAYS set `territory` for building-law questions."
     - {id: BgblAuth, kind: gazette, level: national, guide: "authentic federal gazette — only when the user needs the legally binding promulgation."}
     - {id: LgblAuth, kind: gazette, level: subdivision, guide: "authentic state gazettes — only when the user needs the legally binding promulgation."}
     - {id: Begut, kind: draft, guide: "draft bills (legislation in progress)."}
@@ -259,13 +263,25 @@ lookup:
   case_law_signals: [vwgh, vfgh, judikatur, erkenntnis, entscheidung, geschäftszahl, geschaeftszahl, beschluss, urteil]
   search_guidance: |-
     Search term rules:
-    - `suchworte` must be German legal terminology; strip filler words. Prefer the statutory term (e.g. "Stellplatzverpflichtung" not "Parkplätze vorgeschrieben").
-    - Use `titel` only when the user names a specific law ("Bauordnung für Wien", "Garagengesetz").
+    - `terms` must be German legal terminology; strip filler words. Prefer the statutory term (e.g. "Stellplatzverpflichtung" not "Parkplätze vorgeschrieben").
+    - Use `title` only when the user names a specific law ("Bauordnung für Wien", "Garagengesetz").
     - Dates only when the request clearly constrains time (decision periods, version in force at a date).
     - Keep `reasoning` to one short sentence.
+  # The collection id a passage states starts with this (ris/LrKons/Wien); the lanes and the
+  # citation reader know RIS by it, and the shared cache keys share it with the RIS tools.
+  namespace: ris
+  # A whole-law page or a consolidated document is informational, not the authentic text.
+  consolidated_urls: [GeltendeFassung, /Bundesnormen/, /Landesnormen/]
+  # A bare document number (NOR40217157) names its citizen-application segment by its prefix.
+  reference:
+    argument: reference
+    prefix_table: document_prefix
+    prefix_argument: segment
+    url_parameters: [Dokumentnummer, Gesetzesnummer]
   wording:
     source: RIS
     subdivision: Bundesland
+    subdivision_short: Land
     consolidated_note: "Legal status: konsolidierte Fassung (consolidated version) — informational, not legally binding. The authentic text is the promulgation in the Bundesgesetzblatt/Landesgesetzblatt (applications BgblAuth/LgblAuth)."
     example_territory: Wien
     example_work: Bauordnung für Wien

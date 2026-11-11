@@ -18,7 +18,7 @@ one publisher and one legal language, never to the code that runs them:
   subdivision, the note a consolidated text carries, and the examples a retry
   hint gives.
 
-The lookup itself (``agent.tools.law_lookup``) reads these and names no
+The lookup itself (``agent.knowledge.law_lookup``) reads these and names no
 country. A second country's statute database on a known protocol and format
 is a record with this block, never code. Formats and protocols stay code:
 :mod:`public_sources.engines`, :mod:`public_sources.access`.
@@ -115,6 +115,8 @@ class Wording(_Strict):
     source: str
     #: The word for the subdivision the territory filter selects (``Bundesland``).
     subdivision: str
+    #: Its short form, where a sentence uses one ("not narrowed to one Land"); empty means ``subdivision``.
+    subdivision_short: str = ""
     #: The note a passage from a consolidated collection carries.
     consolidated_note: str = ""
     #: A territory and a work named in a retry hint.
@@ -127,6 +129,19 @@ class Wording(_Strict):
     title_suffix: str = ""
     #: The question language the tool asks for (``German``).
     language: str = ""
+
+
+class Reference(_Strict):
+    """How a document's reference (a document number) becomes the document operation's arguments, and back."""
+
+    #: The document operation's argument the reference goes into.
+    argument: str = "reference"
+    #: The access table whose keys are reference prefixes, checked in order, and whose values fill
+    #: ``prefix_argument``: a bare number names the part of the source it lives in by its prefix.
+    prefix_table: str = ""
+    prefix_argument: str = ""
+    #: Query parameters of a source URL that carry a document's reference, read back for a stable name.
+    url_parameters: tuple[str, ...] = ()
 
 
 class Lookup(_Strict):
@@ -146,6 +161,13 @@ class Lookup(_Strict):
     #: The search planner's guidance on terms, after the collections (``Prefer the statutory term …``).
     search_guidance: str = Field(default="", max_length=2000)
     wording: Wording
+    #: The first segment of the collection id a passage states (``ris`` in ``ris/LrKons/Wien``), which the
+    #: lanes and the citation reader know the source by; also the namespace of its cache keys. Empty: the source id.
+    namespace: str = ""
+    #: Fragments of a document URL that mark a consolidated (informational) text; such a passage carries
+    #: ``wording.consolidated_note``.
+    consolidated_urls: tuple[str, ...] = ()
+    reference: Reference = Reference()
 
     @model_validator(mode="after")
     def _collections_unique(self) -> Lookup:

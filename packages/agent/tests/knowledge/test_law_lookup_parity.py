@@ -13,12 +13,19 @@ import pytest
 from agent_testing.law_lookup_parity import CASES
 from agent_testing.law_lookup_parity import GOLDEN
 from agent_testing.law_lookup_parity import Upstream
+from agent_testing.law_lookup_parity import run_law_lookup
+from agent_testing.law_lookup_parity import run_law_lookup_from_turn
 from agent_testing.law_lookup_parity import run_ris_lookup
 
 pytestmark = pytest.mark.asyncio
 
 _GOLDEN = json.loads(GOLDEN.read_text(encoding="utf-8"))
-_RUNNERS = {"ris_lookup": run_ris_lookup}
+_RUNNERS = {
+    "ris_lookup": run_ris_lookup,
+    "law_lookup": run_law_lookup,
+    # The path a turn takes once the record is published: RIS as a released record the turn carries.
+    "law_lookup_from_turn": run_law_lookup_from_turn,
+}
 
 
 def test_every_case_has_its_recording():

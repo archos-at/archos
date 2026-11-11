@@ -54,6 +54,11 @@ class Engine:
 
     name: ClassVar[str]
     config_model: ClassVar[type[EngineConfig]]
+    #: The labels a search hit's metadata states a version's in-force window and its territory under,
+    #: empty for a format whose hits state none.
+    in_force_from: ClassVar[str] = ""
+    in_force_until: ClassVar[str] = ""
+    territory_field: ClassVar[str] = ""
 
     def __init__(self, config: EngineConfig | dict | None = None) -> None:
         if isinstance(config, EngineConfig):
@@ -63,6 +68,10 @@ class Engine:
 
     def document(self, body: bytes, *, url: str = "") -> ParsedDocument:
         raise NotImplementedError
+
+    def public_host(self, url: str) -> str:
+        """``url`` on the host the source's citations use; the same URL for a format with one host."""
+        return url
 
     def recorded_document(self, text: str, *, url: str = "", content_type: str = "") -> ParsedDocument:
         """The document read from a citation capture's text instead of the body (a fixture's recording).

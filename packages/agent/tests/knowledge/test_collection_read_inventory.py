@@ -120,6 +120,7 @@ TOOLS: dict[str, tuple[str, str]] = {
     "ris_catalog_lookup": ("external", "the RIS catalog"),
     "ris_fetch_document": ("external", "the Austrian legal information system"),
     "ris_lookup": ("external", "the Austrian legal information system"),
+    "law_lookup": ("external", "a public law source, read through its source record"),
     "tavily_web_search": ("external", "the web"),
     # Agents and workflows: their tools are the rows above.
     "research_agent": ("agent", "Piloti; admits every tool round in its tools node"),

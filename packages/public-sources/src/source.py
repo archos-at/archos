@@ -312,8 +312,15 @@ class Source(_Strict):
             if missing:
                 raise ValueError(f"lookup names operations the access configuration lacks: {missing}")
         tables = getattr(config, "tables", None)
-        if self.lookup.territory and tables is not None and self.lookup.territory.table not in tables:
-            raise ValueError(f"lookup.territory.table {self.lookup.territory.table!r} is not a table of the access")
+        if tables is None:
+            return
+        named = {
+            "lookup.territory.table": self.lookup.territory.table if self.lookup.territory else "",
+            "lookup.reference.prefix_table": self.lookup.reference.prefix_table,
+        }
+        for field, table in named.items():
+            if table and table not in tables:
+                raise ValueError(f"{field} {table!r} is not a table of the access")
 
     # -- reading ----------------------------------------------------------
 

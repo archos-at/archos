@@ -30,6 +30,7 @@ says.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 from collections.abc import Callable
@@ -258,6 +259,97 @@ async def run_ris_lookup(case: Case, upstream: Upstream) -> Result:
         stack.enter_context(patch("ris_adapter.lookup.tool._resolve_llms", _resolve))
         config = RisLookupToolConfig(ingest_into_knowledge=False)
         async with ris_lookup(config, MagicMock()) as info:
+            fn = LambdaFunction.from_info(config=_probe_config(), info=info)
+            output = await fn.ainvoke(case.args, to_type=str)
+    return Result(output=output, requested=tuple(upstream.requested))
+
+
+#: The key a released record of the repository's RIS source takes (``scripts/source_record_payload.py``).
+RELEASED_KEY = "at-ris-ogd"
+
+
+def released_record() -> dict[str, Any]:
+    """The repository's RIS record as the BFF hands a released one to a turn: its own key, no fixtures."""
+    from public_sources.source import get_source
+
+    raw = get_source("at-ris").model_dump(mode="json", exclude_none=True)
+    raw.pop("fixtures")
+    return {**raw, "id": RELEASED_KEY}
+
+
+@contextlib.contextmanager
+def _turn_carrying(record: dict[str, Any] | None):
+    """Bind a knowledge context that carries ``record`` as the turn's released source (or none)."""
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import LawSource as TurnSource
+    from agent.common.knowledge_context import get_turn_knowledge_context
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    previous = get_turn_knowledge_context()
+    if record is not None:
+        # A revision names one content, as on the platform: the lookup builds a record once per revision.
+        revision = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()[:16]
+        source = TurnSource(key=record["id"], revision_id=revision, country="AT", config=record)
+        set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", sources=(source,)))
+    try:
+        yield
+    finally:
+        set_turn_knowledge_context(previous)
+
+
+async def run_law_lookup_from_turn(case: Case, upstream: Upstream) -> Result:
+    """The country-neutral lookup reading RIS as a released record the turn carries, not as a repository file."""
+    return await run_law_lookup(case, upstream, turn_record=released_record())
+
+
+async def run_law_lookup(case: Case, upstream: Upstream, turn_record: dict[str, Any] | None = None) -> Result:
+    """The country-neutral lookup (``agent.knowledge.law_lookup``), reading RIS from its record.
+
+    Bound as the RIS tool is, under its name, so its errors and its sources step say ``ris_lookup``.
+    """
+    from agent.knowledge.law_lookup import LawLookupToolConfig
+    from agent.knowledge.law_lookup import law_lookup
+    from agent.knowledge.law_lookup.client import SourceClient
+    from agent.knowledge.law_lookup.picker import PassagePick
+    from agent.knowledge.law_lookup.picker import PassagePlan
+    from agent.knowledge.law_lookup.planner import plan_model
+    from agent.knowledge.law_lookup.source import law_source
+    from nat.builder.function import LambdaFunction  # noqa: TID251
+
+    config = LawLookupToolConfig(source="at-ris", tool_name="ris_lookup", ingest_into_knowledge=False)
+    planner = picker = None
+    if case.plan is not None:
+        plan = plan_model(law_source(config.source))(
+            collection=case.plan.collection,
+            terms=case.plan.terms,
+            title=case.plan.title,
+            territory=case.plan.territory,
+        )
+
+        async def planner(*_args):
+            return plan
+
+    if case.picks is not None:
+        picked = PassagePlan(picks=[PassagePick(section=s) for s in case.picks])
+
+        async def picker(*_args):
+            return picked
+
+    async def _resolve(*_args):
+        return lambda _law: (planner, picker)
+
+    transport = upstream.transport()
+
+    def _client(law, **kwargs):
+        return SourceClient(law, **kwargs, transport=transport, max_retries=1)
+
+    _reset_shared_cache()
+    upstream.requested.clear()
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(patch("agent.knowledge.law_lookup.tool.SourceClient", _client))
+        stack.enter_context(patch("agent.knowledge.law_lookup.tool._resolve_llms", _resolve))
+        stack.enter_context(_turn_carrying(turn_record))
+        async with law_lookup(config, MagicMock()) as info:
             fn = LambdaFunction.from_info(config=_probe_config(), info=info)
             output = await fn.ainvoke(case.args, to_type=str)
     return Result(output=output, requested=tuple(upstream.requested))

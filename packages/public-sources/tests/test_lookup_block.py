@@ -38,6 +38,14 @@ def test_a_territory_table_the_access_lacks_is_refused():
         parse_source(raw)
 
 
+def test_a_reference_prefix_table_the_access_lacks_is_refused():
+    raw = _ris_raw()
+    raw["lookup"]["reference"]["prefix_table"] = "no_prefix_table"
+
+    with pytest.raises(SourceError, match="no_prefix_table"):
+        parse_source(raw)
+
+
 def test_an_operation_the_access_lacks_is_refused():
     raw = _ris_raw()
     raw["lookup"]["document"] = "fetch_everything"
