@@ -350,20 +350,23 @@ tasks:
       - '{{.PY}} -m coverage report --fail-under=65'
 
   be:test:durations:
-    desc: Re-record the core suite's per-test times that be:test:shard splits by
+    desc: Re-record the core suite's per-test times that be:test:shard splits by (NEEDS QDRANT_TEST_URL)
+    preconditions:
+      # Without a server the end-to-end ingest tests skip, and pytest-split
+      # stores a skipped test at the few milliseconds its skip took: the file
+      # would then weigh a third of CI's suite at nothing (2026-11-11).
+      - sh: '[ -n "$QDRANT_TEST_URL" ]'
+        msg: 'Set QDRANT_TEST_URL to a running Qdrant (docker run --rm -p 6333:6333 --tmpfs /qdrant/storage qdrant/qdrant:v1.19.2), or the recorded times are not what CI runs.'
     cmds:
       # Re-run when the shards' times in CI drift apart. Rounded to keep the
       # file's churn down; the split needs proportions, not precision.
-      # --store-durations only adds and overwrites, so the last step drops the
-      # tests that no longer exist (1,086 of 20,206 entries on 2026-11-11). A
-      # test skipped here (no Qdrant) keeps the time it was last recorded with.
-      - '{{.PY}} -X faulthandler -m pytest tests/ packages/agent/tests/ evals/ -q {{.XDIST}} --store-durations --durations-path tests/.test_durations'
-      - '{{.PY}} -m pytest tests/ packages/agent/tests/ evals/ -q --collect-only -p no:cacheprovider > tests/.test_ids'
-      - defer: '{{.PY}} -c "import pathlib; pathlib.Path(''tests/.test_ids'').unlink(missing_ok=True)"'
+      # --clean-durations keeps only the tests of this run: without it the
+      # file only grows (1,086 of 20,206 entries were tests that no longer
+      # existed on 2026-11-11).
+      - '{{.PY}} -X faulthandler -m pytest tests/ packages/agent/tests/ evals/ -q {{.XDIST}} --store-durations --clean-durations --durations-path tests/.test_durations'
       - >-
         {{.PY}} -c "import json, pathlib; p = pathlib.Path('tests/.test_durations');
-        ids = set(pathlib.Path('tests/.test_ids').read_text().splitlines());
-        d = json.loads(p.read_text()); p.write_text(json.dumps({k: round(v, 3) for k, v in sorted(d.items()) if k in ids}, indent=0) + chr(10))"
+        d = json.loads(p.read_text()); p.write_text(json.dumps({k: round(v, 3) for k, v in sorted(d.items())}, indent=0) + chr(10))"
 
   be:test:api:
     desc: agent_host plugin suite

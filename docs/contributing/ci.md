@@ -326,8 +326,10 @@ What it was made of, and what was done about each:
   a slower machine, and the four test steps took 111 to 166 seconds in one run
   (121 to 169 and 120 to 158 in two others). Weighed with fresh times the old
   split was 41 to 64 units and the new one 52 each. `task be:test:durations`
-  records every test and drops the ones that no longer exist; run it when the
-  shard times in a run differ by more than about 20 seconds.
+  records every test and keeps only the tests of that run; it needs
+  `QDRANT_TEST_URL`, because a test that skips is stored at the milliseconds
+  its skip took. Run it when the shard times in a run differ by more than
+  about 20 seconds.
 - **What a shard is made of** (2026-11-11, 4 cores, a Qdrant server, no
   coverage; coverage adds 2 to 4%). Collection is about 20 s in every worker,
   of every shard, whatever share it then runs: about 8 s of imports
