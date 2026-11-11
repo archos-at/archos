@@ -14,8 +14,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
-import { useProjectBimModels } from './use-bim-model'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { scriptedChannels, type ScriptedChannels } from '@/test-utils/live-channels'
+import { EXTRACTION_FALLBACK_POLL_MS, useProjectBimModels } from './use-bim-model'
+
+const live = vi.hoisted(() => ({ current: null as ScriptedChannels | null }))
+vi.mock('@/features/realtime/connection', async (original) => ({
+  ...(await original<typeof import('@/features/realtime/connection')>()),
+  getRealtimeConnection: () => live.current!.connection,
+}))
 
 let fetchMock: ReturnType<typeof vi.fn>
 
@@ -35,6 +42,7 @@ function pending(): { resolve: () => void; promise: Promise<unknown> } {
 beforeEach(() => {
   fetchMock = vi.fn()
   vi.stubGlobal('fetch', fetchMock)
+  live.current = scriptedChannels((ms) => vi.advanceTimersByTime(ms))
 })
 
 afterEach(() => {
@@ -96,8 +104,8 @@ describe('useProjectBimModels', () => {
 /**
  * Polling for an extraction must not tear the viewer down.
  *
- * The list is polled every four seconds while any model is still being read,
- * and the effect that polls is the same one that loads. It used to blank
+ * The list is read again while any model is still being read (on the shelf's
+ * hint, and on a slow clock), and the effect that re-reads is the same one that loads. It used to blank
  * `data` on every run, so for the whole minute after an upload the list
  * emptied four times a minute — which took the stage's `modelId` to null,
  * unmounted the canvas, destroyed the WebGPU device and the WASM kernel, and
@@ -142,5 +150,67 @@ describe('refetching while a model is still being read', () => {
 
     expect(result.current.data).toBeNull()
     gate.resolve()
+  })
+})
+
+/**
+ * A model that is still being read is waited for on the project shelf's live
+ * channel: the server says `shelf.changed` when the extraction lands, and the
+ * list is read again through its own route. The clock is only the floor.
+ */
+describe('waiting for an extraction', () => {
+  const listing = (status: string) => ({ ok: true, json: async () => ({ models: [{ id: 'model-1', status }] }) })
+  const CHANGED = { kind: 'shelf.changed', folders: false }
+  const landed = () => act(() => vi.advanceTimersByTimeAsync(0))
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('reads the list once per hint on the project’s shelf, and stops listening once the model is ready', async () => {
+    fetchMock.mockResolvedValueOnce(listing('extracting')).mockResolvedValue(listing('ready'))
+    const { result } = renderHook(() => useProjectBimModels('proj-1'))
+    await landed()
+    expect(live.current!.open()).toEqual(['shelf:project-proj-1'])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    live.current!.hint('shelf:project-proj-1', CHANGED)
+    await landed()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result.current.data?.[0]?.status).toBe('ready')
+    expect(live.current!.open()).toEqual([])
+
+    await act(() => vi.advanceTimersByTimeAsync(3 * EXTRACTION_FALLBACK_POLL_MS))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('reads nothing on another project’s hint', async () => {
+    fetchMock.mockResolvedValue(listing('extracting'))
+    renderHook(() => useProjectBimModels('proj-1'))
+    await landed()
+    live.current!.hint('shelf:project-proj-2', CHANGED)
+    live.current!.hint('shelf:office_shelf', CHANGED)
+    await landed()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('still reads on a slow clock when no hint comes', async () => {
+    fetchMock.mockResolvedValue(listing('extracting'))
+    renderHook(() => useProjectBimModels('proj-1'))
+    await landed()
+    await act(() => vi.advanceTimersByTimeAsync(EXTRACTION_FALLBACK_POLL_MS - 1))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await act(() => vi.advanceTimersByTimeAsync(1))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('opens no channel for a project whose models are all ready', async () => {
+    fetchMock.mockResolvedValue(listing('ready'))
+    renderHook(() => useProjectBimModels('proj-1'))
+    await landed()
+    expect(live.current!.open()).toEqual([])
   })
 })

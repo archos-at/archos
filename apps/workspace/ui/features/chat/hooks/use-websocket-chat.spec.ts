@@ -980,6 +980,38 @@ describe('a socket that is reconnecting', () => {
     }
   })
 
+  it('says so when the first dial after the page came back hangs: connecting counts, with no reconnecting before it', () => {
+    openTurn(answered)
+    deliver(halfway)
+    const line = restoring()
+
+    // The page was hidden and is visible again: suspended, then one connecting, and the dial does not answer.
+    status('suspended')
+    status('connecting')
+    wait(RESTORING_NOTE_AFTER_MS - 1)
+    expect(line.current).toBe(false)
+    wait(1)
+    expect(line.current).toBe(true)
+    // The dial gives up and the ladder takes over: the same wait, the same line.
+    status('reconnecting')
+    status('connecting')
+    expect(line.current).toBe(true)
+    status('open')
+    expect(line.current).toBe(false)
+  })
+
+  it('says nothing for a first connect that opens within the moment, with a turn to resume or without', () => {
+    openTurn(answered)
+    deliver(halfway)
+    const line = restoring()
+
+    status('connecting')
+    wait(RESTORING_NOTE_AFTER_MS - 1)
+    status('open')
+    wait(RESTORING_NOTE_AFTER_MS)
+    expect(line.current).toBe(false)
+  })
+
   it('says nothing while nobody waits on the socket, and says it for a question asked meanwhile', () => {
     open(conversationOf(CONVERSATION))
     const line = restoring()

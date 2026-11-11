@@ -193,7 +193,12 @@ async def import_public_source_text(
 
 
 async def check_public_source(body: SourceRequest, _: None = Depends(_require_internal_token)) -> dict:
-    """KC-7 (ADR-0174): ``{valid, problems: [{fixture, detail}], fixtures: [{name, ok, requested}]}``. No live call."""
+    """KC-7 (ADR-0174): ``{valid, problems: [{fixture, detail}], fixtures: [{name, ok, requested, awaiting}]}``.
+
+    No live call. A fixture whose response is a capture the BFF did not hand over is not run: ``awaiting`` names
+    its URLs, it is not ``ok`` and it is no problem here. Whether a source may wait for its recording is the
+    BFF's to say: a draft may, so its hosts can be fetched for the capture; a submit may not.
+    """
     from public_sources.fixtures import run_source
     from public_sources.source import SourceError
     from public_sources.source import parse_inline_source
@@ -205,9 +210,11 @@ async def check_public_source(body: SourceRequest, _: None = Depends(_require_in
     results = await run_source(source)
     problems = [{"fixture": r.fixture, "detail": failure[:1000]} for r in results for failure in r.failures]
     return {
-        "valid": not problems,
+        "valid": all(r.ok for r in results),
         "problems": problems,
-        "fixtures": [{"name": r.fixture, "ok": r.ok, "requested": r.requested} for r in results],
+        "fixtures": [
+            {"name": r.fixture, "ok": r.ok, "requested": r.requested, "awaiting": r.awaiting} for r in results
+        ],
     }
 
 

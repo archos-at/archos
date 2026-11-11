@@ -47,6 +47,8 @@ const EXPECTED: Record<string, string> = {
   'knowledge/documents/[fileName]/display-title/route.ts PATCH': 'knowledgeWrite',
   'knowledge/documents/[fileName]/doc-class/route.ts PATCH': 'knowledgeWrite',
   'knowledge/documents/[fileName]/route.ts DELETE': 'knowledgeWrite',
+  'knowledge/documents/[fileName]/route.ts GET': 'settingsView',
+  'knowledge/documents/route.ts GET': 'settingsView',
   'knowledge/documents/route.ts POST': 'knowledgeWrite',
   // The platform's base knowledge (ADR-0165): read on settings:view; drafting on knowledge:write, review and release on knowledge:review.
   'knowledge/route.ts GET': 'settingsView',

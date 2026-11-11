@@ -45,7 +45,13 @@ export function heldSpeech(durationMs: number, peak: number, meterTrusted: boole
   return !meterTrusted || peak >= SILENCE_RMS
 }
 
-export type DictationErrorKey = DictationFailure | 'noMicrophone' | 'denied' | 'noAnswer'
+/** Whether the level meter heard a voice during a recording long enough to be one: evidence, not the absence of it. */
+export function heardSpeech(durationMs: number, peak: number): boolean {
+  return durationMs >= MIN_RECORDING_MS && peak >= SILENCE_RMS
+}
+
+/** `notSaved`: the person spoke, and the recorder handed over nothing. */
+export type DictationErrorKey = DictationFailure | 'noMicrophone' | 'denied' | 'noAnswer' | 'notSaved'
 
 /** What the button renders: the machine's state, flattened to one phase. */
 export type DictationState =
@@ -226,9 +232,29 @@ export const dictationMachine = setup({
             // The recorder flushes its last chunk before it reports; a second press here has nothing to stop.
             stopping: {
               entry: sendTo('capture', { type: 'stop' }),
-              // A recorder that never reports its stop would hold the button here. The capture
-              // then reports what it has, and `recording.finished` above sends it or drops it.
-              after: { stopLimit: { actions: sendTo('capture', { type: 'finish' }) } },
+              // A recorder that never reports its stop would hold the button here.
+              after: { stopLimit: 'forced' },
+            },
+            // The capture reports at once what it holds. Audio is sent or dropped as after any
+            // stop. None at all, from a recording the meter heard a voice in, is the recorder's
+            // failure and not silence: the person spoke, and is told why no text came.
+            forced: {
+              entry: sendTo('capture', { type: 'finish' }),
+              on: {
+                'recording.finished': [
+                  {
+                    guard: ({ context, event }) =>
+                      event.audio.size > 0 && heldSpeech(event.durationMs, context.peak, event.meterTrusted),
+                    target: '#dictation.transcribing',
+                  },
+                  {
+                    guard: ({ context, event }) => event.audio.size === 0 && heardSpeech(event.durationMs, context.peak),
+                    target: '#dictation.idle',
+                    actions: { type: 'notifyError', params: { key: 'notSaved' } },
+                  },
+                  { target: '#dictation.idle' },
+                ],
+              },
             },
           },
         },

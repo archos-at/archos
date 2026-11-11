@@ -12,8 +12,9 @@ recorded fixtures. Code is written only for a new protocol or a new format.
 A record lives in one of two places. A **repository file** under
 `configs/sources/` (ADR-0162), or a **platform record** an operator's agent
 proposes through the platform door (ADR-0174): the same shape, its recorded
-responses inline, parsed with `parse_inline_source`, which refuses a repository
-record's id and file fixtures. The BFF keeps the database records, decides
+responses inline or named by the citation capture the platform took of them
+(`CapturedResponse`, for a PDF nobody can paste), parsed with
+`parse_inline_source`, which refuses a repository record's id and file fixtures. The BFF keeps the database records, decides
 which may fetch (published, or a draft within its own request's 24 hours) and
 hands this package the configuration; the guard still holds the hosts and the
 public addresses.
@@ -40,7 +41,7 @@ gives it the built-in ones, with their fixtures' result).
 | `src/egress.py` | The guard: hosts at every hop, public addresses after DNS, the headers that may leave |
 | `src/routing.py` | The transport a caller uses: through the fetcher (`PUBLIC_SOURCE_FETCHER_URL`), and refused without one; a test hands in a transport |
 | `src/fetcher.py` | The sandboxed fetcher service (`python -m public_sources.fetcher`), deployed by `deploy/pulumi/src/app/public-source-fetcher.ts` |
-| `src/fixtures.py`, `src/__main__.py` | `source-test`: run a record's fixtures |
+| `src/fixtures.py`, `src/__main__.py` | `source-test`: run a record's fixtures. A response that is a capture is read by `Engine.recorded_document` (`pdf_document` only: its capture text is the engine's own reading); one whose capture was not handed over is `awaiting`, never a pass |
 
 ## Adding a source
 

@@ -67,3 +67,11 @@ def test_the_engine_exception_retries_only_when_asked():
     refused = orchestrator_client.task_error(failure, retry=False)
     assert isinstance(refused, NonRetryableException)
     assert str(refused) == "OperationalError (transient)"
+
+
+def test_a_sanitized_error_names_the_work_in_the_log_and_never_to_the_engine(caplog):
+    raised = orchestrator_client.sanitized("Folder cards of proj", RuntimeError("provider down: Behörde"))
+
+    assert type(raised) is TransientTaskError and "Behörde" not in str(raised) and "proj" not in str(raised)
+    assert "Folder cards of proj failed on Hatchet" in caplog.text
+    assert isinstance(orchestrator_client.sanitized("x", RuntimeError("y"), retry=False), NonRetryableException)

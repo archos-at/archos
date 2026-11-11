@@ -1,6 +1,5 @@
 /**
- * The scheduling tasks the `bff-jobs` worker registers with Hatchet (ADR-0150),
- * in place of the scheduler container that ticked every 30 s.
+ * The scheduling tasks the `bff-jobs` worker registers with Hatchet (ADR-0150).
  *
  *   - `fire-task-definition`: a definition's scheduled run fires it
  *     (`./fire-definition.ts`). Fair across offices: `GROUP_ROUND_ROBIN` on
@@ -10,10 +9,14 @@
  *     concurrency key, `maxRuns: 1` and `CANCEL_NEWEST`: a run that comes due
  *     while the previous one is still going is dropped, so two never overlap.
  *
- * Hatchet crons have minute granularity and are UTC. The sweeps that ticked
- * every 30 s now run every minute; the daily ones run at a fixed UTC time, and
- * the one sweep tied to the office's clock (the Frist reminder) runs hourly and
- * gates itself (`./office-clock.ts`).
+ * Hatchet crons have minute granularity and are UTC unless the expression
+ * starts with `CRON_TZ=<IANA zone> `, which the engine honours (tried on
+ * v0.114.2, ADR-0150's note of 2026-11-11; `orchestrator.integration.spec.ts`
+ * holds it). The daily retention sweeps run at a fixed UTC time; the one sweep
+ * tied to the office's clock, the Frist reminder, names the office's zone, so
+ * it stays on 06:45 across daylight-saving changes. A cron tick the engine
+ * misses is dropped, never caught up, which is why a task definition is a
+ * scheduled run and not a cron (`./scheduled-runs.ts`).
  *
  * `startJobWorker` (`bff/jobs-queue/slice-entry.ts`) registers `schedulingTasks()`
  * beside `bff-job` on the one `bff-jobs` worker.
@@ -26,6 +29,7 @@ import { failureText } from '@/lib/jobs-queue/task'
 import { runAsJobSlice } from '@/lib/jobs-queue/slice-scope'
 import { runWithTenantSlot, withPlatformAccess } from '@/lib/db/tenant-context'
 import { fireTaskDefinition, repairSchedules } from './fire-definition'
+import { OFFICE_TIME_ZONE } from '@/lib/format'
 import { FIRE_TASK_DEFINITION, type FireTaskDefinitionInput } from './scheduled-runs'
 import * as sweeps from './sweeps'
 
@@ -56,7 +60,7 @@ export async function reportingOnlyTheClass<T>(task: string, category: string, f
 
 export interface SweepSpec {
   name: string
-  /** A 5-field UTC cron. */
+  /** A 5-field cron: UTC, or on a zone's clock behind a `CRON_TZ=<IANA zone> ` prefix. */
   cron: string
   /** Why the sweep reads every organization: its route's `crossTenant` declaration, kept. */
   reason: string
@@ -162,11 +166,25 @@ const SWEEPS: SweepSpec[] = [
     retries: 3,
   },
   {
+    name: 'collaboration-retention',
+    cron: '23 * * * *',
+    reason:
+      'deletes the inbox items of every organization past their retention, and the grants, mention requests and inbox ' +
+      'items of every organization whose conversation or document is gone',
+    run: sweeps.sweepCollaborationRetention,
+  },
+  {
+    name: 'platform-lessons-sweep',
+    cron: '53 * * * *',
+    reason: 'the lesson pipeline distills reports from every tenant into anonymized fleet-wide lessons',
+    run: sweeps.sweepPlatformLessons,
+  },
+  {
     name: 'frist-reminder',
-    cron: '45 * * * *',
+    // 06:45 on the office's clock, in winter and in summer.
+    cron: `CRON_TZ=${OFFICE_TIME_ZONE} 45 6 * * *`,
     reason: 'one grouped read of the organizations with a mark whose Frist is near or past; each job is enqueued inside its own organization',
     run: sweeps.sweepFristReminder,
-    // Retries land seconds later, still inside the office's 06:45 hour.
     retries: 3,
   },
 ]

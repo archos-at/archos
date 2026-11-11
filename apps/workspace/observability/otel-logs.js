@@ -1,5 +1,5 @@
 /**
- * Shared OTLP log bridge for the Node tiers (grid-ui BFF, workflow-scheduler,
+ * Shared OTLP log bridge for the Node tiers (grid-ui BFF, bff-jobs,
  * purger) — ADR-0029 "future signal adoption is app-only work".
  *
  * Every tier logs with plain `console.*`; this module bridges those calls to

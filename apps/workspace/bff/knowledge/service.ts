@@ -56,7 +56,7 @@ export interface KnowledgeBaseStatus {
   files: KnowledgeFile[]
 }
 
-const KNOWLEDGE_STATUS_TIMEOUT_MS = 30_000
+export const KNOWLEDGE_STATUS_TIMEOUT_MS = 30_000
 
 interface BackendFileEntry {
   file_name?: unknown
@@ -147,17 +147,46 @@ export async function getKnowledgeBaseStatus(): Promise<KnowledgeBaseStatus> {
 }
 
 /**
+ * The base corpus as a reader of `countries` sees it (ADR-0173): the files a
+ * release marked with one of them, and counts over those alone. A file no
+ * release marked, one a rollback withdrew and another country's file are not
+ * listed, by the rule that keeps their chunks out of every search
+ * (`corpus_country_condition`) and their PDF out of the viewer
+ * (`streamReleasedKnowledgeBaseDocument`). A reader of no country reads nothing.
+ * `getKnowledgeBaseStatus` is the whole corpus, for the platform's own readers.
+ */
+export async function getReleasedKnowledgeBaseStatus(countries: readonly string[]): Promise<KnowledgeBaseStatus> {
+  const status = await getKnowledgeBaseStatus()
+  const files = status.files.filter((file) => file.countryId !== null && countries.includes(file.countryId))
+  const count = (state: KnowledgeFileState): number => files.filter((file) => file.state === state).length
+  return {
+    ...status,
+    summary: {
+      totalFiles: files.length,
+      ingested: count('ingested'),
+      stale: count('stale'),
+      pending: count('pending'),
+      failed: count('failed'),
+      removed: count('removed'),
+      inconsistent: count('inconsistent'),
+      totalChunks: files.reduce((sum, file) => sum + file.chunkCount, 0),
+    },
+    files,
+  }
+}
+
+/**
  * Admin-token header for the backend's `/v1/admin/oib/*` endpoints. The token
  * is optional in dev (the backend fails open when its own token is unset);
  * production deployments must set ADMIN_TOKEN on both services.
  */
-function adminHeaders(): Record<string, string> {
+export function adminHeaders(): Record<string, string> {
   const token = process.env.ADMIN_TOKEN
   return token ? { 'X-Admin-Token': token } : {}
 }
 
 /** Basename-only, `.pdf`-only — anything else is rejected before it travels. */
-function requirePdfBasename(fileName: string): string {
+export function requirePdfBasename(fileName: string): string {
   const name = fileName.trim()
   if (!name || name !== name.replace(/[/\\]/g, '') || !name.toLowerCase().endsWith('.pdf')) {
     throw new BadRequestError('A .pdf file name without path segments is required')
@@ -398,7 +427,7 @@ export interface KnowledgeReingestResult {
  * including VLM captioning) to rebuild three of them.
  *
  * Returns as soon as the work is QUEUED, like an upload: the backend ingests in the
- * background and the caller polls `/api/knowledge-base`, where each queued document reads
+ * background and the caller polls `/api/platform/knowledge/documents`, where each queued document reads
  * `pending` until its chunks exist again. Unknown names come back in `unknown` rather than
  * failing the call — one stale name must not discard a selection of twenty.
  */
@@ -471,48 +500,6 @@ export async function streamKnowledgeBaseCorpus(): Promise<Response> {
       'Content-Type': 'application/gzip',
       'Content-Disposition': 'attachment; filename="oib-corpus.tar.gz"',
       'Cache-Control': 'no-store',
-    },
-  })
-}
-
-/**
- * Stream a corpus source PDF from the backend (for the citation/source
- * viewer). Returns a Response suitable to hand straight back to the browser.
- */
-export async function streamKnowledgeBaseDocument(fileName: string): Promise<Response> {
-  const name = requirePdfBasename(fileName)
-  let res: Response
-  try {
-    res = await fetch(`${getBackendUrl()}/v1/oib/documents/${encodeURIComponent(name)}`, {
-      // Corpus source PDFs are small and cached (5 min); bound the call so an
-      // unreachable backend rejects promptly instead of hanging the viewer.
-      signal: AbortSignal.timeout(KNOWLEDGE_STATUS_TIMEOUT_MS),
-    })
-  } catch (error) {
-    throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
-  }
-  if (res.status === 404) {
-    throw new NotFoundError('Source PDF not available on this deployment')
-  }
-  if (!res.ok || !res.body) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
-  // ASCII-safe filename for the header; the viewer only needs inline display.
-  const asciiName = name.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '_')
-  return new Response(res.body, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${asciiName}"`,
-      'Cache-Control': 'private, max-age=300',
-      // The in-app viewer renders this stream in a same-origin iframe. The
-      // global next.config rule sets X-Frame-Options: DENY on every route;
-      // override it here (with a matching CSP frame-ancestors directive for
-      // modern browsers) so the preview is allowed to frame. next.config also
-      // carries a route-scoped override for this path — these headers keep the
-      // guarantee on the Response itself.
-      'X-Frame-Options': 'SAMEORIGIN',
-      'Content-Security-Policy': "frame-ancestors 'self'",
     },
   })
 }

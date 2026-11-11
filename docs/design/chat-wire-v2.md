@@ -666,7 +666,11 @@ the auth refresh before each attempt, and `attach` for every open turn on open.
 The socket is not open until the server's `hello` (§a): it sends nothing
 before it, and a socket that stays silent for `HELLO_TIMEOUT_MS` (5 s) or opens
 with anything else fails the attempt; a spent ladder then ends `incompatible`,
-not `failed`. The watchdog declares the socket dead after 3 × `every_ms` of
+not `failed`. The two steps before the hello are bounded too: a preparation
+(auth refresh and socket address) that has not answered in `PREPARE_TIMEOUT_MS`
+(10 s) and a dial that has not opened in `DIAL_TIMEOUT_MS` (15 s) are failed
+attempts like any other and take the ladder; an abandoned preparation's late
+answer opens nothing. The watchdog declares the socket dead after 3 × `every_ms` of
 silence during a running turn, counting only frames it could parse. Close code
 `4426` means reload, and so does a frame this bundle cannot parse after the
 hello: dropping it would leave its turn unable to fold another `seq`. An

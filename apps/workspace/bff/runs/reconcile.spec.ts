@@ -251,6 +251,69 @@ describe('reconcileRun', () => {
     await expect(reconcileRun(makeRun(), CONFIG, NOW)).rejects.toThrow('db down')
     expect(recordRunOutcome).not.toHaveBeenCalled()
   })
+
+  describe('a job the store cannot produce, whose block already reads done', () => {
+    // The worker writes `done` only after it stored the report: the block is
+    // the evidence the lost job would have given. Before, such a run was
+    // closed as failed with „nicht mehr auffindbar" beside a block reading
+    // „fertig", and its report was never filed.
+    const doneLedger = {
+      runId: 'run-1',
+      status: 'done' as const,
+      phases: [],
+      steps: [],
+      result: { filedAt: minutesAgo(200).toISOString() },
+      startedAt: minutesAgo(240).toISOString(),
+      updatedAt: minutesAgo(200).toISOString(),
+    }
+
+    it('closes a lost job as a success, with the report its message holds', async () => {
+      vi.mocked(fetchBackendJobOutcome).mockResolvedValue(null)
+      vi.mocked(readRunMessage).mockResolvedValue({ content: '# Bericht\n', ledger: doneLedger })
+      const run = makeRun({ startedAt: minutesAgo(240) })
+
+      expect(await reconcileRun(run, CONFIG, NOW)).toBe('closed')
+
+      expect(recordRunOutcome).toHaveBeenCalledWith(run, { status: 'success', report: '# Bericht' }, { onlyIfActive: true })
+      expect(writeRunReport).not.toHaveBeenCalled()
+    })
+
+    it('does not wait out the grace, and does the same for a run with no job id', async () => {
+      vi.mocked(readRunMessage).mockResolvedValue({ content: '', ledger: doneLedger })
+      const run = makeRun({ backendJobId: null, startedAt: minutesAgo(15) })
+
+      expect(await reconcileRun(run, CONFIG, NOW)).toBe('closed')
+
+      expect(recordRunOutcome).toHaveBeenCalledWith(run, { status: 'success', report: null }, { onlyIfActive: true })
+    })
+
+    it('still fails a lost job whose block reads as live, after the grace', async () => {
+      vi.mocked(fetchBackendJobOutcome).mockResolvedValue(null)
+      vi.mocked(readRunMessage).mockResolvedValue({ content: '', ledger: { ...doneLedger, status: 'running', result: undefined } })
+      const run = makeRun({ startedAt: minutesAgo(240) })
+
+      await reconcileRun(run, CONFIG, NOW)
+
+      expect(recordRunOutcome).toHaveBeenCalledWith(
+        run,
+        { status: 'failure', error: LOST_JOB_REASON },
+        { onlyIfActive: true },
+      )
+    })
+
+    it('believes the job store over the block when the store has the job', async () => {
+      vi.mocked(fetchBackendJobOutcome).mockResolvedValue(outcome({ report: '# Aus dem Speicher' }))
+      vi.mocked(readRunMessage).mockResolvedValue({ content: '# Bericht', ledger: doneLedger })
+
+      await reconcileRun(makeRun(), CONFIG, NOW)
+
+      expect(recordRunOutcome).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ status: 'success', report: '# Aus dem Speicher' }),
+        { onlyIfActive: true },
+      )
+    })
+  })
 })
 
 describe('endingOfClosedRun', () => {

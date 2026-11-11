@@ -294,6 +294,11 @@ export interface ProposalRecordResult {
   status: 'valid' | 'invalid' | 'written' | 'unchanged'
   revisionId: string | null
   problems: KitProblemView[]
+  /**
+   * What the record still waits for before the request validates, each with what to do: a source whose fixture
+   * names no capture yet (`captureId: null`) is written into the draft with this set, and fails validate until it is recorded.
+   */
+  awaiting?: string[]
 }
 
 /** A problem of the validation kit as the wire carries it (`validate.ts`). */

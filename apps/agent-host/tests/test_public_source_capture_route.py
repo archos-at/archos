@@ -107,6 +107,27 @@ async def test_checks_a_configured_source_by_its_inline_fixtures(client, monkeyp
     assert shadow.json()["valid"] is False
 
 
+async def test_a_fixture_awaiting_its_capture_is_not_valid_and_is_no_problem(client, monkeypatch):
+    """A draft is proposed before its capture can be taken: the check says which fixture waits, not that it failed."""
+    from public_sources_testing import SOURCES_DIR
+    from public_sources_testing import synthetic_source
+
+    monkeypatch.setenv("PUBLIC_SOURCES_DIR", str(SOURCES_DIR))
+    url = "https://gazette.xa.example/code.pdf"
+    config = synthetic_source(format="pdf_document", engine={}, access={"documents": [{"id": "code", "url": url}]})
+    config["fixtures"][0].update(responses={url: {"capture_id": None}}, expect={"contains": ["§ 1"]})
+
+    waiting = (await client.post("/v1/public-sources/check", headers=HEADERS, json={"config": config})).json()
+    assert waiting["valid"] is False and waiting["problems"] == []
+    assert waiting["fixtures"] == [{"name": "code", "ok": False, "requested": [], "awaiting": [url]}]
+
+    recording = {"capture_id": "7d3c1f0a-4b7e-4c58-9a51-0c2f6a1b9e11", "content_type": "application/pdf"}
+    config["fixtures"][0]["responses"] = {url: {**recording, "text": "Building Code\n§ 1 Scope\fpage two"}}
+    recorded = (await client.post("/v1/public-sources/check", headers=HEADERS, json={"config": config})).json()
+    assert recorded["valid"] is True
+    assert recorded["fixtures"] == [{"name": "code", "ok": True, "requested": [url], "awaiting": []}]
+
+
 async def test_probes_a_configured_source(client, monkeypatch):
     from public_sources.monitor import ProbeResult
     from public_sources.monitor import Seen

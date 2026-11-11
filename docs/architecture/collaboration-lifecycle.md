@@ -59,7 +59,7 @@ flowchart TD
     ProjPurge --> C1["PURGE grants + requests + items,<br/>THEN delete the conversations<br/>(purger/purge-project.js, raw SQL)"]
     C1 --> S1["anything missed -> reconciled by the sweep"]
     OrgPurge --> S1
-    S1["Self-healing sweep<br/>POST /api/internal/collaboration/prune"]
+    S1["Self-healing sweep<br/>collaboration-retention cron task, hourly"]
 ```
 
 | Path | Behaviour | Where |
@@ -70,7 +70,7 @@ flowchart TD
 | **Project restored** | Nothing to do — grants survived, and voided requests stay void (a request nobody could answer for days should not silently come back and re-block the thread). | — |
 | **Project purged** | Happens **outside this tier**: the purger deletes the three collaboration tables for the project's conversations *before* deleting the conversations themselves, in the same transaction. It states the cascade in its own raw SQL — it cannot import `lib/collaboration` (CommonJS, no bundler, its own transaction); the duplication is recorded as debt in [`adding-a-shareable-resource-type.md`](adding-a-shareable-resource-type.md) §3.5. The sweep remains the backstop. | `purger/purge-project.js`, then sweep |
 | **Organization purged** | No purger is registered for `organization` yet (`purger/index.js` — later phase), so today only the sweep reconciles it. Whichever purger lands must do what the project one does, in the same order. | sweep |
-| **Retention** | Items past the longest registered retention window are pruned, bounded per call. | `collaboration/retention.ts` |
+| **Retention** | Items past the longest registered retention window are pruned, bounded per call, by the hourly `collaboration-retention` Hatchet cron task (`bff/scheduling/sweeps.ts`), which also runs the sweep. Until 2026-11-11 the route that exposed both had no caller, so neither ran. | `collaboration/retention.ts` |
 
 **Why a sweep as well as an explicit delete in the purge path:** the project purge
 worker does not live in the BFF, so its cascade cannot be enforced from here.
@@ -78,7 +78,7 @@ Reconciling from housekeeping is idempotent, bounded, safe to run often, and can
 forgotten by a future purge path — whereas a hook can. The purger deletes explicitly
 anyway, because the sweep is `NOT EXISTS`-based and only ever catches rows whose target
 is already gone: relying on it alone left every grant, request and inbox item of a
-purged project standing until the next prune tick.
+purged project standing until the next hourly sweep.
 
 ## 4. Modification paths
 
