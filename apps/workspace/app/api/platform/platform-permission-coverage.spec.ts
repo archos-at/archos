@@ -76,6 +76,7 @@ const EXPECTED: Record<string, string> = {
   'knowledge/schemas/route.ts GET': 'settingsView',
   'knowledge/change-requests/[changeRequestId]/submit/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/review/route.ts POST': 'knowledgeReview',
+  'knowledge/change-requests/[changeRequestId]/review/accept-all/route.ts POST': 'knowledgeReview',
   'knowledge/change-requests/[changeRequestId]/decision/route.ts POST': 'knowledgeReview',
   'knowledge/change-requests/[changeRequestId]/publish/route.ts POST': 'knowledgeReview',
   'knowledge/change-requests/[changeRequestId]/rollback/route.ts POST': 'knowledgeReview',

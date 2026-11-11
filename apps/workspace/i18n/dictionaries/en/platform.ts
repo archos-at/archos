@@ -416,6 +416,13 @@ export const platform = {
       },
       open: { waiting: 'Review', drafts: 'Open', to_publish: 'Publish', done: 'View' },
       records: '{count, plural, one {# record} other {# records}}',
+      acceptAll: {
+        button: 'Accept all open claims',
+        title: 'Accept every open claim?',
+        body: 'Every claim of this request without a verdict is marked correct. Claims that already have a verdict stay as they are. Approving is a separate step after this.',
+        sourceChecked: 'I compared every cited source and each text with its source.',
+        done: 'Accepted {accepted, plural, one {# claim} other {# claims}} in {records, plural, one {# record} other {# records}}.',
+      },
     },
     quality: {
       title: 'Quality',

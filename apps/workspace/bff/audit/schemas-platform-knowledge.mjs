@@ -26,6 +26,12 @@ export const PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'knowledge_change_request' }],
     metadata: { role: 'string', decisionSource: 'string', reason: 'string', revisions: 'string', revisionCount: 'number', awaiting: 'string' },
   },
+  // Every claim without a verdict accepted in one decision: how many, on how many records, the
+  // claims left as they were, and whether the person said they checked the sources.
+  'platform.knowledge.claims_accepted': {
+    targets: [{ type: 'knowledge_change_request' }],
+    metadata: { accepted: 'number', records: 'number', alreadyDecided: 'number', sourceChecked: 'boolean', decisionSource: 'string' },
+  },
   // Another person's deferred review of a request approved alone, one event per role approved
   // alone: confirmed, or disputed (reject or rollback stays the next person's decision).
   // `status` is the request's when they gave it; `state` its review after (due while another role is owed).

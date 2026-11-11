@@ -161,6 +161,38 @@ describe('CountryKnowledge', () => {
     expect(within(screen.getByTestId('country-works-drafts')).getByRole('button', { name: 'Attach a text' })).toBeInTheDocument()
   })
 
+  test('accepts every open claim of a waiting request in one decision, only once the person says the sources were checked', async () => {
+    serve()
+    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url.endsWith('/review/accept-all') ? Response.json({ accepted: 3010, records: 430, alreadyDecided: 0, sourceChecked: true }) : routed(url, init),
+    )
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    const waiting = await screen.findByTestId('country-review-waiting')
+    await user.click(within(waiting).getByRole('button', { name: 'Accept all open claims' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Accept every open claim?' })
+    const confirm = within(dialog).getByRole('button', { name: 'Accept all open claims' })
+    expect(confirm).toBeDisabled()
+    await user.click(within(dialog).getByRole('checkbox'))
+    await user.click(confirm)
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/platform/knowledge/change-requests/cr-1/review/accept-all',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ sourceChecked: true }) }),
+      ),
+    )
+    const { toast } = await import('sonner')
+    expect(toast.success).toHaveBeenCalledWith('Accepted 3010 claims in 430 records.')
+  })
+
+  test('offers accepting every open claim only to a reviewer', async () => {
+    serve()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView]))
+    const waiting = await screen.findByTestId('country-review-waiting')
+    expect(within(waiting).queryByRole('button', { name: 'Accept all open claims' })).not.toBeInTheDocument()
+  })
+
   test('says the caller has no access when the routes answer 403', async () => {
     serve(403)
     render(withPermissions([PLATFORM_PERMISSIONS.settingsView]))

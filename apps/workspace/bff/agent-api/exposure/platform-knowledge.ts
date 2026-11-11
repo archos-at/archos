@@ -14,6 +14,8 @@ import { PLATFORM_PUBLIC, type PlatformExposure } from './platform'
 type PlatformKnowledgeOperationName = (typeof platformKnowledgeOperations | typeof platformSourceOperations)[number]['name']
 
 export const PLATFORM_KNOWLEDGE_EXPOSURE = {
+  // Every open claim of one request accepted at once: the per-claim review's rules, on the person's own yes.
+  'platform-knowledge-change-request-accept-all': PLATFORM_PUBLIC,
   'platform-knowledge-change-request-create': PLATFORM_PUBLIC,
   // A public page, fetched through the sandboxed fetcher into a draft: platform content, never a tenant's (ADR-0170).
   'platform-knowledge-citation-capture': PLATFORM_PUBLIC,

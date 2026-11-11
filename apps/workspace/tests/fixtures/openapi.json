@@ -29213,6 +29213,80 @@
         }
       }
     },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/review/accept-all": {
+      "post": {
+        "operationId": "platform-knowledge-change-request-accept-all",
+        "summary": "Accept every claim of a change request that has no verdict yet, in one decision",
+        "description": "The person’s own decision, asked of them once for the whole request instead of a platform-knowledge-change-request-review per batch of claims. Accepts only the claims without a verdict: a claim already accepted, edited or rejected keeps its verdict and is never overwritten. `sourceChecked` is the person’s word that they checked every cited capture and each manifestation’s text against its source; ask them, never assume it. The same rules as the per-claim review: refused (409) for anyone who wrote a revision in the request, except on a deployment set to one operator alone (dev), and (409) unless the request is submitted or its second review is due. Not an approval. Answers `accepted`, `records`, `alreadyDecided` and `sourceChecked`; audited as one event. Then platform-knowledge-change-request-decide.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sourceChecked": {
+                    "type": "boolean",
+                    "description": "The person checked every cited capture, and each manifestation’s text, against its source. Ask them; true only on their word."
+                  }
+                },
+                "required": [
+                  "sourceChecked"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Accept every claim of a change request that has no verdict yet, in one decision",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/change-requests": {
       "post": {
         "operationId": "platform-knowledge-change-request-create",

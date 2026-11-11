@@ -132,7 +132,7 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
           <RulesSection coverage={coverage} />
         </TabsContent>
         <TabsContent value="review">
-          <ReviewSection requests={requests.load} onRetry={requests.reload} onOpen={open} />
+          <ReviewSection requests={requests.load} onRetry={requests.reload} onOpen={open} onChanged={reloadAll} />
         </TabsContent>
         <TabsContent value="quality">
           <QualitySection />

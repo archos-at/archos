@@ -414,6 +414,13 @@ export const platform: typeof en.platform = {
       },
       open: { waiting: 'Prüfen', drafts: 'Öffnen', to_publish: 'Veröffentlichen', done: 'Ansehen' },
       records: '{count, plural, one {# Eintrag} other {# Einträge}}',
+      acceptAll: {
+        button: 'Alle offenen Angaben übernehmen',
+        title: 'Alle offenen Angaben übernehmen?',
+        body: 'Jede Angabe dieses Antrags, die noch kein Urteil hat, wird als „Stimmt“ vermerkt. Angaben mit einem Urteil bleiben, wie sie sind. Freigeben ist danach ein eigener Schritt.',
+        sourceChecked: 'Ich habe jede zitierte Quelle und jeden Text mit seiner Quelle verglichen.',
+        done: '{accepted, plural, one {# Angabe} other {# Angaben}} in {records, plural, one {# Eintrag} other {# Einträgen}} übernommen.',
+      },
     },
     quality: {
       title: 'Qualität',

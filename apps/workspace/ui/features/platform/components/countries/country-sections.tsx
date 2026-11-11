@@ -22,6 +22,9 @@ import { platformCopy } from '@/i18n/namespaces/platform'
 import type { ChangeRequestSummary, CountryCoverage } from '@/lib/base-knowledge/platform/wire'
 import type { TextPlacementList, TextPlacementView } from '@/lib/base-knowledge/platform/text-wire'
 import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
+import { usePlatformCan } from '@/features/platform/platform-access'
+import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
+import { AcceptAllButton } from './accept-all-button'
 import { AddDocumentDialog } from './add-document-dialog'
 import { NextStepText } from './country-atoms'
 import { REQUEST_GROUPS, requestGroup, sectionOf, type CountryNextStep, type CountrySection } from './country-state'
@@ -292,12 +295,15 @@ export function ReviewSection({
   requests,
   onRetry,
   onOpen,
+  onChanged,
 }: {
   requests: Load<{ changeRequests: ChangeRequestSummary[] }>
   onRetry: () => void
   onOpen: (id: string) => void
+  onChanged: () => void
 }): JSX.Element {
   const t = useTranslations(platformCopy)
+  const canReview = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeReview)
   const ready = requests.state === 'ready' ? requests.value.changeRequests : null
   return (
     <SectionCard
@@ -331,9 +337,12 @@ export function ReviewSection({
                           {t('countryPages.review.records', { count: request.revisionCount })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button size="sm" variant={group === 'waiting' ? 'default' : 'outline'} onClick={() => onOpen(request.id)}>
-                            {t(`countryPages.review.open.${group}`)}
-                          </Button>
+                          <div className="flex flex-wrap justify-end gap-2">
+                            {group === 'waiting' && canReview ? <AcceptAllButton requestId={request.id} onDone={onChanged} /> : null}
+                            <Button size="sm" variant={group === 'waiting' ? 'default' : 'outline'} onClick={() => onOpen(request.id)}>
+                              {t(`countryPages.review.open.${group}`)}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

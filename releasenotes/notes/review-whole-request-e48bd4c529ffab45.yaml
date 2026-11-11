@@ -1,0 +1,8 @@
+---
+operators:
+  - >
+    A platform reviewer can accept every open claim of a knowledge change
+    request in one decision: "Accept all open claims" on the country's Review
+    tab, or platform-knowledge-change-request-accept-all on the platform door.
+    Claims with a verdict keep it, an author still may not review their own
+    request outside dev, and one audit event records the counts.

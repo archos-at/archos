@@ -3649,6 +3649,16 @@
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
+  "platform-knowledge-change-request-accept-all": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
   "platform-knowledge-change-request-create": {
    "kind": "catalog",
    "domain": "platform",

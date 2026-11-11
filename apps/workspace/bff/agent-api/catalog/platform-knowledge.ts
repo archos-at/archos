@@ -10,7 +10,8 @@
  * schema-get; change-request-create; citation-capture for each page; then
  * records-propose (dryRun first), text-import or text-upload for each
  * manifestation's text, and validate; submit; a reviewer's
- * change-request-review per claim; change-request-decide (the person's yes,
+ * change-request-review per claim, or change-request-accept-all for every open
+ * claim at once; change-request-decide (the person's yes,
  * never by the author); publish to preview, then stable (the person's yes);
  * rollback (the person's yes). `personDecides` makes the door ask the person,
  * and a client that cannot ask gets `decideAt`, the page where they decide it;
@@ -20,6 +21,7 @@
 
 import { z } from 'zod'
 import {
+  acceptAllBodySchema,
   approvalBodySchema,
   captureBodySchema,
   schemaQuerySchema,
@@ -445,6 +447,27 @@ export const platformKnowledgeOperations = [
     // `sourceChecked` vouches for a page nobody fetched: the person's own, asked of them (ADR-0170).
     personDecidesWhen: (input) => checksASource(input.body),
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/review/route'),
+  },
+  {
+    name: 'platform-knowledge-change-request-accept-all',
+    domain: 'platform',
+    summary: 'Accept every claim of a change request that has no verdict yet, in one decision',
+    description:
+      'The person’s own decision, asked of them once for the whole request instead of a platform-knowledge-change-request-review ' +
+      'per batch of claims. Accepts only the claims without a verdict: a claim already accepted, edited or rejected keeps its ' +
+      'verdict and is never overwritten. `sourceChecked` is the person’s word that they checked every cited capture and each ' +
+      'manifestation’s text against its source; ask them, never assume it. The same rules as the per-claim review: refused ' +
+      '(409) for anyone who wrote a revision in the request, except on a deployment set to one operator alone (dev), and ' +
+      '(409) unless the request is submitted or its second review is due. Not an approval. Answers `accepted`, `records`, ' +
+      '`alreadyDecided` and `sourceChecked`; audited as one event. Then platform-knowledge-change-request-decide.',
+    method: 'POST',
+    path: '/api/platform/knowledge/change-requests/[changeRequestId]/review/accept-all',
+    params: requestParams,
+    body: acceptAllBodySchema,
+    idempotent: true,
+    personDecides: true,
+    requiresPersonConfirmation: IN_COUNTRIES_VIEW,
+    load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/review/accept-all/route'),
   },
   {
     name: 'platform-knowledge-change-request-decide',

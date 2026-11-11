@@ -446,6 +446,24 @@ export const reviewBodySchema = z.object({
     }),
 })
 
+/** Accepting every claim that has no verdict yet, in one decision; no default, so a source check is never assumed. */
+export const acceptAllBodySchema = z.object({
+  sourceChecked: z
+    .boolean()
+    .describe(
+      'The person checked every cited capture, and each manifestation’s text, against its source. Ask them; true only on their word.',
+    ),
+})
+export type AcceptAllBody = z.infer<typeof acceptAllBodySchema>
+
+/** What accepting every open claim did: the claims it accepted, the records they belong to, and the claims it left as they were. */
+export interface AcceptAllReceipt {
+  accepted: number
+  records: number
+  alreadyDecided: number
+  sourceChecked: boolean
+}
+
 /** The shortest reason an override takes: a sentence somebody can follow up, not a word (ADR-0176). */
 export const MIN_OVERRIDE_REASON = 20
 

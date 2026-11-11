@@ -61,6 +61,8 @@ import {
 } from './store'
 import {
   CHANGE_REQUEST_PAGE,
+  type AcceptAllBody,
+  type AcceptAllReceipt,
   type ApprovalBody,
   type ChangeRequestSummary,
   type ChangeRequestView,
@@ -73,6 +75,7 @@ import {
   type ProposedRecord,
   type ReleaseChannelBody,
   type ReviewDecisionBody,
+  type RevisionView,
 } from './wire'
 
 /** The permission an approver holds to approve in a role: a role is held in WorkOS, never claimed in a body. */
@@ -196,22 +199,55 @@ export async function reviewPlatformChangeRequest(
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
   // A source check vouches for a page nobody fetched: the person's own yes, never a model's (ADR-0170).
   if (decisions.some((decision) => decision.sourceChecked)) requirePersonDecision('Marking a cited source as checked')
-  await platformTransaction(async (tx) => {
+  await recordVerdicts(requestId, person.userId, (revisions) => {
+    const claims = new Set(revisions.flatMap((revision) => revision.claims.map((claim) => `${revision.revisionId}|${claim.path}`)))
+    const unknown = decisions.filter((decision) => !claims.has(`${decision.revisionId}|${decision.claimPath}`))
+    if (unknown.length > 0) {
+      throw new UnprocessableError(`${unknown.length} decision(s) name no claim of this request; read the request for its claims.`)
+    }
+    return decisions
+  })
+  return { recorded: decisions.length }
+}
+
+/**
+ * Accept every claim of a request that has no verdict yet, in one decision of
+ * the person's own: the per-claim review's path and rules (status, four eyes or
+ * the single-operator switch, held by the trigger), never a second one. A claim
+ * already accepted, edited or rejected keeps its verdict. One audit event counts it.
+ */
+export async function acceptAllPlatformChangeRequest(session: UserSession | null, requestId: string, body: AcceptAllBody): Promise<AcceptAllReceipt> {
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
+  const decisionSource = requirePersonDecision('Accepting every open claim of a change request')
+  let alreadyDecided = 0
+  const accepted = await recordVerdicts(requestId, person.userId, (revisions) => {
+    const claims = revisions.flatMap((revision) => revision.claims.map((claim) => ({ revisionId: revision.revisionId, claim })))
+    const open = claims.filter(({ claim }) => claim.decision === null)
+    alreadyDecided = claims.length - open.length
+    return open.map(({ revisionId, claim }) => ({ revisionId, claimPath: claim.path, decision: 'accepted' as const, sourceChecked: body.sourceChecked }))
+  })
+  const receipt = { accepted: accepted.length, records: new Set(accepted.map((one) => one.revisionId)).size, alreadyDecided, sourceChecked: body.sourceChecked }
+  if (receipt.accepted > 0) await audit(person, { action: 'platform.knowledge.claims_accepted', targetId: requestId, metadata: { ...receipt, decisionSource } })
+  return receipt
+}
+
+/** Under the request's lock: the verdicts `choose` picks from its claims, written in one go. The one write path of a review. */
+async function recordVerdicts(
+  requestId: string,
+  reviewer: string,
+  choose: (revisions: RevisionView[]) => ReviewDecisionBody['decisions'],
+): Promise<ReviewDecisionBody['decisions']> {
+  return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
     // A request approved alone stays reviewable until its second review is given (ADR-0176).
     if (request.status !== 'submitted' && !(request.secondReview === 'due' && SECOND_REVIEW_STATUSES.includes(request.status))) {
       throw new ConflictError(`The change request is ${request.status}; only a submitted one, or one whose second review is due, is reviewed.`)
     }
-    const revisions = await reviewedRevisions(tx, requestId)
-    const claims = new Set(revisions.flatMap((revision) => revision.claims.map((claim) => `${revision.revisionId}|${claim.path}`)))
-    const unknown = decisions.filter((decision) => !claims.has(`${decision.revisionId}|${decision.claimPath}`))
-    if (unknown.length > 0) {
-      throw new UnprocessableError(`${unknown.length} decision(s) name no claim of this request; read the request for its claims.`)
-    }
-    await insertReviewDecisions(tx, requestId, { by: person.userId, decisionSource: callDecisionSource() }, decisions)
+    const decisions = choose(await reviewedRevisions(tx, requestId))
+    if (decisions.length > 0) await insertReviewDecisions(tx, requestId, { by: reviewer, decisionSource: callDecisionSource() }, decisions)
+    return decisions
   })
-  return { recorded: decisions.length }
 }
 
 /**

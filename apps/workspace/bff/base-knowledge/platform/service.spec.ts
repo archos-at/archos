@@ -13,7 +13,7 @@
  * approver holds.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
@@ -39,6 +39,8 @@ const writes = vi.hoisted(() => ({
   home: vi.fn(async (..._args: unknown[]) => 'DE'),
   awaiting: vi.fn(async (): Promise<string[]> => []),
 }))
+/** Claims without a verdict, for accepting every open claim; none unless a case adds them. */
+const open = vi.hoisted(() => ({ claims: [] as { path: string; decision: null }[] }))
 const roles = vi.hoisted(() => ({ due: vi.fn(async (): Promise<{ role: string; state: string }[]> => []) }))
 
 const REVISION = 'e0000000-0000-4000-8000-000000000001'
@@ -55,7 +57,7 @@ vi.mock('./store', () => ({
   voidSecondReview: writes.status,
   findChangeRequest: async (id: string) => ({ id, status: 'approved' }),
   reviewedRevisions: async () => [
-    { revisionId: REVISION, recordId: 'work:x', createdBy: 'user_author', claims: [{ path: 'title', decision: 'accepted' }] },
+    { revisionId: REVISION, recordId: 'work:x', createdBy: 'user_author', claims: [{ path: 'title', decision: 'accepted' }, ...open.claims] },
   ],
   insertApproval: writes.approval,
   awaitedApprovalRoles: async () => writes.awaiting(),
@@ -274,5 +276,29 @@ describe('who works on platform knowledge (architecture review, item 6)', () => 
     await expect(service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'reject', role: 'domain_expert' })).rejects.toMatchObject({ status: 403 })
     held.permissions = new Set([PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert])
     await expect(service.createPlatformChangeRequest(EXPERT, { title: 'x', countryId: 'AT' })).rejects.toMatchObject({ status: 403 })
+  })
+})
+
+describe('accepting every open claim', () => {
+  const acceptAll = () => service.acceptAllPlatformChangeRequest(EXPERT, REQUEST, { sourceChecked: true })
+
+  beforeEach(() => {
+    open.claims = [{ path: 'kind', decision: null }]
+  })
+  afterEach(() => {
+    open.claims = []
+  })
+
+  it('refuses an agent call without the person’s yes (403), so no source check is written', async () => {
+    await expect(asAgent(acceptAll)).rejects.toMatchObject({ status: 403, code: 'PERSON_DECISION_REQUIRED' })
+    await expect(asAgent(acceptAll, 'app-unverified')).rejects.toMatchObject({ status: 403 })
+    expect(writes.verdicts).not.toHaveBeenCalled()
+  })
+
+  it('writes only the open claims, on the elicited yes, with the source check the person gave', async () => {
+    await expect(asAgent(acceptAll, 'elicitation')).resolves.toEqual({ accepted: 1, records: 1, alreadyDecided: 1, sourceChecked: true })
+    expect(writes.verdicts).toHaveBeenCalledWith({}, REQUEST, { by: 'user_expert', decisionSource: 'elicitation' }, [
+      { revisionId: REVISION, claimPath: 'kind', decision: 'accepted', sourceChecked: true },
+    ])
   })
 })

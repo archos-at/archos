@@ -162,6 +162,7 @@ export type KnowledgeAuditAction =
   | 'platform.knowledge.change_request_approved'
   | 'platform.knowledge.change_request_rejected'
   | 'platform.knowledge.change_request_approved_alone'
+  | 'platform.knowledge.claims_accepted'
   | 'platform.knowledge.second_review_confirmed'
   | 'platform.knowledge.second_review_disputed'
   | 'platform.knowledge.published'

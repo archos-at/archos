@@ -427,26 +427,30 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
   })
 }
 
+const VERDICTS_PER_INSERT = 1000
+
 export async function insertReviewDecisions(
   tx: Tx,
   requestId: string,
   reviewer: { by: string; decisionSource: ReviewDecisionSource },
   decisions: readonly { revisionId: string; claimPath: string; decision: ReviewDecision; note?: string; sourceChecked?: boolean }[],
 ): Promise<void> {
+  const rows = decisions.map((decision) => ({
+    id: randomUUID(),
+    changeRequestId: requestId,
+    revisionId: decision.revisionId,
+    claimPath: decision.claimPath,
+    decision: decision.decision,
+    note: decision.note ?? null,
+    sourceChecked: decision.sourceChecked ?? false,
+    reviewer: reviewer.by,
+    decisionSource: reviewer.decisionSource,
+  }))
   try {
-    await tx.insert(knowledgeReviewDecisions).values(
-      decisions.map((decision) => ({
-        id: randomUUID(),
-        changeRequestId: requestId,
-        revisionId: decision.revisionId,
-        claimPath: decision.claimPath,
-        decision: decision.decision,
-        note: decision.note ?? null,
-        sourceChecked: decision.sourceChecked ?? false,
-        reviewer: reviewer.by,
-        decisionSource: reviewer.decisionSource,
-      })),
-    )
+    // One statement per thousand verdicts: nine parameters a row stays under Postgres's 65,535.
+    for (let start = 0; start < rows.length; start += VERDICTS_PER_INSERT) {
+      await tx.insert(knowledgeReviewDecisions).values(rows.slice(start, start + VERDICTS_PER_INSERT))
+    }
   } catch (error) {
     // The four-eyes trigger (migration 0208): an author reviews nothing in their own request.
     if (/revision they wrote/.test(errorText(error))) {

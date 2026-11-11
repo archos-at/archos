@@ -251,6 +251,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (url === '/api/platform/knowledge/sources') return Response.json(empty ? { sources: [], builtInUnavailable: null } : SOURCES)
       if (url.startsWith('/api/platform/knowledge/change-requests/')) {
         if (init?.method === 'POST' && url.includes('/texts')) return Response.json({ text: DRAFT.texts[0], status: 'written', stored: true })
+        if (init?.method === 'POST' && url.endsWith('/review/accept-all')) return Response.json({ accepted: 3010, records: 430, alreadyDecided: 0, sourceChecked: true })
         if (init?.method === 'POST') return Response.json({ recorded: 1 })
         return Response.json(url.includes(ALONE_ID) || url.endsWith('/alone') ? ALONE : url.includes(DRAFT_ID) || url.endsWith('/draft') ? DRAFT : REQUEST)
       }
@@ -275,7 +276,7 @@ function Preview(): JSX.Element {
     let cancelled = false
     const open = (): void => {
       if (cancelled) return
-      const buttons = document.querySelectorAll<HTMLButtonElement>('[data-testid="country-review-waiting"] button')
+      const buttons = document.querySelectorAll<HTMLButtonElement>('[data-testid="country-review-waiting"] button:not([data-testid^="accept-all-"])')
       const button = which === 'alone' ? buttons[buttons.length - 1] : buttons[0]
       if (button) button.click()
       else window.setTimeout(open, 100)
