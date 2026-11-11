@@ -228,7 +228,9 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
           string | { collection: string; shelf?: string; countries?: string[] }
         >
         const scope = entries.map((entry) => (typeof entry === 'string' ? entry : entry.collection))
-        const base = entries.find((entry) => typeof entry !== 'string' && entry.shelf === 'base')
+        const base = entries.find(
+          (entry): entry is { collection: string; shelf?: string; countries?: string[] } => typeof entry !== 'string' && entry.shelf === 'base',
+        )
         calls.push({ body: JSON.parse(String(init?.body)), scope, base })
         return new Response(
           JSON.stringify({
