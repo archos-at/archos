@@ -1,54 +1,70 @@
 /**
  * @vitest-environment node
  *
- * Where a model's project is, for the BIM rules (ADR-0169): the chain the
- * intake places it by, the geocoded Land included where the profile states none.
+ * The rule catalogue over one model reads the knowledge context of the model's
+ * project, the one its page and the turn read: a verdict where the rule's
+ * edition binds at the site, a hint elsewhere, and a changed basis is a new run.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
-import { placedProfile } from '@/lib/project-intake/setup-countries.fixtures'
-import type { ProjectProfileState } from '@/lib/projects/repository'
+import type { KnowledgeContext } from '@/lib/base-knowledge/context/wire'
 import type { BimModelHeader } from './repository'
+import { contextAt, contextUse } from './rule-basis.fixtures'
+import type { BimElement } from './types'
 
-const findProjectProfileInOrg = vi.fn<(projectId: string, organizationId: string) => Promise<ProjectProfileState | null>>()
-const findProjectIntake = vi.fn<(organizationId: string, projectId: string) => Promise<ProjectIntakeRow | null>>()
+const contextForPage = vi.fn<(organizationId: string, projectId: string) => Promise<KnowledgeContext>>()
+const loadBimElementsForSchedule = vi.fn<() => Promise<{ elements: BimElement[]; truncated: boolean }>>()
 
 vi.mock('server-only', () => ({}))
-vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg }))
-vi.mock('@/lib/project-intake/repository', () => ({ findProjectIntake }))
-vi.mock('./repository', () => ({}))
-vi.mock('./compliance-cache', () => ({}))
+vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage }))
+vi.mock('./repository', () => ({
+  loadBimRuleInputs: vi.fn(async () => null),
+  saveBimRuleInputs: vi.fn(async () => undefined),
+  loadBimElementsForSchedule,
+}))
 
-const { siteOfModel } = await import('./compliance-run')
+const { complianceRun, contextOfModel } = await import('./compliance-run')
+const { clearComplianceCache } = await import('./compliance-cache')
 
-const header = { projectId: 'project-1' } as BimModelHeader
-const profileState = (facts: Parameters<typeof placedProfile>[0]) => ({ profile: placedProfile(facts) }) as ProjectProfileState
-const intakeAt = (federalState: string | null) => ({ location: { federalState } }) as ProjectIntakeRow
+const header = { id: 'model-1', projectId: 'project-1', updatedAt: new Date('2026-11-11T10:00:00Z'), summary: null } as unknown as BimModelHeader
+const door = { globalId: 'D1', name: 'D1', ifcType: 'IfcDoor', storeyName: 'EG', properties: {}, quantities: { Qto_DoorBaseQuantities: { Width: 700 } } } as unknown as BimElement
+const FACTS = { buildingClass: 3, mainUse: 'residential' }
+const doorRule = (run: Awaited<ReturnType<typeof complianceRun>>) => run.compliance.find((rule) => rule.ruleId === 'oib4-door-clear-width')
 
-describe('siteOfModel', () => {
+const VIENNA = contextAt('AT-9', 'core', [contextUse('OIB-Richtlinie 4', 'Ausgabe Mai 2023')])
+const STYRIA = contextAt('AT-6', 'core', [
+  contextUse('OIB-Richtlinie 4', 'Ausgabe April 2019', { route: { workId: 'w', designation: 'StBTV', editionLabel: null, provision: null } }),
+])
+
+describe('the rule catalogue over one model', () => {
   beforeEach(() => {
-    findProjectProfileInOrg.mockReset()
-    findProjectIntake.mockReset()
+    clearComplianceCache()
+    contextForPage.mockReset()
+    loadBimElementsForSchedule.mockReset()
+    loadBimElementsForSchedule.mockResolvedValue({ elements: [door], truncated: false })
   })
 
-  it('places an Austrian project by its geocoded Land when the profile names none', async () => {
-    findProjectProfileInOrg.mockResolvedValue(profileState({ country: 'at' }))
-    findProjectIntake.mockResolvedValue(intakeAt('styria'))
-
-    expect(await siteOfModel(header, 'org-1')).toEqual({ chain: ['AT-6', 'AT'] })
-    expect(findProjectIntake).toHaveBeenCalledWith('org-1', 'project-1')
+  it("reads the context of the model's project, and none for a model in no project", async () => {
+    contextForPage.mockResolvedValue(VIENNA)
+    expect(await contextOfModel(header, 'org-1')).toBe(VIENNA)
+    expect(contextForPage).toHaveBeenCalledWith('org-1', 'project-1')
+    expect(await contextOfModel({ ...header, projectId: null }, 'org-1')).toBeNull()
+    expect(contextForPage).toHaveBeenCalledTimes(1)
   })
 
-  it('places it by its country alone when there is no intake to read', async () => {
-    findProjectProfileInOrg.mockResolvedValue(profileState({ country: 'at' }))
-    findProjectIntake.mockResolvedValue(null)
+  it('fails a door where the edition binds, and only hints where another edition does: a new basis is a new run', async () => {
+    contextForPage.mockResolvedValue(VIENNA)
+    expect(doorRule(await complianceRun(header, 'org-1', FACTS))).toMatchObject({ failed: 1 })
 
-    expect(await siteOfModel(header, 'org-1')).toEqual({ chain: ['AT'] })
+    contextForPage.mockResolvedValue(STYRIA)
+    const styria = doorRule(await complianceRun(header, 'org-1', FACTS))
+    expect(styria).toMatchObject({ failed: 0, undecidable: 1, missing: [] })
+    expect(styria?.hint).toBe('Hinweis: Schwellwerte aus Ausgabe Mai 2023; am Standort gilt Ausgabe April 2019 über StBTV')
+    expect(loadBimElementsForSchedule).toHaveBeenCalledTimes(2)
   })
 
-  it('has no site for a model in no project', async () => {
-    expect(await siteOfModel({ projectId: null } as BimModelHeader, 'org-1')).toBeNull()
-    expect(findProjectProfileInOrg).not.toHaveBeenCalled()
+  it("judges a base revision at the asking model's site, without reading its own", async () => {
+    expect(doorRule(await complianceRun(header, 'org-1', FACTS, STYRIA))).toMatchObject({ failed: 0, undecidable: 1 })
+    expect(contextForPage).not.toHaveBeenCalled()
   })
 })

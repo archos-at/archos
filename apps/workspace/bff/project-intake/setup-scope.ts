@@ -135,21 +135,3 @@ export function buildingClassificationOf(scope: SetupScope): BuildingClassificat
 /** The inputs a classification reads, in its table's order: what a change to the profile must touch to move a class. */
 export const classificationInputs = (classification: BuildingClassification | null): string[] =>
   classification ? classification.table.inputs.map((input) => input.key) : []
-
-/**
- * Where a project is, for a consumer that only needs the chain (the BIM rules):
- * `null` when nothing places it, an empty chain when it is placed in no country
- * the records can name, else its territories, leaf first. `location` is the
- * intake's geocoded reading, read as the setup reads it, so the rules and the
- * intake place one project in the same Land.
- */
-export function siteOfProfile(
-  profile: Pick<ProjectProfile, 'facts' | 'assumptions'>,
-  location: SetupScopeOptions['location'] = null
-): { chain: readonly string[] } | null {
-  const { chain } = setupScopeOf(profile, { location })
-  const country = siteCountry(profile)
-  // No chain beside a country it names (`country=at` with „außerhalb Österreichs"): a contradiction, so unknown.
-  if (chain.length === 0 && (country === null || /^[a-z]{2}$/.test(country))) return null
-  return { chain }
-}

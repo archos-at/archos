@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import { deriveAll, withDerivedClass } from './derivation-view'
 import { planRecord } from './record'
-import { buildingClassificationOf, factDefinitionsOf, factSourcesOf, setupScopeOf, siteOfProfile } from './setup-scope'
+import { buildingClassificationOf, factDefinitionsOf, factSourcesOf, setupScopeOf } from './setup-scope'
 import { SHIPPED_SETUP_RECORDS } from '@/lib/base-knowledge/rulesets/shipped'
 import { GERMAN_RECORDS, SWISS_RECORDS, THREE_COUNTRIES, placedProfile } from './setup-countries.fixtures'
 
@@ -115,26 +115,6 @@ describe('only its own country’s options', () => {
     const twice = [...THREE_COUNTRIES, { ...classification, id: 'test:de-classification-2' }]
     expect(buildingClassificationOf(scope({ country: 'de' }, twice))).toBeNull()
     expect(buildingClassificationOf(scope({ country: 'de' }))).not.toBeNull()
-  })
-})
-
-describe('siteOfProfile, for the BIM rules', () => {
-  it('places, leaves unplaced, and reads a contradiction as unknown rather than as abroad', () => {
-    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'vienna' }))).toEqual({ chain: ['AT-9', 'AT'] })
-    expect(siteOfProfile(placedProfile({ country: 'other' }))).toEqual({ chain: [] })
-    expect(siteOfProfile(placedProfile({}))).toBeNull()
-    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'outside_austria' }))).toBeNull()
-  })
-
-  it('reads the geocoded Land the intake reads, where the profile states none', () => {
-    // An Austrian project placed only by geocoding: without its Land every OIB rule stays open.
-    expect(siteOfProfile(placedProfile({ country: 'at' }), { federalState: 'styria' })).toEqual({ chain: ['AT-6', 'AT'] })
-    expect(siteOfProfile(placedProfile({}), { federalState: 'styria' })).toEqual({ chain: ['AT-6', 'AT'] })
-    expect(siteOfProfile(placedProfile({ country: 'at' }))).toEqual({ chain: ['AT'] })
-    // A stated Land outranks the geocoder's.
-    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'vienna' }), { federalState: 'styria' })).toEqual({
-      chain: ['AT-9', 'AT'],
-    })
   })
 })
 
