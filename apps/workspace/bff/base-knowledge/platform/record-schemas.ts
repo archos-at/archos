@@ -34,6 +34,8 @@ function isDecisionTable(schema: unknown): boolean {
 
 /** A node that is a decision table becomes a reference to the one written under `$defs`. */
 function referenceTables(context: { zodSchema: unknown; jsonSchema: JsonSchema }): void {
+  // `format: date` says it; the route's zod schema still enforces the day, so zod's leap-year regex is ~250 characters of noise.
+  if (context.jsonSchema.format === 'date') delete context.jsonSchema.pattern
   if (context.zodSchema === citationSchema) {
     // Every record carries the same citation: written once, as the answer's `citation`.
     for (const key of Object.keys(context.jsonSchema)) delete context.jsonSchema[key]
