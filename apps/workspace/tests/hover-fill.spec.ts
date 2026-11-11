@@ -17,7 +17,9 @@
  *     apart. The arithmetic is checked against `tokens.css`, so retuning a
  *     step without the wash fails;
  *   - an element with a fill of its own names its next step (`bg-desk
- *     hover:bg-selected`), or its own fill to hold it under the pointer.
+ *     hover:bg-selected`; a sheet `hover:bg-sheet-hover`, the wash laid on
+ *     the sheet), or its own fill to hold it under the pointer. A sheet
+ *     answers itself: no grey is laid behind it (a folder, 2026-11-11).
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -43,8 +45,8 @@ function hoverFill(utility: string): string | null {
   return variants.some((variant) => /^(group-|peer-)?hover(\/[\w-]+)?$/.test(variant)) ? fill.slice('bg-'.length) : null
 }
 
-/** The wash, a held or cancelled fill, and the ladder's named steps for an element with a fill of its own. */
-const LADDER = new Set(['hover', 'transparent', 'sheet', 'desk', 'selected', 'pressed'])
+/** The wash, a held or cancelled fill, and the named steps for an element with a fill of its own (a sheet's is `sheet-hover`). */
+const LADDER = new Set(['hover', 'transparent', 'sheet', 'sheet-hover', 'desk', 'selected', 'pressed'])
 /** A fill that carries a colour's meaning steps within its own family: ink, the signal colours, the rail's own tokens. */
 const OWN_FAMILY = /^(primary|destructive|danger-subtle|interaction-primary-hover|sidebar)(\b|-|\/)/
 
@@ -95,6 +97,15 @@ describe('hover is one step down the ladder', () => {
     }
     // Dark is a white wash one step up, the dark press's own.
     expect(tokens).toMatch(/\.dark \{[^}]*--hover: rgb\(245 244 242 \/ 0\.06\);/)
+    // A sheet under the pointer is that wash on the sheet, opaque: the same ink and share in each theme.
+    expect(light).toContain(`--sheet-hover: color-mix(in srgb, var(--sheet) ${100 - alpha * 100}%, rgb(${red} ${green} ${blue}));`)
+    expect(tokens).toMatch(/\.dark \{[^}]*--sheet-hover: color-mix\(in srgb, var\(--sheet\) 94%, rgb\(245 244 242\)\);/)
+  })
+
+  it('a folder answers the pointer with its own sheet, and nothing is laid behind it', () => {
+    const documents = (name: string): string => withoutComments(readFileSync(join(ROOT, 'ui/features/documents/components', name), 'utf8'))
+    expect(documents('folder-card-frame.tsx')).toMatch(/cn\(FOLDER_SHEET, '[^']*group-hover:bg-sheet-hover /)
+    expect(documents('folder-navigation.tsx')).toMatch(/cn\('group hover:bg-transparent /)
   })
 
   it('the kit hovers by the wash: a ghost, an outline, a row, a table row and a menu item', () => {

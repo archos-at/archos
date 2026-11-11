@@ -200,7 +200,7 @@ export function DockedSplit({
           aria-label={restore.label}
           title={restore.label}
           className={cn(
-            'group/restore bg-card text-muted-foreground hover:text-foreground hover:bg-desk border-base absolute top-1/2 z-20 flex h-16 w-6 -translate-y-1/2 items-center justify-center border shadow-sm',
+            'group/restore bg-card text-muted-foreground hover:text-foreground hover:bg-sheet-hover border-base absolute top-1/2 z-20 flex h-16 w-6 -translate-y-1/2 items-center justify-center border shadow-sm',
             side === 'end' ? 'right-0 rounded-l-lg border-r-0' : 'left-0 rounded-r-lg border-l-0',
             'transition-colors duration-quick ease-out motion-reduce:transition-none',
             side === 'end'

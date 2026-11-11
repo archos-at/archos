@@ -543,13 +543,13 @@ export function FolderCard({
   return (
     <TileShell
       interactive
-      // A folder is a 56px sheet (glyph, name, what it holds, a chevron) inside the tile's 6px hover inset, its edge
+      // A folder is a 56px sheet (glyph, name, what it holds, a chevron) inside the tile's 6px inset, its edge
       // on the thumbnails' edge: apart from a document by its shape, a strip, not a page. On a phone it is a 48px
       // sheet in the grid's two columns, glyph, name and count, its ⋯ a long press away (the object menu): three
       // full-width sheets put the first thumbnail at y=475.
       data-folder-tile=""
       // A drag has to say where it will land, or it is a guess with a cursor.
-      className={cn('group [contain-intrinsic-block-size:auto_64px]', dropRing(drop))}
+      className={cn('group hover:bg-transparent [contain-intrinsic-block-size:auto_64px]', dropRing(drop))}
       data-testid={`folder-card-${folder.id}`}
       data-drop-over={drop.isOver ? '' : undefined}
       // Source as well as target: a folder is moved by dragging it onto
@@ -586,7 +586,7 @@ export function FolderCard({
             opens, not a press. One line for the name, cut at its end with the whole name as its title: a name of three
             lines made its row 138px beside rows of 82 (finding 6), and a folder's start is what tells it apart. */}
         <FileTileBody className="flex h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-3 pr-3 phone:gap-2.5 phone:pr-10">
-          {/* One glyph, still: what says „this opens“ is the fill under the pointer and the cursor (#1055's tile notes). */}
+          {/* One glyph, still: what says „this opens“ is the sheet's own fill under the pointer and the cursor (#1055's tile notes). */}
           <span className={FOLDER_WELL}>
             <Folder className="size-[18px] text-muted-foreground" strokeWidth={1.6} aria-hidden />
           </span>

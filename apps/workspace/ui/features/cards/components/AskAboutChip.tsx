@@ -119,7 +119,7 @@ export const AskAboutChip: FC<AskAboutChipProps> = ({ subject, missing, classNam
         'group inline-flex h-6 max-w-full shrink-0 items-center gap-1 rounded-full border px-2',
         'border border-border bg-card text-muted-foreground shadow-xs text-[11px] font-medium',
         'transition-colors duration-quick ease-out motion-reduce:transition-none',
-        'hover:bg-desk hover:text-foreground',
+        'hover:bg-sheet-hover hover:text-foreground',
         'focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-2',
         // `h-8` was a step up from the mouse size, not a floor — 32px, on the one
         // control that turns "I have read this card" into the next question. It
