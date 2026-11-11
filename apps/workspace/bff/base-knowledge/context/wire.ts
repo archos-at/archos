@@ -9,7 +9,7 @@
 
 import { z } from 'zod'
 import { useApplicabilitySchema } from '../wire/project-law'
-import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS } from '../wire/vocab'
+import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS, TEXT_STATUSES } from '../wire/vocab'
 import { sourceRefSchema } from '../chain/source-refs'
 
 /** Most uses a turn carries (design §5.5: works ≤ 40). */
@@ -59,6 +59,24 @@ export const gateSchema = z
 /** The longest chain text the context carries; the resolver cuts a longer one at a line, with a note. */
 export const MAX_CONTEXT_TEXT_CHARS = 16_000
 
+/**
+ * The route that gives a use its role, as its last step: the instrument that
+ * declares the edition binding here ("über die WBTV 2023"), named as its
+ * records name it. A citation's status line reads it; the chain text words
+ * the whole route for the agent.
+ */
+export const useRouteSchema = z
+  .object({
+    workId: z.string(),
+    /** The declaring work's designation; null when its record states none. */
+    designation: z.string().nullable(),
+    /** The declaring instrument's edition label; null for law read live at its source. */
+    editionLabel: z.string().nullable(),
+    /** The provision that declares it (`§ 1`); null when the relation states none. */
+    provision: z.string().max(300).nullable(),
+  })
+  .strict()
+
 export const contextUseSchema = z
   .object({
     workId: z.string(),
@@ -67,6 +85,15 @@ export const contextUseSchema = z
     role: z.enum(EDITION_ROLES),
     qualifier: z.enum(['uncurated', 'office_maintained']).nullable(),
     via: z.enum(['territory', 'relation', 'none']),
+    /** The declaring instrument when the role came by a relation; null for law in its territory and for a work no route reaches. */
+    route: useRouteSchema.nullable(),
+    /**
+     * The first day a binding role holds from by the records: the edition's own
+     * entry into force for law in its territory, else the later of that and the
+     * declaring relation's. Null for every other role and where the records
+     * state no day.
+     */
+    roleSince: z.iso.date().nullable(),
     /** The date the role holds on: the resolution day. */
     date: z.iso.date(),
     freshness: z.enum(FRESHNESS),
@@ -83,6 +110,10 @@ export const contextUseSchema = z
     sourceRefs: z.array(sourceRefSchema).max(8),
     /** Where a person opens the edition's text: the page its manifestation cites first; null when none does. */
     sourceUrl: z.string().max(2000).nullable(),
+    /** The language of the edition's held text (BCP 47, `de`, `fr-CH`); null where no text is held (law read live at its source). */
+    language: z.string().max(35).nullable(),
+    /** What the held text is: the authentic one, an official text that does not prevail, or a translation; null where none is held. */
+    textStatus: z.enum(TEXT_STATUSES).nullable(),
     /**
      * Whether the edition applies to the project's buildings, by its scope
      * (ADR-0178): `applies` with the facts that decided it, or `check` with the
@@ -150,6 +181,7 @@ export const knowledgeContextSchema = z
 
 export type Leaf = z.infer<typeof leafSchema>
 export type Gate = z.infer<typeof gateSchema>
+export type UseRoute = z.infer<typeof useRouteSchema>
 export type ContextUse = z.infer<typeof contextUseSchema>
 export type ProcedureContext = z.infer<typeof procedureContextSchema>
 export type KnowledgeContext = z.infer<typeof knowledgeContextSchema>
