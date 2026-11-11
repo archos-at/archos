@@ -30582,7 +30582,7 @@
                             },
                             "identifiers": {
                               "default": {},
-                              "description": "The work’s identifiers at its source, {\"<scheme>\": \"<value>\"}: how a passage the agent reads live at that source finds this work and its role. A scheme is the word the country’s source record declares under its `identifiers` (e.g. a law number its links carry as a query parameter); copy each value from the captured page. A passage finds the work when its address carries the value where the source record says (a query parameter); a scheme no source record declares is kept and finds nothing. At most 8 schemes; `designation` is not one (it is the work’s own field). `eli` is the European Legislation Identifier, a URL ending with \"/\": checked for shape, read by no source record yet.",
+                              "description": "The work’s identifiers at its source, {\"<scheme>\": \"<value>\"}: how a passage read live there finds this work. A scheme is one the country’s source record declares under `identifiers` (e.g. a law number in its links); copy each value from the captured page. An undeclared scheme finds nothing. At most 8 schemes; not `designation`. `eli`: a European Legislation Identifier URL ending with \"/\".",
                               "type": "object",
                               "propertyNames": {
                                 "type": "string",
