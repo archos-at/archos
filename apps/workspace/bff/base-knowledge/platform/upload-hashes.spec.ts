@@ -31,6 +31,53 @@ function duplicatedMember(path: string, first: string, second: string) {
   return bytes
 }
 
+/**
+ * A ZIP of `count` stored members that all point at ONE payload and each declare to unpack to nothing: one local
+ * file header, and a central directory that names it `count` times under different names. A reader that copies a
+ * stored member by its compressed size allocates `count` times the payload.
+ */
+function storedMembersOverOnePayload(count: number, payload: Uint8Array) {
+  const first = strToU8('0.pdf')
+  const local = new Uint8Array(30 + first.length + payload.length)
+  const localView = new DataView(local.buffer)
+  localView.setUint32(0, 0x04034b50, true)
+  localView.setUint16(4, 20, true)
+  localView.setUint32(18, payload.length, true)
+  localView.setUint32(22, payload.length, true)
+  localView.setUint16(26, first.length, true)
+  local.set(first, 30)
+  local.set(payload, 30 + first.length)
+  const entries = Array.from({ length: count }, (_, index) => {
+    const name = strToU8(`${index}.pdf`)
+    const entry = new Uint8Array(46 + name.length)
+    const view = new DataView(entry.buffer)
+    view.setUint32(0, 0x02014b50, true)
+    view.setUint16(4, 20, true)
+    view.setUint16(6, 20, true)
+    // Method 0 (stored) at offset 10; the compressed size is the payload's, the declared unpacked size is 0.
+    view.setUint32(20, payload.length, true)
+    view.setUint32(24, 0, true)
+    view.setUint16(28, name.length, true)
+    entry.set(name, 46)
+    return entry
+  })
+  const directorySize = entries.reduce((sum, entry) => sum + entry.length, 0)
+  const end = new Uint8Array(22)
+  const endView = new DataView(end.buffer)
+  endView.setUint32(0, 0x06054b50, true)
+  endView.setUint16(8, count, true)
+  endView.setUint16(10, count, true)
+  endView.setUint32(12, directorySize, true)
+  endView.setUint32(16, local.length, true)
+  const bytes = new Uint8Array(local.length + directorySize + end.length)
+  let at = 0
+  for (const part of [local, ...entries, end]) {
+    bytes.set(part, at)
+    at += part.length
+  }
+  return bytes
+}
+
 describe('the hashes of a plain corpus upload', () => {
   it('is the one PDF under its name', async () => {
     expect([...(await uploadedPdfHashes(new File(['one'], 'oib-rl-1.pdf')))]).toEqual([['oib-rl-1.pdf', sha('one')]])
@@ -83,6 +130,18 @@ describe('the hashes of a plain corpus upload', () => {
     // Positive control: the same archives under a limit that holds them.
     expect([...(await uploadedPdfHashes(bomb, 300_000)).keys()]).toEqual(['zeros.pdf', 'ok.pdf'])
     expect([...(await uploadedPdfHashes(new File([many], 'texts.zip'), 120_000)).keys()]).toEqual(['a.pdf', 'b.pdf'])
+  })
+
+  it('counts a stored member by the bytes it is copied from, whatever it declares to unpack to', async () => {
+    // 200 entries over one 1,000-byte payload, each declaring 0 bytes: a 13 KB archive that unpacks to 200,000.
+    const payload = new Uint8Array(1_000).fill(7)
+    const lie = new File([storedMembersOverOnePayload(200, payload)], 'texts.zip')
+    expect(lie.size).toBeLessThan(15_000)
+    await expect(uploadedPdfHashes(lie, 100_000)).rejects.toMatchObject({ status: 413 })
+    // Positive control: this reader reads the archive, each member as the whole payload.
+    const read = await uploadedPdfHashes(lie, 200_000)
+    expect(read.size).toBe(200)
+    expect(new Set(read.values())).toEqual(new Set([createHash('sha256').update(payload).digest('hex')]))
   })
 
   it('compares names in one normal form', async () => {
