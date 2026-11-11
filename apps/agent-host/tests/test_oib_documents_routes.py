@@ -673,6 +673,22 @@ async def test_reingest_queues_only_the_named_documents(app, ingestor):
 
 
 @pytest.mark.asyncio
+async def test_reingest_records_the_country_and_edition_the_platform_sent(app, ingestor):
+    corpus_store.put("a.pdf", _pdf_bytes())
+    marks = {"a.pdf": {"country_id": "DE", "edition_id": "edition:baybo-2025"}}
+
+    async with _client(app) as client:
+        response = await client.post("/v1/admin/oib/reingest", json={"file_names": ["a.pdf"], "marks": marks})
+        refused = await client.post(
+            "/v1/admin/oib/reingest", json={"file_names": ["a.pdf"], "marks": {"a.pdf": {"country_id": "Germany"}}}
+        )
+
+    assert response.status_code == 200
+    assert corpus_store.get_mark("a.pdf") == corpus_store.FileMark(country_id="DE", edition_id="edition:baybo-2025")
+    assert refused.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_reingesting_twice_while_the_first_job_waits_is_still_one_job(app, ingestor):
     corpus_store.put("a.pdf", _pdf_bytes())
     corpus_store.mark_ingested("a.pdf", corpus_store.get_file("a.pdf").sha256, oib_sync.CHUNK_FORMAT_VERSION)

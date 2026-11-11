@@ -1,0 +1,7 @@
+---
+# area: general
+improvements:
+  - >
+    Neuerungen is easier to read: each week shows its dates, its summary and
+    how many changes it holds, and opens on demand. Inside a week the changes
+    are grouped by area, and a single fix now reads "1 fix".

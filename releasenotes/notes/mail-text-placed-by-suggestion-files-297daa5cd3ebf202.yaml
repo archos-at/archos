@@ -1,0 +1,6 @@
+---
+fixes:
+  - >
+    The text of an e-mail to a project could not be filed when ARCHOS had
+    suggested a folder for it, so it stayed at "Filing …" for good. It is
+    now filed into that folder like any other text.

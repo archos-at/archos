@@ -19,6 +19,16 @@ import type { en } from '../en'
 export const answerExport: typeof en.answerExport = {
   documentTitle: 'Antwort',
   fileName: 'antwort',
+  /**
+   * Die Offenlegung nach Art. 50 Abs. 1 KI-Verordnung, oben auf jedem
+   * Dokument, das {productName} verfasst: dass ein KI-System schreibt, und für
+   * wen (Leitlinien der Kommission zu Art. 50, 5.11.2026, Rn. 31 und 36). Nicht
+   * Teil des Brandings, das ein Büro überschreiben kann.
+   */
+  aiDisclosure: {
+    withOrganization: 'Verfasst von {productName}, einem KI-System, für {organization}.',
+    withoutOrganization: 'Verfasst von {productName}, einem KI-System.',
+  },
   aiNotice: {
     title: 'KI-generiert — nicht geprüft',
     body: 'Dieses Dokument hat {productName} erstellt; ein Mensch hat es nicht geprüft. Es ist ein Entwurf und kein Nachweis — prüfen Sie jede Angabe, bevor Sie das Dokument weitergeben oder einreichen.',
@@ -71,6 +81,7 @@ export const answerExport: typeof en.answerExport = {
   confidenceCapped: {
     ungrounded: 'Begrenzt: die Antwort ist nicht durch Quellen belegt.',
     quoteUnverified: 'Begrenzt: ein Zitat war nicht wortgleich gegen die Quelle prüfbar.',
+    lawUnsettled: 'Begrenzt: die verbindliche Fassung des Baurechts steht für diesen Standort noch nicht geprüft fest.',
   },
   page: 'S. {page}',
   untitledSource: 'Quelle ohne Titel',

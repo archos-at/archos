@@ -35,6 +35,8 @@ vi.mock('@/lib/cache', () => ({
   invalidateCached: vi.fn(),
 }))
 vi.mock('@/lib/workos/client', () => ({ getWorkOS: vi.fn() }))
+const POLICY = { residencyCell: null, purposes: ['service', 'quality_evaluation', 'human_review'], version: 1 }
+vi.mock('@/lib/residency/processing-policy', () => ({ getProcessingPolicy: vi.fn(async () => POLICY) }))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: vi.fn(), WEB_SEARCH_FLAG: 'web-search' }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn() }))
 
@@ -61,7 +63,11 @@ describe('GET /api/internal/model-overrides', () => {
   it('reports zdrOnly: true for an org that never set it', async () => {
     const res = await GET(request())
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ overrides: { deep_research: 'openai/gpt-6-luna' }, zdrOnly: true })
+    expect(await res.json()).toEqual({
+      overrides: { deep_research: 'openai/gpt-6-luna' },
+      zdrOnly: true,
+      processingPolicy: POLICY,
+    })
   })
 
   it('reports zdrOnly: false only for an explicit opt-out', async () => {

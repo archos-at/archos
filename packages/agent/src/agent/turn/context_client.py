@@ -13,6 +13,9 @@ from dataclasses import field
 from dataclasses import replace
 
 from agent.common import bff_http
+from agent.common.knowledge_context import UNAVAILABLE
+from agent.common.knowledge_context import KnowledgeContext
+from agent.common.knowledge_context import parse_knowledge_context
 from agent.project_context import MEMORY_HEADER_MAX_CHARS
 from agent.project_context import RequestContext
 from agent.project_context import normalize_org_instructions
@@ -40,6 +43,25 @@ class ContextBlocks:
     #: The WORKSPACE block (ADR-0123): who asks, where, and what is open now,
     #: this conversation's proposals included. None from an older BFF.
     workspace: str | None = None
+    #: The office's confirmed base knowledge (ADR-0163): its licensed standards,
+    #: commentaries, directives, guidelines and laws, one line each with edition,
+    #: role and last check (``lib/base-knowledge/office/turn-block.ts``). None
+    #: from an older BFF, with the flag off, or when the office holds none.
+    base_knowledge: str | None = None
+    #: The data of each confirmed office copy's answer label (``officeAnswerLabel``
+    #: in ``lib/base-knowledge/office/answer-label.ts``): document id, kind,
+    #: designation, edition, role, last check, text use. Tokens for the answer's
+    #: renderer (S2) to word; empty from an older BFF or with the flag off.
+    base_knowledge_labels: tuple[dict[str, object], ...] = ()
+    #: The turn's knowledge context (ADR-0173): gate, coverage, chains, packs and
+    #: the countries it may retrieve from. A missing key or one that is not its
+    #: shape reads as ``knowledge_unavailable`` (ADR-0175), the default too.
+    knowledge_context: KnowledgeContext = UNAVAILABLE
+    #: Which kinds of model file the project holds and this turn may read
+    #: (``"ifc"``, ``"dxf"``), so the tools that measure one are bound only
+    #: where there is one (the chat agent's ``turn_tools``). None from an older
+    #: BFF or outside a project: unknown, and the tools stay as they were.
+    project_models: frozenset[str] | None = None
     #: Where the BFF spent its time, read off the route's ``Server-Timing``
     #: (``bff_<phase>_ms``, and ``bff_memory_desc``: whether the memory read
     #: waited for the query embed). Scalars only, never content; empty from an
@@ -56,6 +78,21 @@ REFERENCE_PROJECTS_MAX_CHARS = 4000
 #: the office's conventions (``lib/office-conventions/render.ts``, ADR-0129),
 #: which a cut at a line drops first.
 WORKSPACE_MAX_CHARS = 6500
+
+#: A header and at most 40 lines of 400 chars (``MAX_TURN_ENTRIES``,
+#: ``MAX_TURN_LINE_CHARS`` in ``lib/base-knowledge/office/turn-block.ts``).
+BASE_KNOWLEDGE_MAX_CHARS = 17_000
+
+#: As many labels as the block carries lines (``MAX_TURN_ENTRIES``).
+BASE_KNOWLEDGE_MAX_LABELS = 40
+
+
+def _labels(value: object) -> tuple[dict[str, object], ...]:
+    """The answer-label records, bounded; anything not a list of objects reads as none. Pure."""
+    if not isinstance(value, list):
+        return ()
+    return tuple(item for item in value if isinstance(item, dict))[:BASE_KNOWLEDGE_MAX_LABELS]
+
 
 #: The line that opens the office's conventions in the WORKSPACE block
 #: (``officeConventionsHeader`` in ``lib/office-conventions/render.ts``).
@@ -156,7 +193,35 @@ def _parse_blocks(body: object) -> ContextBlocks:
             data.get("workspace") if isinstance(data.get("workspace"), str) else None,
             WORKSPACE_MAX_CHARS,
         ),
+        base_knowledge=_bounded_lines(
+            data.get("baseKnowledge") if isinstance(data.get("baseKnowledge"), str) else None,
+            BASE_KNOWLEDGE_MAX_CHARS,
+        ),
+        base_knowledge_labels=_labels(data.get("baseKnowledgeLabels")),
+        # Absent is ``knowledge_unavailable`` (ADR-0175): the BFF sends one on every turn, so none fails closed.
+        knowledge_context=parse_knowledge_context(data.get("knowledgeContext")),
+        project_models=_model_kinds(data.get("projectModels")),
     )
+
+
+def _model_kinds(value: object) -> frozenset[str] | None:
+    """``{"ifc": true, "dxf": false}`` as the kinds present; anything else is unknown (None). Pure."""
+    if not isinstance(value, dict):
+        return None
+    return frozenset(kind for kind in ("ifc", "dxf") if value.get(kind) is True)
+
+
+def with_base_knowledge(memory: str | None, base_knowledge: str | None) -> str | None:
+    """The memory part of the project context with the office's base knowledge after it, tagged. Pure.
+
+    It rides in the project context so every agent that reads the project
+    (the conversation, deep research) reads which standards the office holds
+    and how far each binds here, without a field of its own on every state.
+    """
+    if not base_knowledge:
+        return memory
+    block = f"<office_base_knowledge>\n{base_knowledge}\n</office_base_knowledge>"
+    return f"{memory}\n\n{block}" if memory else block
 
 
 def fetch_turn_context(request: RequestContext, *, query: str | None = None) -> ContextBlocks:

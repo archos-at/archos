@@ -33,6 +33,7 @@ from knowledge_layer.browse import split_alternatives
 from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import reading_as
 
 from agent.common.brand import PRODUCT_NAME
 from agent.common.source_kinds import Shelf
@@ -376,6 +377,14 @@ def test_the_exact_mode_is_never_withheld_as_a_repeat_of_the_ranked_one():
     assert ranked == fetch_signature({"name": "knowledge_search", "args": {"query": "ba-03", "match": "meaning"}})
 
 
+@pytest.fixture
+def reads_as_an_office():
+    """A search over a project's scope reads as an office (``vector_store.ScopeRead``, ADR-0163), as a request does."""
+    with reading_as("org_test"):
+        yield
+
+
+@pytest.mark.usefixtures("reads_as_an_office")
 def test_the_store_query_finds_every_spelling_and_honours_a_file_filter(qdrant_store):
     """Against a real Qdrant: the pattern and the file filter are what the store accepts."""
     retriever = _store_retriever()
@@ -429,6 +438,7 @@ def _seed(name: str, rows: list[tuple[str, str, int, dict]]) -> None:
     write(name, [record(text, file_name, page_label=str(page), **meta) for file_name, text, page, meta in rows])
 
 
+@pytest.mark.usefixtures("reads_as_an_office")
 class TestExactSearchReadsTheBaseCorpusLikeTheRankedSearch:
     """An excluded edition and a cover page are not evidence in either mode."""
 
@@ -499,6 +509,7 @@ class _FailingStore(_TextStore):
         return await super().find_text(collection_name, pattern, filters, limit)
 
 
+@pytest.mark.usefixtures("reads_as_an_office")
 class TestAStoreOutageIsNeverANo:
     def test_the_adapter_raises_on_an_outage_and_answers_empty_for_an_empty_collection(self, qdrant_store, monkeypatch):
         from knowledge_layer.vector_store import store as store_module

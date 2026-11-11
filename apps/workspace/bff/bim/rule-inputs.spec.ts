@@ -24,8 +24,11 @@ import {
   projectRuleInputs,
   readStoredRuleInputs,
 } from './rule-inputs'
-import { runBimRules } from './rules'
+import { runBimRules as runOnSite, type BimRuleFacts } from './rules'
 import type { BimElement } from './types'
+
+const runBimRules = (elements: readonly BimElement[], facts: Omit<BimRuleFacts, 'site'>) =>
+  runOnSite(elements, { site: { chain: ['AT'] }, ...facts })
 
 function element(overrides: Partial<BimElement> & Pick<BimElement, 'ifcType'>): BimElement {
   return {

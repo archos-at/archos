@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen } from '@/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { DOCUMENT_DRAG_TYPE } from '../hooks/use-document-drag'
-import { FolderBreadcrumbRow, FolderCard, FolderRow } from './folder-navigation'
+import { FolderBreadcrumbRow, FolderCard } from './folder-navigation'
+import { FolderRow } from './folder-table-row'
 import type { FolderItem } from './project-file-workspace'
 
 const FOLDER: FolderItem = { id: 'f-1', parentId: null, name: 'Verträge', path: '/Verträge', ownAccess: null }
@@ -51,7 +52,7 @@ describe('renaming a folder in place', () => {
 
   it('keeps the list row closed when the name field is clicked', () => {
     const props = tile()
-    render(<FolderRow folder={FOLDER} editing onEditingChange={() => {}} {...props} />)
+    render(<table><tbody><FolderRow folder={FOLDER} editing onEditingChange={() => {}} {...props} /></tbody></table>)
     fireEvent.click(screen.getByTestId('folder-rename-input-f-1'))
     expect(props.onOpen).not.toHaveBeenCalled()
   })

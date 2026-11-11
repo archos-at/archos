@@ -42,7 +42,7 @@ const sentKey = (): string => {
 
 /** The body of `class IngestRequest`, up to the next top-level definition. */
 const ingestRequest = (): string => {
-  const body = /^class IngestRequest\(BaseModel\):\n([\s\S]*?)(?=^\S)/m.exec(REQUESTS)
+  const body = /^class IngestRequest\([A-Za-z, ]+\):\n([\s\S]*?)(?=^\S)/m.exec(REQUESTS)
   expect(body, 'class IngestRequest not found in requests.py').not.toBeNull()
   return body![1]!
 }

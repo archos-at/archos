@@ -27,6 +27,7 @@
 import 'server-only'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
 import { FEATURE_FLAGS, isCollaborationEnabled } from '@/lib/authz/feature-flags'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { ConflictError, ForbiddenError, NotFoundError, UpstreamError } from '@/lib/api/errors'
@@ -54,6 +55,7 @@ import { isShared, requireResourceAccess } from '@/lib/sharing/access'
 import { countGrantsForResource } from '@/lib/sharing/repository'
 import { resolveParticipants } from '@/lib/sharing/service'
 import { normalizeAgentAnswerMetadata } from './agent-answer-metadata'
+import { recordPersistedAnswers } from './answer-records'
 import {
   resolveEngagement,
   resolveEngagementFor,
@@ -869,33 +871,6 @@ export async function cutStoppedAnswer(
   return row
 }
 
-/**
- * A message arrived carrying collaboration input in a deployment where
- * collaboration is off (spec NF-8).
- *
- * **Refused, not silently ignored.** Dropping the mentions would let the author
- * believe they had handed the thread to a colleague — the composer would show the
- * agent staying quiet, nobody would be asked, and no inbox item would ever
- * arrive. A stated refusal is the only outcome that does not invent a hand-off
- * that never happened. The chat path itself is untouched: a message WITHOUT
- * mentions behaves exactly as it did before this feature existed, which is the
- * whole point of the flag.
- *
- * Subclassed from `ForbiddenError` (which takes no `details`) so the reason is
- * machine-readable, mirroring the `feature-disabled` envelope
- * `requireCollaborationEnabled` answers with on every other collaboration route.
- */
-class CollaborationDisabledError extends ForbiddenError {
-  constructor() {
-    super('Collaboration is not enabled here, so a message cannot mention anyone.')
-    // `ApiError.details` is a readonly constructor property, so it is attached
-    // rather than passed through a constructor that does not accept it.
-    Object.assign(this, {
-      details: { reason: 'feature-disabled', feature: FEATURE_FLAGS.collaboration },
-    })
-  }
-}
-
 /** The agent answers — no mentions, today's behaviour unchanged (spec MN-1). */
 const AGENT_ADDRESSED: AddresseeSet = { agent: true, users: [] }
 
@@ -1037,8 +1012,9 @@ async function prepareMessage(
   // The mention path is the collaboration feature, and it must not switch itself
   // on where an operator has not chosen it (spec NF-8). Checked BEFORE the
   // replay lookup and before `applyMessageMentions`, so a flag-off send writes no
-  // grant, no request and no inbox row.
-  if (!isCollaborationEnabled(session)) throw new CollaborationDisabledError()
+  // grant, no request and no inbox row. Refused, never silently dropped: dropping
+  // the mentions would let the author believe a colleague was asked.
+  if (!isCollaborationEnabled(session)) throw new FeatureDisabledError(FEATURE_FLAGS.collaboration)
 
   // A replayed client-generated id must not create a second request or a second
   // notification. The first attempt's ruling is authoritative — read it back
@@ -1452,8 +1428,8 @@ export async function markConversationRead(
  * upgrade as `x-grid-organization-id`): a mismatched/unknown org surfaces as a
  * 404, exactly like the session path, so the token grants no cross-org bypass.
  *
- * Idempotent: `insertMessages` uses `onConflictDoNothing` on `messages.id`, and
- * the backend derives a deterministic per-turn id, so a double-write no-ops.
+ * Idempotent: `insertMessages` no-ops on a known `messages.id` (the backend's per-turn id is deterministic);
+ * only the licensed-text mark is merged into a row the asking tab stored first (`markLicensedAnswers`).
  *
  * No author is stamped and no addressee set is resolved: this path exists to
  * store what the AGENT produced (spec CC-3), and mentions are a property of a
@@ -1477,12 +1453,10 @@ export async function persistInternalConversationMessages(
     screened.map((input) =>
       buildMessageRow(
         conversationId,
-        // The backend posts its answer metadata in WIRE spelling (`sources`,
-        // `answer_confidence`, …) while every reader of a message row looks for
-        // the browser's stored contract (`citations`, `provenance`). Translated
-        // here, at the one point the foreign dialect enters, so a turn persisted
-        // because the client dropped reads back with its sources, its confidence
-        // and its passage locators intact — see `agent-answer-metadata`.
+        // The backend posts its answer metadata in WIRE spelling (`sources`, `answer_confidence`, …) while every
+        // reader of a message row looks for the browser's stored contract (`citations`, `provenance`). Translated
+        // here, where the foreign dialect enters, so a turn persisted because the client dropped reads back with
+        // its sources, its confidence and its passage locators intact — see `agent-answer-metadata`.
         {
           input: { ...input, metadata: normalizeAgentAnswerMetadata(input.metadata) },
           addressees: null,
@@ -1493,6 +1467,7 @@ export async function persistInternalConversationMessages(
     )
   )
 
+  await recordPersistedAnswers(organizationId, conversation.projectId ?? null, conversationId, inputs, rows)
   await fanOutMessageActivity({
     organizationId,
     conversationId,

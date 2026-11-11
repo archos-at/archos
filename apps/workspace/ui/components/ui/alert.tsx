@@ -51,7 +51,7 @@ const AlertTitle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
     <div
       ref={ref}
       data-slot="alert-title"
-      className={cn('col-start-2 line-clamp-1 min-h-4 font-medium tracking-tight', className)}
+      className={cn('col-start-2 line-clamp-1 min-h-4 font-medium', className)}
       {...props}
     />
   )

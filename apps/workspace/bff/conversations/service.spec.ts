@@ -120,6 +120,8 @@ vi.mock('./engagement', () => ({
 }))
 
 import { ConflictError, ForbiddenError, NotFoundError, ResourceRightsLostError, UpstreamError } from '@/lib/api/errors'
+import { featureDisabledProblem } from '@/lib/authz/feature-disabled'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
 import { purgeConversationCollaboration } from '@/lib/collaboration/cleanup'
 import { isCoveredByActiveHold } from '@/lib/compliance/repository'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -1350,11 +1352,9 @@ describe('the collaboration flag is off (spec NF-8, NF-7)', () => {
       },
     ]).catch((error: unknown) => error)
 
-    expect((failure as ForbiddenError).status).toBe(403)
-    expect((failure as ForbiddenError).details).toEqual({
-      reason: 'feature-disabled',
-      feature: 'collaboration',
-    })
+    // The one refusal of a switched-off feature, as requireFeature answers it (RFC 9457, `feature_disabled`).
+    expect(failure).toBeInstanceOf(FeatureDisabledError)
+    expect((failure as FeatureDisabledError).problem).toEqual(featureDisabledProblem('collaboration'))
     // No grant, no mention request, no inbox row — and the message itself is not
     // stored either, because a refused mention must not leave a half-sent trail.
     expect(applyMessageMentions).not.toHaveBeenCalled()
@@ -1588,6 +1588,36 @@ describe("the backend's own persist path speaks a different dialect", () => {
    * the browser's stored contract. What this pins is that the service translates
    * — the module's own rules are in `agent-answer-metadata.spec.ts`.
    */
+  it('marks an answer that read licensed text, also when the asking tab stored the row first (E44)', async () => {
+    stubConversation()
+    const answer = (id: string) => ({
+      id,
+      role: 'assistant' as const,
+      content: 'Laut Büroexemplar 110 cm.',
+      messageType: 'agent_response',
+      metadata: { sources: [], licensed_text: true },
+    })
+
+    // The server's row wins the insert: the mark is in it, under the stored key.
+    await persistInternalConversationMessages('org_1', CONVERSATION_ID, [answer('msg_server_first')])
+    expect(vi.mocked(insertMessages).mock.calls[0][0][0].metadata).toMatchObject({ licensedText: true })
+    expect(mergeMessageMetadata).not.toHaveBeenCalled()
+
+    // The tab stored the answer first, so the insert no-ops: the mark is merged into the tab's row.
+    vi.mocked(insertMessages).mockResolvedValueOnce([])
+    await persistInternalConversationMessages('org_1', CONVERSATION_ID, [answer('msg_tab_first')])
+    expect(mergeMessageMetadata).toHaveBeenCalledWith(CONVERSATION_ID, 'msg_tab_first', { licensedText: true })
+  })
+
+  it('merges nothing into a row the tab stored first when the turn read no licensed text', async () => {
+    stubConversation()
+    vi.mocked(insertMessages).mockResolvedValueOnce([])
+    await persistInternalConversationMessages('org_1', CONVERSATION_ID, [
+      { id: 'msg_plain', role: 'assistant', content: 'Laut OIB-RL 4 100 cm.', metadata: { sources: [] } },
+    ])
+    expect(mergeMessageMetadata).not.toHaveBeenCalled()
+  })
+
   it('stores the backend answer metadata as citations + provenance', async () => {
     stubConversation()
 

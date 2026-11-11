@@ -306,6 +306,10 @@ def _request_locked(name: str, doc_class: str | None, enqueue: EnqueueIngestJob)
     config: dict = {"cleanup_files": True, "original_filenames": [name], "priority": "bulk"}
     if doc_class:
         config["doc_class"] = doc_class
+    # The country and edition the platform recorded for this text (ADR-0173), on every chunk it writes.
+    mark = corpus_store.get_mark(name)
+    if mark is not None:
+        config.update(mark.job_config())
     prepared = ingestor.prepare_job(
         [corpus_store.CorpusObjectDownload(row.storage_key, row.sha256)],
         COLLECTION_NAME,
@@ -380,13 +384,14 @@ def remove_document(name: str) -> bool:
     return True
 
 
-def mark_for_reingest(name: str) -> bool:
+def mark_for_reingest(name: str, mark: corpus_store.FileMark | None = None) -> bool:
     """Make ``name`` need a new job: forget what the index was built from and what failed. False if not in the corpus.
 
     The file then reads as PENDING in ``oib_status``, which is the state the admin UI already
     polls on, and :func:`request_ingestion` queues a fresh job. The job for these bytes has the
     same id as before, so a finished or failed one is dropped first (its status and queue row);
     one still waiting or running is left alone, since it will do the work this asks for.
+    A ``mark`` (the country and edition the platform recorded, ADR-0173) is stored for the job to carry.
     """
     if not corpus_store.is_valid_name(name):
         return False
@@ -395,6 +400,8 @@ def mark_for_reingest(name: str) -> bool:
         return False
     if progress_of(row) not in (JobProgress.WAITING, JobProgress.RUNNING):
         _drop_job(row)
+    if mark is not None:
+        corpus_store.set_mark(name, mark)
     corpus_store.forget_ingested(name)
     return True
 
@@ -434,7 +441,42 @@ def _forget_everything_if_the_index_was_reset(rows: dict[str, corpus_store.FileR
     return corpus_store.list_files()
 
 
-def sync(*, enqueue: EnqueueIngestJob) -> SyncResult:
+#: Sets payload fields on every chunk of each named base-corpus file; the API tier hands it in
+#: (``agent_host.jobs.corpus_payloads``), since this package does not reach the vector store itself.
+MarkCorpusChunks = Callable[[dict[str, dict[str, str]]], None]
+
+
+def backfill_legacy_marks(mark_chunks: MarkCorpusChunks | None) -> int:
+    """Mark the corpus that predates ``country_id`` as Austrian, once (ADR-0173).
+
+    Until this change the base corpus held Austria alone, so the files the first sync after the
+    deploy finds unmarked are the Austria pack's. Each row gets the mark (a later ingest job carries
+    it) and its chunks get ``country_id``, so nothing turns unreadable once the filter reads unmarked
+    chunks as nobody's. Then the backfill records that it ran, and never runs again: a file uploaded
+    later carries the mark its release gives it, or ``ZZ``. Without ``mark_chunks``, or with a store
+    that refuses, it waits for the next cycle, with nothing half-written in the table.
+    """
+    if mark_chunks is None:
+        return 0
+    names = corpus_store.legacy_unmarked()
+    try:
+        if names:
+            mark_chunks({name: {"country_id": corpus_store.LEGACY_CORPUS_COUNTRY} for name in names})
+    except Exception:  # noqa: BLE001 - the next cycle tries again; nothing below has run
+        logger.warning(
+            "The legacy country backfill could not reach the vector store; it runs next cycle", exc_info=True
+        )
+        return 0
+    mark = corpus_store.FileMark(country_id=corpus_store.LEGACY_CORPUS_COUNTRY)
+    for name in names:
+        corpus_store.set_mark(name, mark)
+    corpus_store.record_legacy_backfill()
+    if names:
+        logger.info("Marked %d base-corpus file(s) from before the country field as %s", len(names), mark.country_id)
+    return len(names)
+
+
+def sync(*, enqueue: EnqueueIngestJob, mark_chunks: MarkCorpusChunks | None = None) -> SyncResult:
     """One sync cycle: record the jobs that finished, then queue a job for every file that needs one.
 
     Cheap: it reads the table and the status store and writes queue rows, and runs no ingestion.
@@ -443,6 +485,7 @@ def sync(*, enqueue: EnqueueIngestJob) -> SyncResult:
     queue cannot take a job, instead of ingesting here.
     """
     with keyed_lock(SYNC_LOCK_KEY):
+        backfill_legacy_marks(mark_chunks)
         rows = _forget_everything_if_the_index_was_reset(corpus_store.list_files())
         settled = settle(rows)
         failed = sum(1 for state in settled.progress.values() if state == JobProgress.FAILED)

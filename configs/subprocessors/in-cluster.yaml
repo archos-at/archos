@@ -1,0 +1,124 @@
+# Self-hosted components: data stays in the cluster at IPAX (ipax.yaml). The
+# public page lists `components`; `env` and `hosts` are the addresses of these
+# components (and of our own tiers), which carry nothing out of the cluster as
+# long as the stack points them at a Service inside it. Pointing one outside the
+# cluster makes it a new flow: give it a processor row instead.
+components:
+  - name: PostgreSQL
+    holds_tenant_text: true
+    purpose: {de: Anwendungsdatenbank, en: Application database}
+    data:
+      de: Projekte, Konversationen, Memory, Nutzungsledger, Konfiguration
+      en: Projects, conversations, memory, usage ledger, configuration
+    deletion:
+      de: >-
+        Eine Projektlöschung entfernt die Zeilen des Projekts; Point-in-Time-Recovery hält Kopien 30 Tage. Ein Löschlauf
+        für die ganze Organisation (einschließlich `llm_usage_events` und der Konversationszustände) fehlt.
+      en: >-
+        A project deletion removes the project's rows; point-in-time recovery keeps copies for 30 days. A deletion run
+        for the whole organization (including `llm_usage_events` and conversation state) is missing.
+  - name: SeaweedFS (S3-kompatibel / S3-compatible)
+    holds_tenant_text: true
+    purpose: {de: Objektspeicher, en: Object storage}
+    data: {de: Hochgeladene Dokumente, en: Uploaded documents}
+    deletion:
+      de: Eine Projektlöschung entfernt die Objekte des Projekts; der Bucket der Organisation bleibt bei Vertragsende bestehen.
+      en: A project deletion removes the project's objects; the organization's bucket stays at contract end.
+  - name: Qdrant
+    holds_tenant_text: true
+    purpose: {de: Vektorindex, en: Vector index}
+    data: {de: Embeddings von Dokumenten und Vorschriften, en: Document and regulation embeddings}
+    deletion:
+      de: Eine Projektlöschung entfernt die Punkte des Projekts, Snapshots halten sie 7 Tage; bei Vertragsende bleiben die Punkte der Organisation.
+      en: A project deletion removes the project's points and snapshots keep them for 7 days; at contract end the organization's points stay.
+  - name: Dragonfly (Redis-kompatibel / Redis-compatible)
+    holds_tenant_text: false
+    purpose: {de: 'Cache, Rate-Limiting', en: 'Cache, rate limiting'}
+    data: {de: Kurzlebige Betriebsdaten, en: Short-lived operational data}
+  - name: Langfuse
+    holds_tenant_text: true
+    purpose: {de: Nachvollziehbarkeit der KI-Anfragen (Tracing), en: Tracing of AI requests}
+    data:
+      de: Fragen, Antworten und Zwischenschritte der KI einschließlich gefundener Dokumentauszüge; Bewertungen
+      en: The AI's questions, answers and intermediate steps, including retrieved document excerpts; ratings
+    deletion:
+      de: Traces werden nach 30 Tagen gelöscht und mit einem gelöschten Chat entfernt.
+      en: Traces are deleted after 30 days and removed with a deleted chat.
+  - name: Hatchet
+    holds_tenant_text: true
+    purpose: {de: Warteschlange für Hintergrundarbeit, en: Queue for background work}
+    data: {de: Aufträge und ihre Zwischenstände, en: Jobs and their intermediate state}
+    deletion:
+      de: Aufträge werden nach 14 Tagen gelöscht.
+      en: Jobs are deleted after 14 days.
+  - name: ClamAV
+    holds_tenant_text: false
+    purpose:
+      de: Virenprüfung von Anhängen, die Externe senden
+      en: Malware scanning of attachments sent from outside
+    data:
+      de: 'Keine: geprüfte Dateien werden nicht gespeichert'
+      en: 'None: scanned files are not stored'
+hosts:
+  - langfuse.seaweedfs
+env:
+  APP_DATABASE_URL: the app database (CNPG in the cluster)
+  APP_MIGRATION_DATABASE_URL: the app database, migration role
+  DATABASE_URL: Langfuse's and the CMS's database in the cluster
+  NAT_JOB_STORE_DB_URL: the jobs database in the cluster
+  LISTEN_DB_URL: direct Postgres DSN for LISTEN, in the cluster
+  LOCK_DB_URL: direct Postgres DSN for advisory locks, in the cluster
+  PUBLIC_SOURCE_FETCHER_URL: the sandboxed public-source fetcher in the cluster (deploy/pulumi/src/app/public-source-fetcher.ts); it reaches only the hosts a record under configs/sources/ lists, each of which the scan holds to public-sources.yaml
+  BACKGROUND_WORK_PG_HOST: Hatchet's Postgres in the cluster
+  KEDA_BACKGROUND_WORK_DB_URL: KEDA's read-only login to Hatchet's Postgres
+  CLICKHOUSE_URL: Langfuse's ClickHouse in the cluster
+  CLICKHOUSE_MIGRATION_URL: Langfuse's ClickHouse, migrations
+  CMS_PG_HOST: the website CMS's Postgres in the cluster
+  QDRANT_URL: Qdrant in the cluster
+  QDRANT_API_KEY: Qdrant's key
+  CHROMA_URL: retired vector store, in the cluster until deleted
+  QDRANT_TEST_URL: test-only Qdrant
+  TEST_POSTGRES_URL: test-only Postgres
+  QDRANT_READ_ONLY_API_KEY: Qdrant's read-only key
+  QDRANT__SERVICE__API_KEY: Qdrant's own server setting
+  QDRANT__SERVICE__ALT_API_KEY: Qdrant's own server setting, the rotation key
+  QDRANT__SERVICE__READ_ONLY_API_KEY: Qdrant's own server setting, the read-only key
+  QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__ENDPOINT_URL: Qdrant snapshots into SeaweedFS in the cluster
+  S3_ENDPOINT: SeaweedFS in the cluster
+  SEAWEED_ENDPOINT: SeaweedFS in the cluster
+  SEAWEED_PUBLIC_ENDPOINT: the browser's address of our own SeaweedFS (presigned downloads)
+  LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: Langfuse's exports into SeaweedFS in the cluster
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: Langfuse's event uploads into SeaweedFS in the cluster
+  REDIS_URL: Dragonfly in the cluster
+  REALTIME_REDIS_URL: Dragonfly in the cluster, realtime fan-out
+  RABBITMQ_HOST: Hatchet's RabbitMQ in the cluster
+  HATCHET_CLIENT_API_URL: Hatchet in the cluster
+  HATCHET_CLIENT_SERVER_URL: Hatchet in the cluster
+  LANGFUSE_HOST: self-hosted Langfuse in the cluster
+  LANGFUSE_PUBLIC_URL: the browser's address of our own Langfuse
+  NEXTAUTH_URL: Langfuse's own address (its sign-in callback)
+  AUTH_TRUST_HOST: Langfuse's sign-in setting, not an address
+  GOTENBERG_URL: the document converter in the cluster, with egress denied
+  MALWARE_SCAN_URL: ClamAV in the cluster
+  OTEL_EXPORTER_OTLP_ENDPOINT: the OTel collector in the cluster; what it exports is in posthog.yaml
+  BACKEND_URL: our own agent tier
+  BACKEND_CHAT_URL: our own agent tier, chat role
+  NEXT_PUBLIC_BACKEND_URL: our own agent tier, as the browser reaches it
+  FRONTEND_URL: our own BFF
+  FRONTEND_INTERNAL_URL: our own BFF inside the cluster
+  NEXT_INTERNAL_URL: our own Next.js server behind server.js
+  BFF_URL: our own BFF, for the inbound-mail Worker
+  SWEEP_URL: our own BFF's sweep route, for the worker CronJob
+  RESEARCH_RUNS_URL: our own API route for research runs
+  PUBLIC_APP_URL: our own app's public address
+  LANDING_URL: our own website's address
+  PUBLIC_SITE_URL: our own website's address
+  WEBSITE_PUBLIC_URL: our own website's address
+  WEBSITE_REVALIDATE_URL: our own website's revalidation route
+  MCP_RESOURCE_URL: our own MCP door's public address
+  CMS_URL: our own website CMS
+  CMS_PUBLIC_URL: our own website CMS, public address
+  CMS_INTERNAL_URL: our own website CMS in the cluster
+  CMS_API_KEY: a key for our own website CMS
+  CMS_WEBSITE_API_KEY: a key for our own website CMS
+  CMS_PLATFORM_MCP_API_KEY: a key for our own website CMS

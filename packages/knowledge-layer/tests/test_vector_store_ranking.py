@@ -135,6 +135,7 @@ def test_a_three_way_rrf_tie_comes_back_in_cosine_order(store):
             exact_terms=["5.1.1"],
             limit=3,
             candidates=1,
+            office_id="org_test",
         )
         assert len({round(hit.fused, 9) for hit in hits}) == 1, "the three are tied"
         assert [hit.chunk_id for hit in hits] == ["dense-top", "exact-top", "lexical-top"]
@@ -161,5 +162,6 @@ def test_a_tie_between_projects_puts_the_closer_projects_group_first(store):
             groups=3,
             group_size=1,
             candidates=1,
+            office_id="org_test",
         )
         assert [scope for scope, _ in groups] == ["proj_c", "proj_b", "proj_a"]

@@ -331,7 +331,7 @@ Format: **job** → **grammar** → **unmistakable** → **degradation** → **e
 
 #### `verdict_header`
 **Job.** Deliver the one number or ruling the reader came for, at the top of the answer.
-**Grammar.** The card is the figure. `subject` as Eyebrow above; verdict at **30px/600/tabular-nums/tracking-tight**, `text-balance`. Confidence stops being a pill (VerdictHeaderCard.tsx:66–75) and becomes a **hairline gauge**: three 12×3px segments filled to level, plus the word — so confidence is *comparable between two answers*, which a pill is not, and three segments is exact because the enum has exactly three values. `confidence_reason` at Caption beneath. No body list at all: **the card is ~96px tall, and that height is its signature — the only card under 120px.**
+**Grammar.** The card is the figure. `subject` as Eyebrow above; verdict at **30px/500/tabular-nums (no tighter tracking: `design-language.md`, Type ramp)**, `text-balance`. Confidence stops being a pill (VerdictHeaderCard.tsx:66–75) and becomes a **hairline gauge**: three 12×3px segments filled to level, plus the word — so confidence is *comparable between two answers*, which a pill is not, and three segments is exact because the enum has exactly three values. `confidence_reason` at Caption beneath. No body list at all: **the card is ~96px tall, and that height is its signature — the only card under 120px.**
 **Unmistakable.** A single large number in a short accented card with nothing under it.
 **Degradation.** No confidence → gauge absent, verdict rises. Long compound verdict → wraps to two lines; drop 30 → 24px above 24 characters (branch on string length, not viewport — the string is the problem, not the column). 30px survives 314px comfortably.
 **Effort: S.**

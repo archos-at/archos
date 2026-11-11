@@ -68,6 +68,8 @@ import { sanitizeFindings } from './message-findings'
  */
 const BACKEND_ANSWER_KEYS = [
   'sources',
+  // The turn read an office's licensed text (ADR-0164): stored as `licensedText`, read by the lessons distiller.
+  'licensed_text',
   // Retrieved-but-uncited document identities (no prose) for the
   // "Gelesen, nicht zitiert" disclosure — same lift as `sources`.
   'read_sources',
@@ -522,6 +524,18 @@ export function normalizeAgentAnswerMetadata(
     const findings = sanitizeFindings(metadata.findings)
     if (findings) out.findings = findings
   }
+  if (metadata.licensed_text === true) out[LICENSED_TEXT_KEY] = true
 
   return out
 }
+
+/**
+ * The answer row's mark of a turn that read an office's licensed text (ADR-0164, design E44), written by the
+ * server (`chat_socket.persist_turn_result`) and never by the browser: the lessons distiller takes no vote on
+ * such an answer.
+ */
+export const LICENSED_TEXT_KEY = 'licensedText'
+
+/** Whether the backend's metadata for an answer says its turn read licensed text. */
+export const readLicensedText = (metadata: Record<string, unknown> | undefined): boolean =>
+  metadata?.licensed_text === true

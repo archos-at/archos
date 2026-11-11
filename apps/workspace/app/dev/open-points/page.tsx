@@ -31,6 +31,8 @@ import type { JSX } from 'react'
 import { addCalendarDays, localCalendarDay } from '@/lib/format'
 import type { ProjectMarkView } from '@/lib/annotations/project-types'
 import type { AnnotationReplyView } from '@/lib/annotations/types'
+import { ProjectSectionFrame } from '@/components/shell/project-section-frame'
+import { primeInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { OpenPointsPanel } from '@/features/documents/components/open-points/open-points-panel'
 
 const PROJECT = 'dev-project'
@@ -138,7 +140,7 @@ const MARKS: ProjectMarkView[] = [
   mark(section, {
     number: 1,
     kind: 'defect',
-    body: 'Geländerhöhe im Stiegenhaus unter 1,00 m (OIB-RL 4, 2.3.2).',
+    body: 'Geländerhöhe im Stiegenhaus unter 1,00 m (OIB\u2011RL 4, 2.3.2).',
     basis: 'OIB-RL 4, Pkt. 2.3.2',
     authorKind: 'piloti',
     acceptedBy: ME,
@@ -229,14 +231,19 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 }
 
 export default function OpenPointsPreview(): JSX.Element {
+  // The waiting count the rail would have read, for the E-Mail-Eingang tab.
+  primeInboundMailWaiting(PROJECT, { count: 3, more: false })
   return (
+    // In the section frame, as the project's Offene Punkte tab draws it: its head, its tabs, its container.
     <div className="bg-background h-dvh">
-      <OpenPointsPanel
-        projectId={PROJECT}
-        currentUserId={ME}
-        initial={null}
-        filing={params.get('nofile') ? null : { projectName: 'Wohnhaus Lend' }}
-      />
+      <ProjectSectionFrame projectId={PROJECT} projectName="Wohnhaus Lend" pathname={`/app/projects/${PROJECT}/files/open-points`} inboundMail>
+        <OpenPointsPanel
+          projectId={PROJECT}
+          currentUserId={ME}
+          initial={null}
+          filing={params.get('nofile') ? null : { projectName: 'Wohnhaus Lend' }}
+        />
+      </ProjectSectionFrame>
     </div>
   )
 }

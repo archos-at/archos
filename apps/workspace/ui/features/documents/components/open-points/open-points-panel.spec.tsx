@@ -22,6 +22,7 @@ import { render, screen, within } from '@/test-utils'
 import { captureDownloads } from '@/test-utils/downloads'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import type { ProjectMarksResponse, ProjectMarkView } from '@/lib/annotations/project-types'
+import { SectionActionsInline } from '@/components/shell/project-section-frame'
 import { OpenPointsPanel } from './open-points-panel'
 
 const mark = (overrides: Partial<ProjectMarkView> = {}): ProjectMarkView => ({
@@ -88,7 +89,11 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 const show = (initial: ProjectMarksResponse | null = PAGE) =>
-  render(<OpenPointsPanel projectId="proj_1" currentUserId="user_anna" initial={initial} />)
+  render(
+    <SectionActionsInline>
+      <OpenPointsPanel projectId="proj_1" currentUserId="user_anna" initial={initial} />
+    </SectionActionsInline>
+  )
 
 /** The query of a link's `back`, the page closing its review returns to. */
 const backOf = (href: string | null) => new URL(href ?? '', 'https://piloti.test').searchParams.get('back')
@@ -265,7 +270,11 @@ describe('filing the project’s Protokoll', () => {
     return uploads
   }
   const showFiling = () =>
-    render(<OpenPointsPanel projectId="proj_1" currentUserId="user_anna" initial={PAGE} filing={{ projectName: 'Lend' }} />)
+    render(
+      <SectionActionsInline>
+        <OpenPointsPanel projectId="proj_1" currentUserId="user_anna" initial={PAGE} filing={{ projectName: 'Lend' }} />
+      </SectionActionsInline>
+    )
 
   it('files the Protokoll the filters show into the project root, through the upload, named after the project and the day', async () => {
     const uploads = filed(false)

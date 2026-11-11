@@ -47,7 +47,7 @@ def _call(t0: float, seconds: float, *, reasoning: int, output: list[dict]) -> d
     }
 
 
-def _recorded_turn(tmp_path: Path) -> tuple[Path, Path]:
+def _recorded_turn(tmp_path: Path, answer: str | None = None) -> tuple[Path, Path]:
     message = {"type": "message", "content": [{"text": "```answer_json\n" + json.dumps(ENVELOPE) + "\n```"}]}
     rows = [
         {"url": "https://openrouter.ai/api/v1/responses", "t_start": 0.0, "t_end": 1.0, "req": {"input": "ping"}},
@@ -59,7 +59,7 @@ def _recorded_turn(tmp_path: Path) -> tuple[Path, Path]:
     log = tmp_path / "turn.log"
     log.write_text(
         "INFO answer_meta summary gated out: restates_lede\n"
-        f"\x1b[32mWorkflow Result:\n{ANSWER}\n\x1b[39m\n--------------------------------------------------\n"
+        f"\x1b[32mWorkflow Result:\n{answer or ANSWER}\n\x1b[39m\n--------------------------------------------------\n"
     )
     return record, log
 
@@ -84,6 +84,14 @@ def test_a_recorded_turn_reads_as_one_run(tmp_path):
     assert run.signals == ["summary_gated"]
     assert run.answer.startswith("Treppenhauswände in GK 4") and "\x1b" not in run.answer
     assert run.cited_families == ["2"]
+
+
+def test_a_file_under_its_published_2019_name_counts_as_cited(tmp_path):
+    # oib.or.at publishes the 2019 Richtlinien as `oib-rl-<n>-<title>-2019.pdf`, which `rl_<n>_` does not see:
+    # observe reads cited files through the corpus's canonical names (`cited_files.py`).
+    answer = ANSWER + "\n[2] oib-rl-6-energieeinsparung-und-waermeschutz-2019.pdf, p.3"
+    run = suite.observe(QUESTION, 1, *_recorded_turn(tmp_path, answer))
+    assert run.cited_families == ["2", "6"]
 
 
 def test_every_expectation_is_its_own_check(tmp_path):

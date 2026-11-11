@@ -1,5 +1,7 @@
 // @disk-inputs: tests/fixtures/ifc/sample-building.ifc
 /**
+ * @vitest-environment node
+ *
  * Extraction is the foundation every other IFC surface stands on — the viewer,
  * the query tool and the digest all read what this produces — so it is pinned
  * against a real IFC file rather than a hand-built store double. The fixture is

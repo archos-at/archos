@@ -175,7 +175,7 @@ function EarlierBar({ review, onCheckFixed }: { review: DocumentReview; onCheckF
   const marks = review.annotations.filter((annotation) => !annotation.onCurrentRevision && annotation.carryTarget)
   if (marks.length === 0) return null
   return (
-    <div className="bg-muted/40 mx-0.5 mb-2 space-y-1 rounded-surface px-2.5 py-2" data-testid="review-earlier-bar">
+    <div className="bg-muted mx-0.5 mb-2 space-y-1 rounded-surface px-2.5 py-2" data-testid="review-earlier-bar">
       <div className="flex items-center gap-2">
         <History className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
         <span className="text-foreground min-w-0 flex-1 text-xs font-medium">{t('review.earlierOpen', { count: marks.length })}</span>
@@ -279,7 +279,7 @@ function CarriedFrom({
           <p className="text-muted-foreground text-[11px] leading-4">
             {t('review.carriedLoadError', { name: group.from.filename })}
           </p>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={review.retryCarried}>
+          <Button type="button" variant="secondary" size="sm" className="h-7 text-xs" onClick={review.retryCarried}>
             {t('annotations.retry')}
           </Button>
         </div>
@@ -315,7 +315,7 @@ function CarriedFrom({
                 <span className="mt-1.5 flex flex-wrap gap-1.5">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     className="h-7 text-xs"
                     disabled={busy}
@@ -489,7 +489,7 @@ export function ReviewPanel({
         ) : load === 'error' ? (
           <div className="space-y-2 px-2 py-6 text-center">
             <p className="text-muted-foreground text-sm">{t('annotations.loadError')}</p>
-            <Button type="button" variant="outline" size="sm" onClick={review.retry}>
+            <Button type="button" variant="secondary" size="sm" onClick={review.retry}>
               {t('annotations.retry')}
             </Button>
           </div>

@@ -16,6 +16,7 @@ import {
   getAskQuerySchema,
 } from '@/lib/agent-asks/ask-wire'
 import type { AgentOperation } from '../operation'
+import { generatedAt } from '../ai-generated-meta'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 export const consultOperations = [
@@ -36,6 +37,7 @@ export const consultOperations = [
     method: 'POST',
     path: '/api/agent-asks',
     body: createAskSchema,
+    generatedContent: generatedAt('answer'),
     load: () => import('@/app/api/agent-asks/route'),
   },
   {
@@ -52,6 +54,7 @@ export const consultOperations = [
     path: '/api/agent-asks/[id]',
     params: askParamsSchema,
     query: getAskQuerySchema,
+    generatedContent: generatedAt('answer'),
     load: () => import('@/app/api/agent-asks/[id]/route'),
   },
   {

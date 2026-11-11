@@ -114,7 +114,7 @@ export function DocumentArchiveAction({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               className="h-8"
               disabled={pending}
               aria-busy={pending}

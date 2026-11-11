@@ -26,10 +26,16 @@ import {
   renderBimComplianceDiff,
   missingPropertyShoppingList,
   renderBimRules,
-  runBimRules,
+  runBimRules as runOnSite,
+  type BimRuleFacts,
   summarizeBimRules,
 } from './rules'
 import type { BimElement } from './types'
+
+/** Every rule here is an OIB-Richtlinie: judged for a building in Vienna unless a test places it elsewhere. */
+const VIENNA = { chain: ['AT-9', 'AT'] }
+const runBimRules = (elements: readonly BimElement[], facts: Partial<BimRuleFacts> = {}) =>
+  runOnSite(elements, { site: VIENNA, ...facts })
 
 function element(overrides: Partial<BimElement> & Pick<BimElement, 'ifcType'>): BimElement {
   return {
@@ -1582,5 +1588,38 @@ describe('outstandingRules', () => {
       expect(rule.applicable).toBe(true)
       expect(rule.failed + rule.undecidable).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('where a rule binds (ADR-0169)', () => {
+  const wall = (fireRating: string): BimElement =>
+    ({
+      globalId: 'W1',
+      name: 'W1',
+      ifcType: 'IfcWall',
+      storeyName: 'EG',
+      properties: { Pset_WallCommon: { LoadBearing: true, FireRating: fireRating } },
+    }) as unknown as BimElement
+  const fire = (site: BimRuleFacts['site']) =>
+    runOnSite([wall('REI 30')], { site, buildingClass: 5 }).find((rule) => rule.ruleId === 'oib2-fire-resistance-load-bearing')
+
+  it('judges an OIB rule in Austria, the positive control', () => {
+    expect(fire({ chain: ['AT-9', 'AT'] })).toMatchObject({ applicable: true })
+  })
+
+  it('does not apply the OIB anywhere else, and says why', () => {
+    for (const site of [{ chain: ['DE-BY', 'DE'] }, { chain: ['CH'] }, { chain: [] }]) {
+      const result = fire(site)
+      expect(result).toMatchObject({ applicable: false, passed: 0, failed: 0 })
+      expect(result?.notApplicableReason).toMatch(/gilt in Österreich/)
+    }
+  })
+
+  it('leaves every element open for a project nothing places: never passed, never out of scope', () => {
+    const results = runOnSite([wall('REI 90')], { site: null, buildingClass: 4 })
+    const result = results.find((rule) => rule.ruleId === 'oib2-fire-resistance-load-bearing')
+    expect(result).toMatchObject({ applicable: true, passed: 0, failed: 0, undecidable: 1 })
+    expect(result?.missing).toEqual([{ path: 'Projektangabe: Standort (Land)', elements: 1 }])
+    expect(results.every((rule) => rule.passed === 0)).toBe(true)
   })
 })

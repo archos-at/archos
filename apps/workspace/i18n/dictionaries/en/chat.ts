@@ -2068,6 +2068,8 @@ export const chat = {
       ungrounded: 'Low confidence: answer not backed by sources.',
       quoteUnverified:
         'A quote could not be verified verbatim against the source; the assessment is capped accordingly.',
+      lawUnsettled:
+        'Medium confidence: the answer rests on building law whose binding edition at this site is not yet settled by reviewed records.',
       // The measurement backs the number, not the legal statement beside it —
       // so the mixed answer stays at "low" and the tooltip says why.
       normativeClaimUncited:
@@ -2098,6 +2100,8 @@ export const chat = {
       checkedAgainst: 'checked against {source}',
       noSource: 'no source',
       quoteUnverified: 'A quotation could not be confirmed word for word in its source, so the level is capped.',
+      lawUnsettled:
+        'Which edition binds at this site is not yet settled by reviewed records, so the level is at most medium.',
       unavailable: 'Evidence check unavailable',
       unavailableTooltip:
         'The evidence check could not run for this answer, so {productName} shows no level; the answer itself is unchanged.',
@@ -2117,6 +2121,7 @@ export const chat = {
         ungrounded: 'Capped by a statement the answer rests on that nothing backs.',
         quoteUnverified:
           'A quote could not be verified verbatim against the source; the assessment is capped accordingly.',
+        lawUnsettled: 'Capped by building law whose binding edition at this site is not yet settled by reviewed records.',
         normativeClaimUncited:
           'Capped by a legal statement without a cited source. A workspace record or a measurement does not back a legal statement.',
         measurementOnly:
@@ -2174,6 +2179,8 @@ export const chat = {
     preview: 'The model sees: “{text}”',
     iban: '{count, plural, one {an IBAN} other {# IBANs}}',
     at_svnr: '{count, plural, one {a social security number} other {# social security numbers}}',
+    de_svnr: '{count, plural, one {a German social insurance number} other {# German social insurance numbers}}',
+    de_tax_id: '{count, plural, one {a tax ID} other {# tax IDs}}',
     credit_card: '{count, plural, one {a card number} other {# card numbers}}',
     term: 'the term “{term}”',
     withSample: '{item} {sample}',

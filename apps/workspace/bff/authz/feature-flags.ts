@@ -54,6 +54,7 @@
 import type { UserSession } from '@/lib/auth/types'
 import { isAuthRequired } from '@/lib/auth/auth-required'
 import { NextResponse } from 'next/server'
+import { featureDisabledProblem } from './feature-disabled'
 
 export const FEATURE_FLAGS = {
   /** Runtime AI model configuration (ADR-0014) — a premium admin feature. */
@@ -287,6 +288,18 @@ export const FEATURE_FLAGS = {
    */
   officeConventions: 'office-conventions',
   /**
+   * Licensed text an office holds (its own ÖNORM or DIN copy, a paid
+   * commentary) reaches the model inside the call (the licensed seam,
+   * `packages/agent/src/agent/common/licensed_text.py`). Read per turn by the
+   * agent tier through `GET /api/internal/stages` (`features.licensedSeam`).
+   *
+   * An entitlement, off until an operator targets the organization. Off is not
+   * unguarded: a passage marked licensed is then listed with its document, page
+   * and clause and no text. On, its text is expanded only inside the model call,
+   * never in a trace, checkpoint or log, and every quote of it is capped.
+   */
+  licensedSeam: 'licensed-seam',
+  /**
    * Mail sent to a project's address (ADR-0137, ADR-0138): the project shows
    * its address, mail to it waits in the project's E-Mail-Eingang until a
    * person files each part, and a person may follow a conversation. Read per
@@ -303,6 +316,20 @@ export const FEATURE_FLAGS = {
    * held until it is filed, dismissed or expires.
    */
   inboundMail: 'inbound-mail',
+  /**
+   * Site resolution from official address registers hosted in the cell
+   * (ADR-0172): `site-resolve` and `project-site-set` answer, and a register
+   * hit places a project with its Gemeinde, Land and competent authority. Read
+   * from the session by the routes (`requireFeature`).
+   *
+   * A rollout: public register data that costs nothing per office and changes
+   * nobody's reads. With it off both routes answer 403 and everything else is as
+   * before: the typed address is kept unconfirmed, the geocoder stays as its
+   * deployment set it (ADR-0159).
+   */
+  siteResolution: 'site-resolution',
+  /** Source monitors (ADR-0174, `bff/base-knowledge/platform/monitor.ts`); off: the sweep reads, fetches and writes nothing. */
+  sourceMonitors: 'source-monitors',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -332,7 +359,10 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'piloti-ask': 'entitlement',
   'folder-cards': 'entitlement',
   'office-conventions': 'entitlement',
+  'licensed-seam': 'entitlement',
   'inbound-mail': 'entitlement',
+  'site-resolution': 'rollout',
+  'source-monitors': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',
@@ -479,14 +509,11 @@ export function requireTaskAutomationEnabled(
   return requireFeature(session, FEATURE_FLAGS.taskAutomation)
 }
 
-/**
- * Route guard: stable-coded 403 when the feature is off, null when allowed.
- * Usage: `const gated = requireFeature(session, FEATURE_FLAGS.x); if (gated) return gated`
- */
+/** Route guard: the feature-disabled problem (403, `feature-disabled.ts`) when off, null when allowed. */
 export function requireFeature(
   session: Pick<UserSession, 'featureFlags'>,
   flag: KnownFeatureFlag
 ): Response | null {
   if (isFeatureEnabled(session, flag)) return null
-  return NextResponse.json({ error: 'feature-disabled', feature: flag }, { status: 403 })
+  return NextResponse.json(featureDisabledProblem(flag), { status: 403, headers: { 'Content-Type': 'application/problem+json' } })
 }

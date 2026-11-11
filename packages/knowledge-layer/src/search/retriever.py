@@ -30,6 +30,7 @@ from agent.knowledge.schema import RetrievalResult
 
 from .lexical_query import lexical_inputs
 from .query_embeddings import QueryEmbeddingCache
+from .reading_office import office_for
 from .retrieved_chunks import chunk_from_node
 
 logger = logging.getLogger(__name__)
@@ -261,8 +262,14 @@ class LlamaIndexRetriever(BaseRetriever):
         """``file_name -> chunks that hold the pattern's words`` (``qdrant.retrieval.candidate_counts``), or None."""
         from knowledge_layer.vector_store import retrieval as qdrant_retrieval
 
+        office = office_for([collection_name])
         return await asyncio.to_thread(
-            qdrant_retrieval.candidate_counts, collection_name, pattern, filters, user_regex=user_regex
+            qdrant_retrieval.candidate_counts,
+            collection_name,
+            pattern,
+            filters,
+            office_id=office,
+            user_regex=user_regex,
         )
 
     async def fetch(
@@ -320,8 +327,9 @@ class LlamaIndexRetriever(BaseRetriever):
 
         # Every returned chunk matches, so none ranks above another; the
         # caller orders them by document and page (cosine 1.0).
+        office = office_for([collection_name])
         hits = qdrant_retrieval.find_text(
-            collection_name, pattern, filters, limit, user_regex=user_regex, stem_phrases=stem_phrases
+            collection_name, pattern, filters, limit, office_id=office, user_regex=user_regex, stem_phrases=stem_phrases
         )
         chunks = [self._chunk_from_hit(hit) for hit in hits]
         for chunk, hit in zip(chunks, hits, strict=True):
@@ -489,6 +497,7 @@ class LlamaIndexRetriever(BaseRetriever):
             lexical_text, terms = self._lexical_inputs(query, collection_name)
         hits = qdrant_retrieval.search(
             collection_name,
+            office_id=office_for([collection_name]),
             vector=query_vector,
             lexical_text=lexical_text,
             top_k=top_k,
@@ -529,6 +538,7 @@ class LlamaIndexRetriever(BaseRetriever):
             lexical_text, terms = self._lexical_inputs(query, collection_names)
         grouped = qdrant_retrieval.search_grouped(
             collection_names,
+            office_id=office_for(collection_names),
             vector=self._embed_query_cached(query),
             lexical_text=lexical_text,
             groups=groups,

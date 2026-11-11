@@ -14,13 +14,11 @@ a new tool cannot slip past the scan by being unbuildable.
 from __future__ import annotations
 
 import json
-import os
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
+from agent_testing.tool_payloads import built_tools
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -37,45 +35,6 @@ GERMAN_FUNCTION_WORDS = frozenset(
 ALLOWED_PHRASES = ("Antrag auf",)
 
 _QUOTED = re.compile(r"„[^“]*“|“[^”]*”|\"[^\"]*\"|`[^`]*`|(?<!\w)'[^']*'(?!\w)")
-
-_BUILD_ALL = r"""
-import asyncio, json, os
-from pathlib import Path
-os.environ.setdefault("OPENROUTER_API_KEY", "schema-generation-only")
-from nat.builder.workflow_builder import WorkflowBuilder
-from nat.data_models.config import Config
-from nat.runtime.loader import PluginTypes, discover_and_register_plugins
-from nat.utils.io.yaml_tools import yaml_load
-
-discover_and_register_plugins(PluginTypes.ALL)
-raw = yaml_load(Path("configs/config_oib_openrouter.yml"))
-
-
-async def main():
-    out = {}
-    cfg = Config(
-        llms=raw.get("llms", {}),
-        embedders=raw.get("embedders", {}),
-        functions=raw["functions"],
-        function_groups=raw.get("function_groups", {}),
-    )
-    async with WorkflowBuilder() as builder:
-        for name, c in cfg.llms.items():
-            await builder.add_llm(name, c)
-        for name, c in cfg.embedders.items():
-            await builder.add_embedder(name, c)
-        for name, c in cfg.function_groups.items():
-            group = await builder.add_function_group(name, c)
-            for key, fn in (await group.get_all_functions()).items():
-                out[key] = [fn.description, fn.input_schema.model_json_schema()]
-        for name, c in cfg.functions.items():
-            fn = await builder.add_function(name, c)
-            out[name] = [fn.description, fn.input_schema.model_json_schema()]
-    print("@@" + json.dumps(out))
-
-
-asyncio.run(main())
-"""
 
 
 def german_words(text: str) -> set[str]:
@@ -101,17 +60,10 @@ def _described(schema: object, path: str):
             yield from _described(value, path)
 
 
-def _all_model_facing_texts(src: Path = ROOT / "packages" / "agent" / "src") -> list[tuple[str, str]]:
-    env = {**os.environ, "PYTHONPATH": f"{src}{os.pathsep}{ROOT}"}
-    done = subprocess.run(
-        [sys.executable, "-c", _BUILD_ALL], cwd=ROOT, env=env, capture_output=True, text=True, check=False
-    )
-    assert done.returncode == 0, done.stderr[-3000:]
-    line = next(row for row in done.stdout.splitlines() if row.startswith("@@"))
-    tools = json.loads(line[2:])
+def _all_model_facing_texts() -> list[tuple[str, str]]:
     texts: list[tuple[str, str]] = []
-    for name, (description, schema) in tools.items():
-        texts.append((name, description or ""))
+    for name, (description, schema) in built_tools().items():
+        texts.append((name, description))
         texts.extend(_described(schema, name))
     return texts
 

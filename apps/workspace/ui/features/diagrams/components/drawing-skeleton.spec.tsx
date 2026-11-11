@@ -45,6 +45,9 @@ class ReportingResizeObserver {
 
 const originalResizeObserver = globalThis.ResizeObserver
 const originalRect = HTMLElement.prototype.getBoundingClientRect
+// Restored as the descriptor it was (none: the method is inherited from
+// Element), so no own property is left to shadow a later spec's stub.
+const ownRect = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getBoundingClientRect')
 
 beforeEach(() => {
   preferReducedMotion(false)
@@ -62,7 +65,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   globalThis.ResizeObserver = originalResizeObserver
-  HTMLElement.prototype.getBoundingClientRect = originalRect
+  if (ownRect) Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', ownRect)
+  else Reflect.deleteProperty(HTMLElement.prototype, 'getBoundingClientRect')
 })
 
 /**

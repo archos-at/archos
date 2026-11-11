@@ -36,7 +36,6 @@ import {
   visibleSettingsSections,
   type ProjectSettingsSectionKey,
 } from '@/features/projects/lib/settings-sections'
-import { getApplicableStandards } from '@/lib/oib/applicable-standards'
 import type { ProjectProfile } from '@/lib/project-profile/types'
 import { FIXTURE_PROJECT_ID, FIXTURE_USER_ID, HISTORY } from '../../_fixtures/upload-batches'
 import { SIMILAR_PAGE } from '../../_fixtures/similar-projects'
@@ -85,8 +84,6 @@ const PROFILE_DATA = {
       'Wohngebäude der Gebäudeklasse 4 in Wien Mariahilf mit oberstem Fluchtniveau bei 9,8 m; Neubau, offene Bauweise, 14 Wohneinheiten.',
     summaryLocale: 'de',
   },
-  applicableStandards: getApplicableStandards(PROFILE),
-  briefComplete: true,
 }
 
 const usage = (blocked: string | null): ProjectUsageView => ({
@@ -268,7 +265,7 @@ export default function SettingsDevPage({
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8" data-testid="settings-preview">
-      <h1 className="mb-6 text-xl font-medium tracking-tight">Overview</h1>
+      <h1 className="mb-6 text-xl font-medium">Overview</h1>
       <div className="flex flex-col gap-6">
         <div>
           <SectionNav

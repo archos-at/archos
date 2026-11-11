@@ -1,0 +1,34 @@
+# Latent: configurable, not used. A deployment people sign in to refuses to
+# start while one of `activation_env` is set (agent.common.data_flow_register).
+# An env slot is documented; no code reads it today.
+id: serper
+kind: processor
+status: latent
+order: 120
+name: Serper.dev
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: none
+data_classes: [search_query]
+purposes: [service_provision]
+holds_tenant_text: false
+deletion:
+  status: not_used
+  de: Nicht in Gebrauch; ein Deployment, in dem sich Personen anmelden, startet nicht, solange der Dienst konfiguriert ist.
+  en: Not in use; a deployment people sign in to does not start while the service is configured.
+hosts: [google.serper.dev]
+env: [SERPER_API_KEY]
+activation_env: [SERPER_API_KEY]
+evidence:
+  - deploy/.env.example
+copy:
+  name:
+    de: Serper (Google-Suche)
+    en: Serper (Google search)
+  data:
+    de: aus Ihren Fragen abgeleitete Suchanfragen; derzeit mit keinem Codepfad verbunden
+    en: search queries derived from your questions; not wired to any code path today
+  location:
+    de: USA
+    en: USA

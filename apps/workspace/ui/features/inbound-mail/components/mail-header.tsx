@@ -2,11 +2,11 @@
 
 /**
  * The head of one held mail, built so the detail opens on the mail itself
- * (the owner's review, 2026-10-27): the subject, then ONE line that says who
- * it is from (name and address, never one without the other), how far the
- * sender's domain is confirmed and when it arrived, then the flags that change
- * what filing needs. Everything else is evidence a person needs now and then,
- * and sits behind „Details“ at the end of that line: when it was sent, every
+ * (the owner's review, 2026-10-27): the subject, then who it is from (name
+ * and address, never one without the other), then one muted line with how far
+ * the sender's domain is confirmed and when it arrived, then the flags that
+ * change what filing needs. Everything else is evidence a person needs now and
+ * then, and sits behind „Details“ at the end of that line: when it was sent, every
  * recipient, the original `.eml` with its warning, and the date it stops
  * waiting. Trust is never folded away, and the expiry comes forward into the
  * header in its last week (`expiryShownInline`).
@@ -78,29 +78,40 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
       asChild
     >
       <header className="flex flex-col gap-2" data-testid="mail-header">
-        <h2 className="text-lg font-medium tracking-tight [overflow-wrap:anywhere]" title={view.subject ?? undefined}>
+        {/* 16px on a phone, under the page's own title, which it must not outrank; 18px on a desk. */}
+        <h2 className="text-section sm:text-pane-title [overflow-wrap:anywhere]" title={view.subject ?? undefined} /* the pane title, 20/28/600; 16/24/600 on a phone */>
           {subject}
         </h2>
-        {/* The one line: who, how far confirmed, when, and the way to the rest. It wraps on a phone, never truncates. */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" data-testid="mail-header-line">
+        {/* Who on the first line; how far the domain is confirmed, when it arrived and the way to the rest on the second,
+            all muted. One line of six facts was the densest on the page, and a date at the far edge was 600px from its
+            name (on a phone a line of its own). Both wrap on a phone, never truncate. */}
+        <div className="flex flex-col gap-1" data-testid="mail-header-line">
           {view.sender && (
-            <>
-              <span className="text-foreground min-w-0 text-sm [overflow-wrap:anywhere]" data-testid="mail-header-from">
-                {t('header.fromShort', { name: senderDisplayName(view.sender), address: view.sender.address })}
-              </span>
-              <SenderTrustLine sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />
-            </>
+            // The name in ink, the address beside it muted, no ‹ › around it: the tone tells them apart.
+            <span className="text-foreground min-w-0 text-sm [overflow-wrap:anywhere]" data-testid="mail-header-from">
+              {senderDisplayName(view.sender)} <span className="text-muted-foreground">{view.sender.address}</span>
+            </span>
           )}
-          <time className="text-muted-foreground tabular-nums" dateTime={view.receivedAt} data-testid="mail-header-received">
-            {formatAbsoluteTime(view.receivedAt, locale)}
-          </time>
-          <CollapsibleTrigger
-            className="text-muted-foreground hover:text-foreground group/details touch-target inline-flex items-center gap-0.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-            data-testid="mail-details-toggle"
-          >
-            {t('header.details')}
-            <ChevronDown className="size-3.5 transition-transform duration-quick group-data-[state=open]/details:rotate-180 motion-reduce:transition-none" aria-hidden />
-          </CollapsibleTrigger>
+          {/* Its clauses apart by the one separator: a dot 4px from each neighbour, as every meta line of the surface. */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs">
+            {/* Trust is never folded away. */}
+            {view.sender && <SenderTrustLine sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />}
+            {view.sender && <MetaDot />}
+            {/* The time and „Details“ keep together, so on a phone „Details“ never stands on a line of its own. */}
+            <span className="inline-flex items-center gap-x-1 whitespace-nowrap">
+              <time className="text-muted-foreground tabular-nums" dateTime={view.receivedAt} data-testid="mail-header-received">
+                {formatAbsoluteTime(view.receivedAt, locale)}
+              </time>
+              <MetaDot />
+              <CollapsibleTrigger
+                className="text-muted-foreground hover:text-foreground group/details touch-target inline-flex items-center gap-0.5 rounded-inline outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                data-testid="mail-details-toggle"
+              >
+                {t('header.details')}
+                <ChevronDown className="size-3.5 transition-transform duration-quick group-data-[state=open]/details:rotate-180 motion-reduce:transition-none" aria-hidden />
+              </CollapsibleTrigger>
+            </span>
+          </div>
         </div>
         {view.sender && <SenderFlagLines sender={view.sender} />}
         <SenderWaitLine view={view} />
@@ -119,7 +130,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
                 <button
                   type="button"
                   aria-label={t('header.forwardedExplain')}
-                  className="hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  className="hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-inline outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   <Info className="size-3.5" aria-hidden />
                 </button>
@@ -163,7 +174,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
               <div className="flex flex-col items-start gap-1">
                 <BusyButton
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   busy={downloading}
                   busyLabel={t('header.original')}
@@ -188,5 +199,13 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
         </CollapsibleContent>
       </header>
     </Collapsible>
+  )
+}
+
+function MetaDot(): JSX.Element {
+  return (
+    <span aria-hidden className="text-muted-foreground/40">
+      ·
+    </span>
   )
 }

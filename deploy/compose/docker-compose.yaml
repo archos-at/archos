@@ -55,6 +55,8 @@ services:
       # `ingest-document-heavy`, which only Kubernetes' `ingest-worker-heavy` serves.
       INGEST_HEAVY_FILE_BYTES: ${INGEST_HEAVY_FILE_BYTES:-0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Public sources are read, and their PDFs parsed, only by the fetcher below (ADR-0162).
+      PUBLIC_SOURCE_FETCHER_URL: ${PUBLIC_SOURCE_FETCHER_URL:-http://public-source-fetcher:8095}
       # PostHog for the Python roles (fail-open: both empty means no events leave
       # the backend, see packages/agent/src/agent/observability/posthog_client.py). The pair
       # the frontend reads as NEXT_PUBLIC_POSTHOG_* below; the Kubernetes mirror
@@ -145,6 +147,7 @@ services:
       - ../../configs:/app/configs:ro
     networks:
       - app
+      - public-sources
     depends_on:
       seaweedfs:
         condition: service_healthy
@@ -159,6 +162,10 @@ services:
       # service_started, NOT service_healthy: the cache is optional by design
       # (fail-open in both tiers) and must never block the stack.
       dragonfly:
+        condition: service_started
+      # service_started: a backend role without its fetcher still serves everything
+      # but public sources, and says so in /health (public_source_fetcher).
+      public-source-fetcher:
         condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -191,6 +198,7 @@ services:
       - ../../configs:/app/configs:ro
     networks:
       - app
+      - public-sources
     depends_on:
       seaweedfs:
         condition: service_healthy
@@ -203,6 +211,8 @@ services:
       qdrant:
         condition: service_healthy
       dragonfly:
+        condition: service_started
+      public-source-fetcher:
         condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -233,6 +243,7 @@ services:
       - ../../configs:/app/configs:ro
     networks:
       - app
+      - public-sources
     # The drain budget (600 s: the Hatchet SDK waits for held runs on SIGTERM)
     # and slack; docker's default 10 s would kill it first.
     stop_grace_period: 660s
@@ -248,6 +259,8 @@ services:
       qdrant:
         condition: service_healthy
       dragonfly:
+        condition: service_started
+      public-source-fetcher:
         condition: service_started
     # No HTTP server. worker.py touches this marker each claim-loop tick; fail
     # when it is missing or stale (loop hung). The long start_period covers the
@@ -343,6 +356,35 @@ services:
       pgbouncer:
         condition: service_healthy
     restart: "no"
+
+  # ── The public-source fetcher (ADR-0162), the mirror of
+  #    deploy/pulumi/src/app/public-source-fetcher.ts ──
+  # The one process that reads public sources (RIS, Fedlex, a configured
+  # source) and parses their PDFs (`POST /v1/extract`): the backend roles reach
+  # them only through it (PUBLIC_SOURCE_FETCHER_URL), never from their own
+  # process. It holds no secret: no env_file, only its port and the records.
+  # Compose cannot give it Kubernetes' NetworkPolicy; its own guard
+  # (public_sources/egress.py: the hosts at every hop, public addresses only)
+  # is what holds here.
+  public-source-fetcher:
+    image: ${BACKEND_IMAGE:-backend:local}
+    command: ["/app/.venv/bin/python", "-m", "public_sources.fetcher"]
+    environment:
+      PORT: "8095"
+      PUBLIC_SOURCES_DIR: /app/configs/sources
+    volumes:
+      - ../../configs:/app/configs:ro
+    # Its own network, shared with the three roles that call it and nothing else:
+    # not postgres, qdrant, dragonfly or seaweedfs on `app`.
+    networks:
+      - public-sources
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8095/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
 
   qdrant:
     # The vector store (ADR-0115), the single-node mirror of
@@ -703,9 +745,9 @@ services:
       # you accept that: those files are then marked failed (retryable), and
       # .xlsx/.xlsm index without preview or thumbnail.
       - GOTENBERG_URL=${GOTENBERG_URL-http://gotenberg:3000}
-      # Address search in the project dialog (ADR-0151): komoot's public Photon,
-      # no account. Empty switches it off and the address stays a text field.
-      - GEOCODER_URL=${GEOCODER_URL-https://photon.komoot.io}
+      # Address search in the project dialog (ADR-0151): off unless set (ADR-0159).
+      # komoot's public Photon is https://photon.komoot.io; it receives every keystroke.
+      - GEOCODER_URL=${GEOCODER_URL-}
       # The malware scanner (ADR-0157). Unset, every scan fails `not-configured`
       # and nothing that waits on a clean scan is filed. To scan, start clamd
       # with `--profile malware-scan` and set MALWARE_SCAN_URL=tcp://clamav:3310
@@ -1583,6 +1625,10 @@ volumes:
 
 networks:
   app:
+    driver: bridge
+  # The public-source fetcher and the roles that call it (chat, api, agent-worker),
+  # apart from the stores on `app`. Not internal: the fetcher reaches public hosts.
+  public-sources:
     driver: bridge
   # No route out of the host: gotenberg and the frontend only (ADR-0070).
   gotenberg-internal:

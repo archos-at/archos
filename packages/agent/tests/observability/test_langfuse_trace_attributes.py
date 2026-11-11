@@ -454,13 +454,13 @@ class TestUsageObservationMapping:
     def test_provider_verbatim_counts_and_exclusive_detail_buckets(self):
         import json
 
-        from agent.observability.langfuse_trace_attributes import GEN_AI_REQUEST_MODEL
-        from agent.observability.langfuse_trace_attributes import GEN_AI_USAGE_INPUT_TOKENS
-        from agent.observability.langfuse_trace_attributes import GEN_AI_USAGE_OUTPUT_TOKENS
-        from agent.observability.langfuse_trace_attributes import OBSERVATION_COST_DETAILS
-        from agent.observability.langfuse_trace_attributes import OBSERVATION_MODEL_NAME
-        from agent.observability.langfuse_trace_attributes import OBSERVATION_USAGE_DETAILS
-        from agent.observability.langfuse_trace_attributes import usage_observation_attributes
+        from agent.observability.usage_details import GEN_AI_REQUEST_MODEL
+        from agent.observability.usage_details import GEN_AI_USAGE_INPUT_TOKENS
+        from agent.observability.usage_details import GEN_AI_USAGE_OUTPUT_TOKENS
+        from agent.observability.usage_details import OBSERVATION_COST_DETAILS
+        from agent.observability.usage_details import OBSERVATION_MODEL_NAME
+        from agent.observability.usage_details import OBSERVATION_USAGE_DETAILS
+        from agent.observability.usage_details import usage_observation_attributes
 
         attributes = usage_observation_attributes(
             prompt_tokens=1204,
@@ -491,9 +491,9 @@ class TestUsageObservationMapping:
     def test_token_only_fallback_omits_cost_and_model(self):
         import json
 
-        from agent.observability.langfuse_trace_attributes import OBSERVATION_COST_DETAILS
-        from agent.observability.langfuse_trace_attributes import OBSERVATION_USAGE_DETAILS
-        from agent.observability.langfuse_trace_attributes import usage_observation_attributes
+        from agent.observability.usage_details import OBSERVATION_COST_DETAILS
+        from agent.observability.usage_details import OBSERVATION_USAGE_DETAILS
+        from agent.observability.usage_details import usage_observation_attributes
 
         attributes = usage_observation_attributes(prompt_tokens=100, completion_tokens=20, total_tokens=120)
 
@@ -538,6 +538,7 @@ class TestExtractProviderUsage:
             "completion_tokens": 331,
             "total_tokens": 1535,
             "cached_tokens": 512,
+            "cache_write_tokens": 0,
             "reasoning_tokens": 128,
             "cost_usd": 0.00214,
         }
@@ -650,6 +651,7 @@ class TestUsageComesFromTheResponseSideOnly:
             "completion_tokens": 512,
             "total_tokens": 41716,
             "cached_tokens": 30208,
+            "cache_write_tokens": 0,
             "reasoning_tokens": 256,
             "cost_usd": None,
         }
@@ -712,14 +714,15 @@ class TestResponsesApiSpanUsage:
             "completion_tokens": 514,
             "total_tokens": 42397,
             "cached_tokens": 35072,
+            "cache_write_tokens": 0,
             "reasoning_tokens": 192,
             "cost_usd": None,
         }
 
     def test_the_cached_bucket_reaches_the_observation_attributes(self):
-        from agent.observability.langfuse_trace_attributes import OBSERVATION_USAGE_DETAILS
         from agent.observability.langfuse_trace_attributes import extract_provider_usage
-        from agent.observability.langfuse_trace_attributes import usage_observation_attributes
+        from agent.observability.usage_details import OBSERVATION_USAGE_DETAILS
+        from agent.observability.usage_details import usage_observation_attributes
 
         usage = extract_provider_usage(self.METADATA)
         attributes = usage_observation_attributes(
@@ -1041,3 +1044,20 @@ class TestLessonsMetadata:
             "langfuse.trace.metadata.lessons_arm": "treated",
             "langfuse.trace.metadata.lesson_ids": self.LESSON_A,
         }
+
+
+def test_cache_writes_ride_their_own_usage_bucket():
+    """``input`` stays exclusive: a written token is billed once, in its own bucket."""
+    from agent.observability.usage_details import OBSERVATION_USAGE_DETAILS
+    from agent.observability.usage_details import usage_observation_attributes
+
+    attributes = usage_observation_attributes(
+        prompt_tokens=30_000, completion_tokens=500, total_tokens=30_500, cached_tokens=4_000, cache_write_tokens=25_000
+    )
+    assert json.loads(attributes[OBSERVATION_USAGE_DETAILS]) == {
+        "input": 1_000,
+        "output": 500,
+        "total": 30_500,
+        "input_cached_tokens": 4_000,
+        "input_cache_write_tokens": 25_000,
+    }

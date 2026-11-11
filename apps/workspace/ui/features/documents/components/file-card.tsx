@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { memo, useEffect, useState, type CSSProperties, type JSX, type ReactNode } from 'react'
 import Image from 'next/image'
 import { useSeenOnce } from '@/hooks/use-seen-once'
 import { isOptimizerEligible } from '@/lib/images/optimizable'
@@ -14,17 +14,18 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { documentDragProps } from '../hooks/use-document-drag'
 import { sourceTint } from '@/lib/ui/source-tint'
-import { extChipTint, fileExtensionLabel, inferDocumentKind } from '../document-kind'
+import { fileExtensionLabel, inferDocumentKind } from '../document-kind'
 import { DocumentKindThumbnail } from './document-kind-thumbnail'
 import { AuthorshipLine } from './authorship-line'
 import { SourceDeletedNote } from '@/components/projects/source-deleted-note'
 import { DocumentVersionStateBadge } from './document-version-badge'
 import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revision-badge'
 import { revisionCount } from '../lib/revision-chain'
+import { documentBadgeState } from '../lib/document-lifecycle'
 import { DocumentStatusBadge, isCitableStatus, isSettlingStatus } from './document-status'
 import { SemanticMatch } from './semantic-match'
 import { useIngestFailureText } from './ingest-failure-notice'
-import { FileTileBody, FileTileFooter, FileTileMedia, GridTileShell } from './file-tile'
+import { FileTileBody, FileTileFooter, FileTileMedia, TileShell } from './file-tile'
 import { FilingSuggestionSlot, useFilingHighlighted } from './filing-suggestion'
 import { HIGHLIGHT_OUTLINE } from '@/components/ui/highlight'
 import { Check } from 'lucide-react'
@@ -228,7 +229,7 @@ export interface FileCardProps {
   onSelect: () => void
   locale: string
   /** Present on a search result: the passage and its page, WHY it matched. */
-  match?: { snippet: string; page: number | null }
+  match?: { snippet: string; page: number | null; query?: string | null }
   /** Coarse corpus for a provenance chip in the metadata row (project vs Büroablage). */
   source?: 'project' | 'office' | null
   /** Localized label for the provenance chip. */
@@ -261,6 +262,8 @@ export interface FileCardProps {
    * Absent is the ordinary card.
    */
   selection?: { checked: boolean }
+  /** Where it lies (its folder), first on the meta line: a search's results span every folder. */
+  where?: string
 }
 
 /**
@@ -273,8 +276,9 @@ function SelectionMark({ checked }: { checked: boolean }) {
     <span
       aria-hidden
       className={cn(
-        'pointer-events-none absolute right-2 top-2 z-[1] flex size-6 items-center justify-center rounded-full border shadow-2xs transition-colors duration-quick ease-out motion-reduce:transition-none',
-        checked ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background/90'
+        // A square, as every other checkbox of the page (the list's, the E-Mail-Eingang's): one shape for one pick.
+        'pointer-events-none absolute right-3.5 top-3.5 z-[1] flex size-5 items-center justify-center rounded-inline border shadow-2xs transition-colors duration-quick ease-out motion-reduce:transition-none',
+        checked ? 'border-primary bg-primary text-primary-foreground' : 'border-(--ds-line-strong) bg-background'
       )}
       data-testid="file-card-check"
       data-checked={checked ? '' : undefined}
@@ -285,12 +289,14 @@ function SelectionMark({ checked }: { checked: boolean }) {
 }
 
 /**
- * One document card in the raised "project-selector" anatomy: a white content
- * block (thumbnail, provenance/extension chips, name, one-line description or
- * match evidence) sitting proud of a subtle outer surface, a footer tab with
- * size · time, and a spring hover-lift. Shared by the Files browser and the chat
- * `document_grid` surfacing card. Chat passes {@link FileCardProps.hideFooter}
- * and no {@link FileCardProps.match} — ranking chrome stays in Files search.
+ * One document tile (paper on a desk): the document's first page as a white
+ * sheet with an edge and elevation 1, what is open on its pages and what is in
+ * progress on the sheet's foot, then the name (13/20/500, up to two lines, cut
+ * in the middle) and one meta line, format · size · age, on the page. No
+ * description: that is the list view's and the preview's. Shared by the Files
+ * browser and the chat `document_grid` surfacing card, which passes
+ * {@link FileCardProps.hideFooter} and keeps the summary as its second line;
+ * ranking chrome ({@link FileCardProps.match}) stays in Files search.
  *
  * Memoised: the Files grid holds thousands of these and re-renders on every
  * poll and selection. The thumbnail is asked for once the card has been on
@@ -312,10 +318,13 @@ export const FileCard = memo(function FileCard({
   actions,
   draggable = false,
   selection,
+  where,
 }: FileCardProps) {
   const t = useTranslations(filesCopy)
   const name = documentDisplayName(file)
   const ext = fileExtensionLabel(file.filename)
+  // A search hit carries no size; „0 B“ would be a wrong fact.
+  const hasSize = typeof file.fileSize === 'number'
   const isFailed = file.status === 'failed'
   const failureText = useIngestFailureText(isFailed ? file.errorMessage : null)
   // The card is one click target, so it carries no disclosure: the sentence
@@ -326,23 +335,24 @@ export const FileCard = memo(function FileCard({
   // a status nobody browsing a folder was asking about. The list view's status
   // column is where every document's state is spelled out.
   const showStatus = !!file.status && !isCitableStatus(file.status)
-  // The AI summary is the last thing ingestion produces, so a document that is
-  // still being read has an empty description slot. Left blank it reads as a
-  // card that failed to render; skeleton lines say the sentence is on its way —
-  // the same promise the thumbnail well makes while its request is in flight.
-  const isAwaitingSummary = !match && !isFailed && !file.summary && isSettlingStatus(file.status)
+  // A Dateien tile is the sheet, the name and one meta line (paper on a desk, principle 8): the summary is the list
+  // view's second column and the preview's, and on a tile it made seven documents fill a 900px screen. Only a card
+  // without the meta line (the chat's `document_grid`, `hideFooter`) keeps it, as the line that says why it is shown.
+  // The summary is the last thing ingestion produces: there, skeleton lines hold its slot while it is on its way.
+  const showSummary = !match && !isFailed && Boolean(hideFooter)
+  const isAwaitingSummary = showSummary && !file.summary && isSettlingStatus(file.status)
   const [mediaRef, seen] = useSeenOnce<HTMLDivElement>()
   // A filing decision in view would move this file: outlined, nothing else, so the tile keeps its size.
   const lit = useFilingHighlighted(file.id)
 
   return (
-    <GridTileShell
+    <TileShell
       interactive
       className={cn(
         'group/card',
-        (isSelected || selection?.checked) && 'ring-2 ring-ring shadow-md',
+        // Chosen: the hover's fill held (the keyboard's own ring is the button's focus-visible).
+        (isSelected || selection?.checked) && 'bg-accent',
         isBusy && 'cursor-progress opacity-70',
-        !isSelected && 'hover:border-border/80',
         lit && HIGHLIGHT_OUTLINE
       )}
       // Dragging is opt-in per surface: the Archiv has no folders to drop into,
@@ -351,9 +361,16 @@ export const FileCard = memo(function FileCard({
       {...(draggable && !selection ? documentDragProps(file.id, file.folderId ?? null) : {})}
     >
       {selection && <SelectionMark checked={selection.checked} />}
+      {/* What is open on the pages, on the sheet beside what is in progress, as the list puts both after the name:
+          one place. Over the thumbnail's foot (above „Wird gelesen“ when that is there), outside the card's button,
+          since it is a press of its own that opens the review. A line of its own under the summary left every other
+          tile of its row a 50px hole. */}
+      <div className={cn('absolute left-3.5 z-[1] max-w-[calc(100%-1.75rem)]', showStatus ? 'top-[78px]' : 'top-[102px]')}>
+        <OpenMarksChip file={file} name={name} className="bg-background" />
+      </div>
       {actions && !selection && (
         <div
-          className="absolute right-1.5 top-1.5 z-[1] pointer-coarse:opacity-100 md:opacity-0 md:group-hover/card:opacity-100 group-focus-within/card:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
+          className="absolute right-0.5 top-[133px] z-[1] pointer-coarse:opacity-100 md:opacity-0 md:group-hover/card:opacity-100 group-focus-within/card:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >
@@ -375,18 +392,19 @@ export const FileCard = memo(function FileCard({
         aria-label={ariaLabel}
         aria-busy={isBusy}
         data-testid={testId}
-        className="group relative flex w-full min-w-0 flex-1 flex-col overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        className={cn("group relative flex w-full min-w-0 flex-col overflow-visible text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50", hideFooter && "flex-1")}
       >
-        {/* Raised inner block — white surface, rounded bottom, soft divider shadow.
-            `flex-1` because a grid row is only as tall as its tallest card and
-            every cell stretches to match: a document that is still being read has
-            no summary yet, so without it the short tile kept its natural height,
-            its size · time footer floated in the middle of the cell, and the
-            leftover height showed as a band of dead surface underneath. Growing
-            the white block instead puts every footer on the bottom edge, so the
-            row reads as one strip whatever each card carries above it. */}
-        <FileTileBody className={cn('flex-1 p-0', hideFooter && 'rounded-none')}>
-          <FileTileMedia ref={mediaRef} className="h-[124px]">
+        {/* The tile is on the page, no white block: a row's leftover height goes
+            BELOW the meta line (the footer grows), so every meta line of a row
+            shares one baseline whatever each card carries above it. Without a
+            footer the body takes it. */}
+        {/* Nothing above the sheet clips: its edge is a ring drawn 1px outside it, and a clip cut it to the corners. */}
+        <FileTileBody className={cn('overflow-visible p-0', hideFooter && 'flex-1 rounded-none')}>
+          {/* Under the hover, the open and the picked tile's fill the sheet takes that fill: the one grey on the state grey was grey on grey. */}
+          <FileTileMedia
+            ref={mediaRef}
+            className="h-[124px]"
+          >
             <ThumbnailWithFallback file={file} visible={seen} />
             {showStatus && (
               <DocumentStatusBadge
@@ -403,38 +421,30 @@ export const FileCard = memo(function FileCard({
                 // Capped at the well's width less its insets: on a phone's
                 // two-column grid „Wartet · 3 Dateien davor" ran into the
                 // card's edge; now its word ends in an ellipsis instead.
-                className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] border-transparent bg-background px-1.5 py-0 text-xs font-medium leading-4 shadow-2xs"
+                        className="absolute bottom-2 left-2 h-5 max-w-[calc(100%-1rem)] border-transparent bg-background px-1.5 py-0 text-[11px] font-medium leading-none"
               />
             )}
           </FileTileMedia>
 
-          <div className="px-3.5 pb-3 pt-[11px] phone:px-2.5">
-            <div className="flex items-center gap-2">
-              {source && sourceLabel && (
-                <span
-                  className="inline-flex shrink-0 items-center rounded-control px-2 py-[3px] text-xs font-semibold leading-none tracking-[0.02em]"
-                  style={SOURCE_TINT[source]}
-                >
-                  {sourceLabel}
-                </span>
-              )}
-              <span className="flex-1" />
-              {ext !== '' && (
-                <span
-                  className="inline-flex shrink-0 items-center rounded-control px-1.5 py-[2.5px] text-[10.5px] font-medium uppercase leading-none tracking-wider"
-                  style={extChipTint(ext)}
-                >
-                  {ext}
-                </span>
-              )}
-            </div>
+          {/* On the sheet's edge, no inset of its own; the meta line follows right under the name. */}
+          <div className="pt-2.5">
+            {/* Provenance, where a surface mixes stores (the Archiv): a signal, so it keeps its colour and its word. */}
+            {source && sourceLabel && (
+              <span
+                className="mb-1.5 inline-flex shrink-0 items-center rounded-control px-2 py-[3px] text-xs font-semibold leading-none tracking-[0.02em]"
+                style={SOURCE_TINT[source]}
+              >
+                {sourceLabel}
+              </span>
+            )}
 
             {/* The name the document goes by. The format chip beside it still
                 comes from the FILE name, because that is what the bytes are —
                 a rename changes the label, never the format. */}
-            {/* Cut in the MIDDLE: the revision and the drawing number are the end of the name, and a finger has no tooltip to read the rest. */}
-            <p className="mt-[10px] min-w-0 text-xs font-medium leading-[1.4] text-foreground">
-              <FileName text={name} />
+            {/* Two lines at most, whole and broken between words, else cut in the middle (`FileName`, findings 5 and 17).
+                The first line leaves its end to the ⋯, which stands there; the second has the whole width. */}
+            <p className="text-name text-foreground min-w-0">
+              <FileName text={name} lines={2} firstLineInset={actions && !selection ? TILE_ACTIONS_INSET : 0} />
             </p>
             {/* A byline, directly under the name — who WROTE this. It is not in
                 the footer, because the footer is where the faces and the word
@@ -455,12 +465,13 @@ export const FileCard = memo(function FileCard({
                 On a 220px card the count beside the name cut the name in half,
                 so here it rides on this line; the list puts it by the name. */}
             {isOlderRevisionEntry(file) ? (
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <div className="mt-1 flex min-h-5 flex-wrap items-center gap-1.5">
                 <OlderRevisionBadge file={file} />
               </div>
             ) : (
-              ((file.versionCount ?? 0) > 1 || revisionCount(file) > 1) && (
-                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              (documentBadgeState({ versionState: file.versionState, versionCount: file.versionCount, authoredBy: file.authoredBy }) !== null || revisionCount(file) > 1) && (
+                // One height with a badge or without (a 20px chip beside plain text jumped the line by 3px).
+                <div className="mt-1 flex min-h-5 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                   {(file.versionCount ?? 0) > 1 && (
                     <DocumentVersionStateBadge
                       versionState={file.versionState}
@@ -473,10 +484,10 @@ export const FileCard = memo(function FileCard({
               )
             )}
             {match ? (
-              <SemanticMatch snippet={match.snippet} page={match.page} />
+              <SemanticMatch snippet={match.snippet} page={match.page} query={match.query} />
             ) : isFailed ? (
               <p
-                className="mt-1 line-clamp-2 text-xs leading-[1.45] text-destructive"
+                className="mt-1 line-clamp-1 text-xs leading-normal text-destructive"
                 title={failureText?.raw ?? failureReason}
                 data-testid="file-card-failure"
               >
@@ -491,8 +502,8 @@ export const FileCard = memo(function FileCard({
                 <Skeleton className="h-[7px] w-[58%] rounded-surface" />
               </div>
             ) : (
-              file.summary && (
-                <p className="mt-1 line-clamp-2 text-xs leading-[1.45] text-muted-foreground" title={file.summary}>
+              showSummary && file.summary && (
+                <p className="mt-1 line-clamp-2 text-xs leading-normal text-muted-foreground" title={file.summary}>
                   {file.summary}
                 </p>
               )
@@ -508,41 +519,55 @@ export const FileCard = memo(function FileCard({
           box is a line of text), so a row of tiles stays even when a
           suggestion arrives or goes. On a narrow tile the chip's folder name
           ellipsizes first, then the relative time drops; it never wraps.
-          What is still open on the pages is the one thing that takes a second
-          line, under the size and the age and never in their place: „4 offen ·
-          2 für Sie" and „vor 4 Monaten" do not share a 220px tile, and a
-          count without its words had to be learnt. It is a property of the
-          document rather than a suggestion that comes and goes, so a row of
-          tiles is uneven only where a document has open work. */}
+          The meta line follows the name directly: a tile is one unit read top
+          down, and holding every meta line of a row on one baseline opened a
+          24px hole under each one-line name beside a two-line one. */}
       {!hideFooter && (
         <FileTileFooter
           onClick={onSelect}
-          className="@container/foot group/foot cursor-pointer flex-wrap justify-between gap-1.5 px-3.5 pb-2.5 pt-[9px] text-xs text-muted-foreground phone:px-2.5"
+          // `mt-auto` (the footer's own): the grid stretches a row's tiles to one height, so every meta line of a row
+          // stands on one baseline, the empty line under a one-line name beside a two-line one (finding 7).
+          className="@container/foot group/foot cursor-pointer flex-wrap items-start justify-start gap-1.5 pt-0.5 text-xs text-muted-foreground"
           data-testid="file-card-footer"
         >
-          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          {/* Left, under the name: one edge for everything on the tile. */}
+          <span className="flex min-w-0 items-center gap-1.5 empty:hidden">
             <FilingSuggestionSlot documentId={file.id} className="min-w-[4.5rem]" />
-            {footerLead}
+            {/* Who has it, then the facts, one line joined by the dot: „Unvergeben PNG“ read as one phrase. */}
+            {footerLead}{footerLead && <FactDot />}
           </span>
+          {/* Where it lies, a line of its own over the facts: on one line with them „Berichte“ was cut to „Beric…“. */}
+          {where && <span className="order-first min-w-0 basis-full truncate" title={where} data-testid="file-card-where">{where}</span>}
           {/* On a 156px card the size and the age are about 125px, so the
               phone's card keeps 10px of padding (the title's too) and a tighter
               gap: the age used to run into the edge the title keeps clear. */}
-          <span className="flex shrink-0 items-center gap-1.5 phone:gap-1">
-            <span className="tabular-nums">{formatBytes(file.fileSize, locale)}</span>
-            <span className="flex items-center gap-1.5 phone:gap-1 group-has-[[data-slot=filing-chip]]/foot:@max-[14rem]/foot:hidden">
-              <span aria-hidden className="text-muted-foreground/40">
-                ·
-              </span>
+          <span className="flex shrink-0 items-center gap-1" /* the dot's 4px each side: the width of the bound text join (`CLAUSE_JOIN`) */>
+            {/* The format in words, with the facts: a type is not a signal, so it is ink like them, never a tinted chip. */}
+            {ext !== '' && <span className="font-medium uppercase tracking-wide">{ext}</span>}
+            {hasSize && (
+              <>
+                {ext !== '' && <FactDot />}
+                <span className="tabular-nums">{formatBytes(file.fileSize, locale)}</span>
+              </>
+            )}
+            <span className="flex items-center gap-1 group-has-[[data-slot=filing-chip]]/foot:@max-[14rem]/foot:hidden">
+              {(ext !== '' || hasSize) && <FactDot />}
               <TimeAgo date={file.createdAt} locale={locale} className="tabular-nums" />
             </span>
           </span>
-          {/* Its own line (`basis-full`), and none at all when nothing is open:
-              the review opens from here without opening the card first. */}
-          <span className="flex basis-full empty:hidden">
-            <OpenMarksChip file={file} name={name} />
-          </span>
         </FileTileFooter>
       )}
-    </GridTileShell>
+    </TileShell>
   )
 })
+
+/** What the name's first line leaves at its end for the ⋯ (32px, 2px off the tile's edge, its glyph 8px in) and a 4px gap. */
+const TILE_ACTIONS_INSET = 24
+
+function FactDot(): JSX.Element {
+  return (
+    <span aria-hidden className="text-muted-foreground/40">
+      ·
+    </span>
+  )
+}

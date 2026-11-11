@@ -115,7 +115,7 @@ export function HeldUploadDecision({
     return (
       <Button
         type="button"
-        variant="ghost"
+        variant="secondary"
         size="sm"
         className={className}
         onClick={() => {
@@ -145,7 +145,7 @@ export function HeldUploadDecision({
       {onView && (
         <Button
           type="button"
-          variant="ghost"
+          variant="secondary"
           size="sm"
           className={className}
           onClick={onView}
@@ -157,7 +157,7 @@ export function HeldUploadDecision({
       )}
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         className={className}
         onClick={() => setConfirmOpen(true)}

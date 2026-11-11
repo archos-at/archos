@@ -15,14 +15,15 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from agent.citations.binding import document_key
-from agent.citations.binding import source_label
-from agent.citations.binding import source_origin_token
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import lost_citations
+from agent.citations.source_identity import document_key
+from agent.citations.source_identity import source_label
+from agent.citations.source_identity import source_origin_token
 from agent.citations.wire import read_source_to_wire
 from agent.citations.wire import source_entry_to_wire
 from agent.common import citation_events
+from agent.common.law_gate import law_unsettled
 from agent.common.retrieval_ledger import build_retrieval_ledger
 from agent.tools.bim.measurement_sources import MeasurementSource
 from agent.tools.bim.measurement_sources import measurement_sources_to_wire
@@ -184,6 +185,7 @@ def assemble_result(
         "confidence_check": final.confidence_check,
         "answer_lookup_found_nothing": final.lookup_found_nothing,
         "answer_quotes_verified": final.quotes_verified,
+        "answer_law_unsettled": law_unsettled(source.entry for source in final.cited),
         "escalation_requested": final.escalation_requested,
         "answer_is_handoff": final.answer_is_handoff,
         "answer_confidence_marker": final.confidence_marker,

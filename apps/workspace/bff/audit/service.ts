@@ -31,6 +31,7 @@
  */
 
 import 'server-only'
+import { createHmac } from 'node:crypto'
 import { configuredAppOrigin } from '@/lib/app-origin'
 import { getWorkOS } from '@/lib/workos/client'
 import type { AuthoredRefKind } from '@/lib/documents/document-authors'
@@ -276,9 +277,55 @@ async function mayNameDocument(organizationId: string, placement: AuditDocumentP
   }
 }
 
-/** The metadata that goes on the wire: compacted, and without a restricted document's names. */
+// @environment_variable AUDIT_NAME_SALT
+// @category Workspace
+// @type secret
+// @default (unset)
+// @required false
+// The key the names in WorkOS audit events are hashed under when `RESIDENCY_CELL` is set (HMAC-SHA256, per
+// organization, ADR-0167). Unset inside a cell, the names are withheld. Rotating it changes every later hash.
+
+/** The metadata keys whose values name a document, a project, a collection or what they hold. */
+export const HASHED_NAME_KEYS: readonly string[] = [...DOCUMENT_NAME_KEYS, 'name', 'collectionName']
+
+/** The prefix a hashed name carries, so a reader can tell a hash from a name. */
+export const NAME_HASH_PREFIX = 'hmac-sha256:'
+
+export function nameHash(salt: string, organizationId: string, value: string): string {
+  const digest = createHmac('sha256', salt).update(`${organizationId}\u0000${value}`).digest('hex')
+  return `${NAME_HASH_PREFIX}${digest.slice(0, 32)}`
+}
+
+/**
+ * Names in a WorkOS audit event become salted hashes inside a residency cell (ADR-0167).
+ *
+ * WorkOS keeps audit events in the US, and a file, project or collection name says what an office works on as
+ * plainly as the document does. Inside a cell (`RESIDENCY_CELL`, the same value as the agent tier's) they leave
+ * as an HMAC-SHA256 under `AUDIT_NAME_SALT`, keyed per organization: an auditor holding a name can check it,
+ * nobody reading the log learns it. Without the salt they are withheld (fail closed). Outside a cell nothing
+ * changes. Here rather than in a module of its own: every audit emitter reaches this file, so a new import from
+ * it would be a new hub (`scripts/blast-radius.mjs`).
+ */
+export function residencyAuditMetadata(organizationId: string, metadata: AuditMetadata): AuditMetadata {
+  if (!process.env.RESIDENCY_CELL?.trim()) return metadata
+  const salt = process.env.AUDIT_NAME_SALT?.trim()
+  const out: AuditMetadata = {}
+  let withheld = false
+  for (const [key, value] of Object.entries(metadata)) {
+    if (!HASHED_NAME_KEYS.includes(key)) {
+      out[key] = value
+    } else if (salt) {
+      out[key] = nameHash(salt, organizationId, String(value))
+    } else {
+      withheld = true
+    }
+  }
+  return withheld ? { ...out, nameWithheld: true } : out
+}
+
+/** The metadata that goes on the wire: compacted, names hashed in a residency cell, a restricted document's withheld. */
 async function wireMetadata(input: AuditEventInput): Promise<AuditMetadata> {
-  const metadata = compactMetadata(input.metadata)
+  const metadata = residencyAuditMetadata(input.organizationId, compactMetadata(input.metadata))
   if (await mayNameDocument(input.organizationId, input.filedIn)) return metadata
   const withheld = Object.fromEntries(
     Object.entries(metadata).filter(([key]) => !(DOCUMENT_NAME_KEYS as readonly string[]).includes(key))

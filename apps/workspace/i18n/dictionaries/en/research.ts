@@ -52,6 +52,8 @@ export const research = {
     cannotCreateActive: 'Cannot create a new session while the current session is active',
     newChat: 'New chat',
     toggleSessions: 'Chat history',
+    /** The history door's visible word, beside its glyph at every width (one word with the rail's „Alle Chats“). */
+    historyDoor: 'Chats',
     signInToView: 'Sign in to view your chat history',
     sessions: 'Sessions',
     addSources: 'Add data sources',

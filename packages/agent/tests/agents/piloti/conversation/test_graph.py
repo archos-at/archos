@@ -682,9 +682,8 @@ class TestTheWholeTurnIsWrittenBack:
         assert "REI 60." in kept and "Nie zitiert." not in kept
         assert "Citation: oib-rl_2.pdf, p.9" in kept and UNCITED_PASSAGE_NOTE in kept
 
-    def test_the_next_turns_history_prunes_the_turn_before_last(self):
-        from langchain_core.messages import ToolMessage
-
+    @staticmethod
+    def _graph():
         async def research(state_input):
             return _research_result(state_input.messages, "x")
 
@@ -694,27 +693,40 @@ class TestTheWholeTurnIsWrittenBack:
         async def clarifier(request):
             return ClarifyResult(research_context="", outcome="approved")
 
-        graph = ConversationGraph(research_fn=research, deep_research_fn=deep, clarifier_fn=clarifier)
-        call = {"name": "read_passage", "args": {"document": "OIB-RL 2"}, "id": "c1"}
-        old_turn = [
-            HumanMessage(content="Q1"),
-            AIMessage(content="", tool_calls=[call]),
-            ToolMessage(content="P1", tool_call_id="c1", name="read_passage"),
-            AIMessage(content="A1"),
-        ]
-        last_turn = [
-            HumanMessage(content="Q2"),
-            AIMessage(content="", tool_calls=[{**call, "id": "c2"}]),
-            ToolMessage(content="P2", tool_call_id="c2", name="read_passage"),
-            AIMessage(content="A2"),
-        ]
-        state = ConversationState(messages=[*old_turn, *last_turn, HumanMessage(content="und in GK 4?")])
+        return ConversationGraph(research_fn=research, deep_research_fn=deep, clarifier_fn=clarifier)
 
-        trimmed = graph._trimmed(state)
+    @staticmethod
+    def _transcript(completed: int) -> list:
+        from langchain_core.messages import ToolMessage
+
+        messages = []
+        for index in range(completed):
+            call = {"name": "read_passage", "args": {"document": "OIB-RL 2"}, "id": f"c{index}"}
+            messages += [
+                HumanMessage(content=f"Q{index}"),
+                AIMessage(content="", tool_calls=[call]),
+                ToolMessage(content=f"P{index}", tool_call_id=f"c{index}", name="read_passage"),
+                AIMessage(content=f"A{index}"),
+            ]
+        return [*messages, HumanMessage(content="und in GK 4?")]
+
+    def test_the_next_turns_history_prunes_older_turns_a_batch_at_a_time(self):
+        """Older turns keep only what was said, cut once per batch so earlier bytes stay cached in between."""
+        from agent.agents.piloti.history import PRUNE_BATCH_TURNS
+
+        completed = PRUNE_BATCH_TURNS + 1
+        trimmed = self._graph()._trimmed(ConversationState(messages=self._transcript(completed)))
 
         contents = [m.content for m in trimmed]
-        assert "P2" in contents and "P1" not in contents
-        assert contents[:2] == ["Q1", "A1"]
+        assert f"P{completed - 1}" in contents
+        assert not any(f"P{index}" in contents for index in range(PRUNE_BATCH_TURNS))
+        assert contents[:2] == ["Q0", "A0"]
+
+    def test_between_two_batches_the_older_results_stay(self):
+        trimmed = self._graph()._trimmed(ConversationState(messages=self._transcript(2)))
+
+        contents = [m.content for m in trimmed]
+        assert "P0" in contents and "P1" in contents
 
 
 class TestAFollowUpAnsweredFromTheTranscript:
