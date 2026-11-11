@@ -31,7 +31,7 @@ and most of `packages/agent/src/agent/common` beyond the claim queue.
 |---|---|---|---|
 | Persisted records (a status column, or timestamps read as one) | 43 | 3 | 8 |
 | Background runs and their mirrors | 22 | 0 | 0 |
-| UI flows | 41 | 0 | 0 |
+| UI flows | 41 | 0 | 2 |
 | Wire and protocol vocabularies | 14 | 0 | 0 |
 
 "Declared before" are the project (ADR-0098), the document version (ADR-0104)
@@ -138,10 +138,10 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Chat turn view | running, finished, failed + streaming, interaction, outcome | `features/chat/lib/turn-fold.ts` | statechart candidate |
 | Composer flags (two definitions of "streaming") | stop, sending, send | `messages-store.ts`, `turn-projection.ts` | |
 | Thinking header | nine labels from six inputs | `features/chat/components/ChatThinking.tsx` | a priority ladder |
-| Turn socket | connecting, open, reconnecting, failed, incompatible, outdated, suspended, offline, closed | `adapters/api/turn-socket.ts` | statechart candidate |
+| Turn socket | connecting, open, reconnecting, failed, incompatible, outdated, suspended, offline, closed | `adapters/api/turn-socket-machine.ts` | on XState since this sweep (read) |
 | Realtime channel | connecting, live, offline | `features/realtime/connection.ts` | kept twice |
 | Connection presence | connected, reconnecting, offline | `shared/hooks/use-connection-presence.ts` | |
-| Dictation | checking, unavailable, idle, starting, recording, transcribing | `features/dictation/hooks/use-dictation.ts` | statechart candidate |
+| Dictation | checking, unavailable, idle, starting, recording, transcribing | `features/dictation/lib/dictation-machine.ts` | on XState since this sweep (read) |
 | Viewer action | held, pending, shown, offered, refused, failed, undone, kept | `features/chat/lib/viewer-actions.ts` | any status may overwrite any |
 | Server proposal card | proposed + problem, busy, overtaken | `features/cards/hooks/use-server-proposal.ts` | |
 | Card decision | accepted, rejected, saved, dismissed, partiallyApplied | `features/cards/card-decision.ts` | |

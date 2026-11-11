@@ -49,7 +49,7 @@ how the workflow engine (Hatchet, ADR-0150) fits.
 
 ## Considered Options
 
-1. **A statechart-shaped table with no runtime**, checked against XState in the suite (chosen).
+1. **A statechart-shaped table with no runtime** for records, checked against XState in the suite, and XState itself only for browser machines with timers (chosen).
 2. **XState v5 as the runtime**, on the server and in the browser.
 3. **Hatchet as the state machine**: model each lifecycle as a durable workflow.
 4. **Transition triggers in the database** for every status column, as migration 0218 does for one.
@@ -87,25 +87,35 @@ which states the project may become (`allowed`).
 
 **Where XState fits.** XState's interpreter defines what our table means: the
 suite builds a machine from every declaration (`createMachine(lifecycle.statechart())`)
-and compares every state and event with ours, so it is a development dependency
-and the oracle. It is not a runtime yet, for three reasons that are facts and
-can change:
+and compares every state and event with ours, so it is the oracle for every
+declaration. It is not the runtime of a persisted record, for two reasons that
+are facts and can change:
 
-* v6 is in beta (`6.0.0-beta.2`, published 2026-11-11) and its migration guide
-  removes `assign`, `raise`, `sendTo` and `enqueueActions` and breaks persisted
-  snapshots. A runtime adopted on v5 today is migrated within the year.
 * A persisted record's state is a column. An actor that also holds it is the
   second source of truth this record exists to remove. XState's own pure API
   (`transition(machine, snapshot, event)`) is what `next` already is.
 * There is no maintained Python port (`statelyai/xstate-python` last moved in
   2021), and half our machines are in Python.
 
-It would earn its place in the browser, for the machines that have timers,
-retries and parallel regions, which a table cannot express: the turn socket
-(nine connection states, a reconnect ladder, a hello timeout), dictation
-(permission, recording ticker, transcription), the upload row (three writers
-racing on one row) and the chat turn fold. Those four are the candidates when
-v6 is stable; the config shape chosen here is theirs already.
+It is the runtime in the browser, on v5, for a machine with timers, retries and
+effects that must be cancelled when a state is left, which a table cannot
+express. Two run on it (added 2026-11-11, on the product owner's decision):
+
+* **Dictation** (`ui/features/dictation/lib/dictation-machine.ts`): the
+  permission check, the microphone and recorder, the 45-second stop and the
+  transcription request are actors the hook provides.
+* **The turn socket** (`ui/adapters/api/turn-socket-machine.ts`): the status,
+  the reconnect ladder and the order of every effect. Frame parsing and sending
+  stay in the driver, because callers send synchronously inside the `open`
+  announcement, before an actor's snapshot has moved.
+
+A machine file is pure (no React, no browser globals) and its module keeps the
+API it had, so nothing outside those two modules imports XState. v6 is in beta
+(`6.0.0-beta.2`, published 2026-11-11) and its migration guide removes `assign`,
+`raise`, `sendTo` and `enqueueActions`; neither machine persists a snapshot, so
+the migration is those two files. The chat turn fold is the remaining
+candidate. The upload row is not one: it mirrors the server, and what it needs
+is a report id, not a statechart (the audit says why).
 
 **Where Hatchet fits.** Hatchet owns execution: that a piece of work runs,
 retries with backoff, is fair across offices, and reports its failure. It does
@@ -133,8 +143,8 @@ Two findings follow from that split and are not acted on here:
 
 ### Why not the others
 
-* **XState as the runtime (2)**: rejected on the three premises above (v6 in
-  beta, state in a column, no Python port). Re-check when v6 is stable.
+* **XState as the runtime everywhere (2)**: rejected on the two premises above
+  (state in a column, no Python port).
 * **Hatchet as the state machine (3)**: rejected because a Hatchet run ends, and
   most of our records do not: a project is paused for a year, a version waits
   for a reviewer. It would also put the legal moves of a domain record in an
@@ -164,7 +174,9 @@ Two findings follow from that split and are not acted on here:
 * Bad, because the Python tier has no `defineLifecycle` yet. Its machines
   (ingest job, file status, research job, run ledger) stay implicit, and the
   literal lists mirrored between the tiers stay mirrored.
-* Bad, because one more development dependency (`xstate`, pinned exactly).
+* Bad, because two more runtime dependencies in the browser (`xstate` and
+  `@xstate/react`, pinned exactly, about 16 kB gzipped together), and a
+  statechart to learn for whoever touches the two modules that use it.
 
 ### Confirmation
 
