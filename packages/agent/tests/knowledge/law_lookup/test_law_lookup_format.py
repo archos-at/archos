@@ -110,6 +110,16 @@ async def test_the_lane_is_the_legal_source_lane_not_unknown():
     assert lanes["lanes"][0]["kind"] == "building_law"
 
 
+@pytest.mark.xfail(strict=True, reason="PORTED.md observation 2: a law hit's lane is keyed to RIS for any source")
+async def test_a_law_hit_s_lane_is_not_named_for_another_country_s_source():
+    """XA's statute is no RIS text: once the lane comes from the record, this passes and the mark goes."""
+    output = await _ask(instrument="§ 63 Building Code")
+
+    lanes = json.loads(output.split("## Trace-Lanes\n", 1)[1].strip())
+
+    assert lanes["lanes"][0]["key"] != "building_law_ris"
+
+
 async def test_a_named_provision_arrives_whole():
     """Cut at the chunk bound, a named provision cost three lookups in the answer suite."""
     parts = "\n".join(f"({index}) " + "Text " * 100 for index in range(1, 12))

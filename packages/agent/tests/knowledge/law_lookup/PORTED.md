@@ -176,10 +176,19 @@ place the lookup is still not country-neutral:
    source.** The lane fan-out (`knowledge_layer.search.trace_lanes_for_chunks`,
    through `agent.common.norm_registry`'s lane table) keys a `doc_class: law`
    hit to the RIS lane whatever its collection (`xa/National` included). The ported
-   format test asserts the kind (`building_law`) only.
+   format test asserts the kind (`building_law`) only, and
+   `test_a_law_hit_s_lane_is_not_named_for_another_country_s_source` pins the leak
+   (`xfail(strict=True)`): it fails loudly the day the lane comes from the record.
 3. **A heading a blank line above its provision is not read as its heading.** A
    page with one `<p>` per line converts to text with blank lines between, and
    `sections.split_sections` then finds no heading for `§ 63.`; the parity
    golden's indexes list bare `§ 60`, `§ 63` for that reason, in both tools. Real
    RIS pages state the heading in a block after the marker, which the grammar
    reads (`test_the_header_block_before_each_section_is_folded_into_it`).
+4. **`MAX_DOCUMENTS` is never the bound that binds.** `MAX_FETCHES` is 2 and
+   passages come only from fetched documents, so the document cap (also 2) is
+   never reached; `test_passages_come_from_at_most_two_documents` passes with it
+   raised, as the RIS tool's test did. Either cap is redundant while both are 2.
+5. **Two lists still name the old tool only.** `common/backend_tools.py` and
+   `agents/intake/lookups.py` list `ris_lookup_tool`; the rename (#1643) names
+   the tool `law_lookup` in both.
