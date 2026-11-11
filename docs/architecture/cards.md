@@ -188,6 +188,28 @@ also name documents (plan code, Index, Rev., Pos., a date) but hold no
 measurement, sign or symbol, and neither holds a verdict word (`_figure_in` in
 `cards/models.py`); pydantic refuses them, the TS schema does not check.
 
+**A verdict only where its edition binds.** The tables are one edition of each
+Richtlinie, and a site may bind another (Wien binds RL 6 in its 2025 edition). So
+the server stamps every formula card, while it validates, with which editions bind
+at the turn's site: `site_binding` (`coverage`, the turn's gate as the reason the card gives:
+`settled` for `core` and `full`, `unsettled` for `none` and `open`, `site_unknown` for
+`site_unknown`, `organization_unplaced` and `not_entitled`, `unavailable` for a context
+that could not be read; `editions`, each binding work's designation and edition label
+from `knowledgeContext.uses`, no label where its binding uses name two, and
+`scope_unsettled` where an edition's own scope is still open; `truncated` past
+`MAX_SITE_EDITIONS`, so a work the stamp does not name reads as unknown, not as not
+binding). The before-validator `FormulaCard._site_binding_is_the_servers`
+in `cards/formula_card.py` replaces whatever the model wrote, on every path
+(envelope, `emit_card`, a surface's leaf, the batch generator); outside a turn the
+stamp is absent. The field is in `SERVER_SET_CARD_FIELDS`, so no shape the model
+reads names it. The browser compares each check's `reference` (document and
+edition) with the stamp (`editionHold` in `formulas.ts`) and shows a check as a
+hint, the value against the bound with the reason and no ✓ or ✗, unless that
+edition binds, its scope is settled and so is the coverage. `formulas.pack.spec.ts`
+holds every check's work and edition label to the Austria pack. No stamp is a hint too (fail closed). The
+stamp names designations, not rules: which work a rule's bound is written in stays
+in `formulas.ts`, so no country is written into the agent's code.
+
 A changed input is written to the card's A2UI surface data model at
 `/inputs/<leaf id>` (`features/a2ui/reader-inputs.ts`): never to the message,
 never to a backend, never to an export, and gone on reload. Langfuse records
