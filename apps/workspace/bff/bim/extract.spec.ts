@@ -277,13 +277,14 @@ describe('extractIfcModel', () => {
 
 describe('IsExternal, from the file to the verdict', () => {
   const EXTERNAL_WALL_FLAG = "#44=IFCPROPERTYSINGLEVALUE('IsExternal',$,IFCBOOLEAN(.T.),$);"
+  const VIENNA = { chain: ['AT-9', 'AT'] }
 
   async function envelopeRule(edit: (step: string) => string) {
     const step = edit(readFileSync(FIXTURE, 'latin1'))
     const bytes = new TextEncoder().encode(step)
     const index = await extractIfcModel(bytes.buffer as ArrayBuffer, 'sample-building.ifc')
     const stored = readStoredRuleInputs(buildStoredRuleInputs(index.elements, false))
-    const results = runBimRules(stored?.elements ?? [], { mainUse: 'residential' })
+    const results = runBimRules(stored?.elements ?? [], { site: VIENNA, mainUse: 'residential' })
     return results.find((result) => result.ruleId === 'oib6-u-value-external-wall')
   }
 
