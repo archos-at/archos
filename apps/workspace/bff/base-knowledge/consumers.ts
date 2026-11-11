@@ -117,6 +117,11 @@ const SOURCES_CHECKED = {
   file: ONBOARDING_SPEC,
   name: 'approves only on the person’s yes, never the author’s, and only once the operator-supplied sources were checked',
 }
+/** What a fetch went through decides whether it counts as fetched (migration 0222). */
+const FETCHED_THROUGH = {
+  file: 'apps/workspace/bff/base-knowledge/platform/texts.integration.spec.ts',
+  name: 'holds a page captured through a source its own draft proposes, as it holds a pasted one',
+}
 const TIME = 'S11 (time and editions): a territory valid at the project’s reference date, mergers by successor'
 const SETUP = 'S9 (setup facts): competence by authority function, and authority identifiers (PVOG, Behördenkennzahl)'
 const ADDRESS = 'S12 (address resolution): a territory found by its name, kind or register alias'
@@ -279,6 +284,8 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_citation_captures.change_request_id', consumer: PLATFORM_CAPTURES, test: CAPTURED },
   { element: 'knowledge_citation_captures.basis', consumer: PLATFORM_CAPTURES, test: SOURCES_CHECKED },
   { element: 'knowledge_citation_captures.source_id', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.source_origin', consumer: PLATFORM_CAPTURES, test: FETCHED_THROUGH },
+  { element: 'knowledge_citation_captures.source_revision_id', consumer: PLATFORM_CAPTURES, test: FETCHED_THROUGH },
   { element: 'knowledge_citation_captures.url', consumer: PLATFORM_CAPTURES, test: CAPTURED },
   { element: 'knowledge_citation_captures.final_url', consumer: PLATFORM_CAPTURES, test: CAPTURED },
   { element: 'knowledge_citation_captures.content_type', consumer: PLATFORM_CAPTURES, test: CAPTURED },
