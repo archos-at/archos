@@ -79,8 +79,18 @@ export function ConfirmBar({ unit, context, yes }: { unit: ReviewUnit; context: 
   return (
     <div className="flex flex-col gap-3">
       {needsCheck ? (
-        <div className="flex flex-col gap-2 text-sm">
-          <ul className="text-muted-foreground flex flex-col gap-1 text-xs">
+        <div className="flex flex-col gap-1.5 text-sm">
+          {/* The tick, and right under it what it is about and the pages to compare. */}
+          <label className="flex items-start gap-2">
+            <Checkbox checked={checked} onCheckedChange={(value) => setChecked(value === true)} aria-describedby={`why-${unit.key}`} />
+            <span className="flex flex-col gap-0.5">
+              <span>{t('sourceCheck')}</span>
+              <span id={`why-${unit.key}`} className="text-muted-foreground text-xs">
+                {t('sourceCheckWhy')}
+              </span>
+            </span>
+          </label>
+          <ul className="text-muted-foreground flex flex-col gap-1 pl-6 text-xs">
             {unit.uncheckedSources.map((source) => (
               <li key={`${source.url}|${source.quote ?? ''}`} className="break-words">
                 {/^https?:\/\//.test(source.url) ? (
@@ -94,10 +104,6 @@ export function ConfirmBar({ unit, context, yes }: { unit: ReviewUnit; context: 
               </li>
             ))}
           </ul>
-          <label className="flex items-start gap-2">
-            <Checkbox checked={checked} onCheckedChange={(value) => setChecked(value === true)} />
-            <span>{t('sourceCheck')}</span>
-          </label>
         </div>
       ) : null}
       {wrong !== null ? (
