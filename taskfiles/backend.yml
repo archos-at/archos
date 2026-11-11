@@ -17,7 +17,7 @@ vars:
     tests/test_pr_selection.py tests/test_ci_filter_coverage.py packages/agent/tests/test_product_framing.py
     tests/test_repo_layout.py tests/test_ci_filter_reads.py tests/test_lead_time.py
     tests/test_check_brand_prose.py tests/test_migration_contract.py tests/test_dependabot_merge.py
-    tests/test_verify_plan.py
+    tests/test_verify_plan.py tests/test_test_servers_stop_fast.py
   # The Python packages under packages/ (ADR-0145 row 6): the uv workspace
   # members there, in the order of pyproject.toml's testpaths. ifc-spatial-py is
   # not one; it keeps its own lock and its own task (pkg:test).
@@ -354,10 +354,16 @@ tasks:
     cmds:
       # Re-run when the shards' times in CI drift apart. Rounded to keep the
       # file's churn down; the split needs proportions, not precision.
+      # --store-durations only adds and overwrites, so the last step drops the
+      # tests that no longer exist (1,086 of 20,206 entries on 2026-11-11). A
+      # test skipped here (no Qdrant) keeps the time it was last recorded with.
       - '{{.PY}} -X faulthandler -m pytest tests/ packages/agent/tests/ evals/ -q {{.XDIST}} --store-durations --durations-path tests/.test_durations'
+      - '{{.PY}} -m pytest tests/ packages/agent/tests/ evals/ -q --collect-only -p no:cacheprovider > tests/.test_ids'
+      - defer: '{{.PY}} -c "import pathlib; pathlib.Path(''tests/.test_ids'').unlink(missing_ok=True)"'
       - >-
         {{.PY}} -c "import json, pathlib; p = pathlib.Path('tests/.test_durations');
-        d = json.loads(p.read_text()); p.write_text(json.dumps({k: round(v, 3) for k, v in sorted(d.items())}, indent=0) + chr(10))"
+        ids = set(pathlib.Path('tests/.test_ids').read_text().splitlines());
+        d = json.loads(p.read_text()); p.write_text(json.dumps({k: round(v, 3) for k, v in sorted(d.items()) if k in ids}, indent=0) + chr(10))"
 
   be:test:api:
     desc: agent_host plugin suite

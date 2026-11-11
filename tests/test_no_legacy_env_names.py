@@ -23,6 +23,8 @@ ALLOWED = (
     "tests/test_no_legacy_env_names.py",
     # The prose check's test plants identifiers to show it leaves them to the identifier check.
     "tests/test_check_brand_prose.py",
+    # The recorded times are keyed by test id, and a parametrized id quotes its old name.
+    "tests/.test_durations",
     "apps/workspace/scripts/legacy-env-names.cjs",
     "apps/workspace/scripts/legacy-env-names.spec.mjs",
     "deploy/compose/docker-compose.yaml",

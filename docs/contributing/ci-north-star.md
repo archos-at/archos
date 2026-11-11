@@ -138,6 +138,17 @@ it is private.
    runners for the two critical-path jobs (the frontend image, the UI shards)
    and more shards where a shard is the floor. Needs the ARC scale set; the
    workflows already read `CI_RUNNER`.
+   For the backend lane the lever is cores, not shards (measured 2026-11-11,
+   [ci.md](ci.md#the-backend-lane)): the core suite is about 290 CPU-seconds
+   behind a 20-second collection in every worker, and `-n logical` already
+   uses every core a runner has. On hosted runners the lane ends at about
+   4:15 (slowest shard 3:35, then the coverage job). One large runner can
+   run the whole suite as `task be:test:ci`, with the gate in the same job and
+   no artifact round trip: on cores as fast as the 4 measured (84 to 99 s
+   there) that is an estimated 60 s on 8 and 40 s on 16, to be measured on
+   the real runners, whose cores may be slower (the hosted ones ran
+   `be:test:api` in 85 to 106 s against 40 s). Decide the shard count when the scale set's size is known: four
+   shards on small runners, one job on a large one.
 10. **Pin what drifts**: the runner image (or the PostgreSQL major the RLS suite
    installs), so a GitHub image update cannot turn develop red overnight.
 11. **Staging rolls in parallel**: `chromaMigration` is still `true` on dev, so

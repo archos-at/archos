@@ -321,6 +321,22 @@ What it was made of, and what was done about each:
   at the average, so a stale file unbalances the shards and never drops a test.
   Each shard writes coverage data and `backend-coverage` combines it and
   applies the 65% gate, so the gate still sees the whole suite.
+- **The shards drift apart when `tests/.test_durations` goes stale.** On
+  2026-11-11 the file held 13,280 of 19,120 tests, some at times recorded under
+  a slower machine, and the four test steps took 111 to 166 seconds in one run
+  (121 to 169 and 120 to 158 in two others). Weighed with fresh times the old
+  split was 41 to 64 units and the new one 52 each. `task be:test:durations`
+  records every test and drops the ones that no longer exist; run it when the
+  shard times in a run differ by more than about 20 seconds.
+- **What a shard is made of** (same day, 4 cores, no coverage: 84 to 99 s for
+  the whole suite, about 290 CPU-seconds). Collection is about 20 s in every
+  worker, of every shard, whatever share it then runs: about 8 s of imports
+  (`hatchet_sdk` 1.3 s, `qdrant_client` 0.6 s, the agent runtime 0.5 s) and
+  about 12 s of pytest building 19,120 items. Three tests each build the tool
+  catalog in a fresh interpreter, 10 to 13 s apiece. A job spends about 30 s
+  before pytest starts (containers 3 to 7 s, checkout 3 to 7 s, the venv 15 to
+  24 s). So a fifth shard buys little: the floor per shard is those 50 s, and
+  what scales is cores per runner.
 - **The `sources` suite (the Python packages) is Qdrant collection setup.** About 130 tests each create and
   drop collections, and each collection was ~47 sequential payload-index
   calls. It runs in its own job beside the shards.
