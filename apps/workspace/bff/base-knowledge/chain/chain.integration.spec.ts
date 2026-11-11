@@ -122,8 +122,10 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(graph.editions.get('edition:oib-rl-2-2023')?.corpusFiles).toEqual(['oib-rl_2_ausgabe_mai_2023.pdf'])
   })
 
-  // Before any spec below publishes more Austrian records: the walk must answer what the packs alone answer.
-  it('walks from the chain to the same context the whole pack graph gives, in every Land', async () => {
+  // The walk misses nothing the packs give. The database is shared with other specs, which publish records of
+  // their own onto an Austrian Land (time.integration.spec.ts publishes a fixture Bauordnung for AT-3), so the
+  // walked context may hold more uses than the packs: every pack use must be in it, unchanged.
+  it('walks from the chain to every use the whole pack graph gives, in every Land', async () => {
     const { graphFromProposals } = await import('./from-proposals')
     const { resolveKnowledgeContext } = await import('../context/resolve')
     const whole = graphFromProposals([...pack('eu.json').records, ...pack('at.json').records].map((record) => wire.proposedRecordSchema.parse(record)))
@@ -143,8 +145,10 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
       const walked = await load.loadGraph(AUSTRIAN, land)
       expect(walked.truncated, land).toBe(false)
       const context = contextOf(walked.graph, land)
-      expect(context.uses.length, land).toBeGreaterThan(0)
-      expect(context, land).toEqual(contextOf(whole, land))
+      const expected = contextOf(whole, land)
+      expect(expected.uses.length, land).toBeGreaterThan(0)
+      expect(context.gate, land).toEqual(expected.gate)
+      expect(context.uses, land).toEqual(expect.arrayContaining(expected.uses))
     }
   })
 
