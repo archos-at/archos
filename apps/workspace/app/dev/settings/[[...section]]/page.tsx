@@ -265,7 +265,7 @@ export default function SettingsDevPage({
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8" data-testid="settings-preview">
-      <h1 className="mb-6 text-xl font-medium">Overview</h1>
+      <h1 className="mb-6 text-page-title font-medium phone:text-section">Overview</h1>
       <div className="flex flex-col gap-6">
         <div>
           <SectionNav
