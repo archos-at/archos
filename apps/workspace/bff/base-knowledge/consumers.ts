@@ -72,6 +72,16 @@ const TIME_READ_TEST = {
 }
 
 const PLATFORM_SPEC = 'apps/workspace/bff/base-knowledge/platform/platform.integration.spec.ts'
+const GOLDEN_REPOSITORY = 'apps/workspace/bff/base-knowledge/golden/repository.ts'
+const GOLDEN_TURN = 'apps/workspace/bff/base-knowledge/golden/turn.ts'
+const GOLDEN_SCORE = 'apps/workspace/bff/base-knowledge/golden/score.ts'
+const GOLDEN_SPEC = 'apps/workspace/bff/base-knowledge/golden/golden-run.integration.spec.ts'
+const GOLDEN_RUN = { file: GOLDEN_SPEC, name: 'runs the released cases: each asked once, scored against its case, with seconds and the ledger’s cost' }
+const GOLDEN_TENANT = { file: GOLDEN_SPEC, name: 'shows a tenant no case, no run and no verdict' }
+const GOLDEN_SCORED = {
+  file: 'apps/workspace/bff/base-knowledge/golden/score.spec.ts',
+  name: 'passes an answer that states the value, names the edition and cites the clause',
+}
 const PLATFORM_STORE = 'apps/workspace/bff/base-knowledge/platform/store.ts'
 const PLATFORM_RELEASE = 'apps/workspace/bff/base-knowledge/platform/release.ts'
 const PLATFORM_READ = 'apps/workspace/bff/base-knowledge/platform/office-read.ts'
@@ -354,6 +364,16 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_source_revisions.monitor_interval_hours', consumer: PLATFORM_SOURCES, test: SOURCE_MONITOR },
   { element: 'knowledge_source_revisions.licence', consumer: PLATFORM_RECORDS, test: SOURCE_REVIEWED },
   { element: 'knowledge_source_revisions.config', consumer: PLATFORM_SOURCES, test: SOURCE_KC7 },
+  // A golden case (0228): read by the golden run, which asks its question at its site and scores the answer against it.
+  { element: 'knowledge_golden_case_revisions.revision_id', consumer: GOLDEN_REPOSITORY, test: GOLDEN_RUN },
+  { element: 'knowledge_golden_case_revisions.record_id', consumer: GOLDEN_REPOSITORY, test: GOLDEN_RUN },
+  { element: 'knowledge_golden_case_revisions.organization_id', consumer: PLATFORM_RECORDS, test: GOLDEN_TENANT },
+  { element: 'knowledge_golden_case_revisions.question', consumer: GOLDEN_REPOSITORY, test: GOLDEN_RUN },
+  { element: 'knowledge_golden_case_revisions.language', consumer: GOLDEN_REPOSITORY, test: GOLDEN_RUN },
+  { element: 'knowledge_golden_case_revisions.context', consumer: GOLDEN_TURN, test: GOLDEN_RUN },
+  { element: 'knowledge_golden_case_revisions.expected', consumer: GOLDEN_SCORE, test: GOLDEN_SCORED },
+  { element: 'knowledge_golden_case_revisions.must_not', consumer: GOLDEN_SCORE, test: GOLDEN_SCORED },
+  { element: 'knowledge_golden_case_revisions.tags', consumer: GOLDEN_REPOSITORY, test: GOLDEN_RUN },
   { element: 'knowledge_source_credentials.id', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
   { element: 'knowledge_source_credentials.record_id', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
   { element: 'knowledge_source_credentials.secret_owner_id', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },

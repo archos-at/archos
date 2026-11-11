@@ -29682,6 +29682,213 @@
         }
       }
     },
+    "/api/platform/knowledge/golden-runs": {
+      "post": {
+        "operationId": "platform-knowledge-golden-run",
+        "summary": "Run a country’s golden cases through the real answer path and score them",
+        "description": "Starts a run of the country’s golden cases (golden_case records): the released ones, or with `changeRequestId` those of a change request published to preview. Each case is asked as you, in the platform organization, as agent-ask-create asks, at the site and with the facts the case states, on the law released for that country; the platform organization must be entitled to it. Each answer is scored against its case: expected values present, the edition named, each citation resolving to a cited source and its locus, no must-not violated, with its seconds and its cost from the usage ledger. An expectation with grounding `unconfirmed` is scored and never decides the case. Asks four cases at once and returns the run; then call platform-knowledge-golden-run-advance until `finishedAt` is set. Uses the platform organization’s model budget. Scores are on each answer’s Langfuse trace, under the dataset run `datasetRun`.",
+        "tags": [
+          "platform"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "countryId": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$",
+                    "description": "The country whose golden cases run."
+                  },
+                  "changeRequestId": {
+                    "description": "Run the golden cases of this change request (published to preview) instead of the released ones.",
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "caseKeys": {
+                    "description": "Only these cases; all of them when absent.",
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
+                  }
+                },
+                "required": [
+                  "countryId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Run a country’s golden cases through the real answer path and score them",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/golden-runs/{runId}/advance": {
+      "post": {
+        "operationId": "platform-knowledge-golden-run-advance",
+        "summary": "Step a golden run: score the cases that were answered and ask the next",
+        "description": "Waits up to `waitSeconds` for the running cases, scores those whose answer arrived, asks the next pending cases (four at once) and returns the run as platform-knowledge-golden-run-get does. Repeat until `finishedAt` is set. Only the person who started the run steps it. A case that could not be answered is settled with `failure` and no verdict.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The run id, from platform-knowledge-golden-run."
+            },
+            "description": "The run id, from platform-knowledge-golden-run."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "waitSeconds": {
+                    "default": 20,
+                    "description": "How long to wait for running cases before answering.",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 40
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Step a golden run: score the cases that were answered and ask the next",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/golden-runs/{runId}": {
+      "get": {
+        "operationId": "platform-knowledge-golden-run-get",
+        "summary": "Read a golden run: every case with its verdict, checks and scores",
+        "description": "The run’s `summary` (cases pending, asked, settled, passed, failed, unanswered, and expectations no reviewer confirmed), `medianSeconds`, `medianCostUsd`, the stable `releaseSeq` it was answered on, and per case its `state`, `passed`, and `result`: each check (value, edition, citation, must_not) with `passed`, whether it `decides` and why it failed, the scores by name, the confidence the answer stated, its seconds, cost and trace id. The answer itself is in the asker’s own conversation, by `askId` (agent-ask-get).",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The run id, from platform-knowledge-golden-run."
+            },
+            "description": "The run id, from platform-knowledge-golden-run."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read a golden run: every case with its verdict, checks and scores",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/change-requests/{changeRequestId}/index-status": {
       "get": {
         "operationId": "platform-knowledge-index-status",
@@ -29861,7 +30068,7 @@
       "post": {
         "operationId": "platform-knowledge-records-propose",
         "summary": "Propose up to 200 cited records into a draft change request",
-        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation, relation, ruleset, source; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate. A source whose fixture names no capture yet (`captureId: null`) is written with `awaiting` on its result: capture the URL through it, then propose it again with the capture’s id.",
+        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation, relation, ruleset, source, golden_case; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate. A source whose fixture names no capture yet (`captureId: null`) is written with `awaiting` on its result: capture the URL through it, then propose it again with the capture’s id.",
         "tags": [
           "platform"
         ],
@@ -32605,6 +32812,430 @@
                             "access",
                             "fixtures"
                           ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "const": "golden_case"
+                            },
+                            "key": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+                            },
+                            "question": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000,
+                              "description": "The question as a person asks it."
+                            },
+                            "language": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+                              "description": "The language of the question and of every expected phrase."
+                            },
+                            "context": {
+                              "default": {
+                                "territoryId": null,
+                                "facts": {},
+                                "referenceDate": null,
+                                "note": null
+                              },
+                              "type": "object",
+                              "properties": {
+                                "territoryId": {
+                                  "default": null,
+                                  "description": "The site the question is asked for; null: asked with no site.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "facts": {
+                                  "default": {},
+                                  "description": "The project facts the question needs, by fact key (fact_definitions).",
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string",
+                                    "pattern": "^[a-z][a-z0-9_]{0,59}$"
+                                  },
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "referenceDate": {
+                                  "default": null,
+                                  "description": "The day the answer is about, e.g. a filing day; null: today.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "note": {
+                                  "default": null,
+                                  "description": "What else the scenario needs that a run cannot state, e.g. an office document.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 500
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "expected": {
+                              "type": "object",
+                              "properties": {
+                                "values": {
+                                  "default": [],
+                                  "maxItems": 12,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "label": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 120,
+                                        "description": "What the value is, e.g. \"longest escape route to the stair\"."
+                                      },
+                                      "anyOf": {
+                                        "minItems": 1,
+                                        "maxItems": 12,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 160
+                                        },
+                                        "description": "The value as an answer may write it; one of them must appear in the answer."
+                                      },
+                                      "grounding": {
+                                        "type": "string",
+                                        "enum": [
+                                          "records",
+                                          "text",
+                                          "unconfirmed"
+                                        ],
+                                        "description": "records, text, or unconfirmed: a reviewer still confirms it against the source."
+                                      }
+                                    },
+                                    "required": [
+                                      "label",
+                                      "anyOf",
+                                      "grounding"
+                                    ]
+                                  }
+                                },
+                                "edition": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "editionKey": {
+                                          "type": "string",
+                                          "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+                                          "description": "The edition a right answer rests on, proposed here or already published."
+                                        },
+                                        "anyOf": {
+                                          "minItems": 1,
+                                          "maxItems": 12,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 160
+                                          },
+                                          "description": "How an answer names that edition, e.g. its label."
+                                        },
+                                        "role": {
+                                          "default": null,
+                                          "description": "What the edition is to the site, when the case states it.",
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "binding",
+                                                "guidance",
+                                                "interpretation",
+                                                "authority_practice",
+                                                "information"
+                                              ]
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "grounding": {
+                                          "type": "string",
+                                          "enum": [
+                                            "records",
+                                            "text",
+                                            "unconfirmed"
+                                          ],
+                                          "description": "records, text, or unconfirmed: a reviewer still confirms it against the source."
+                                        }
+                                      },
+                                      "required": [
+                                        "editionKey",
+                                        "anyOf",
+                                        "grounding"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "citations": {
+                                  "default": [],
+                                  "maxItems": 6,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "designation": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 160,
+                                        "description": "The instrument as its citation names it."
+                                      },
+                                      "alsoKnownAs": {
+                                        "default": [],
+                                        "description": "Other names a source may carry for it.",
+                                        "maxItems": 8,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 160
+                                        }
+                                      },
+                                      "locus": {
+                                        "default": null,
+                                        "description": "The clause, section or paragraph, as the citation writes it.",
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 160
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "grounding": {
+                                        "type": "string",
+                                        "enum": [
+                                          "records",
+                                          "text",
+                                          "unconfirmed"
+                                        ],
+                                        "description": "records, text, or unconfirmed: a reviewer still confirms it against the source."
+                                      }
+                                    },
+                                    "required": [
+                                      "designation",
+                                      "grounding"
+                                    ]
+                                  }
+                                }
+                              }
+                            },
+                            "mustNot": {
+                              "default": [],
+                              "maxItems": 12,
+                              "type": "array",
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "phrase"
+                                      },
+                                      "id": {
+                                        "type": "string",
+                                        "pattern": "^[a-z0-9][a-z0-9-]{0,59}$"
+                                      },
+                                      "in": {
+                                        "default": "answer",
+                                        "type": "string",
+                                        "enum": [
+                                          "answer",
+                                          "confidence_reason"
+                                        ]
+                                      },
+                                      "anyOf": {
+                                        "minItems": 1,
+                                        "maxItems": 12,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 160
+                                        },
+                                        "description": "Violated when one of these appears."
+                                      },
+                                      "whenConfidence": {
+                                        "default": [],
+                                        "description": "Only at these confidence levels; empty: at any.",
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "low",
+                                            "medium",
+                                            "high"
+                                          ]
+                                        }
+                                      },
+                                      "whenRecords": {
+                                        "default": "any",
+                                        "description": "unreleased: only while the site’s records are not published.",
+                                        "type": "string",
+                                        "enum": [
+                                          "any",
+                                          "released",
+                                          "unreleased"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "id",
+                                      "anyOf"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "source"
+                                      },
+                                      "id": {
+                                        "type": "string",
+                                        "pattern": "^[a-z0-9][a-z0-9-]{0,59}$"
+                                      },
+                                      "sourceKinds": {
+                                        "minItems": 1,
+                                        "maxItems": 5,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "building_law",
+                                            "office",
+                                            "project",
+                                            "web",
+                                            "measurement"
+                                          ]
+                                        },
+                                        "description": "Violated when the answer cites a source of one of these kinds."
+                                      },
+                                      "naming": {
+                                        "default": [],
+                                        "description": "Only a source whose name or address holds one of these; empty: any such source.",
+                                        "maxItems": 12,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 160
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "id",
+                                      "sourceKinds"
+                                    ]
+                                  }
+                                ],
+                                "discriminator": {
+                                  "propertyName": "kind"
+                                }
+                              }
+                            },
+                            "tags": {
+                              "default": [],
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9:_-]{0,39}$"
+                              }
+                            },
+                            "citations": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
+                                  "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "note": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "key",
+                            "question",
+                            "language",
+                            "expected"
+                          ]
                         }
                       ],
                       "discriminator": {
@@ -32802,7 +33433,7 @@
       "get": {
         "operationId": "platform-knowledge-schema-get",
         "summary": "Read the JSON Schema of each platform record type",
-        "description": "What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, manifestation, relation, ruleset, source; `type` for one), the citation every record carries, the batch limit and the checks of the validation kit with what to do about each. Read it before the first proposal.",
+        "description": "What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, manifestation, relation, ruleset, source, golden_case; `type` for one), the citation every record carries, the batch limit and the checks of the validation kit with what to do about each. Read it before the first proposal.",
         "tags": [
           "platform"
         ],
@@ -32822,7 +33453,8 @@
                 "manifestation",
                 "relation",
                 "ruleset",
-                "source"
+                "source",
+                "golden_case"
               ]
             },
             "description": "One record type; all of them when absent."
