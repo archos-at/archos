@@ -10,19 +10,15 @@
 
 import type { JSX, ReactNode } from 'react'
 import { bindingOn, editionOrder, nextChange, summaryOf, summaryOn, type LawMap, type LawMapEdition, type LawMapStatement } from '@/lib/base-knowledge/platform/law-map'
-import { useLocale, useTranslations } from '@/i18n'
+import { useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { lawMapCopy } from '@/i18n/namespaces/law-map'
 import type { ReviewUnit } from '@/lib/base-knowledge/platform/law-map-review'
-import { AddLine, Branch, OutlineRow, SourceQuote, Unfold } from './law-map-atoms'
+import { AddLine, Branch, OutlineRow, SourceQuote, Unfold, useDate } from './law-map-atoms'
 import { ConfirmBar, type ConfirmContext } from './law-map-confirm'
 import { AddActForm, AddEditionForm } from './law-map-add-forms'
+import { namer, RecordBody } from './law-map-record'
 import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
-
-function useDate(): (iso: string | null) => string {
-  const { locale } = useLocale()
-  return (iso) => (iso ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`)) : '–')
-}
 
 const designationOf = (map: LawMap, workId: string): string => map.topics.find((topic) => topic.workId === workId)?.designation ?? workId
 
@@ -259,6 +255,7 @@ export function LawMapOutline({ map, units, confirm, add, today, rootName, expan
   const unplaced = map.statements.filter((statement) => !placed.has(statement.territoryId)).sort(byStart)
   const unplacedStatutes = map.statutes.filter((statute) => !placed.has(statute.territoryId))
   const others = [...units.values()].filter((unit) => unit.kind === 'record')
+  const name = namer(map, [...units.values()].flatMap((unit) => unit.revisions))
   const regionsUnit = units.get('regions')
 
   return (
@@ -365,14 +362,9 @@ export function LawMapOutline({ map, units, confirm, add, today, rootName, expan
                 {others.map((unit) => (
                   <Openable key={unit.key} o={o} id={unit.key} row={(isOpen, onClick) => <OutlineRow size="sm" name={unit.label} meta={t(`recordType.${unit.revisions[0]?.type ?? 'work'}`)} {...marks(unit)} expanded={isOpen} onClick={onClick} />}>
                     <Unfold>
-                      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
-                        {(unit.revisions[0]?.claims ?? []).map((claim) => (
-                          <div key={claim.path} className="contents">
-                            <dt className="text-muted-foreground">{claim.path}</dt>
-                            <dd className="break-words">{typeof claim.value === 'string' ? claim.value : JSON.stringify(claim.value)}</dd>
-                          </div>
-                        ))}
-                      </dl>
+                      {unit.revisions.map((revision) => (
+                        <RecordBody key={revision.revisionId} revision={revision} name={name} />
+                      ))}
                       <Decide o={o} unitKey={unit.key} yes={t('yesRecord')} />
                     </Unfold>
                   </Openable>

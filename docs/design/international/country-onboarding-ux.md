@@ -150,7 +150,7 @@ An empty field is never a claim (`claimsOf` already skips unstated fields). A de
 
 ### C2. What a claim is
 
-Six kinds, each with its one question:
+Seven kinds, each with its one question:
 
 | Claim | Question the reviewer answers | Source it must cite | Review view |
 |---|---|---|---|
@@ -160,6 +160,9 @@ Six kinds, each with its one question:
 | `rule` | Are these examples right? | The provision the rule encodes (`provision` on each row, as today) | The examples as a table: inputs, expected, the rule's output |
 | `citation_style` | Are these the lines an office would write? | The publisher's own citation guidance, where there is one | Rendered sample lines per kind |
 | `golden_case` | Is this the answer a right reply must give? | Its grounding, as today (`records`, `text`, `unconfirmed`) | The question, the expected values, the last run |
+| `source` | May the platform fetch this publisher's documents, on these terms? | Its terms page (licence, attribution) and a recorded test of one document | In words: the hosts it fetches from, the licence with the attribution quoted, monitoring on or off, the documents it may fetch as linked titles, and its test as one line ("OIB-RL 2 reads with ≥ 30 passages") |
+
+In the law map, a record with no branch of its own (a source, a test question, a rule, an authority) opens under "Everything else" in words (`law-map-record.tsx`), and its stored fields sit behind "Technical details", never first. A source reads its documents from `config.access.documents` and its test from `config.fixtures[].expect`. Not yet built: a rule's examples as a table and a test question's last run; a rule shows what it is for, where and when it applies, and its table behind the details. `citation_style` is no record type of a change request yet (`KNOWLEDGE_RECORD_TYPES`), so the map never shows one.
 
 An `adoption` statement is keyed by the act's structured identifier (its gazette number or ELI) and its in-force date, never by parsing a provision's text. A replacement act (TBV 2026, K-BTV 2024) is a new statement; Kundmachung and Inkrafttreten are separate dates, and the map uses Inkrafttreten.
 
