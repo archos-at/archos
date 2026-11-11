@@ -98,53 +98,71 @@ pack ships whose territories the list does not name.
 
 What it counts: Python, TypeScript and JavaScript under `apps/` and
 `packages/`, comments and docstrings left out, string literals and file and
-directory names included. What it leaves alone, as data by nature: tests and
-fixtures, the i18n dictionaries, the legal texts, the public site and its CMS,
-the component gallery (`app/dev`), migrations and generated files. Two things
-it does not see and a burn-down must: the prompt templates (22 `.j2` and `.md`
-files under `packages/agent/src` name the OIB, RIS, Austria or Wien 98 times),
-and `configs/` itself, where a record that should be a platform record is
-still a file.
+directory names included; and every prompt whole, because the model reads it on
+every turn and ADR-0168 requires the static prompt to be country-neutral: the
+`.j2` templates, Markdown under a `prompts/` directory (`chat_static.md`, the
+door's MCP prompts), the built-in `SKILL.md` files and the guides the agent
+door serves. What it leaves alone, as data by nature: tests and fixtures, the
+i18n dictionaries, the legal texts, the public site and its CMS, the component
+gallery (`app/dev`), migrations and generated files (`platform-skills.ts` is
+written from the `SKILL.md` files, which are counted). Documentation in Markdown
+is prose about the code and is not counted. One thing it does not see and a
+burn-down must: `configs/` itself, where a record that should be a platform
+record is still a file.
 
-Baseline, 2026-11-11: **1,983 hits in 279 paths**. Re-draw the table with
+Baseline, 2026-11-11: **2,090 hits in 302 paths**, 146 of them in 23 prompts.
+Re-draw the table with
 `.venv/bin/python scripts/check_country_in_code.py --summary`, and read one
 file's hits with `--explain <path>`.
 
 | Area | Paths | Hits | corpus_file_name | host | law_name | legal_database | standards_body | territory |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `apps/workspace/bff` | 86 | 491 | 3 | 5 | 16 | 89 | 200 | 178 |
+| `apps/workspace/bff` | 88 | 473 | 3 | 5 | 13 | 93 | 173 | 186 |
 | `packages/ris-adapter` | 17 | 401 | 0 | 3 | 8 | 356 | 3 | 31 |
 | `apps/workspace/ui` | 41 | 277 | 3 | 3 | 1 | 105 | 145 | 20 |
 | `apps/agent-host` | 24 | 209 | 0 | 0 | 0 | 43 | 149 | 17 |
 | `packages/agent/src/agent/common` | 18 | 186 | 23 | 2 | 2 | 24 | 88 | 47 |
+| `packages/agent/src/agent/agents` | 17 | 120 | 3 | 0 | 8 | 20 | 38 | 51 |
 | `packages/agent/src/agent/knowledge` | 11 | 105 | 0 | 0 | 4 | 1 | 73 | 27 |
 | `packages/agent/src/agent` (top level) | 7 | 91 | 0 | 0 | 0 | 0 | 64 | 27 |
 | `packages/knowledge-layer` | 17 | 46 | 1 | 0 | 3 | 0 | 38 | 4 |
+| `packages/agent/src/agent/skills` | 11 | 34 | 0 | 0 | 3 | 3 | 23 | 5 |
 | `packages/agent/src/agent/tools` | 9 | 32 | 0 | 0 | 0 | 0 | 20 | 12 |
 | `packages/public-sources` | 4 | 30 | 0 | 1 | 0 | 26 | 0 | 3 |
-| `packages/agent/src/agent/agents` | 7 | 29 | 0 | 0 | 1 | 4 | 12 | 12 |
 | `packages/agent/src/agent/cards` | 7 | 22 | 0 | 0 | 1 | 1 | 19 | 1 |
 | `apps/workspace/app` | 7 | 20 | 0 | 0 | 0 | 15 | 5 | 0 |
 | `packages/agent/src/agent/citations` | 8 | 16 | 0 | 0 | 0 | 11 | 4 | 1 |
 | `packages/ifc-spatial-py` | 8 | 12 | 0 | 0 | 0 | 0 | 9 | 3 |
 | the rest (7 areas) | 8 | 16 | 0 | 0 | 1 | 0 | 10 | 5 |
-| **Total** | 279 | 1,983 | 30 | 14 | 37 | 675 | 839 | 388 |
+| **Total** | 302 | 2,090 | 33 | 14 | 44 | 698 | 861 | 440 |
+
+The prompts, counted in the rows above, as a kind of their own:
+
+| Prompts | Files | Hits | Becomes |
+|---|---:|---:|---|
+| Deep research templates (`agents/deep_researcher/prompts/*.j2`) | 5 | 52 | The works, sources and territories the run's knowledge context names, rendered in; the tool the template tells the model to call is the neutral legal-source lookup |
+| Chat prompts (`chat_static.md` 11, `plan_generation.j2`, `research_clarification.j2`, the turn template) and the intake prompt | 5 | 39 | A static prompt that names no country (ADR-0168); every example an edition, a Land or a law comes from the turn's context |
+| Built-in skills (`skills/builtin/**/SKILL.md`, the `oib/` directory among them) | 10 | 33 | Skills named for the subject (fire safety, building class) that ask the knowledge context which works bind at the site |
+| The agent door (`door/guide.md`, `platform/onboarding-guide.md`, `prompts/building-law-check.md`) | 3 | 22 | Guides whose examples are a placeholder country, not Austria |
+| **Total** | 23 | 146 | territory 57, standards_body 50, legal_database 26, law_name 10, corpus_file_name 3 |
 
 The order below is by what a person in a second country meets first. None of
 it is refactored by the change that added the check.
 
-### 1. RIS as a name in code (685 hits, 89 paths)
+### 1. RIS as a name in code (708 hits, 100 paths)
 
-`legal_database` (675: `ris` 663 as a word of an identifier, a route, a tool
-or a string, `LGBl` and `BGBl` 12) and the ten `bka.gv.at` hosts. The target is
-that no code names the publisher. Four parts, each with the paths it touches:
+`legal_database` (698: `ris` 686 as a word of an identifier, a route, a tool,
+a string or a prompt, `LGBl` and `BGBl` 12) and the ten `bka.gv.at` hosts. The target is
+that no code and no prompt names the publisher. Five parts, each with the paths
+it touches:
 
 | Part | Today | Becomes | Paths (hits) |
 |---|---|---|---:|
 | The source record | `configs/sources/at/ris/source.yml` and its two fixtures, a file in git; `at-ris` and its hosts as examples in the platform wire and catalog | A platform source record proposed in Austria's change request (ADR-0174), its fixtures with it; examples in descriptions name no real source | 7 (16), plus the 3 files under `configs/` |
 | The adapter | `packages/ris-adapter` (19 source files, 15 test files), the `ris_xml` engine in `packages/public-sources/src/engines/`, the backend's `routes/ris.py` and the RIS halves of `routes/norms.py` and `plugin.py`, the BFF's `bff/ris/` and `/api/ris/document`, the UI's `ris-document-dialog` | The package goes away. The request side is the generic `rest` access type the record already configures. The format side is an engine named for the format (see below). Routes and the dialog are a source document by source id | 31 (481) |
-| The model tool | `ris_lookup` and its three siblings (`ris_search`, `ris_fetch_document`, `ris_catalog_lookup`) as tool names, config keys (`ris.page_size`), limits, retrieval settings, step labels and `law_gate.LAW_SOURCE_COUNTRIES = {"ris": "AT"}` | One country-neutral legal-source lookup over the sources the turn's knowledge context names (ADR-0173); which source answers is the record's territory, not a table in `law_gate` | 18 (59) |
+| The model tool | `ris_lookup` and its three siblings (`ris_search`, `ris_fetch_document`, `ris_catalog_lookup`) as tool names, config keys (`ris.page_size`), limits, retrieval settings, step labels and `law_gate.LAW_SOURCE_COUNTRIES = {"ris": "AT"}` | One country-neutral legal-source lookup over the sources the turn's knowledge context names (ADR-0173); which source answers is the record's territory, not a table in `law_gate` | 17 (56) |
 | Citations | `is_ris`, `isRisUrl`, `RIS_HOST_RE`, the `ris` origin and target kind, the `building_law_ris` lane, `RisPreviewChip`, the `[RIS]` tag in text parsers and report layout | A legal database is recognised by its source record and public address: roles, source identity, text parsers and verification ask the record, and the chip shows the record's title | 33 (129) |
+| Prompts | The deep research templates tell the model to call `ris_lookup` and to cite RIS; the door's guides and three built-in skills name it | The prompt names the kind of source and the neutral tool; the turn's knowledge context names the source | 12 (26) |
 
 Whether RIS can be read in a standard format, checked 2026-11-11 against the
 OGD API v2.6 (`data.bka.gv.at`) and the fixture
@@ -175,12 +193,12 @@ is read from the answers. Each part above moves with those tests green, and the
 parity test moves with the request builder rather than being deleted with the
 package.
 
-### 2. The country and its Länder as literals (388 hits)
+### 2. The country and its Länder as literals (440 hits)
 
-`territory`: Länder by name 139, Austria as a word 119 (`outside_austria`,
-`austrian_law`, `AUSTRIA_BBOX`, prompt strings), `bundesland` as a word 75,
-the country code as a quoted literal 44 (`=== 'at'`, `'AT'`), Land codes
-`AT-1` to `AT-9` 11. This is what gives an office elsewhere Austria's
+`territory`: Austria as a word 150 (`outside_austria`, `austrian_law`,
+`AUSTRIA_BBOX`, prompts), Länder by name 147, `bundesland` as a word 82, the
+country code as a quoted literal 45 (`=== 'at'`, `'AT'`), Land codes `AT-1`
+to `AT-9` 16. This is what gives an office elsewhere Austria's
 options or nothing.
 
 | Where | Today | Becomes |
@@ -191,7 +209,7 @@ options or nothing.
 | `knowledge/permit_extraction.py`, `document_classification.py` | "österreichisches Architekturbüro" and Land names in prompt strings | The office's country and the site from the turn's knowledge context, rendered into the prompt |
 | `bff/base-knowledge/consumers.ts` (14) | The consumer ledger cites each proving test by its title, and the titles name Wien and the WBTV | Last and cheapest: it falls when those tests are renamed for what they prove |
 
-### 3. The OIB as a name in code (839 hits)
+### 3. The OIB as a name in code (861 hits)
 
 `standards_body`: the OIB is one standards body of one country, and it is in
 module names, routes, document classes and rule ids.
@@ -201,10 +219,10 @@ module names, routes, document classes and rule ids.
 | `agent-host/routes/oib.py` (106), `agent/oib_status.py`, `agent/oib_sync.py`, the BFF's backend operations for them | `/v1/admin/oib/*`, `sync_oib_documents`, `OibFileState`: the base corpus named for its first publisher | The platform base corpus, per country: routes and modules named for the base corpus, the files a country's manifestations name |
 | `knowledge/doc_class_vocabulary.py`, `bff/knowledge/doc-class.ts`, `bff/source-kinds.ts`, `ui/.../citations/model.ts`, `common/norm_registry.py` (61) | Document classes and lanes `oib_guideline`, `building_law_oib_*`, their labels ("OIB-Richtlinie") and `isOibBinding` | A work's `kind` and `designation` from the records; whether it binds is the relation the chain resolves (ADR-0168), never the class name |
 | `bff/bim/rules.ts` (32), `packages/ifc-spatial-py` (9) | Rule ids `oib4-stair-rise-run-ratio`, `richtlinie: 'OIB 4'`, `appliesIn: 'AT'` | Rulesets run by the one evaluator (ADR-0166), selected by the site |
-| `bff/skills/platform-skills.ts` (29), tool descriptions in `agent/tools` | OIB named in skill and tool text a model reads | Text that names the kind of source; the turn's knowledge context names the works |
+| The built-in skills under `skills/builtin/oib/` (23) and the prompts (50 in all), tool descriptions in `agent/tools` | OIB named in skill, prompt and tool text a model reads | Text that names the kind of source; the turn's knowledge context names the works |
 | `oib_knowledge` as the collection default (three YAMLs, `collection-scope.ts`) | A collection named for one publisher | One shared corpus under a neutral name, filtered by `country_id` |
 
-### 4. Corpus file names (30 hits)
+### 4. Corpus file names (33 hits)
 
 `corpus_file_name`: `common/oib_file_names.py` (23) and its TypeScript twin in
 `ui/.../document-names.ts` tie a passage to its edition by the spelling
@@ -212,7 +230,7 @@ oib.or.at publishes. Becomes the manifestation's `corpusFile` and the chunk's
 `edition_id`; the mapping is the bridge until retrieval reads that, and then it
 is deleted whole.
 
-### 5. Law names (37 hits) and hosts (14 hits)
+### 5. Law names (44 hits) and hosts (14 hits)
 
 `law_name` (Bauordnung, WBTV, Baugesetz as examples in tool descriptions,
 prompts and one citation regex in `knowledge-layer/src/references.py`) becomes
@@ -225,10 +243,11 @@ which the allowlist already reads (ADR-0174).
 
 Measured on the baseline: every distinct identifier matched by `ris` (114
 of them) and by the short Land and law codes was read, and 200 hits drawn at
-random; none of those was a false positive. Two hits in 1,983 (0.1%) are known
+random; none of those was a false positive. Two hits in 2,090 (0.1%) are known
 false: a quoted `'at'` that is the English word (`agent-api/operation-search.ts`,
 `documents/patch-engine.ts`). `'Europe/Vienna'` as the office time zone is
-counted and is a true hit.
+counted and is a true hit. The 146 hits in prompts were all read: each names
+Austria, a Land, the OIB, RIS or a law.
 
 ## OIB editions per Land
 

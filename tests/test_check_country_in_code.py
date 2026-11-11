@@ -119,6 +119,12 @@ def test_what_is_data_by_nature_and_what_lies_outside_the_roots_is_not_checked(c
         "configs/knowledge-packs/loader.py",
         "scripts/build_catalog.py",
         "docs/examples/sample.py",
+        # Generated from the built-in SKILL.md files, which are counted themselves.
+        "apps/workspace/bff/skills/platform-skills.ts",
+        # Prose about the code, not what a model reads.
+        "packages/agent/src/agent/README.md",
+        "packages/agent/src/agent/tools/AGENTS.md",
+        "docs/prompts/notes.md",
     ):
         _add(repo, path, austria)
     # Not a source file, so not this check's: a pack is where a country belongs.
@@ -127,6 +133,24 @@ def test_what_is_data_by_nature_and_what_lies_outside_the_roots_is_not_checked(c
     assert checker.main([]) == 0
     assert not checker.is_checked("scripts/build_catalog.py")
     assert checker.is_checked("packages/agent/src/agent/law.py")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "packages/agent/src/agent/agents/research/prompts/planner.j2",
+        "packages/agent/src/agent/agents/chat/prompts/chat_static.md",
+        "packages/agent/src/agent/skills/builtin/fire/escape-routes/SKILL.md",
+        "apps/workspace/bff/agent-api/door/prompts/building-law-check.md",
+        "apps/workspace/bff/agent-api/door/guide.md",
+    ],
+)
+def test_a_prompt_is_counted_whole_because_the_model_reads_it(checker, repo, capsys, path):
+    _add(repo, path, "You answer questions about Austrian building law.\n{# RIS was named here #}\n<!-- OIB -->\n")
+
+    assert checker.main([]) == 1
+    # Prose is counted, a template comment and an HTML comment are not rendered and are not.
+    assert f"{path}: 1 country hit(s), baseline 0" in capsys.readouterr().err
 
 
 def test_comments_and_docstrings_are_not_code_but_strings_are(checker):

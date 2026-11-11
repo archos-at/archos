@@ -25,7 +25,11 @@ had when the check arrived.
   hosts, the patterns and the words that name it. Its `$comment` says how to add
   a country.
 - A hit is one occurrence of a token in the code of a source file (Python,
-  TypeScript, JavaScript) under ``ROOTS``, or in the file's own name. A
+  TypeScript, JavaScript) or in the text of a prompt (``PROMPT``: a `.j2`
+  template, a Markdown file under `prompts/`, a built-in `SKILL.md`, the agent
+  door's guides) under ``ROOTS``, or in the file's own name. A prompt is what
+  the model reads on every turn, and ADR-0168 requires the static prompt to be
+  country-neutral, so a country named there is the country in the product. A
   directory is keyed `dir/` and counts the hits in its own name, so a new file
   in `ris_adapter/` is not a new hit for its path, and a new directory named
   for a country's source is.
@@ -43,8 +47,8 @@ What is data by nature (``EXCLUDED``): tests and fixtures, the i18n
 dictionaries, the legal texts, the public site and its CMS, the component
 gallery, migrations, generated files. And everything outside ``ROOTS``:
 `configs/` (the packs and source records, where a country belongs), `docs/`,
-`scripts/`, `evals/`, `deploy/`. Prompt templates (`.j2`, `.md`) are not source
-files and are not counted; the burn-down lists them.
+`scripts/`, `evals/`, `deploy/`. Documentation in Markdown (a README, an
+`AGENTS.md`) is prose about the code and is not counted.
 
 Usage:
     python scripts/check_country_in_code.py              # check, exit 1 on a finding
@@ -76,6 +80,20 @@ BASELINE = Path("ci/country_in_code_baseline.json")
 TOKENS = Path("ci/country_tokens.json")
 ROOTS = ("apps/", "packages/")
 SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+#: What a model reads as its instructions, counted whole. Not documentation: a README or an AGENTS.md
+#: beside the code is prose about it.
+PROMPT = re.compile(
+    "|".join(
+        (
+            r"\.j2$",  # a prompt template
+            r"(^|/)prompts/[^/]+\.md$",  # the static prompt (`chat_static.md`) and the door's MCP prompts
+            r"(^|/)skills/builtin/.+/SKILL\.md$",  # the platform's built-in skills
+            r"^apps/workspace/bff/agent-api/door/.+\.md$",  # the guides the agent door serves as resources
+        )
+    )
+)
+#: A template comment or an HTML comment in a prompt: neither is rendered into what the model reads.
+PROMPT_COMMENT = re.compile(r"\{#.*?#\}|<!--.*?-->", re.DOTALL)
 
 # Matched against the repo-relative POSIX path. Each line says what it is and
 # why a country in it is data, not code.
@@ -95,6 +113,8 @@ EXCLUDED = re.compile(
             r"^apps/workspace/bff/legal/content/",  # the terms and the privacy notice: legal copy, per locale
             r"(^|/)migrations/",  # Alembic and Drizzle history, written once
             r"\.generated\.|(^|/)generated\.ts$",  # rendered from a source that is checked, or from records
+            # Written by sync-platform-skills.mjs from the built-in SKILL.md files, which are counted as prompts.
+            r"^apps/workspace/bff/skills/platform-skills\.ts$",
             r"\.d\.ts$",  # type declarations
         )
     )
@@ -239,7 +259,9 @@ def _script_code(source: str) -> str:
 
 
 def code_text(path: str, source: str) -> str:
-    """The part of ``source`` that is code: everything but comments and docstrings."""
+    """The part of ``source`` that is code: everything but comments and docstrings. A prompt is all code."""
+    if PROMPT.search(path):
+        return PROMPT_COMMENT.sub(" ", source)
     if not path.endswith(".py"):
         return _script_code(source)
     try:
@@ -249,8 +271,10 @@ def code_text(path: str, source: str) -> str:
 
 
 def is_checked(path: str) -> bool:
-    """Whether ``path`` is a source file this check governs."""
-    return path.startswith(ROOTS) and path.endswith(SUFFIXES) and not EXCLUDED.search(path)
+    """Whether ``path`` is a source file or a prompt this check governs."""
+    if not path.startswith(ROOTS) or EXCLUDED.search(path):
+        return False
+    return path.endswith(SUFFIXES) or bool(PROMPT.search(path))
 
 
 def tracked_sources(root: Path) -> list[str]:
