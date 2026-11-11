@@ -1867,6 +1867,18 @@
           "description": "Optional one-line caveat in words, never a figure or a result, e.g. what the rule leaves out",
           "title": "Note"
         },
+        "site_binding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SiteBinding"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which editions bind at the turn's site, set where the card is validated and never by the model. Absent: the site is not known, and the card shows hints rather than verdicts"
+        },
         "title": {
           "description": "The component the rule is applied to, never a value: 'U-Wert Au\u00dfenwand AW 01', 'Stiege Haus B'",
           "minLength": 1,
@@ -3612,6 +3624,55 @@
         "status"
       ],
       "title": "SetbackSide",
+      "type": "object"
+    },
+    "SiteBinding": {
+      "description": "Which editions bind at the turn's site, stamped by the server on every formula card (never the model's).\n\nThe card judges a bound only where the edition its values come from is the one that binds here and the\ngate is settled; everywhere else it shows the value against the bound as a hint, with the reason.",
+      "properties": {
+        "editions": {
+          "items": {
+            "$ref": "#/$defs/SiteEdition"
+          },
+          "maxItems": 64,
+          "title": "Editions",
+          "type": "array"
+        },
+        "settled": {
+          "description": "The turn's gate is settled (core or full): the records decide what binds",
+          "title": "Settled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "settled"
+      ],
+      "title": "SiteBinding",
+      "type": "object"
+    },
+    "SiteEdition": {
+      "description": "One work that binds at the turn's site, and the edition that binds, as the knowledge context names them.",
+      "properties": {
+        "designation": {
+          "title": "Designation",
+          "type": "string"
+        },
+        "edition_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Edition Label"
+        }
+      },
+      "required": [
+        "designation"
+      ],
+      "title": "SiteEdition",
       "type": "object"
     },
     "StagingAreaPlan": {
