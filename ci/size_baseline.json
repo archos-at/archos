@@ -205,7 +205,7 @@
     "packages/ifc-spatial-py/src/ifc_spatial/operators_facade.py::ray": 76,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_measures.py::floor_area": 66,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::azimuth": 95,
-    "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::clear_height": 105,
+    "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::clear_height": 92,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::distance": 61,
     "packages/ifc-spatial-py/src/ifc_spatial/render.py::plan": 182,
     "packages/ifc-spatial-py/src/ifc_spatial/stairs.py::steps_of": 85,

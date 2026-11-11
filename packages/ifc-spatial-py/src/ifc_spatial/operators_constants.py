@@ -49,6 +49,12 @@ FENESTRATION = {
 #: Excluded from the clear-height scan. A chair is not a Raumhöhe.
 FURNISHING = ("IfcFurnishingElement", "IfcFurniture", "IfcSystemFurnitureElement")
 
+#: What a clear-height ray passes through, with every part aggregated into one:
+#: furniture, and the stair and railing standing on the room's floor. A stair is
+#: no ceiling; it made the FZK-Haus living room 1.53 m high. Stair headroom keeps
+#: railings, see HEADROOM_TRANSPARENT.
+CLEAR_HEIGHT_TRANSPARENT = (*FURNISHING, "IfcStair", "IfcStairFlight", "IfcRailing")
+
 # The IFC relation behind each answer, and what to tell the architect. Lifted
 # verbatim from topology.ts so that the same gap produces the same German
 # sentence whichever engine discovered it.
