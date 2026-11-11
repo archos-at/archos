@@ -217,7 +217,9 @@ def prepare_request(llm: Any, messages: Any, kwargs: dict[str, Any]) -> Any:
     """Apply both request-shaping rules to one outgoing call, in place on ``kwargs``.
 
     Returns the messages to send and mutates the call's ``kwargs`` with the
-    prompt-cache routing fields. Both halves are no-ops where they do not
+    prompt-cache routing fields. A block breakpoint the prompt's owner set
+    (``prompt_caching.cached_system_message``) is taken off for a model whose
+    provider does not take one. Each part is a no-op where it does not
     apply — a non-OpenRouter model keeps its body untouched, and a call with no
     leading system message gets no key.
 
@@ -226,10 +228,14 @@ def prepare_request(llm: Any, messages: Any, kwargs: dict[str, Any]) -> Any:
     ``extra_body`` from a binding layers over it, and only then are the cache
     fields filled in — so nothing this adds can drop what was already there.
     """
-    normalized = normalize_chat_request(messages)
-    if not llm_targets_openrouter(llm):
-        return normalized
     from agent.common.prompt_caching import prompt_cache_extra_body
+    from agent.common.prompt_caching import strip_block_breakpoints
+
+    model = getattr(llm, "model_name", None) or getattr(llm, "model", None)
+    on_openrouter = llm_targets_openrouter(llm)
+    normalized = strip_block_breakpoints(normalize_chat_request(messages), model, openrouter=on_openrouter)
+    if not on_openrouter:
+        return normalized
 
     base = getattr(llm, "extra_body", None)
     merged_base = {**(dict(base) if isinstance(base, dict) else {}), **(kwargs.get("extra_body") or {})}
@@ -238,7 +244,7 @@ def prepare_request(llm: Any, messages: Any, kwargs: dict[str, Any]) -> Any:
         kwargs,
         extra_body=merged_base,
         organization_id=_request_organization_id(),
-        model=getattr(llm, "model_name", None) or getattr(llm, "model", None),
+        model=model,
     )
     if extra_body is not None:
         kwargs["extra_body"] = extra_body

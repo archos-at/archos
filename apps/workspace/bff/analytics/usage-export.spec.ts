@@ -70,6 +70,7 @@ const row = (over: Partial<UsageHourRow> = {}): UsageHourRow => ({
   promptTokens: 1000,
   completionTokens: 200,
   cachedTokens: 100,
+  cacheWriteTokens: 40,
   reasoningTokens: 50,
   totalTokens: 1200,
   costUsd: 0.012,
@@ -92,6 +93,7 @@ const outcomeRow = (over: Partial<UsageOutcomeRow> = {}): UsageOutcomeRow => ({
   promptTokens: 150000,
   completionTokens: 1800,
   cachedTokens: 105000,
+  cacheWriteTokens: 31000,
   reasoningTokens: 300,
   costUsd: 0.2025,
   priceUsd: 0.2025,
@@ -183,6 +185,7 @@ describe('usageOutcomeProperties', () => {
       calls: 4,
       prompt_tokens: 150000,
       cached_tokens: 105000,
+      cache_write_tokens: 31000,
       cost_usd: 0.2025,
     })
     expect(usageOutcomeProperties(outcomeRow()).job_id).toBeUndefined()

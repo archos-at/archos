@@ -57,21 +57,20 @@ try:
     from agent.common.norm_registry import focus_entries
     from agent.common.norm_registry import load_registry
     from agent.common.norm_registry import match_entries
+    from agent.common.prompt_caching import one_shot_calls
+    from agent.common.turn_status import record_lane_hit as _record_lane_hit
 
     _CATALOG_AVAILABLE = True
+    _LANE_CAPTURE_AVAILABLE = True
 except ImportError:  # adapter used standalone, without the Grid agent package
     NormEntry = None  # type: ignore[assignment]
     extract_federal_state = None  # type: ignore[assignment]
     focus_entries = None  # type: ignore[assignment]
     load_registry = None  # type: ignore[assignment]
     match_entries = None  # type: ignore[assignment]
+    from contextlib import nullcontext as one_shot_calls
+
     _CATALOG_AVAILABLE = False
-
-try:
-    from agent.common.turn_status import record_lane_hit as _record_lane_hit
-
-    _LANE_CAPTURE_AVAILABLE = True
-except ImportError:  # adapter used standalone, without the Grid agent package
     _record_lane_hit = None  # type: ignore[assignment]
     _LANE_CAPTURE_AVAILABLE = False
 
@@ -615,8 +614,9 @@ async def ris_search(tool_config: RisSearchToolConfig, builder: Builder):
 
 
 async def _plan_with(planner, query, application, title, federal_state, date_from, date_to) -> RisSearchPlan | None:
-    """Run the planner; isolated for testability."""
-    return await planner(query, application, title, federal_state, date_from, date_to)
+    """Run the planner, writing nothing to the prompt cache (its tail is the request's own); isolated for tests."""
+    with one_shot_calls():
+        return await planner(query, application, title, federal_state, date_from, date_to)
 
 
 def _format_catalog_entry(index: int, entry: NormEntry) -> str:

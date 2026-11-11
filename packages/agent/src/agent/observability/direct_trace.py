@@ -50,12 +50,9 @@ from typing import Any
 from agent.common import residency
 from agent.common.image_redaction import redact_inline_images
 from agent.common.licensed_text import trace_payload
-from agent.observability.langfuse_trace_attributes import GEN_AI_REQUEST_MODEL
 from agent.observability.langfuse_trace_attributes import METADATA_PREFIX
-from agent.observability.langfuse_trace_attributes import OBSERVATION_MODEL_NAME
 from agent.observability.langfuse_trace_attributes import SESSION_ID_ATTRIBUTE
 from agent.observability.langfuse_trace_attributes import TAGS_ATTRIBUTE
-from agent.observability.langfuse_trace_attributes import usage_observation_attributes
 from agent.observability.otlp_resource import ENDPOINT_ENV
 from agent.observability.otlp_resource import resource_attributes
 from agent.observability.otlp_resource import signal_endpoint
@@ -64,6 +61,9 @@ from agent.observability.trace_context import OBSERVATION_STATUS_MESSAGE_ATTRIBU
 from agent.observability.trace_context import OBSERVATION_TYPE_ATTRIBUTE
 from agent.observability.trace_context import TRACE_NAME_ATTRIBUTE
 from agent.observability.trace_context import process_trace_attributes
+from agent.observability.usage_details import GEN_AI_REQUEST_MODEL
+from agent.observability.usage_details import OBSERVATION_MODEL_NAME
+from agent.observability.usage_details import usage_observation_attributes
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +234,7 @@ def _usage_attributes(usage: Any) -> dict[str, Any]:
         completion_tokens=_count(usage.get("completion_tokens")),
         total_tokens=_count(usage.get("total_tokens")),
         cached_tokens=_count(_mapping(usage.get("prompt_tokens_details")).get("cached_tokens")),
+        cache_write_tokens=_count(_mapping(usage.get("prompt_tokens_details")).get("cache_write_tokens")),
         reasoning_tokens=_count(_mapping(usage.get("completion_tokens_details")).get("reasoning_tokens")),
         cost_usd=cost if isinstance(cost, int | float) and not isinstance(cost, bool) else None,
     )

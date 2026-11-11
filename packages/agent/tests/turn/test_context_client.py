@@ -355,3 +355,19 @@ def test_the_chain_and_the_roles_are_read_from_the_knowledge_context_alone(reque
     assert [(use.edition_id, use.role, use.via) for use in context.uses] == [
         ("edition:oib-rl-2-2023", "binding", "relation")
     ]
+
+
+@pytest.mark.parametrize(
+    ("sent", "read"),
+    [
+        ({"ifc": True, "dxf": False}, frozenset({"ifc"})),
+        ({"ifc": False, "dxf": False}, frozenset()),
+        (None, None),
+        ("ifc", None),
+    ],
+)
+def test_the_project_models_are_read_and_anything_else_is_unknown(request_context, opener, sent, read):
+    """Unknown (an older BFF, no project) keeps the measuring tools bound as before (``turn_tools``)."""
+    body = {"projectContext": None, "projectMemory": None, "orgInstructions": None, "projectModels": sent}
+    opener.open.return_value.read.return_value = json.dumps({"data": body}).encode("utf-8")
+    assert client.fetch_turn_context(request_context).project_models == read

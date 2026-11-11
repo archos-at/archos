@@ -241,6 +241,7 @@ Consequences, where a reader looks for them.
 | [0174](0174-public-sources-are-platform-records-kept-current-by-monitors.md) | Public sources are platform records, kept current by monitors that open change requests | Proposed |
 | [0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md) | The cut-over removes the Austria-only paths and their switches | Proposed |
 | [0176](0176-a-platform-change-request-may-be-approved-alone-with-its-second-review-deferred.md) | A platform change request may be approved alone, with its second review deferred | Proposed |
+| [0177](0177-what-the-project-and-the-office-set-goes-at-the-head-of-a-chat-request.md) | What the project and the office set goes at the head of a chat request, and history is edited in steps | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off
