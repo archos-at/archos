@@ -58,7 +58,7 @@ RIS becomes a source record with `rest` access and the `ris_xml` engine, which b
 
 **Why.** It is the only design under which "Germany onboarded with no code" is true for an answer and not only for a database row. It also fixes the door: an outside agent gets one `law-lookup` that names the countries the office may read.
 
-**Risk, and the guard.** The RIS tool is the best-tuned piece of the old product (B5: 12.7 s, high confidence, one source). The generic tool replaces it only when it matches on the RIS questions of the scorecard and the edition set, measured, with the old tool deleted in the same PR that passes.
+**Risk, and the guard.** The RIS tool is the best-tuned piece of the old product (B5: 12.7 s, high confidence, one source). The generic tool replaces it only when it matches on the RIS questions of the scorecard and the edition set, measured, with the old tool deleted in the same PR that passes. Its behaviour tests are already ported to `law_lookup` on the synthetic country XA; `packages/agent/tests/knowledge/law_lookup/PORTED.md` maps each old test to its new one, and is what the deletion PR cites.
 
 ### 3.2 Setup, classification and site placement read code, not the records that were built for them (contradiction)
 
