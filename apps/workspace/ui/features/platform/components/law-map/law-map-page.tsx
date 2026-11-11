@@ -11,9 +11,9 @@
  */
 
 import type { JSX } from 'react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Map as MapIcon } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
@@ -53,13 +53,22 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   const sources = usePlatformJson<{ sources: SourceStatusView[] }>(canWrite ? '/api/platform/knowledge/sources' : null)
   const requestId = named ?? (list.load.state === 'ready' ? openRequestOf(list.load.value.changeRequests)?.id ?? null : null)
   const request = usePlatformJson<ChangeRequestView>(requestId ? `${BASE}/${requestId}` : null)
-  const map = useMemo(() => (request.load.state === 'ready' ? lawMapOf(countryId, request.load.value.revisions, request.load.value.captures) : null), [request.load, countryId])
-  const units = useMemo(() => (map && request.load.state === 'ready' ? reviewUnitsOf(map, request.load.value) : []), [map, request.load])
+  // Only the request asked for, of this country: a previous one stays loaded while the next arrives.
+  const loaded = request.load.state === 'ready' && request.load.value.id === requestId ? request.load.value : null
+  const current = loaded && loaded.countryId === countryId ? loaded : null
+  const map = useMemo(() => (current ? lawMapOf(countryId, current.revisions, current.captures) : null), [current, countryId])
+  const units = useMemo(() => (map && current ? reviewUnitsOf(map, current) : []), [map, current])
   const canReview = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeReview)
   const { user } = useAuth()
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
   const [open, setOpen] = useState<string | null>(null)
   const toggle = (id: string) => setExpanded((now) => (now.has(id) ? new Set([...now].filter((one) => one !== id)) : new Set([...now, id])))
+  // A link naming another country's request lands on that country's map.
+  const router = useRouter()
+  const elsewhere = loaded && loaded.countryId !== countryId ? loaded : null
+  useEffect(() => {
+    if (elsewhere) router.replace(`/app/platform/countries/${elsewhere.countryId.toLowerCase()}/map?request=${elsewhere.id}`)
+  }, [elsewhere, router])
 
   const countryHref = `/app/platform/countries/${countryId.toLowerCase()}`
   const name = countryName(countryId, locale)
@@ -73,7 +82,7 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
       </div>
     )
   }
-  if (!map || request.load.state !== 'ready') {
+  if (!map || !current) {
     const failed = request.load.state === 'error' || list.load.state === 'error'
     return (
       <div className="flex flex-col gap-6">
@@ -83,7 +92,7 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
     )
   }
 
-  const view = request.load.value
+  const view = current
   // What waits for a verdict; a unit sent back waits for its proposer, not for this reviewer.
   const waiting = units.filter((unit) => unit.review === 'open')
   const reviewable = view.status === 'submitted'

@@ -26,6 +26,8 @@ export const lawMap = {
   coming: '→ {edition} ab {date}',
   published: 'veröffentlicht am {date}',
   noText: 'Noch kein Text angehängt.',
+  rowWaits: 'wartet auf Prüfung',
+  rowConfirmed: 'bestätigt',
   bindsIn: 'Verbindlich in {territories}.',
   bindsNowhere: 'Noch kein Gebiet erklärt sie für verbindlich.',
   works: 'Was die Gebiete übernehmen',

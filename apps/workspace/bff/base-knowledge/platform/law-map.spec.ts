@@ -136,4 +136,29 @@ describe('lawMapOf', () => {
     const open = REVISIONS.map((one) => (one.recordId === 'relation:n-2-19' ? binding('n-2-19', 'work:to-n', 'edition:mc-2-2019', '2020-01-01', null) : one))
     expect(bindingOn(lawMapOf('XA', open, CAPTURES), 'XA-1', 'work:mc-2', '2025-01-01')?.cell.editionId).toBe('edition:mc-2-2023')
   })
+
+  it('lets a statement marked wrong bind nothing, now or later, while it stays on the map', () => {
+    expect(map.statements.find((statement) => statement.territoryId === 'XA-2')?.review).toBe('rejected')
+    expect(bindingOn(map, 'XA-2', 'work:mc-2', '2025-01-01')).toBeNull()
+    expect(nextChange(map, 'XA-2', '2021-01-01')).toBeNull()
+  })
+
+  it('gives an act for several regions one statement in each', () => {
+    const shared = REVISIONS.map((one) => (one.recordId === 'work:to-s' ? revision('work', 'work:to-s', { kind: 'ordinance', title: 'Joint Ordinance', territoryIds: ['XA-1', 'XA-2'] }) : one))
+    const both = lawMapOf('XA', shared, CAPTURES).statements.filter((statement) => statement.actWorkId === 'work:to-s')
+    expect(both.map((statement) => [statement.territoryId, statement.key])).toEqual([
+      ['XA-1', 'work:to-s|2021-06-01|XA-1'],
+      ['XA-2', 'work:to-s|2021-06-01|XA-2'],
+    ])
+  })
+
+  it('links a text to the captured page it cites when the citation names no address', () => {
+    const cited = REVISIONS.map((one) => (one.recordId === 'manifestation:mc-2-2023-text' ? revision('manifestation', one.recordId, { editionId: 'edition:mc-2-2023', corpusFile: 'mc-2-2023.pdf' }, { captureId: 'c-gazette' }) : one))
+    expect(lawMapOf('XA', cited, CAPTURES).editions.get('edition:mc-2-2023')?.text?.url).toBe(CAPTURES[0]?.url)
+  })
+
+  it('reads a region\'s legal database from its own acts, never from a guideline that names the region', () => {
+    const guide = [...REVISIONS, revision('work', 'work:guide-n', { kind: 'guideline', title: 'Guide', identifiers: { eli: 'https://publisher.xa.example/guide' }, territoryIds: ['XA-2'] })]
+    expect(lawMapOf('XA', guide, CAPTURES).statements.find((statement) => statement.territoryId === 'XA-2')?.sourceKind).toBe('secondary')
+  })
 })
