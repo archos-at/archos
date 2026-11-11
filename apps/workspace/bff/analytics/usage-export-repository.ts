@@ -75,6 +75,7 @@ export interface UsageHourRow {
   promptTokens: number
   completionTokens: number
   cachedTokens: number
+  cacheWriteTokens: number
   reasoningTokens: number
   totalTokens: number
   costUsd: number
@@ -110,6 +111,7 @@ export async function sumUsageByHour(from: Date, to: Date): Promise<UsageHourRow
       promptTokens: sql<string>`coalesce(sum(${llmUsageEvents.promptTokens}), 0)`,
       completionTokens: sql<string>`coalesce(sum(${llmUsageEvents.completionTokens}), 0)`,
       cachedTokens: sql<string>`coalesce(sum(${llmUsageEvents.cachedTokens}), 0)`,
+      cacheWriteTokens: sql<string>`coalesce(sum(${llmUsageEvents.cacheWriteTokens}), 0)`,
       reasoningTokens: sql<string>`coalesce(sum(${llmUsageEvents.reasoningTokens}), 0)`,
       totalTokens: sql<string>`coalesce(sum(${llmUsageEvents.totalTokens}), 0)`,
       costUsd: sql<string>`coalesce(sum(${llmUsageEvents.costUsd}), 0)`,
@@ -144,6 +146,7 @@ export async function sumUsageByHour(from: Date, to: Date): Promise<UsageHourRow
     promptTokens: num(row.promptTokens),
     completionTokens: num(row.completionTokens),
     cachedTokens: num(row.cachedTokens),
+    cacheWriteTokens: num(row.cacheWriteTokens),
     reasoningTokens: num(row.reasoningTokens),
     totalTokens: num(row.totalTokens),
     costUsd: num(row.costUsd),
@@ -170,6 +173,7 @@ export interface UsageOutcomeRow {
   promptTokens: number
   completionTokens: number
   cachedTokens: number
+  cacheWriteTokens: number
   reasoningTokens: number
   costUsd: number
   priceUsd: number
@@ -232,6 +236,7 @@ export async function sumUsageByOutcome(from: Date, to: Date): Promise<UsageOutc
       promptTokens: sql<string>`coalesce(sum(${llmUsageEvents.promptTokens}), 0)`,
       completionTokens: sql<string>`coalesce(sum(${llmUsageEvents.completionTokens}), 0)`,
       cachedTokens: sql<string>`coalesce(sum(${llmUsageEvents.cachedTokens}), 0)`,
+      cacheWriteTokens: sql<string>`coalesce(sum(${llmUsageEvents.cacheWriteTokens}), 0)`,
       reasoningTokens: sql<string>`coalesce(sum(${llmUsageEvents.reasoningTokens}), 0)`,
       costUsd: sql<string>`coalesce(sum(${llmUsageEvents.costUsd}), 0)`,
       priceUsd: sql<string>`coalesce(sum(${llmUsageEvents.priceUsd}), 0)`,
@@ -272,6 +277,7 @@ export async function sumUsageByOutcome(from: Date, to: Date): Promise<UsageOutc
     promptTokens: num(row.promptTokens),
     completionTokens: num(row.completionTokens),
     cachedTokens: num(row.cachedTokens),
+    cacheWriteTokens: num(row.cacheWriteTokens),
     reasoningTokens: num(row.reasoningTokens),
     costUsd: num(row.costUsd),
     priceUsd: num(row.priceUsd),

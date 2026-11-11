@@ -122,7 +122,7 @@ describe('ProfileStep', () => {
     it('shows each edition the records name at the site as a chip, binding first, its role in the dot', () => {
       setup(PROFILE_REVIEW)
       const chips = within(screen.getByTestId('profile-rules')).getAllByRole('button')
-      expect(chips.map((chip) => chip.getAttribute('data-role'))).toEqual(['binding', 'binding', 'binding', 'guidance', 'interpretation'])
+      expect(chips.map((chip) => chip.getAttribute('data-role'))).toEqual(['binding', 'binding', 'binding', 'binding', 'binding', 'guidance', 'interpretation'])
       expect(screen.getByRole('button', { name: 'BO für Wien LGBl. Nr. 37/2023, binding' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'ÖNORM B 1600 2017, guideline, not binding' })).toHaveAttribute('data-role', 'guidance')
       expect(screen.getByTestId('profile-rules-basis')).toHaveTextContent('Filled = binding · Ring = guideline · Dashed = interpretation or information.')
@@ -136,6 +136,28 @@ describe('ProfileStep', () => {
         'href',
         expect.stringContaining(`/app/projects/${PROFILE_REVIEW.projectId}/chat?ask=${encodeURIComponent('What does ÖNORM B 1600 2017 require for this project?')}`)
       )
+    })
+
+    it('marks an edition whose scope waits for a building fact as to check, and says which fact (ADR-0176)', async () => {
+      setup(PROFILE_REVIEW)
+      const chip = screen.getByRole('button', { name: 'OIB-RL 2.3 2023, binding, to check' })
+      expect(chip).toHaveAttribute('data-applicability', 'check')
+      expect(chip).toHaveTextContent('OIB-RL 2.3 2023, binding, to check')
+      chip.focus()
+      expect(await screen.findByTestId('profile-rule-applicability')).toHaveTextContent(
+        'Whether it applies to this project depends on: Fluchtniveau. Once that is known, it shows here.',
+      )
+    })
+
+    it('says why an edition applies to this project, the provision it rests on, and opens its text', async () => {
+      setup(PROFILE_REVIEW)
+      const chip = screen.getByRole('button', { name: 'OIB-RL 2.2 2023, binding' })
+      expect(chip).toHaveAttribute('data-applicability', 'applies')
+      chip.focus()
+      const note = await screen.findByTestId('profile-rule-applicability')
+      expect(note).toHaveTextContent('Applies to this project because of: Nutzungen.')
+      expect(note).toHaveTextContent('Basis: OIB-Richtlinie 2.2 (Ausgabe Mai 2023): Anwendungsbereich')
+      expect(screen.getByRole('link', { name: 'Open the text' })).toHaveAttribute('href', 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/')
     })
 
     it('names no law where the gate refuses, and says why: never a list for every site', () => {

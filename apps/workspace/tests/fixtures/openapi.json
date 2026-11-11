@@ -30297,6 +30297,267 @@
                                 }
                               ]
                             },
+                            "appliesWhen": {
+                              "default": null,
+                              "description": "Its scope: a decision table over the building facts (fact_definitions keys) with a boolean output, each row citing the scope clause it encodes. Null: every building.",
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "inputs": {
+                                      "minItems": 1,
+                                      "maxItems": 64,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "key": {
+                                            "type": "string",
+                                            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                          },
+                                          "type": {
+                                            "type": "string",
+                                            "enum": [
+                                              "number",
+                                              "boolean",
+                                              "code",
+                                              "codes",
+                                              "date"
+                                            ],
+                                            "description": "date is an ISO date, compared as text; codes is a list of tokens."
+                                          }
+                                        },
+                                        "required": [
+                                          "key",
+                                          "type"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "output": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "const": "code"
+                                            },
+                                            "codes": {
+                                              "minItems": 1,
+                                              "maxItems": 200,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 80
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "type",
+                                            "codes"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "const": "boolean"
+                                            }
+                                          },
+                                          "required": [
+                                            "type"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "const": "event"
+                                            },
+                                            "events": {
+                                              "minItems": 1,
+                                              "maxItems": 50,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "type",
+                                            "events"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "const": "bodies"
+                                            }
+                                          },
+                                          "required": [
+                                            "type"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "const": "quantity"
+                                            },
+                                            "unit": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 40,
+                                              "description": "UCUM, e.g. m2."
+                                            }
+                                          },
+                                          "required": [
+                                            "type",
+                                            "unit"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ],
+                                      "discriminator": {
+                                        "propertyName": "type"
+                                      }
+                                    },
+                                    "rows": {
+                                      "maxItems": 500,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                                          },
+                                          "when": {
+                                            "description": "A JsonLogic condition over the inputs."
+                                          },
+                                          "then": {},
+                                          "provision": {
+                                            "type": "object",
+                                            "properties": {
+                                              "citation": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 300
+                                              },
+                                              "wording": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "verbatim",
+                                                  "paraphrase"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "citation"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "required": [
+                                          "id"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "otherwise": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "then": {}
+                                          },
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "undetermined": {
+                                              "const": true
+                                            }
+                                          },
+                                          "required": [
+                                            "undetermined"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    },
+                                    "examples": {
+                                      "default": [],
+                                      "maxItems": 200,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "facts": {
+                                            "type": "object",
+                                            "propertyNames": {
+                                              "type": "string",
+                                              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                            },
+                                            "additionalProperties": {}
+                                          },
+                                          "expect": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "then": {}
+                                                },
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "undeterminedBy": {
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "string",
+                                                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                    }
+                                                  }
+                                                },
+                                                "required": [
+                                                  "undeterminedBy"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "facts",
+                                          "expect"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "inputs",
+                                    "output",
+                                    "rows",
+                                    "otherwise"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "citations": {
                               "default": [],
                               "maxItems": 10,

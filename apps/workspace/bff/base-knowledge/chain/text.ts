@@ -100,6 +100,24 @@ function stepWords(graph: KnowledgeGraph, step: RouteStep): string {
   return `${mode} ${by}${provision}${office}`
 }
 
+/**
+ * Whether the line's edition applies to this project's buildings, by its scope
+ * (ADR-0178), in fixed words; the facts are the scope's keys, reduced like any
+ * name. While a fact is open the answer may not say the edition binds or does
+ * not: it names the fact and asks. An edition no building needs is not here.
+ */
+function applicabilityWords(use: EditionUse): string {
+  const applicability = use.applicability
+  if (!applicability) return ''
+  const facts = (keys: readonly string[]) => keys.map(nameOf).join(', ')
+  if (applicability.verdict === 'applies') {
+    return applicability.basis.length > 0 ? `; applies to this project by its building's ${facts(applicability.basis)}` : '; applies to this project'
+  }
+  return applicability.open.length > 0
+    ? `; applies only if the building's ${facts(applicability.open)} put it in scope, not yet known: ask for it, and do not say it binds or does not bind before then`
+    : "; whether its scope covers this project needs a person's check: do not say it binds or does not bind"
+}
+
 /** What the context says of a use beyond its role, in fixed words: its source's curation and how current it is. */
 function noteWords(notes: UseNotes | undefined): string {
   if (!notes) return ''
@@ -123,7 +141,7 @@ function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly str
   const last = use.route.at(-1)
   const where = work?.territoryIds.find((id) => chain.includes(id))
   const why = !last || last.via === 'territory' ? `${kind}${where ? ` of ${where}` : ''}, ${inForceWords(notes)}` : stepWords(graph, last)
-  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}${noteWords(notes)}`]
+  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}${noteWords(notes)}${applicabilityWords(use)}`]
   for (const displaced of use.displaced) {
     const target = displaced.anchor ?? 'the whole instrument'
     const by = workName(graph, displaced.byWorkId)
@@ -139,7 +157,7 @@ function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly str
 
 function guidanceLine(graph: KnowledgeGraph, use: EditionUse): string {
   const binding = use.relatedEditionId ? `; the edition that binds here is ${editionName(graph, use.relatedEditionId)}` : "; the records name no binding edition here; check the Land's ordinance"
-  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: guidance only${binding}`
+  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: guidance only${binding}${applicabilityWords(use)}`
 }
 
 function interpretationLine(graph: KnowledgeGraph, use: EditionUse): string {

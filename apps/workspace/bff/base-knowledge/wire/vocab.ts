@@ -209,6 +209,15 @@ export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
  */
 export const SOURCE_REF_SCHEMES = ['ris_gesetzesnummer', 'eli'] as const
 export type SourceRefScheme = (typeof SOURCE_REF_SCHEMES)[number]
+
+/**
+ * Whether an edition applies to the project's buildings, by its scope
+ * (`appliesWhen`, ADR-0178): it `applies`; it is to `check`, because a fact the
+ * scope reads is open or the case needs a person; or it is `not_applicable`,
+ * and the chain names it for no building of the project.
+ */
+export const APPLICABILITY_VERDICTS = ['applies', 'check', 'not_applicable'] as const
+export type ApplicabilityVerdict = (typeof APPLICABILITY_VERDICTS)[number]
 export type CoverageLevel = (typeof COVERAGE_LEVELS)[number]
 
 /**

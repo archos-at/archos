@@ -52,7 +52,7 @@ describe("public-source-fetcher", () => {
     mod = await import("./public-source-fetcher");
     cfg = loadConfig();
     const provider = new k8s.Provider("test", { kubeconfig: "apiVersion: v1" });
-    const fetcher = mod.installPublicSourceFetcher(cfg, provider, "app", []);
+    const fetcher = mod.installPublicSourceFetcher(cfg, provider, "app", [], [{ name: "registry-pull" }]);
     await new Promise((done) => fetcher.service.id.apply(done));
   });
 
@@ -61,6 +61,12 @@ describe("public-source-fetcher", () => {
     expect(mod.publicSourceFetcherEnv()).toEqual([
       { name: "PUBLIC_SOURCE_FETCHER_URL", value: "http://public-source-fetcher:8095" },
     ]);
+  });
+
+  it("pulls the private backend image with the registry Secret, as every app pod does", async () => {
+    const deployment = find("kubernetes:apps/v1:Deployment", "public-source-fetcher");
+    const spec = await resolve(deployment.inputs.spec);
+    expect(spec.template.spec.imagePullSecrets).toEqual([{ name: "registry-pull" }]);
   });
 
   it("has room for two PDF readers of 1 GiB each beside the server, and requests one", async () => {

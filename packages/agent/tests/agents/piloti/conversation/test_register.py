@@ -231,6 +231,35 @@ class TestTheInventoryFactsReachTheAnswer:
         assert seen == {"families": [("2", ("2", "2.1"))], "dropped": 7}
 
 
+class TestTheProjectModelsReachTheToolBinding:
+    """``_prepare_turn`` binds which model files the project holds where the answering agent runs,
+    so ``turn_tools.tools_in_scope`` can leave out a tool with nothing to measure. Read back from
+    inside the answering agent, so removing the bind fails here."""
+
+    async def test_the_kinds_the_bff_sent_are_bound_for_the_agent(self, harness, monkeypatch):
+        from dataclasses import replace
+
+        from agent.agents.piloti import turn_tools
+        from agent.turn import context as context_mod
+
+        real_blocks = context_mod._context_blocks
+
+        async def with_models(request, query_text):
+            return replace(await real_blocks(request, query_text), project_models=frozenset({"dxf"}))
+
+        monkeypatch.setattr(context_mod, "_context_blocks", with_models)
+        seen: dict = {}
+
+        async def shallow(state):
+            seen["models"] = turn_tools._project_models.get()
+            return await _shallow(state)
+
+        turn_tools.set_project_models(None)
+        await harness["turn"](_ask("Wie groß ist das Grundstück?"), shallow)
+
+        assert seen == {"models": frozenset({"dxf"})}
+
+
 class TestTheBuildingLawReachesTheCitations:
     """``_prepare_turn`` binds the turn's knowledge context (ADR-0168, ADR-0175) where the
     answering agent runs; the citation wire reads each edition's role from its uses.

@@ -35,6 +35,8 @@ const editionUse = (workId: string, editionId: string | null, corpusFiles: strin
   designation: null,
   editionLabel: null,
   sourceRefs: [],
+  sourceUrl: null,
+  applicability: null,
 })
 
 const CONTEXT: KnowledgeContext = {

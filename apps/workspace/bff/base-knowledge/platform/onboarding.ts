@@ -13,7 +13,6 @@
  */
 
 import 'server-only'
-import { z } from 'zod'
 import { ApiError, ConflictError, NotFoundError, ServiceUnavailableError, UnprocessableError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
@@ -23,6 +22,7 @@ import { checksOutsideKit } from './text-checks'
 import { activeSource, revealedCredential, type RegisteredSource, usableSource } from './sources'
 import { capturesOf, citedCaptureIds, insertCapture, sha256Of } from './captures'
 import { referencesOf } from './records'
+import { recordSchemas } from './record-schemas'
 import { requirePlatform } from './service-gate'
 import {
   type ChangeRequestRow,
@@ -35,12 +35,10 @@ import {
   requestRevisions,
 } from './store'
 import type { Tx } from '../store/repository'
-import { KIT_CHECKS, KIT_HINTS, KIT_PROBLEM_TYPE_BASE, namedTerritories, type Problem, validateProposal } from './validate'
+import { KIT_CHECKS, KIT_PROBLEM_TYPE_BASE, namedTerritories, type Problem, validateProposal } from './validate'
 import {
   type CaptureBody,
   type CaptureView,
-  citationSchema,
-  MAX_PROPOSED_RECORDS,
   PROPOSED_RECORD_TYPES,
   type ProposedRecord,
   proposedRecordSchema,
@@ -231,18 +229,8 @@ export async function capturePlatformCitation(session: UserSession | null, reque
 export async function platformKnowledgeSchemas(session: UserSession | null, type: (typeof PROPOSED_RECORD_TYPES)[number] | undefined) {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
   const types = type ? [type] : [...PROPOSED_RECORD_TYPES]
-  const variants = proposedRecordSchema.options
-  const recordTypes = Object.fromEntries(
-    types.map((name) => {
-      const variant = variants.find((option) => option.shape.type.value === name)
-      if (!variant) throw new NotFoundError(`No record type ${name}.`)
-      return [name, z.toJSONSchema(variant, { io: 'input', unrepresentable: 'any' })]
-    }),
-  )
-  return {
-    recordTypes,
-    citation: z.toJSONSchema(citationSchema, { io: 'input', unrepresentable: 'any' }),
-    maxBatch: MAX_PROPOSED_RECORDS,
-    checks: KIT_CHECKS.map((code) => ({ code, type: `${KIT_PROBLEM_TYPE_BASE}${code.toLowerCase()}`, hint: KIT_HINTS[code] })),
-  }
+  const answer = recordSchemas(types)
+  const missing = types.find((name) => !answer.recordTypes[name])
+  if (missing) throw new NotFoundError(`No record type ${missing}.`)
+  return answer
 }

@@ -661,3 +661,104 @@ class TestCallsOutsideLangChain:
                     assert pool.submit(call).result() is False
                     assert [f.result() for f in [submit_in_context(pool, call) for _ in range(3)]] == [True] * 3
         assert len(post.call_args.args[0]["events"]) == 3
+
+
+class TestCacheWritesReachTheLedger:
+    """The write half of the cache: what a breakpoint costs, beside what it saves.
+
+    OpenRouter reports it as ``prompt_tokens_details.cache_write_tokens``;
+    langchain's normalized shape calls it ``input_token_details.cache_creation``.
+    """
+
+    def test_chat_completions_usage(self):
+        usage = {**OPENROUTER_USAGE, "prompt_tokens_details": {"cached_tokens": 512, "cache_write_tokens": 384}}
+        event = extract_usage_event(_openrouter_result(usage))
+        assert event is not None
+        assert (event.cached_tokens, event.cache_write_tokens) == (512, 384)
+        assert event.to_payload()["cacheWriteTokens"] == 384
+
+    def test_the_normalized_langchain_shape(self):
+        metadata = {**RESPONSES_USAGE_METADATA, "input_token_details": {"cache_read": 35072, "cache_creation": 6000}}
+        event = extract_usage_event(_responses_result(metadata))
+        assert event is not None
+        assert (event.cached_tokens, event.cache_write_tokens) == (35072, 6000)
+
+    def test_a_raw_openai_response(self):
+        from types import SimpleNamespace
+
+        from agent.common.cost_tracking import _usage_event_from_openai
+
+        usage = {
+            "prompt_tokens": 2000,
+            "completion_tokens": 10,
+            "total_tokens": 2010,
+            "prompt_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 1800},
+        }
+        response = SimpleNamespace(usage=usage, id="gen-1", model="openai/gpt-6.1-terra")
+        event = _usage_event_from_openai(response, role="claim_judge", requested_model="openai/gpt-6.1-terra")
+        assert event is not None and event.cache_write_tokens == 1800
+
+    def test_absent_is_zero(self):
+        event = extract_usage_event(_openrouter_result())
+        assert event is not None and event.to_payload()["cacheWriteTokens"] == 0
+
+
+class TestAStreamedChatCompletionKeepsItsCost:
+    """The answering call streams on Chat Completions; OpenRouter's ``cost`` rides only its last chunk.
+
+    langchain-openai turned that chunk into token counts and dropped the cost, so
+    every streamed answer was booked at zero, ``missing`` (found by review when
+    ``research_llm`` left the Responses API, 2026-11-10;
+    ``provider_usage.install_chat_stream_cost_carrier``).
+    """
+
+    USAGE = {
+        "prompt_tokens": 1000,
+        "completion_tokens": 5,
+        "total_tokens": 1005,
+        "cost": 0.02,
+        "is_byok": False,
+        "prompt_tokens_details": {"cached_tokens": 600, "cache_write_tokens": 300},
+    }
+
+    def _llm(self):
+        import httpx
+        from langchain_openai import ChatOpenAI
+
+        def chunk(**fields):
+            return {"id": "gen-1", "object": "chat.completion.chunk", "created": 0, "model": "m", **fields}
+
+        stream = [
+            chunk(choices=[{"index": 0, "delta": {"role": "assistant", "content": "hi"}, "finish_reason": None}]),
+            chunk(choices=[{"index": 0, "delta": {}, "finish_reason": "stop"}]),
+            chunk(choices=[], usage=self.USAGE),
+        ]
+        body = "".join(f"data: {json.dumps(c)}\n\n" for c in stream) + "data: [DONE]\n\n"
+
+        def handler(request):
+            return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
+
+        return ChatOpenAI(
+            model="openai/gpt-6.1-terra",
+            api_key="test",
+            base_url="https://openrouter.ai/api/v1",
+            http_async_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+    async def test_the_cost_and_both_cache_counts_reach_the_ledger(self):
+        from langchain_core.callbacks import AsyncCallbackHandler
+
+        seen = []
+
+        class Ledger(AsyncCallbackHandler):
+            async def on_llm_end(self, response, **kwargs):
+                seen.append(extract_usage_event(response))
+
+        from langchain_core.messages import HumanMessage
+
+        await self._llm().bind(stream=True).ainvoke([HumanMessage(content="q")], config={"callbacks": [Ledger()]})
+
+        assert len(seen) == 1 and seen[0] is not None
+        payload = seen[0].to_payload()
+        assert (payload["costUsd"], payload["costSource"]) == (pytest.approx(0.02), "usage_field")
+        assert (payload["cachedTokens"], payload["cacheWriteTokens"]) == (600, 300)

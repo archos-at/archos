@@ -48,6 +48,7 @@ from pydantic import model_validator
 from agent.common.json_utils import extract_json
 from agent.common.llm_factory import strict_json_response_format
 from agent.common.message_utils import content_to_text
+from agent.common.prompt_caching import one_shot_calls
 from agent.knowledge.project_memory import VALID_CONFIDENCES
 from agent.knowledge.project_memory import insert_memory_item
 from agent.knowledge.project_memory import looks_like_personal_data
@@ -368,15 +369,30 @@ async def structured_reply(llm: Any, messages: list[Any], schema: type[BaseModel
     memory restriction judge (``memory/restriction.py``), which asks the same
     model the same way.
     """
-    response_format = strict_json_response_format(schema)
+    # Each caller's evidence is its own: an entry written here would never be read.
     try:
-        response = await llm.bind(response_format=response_format).ainvoke(messages)
+        with one_shot_calls():
+            response = await _ask_for_json(llm, messages, schema)
+    except Exception as exc:  # noqa: BLE001 - re-raised unless it is the provider rejecting a parameter
+        if not _rejects_response_format(exc):
+            raise
+        # Asked again without the cache switch, which a provider may not know.
+        logger.warning(
+            "%s call rejected even without response_format (%s); retrying with caching as usual", schema.__name__, exc
+        )
+        response = await _ask_for_json(llm, messages, schema)
+    return content_to_text(getattr(response, "content", response))
+
+
+async def _ask_for_json(llm: Any, messages: list[Any], schema: type) -> Any:
+    """One call under the strict JSON format, and one plain retry when the provider rejects the parameter."""
+    try:
+        return await llm.bind(response_format=strict_json_response_format(schema)).ainvoke(messages)
     except Exception as exc:  # noqa: BLE001 - re-raised unless it is the provider rejecting the parameter
         if not _rejects_response_format(exc):
             raise
         logger.warning("%s response_format rejected by the provider (%s); retrying without it", schema.__name__, exc)
-        response = await llm.ainvoke(messages)
-    return content_to_text(getattr(response, "content", response))
+        return await llm.ainvoke(messages)
 
 
 async def _write_finding(

@@ -14,6 +14,7 @@
  * then uses none of it rather than a partial one.
  */
 
+import { appliesWhenTableSchema } from '../wire/applies-when'
 import { sourceRefsOf } from './source-refs'
 import 'server-only'
 import { sql } from 'drizzle-orm'
@@ -85,6 +86,8 @@ interface EditionRow extends Record<string, unknown> {
   in_force_from: string | null
   in_force_to: string | null
   corpus_files: string[] | null
+  source_url: string | null
+  applies_when: unknown
   checked_at: string | Date | null
   check_result: string | null
 }
@@ -155,6 +158,13 @@ async function editionsOf(organizationId: string, workIds: readonly string[]): P
       (SELECT array_agg(m.corpus_file ORDER BY m.corpus_file)
          FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
          WHERE mr.organization_id IS NULL AND m.edition_id = r.id AND m.corpus_file IS NOT NULL) AS corpus_files,
+      -- The page a platform manifestation of it cites first: where a person opens the text (ADR-0178).
+      (SELECT kr.provenance -> 'citations' -> 0 ->> 'url'
+         FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
+         JOIN knowledge_revisions kr ON kr.revision_id = mr.head_revision_id
+         WHERE mr.organization_id IS NULL AND m.edition_id = r.id AND kr.provenance -> 'citations' -> 0 ->> 'url' IS NOT NULL
+         ORDER BY mr.id LIMIT 1) AS source_url,
+      e.applies_when,
       c.checked_at, c.result AS check_result
     FROM knowledge_records r JOIN knowledge_edition_revisions e ON e.revision_id = r.head_revision_id
     -- The platform's newest check of a platform edition: what its freshness reads (design §4.6).
@@ -225,6 +235,9 @@ function toEdition(row: EditionRow): GraphEdition {
     inForceFrom: dateText(row.in_force_from),
     inForceTo: dateText(row.in_force_to),
     corpusFiles: row.corpus_files ?? [],
+    sourceUrl: row.source_url,
+    // A stored scope the wire cannot read narrows nothing: too much law shows, never too little.
+    appliesWhen: row.applies_when ? (appliesWhenTableSchema.safeParse(row.applies_when).data ?? null) : null,
     lastCheck: row.checked_at && row.check_result ? { checkedAt: new Date(row.checked_at).toISOString(), result: row.check_result } : null,
   }
 }
