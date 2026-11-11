@@ -8,6 +8,7 @@
 import type { Applicability } from '../rulesets/applicability'
 import type { AppliesWhenTable } from '../wire/applies-when'
 import type { SourceRef } from './source-refs'
+import type { TerritoryParent } from './territory-chain'
 import type { BindingMode, ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
 
 /** Who owns a record: the platform, or the office reading it. Another office's records are never in a graph. */
@@ -17,10 +18,8 @@ export interface GraphTerritory {
   id: string
   kind: TerritoryKind
   name: string
-  /** Undated parents, nearest first. */
-  parentIds: readonly string[]
-  /** Parents for an interval only, half-open: `AT` lies in `EU` from 1995-01-01. */
-  datedParents: readonly { id: string; validFrom?: string | null; validTo?: string | null }[]
+  /** Every parent, nearest first; one for an interval only states it, half-open: `AT` lies in `EU` from 1995-01-01. */
+  parents: readonly TerritoryParent[]
   validFrom: string | null
   validTo: string | null
   /** How far the records go here (0213); absent or null inherits from the parent. */
@@ -43,6 +42,8 @@ export interface GraphWork {
   connectsBy?: readonly ConnectingFactor[]
   /** Its identifiers at its source (`ris_gesetzesnummer`, `eli`): how a passage read live finds it; absent reads as none. */
   sourceRefs?: readonly SourceRef[]
+  /** The first day whose edition is held (0206); absent or null: no earlier than the oldest edition present. */
+  historyAvailableFrom?: string | null
 }
 
 export interface GraphEdition {
@@ -129,11 +130,19 @@ export interface EditionUse {
   applicability: Applicability | null
 }
 
+/** A law on the chain whose edition at the date the records cannot name: it binds no edition, and says why. */
+export interface UndeterminedLaw {
+  workId: string
+  reason: 'history_not_held' | 'edition_dates_unknown' | 'ambiguous_editions'
+}
+
 export interface ResolvedChain {
   date: string
   /** The site's leaf first, then every territory it lies in at the date. */
   chain: readonly string[]
   uses: readonly EditionUse[]
+  /** Law on the chain left out because its edition at the date is unknown, never guessed (`time/editions.ts`). */
+  undetermined: readonly UndeterminedLaw[]
   /** More uses than one resolution returns: what was left out reads as nothing, so a caller fails closed. */
   truncated: boolean
 }

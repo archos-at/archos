@@ -50,8 +50,8 @@ const openGraph = graphFromProposals(
   proposeRecordsBodySchema.parse({
     records: [
       { type: 'territory', id: 'EU', kind: 'union', name: 'EU' },
-      { type: 'territory', id: 'DE', kind: 'country', name: 'Deutschland', datedParents: [{ id: 'EU', validFrom: '1958-01-01' }], coverageLevel: 'open' },
-      { type: 'territory', id: 'DE-NW', kind: 'state', name: 'Nordrhein-Westfalen', parentIds: ['DE'] },
+      { type: 'territory', id: 'DE', kind: 'country', name: 'Deutschland', parents: [{ id: 'EU', validFrom: '1958-01-01' }], coverageLevel: 'open' },
+      { type: 'territory', id: 'DE-NW', kind: 'state', name: 'Nordrhein-Westfalen', parents: [{ id: 'DE' }] },
       { type: 'work', key: 'bauo-nrw', kind: 'statute', title: 'Bauordnung NRW', designation: 'BauO NRW', territoryIds: ['DE-NW'] },
       { type: 'work', key: 'hoai', kind: 'ordinance', title: 'Honorarordnung für Architekten und Ingenieure', designation: 'HOAI', territoryIds: ['DE'], connectsBy: ['office_seat', 'client'] },
     ],

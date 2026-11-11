@@ -34,8 +34,7 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
           id,
           kind: record.kind,
           name: record.name,
-          parentIds: record.parentIds,
-          datedParents: record.datedParents,
+          parents: record.parents,
           validFrom: record.validFrom,
           validTo: record.validTo,
           coverageLevel: record.coverageLevel,
@@ -53,6 +52,7 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
           addresseeTerritoryIds: record.addressees.map((addressee) => addressee.territoryId),
           connectsBy: record.connectsBy,
           sourceRefs: sourceRefsOf(record.identifiers),
+          historyAvailableFrom: record.historyAvailableFrom,
         })
         break
       case 'edition':

@@ -16,6 +16,7 @@ import {
   useCallback,
   useContext,
   useLayoutEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -32,6 +33,7 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 import { phoneBackTarget } from './phone-tabs'
 import { SectionNav, type SectionNavItem } from './section-nav'
 import { ShellSearchButton } from './shell-search-button'
+import { CLAUSE_JOIN } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const PROJECT_SECTION_KEYS = [
@@ -102,7 +104,65 @@ const ActionsContext = createContext<(node: ReactNode, onTitleLine?: boolean) =>
  * „Auswählen“ and „Ordner anlegen“ at the root): null where there is no such
  * row (a phone, a page outside the frame), and the caller keeps them inline.
  */
-const TabActionsContext = createContext<((node: ReactNode) => void) | null>(null)
+const TabActionsContext = createContext<((node: ReactNode, newFolder?: () => void, emptyLevel?: boolean) => void) | null>(null)
+
+/**
+ * How much of Dateien's tool row fits beside itself, from the row's own width: `wide` holds every press with its
+ * words; `medium` moves „Ordner anlegen“ into Hochladen's menu (from about 1100px of screen beside the rail);
+ * `narrow` (a tablet beside the rail) folds the view into the ⋯, the filter to its glyph and Hochladen to its glyph.
+ * The row never wraps: it wrapped into three rows at 1440px beside a long title (review of 2026-11-10, finding 1).
+ */
+export type SectionToolTier = 'wide' | 'medium' | 'narrow'
+/** The row widths (px) at which a tier begins; the German words are the wider ones. */
+const TIER_FLOORS: readonly [SectionToolTier, number][] = [
+  ['wide', 860],
+  ['medium', 680],
+]
+const tierFor = (width: number): SectionToolTier => TIER_FLOORS.find(([, floor]) => width >= floor)?.[0] ?? 'narrow'
+interface LevelTools {
+  tools: ReactNode
+  newFolder?: () => void
+  /** The level shows its empty state, whose Hochladen is the pane's one primary: the row's steps back. */
+  emptyLevel?: boolean
+}
+// Two contexts: the level's tools are registered by a reader of the tier (`FolderBreadcrumbRow`), and one context
+// holding both re-rendered it on every registration, which registered again (a render loop).
+const ToolTierContext = createContext<SectionToolTier | null>(null)
+const LevelToolsContext = createContext<LevelTools | null>(null)
+
+/** True inside the tool row: its Hochladen is the one that steps back, folds to its glyph and takes „Neuer Ordner“. */
+const ToolRowContext = createContext(false)
+
+/** Whether this control stands in Dateien's tool row (the empty state's Hochladen does not, and keeps its ink). */
+export function useInSectionToolRow(): boolean {
+  return useContext(ToolRowContext)
+}
+
+/** The tool row's tier, or null outside the section's frame (the Büroablage, a spec), which keeps its own header. */
+export function useSectionToolTier(): SectionToolTier | null {
+  return useContext(ToolTierContext)
+}
+
+/** Where the level's own tools („Auswählen“, „Ordner anlegen“) stand in the tool row: before Hochladen. */
+export function SectionLevelTools(): ReactNode {
+  return useContext(LevelToolsContext)?.tools ?? null
+}
+
+/**
+ * Whether the tool row's Hochladen steps back to the raised press: an empty level's own Hochladen is the one ink press
+ * then (one primary per pane; two black Hochladen 300px apart asked which one, review of 2026-11-10, finding 8).
+ */
+export function useSectionPrimaryYields(): boolean {
+  return useContext(LevelToolsContext)?.emptyLevel === true
+}
+
+/** „Neuer Ordner“ for Hochladen's menu, where the row has no room for its press; null where the press stands. */
+export function useSectionNewFolder(): (() => void) | null {
+  const tier = useContext(ToolTierContext)
+  const level = useContext(LevelToolsContext)
+  if (tier === null || tier === 'wide') return null
+  return level?.newFolder ?? null
+}
 
 function isProjectChromeSection(segment: string): segment is ProjectChromeSection {
   return PROJECT_SECTION_KEY_SET.has(segment)
@@ -180,6 +240,41 @@ export function ProjectSectionBack({ href, to }: SectionBack): null {
   return null
 }
 
+/**
+ * Where the reader stands inside a place, when it is deeper than the place itself: Alle Dateien's open folder. The
+ * title names it („Index C“, not „Alle Dateien“ over a folder's contents), the crumb carries the way there after the
+ * project („Projekt › Dateien › Abgabepläne › …“, `trail`, each step a way up), and on a phone, which has no crumb,
+ * the title's line starts with the way one level up (`up`). The tab still names the place.
+ */
+export interface SectionPlace {
+  title: string
+  /** The crumb after the project's name: the section's own step and the levels between it and `title`. */
+  trail: ReactNode
+  /** A phone's one-line crumb above the title, without the project: „… › Fluchtwegnachweise Tiefgarage“. */
+  phoneTrail?: ReactNode
+  /** One level up, for the phone's ← („Zurück zu Abgabepläne“). */
+  up: { label: string; onSelect: () => void }
+  /** What the level holds, beside the title in muted 13px („240 Elemente“): a folder of hundreds said nothing. */
+  count?: string
+}
+const PlaceContext = createContext<((place: SectionPlace | null) => void) | null>(null)
+
+/** Whether the frame draws {@link ProjectSectionPlace}; outside it (the Büroablage, a preview) the page keeps its own path row. */
+export function useSectionPlaceSlot(): boolean {
+  return useContext(PlaceContext) !== null
+}
+
+/** Hand the frame's title and crumb the level the reader stands in. Renders nothing at the call site. */
+export function ProjectSectionPlace({ title, trail, phoneTrail, up, count }: SectionPlace): null {
+  const setPlace = useContext(PlaceContext)
+  useLayoutEffect(() => {
+    if (!setPlace) return
+    setPlace({ title, trail, phoneTrail, up, count })
+    return () => setPlace(null)
+  }, [title, trail, phoneTrail, up, count, setPlace])
+  return null
+}
+
 /** Whether {@link ProjectSectionTabActions} has a row to go to; where not, the caller renders its tools itself. */
 export function useSectionTabActionsSlot(): boolean {
   return useContext(TabActionsContext) !== null
@@ -191,13 +286,23 @@ export function useSectionTabActionsSlot(): boolean {
  * the brief; beside the tab that names the level they cost no row. Renders
  * nothing at the call site.
  */
-export function ProjectSectionTabActions({ children }: { children: ReactNode }): null {
+export function ProjectSectionTabActions({
+  children,
+  newFolder,
+  emptyLevel = false,
+}: {
+  children: ReactNode
+  /** Opens „Neuer Ordner“ from Hochladen's menu, where the row has no room for the press (`useSectionNewFolder`). */
+  newFolder?: () => void
+  /** The level shows its empty state (`useSectionPrimaryYields`). */
+  emptyLevel?: boolean
+}): null {
   const setTabActions = useContext(TabActionsContext)
   useLayoutEffect(() => {
     if (!setTabActions) return
-    setTabActions(children)
+    setTabActions(children, newFolder, emptyLevel)
     return () => setTabActions(null)
-  }, [children, setTabActions])
+  }, [children, newFolder, emptyLevel, setTabActions])
   return null
 }
 
@@ -217,13 +322,35 @@ export function SectionActionsInline({ children }: { children: ReactNode }): JSX
   )
 }
 
+/**
+ * A folder's name as a title that may wrap: a break chance after each `_` and none after a `-`, read as the one
+ * string it is. „Rauchabschnittsbildung_Bauteil_C_Index-“ over a lone „D“ was a phone's title line (dev, 2026-11-10).
+ */
+function BreakableName({ text }: { text: string }): JSX.Element {
+  const parts = text.split('_')
+  return (
+    <>
+      <span aria-hidden>
+        {parts.map((part, index) => (
+          <span key={index}>
+            {(index < parts.length - 1 ? `${part}_` : part).replaceAll('-', '-\u2060')}
+            {index < parts.length - 1 && <wbr />}
+          </span>
+        ))}
+      </span>
+      <span className="sr-only">{text}</span>
+    </>
+  )
+}
+
 /** Dateien's places as tabs, the E-Mail-Eingang only for whoever may decide the project's mail. */
 function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; inboundMail: boolean; pathname: string }): JSX.Element {
   const t = useTranslations(navCopy)
   const waiting = useInboundMailWaitingShown(inboundMail ? projectId : null)
   const base = `/app/projects/${projectId}/files`
   const items: SectionNavItem[] = [
-    { key: 'files', href: base, icon: FolderOpen, label: t('subpages.files/all.title') },
+    // „Ordner“: true at every depth, and it goes to the top level from any folder (`base` has no `?folder=`).
+    { key: 'files', href: base, icon: FolderOpen, label: t('subpages.files/all.tab') },
     ...(inboundMail
       ? [
           {
@@ -275,9 +402,15 @@ export function ProjectSectionFrame({
   const t = useTranslations(navCopy)
   const [{ node: actions, onTitleLine: actionsOnTitle }, setActionsState] = useState<{ node: ReactNode; onTitleLine: boolean }>({ node: null, onTitleLine: false })
   const setActions = useCallback((node: ReactNode, onTitleLine = false) => setActionsState({ node, onTitleLine }), [])
-  const [tabActions, setTabActions] = useState<ReactNode>(null)
+  const [level, setLevel] = useState<LevelTools | null>(null)
+  const setTabActions = useCallback(
+    (tools: ReactNode, newFolder?: () => void, emptyLevel?: boolean) => setLevel(tools === null ? null : { tools, newFolder, emptyLevel }),
+    []
+  )
   const [pageBack, setPageBack] = useState<SectionBack | null>(null)
+  const [placeState, setPlace] = useState<SectionPlace | null>(null)
   const phone = useMediaQuery(PHONE_QUERY)
+  const tier = useToolTier()
 
   if (isProjectChatPath(pathname, projectId)) {
     return <>{children}</>
@@ -303,41 +436,69 @@ export function ProjectSectionFrame({
   // project is the first row of „Mehr“. The title's line holds the way back, where there is one, and the app's search.
   const shellBack = phoneBackTarget(pathname, projectId)
   const back = pageBack ?? (shellBack && { href: shellBack.href, to: t(`sections.${shellBack.sectionKey}`) })
-  // Alle Dateien has its own search field right under its tabs: two magnifiers 100px apart asked which one to use.
+  const allFiles = files && (subpage ?? 'files/all') === 'files/all'
+  // The Ordner tab has its own search field right under its tabs: two magnifiers 100px apart asked which one to use.
   // The app's search is in „Mehr“ on every page.
-  const ownSearch = files && (subpage ?? 'files/all') === 'files/all'
+  const ownSearch = allFiles
   const opened = files && pathname.split('/').filter(Boolean).length > 5
+  const place = allFiles ? placeState : null
+  // The Ordner tab's tools are a row of their own under its tabs, at every width: beside the title they wrapped into
+  // three rows at 1440px under a long folder name. Another tab's one tool (the address, the Protokoll) stays on the
+  // title's line, as a phone's ⋯ (`onTitleLine`).
+  const toolRow = files && actions !== null && (phone ? !actionsOnTitle : allFiles)
+  // At the top level the crumb is the project and the title „Dateien“; inside a folder the crumb is the way there
+  // („Projekt › Dateien › …“) and the title the folder. „Alle Dateien“ over a subfolder named the wrong place.
+  const title = place ? <BreakableName text={place.title} /> : allFiles ? t('sections.files') : files ? t(`subpages.${subpage}.title`) : sectionLabel
+  const projectStep = <span className="max-w-[16rem] shrink-0 truncate" title={projectName}>{projectName}</span>
 
   return (
     <BackContext.Provider value={setPageBack}>
+    <PlaceContext.Provider value={allFiles ? setPlace : null}>
     <ActionsContext.Provider value={setActions}>
-    <TabActionsContext.Provider value={segment === 'files' && !phone ? setTabActions : null}>
+    <TabActionsContext.Provider value={files && !phone ? setTabActions : null}>
+    <ToolTierContext.Provider value={files && !phone ? tier.value : null}>
+    <LevelToolsContext.Provider value={files && !phone ? level : null}>
       <div className="@container/section flex h-full min-h-0 flex-col">
         {/* Every Dateien tab's head is the listing's container (1280px, 32px margins), centred with it from a 1440px
             section: the E-Mail-Eingang's split view sits in the same container, so no tab moves the title. */}
-        <div className={cn(SECTION_HEADER_CLASS, 'phone:pt-3', segment === 'files' && '[&>*]:max-w-[1216px] @min-[90rem]/section:[&>*]:mx-auto')}>
-          {/* On a phone Dateien's places sit right under the title on every tab, and a tab's own tools (the
-              search, the filter) come below them: above them, the tabs moved down on „Alle Dateien“ and up in
-              the E-Mail-Eingang, which has none. */}
+        <div className={cn(SECTION_HEADER_CLASS, 'phone:pt-3', files && '[&>*]:max-w-[1216px] @min-[90rem]/section:[&>*]:mx-auto')}>
           <PageHeader
-            title={files ? t(`subpages.${subpage ?? 'files/all'}.title`) : sectionLabel}
+            title={title}
+            // Two lines at most, then cut at its end, the whole name its tooltip (a folder's name can be a sentence).
+            titleClassName={files ? 'line-clamp-2' : undefined}
+            titleTooltip={place ? [place.title, place.count].filter(Boolean).join(CLAUSE_JOIN) : undefined}
+            titleAside={place?.count && <span className="text-muted-foreground text-[13px] leading-5 tabular-nums phone:hidden" data-testid="page-header-count">{place.count}</span>}
             crumb={
-              files ? (
+              files && !phone ? (
                 <>
-                  <span className="min-w-0 truncate">{projectName}</span>
-                  <ChevronRight className="size-3 shrink-0" aria-hidden />
-                  <span className="shrink-0">{sectionLabel}</span>
+                  {projectStep}
+                  {!(allFiles && !place) && <ChevronRight className="size-3 shrink-0" aria-hidden />}
+                  {place ? place.trail : allFiles ? null : <span className="shrink-0">{sectionLabel}</span>}
                 </>
+              ) : files && place?.phoneTrail ? (
+                place.phoneTrail
               ) : undefined
             }
-            // At desk width only: below `md` the page starts with its title.
-            crumbClassName="max-md:hidden"
+            // At desk width only, but for a phone's way inside a folder: below `md` the page starts with its title.
+            crumbClassName={phone ? 'text-[13px] leading-5' : 'max-md:hidden'}
             subtitle={sectionSubtitle}
             // One way back, on the title's line and its arrow on the title's edge: a page under the Übersicht goes
             // back to it, an opened mail to its list (`ProjectSectionBack`).
-            titleStartClassName={pageBack ? 'hidden phone:flex' : 'md:hidden'}
+            titleStartClassName={pageBack || place ? 'hidden phone:flex' : 'md:hidden'}
             titleStart={
-              back && (
+              place ? (
+                // A folder's way up, on the phone's title line: the crumb says it at desk width.
+                <button
+                  type="button"
+                  onClick={place.up.onSelect}
+                  aria-label={place.up.label}
+                  title={place.up.label}
+                  data-testid="page-header-up"
+                  className="text-foreground active:bg-desk -ml-3 -mr-2 flex size-11 items-center justify-center rounded-control"
+                >
+                  <ArrowLeft className="size-4" aria-hidden />
+                </button>
+              ) : back && (
                 <Link
                   href={back.href}
                   aria-label={t('backTo', { label: back.to })}
@@ -357,29 +518,47 @@ export function ProjectSectionFrame({
                 {files && phone && actionsOnTitle ? actions : null}
               </>
             }
-            action={files && phone ? undefined : actions}
+            action={files && (phone || allFiles) ? undefined : actions}
           />
-          {segment === 'files' && (
+          {files && (
             // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the
             // places would only push its subject below the fold. 24px under the title block (16px on a phone): at 12px
             // the places read as the title's last line (pilot feedback, 2026-11-10); the band keeps its own 16px.
-            <div className={cn('-mb-2 mt-6 flex items-start justify-between gap-4 phone:mt-4', opened && 'phone:hidden')}>
-              {/* The track on the title's edge: a fill always drawn is the edge, not given back. */}
-              <div className="min-w-0">
-                <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
-              </div>
-              {/* The tabs' own 8px under the track, so the tools stand on the track's line. */}
-              {/* At the tabs' 14px: one size for the band, the tabs' and their tools'. */}
-              {/* Tonal presses 12px apart, as every bar's, the last one's fill on the content edge. */}
-              {tabActions && <div className="flex shrink-0 items-center gap-3 pb-2 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
+            <div className={cn('-mb-2 mt-6 min-w-0 phone:mt-4', opened && 'phone:hidden')}>
+              <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
             </div>
           )}
-          {segment === 'files' && phone && actions && !actionsOnTitle && <div className="mt-4 min-w-0">{actions}</div>}
+          {/* The tab's tools, on the title's left edge, one row that never wraps (`useSectionToolTier`). */}
+          {toolRow && (
+            <div ref={tier.ref} className="mt-4 flex min-w-0 items-center" data-testid="files-tool-row" data-tier={tier.value}>
+              <ToolRowContext.Provider value>{actions}</ToolRowContext.Provider>
+            </div>
+          )}
         </div>
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden pt-px' : 'overflow-y-auto')}>{children}</div>
       </div>
+    </LevelToolsContext.Provider>
+    </ToolTierContext.Provider>
     </TabActionsContext.Provider>
     </ActionsContext.Provider>
+    </PlaceContext.Provider>
     </BackContext.Provider>
   )
+}
+
+/** The tool row's tier from its width, measured before paint and on every resize. */
+function useToolTier(): { ref: (element: HTMLDivElement | null) => void; value: SectionToolTier } {
+  const [value, setValue] = useState<SectionToolTier>('wide')
+  const observer = useRef<ResizeObserver | null>(null)
+  const ref = useCallback((element: HTMLDivElement | null) => {
+    observer.current?.disconnect()
+    observer.current = null
+    if (!element) return
+    const read = (): void => setValue(tierFor(element.getBoundingClientRect().width))
+    read()
+    if (typeof ResizeObserver === 'undefined') return
+    observer.current = new ResizeObserver(read)
+    observer.current.observe(element)
+  }, [])
+  return { ref, value }
 }

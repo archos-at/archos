@@ -21519,7 +21519,7 @@
       "get": {
         "operationId": "base-knowledge-edition-as-of",
         "summary": "Which edition of a law or norm applied on a date or to a permit procedure",
-        "description": "Answers \"what applied when this was submitted\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today.",
+        "description": "Answers \"what applied when this was submitted\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today. An edition’s `inForceTo` is the first day it no longer holds (exclusive), not its last day.",
         "tags": [
           "knowledge"
         ],
@@ -28942,7 +28942,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-decide",
         "summary": "Approve or reject a submitted change request, or give the second review of one approved alone",
-        "description": "The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. `override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone (403 without), is never implied, and marks the request `approval: single` with a second review due; propose it and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an approved request whose second review is due, another person gives it in each role approved alone they hold (`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed request is not published further; rejecting it again withdraws its preview, and a published one is rolled back (platform-knowledge-rollback), each a separate decision. Answers `secondReviewDue`, the roles still owed. Audited.",
+        "description": "The person’s own decision, asked of them. Every request needs a domain expert’s approval (`role: domain_expert`); approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. `override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone (403 without), is refused while a pasted capture is not source-checked by another person, is never implied, and marks the request `approval: single` with a second review due; propose it and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an approved request whose second review is due, another person gives it in each role approved alone they hold (`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed request is not published further; rejecting it again withdraws its preview, and a published one is rolled back (platform-knowledge-rollback), each a separate decision. Answers `secondReviewDue`, the roles still owed. Audited.",
         "tags": [
           "platform"
         ],
@@ -28980,7 +28980,6 @@
                     "enum": [
                       "domain_expert",
                       "counsel",
-                      "second_reviewer",
                       "privacy_reviewer"
                     ]
                   },
@@ -30025,7 +30024,7 @@
                             },
                             "inForceTo": {
                               "default": null,
-                              "description": "The last day in force, inclusive; null while in force.",
+                              "description": "The first day no longer in force, the next edition’s inForceFrom (intervals are half-open); a source that prints the last day in force, as RIS does, is entered one day later. Null while in force.",
                               "anyOf": [
                                 {
                                   "type": "string",
@@ -30713,20 +30712,10 @@
                               "minLength": 1,
                               "maxLength": 200
                             },
-                            "parentIds": {
+                            "parents": {
                               "default": [],
-                              "description": "Nearest first, e.g. [\"AT\"] for AT-6.",
-                              "maxItems": 10,
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
-                              }
-                            },
-                            "datedParents": {
-                              "default": [],
-                              "description": "Parents for an interval only, half-open: [{ id: \"EU\", validFrom: \"1995-01-01\" }] for AT.",
-                              "maxItems": 10,
+                              "description": "Every territory it lies in directly, nearest first; a parent for an interval only states it, half-open: [{ id: \"EU\", validFrom: \"1995-01-01\" }] for AT, [{ id: \"AT\" }] for AT-6.",
+                              "maxItems": 20,
                               "type": "array",
                               "items": {
                                 "type": "object",
@@ -30870,7 +30859,8 @@
                             "id",
                             "kind",
                             "name"
-                          ]
+                          ],
+                          "additionalProperties": false
                         },
                         {
                           "type": "object",
@@ -32804,7 +32794,7 @@
       "get": {
         "operationId": "platform-knowledge-source-status",
         "summary": "Read every public source’s hosts, monitor, freshness lag and key state",
-        "description": "Published and proposed sources: each host and whether it is active, testing (with when it expires) or expired; the monitor’s kind, last check, last success, failure and freshness lag in days; whether a key is set and its last four characters (never the key); and the open change request a monitor filed for it, if any.",
+        "description": "Every source there is, by `origin`: `built_in`, the product’s own sources (an engine’s configuration, reviewed as code; read-only here, with its recorded fixtures’ result in `fixtures`), and `record`, the platform’s published and proposed sources. Each host and whether it is active, testing (with when it expires) or expired; the monitor’s kind, last check, last success, failure and freshness lag in days; whether a key is set and its last four characters (never the key); and the open change request a monitor filed for it, if any. `builtInUnavailable` says why the built-in sources are missing when they could not be listed.",
         "tags": [
           "platform"
         ],

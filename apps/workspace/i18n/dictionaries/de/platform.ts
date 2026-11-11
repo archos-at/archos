@@ -39,7 +39,6 @@ export const platform: typeof en.platform = {
     roles: {
       domain_expert: 'Fachprüfung',
       counsel: 'Rechtsprüfung',
-      second_reviewer: 'Zweitprüfung',
       privacy_reviewer: 'Datenschutzprüfung',
     },
     secondReviewNext: {
@@ -109,12 +108,12 @@ export const platform: typeof en.platform = {
       functionCodes: 'Aufgaben',
       territoryIds: 'Gilt in',
       addressees: 'Gerichtet an',
-      parentIds: 'Liegt in',
+      parents: 'Liegt in',
       issuedOn: 'Herausgegeben am',
       inForceFrom: 'In Kraft seit',
-      inForceTo: 'In Kraft bis',
+      inForceTo: 'Außer Kraft ab',
       validFrom: 'Gültig ab',
-      validTo: 'Gültig bis',
+      validTo: 'Nicht mehr gültig ab',
       workId: 'Ausgabe von',
       editionId: 'Text der Ausgabe',
       form: 'Form',
@@ -154,6 +153,8 @@ export const platform: typeof en.platform = {
     progress: '{checked} von {total} Einträgen geprüft',
     wrongCount: 'nicht richtig: {count}',
     why: {
+      own: 'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei.',
+      ownUnchecked: 'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei. Eine eingefügte, nicht abgerufene Seite prüft eine andere Person gegen ihre Quelle, bevor Sie ohne Zweitprüfung freigeben können.',
       open: 'Noch zu prüfen: {count}',
       alone: 'Sie haben in diesem Antrag geschrieben: eine zweite Person gibt ihn frei, oder Sie geben ihn mit Grund ohne Zweitprüfung frei.',
       wrong: 'Nicht richtig: {count}. Ein Antrag mit falschem Eintrag kann nicht freigegeben werden.',
@@ -1430,7 +1431,7 @@ export const platform: typeof en.platform = {
     // Dokumentarten. Deutsch identisch mit DOCUMENT_CLASS_LABELS im Backend
     // (`lib/knowledge/doc-class.ts`); base-knowledge.spec.tsx prüft das.
     docClasses: {
-      oib_guideline: 'OIB-Richtlinie (verbindlich)',
+      oib_guideline: 'OIB-Richtlinie',
       oib_guide: 'OIB-Leitfaden',
       oib_explanatory_note: 'OIB-Erläuterung',
       oib_definitions: 'OIB-Begriffsbestimmungen',
@@ -1627,7 +1628,7 @@ export const platform: typeof en.platform = {
     missingCited: '{turns} Turn(s) · {organizations} Org.',
     missingCaveat:
       'Jede Schaltfläche öffnet die zuständige Verwaltung und legt die Kennung in die Zwischenablage. Ein PDF muss von Ihnen kommen, und ein Eintrag im Normenkatalog braucht bestätigten Rechtsrang und Bundesland, bevor {productName} ihn als verbindlich zitieren darf.',
-    missingReadOnly: 'Zum Ergänzen von Quellen braucht es die Berechtigung, Plattform-Einstellungen zu verwalten.',
+    missingReadOnly: 'Zum Ergänzen von Quellen braucht es die Berechtigung, Plattformwissen zu schreiben, oder für den Normenkatalog, Plattform-Einstellungen zu verwalten.',
     shownOfTotal: '{shown} von {total} angezeigt.',
     missingInventoryUnknown:
       'Der Bestand der Plattform konnte nicht geprüft werden. Ob diese Quellen schon vorhanden sind, ist offen; Ergänzen ist ausgeblendet, bis die Prüfung wieder klappt.',

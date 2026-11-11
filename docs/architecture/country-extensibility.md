@@ -1,78 +1,64 @@
-# Country extensibility — the CountryProfile contract and the add-a-country checklist
+# Country extensibility — a country is records, and the add-a-country checklist
 
-Status: Active (2026-07-18). Companion to ADR-0025 v2 and `backend-deep-dive.md` §6b.
+Status: Active, rewritten 2026-11-10 for ADR-0175. Companion to ADR-0165,
+ADR-0168, ADR-0173 and `backend-deep-dive.md` §6b.
 
-Piloti ships Austria-first, but the product goal is multi-jurisdiction. This
-document is the honest map of what that takes: the binding contract that already
-exists (`packages/agent/src/agent/common/country_profile.py`, Austria = implementation #1),
-and the complete inventory of remaining Austria/German couplings a second
-country must address — so "add Germany" is a checklist, not archaeology.
+Piloti ships Austria-first, but the product goal is multi-jurisdiction. Until
+ADR-0175 a `CountryProfile` in code (`common/country_profile.py`) decided which
+country's law a project read, from the project's own text, with Austria's
+doctrine, corpus note and OIB verdicts (`common/applicability.py`) as code. All
+of it is gone. A country is now **records**: its territories, works, editions,
+relations, coverage and rulesets, published in its pack through
+`records-propose` (ADR-0165, ADR-0168). The BFF resolves a turn's knowledge
+context and chain text from them (ADR-0173), and the agent reads nothing else.
 
-## The contract
+## What the agent reads
 
-`CountryProfile` — design rule: **every field has a named live consumer; adding
-a field without wiring its consumer in the same change is forbidden** (this is
-what kept the previous country abstraction honest-free and got it deleted).
-
-| Field | Kind | Consumer today |
+| What | From | Where in the agent |
 |---|---|---|
-| `states` / `state_probe_order` | data (registry-overridable) | jurisdiction resolution (`extract_federal_state`/`resolve_federal_state`) |
-| `language` | data | classification/prompt language (consumer grows with i18n work below) |
-| `doctrine` | data | `{{ norm_doctrine }}` in researcher/planner/writer prompts. Piloti holds the AT text inline in its system prompt `prompts/chat_static.md` (`<building_law>`), because only `at` is registered and the text is therefore constant per deployment. The renderer that moves it into the turn context exists (`turn/building_law.py`, ADR-0168): the block renders there, for an Austrian site or from the platform records' chain, once the static prompt no longer holds it — ADR-0060 amendment |
-| `corpus_collection` | data | retrieval base-collection routing; admin store |
-| `corpus_note` | data | catalog prompt block corpus section |
-| `parcel_tags` | data | `parcel_note` per-parcel source-of-truth signal |
-| `legal_source_tools` | data | prompt/doc references to the country's legal-DB tools |
-| `applicability` | code hook | compliance Stage-1 scoping + prompt applicability section |
-| `corpus_doc_class` | code hook | `lane_for_hit` display tagging |
+| Which countries a turn may retrieve, the gate, coverage | `knowledgeContext` in the turn context, or `knowledge_context` in a research run's payload | `common/knowledge_context.py` |
+| Which edition binds at the site, and every edition's role | the same `knowledgeContext`: its `text` (the chain) and its `uses` (role, qualifier, `sourceRefs` as `{scheme, value}`), corrected for coverage, freshness and connecting factor. A use whose `applicability` is `check`, or has `open` building facts, gets no binding badge: the chain text says it neither binds nor does not bind until then (ADR-0177). There is no second answer: `buildingLaw` is gone | `citations/roles.py`, `common/law_gate.turn_building_law_block` |
+| Whether a legal-database adapter may run | the gate, and the adapter's own country (`law_gate.LAW_SOURCE_COUNTRIES`: `ris` is `AT`) | `common/law_gate.law_sources_withheld` |
+| How to reason about building law anywhere | constant: `<legal_method>` in `chat_static.md`, `law_gate.LEGAL_METHOD` for deep research | |
 
-Data fields default from AT code constants and are overridable per country in
-`configs/norms/<cc>/registry.yml` (admin-editable via the platform norms
-store). **One collection per country** is the corpus rule: membership in the
-country's base collection *is* the country tag — org/project/session
-collections stay country-agnostic; the project's country selects which base
-collection joins its retrieval scope.
+Absent or malformed, the context is `knowledge_unavailable`: no verdict, no
+edition named binding, no legal-database tool, the gate's note.
 
 ## Adding a country: the checklist
 
-Phase 1 — data + corpus (days):
-1. `configs/norms/<cc>/registry.yml`: catalog entries (verified pointers into
-   the country's legal database), `states`, `doctrine`, `corpus_note`,
-   `parcel_tags`, `language`, `corpus_collection`.
-2. Create the corpus collection and upload the country's norm texts
-   (platform Base-Knowledge surface).
-3. Register the `CountryProfile` instance (one function in
-   `country_profile.py`) with its two code hooks.
+Phase 1 — records and corpus:
+1. The country's pack: territories, works, editions, relations, coverage,
+   proposed through the platform door (`records-propose`), reviewed, released.
+2. Its texts in the shared corpus, each chunk carrying its `country_id`
+   (ADR-0173), through the platform's indexing job.
 
-Phase 2 — the one real code artifact (weeks):
-4. A source adapter for the country's legal database (Germany:
+Phase 2 — the one real code artifact:
+3. A source adapter for the country's legal database (Germany:
    gesetze-im-internet + Länder portals), following `packages/ris-adapter` as
-   the template — tools, planner prompt, URL predicates all live inside the
-   adapter package. Note: the adapter's state-filter vocabulary must consume
-   the profile's `states`, not re-declare it (RIS adapter currently
-   re-declares — see Known duplications).
+   the template, or a configured source record under `configs/sources/`
+   (ADR-0162). Name its data source id and country in
+   `law_gate.LAW_SOURCE_COUNTRIES`, so the gate decides when it runs.
 
 Phase 3 — vocabulary and language surfaces (scoped per country):
-5. Document classification: `document_classification.py` tag vocabulary +
+4. Document classification: `document_classification.py` tag vocabulary +
    German prompt ("österreichisches Architekturbüro") need per-country
-   vocabulary/prompt variants keyed off `language`.
-6. Intake facts: `intake-definition.ts` carries AT-specific vocabularies
+   vocabulary/prompt variants.
+5. Intake facts: `intake-definition.ts` carries AT-specific vocabularies
    (bundesland options, `building_class` GK1–5, `escape_level` >22m bands,
    `land_designation` options, the four AT boolean triggers) — country #2 needs its own
    question set; the intake machinery itself is versioned and generic.
-7. Agent identity prompts: the j2 prompts hardcode "Austrian building
+6. Agent identity prompts: the j2 prompts hardcode "Austrian building
    regulations / RIS / OIB" framing — template off the profile
    (`country_name`, `legal_source_tools`) when country #2 ships.
-8. Corpus filenames: `agent/common/oib_file_names.py` and the OIB readers in
+7. Corpus filenames: `agent/common/oib_file_names.py` and the OIB readers in
    `norm_registry` (`oib_doc_class`, `oib_family_member`, `guess_display_title`)
    parse the OIB's filenames and tie a passage to its edition by name, from
    `agent/common/`, which should be country-neutral. Country #2's texts get their
    class and edition from the pack's manifestations instead, which is also the
    fix the name mapping bridges to (retrieval reading the chunk's `edition_id`).
-9. Request envelope: its `federal_state` is AT-vocabulary; add a
-   `country` envelope field alongside it (the structured `country=<cc>` prompt
-   fact is already parsed by `country_profile.resolve_site`, which never
-   defaults to Austria: an unplaced project is `site_unknown`).
+8. Request envelope: its `federal_state` is AT-vocabulary. The agent no longer
+   reads it for which law applies (the knowledge context's site does, ADR-0175);
+   the RIS adapter still uses it to address a lookup to the right Land.
 
 ## Known duplications (consolidate opportunistically, never let them drift)
 
@@ -81,10 +67,9 @@ Phase 3 — vocabulary and language surfaces (scoped per country):
   cycle), `ris_adapter._FEDERAL_STATE_PARAMS` (RIS filter keys), and
   `intake-definition.ts` options. A parity test pinning the Python copies to
   `norm_registry` is the cheap guard.
-- **`oib_knowledge` default — 6 sites:** NormsFile default, AT profile, three
-  config YAMLs (`COLLECTION_NAME` fallback), and `collection-scope.ts`. The
-  profile is the intended single source; config/env remain deploy-time
-  overrides.
+- **`oib_knowledge` default:** NormsFile default, three config YAMLs
+  (`COLLECTION_NAME` fallback), and `collection-scope.ts`. One shared corpus
+  holds every country; the knowledge context filters it by `country_id`.
 
 ## What deliberately stays Austria-scoped
 

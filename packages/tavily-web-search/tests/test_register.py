@@ -78,6 +78,12 @@ class TestTavilyWebSearchToolConfig:
         assert issubclass(TavilyWebSearchToolConfig, FunctionBaseConfig)
 
 
+#: The product's own domains, which every search excludes (``agent.common.brand.PRODUCT_DOMAINS``).
+from agent.common.brand import PRODUCT_DOMAINS  # noqa: E402
+
+OWN = list(PRODUCT_DOMAINS)
+
+
 class TestDomainFilterKwargs:
     async def test_domains_omitted_kwargs_absent(self, fake_langchain_tavily):
         config = TavilyWebSearchToolConfig(api_key=SecretStr("tvly-cfg"))
@@ -85,7 +91,7 @@ class TestDomainFilterKwargs:
 
         kwargs = _construction_kwargs(fake_langchain_tavily)
         assert "include_domains" not in kwargs
-        assert "exclude_domains" not in kwargs
+        assert kwargs["exclude_domains"] == OWN
 
     async def test_include_domains_set_kwarg_present(self, fake_langchain_tavily):
         config = TavilyWebSearchToolConfig(include_domains=["ris.bka.gv.at", "eur-lex.europa.eu"])
@@ -93,14 +99,14 @@ class TestDomainFilterKwargs:
 
         kwargs = _construction_kwargs(fake_langchain_tavily)
         assert kwargs["include_domains"] == ["ris.bka.gv.at", "eur-lex.europa.eu"]
-        assert "exclude_domains" not in kwargs
+        assert kwargs["exclude_domains"] == OWN
 
     async def test_exclude_domains_set_kwarg_present(self, fake_langchain_tavily):
         config = TavilyWebSearchToolConfig(exclude_domains=["spam.example"])
         await _run_search(config)
 
         kwargs = _construction_kwargs(fake_langchain_tavily)
-        assert kwargs["exclude_domains"] == ["spam.example"]
+        assert kwargs["exclude_domains"] == ["spam.example", *OWN]
         assert "include_domains" not in kwargs
 
     async def test_both_domain_lists_set(self, fake_langchain_tavily):
@@ -112,16 +118,16 @@ class TestDomainFilterKwargs:
 
         kwargs = _construction_kwargs(fake_langchain_tavily)
         assert kwargs["include_domains"] == ["a.example"]
-        assert kwargs["exclude_domains"] == ["b.example"]
+        assert kwargs["exclude_domains"] == ["b.example", *OWN]
 
     async def test_empty_lists_kwargs_absent(self, fake_langchain_tavily):
-        # Explicitly empty lists must behave like the default: no restriction.
+        # Explicitly empty lists must behave like the default: no restriction but the product's own site.
         config = TavilyWebSearchToolConfig(include_domains=[], exclude_domains=[])
         await _run_search(config)
 
         kwargs = _construction_kwargs(fake_langchain_tavily)
         assert "include_domains" not in kwargs
-        assert "exclude_domains" not in kwargs
+        assert kwargs["exclude_domains"] == OWN
 
 
 def _override_setting(monkeypatch, values):
@@ -308,3 +314,37 @@ class TestLicensedTextNeverLeavesAsAQuery:
         )
         assert result != "" and "refused" not in result
         fake_langchain_tavily.return_value.ainvoke.assert_awaited_once()
+
+
+class TestWebIsNoSourceForLaw:
+    """ADR-0175 and the staging QC: the web neither supplies a binding edition nor stands in for the corpus."""
+
+    RESULTS = [
+        {"url": "https://www.propellets.at/media/OIB-RL_2_2023.pdf", "title": "OIB-Richtlinie 2", "content": "40 m"},
+        {"url": "https://archos.tech/glossar/oib-richtlinien", "title": "Glossar", "content": "2023 gilt"},
+        {"url": "https://www.piloti.at/glossar/oib-richtlinien", "title": "Glossar", "content": "2023 gilt"},
+        {"url": "https://example.org/fluchtwege", "title": "Fluchtwege erklärt", "content": "Ein Artikel"},
+    ]
+
+    @pytest.fixture
+    def searched(self, fake_langchain_tavily):
+        fake_langchain_tavily.return_value.ainvoke = AsyncMock(
+            return_value={"answer": "Laut OIB-RL 2:2023 gelten 40 m.", "results": self.RESULTS}
+        )
+
+    async def test_a_corpus_norm_copy_and_the_product_site_are_withheld_by_reason_not_address(self, searched):
+        output = await _run_search(TavilyWebSearchToolConfig())
+
+        assert "https://example.org/fluchtwege" in output
+        for withheld in ("propellets.at", "archos.tech", "piloti.at"):
+            assert withheld not in output
+        assert "a web copy of OIB-Richtlinie 2" in output
+        assert "the product's own site is no source for law" in output
+        # The provider's summary was written from the withheld hits too.
+        assert "Laut OIB-RL 2:2023" not in output
+
+    async def test_every_result_says_web_content_is_information(self, fake_langchain_tavily):
+        output = await _run_search(TavilyWebSearchToolConfig())
+
+        assert output.startswith("Web results are unverified information")
+        assert "https://a.example" in output

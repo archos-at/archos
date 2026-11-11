@@ -200,7 +200,7 @@ describe('fail closed on unknown', () => {
         id: 'edition:old',
         label: 'old',
         inForceFrom: '2000-01-01',
-        inForceTo: '2001-12-31',
+        inForceTo: '2002-01-01',
         transition: null,
       },
     ]
@@ -274,11 +274,11 @@ describe('the walk ends on an edition in force where it was reached (review find
     })
 
   it('a repealed work has no edition on a reference date after its end', () => {
-    expect(run([edition('A', '2018-01-01', '2021-12-31')], '2021-06-01', '2022-06-01')).toMatchObject({ reason: 'no_edition_in_force' })
+    expect(run([edition('A', '2018-01-01', '2022-01-01')], '2021-06-01', '2022-06-01')).toMatchObject({ reason: 'no_edition_in_force' })
   })
 
   it('a gap between editions on the reference date is no edition in force', () => {
-    const editions = [edition('A', '2018-01-01', '2021-12-31'), edition('B', '2022-06-01', null)]
+    const editions = [edition('A', '2018-01-01', '2022-01-01'), edition('B', '2022-06-01', null)]
     expect(run(editions, '2021-06-01', '2022-03-01')).toMatchObject({ reason: 'no_edition_in_force' })
     // Positive control: decided once B is in force.
     expect(run(editions, '2021-06-01', '2022-07-01')).toMatchObject({ status: 'determined', edition: { id: 'B' } })

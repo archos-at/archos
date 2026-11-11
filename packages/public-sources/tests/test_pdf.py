@@ -30,6 +30,7 @@ from public_sources.pdf import MAX_PDF_READERS
 from public_sources.pdf import PAGE_BREAK
 from public_sources.pdf import PdfError
 from public_sources.pdf import PdfText
+from public_sources.pdf import parse_pdf
 from public_sources.pdf import read_pdf
 from public_sources.source import SourceError
 from public_sources.source import parse_inline_source
@@ -140,7 +141,7 @@ def test_a_pdf_that_needs_a_password_or_is_broken_is_refused_with_its_code(body,
 
 def test_a_parse_past_its_deadline_is_stopped():
     with pytest.raises(PdfError) as refused:
-        read_pdf(statute_pdf(), timeout=0.001)
+        parse_pdf(statute_pdf(), timeout=0.001)
     assert refused.value.code == "pdf_parse_timeout"
 
 
@@ -268,7 +269,7 @@ async def test_a_pdf_url_redirecting_to_a_listed_host_with_a_private_address_is_
 
 
 def test_a_text_past_the_cap_is_kept_to_whole_pages_and_says_up_to_which():
-    read = read_pdf(REAL_PDF.read_bytes(), max_chars=10_000)
+    read = parse_pdf(REAL_PDF.read_bytes(), max_chars=10_000)
 
     assert read.page_count == 16 and 0 < len(read.pages) < 16
     assert len(read.text or "") <= 10_000
@@ -280,7 +281,7 @@ def test_a_read_past_its_memory_ceiling_is_refused_by_its_code():
     # 8 MiB is far below what the interpreter maps to import the reader on any machine (64 MiB fitted on CI's
     # runner): the ceiling, not the PDF, decides. Without the ceiling the read succeeds and this test fails.
     with pytest.raises(PdfError) as refused:
-        read_pdf(statute_pdf(), memory_limit=8 * 1024**2)
+        parse_pdf(statute_pdf(), memory_limit=8 * 1024**2)
     assert refused.value.code == "pdf_reader_failed"
 
 

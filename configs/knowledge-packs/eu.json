@@ -8,7 +8,7 @@
       "id": "EU",
       "kind": "union",
       "name": "Europäische Union",
-      "parentIds": [],
+      "parents": [],
       "citations": [
         {
           "note": "The union; a member names it as a dated parent."

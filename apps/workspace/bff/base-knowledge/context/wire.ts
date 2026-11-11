@@ -131,6 +131,20 @@ export const knowledgeContextSchema = z
      * Read per conversation, after the cached context; absent outside one.
      */
     updatedSinceLastAnswer: z.array(z.string()).max(16).optional(),
+    /**
+     * Law on the site's chain whose edition at the date the records cannot
+     * name (two in force at once, undated, before the history held): no edition
+     * is assumed, and the answer says the edition is not determined. Absent on
+     * a gate that resolved nothing.
+     */
+    undetermined: z
+      .array(
+        z
+          .object({ workId: z.string(), reason: z.enum(['history_not_held', 'edition_dates_unknown', 'ambiguous_editions']) })
+          .strict(),
+      )
+      .max(MAX_CONTEXT_USES)
+      .optional(),
   })
   .strict()
 

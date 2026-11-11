@@ -1,46 +1,52 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@/test-utils'
-import { FileName } from './file-name'
+import { FileName, FolderName } from './file-name'
 
-const LONG = '2026-06-14_Lageplan_Baufeld_Nord_Rev_C_Freigabe.pdf'
+// A canvas that measures 7px a character, and a box 140px wide: twenty characters a line.
+beforeAll(() => {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    font: '',
+    measureText: (text: string) => ({ width: Array.from(text).length * 7 }),
+  } as unknown as CanvasRenderingContext2D)
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 140.5, height: 20, top: 0, left: 0, right: 140, bottom: 20, x: 0, y: 0, toJSON: () => ({}) })
+})
+
+const drawn = (container: HTMLElement): string[] =>
+  Array.from(container.querySelectorAll('[aria-hidden="true"]')).map((line) => line.textContent ?? '')
 
 describe('FileName', () => {
-  it('keeps the end of a long name on screen: revision and extension', () => {
-    const { container } = render(<FileName text={LONG} />)
-    // The tail is a box of its own that gives way only after the head is
-    // gone, and then at its start; the head ellipsizes first.
-    const [head, tail] = Array.from(container.querySelectorAll('[aria-hidden="true"]'))
-    expect(`${head.textContent}${tail.textContent}`).toBe(LONG)
-    expect(tail).toHaveAttribute('data-part', 'tail')
-    expect(tail.textContent).toMatch(/\.pdf$/)
-    expect(head).toHaveClass('text-ellipsis')
-    expect(head.textContent).toMatch(/^2026-06-14/)
+  it('draws a name that fits two lines whole, broken only between words', () => {
+    const { container } = render(<FileName text="Bildschirmfoto 2026-11-03 um 12.39.png" lines={2} />)
+    expect(drawn(container)).toEqual(['Bildschirmfoto 2026-', '11-03 um 12.39.png'])
+    expect(container.querySelector('[data-fitted]')).toHaveAttribute('data-fitted', 'whole')
   })
 
-  it('reads the whole name once to assistive technology, not as two fragments', () => {
-    render(<FileName text={LONG} />)
-    expect(screen.getAllByText(LONG)).toHaveLength(1)
+  it('never breaks inside a word: a compound wider than the line loses its middle instead', () => {
+    // „Baustellenbesprechun/g.pdf“ was `overflow-wrap: anywhere` on a phone's tile.
+    const { container } = render(<FileName text="Bericht_01_Baustellenbesprechung.pdf" lines={2} />)
+    const lines = drawn(container)
+    expect(lines.join('')).not.toContain('Baustellenbesprechun')
+    expect(lines.at(-1)).toMatch(/…\S*\.pdf$/)
+    expect(container.querySelector('[data-fitted]')).toHaveAttribute('title', 'Bericht_01_Baustellenbesprechung.pdf')
   })
 
-  it('leaves a short name whole, as one box that is read as it stands', () => {
-    const { container } = render(<FileName text="Statik.pdf" />)
-    // Not split: no head. Cut at its start only if even it does not fit.
-    expect(container.querySelector('[data-part="head"]')).toBeNull()
-    expect(container.querySelector('.sr-only')).toBeNull()
-    expect(container.querySelector('[aria-hidden]')).toBeNull()
-    expect(screen.getAllByText('Statik.pdf')).toHaveLength(1)
+  it('keeps the extension and the end of a long name, with the ellipsis drawn', () => {
+    const { container } = render(<FileName text="Rauchabschnitte_Tiefgarage_Ebene-2_Variantenvergleich_Stand-2026-11-03.pdf" />)
+    const [line] = drawn(container)
+    expect(line).toMatch(/^Rauchab\S*…11-03\.pdf$/)
   })
 
-  it('keeps the last segment and the extension, not a fixed sixteen characters', () => {
-    const { container } = render(<FileName text="Baustellenfoto_Rohbau.jpg" />)
-    // „_Rohbau.jpg": the head keeps room to say WHICH Baustellenfoto it is.
-    expect(container.querySelector('[data-part="tail"]')?.textContent).toBe('_Rohbau.jpg')
-    expect(container.querySelector('[data-part="head"]')?.textContent).toBe('Baustellenfoto')
+  it('reads the whole name once to assistive technology, not as fragments', () => {
+    render(<FileName text="Brandschutzkonzept_Wohnhausanlage_Bauteil_C_Index-D.pdf" lines={2} />)
+    expect(screen.getAllByText('Brandschutzkonzept_Wohnhausanlage_Bauteil_C_Index-D.pdf')).toHaveLength(1)
   })
+})
 
-  it('keeps a whole drawing number: a hyphen is not a segment', () => {
-    const { container } = render(<FileName text="MA37_Bescheid_Grundriss_Regelgeschoss_A-101.pdf" />)
-    const tail = container.querySelector('[data-part="tail"]')?.textContent ?? ''
-    expect(tail.endsWith('A-101.pdf')).toBe(true)
+describe('FolderName', () => {
+  it('cuts a folder name at its end, with its whole name as its title', () => {
+    render(<FolderName text="Planarchiv 2019–2024 (Altbestand, nicht mehr gültig)" />)
+    const name = screen.getByText('Planarchiv 2019–2024 (Altbestand, nicht mehr gültig)')
+    expect(name).toHaveClass('truncate')
+    expect(name).toHaveAttribute('title', 'Planarchiv 2019–2024 (Altbestand, nicht mehr gültig)')
   })
 })

@@ -192,7 +192,8 @@ function textOf(graph: KnowledgeGraph, resolved: ResolvedChain, uses: readonly C
     return context ? [{ ...use, role: context.role }] : []
   })
   const lawHere = named.some((use) => use.role === 'binding' && use.route.length === 1 && use.route[0]?.via === 'territory')
-  if (!lawHere) return null
+  // A law whose edition is undetermined still reaches the turn: its "Not determined here" line says so, never silence.
+  if (!lawHere && resolved.undetermined.length === 0) return null
   const notes = new Map<string, UseNotes>([...corrected].map(([key, use]) => [key, use]))
   return capText(renderChainText(graph, { ...resolved, uses: named }, graph.territories.get(leafId)?.name ?? leafId, notes))
 }
@@ -248,5 +249,10 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
     .map((use) => contextUse(graph, use, coverage, inputs))
     .filter((use): use is ContextUse => use !== null)
     .slice(0, MAX_CONTEXT_USES)
-  return { ...base, uses, text: textOf(graph, resolved, uses, first.territoryId) }
+  return {
+    ...base,
+    uses,
+    undetermined: resolved.undetermined.slice(0, MAX_CONTEXT_USES).map(({ workId, reason }) => ({ workId, reason })),
+    text: textOf(graph, resolved, uses, first.territoryId),
+  }
 }

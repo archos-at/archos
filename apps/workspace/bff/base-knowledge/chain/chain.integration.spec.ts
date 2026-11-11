@@ -25,6 +25,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { publishedRequest } from '../platform/testing/lifecycle'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
@@ -58,33 +59,13 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
 
   /** Proposed by the author, every claim accepted and approved by the expert, published to preview and stable. */
   async function published(countryId: string, title: string, raw: unknown[]): Promise<string> {
-    const id = await store.insertChangeRequest({ title, countryId, createdBy: AUTHOR })
-    await store.platformTransaction(async (tx) => {
-      const request = await store.lockChangeRequest(tx, id)
-      // In batches, as records-propose takes them: a pack may hold more records than one batch carries.
-      for (let start = 0; start < raw.length; start += wire.MAX_PROPOSED_RECORDS) {
-        const records = wire.proposeRecordsBodySchema.parse({ records: raw.slice(start, start + wire.MAX_PROPOSED_RECORDS) }).records
-        await store.insertProposedRecords(tx, request!, records, { createdBy: AUTHOR, proposedBy: 'person' })
-      }
-      await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
-    })
-    const view = await store.readChangeRequest(id)
-    await store.platformTransaction(async (tx) => {
-      await store.insertReviewDecisions(
-        tx,
-        id,
-        { by: EXPERT, decisionSource: 'app' },
-        view!.revisions.flatMap((revision) =>
-          revision.claims.map((claim) => ({ revisionId: revision.revisionId, claimPath: claim.path, decision: 'accepted' as const })),
-        ),
-      )
-      await store.insertApproval(tx, { changeRequestId: id, approver: EXPERT, role: 'domain_expert', decisionSource: 'app' })
-      await store.setChangeRequestStatus(tx, id, 'approved', 'decidedAt')
-    })
-    await release.publishChangeRequest(id, 'preview', ACTOR)
-    await release.publishChangeRequest(id, 'stable', ACTOR)
-    return id
+    // Parsed in batches, as records-propose takes them: a pack may hold more records than one batch carries.
+    const records = Array.from({ length: Math.ceil(raw.length / wire.MAX_PROPOSED_RECORDS) }, (_, i) =>
+      wire.proposeRecordsBodySchema.parse({ records: raw.slice(i * wire.MAX_PROPOSED_RECORDS, (i + 1) * wire.MAX_PROPOSED_RECORDS) }).records,
+    ).flat()
+    return publishedRequest({ title, countryId, records }, { author: AUTHOR, expert: EXPERT })
   }
+
 
   const bindingOf = async (organizationId: string, leaf: string, workId: string) => {
     const { graph, truncated } = await load.loadGraph(organizationId, leaf)
@@ -150,13 +131,13 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
         title: 'Testgesetz für Wien',
         designation: 'TG Wien',
         territoryIds: ['AT-9'],
-        identifiers: { 'ris_gesetzesnummer': '20000006', eli: `https://example.test/eli/lgbl/w/${RUN}` },
+        identifiers: { 'ris_gesetzesnummer': '20000006', eli: `https://example.test/eli/lgbl/w/${RUN}/` },
         citations: [{ url: 'https://www.ris.bka.gv.at/', note: 'fixture' }],
       },
     ])
     const { graph } = await load.loadGraph(AUSTRIAN, 'AT-9')
     expect(graph.works.get(`work:wien-statute-${RUN}`)?.sourceRefs).toEqual([
-      { scheme: 'eli', value: `https://example.test/eli/lgbl/w/${RUN}` },
+      { scheme: 'eli', value: `https://example.test/eli/lgbl/w/${RUN}/` },
       { scheme: 'ris_gesetzesnummer', value: '20000006' },
     ])
   })
@@ -198,6 +179,15 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(raw).toHaveLength(0)
   })
 
+  it('walks to the EU on the time path too, from a Land and from a code with no record', async () => {
+    const { readTerritoryChain } = await import('../time/repository')
+    // AT-0 has no territory record: the walk still starts at its ISO country, as the chain path's does.
+    for (const land of ['AT-9', 'AT-0']) {
+      expect(await readTerritoryChain(AUSTRIAN, land, '2026-11-10'), land).toEqual(expect.arrayContaining([land, 'AT', 'EU']))
+      expect(await readTerritoryChain(AUSTRIAN, land, '1994-12-31'), land).not.toContain('EU')
+    }
+  })
+
   it('reads no EU record through a membership that has ended', async () => {
     const euRecords = async (organizationId: string) =>
       withTenant({ organizationId }, () => db.execute(sql`SELECT id FROM knowledge_records WHERE organization_id IS NULL AND country_id = 'EU'`))
@@ -208,7 +198,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
         id: 'GB',
         kind: 'country',
         name: 'United Kingdom',
-        datedParents: [{ id: 'EU', validFrom: '1973-01-01', validTo: '2020-02-01' }],
+        parents: [{ id: 'EU', validFrom: '1973-01-01', validTo: '2020-02-01' }],
       },
     ])
     expect(await euRecords(BRITISH)).toHaveLength(0)
@@ -239,6 +229,10 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     ])
     expect((await visible()).sort()).toEqual([`edition:sia-500-2009-${RUN}`, `work:sia-500-${RUN}`])
     expect(await bindingOf(AUSTRIAN, 'AT-9', `work:sia-500-${RUN}`)).toEqual([[`edition:sia-500-2009-${RUN}`, 'binding']])
+    // What binds in the chain is what the time path answers for: one visibility predicate (store/visibility.ts).
+    const { readWorkInTime } = await import('../time/repository')
+    expect((await readWorkInTime(AUSTRIAN, `work:sia-500-${RUN}`))?.work.editions.map((edition) => edition.id)).toEqual([`edition:sia-500-2009-${RUN}`])
+    expect(await readWorkInTime(GERMAN, `work:sia-500-${RUN}`)).toBeNull()
     // A German office reaches nothing through an Austrian relation it cannot read.
     const german = await withTenant({ organizationId: GERMAN }, () =>
       db.execute(sql`SELECT id FROM knowledge_records WHERE id = ${`work:sia-500-${RUN}`}`),
@@ -246,6 +240,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(german).toHaveLength(0)
     await release.rollbackChangeRequest(relation, 'spec: the reference goes', ACTOR)
     expect(await visible()).toEqual([])
+    expect(await readWorkInTime(AUSTRIAN, `work:sia-500-${RUN}`)).toBeNull()
   })
 
   it('reads an office relation for its own office only, as a route the office maintains', async () => {

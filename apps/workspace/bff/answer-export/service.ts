@@ -27,7 +27,7 @@ import { requireResourceAccess } from '@/lib/sharing/access'
 import { getLocale, getTranslations } from '@/i18n/server'
 import { answerExportCopy } from '@/i18n/namespaces/answer-export'
 import { stripCardMarkers } from '@/lib/text/card-markers'
-import { buildAnswerDocument, type AnswerConfidence } from './answer-document'
+import { buildAnswerDocument, EXPORTED_CAPPED_REASONS, type AnswerConfidence } from './answer-document'
 import { DOCX_MEDIA_TYPE, renderDocx } from './docx'
 import type { AiProvenance } from '@/lib/ai-provenance'
 import { sanitizeQuoteStamps } from '@/lib/conversations/message-quote-stamps'
@@ -40,7 +40,7 @@ export interface ExportedAnswer {
 }
 
 const CONFIDENCE_LEVELS = new Set(['low', 'medium', 'high'])
-const CAPPED_REASONS = new Set(['ungrounded', 'quote_unverified'])
+const CAPPED_REASONS = new Set<string>(EXPORTED_CAPPED_REASONS)
 
 /**
  * Read the confidence self-assessment off the stored provenance.

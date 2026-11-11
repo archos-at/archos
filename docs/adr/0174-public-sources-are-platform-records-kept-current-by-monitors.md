@@ -117,7 +117,10 @@ each published source whose monitor names a probe and is due is probed
 of a terms page on the source's hosts). A change opens a draft change request,
 `origin: monitor`, holding a capture of the new page and the finding (previous
 and current state, terms changed, `needs[]`); at most one is open per source
-(a unique index). It never publishes. The run is a Langfuse trace
+(a unique index). While it is open, a check moves only the state's clock, so a
+change made meanwhile is compared against the page under review and opens the
+next request once this one closes (clarified 2026-11-10: it used to move the
+state too, and such a change was lost). It never publishes. The run is a Langfuse trace
 `source-monitor` with `freshness-lag-days` per watched source. Agents find the
 work with `change-request-list {origin: monitor}`; a reviewer who finds nothing
 to do rejects the draft (the person's yes), which frees the source for the
@@ -141,6 +144,16 @@ publish without them, whatever path reaches it.
 
 ### Consequences
 
+- Which kind a source is (2026-11-10, the one place this rule is written; the
+  package README points here). A source is **built in** when an engine's own
+  configuration is code-level: the agent's tools read it on every turn (the RIS
+  adapter's controllers, Bundesland parameters and document paths, Fedlex's
+  SPARQL). It lives in `configs/sources/`, is reviewed as code, ships with the
+  image, and no record can override its hosts (the fetcher refuses). Every
+  other source is a **record**, onboarded through the door: an HTML statute
+  portal, a PDF publisher (the OIB), an ELI portal, a geodata service, the
+  German Länder's portals. `platform-knowledge-source-status` lists both, by
+  `origin` (`built_in`, read-only with its fixtures' result; `record`).
 - Good: a country's sources, advice policy and terminology are onboarded and
   kept current through the door, with no code and no deploy.
 - Good: a source that changed is a request in a reviewer's queue, with the new
@@ -156,11 +169,10 @@ publish without them, whatever path reaches it.
   view has no form for a key yet: a client that cannot ask the person is sent
   to Platform → Countries, where the person cannot set it either, so until that
   form exists the key is set through a client that can ask.
-- Bad: the fetcher Deployment, the NetworkPolicy behind the egress guard, is
-  off by default (`publicSourceFetcherEnabled`). Until a stack turns it on,
-  the guard runs in the backend's pods with no network layer behind it. The
-  one config line and what it changes: `docs/deployment/security-config.md`
-  (Public-source egress).
+- Good (2026-11-10): a capture's or a source's PDF is parsed in the
+  `public-source-fetcher` pod (`POST /v1/extract`), which every stack deploys
+  and which reaches nothing in the cluster, never in the api pod (ADR-0162
+  amendment).
 - Neutral: nothing tags a turn `advice_policy:carried` yet; the turn-context
   slice that puts a site's hedges into the prompt does, and the judge runs from then.
 - Neutral: score names follow the repository's kebab case

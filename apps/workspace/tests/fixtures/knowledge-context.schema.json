@@ -348,64 +348,6 @@
                   ],
                   "additionalProperties": false
                 }
-              },
-              "sourceUrl": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "maxLength": 2000
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "applicability": {
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "verdict": {
-                        "type": "string",
-                        "enum": [
-                          "applies",
-                          "check",
-                          "not_applicable"
-                        ]
-                      },
-                      "basis": {
-                        "maxItems": 32,
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "open": {
-                        "maxItems": 32,
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "provision": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "verdict",
-                      "basis",
-                      "open",
-                      "provision"
-                    ],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
               }
             },
             "required": [
@@ -422,9 +364,7 @@
               "corpusFiles",
               "designation",
               "editionLabel",
-              "sourceRefs",
-              "sourceUrl",
-              "applicability"
+              "sourceRefs"
             ],
             "additionalProperties": false
           }
@@ -462,6 +402,31 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "undetermined": {
+          "maxItems": 40,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "workId": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "history_not_held",
+                  "edition_dates_unknown",
+                  "ambiguous_editions"
+                ]
+              }
+            },
+            "required": [
+              "workId",
+              "reason"
+            ],
+            "additionalProperties": false
           }
         }
       },

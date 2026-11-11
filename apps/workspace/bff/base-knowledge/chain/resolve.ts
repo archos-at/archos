@@ -25,12 +25,18 @@
  *   an office's relation reads `office_maintained`; a platform relation of the
  *   same type on the same target and anchors displaces the office's.
  *
- * Unknown fails closed: an edition a relation names that is not in the graph,
- * or a law whose editions are all out of force at the date, yields no use.
+ * Which edition of a work is in force is `time/editions.ts`'s one rule, read
+ * through `editionFor`. Unknown fails closed: an edition a relation names that
+ * is not in the graph, or a law whose editions are all out of force at the
+ * date, yields no use; a law whose edition at the date is unknown yields none
+ * either and is listed as `undetermined`.
  */
 
 import { applicabilityOf, type BuildingScope } from '../rulesets/applicability'
+import type { DatedEdition } from '../wire/time'
 import type { EditionRole, KnowledgeWorkKind } from '../wire/vocab'
+import { editionInForce, newestInForce, type EditionOnDay } from '../time/editions'
+import { chainAt as walkChain, inInterval } from './territory-chain'
 import type {
   Displacement,
   EditionUse,
@@ -40,7 +46,9 @@ import type {
   KnowledgeGraph,
   ResolvedChain,
   RouteStep,
+  UndeterminedLaw,
 } from './graph'
+
 
 /** How deep a route is followed (design §3.6). */
 export const MAX_ROUTE_DEPTH = 8
@@ -69,29 +77,9 @@ const INFORMATION_KINDS: ReadonlySet<KnowledgeWorkKind> = new Set(['directive', 
 
 const ROLE_ORDER: readonly EditionRole[] = ['binding', 'authority_practice', 'guidance', 'interpretation', 'information']
 
-/** Half-open: from inclusive, to exclusive; a missing end is open. */
-export function inInterval(date: string, from: string | null | undefined, to: string | null | undefined): boolean {
-  return (!from || from <= date) && (!to || date < to)
-}
-
-/** The site's leaf, then every territory it lies in at `date`. */
+/** The site's leaf, then every territory it lies in at `date`, by the one walk (`./territory-chain.ts`). */
 export function chainAt(leafId: string, date: string, graph: KnowledgeGraph): string[] {
-  const chain: string[] = []
-  const queue = [leafId]
-  while (queue.length > 0 && chain.length < 32) {
-    const next = queue.shift() as string
-    if (chain.includes(next)) continue
-    chain.push(next)
-    const territory = graph.territories.get(next)
-    if (territory) {
-      queue.push(...territory.parentIds)
-      queue.push(...territory.datedParents.filter((parent) => inInterval(date, parent.validFrom, parent.validTo)).map((parent) => parent.id))
-    }
-    // An ISO 3166-2 subdivision lies in its country whether or not its record says so.
-    const iso = /^([A-Z]{2})-/.exec(next)
-    if (iso) queue.push(iso[1])
-  }
-  return chain
+  return walkChain(leafId, date, (id) => graph.territories.get(id)?.parents)
 }
 
 const editionDate = (edition: GraphEdition): string => edition.inForceFrom ?? edition.issuedOn ?? ''
@@ -101,22 +89,57 @@ function editionsOf(graph: KnowledgeGraph, workId: string): GraphEdition[] {
 }
 
 /**
- * The edition in force at `date`: the latest whose interval holds it, an
- * edition with no in-force date counting from its issue. An edition with
- * neither date is in force on no date: unknown fails closed.
+ * Which edition of a work applies: the resolver asks it for every law on the
+ * chain and every work a route names. The default is the edition in force at
+ * the resolution's date; a caller that knows a reference date per procedure
+ * and work (design §3.6, `time/as-of.ts`) passes its own.
  */
-export function editionInForce(graph: KnowledgeGraph, workId: string, date: string): GraphEdition | null {
-  const candidates = editionsOf(graph, workId).filter(
-    (edition) => editionDate(edition) !== '' && inInterval(date, edition.inForceFrom ?? edition.issuedOn, edition.inForceTo),
-  )
-  return candidates.sort((a, b) => editionDate(b).localeCompare(editionDate(a)) || b.id.localeCompare(a.id))[0] ?? null
+export type EditionFor = (workId: string) => EditionOnDay
+
+/**
+ * A graph edition as the in-force rules read it. A platform law edition is in
+ * force from its in-force date only (ADR-0171). An office's own law edition
+ * is entered with its issue date alone (`store/repository.ts`), so it counts
+ * from its issue, as do a norm, a guideline and a commentary, which have no
+ * in-force date of their own.
+ */
+function datedEdition(edition: GraphEdition, work: GraphWork | undefined): DatedEdition {
+  const countsFromIssue = !work || !LAW_KINDS.has(work.kind) || edition.owner === 'office'
+  return {
+    id: edition.id,
+    label: edition.label,
+    inForceFrom: edition.inForceFrom ?? (countsFromIssue ? edition.issuedOn : null),
+    inForceTo: edition.inForceTo,
+    transition: null,
+  }
 }
 
-/** The newest edition by its dates, then its id; one that starts after `date`, or has no date at all, does not count. */
+/**
+ * The edition of each work at `date` (`time/editions.ts`): law by the one
+ * in-force rule, where an undated edition beside dated ones is left out rather
+ * than undetermining the work; every other kind by its newest edition not
+ * withdrawn, since a new Ausgabe replaces the old one without an end date.
+ */
+export function editionsInForceAt(graph: KnowledgeGraph, date: string): EditionFor {
+  return (workId) => {
+    const work = graph.works.get(workId)
+    const editions = editionsOf(graph, workId).map((edition) => datedEdition(edition, work))
+    if (work && !LAW_KINDS.has(work.kind)) return newestInForce(editions, date)
+    const dated = editions.filter((edition) => edition.inForceFrom !== null)
+    return editionInForce(dated.length > 0 ? dated : editions, date, work?.historyAvailableFrom ?? null)
+  }
+}
+
+/** The graph edition an answer names, or null when it names none. */
+function determined(graph: KnowledgeGraph, found: EditionOnDay): GraphEdition | null {
+  return found.status === 'determined' ? (graph.editions.get(found.edition.id) ?? null) : null
+}
+
+/** The newest edition at `date` that has not ended, by `time/editions.ts`; one that starts later, ended, or has no date does not count. */
 function newestEdition(editions: readonly GraphEdition[], date: string): GraphEdition | null {
-  return [...editions]
-    .filter((edition) => editionDate(edition) !== '' && editionDate(edition) <= date)
-    .sort((a, b) => editionDate(b).localeCompare(editionDate(a)) || b.id.localeCompare(a.id))[0] ?? null
+  const dated = editions.map((edition) => ({ ...datedEdition(edition, undefined), inForceFrom: editionDate(edition) || null }))
+  const found = newestInForce(dated, date)
+  return found.status === 'determined' ? (editions.find((edition) => edition.id === found.edition.id) ?? null) : null
 }
 
 const anchorsKey = (relation: GraphRelation) =>
@@ -148,10 +171,10 @@ interface Binding {
   route: RouteStep[]
 }
 
-/** The edition a relation's target names on `date`: the edition itself, or a work's edition in force. */
-function targetEdition(graph: KnowledgeGraph, relation: GraphRelation, date: string): GraphEdition | null {
+/** The edition a relation's target names: the edition itself, or the edition of the work that applies. */
+function targetEdition(graph: KnowledgeGraph, relation: GraphRelation, editionFor: EditionFor): GraphEdition | null {
   if (relation.toType === 'edition') return graph.editions.get(relation.toId) ?? null
-  return editionInForce(graph, relation.toId, date)
+  return determined(graph, editionFor(relation.toId))
 }
 
 function supersededWorks(graph: KnowledgeGraph, relations: readonly GraphRelation[]): Set<string> {
@@ -163,26 +186,39 @@ function supersededWorks(graph: KnowledgeGraph, relations: readonly GraphRelatio
   )
 }
 
-/** Law in force on the chain: the routes' starting points. */
-function lawSeeds(graph: KnowledgeGraph, chain: readonly string[], date: string, superseded: ReadonlySet<string>): Binding[] {
+/**
+ * Law in force on the chain: the routes' starting points. No edition held: it
+ * is live at its source. Editions held and none in force: it does not apply
+ * then. Editions held and the one in force unknown: it is undetermined, said
+ * so, and binds nothing rather than a guessed edition.
+ */
+function lawSeeds(
+  graph: KnowledgeGraph,
+  chain: readonly string[],
+  superseded: ReadonlySet<string>,
+  editionFor: EditionFor,
+): { seeds: Binding[]; undetermined: UndeterminedLaw[] } {
   const seeds: Binding[] = []
+  const undetermined: UndeterminedLaw[] = []
   for (const work of graph.works.values()) {
     if (!LAW_KINDS.has(work.kind) || superseded.has(work.id)) continue
-    const territory = work.territoryIds.find((id) => chain.includes(id))
-    if (!territory) continue
-    const editions = editionsOf(graph, work.id)
-    const edition = editionInForce(graph, work.id, date)
-    // Editions held, none in force at the date: the law does not apply then. None held: it is live at its source.
-    if (editions.length > 0 && !edition) continue
-    seeds.push({ workId: work.id, editionId: edition?.id ?? null, route: [{ via: 'territory', workId: work.id, owner: work.owner }] })
+    if (!work.territoryIds.some((id) => chain.includes(id))) continue
+    const route: RouteStep[] = [{ via: 'territory', workId: work.id, owner: work.owner }]
+    if (editionsOf(graph, work.id).length === 0) {
+      seeds.push({ workId: work.id, editionId: null, route })
+      continue
+    }
+    const found = editionFor(work.id)
+    if (found.status === 'determined') seeds.push({ workId: work.id, editionId: found.edition.id, route })
+    else if (found.reason !== 'no_edition_in_force') undetermined.push({ workId: work.id, reason: found.reason })
   }
-  return seeds
+  return { seeds, undetermined }
 }
 
 const bindingKey = (workId: string, editionId: string | null) => `${workId}|${editionId ?? ''}`
 
 /** Every binding instrument: law on the chain, then what its routes reach, breadth first. */
-function followRoutes(graph: KnowledgeGraph, seeds: readonly Binding[], relations: readonly GraphRelation[], date: string): Binding[] {
+function followRoutes(graph: KnowledgeGraph, seeds: readonly Binding[], relations: readonly GraphRelation[], editionFor: EditionFor): Binding[] {
   const found = new Map<string, Binding>(seeds.map((seed) => [bindingKey(seed.workId, seed.editionId), seed]))
   let frontier = [...seeds]
   for (let depth = 0; depth < MAX_ROUTE_DEPTH && frontier.length > 0; depth++) {
@@ -191,7 +227,7 @@ function followRoutes(graph: KnowledgeGraph, seeds: readonly Binding[], relation
       for (const relation of relations) {
         if (relation.relationType !== 'makes_binding') continue
         if (relation.fromId !== from.workId && relation.fromId !== from.editionId) continue
-        const edition = targetEdition(graph, relation, date)
+        const edition = targetEdition(graph, relation, editionFor)
         const work = edition ? graph.works.get(edition.workId) : undefined
         if (!edition || !work || !BINDABLE_KINDS.has(work.kind)) continue
         const key = bindingKey(work.id, edition.id)
@@ -263,14 +299,14 @@ function interpreted(
   graph: KnowledgeGraph,
   work: GraphWork,
   relations: readonly GraphRelation[],
-  date: string,
+  editionFor: EditionFor,
 ): { works: GraphWork[]; editionId: string | null } {
   const own = new Set([work.id, ...editionsOf(graph, work.id).map((edition) => edition.id)])
   const found = relations.filter((candidate) => candidate.relationType === 'interprets' && own.has(candidate.fromId))
   const works = found
     .map((relation) => endWork(graph, relation.toId, relation.toType))
     .flatMap((id) => (id && graph.works.get(id) ? [graph.works.get(id) as GraphWork] : []))
-  return { works, editionId: found[0] ? (targetEdition(graph, found[0], date)?.id ?? null) : null }
+  return { works, editionId: found[0] ? (targetEdition(graph, found[0], editionFor)?.id ?? null) : null }
 }
 
 /** The uses of a work no route reaches, or of its editions no route reaches. */
@@ -280,6 +316,7 @@ function unroutedUses(
   context: {
     chain: readonly string[]
     date: string
+    editionFor: EditionFor
     relations: readonly GraphRelation[]
     boundEditions: readonly string[]
     boundWorks: readonly string[]
@@ -289,7 +326,7 @@ function unroutedUses(
   const bound = editions.filter((edition) => context.boundEditions.includes(edition.id))
   const rest = editions.filter((edition) => !context.boundEditions.includes(edition.id))
   if (work.kind === 'commentary') {
-    const target = interpreted(graph, work, context.relations, context.date)
+    const target = interpreted(graph, work, context.relations, context.editionFor)
     const interpretsHere = target.works.some(
       (interpretedWork) => inScope(interpretedWork, context.chain, false) || context.boundWorks.includes(interpretedWork.id),
     )
@@ -335,15 +372,25 @@ function narrowed(graph: KnowledgeGraph, uses: readonly EditionUse[], scope: Bui
 }
 
 /**
- * The uses at a site on a date. With the project's buildings, an edition whose
- * scope excludes every building is not named, and each other scoped use says
- * whether it applies (ADR-0177); without them, nothing is narrowed.
+ * Resolve a site on a date: the chain, and what each edition is to it. With
+ * the project's buildings, an edition whose scope excludes every building is
+ * not named, and each other scoped use says whether it applies (ADR-0177);
+ * without them, nothing is narrowed. `editionFor` says which edition of a work
+ * applies; by default the one in force at `date`, and a reference date per
+ * procedure and work plugs in here.
  */
-export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string, building: BuildingScope | null = null): ResolvedChain {
+export function resolveChain(
+  graph: KnowledgeGraph,
+  leafId: string,
+  date: string,
+  building: BuildingScope | null = null,
+  editionFor: EditionFor = editionsInForceAt(graph, date),
+): ResolvedChain {
   const chain = chainAt(leafId, date, graph)
   const relations = effectiveRelations(graph, date)
   const superseded = supersededWorks(graph, relations)
-  const bindings = followRoutes(graph, lawSeeds(graph, chain, date, superseded), relations, date)
+  const { seeds, undetermined } = lawSeeds(graph, chain, superseded, editionFor)
+  const bindings = followRoutes(graph, seeds, relations, editionFor)
   const displaced = displacements(graph, bindings, relations)
   const uses: EditionUse[] = bindings.map((binding) =>
     editionUse(binding.workId, binding.editionId, 'binding', binding.route, [
@@ -355,7 +402,7 @@ export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string
   const boundWorks = new Set(bindings.map((binding) => binding.workId))
   for (const work of graph.works.values()) {
     if (LAW_KINDS.has(work.kind) && boundWorks.has(work.id)) continue
-    uses.push(...unroutedUses(graph, work, { chain, date, relations, boundEditions, boundWorks: [...boundWorks] }))
+    uses.push(...unroutedUses(graph, work, { chain, date, editionFor, relations, boundEditions, boundWorks: [...boundWorks] }))
   }
   const titles = new Map([...graph.works.values()].map((work) => [work.id, work.title]))
   const named = building ? narrowed(graph, uses, building) : uses
@@ -366,5 +413,5 @@ export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string
       (titles.get(a.workId) ?? '').localeCompare(titles.get(b.workId) ?? '', 'de') ||
       (a.editionId ?? '').localeCompare(b.editionId ?? ''),
   )
-  return { date, chain, uses: named.slice(0, MAX_USES), truncated: named.length > MAX_USES }
+  return { date, chain, uses: named.slice(0, MAX_USES), truncated: named.length > MAX_USES, undetermined }
 }

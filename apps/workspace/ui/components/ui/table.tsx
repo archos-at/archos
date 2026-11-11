@@ -23,9 +23,11 @@ import { cn } from '@/lib/utils'
  * the edge. Cells that need a ceiling get `max-w-*` at the call site.
  */
 
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-x-auto">
+const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement> & { scrollX?: boolean }>(
+  // `scrollX={false}` for a fixed-layout table that never overflows and pins its head (`sticky`): a box that
+  // scrolls sideways is the box a sticky head sticks to, and it never scrolls down.
+  ({ className, scrollX = true, ...props }, ref) => (
+    <div className={cn('relative w-full', scrollX && 'overflow-x-auto')}>
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   ),

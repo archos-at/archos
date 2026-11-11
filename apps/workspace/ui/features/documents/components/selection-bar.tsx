@@ -39,9 +39,10 @@ export function SelectionBar({
   const t = useTranslations(filesCopy)
   return (
     // While picking, a white bar floats 16px off the foot: elevation 2, the overlay radius (paper on a desk).
-    // Its content keeps the listing's container; the ✕ gives back its inset so its glyph stands on the edge.
+    // Its content keeps the listing's container, on the column's left edge as `listing-container` is (centred only from a
+    // 90rem section; centred always, it stood 74px right of the tiles at 1700px); the ✕ gives back its inset.
     <div
-      className="bg-sheet shadow-md rounded-overlay animate-in fade-in-0 slide-in-from-bottom-2 duration-base mx-4 mb-[max(1rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] shrink-0 py-2 ease-out motion-reduce:animate-none md:mx-auto md:w-[calc(100%-4rem)] md:max-w-[1216px]"
+      className="bg-sheet shadow-md rounded-overlay animate-in fade-in-0 slide-in-from-bottom-2 duration-base mx-4 mb-[max(1rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] shrink-0 py-2 ease-out motion-reduce:animate-none md:mx-8 md:max-w-[1216px] @min-[90rem]/section:mx-auto!"
       data-testid="selection-bar"
     >
       <div className="flex items-center gap-3 px-4" /* presses 12px apart, as every bar */>
@@ -56,23 +57,29 @@ export function SelectionBar({
       >
         <X aria-hidden />
       </Button>
-      <p
-        className="min-w-0 flex-1 truncate text-sm font-medium tabular-nums"
-        role="status"
-        data-testid="selection-count"
-      >
-        {t('selection.count', { count })}
-      </p>
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        onClick={onSelectAll}
-        disabled={count >= total}
-        data-testid="selection-all"
-      >
-        {t('selection.all')}
-      </Button>
+      {/* The count, and „Alle auswählen“ as a text press after it (under it on a phone): it was a press of the move's
+          weight, and on a phone the move lost its word to make room (review of 2026-11-10, finding 18). */}
+      <div className="flex min-w-0 flex-1 items-center gap-x-3 phone:flex-col phone:items-start">
+        <p
+          // Never cut: on a phone the count was „2 a…“ beside two labelled presses.
+          className="whitespace-nowrap text-sm font-medium tabular-nums"
+          role="status"
+          data-testid="selection-count"
+        >
+          {t('selection.count', { count })}
+        </p>
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="text-muted-foreground hover:text-foreground h-auto px-0 py-0 font-normal phone:text-xs"
+          onClick={onSelectAll}
+          disabled={count >= total}
+          data-testid="selection-all"
+        >
+          {t('selection.all')}
+        </Button>
+      </div>
       {canMove && (
         <Button
           type="button"

@@ -131,3 +131,24 @@ async def test_probes_a_configured_source(client, monkeypatch):
     assert asked[0].sha256 == "a" * 64
     refused = await client.post("/v1/public-sources/probe", json={"config": synthetic_source()})
     assert refused.status_code in (401, 403)
+
+
+async def test_lists_the_built_in_sources_with_their_recorded_fixtures(client, monkeypatch):
+    """The repository's own sources, read-only beside the platform's records in source-status (Decision C)."""
+    from public_sources_testing import SOURCES_DIR
+
+    from agent_host.routes import public_source_capture
+
+    monkeypatch.setenv("PUBLIC_SOURCES_DIR", str(SOURCES_DIR))
+    monkeypatch.setattr(public_source_capture, "_built_in", None)
+
+    refused = await client.post("/v1/public-sources/built-in", json={})
+    answer = await client.post("/v1/public-sources/built-in", headers=HEADERS, json={})
+
+    assert refused.status_code in (401, 403)
+    assert answer.status_code == 200
+    sources = {source["sourceKey"]: source for source in answer.json()["sources"]}
+    assert {"at-ris", "ch-fedlex"} <= set(sources)
+    ris = sources["at-ris"]
+    assert ris["territory"] == "AT" and ris["format"] == "ris_xml" and "data.bka.gv.at" in ris["hosts"]
+    assert ris["fixtures"]["valid"] is True and all(fixture["ok"] for fixture in ris["fixtures"]["fixtures"])

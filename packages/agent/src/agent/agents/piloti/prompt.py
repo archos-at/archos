@@ -38,15 +38,13 @@ from langchain_core.messages import BaseMessage
 from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
 
-from agent.citations.roles import get_turn_building_law
 from agent.common import load_prompt
 from agent.common import render_prompt_template
-from agent.common.applicability import render_project_block
-from agent.common.country_profile import jurisdiction_block
 from agent.common.estate_paths import estate_path
 from agent.common.estate_paths import reads_the_estate
+from agent.common.law_gate import jurisdiction_note
+from agent.common.law_gate import turn_building_law_block
 from agent.common.norm_registry import parcel_note
-from agent.common.norm_registry import resolve_country
 from agent.common.page_region_words import percent
 from agent.common.page_region_words import where_on_the_page_en
 from agent.common.platform_lessons import render_lessons_block
@@ -66,8 +64,6 @@ from agent.knowledge.already_read import render_already_read_block
 from agent.observability.langfuse_trace_attributes import current_fallback_identity
 from agent.observability.langfuse_trace_attributes import record_prompt_link
 from agent.observability.langfuse_trace_attributes import record_trace_metadata
-from agent.turn.building_law import BUILDING_LAW_TAG
-from agent.turn.building_law import building_law_block
 
 from .models import ResearchAgentState
 
@@ -128,6 +124,10 @@ def bundled_static_block() -> ResolvedPrompt:
     )
 
 
+#: The block a static prompt published before ADR-0175 carries: Austria's chain, read by every turn.
+RETIRED_STATIC_BLOCK = "<building_law>"
+
+
 def resolve_static_block() -> ResolvedPrompt:
     """The static half to render with, and the prompt link for this turn's spans.
 
@@ -143,6 +143,10 @@ def resolve_static_block() -> ResolvedPrompt:
     free-form metadata through :func:`record_static_prompt_metadata`.
     """
     resolved = prompt_store().get(STATIC_PROMPT_NAME, fallback=bundled_static_block())
+    if not resolved.is_fallback and RETIRED_STATIC_BLOCK in resolved.text:
+        # A version published before ADR-0175 still holds Austria's chain for every turn; the
+        # turn context now carries the site's own. The bundled file serves until a push replaces it.
+        resolved = bundled_static_block()
     if not resolved.is_fallback and not _renders(resolved.text):
         # The store's promise ("never raises into a turn") covers the FETCH.
         # The text it fetched is still a Jinja template one layer up, and a
@@ -355,27 +359,6 @@ def trigger_block(state: Any, tool_names: Sequence[str]) -> str | None:
     return "\n".join(lines)
 
 
-def oib_applicability(project_context: str | None) -> str | None:
-    """Which OIB-Richtlinien this project's own facts make applicable, or what is not covered; else None.
-
-    The one part of the old ``## Normenregister`` block that survives the cut:
-    the catalog itself was a list of RIS addresses ``ris_lookup`` resolves from
-    a free-text question (ADR-0060 (d)), while this section is derived from the
-    project's `confirmed:` facts and no tool can produce it from the question.
-    A project placed outside Austria, or whose site nothing states, gets the
-    jurisdiction note instead (``country_profile.site_note``, design A1): the
-    verdicts are Austrian law. An Austrian project gets no note, and its block
-    renders as before. With the turn's knowledge context bound (ADR-0173) the gate's note
-    replaces the jurisdiction note, and a gate that withholds law renders no verdicts.
-    Fail-open, because a verdict list is never worth a turn.
-    """
-    try:
-        return jurisdiction_block(project_context, render_project_block)
-    except Exception:  # noqa: BLE001 — applicability must never break prompt building
-        logger.warning("piloti: OIB applicability block failed — omitted", exc_info=True)
-        return None
-
-
 def build_tools_info(tools: Sequence[Any]) -> list[dict[str, str]]:
     """Name + description per tool, the shape the template's tool list reads."""
     return [
@@ -395,17 +378,10 @@ class TurnPrompt(NamedTuple):
 
 
 def render_turn_prompt(template: str, state: ResearchAgentState, tools_info: Sequence[dict[str, str]]) -> TurnPrompt:
-    """The system prompt (the static half, resolved through the store) and this turn's context.
-
-    The static text decides whether the turn context carries ``<building_law>``:
-    only once the static prompt no longer does (``building_law.py``).
-    """
-    static = resolve_static_block().text
+    """The system prompt (the static half, resolved through the store) and this turn's context."""
     return TurnPrompt(
-        system=render_static_block(static),
-        context=with_answer_language(
-            render_turn_context(template, state, tools_info, static_text=static), state.messages
-        ),
+        system=render_static_block(resolve_static_block().text),
+        context=with_answer_language(render_turn_context(template, state, tools_info), state.messages),
     )
 
 
@@ -452,16 +428,13 @@ def request_messages(
     return with_steering(request, steering, offset=2)
 
 
-def _site_blocks(
-    state: ResearchAgentState, documents: list[dict[str, Any]], tool_names: list[str], static_text: str
-) -> dict[str, Any]:
+def _site_blocks(state: ResearchAgentState, documents: list[dict[str, Any]], tool_names: list[str]) -> dict[str, Any]:
     """Where the turn looks and where the project stands: the focus, the trigger and the site's law.
 
-    ``building_law`` is the ``<building_law>`` block, which a turn carries only
-    once its static prompt does not (``turn/building_law.py``, ADR-0168); its
-    chain text is the platform records' for this turn (``citations/roles.py``).
+    The site's law is the knowledge context's and nothing else's (ADR-0175): ``building_law`` is the chain
+    text the BFF rendered from the records (``citations/roles.py``), and ``jurisdiction_note`` is the gate's
+    note, which a gate that withholds law shows in its place (``common/law_gate.py``).
     """
-    law = get_turn_building_law()
     return {
         "focus_file_name": state.focus_file_name,
         "focus_shelf_label": shelf_label(state.focus_shelf),
@@ -470,11 +443,9 @@ def _site_blocks(
         "focus_file_path": focus_file_path(state, tool_names),
         "focus_region_block": focus_region_block(state, tool_names),
         "trigger_block": trigger_block(state, tool_names),
-        "building_law": building_law_block(
-            static_text, state.project_context, law.text if law else None, law.chain if law else ()
-        ),
-        "oib_applicability": oib_applicability(state.project_context),
-        "parcel_note": parcel_note(documents, resolve_country(state.project_context)),
+        "building_law": turn_building_law_block(),
+        "jurisdiction_note": jurisdiction_note(),
+        "parcel_note": parcel_note(documents),
     }
 
 
@@ -482,13 +453,8 @@ def render_turn_context(
     template: str,
     state: ResearchAgentState,
     tools_info: Sequence[dict[str, str]],
-    *,
-    static_text: str = BUILDING_LAW_TAG,
 ) -> str:
     """Render this turn's context message for one run.
-
-    ``static_text`` is the system prompt it goes with (``_site_blocks``); unnamed,
-    it holds ``<building_law>``, and the context is what it always was.
 
     The date is rendered at DAY precision: research needs the date, not the
     clock, and a stable context keeps the rounds of one turn byte-identical.
@@ -536,7 +502,7 @@ def render_turn_context(
         workspace_block=(
             state.workspace_block if any(name.startswith(WORKSPACE_TOOL_PREFIX) for name in tool_names) else None
         ),
-        **_site_blocks(state, documents, tool_names, static_text),
+        **_site_blocks(state, documents, tool_names),
         # The L1 skills catalog, collated by the register layer; None renders
         # no section.
         skills_block=state.skills_block,

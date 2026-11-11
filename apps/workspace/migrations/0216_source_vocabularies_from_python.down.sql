@@ -1,4 +1,4 @@
--- Reverse 0216: the two CHECKs again, with the values every build up to 0216
+-- Reverse 0217: the two CHECKs again, with the values every build up to 0216
 -- writes. ORDER: roll the frontend back first. A row naming an engine added
 -- after 0216 makes this fail; roll that engine's build back and delete its
 -- source records first, as 0215's down does for `pdf_document`.

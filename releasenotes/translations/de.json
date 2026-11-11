@@ -456,6 +456,10 @@
     "de": "Ein großer Upload wird nicht mehr als fehlgeschlagen angezeigt, solange die Datei noch gelesen wird: Der Status bleibt auf „Wird gelesen“, ein Hinweis informiert Sie, dass das Lesen im Hintergrund fortgesetzt wird, und sobald die Datei bereit ist, ist sie zitierfähig."
   },
   {
+    "en": "A licensed standard your office holds but has not cleared for AI processing is now named in answers as held and not read, so the answer says why it cannot quote it instead of leaving it out.",
+    "de": "Eine lizenzierte Norm, über die Ihr Büro verfügt, die aber nicht für die KI-Verarbeitung freigegeben ist, wird in Antworten jetzt als vorhanden, aber nicht gelesen genannt. So erklärt die Antwort, warum sie daraus nicht zitieren kann, statt die Norm auszulassen."
+  },
+  {
     "en": "A long answer no longer freezes the page while it arrives, and its cards land when they are ready instead of long after the text.",
     "de": "Eine lange Antwort friert die Seite beim Eintreffen nicht mehr ein, und ihre Karten erscheinen, sobald sie fertig sind, statt lange nach dem Text."
   },
@@ -616,6 +620,10 @@
     "de": "Eine Frage nach einer ganzen Richtlinie wie „Was weißt du über die OIB 2?“ beantwortet Piloti jetzt aus einem Suchlauf über alle vorhandenen Teile: je Teil der Geltungsbereich als zitierfähige Passage, darunter dessen Gliederung."
   },
   {
+    "en": "A question about an Austrian law is answered from the legal database even before the office's building-law base is published; the answer no longer claims the database is switched off.",
+    "de": "Eine Frage zu einem österreichischen Gesetz wird bereits aus der Rechtsdatenbank beantwortet, bevor die baurechtliche Wissensbasis des Büros veröffentlicht ist; die Antwort gibt nicht mehr an, dass die Datenbank deaktiviert ist."
+  },
+  {
     "en": "A question about building regulations no longer comes back empty just because a document was open beside the chat. Only the file you chose with \"Asking about this file\" narrows the search now, and when a search in that file finds nothing on a regulation question, Piloti searches the guidelines again without it.",
     "de": "Eine Frage zu Bauvorschriften liefert keine leeren Ergebnisse mehr, nur weil neben dem Chat ein Dokument geöffnet war. Nur die Datei, die Sie über „Fragen zu dieser Datei“ ausgewählt haben, schränkt die Suche jetzt ein. Findet die Suche in dieser Datei bei einer Frage zu Vorschriften nichts, durchsucht Piloti die Richtlinien erneut ohne diese Einschränkung."
   },
@@ -694,6 +702,10 @@
   {
     "en": "A research report can now show a file from the project or the office archive as a card, as the chat already could.",
     "de": "Auch ein Recherchebericht kann jetzt eine Datei aus dem Projekt oder dem Büroarchiv als Karte zeigen, wie es der Chat schon konnte."
+  },
+  {
+    "en": "A research run now works from the same law as the chat: the editions that apply at the project's site, in their role there, or a clear note when that law cannot be named.",
+    "de": "Ein Recherchelauf arbeitet jetzt mit derselben Rechtsgrundlage wie der Chat: mit den am Projektstandort geltenden Fassungen und ihrer dortigen Funktion – oder mit einem klaren Hinweis, wenn sich die Rechtsgrundlage nicht benennen lässt."
   },
   {
     "en": "A research run or task that finished during a brief outage now shows its result, instead of staying \"running\" with an empty message forever.",
@@ -786,6 +798,10 @@
   {
     "en": "A standard or product code typed in lowercase now matches the documents that write it in capitals, so a question about a specific code finds the same sources whichever way it is typed.",
     "de": "Ein in Kleinbuchstaben eingegebener Norm- oder Produktcode findet jetzt auch Dokumente, in denen er in Großbuchstaben geschrieben ist. Fragen zu einem bestimmten Code liefern daher unabhängig von der Schreibweise dieselben Quellen."
+  },
+  {
+    "en": "A standard that a building code makes binding, such as a Swiss or German norm referenced by Viennese law, can now also be asked about for a past date, instead of being reported as unknown.",
+    "de": "Eine durch eine Bauordnung verbindlich gemachte Norm, etwa eine im Wiener Recht referenzierte Schweizer oder deutsche Norm, kann nun auch für einen vergangenen Zeitpunkt abgefragt werden, statt als unbekannt gemeldet zu werden."
   },
   {
     "en": "A subfolder can only narrow what its parent allows, and someone who may only read a folder sees it marked „Nur lesen“, without upload, rename, move or delete. Only a project admin who may edit a folder can change who may read or edit it.",
@@ -1000,6 +1016,10 @@
     "de": "Eine Antwort erscheint jetzt Wort für Wort in gleichmäßigem Tempo, und jedes Wort blendet sanft ein. Ist sie fertig, laufen die letzten Worte schnell durch, danach klappt die Herleitung zusammen, und die Schaltflächen unter der Antwort erscheinen in einem Zug statt in mehreren Sprüngen."
   },
   {
+    "en": "An answer now names a rule binding only where the reviewed building-law records say it binds at the project's site, in the edition they name. When the site's law cannot be read, the answer says so instead of assuming Austrian law.",
+    "de": "Eine Antwort nennt eine Vorschrift nun nur dann als verbindlich, wenn aus den geprüften baurechtlichen Unterlagen hervorgeht, dass sie am Projektstandort in der dort genannten Fassung gilt. Lässt sich das dort geltende Baurecht nicht feststellen, weist die Antwort darauf hin, statt österreichisches Recht vorauszusetzen."
+  },
+  {
     "en": "An answer read from your workspace, such as who is on a project or which approvals are open, no longer shows as low confidence. The confidence tooltip now says what the answer rests on, for example „3 Aussagen belegt · 1 Rechtsaussage ohne Beleg\".",
     "de": "Eine Antwort aus Ihrem Workspace, etwa dazu, wer an einem Projekt arbeitet oder welche Freigaben offen sind, wird nicht mehr als wenig zuverlässig angezeigt. Der Tooltip zur Vertrauenswürdigkeit zeigt jetzt, worauf die Antwort basiert, zum Beispiel „3 Aussagen belegt · 1 Rechtsaussage ohne Beleg“."
   },
@@ -1074,6 +1094,10 @@
   {
     "en": "An imported Outlook archive now files each mail's text into the project's mail threads, beside the mail that came to the project's address, instead of a note per mail. A reply joins its conversation, and a mail the project already has is not filed twice.",
     "de": "Beim Import eines Outlook-Archivs wird der Text jeder E-Mail nun im Mail-Thread des Projekts abgelegt, neben der E-Mail an die Projektadresse, statt als eigene Notiz. Antworten werden dem jeweiligen Gespräch zugeordnet, und bereits im Projekt vorhandene E-Mails werden nicht doppelt abgelegt."
+  },
+  {
+    "en": "An office's base knowledge entry keeps who proposed it after it is confirmed, and names who confirmed it.",
+    "de": "Ein Eintrag in der Wissensbasis eines Büros zeigt auch nach der Bestätigung, wer ihn vorgeschlagen hat, und nennt die bestätigende Person."
   },
   {
     "en": "An office's default language under Organisation → Einstellungen is now \"Nicht festgelegt\" until an administrator picks one, and each person then starts in their browser's language. Offices that had the English preset stored have it reset; set it again there if your office wants English.",
@@ -1158,6 +1182,10 @@
   {
     "en": "Answers in chat arrive sooner, because Piloti prepares what it needs for the answer in parallel.",
     "de": "Antworten im Chat kommen früher, weil Piloti alles Nötige für die Antwort parallel vorbereitet."
+  },
+  {
+    "en": "Answers no longer cite a web copy of a guideline the knowledge base holds, or the product's own website, as a source for law, and no longer show internal notes such as \"citation not verified\" in the text.",
+    "de": "Antworten zitieren eine Webkopie einer in der Wissensdatenbank gespeicherten Richtlinie oder die Website des Produkts nicht mehr als Quelle für Rechtsauskünfte und zeigen im Text keine internen Hinweise wie „Quelle nicht verifiziert“ mehr an."
   },
   {
     "en": "Answers no longer occasionally end in a block of raw technical data after the list of sources.",
@@ -1868,6 +1896,10 @@
     "de": "Jede fertige Antwort lässt sich jetzt kopieren. Bisher bot eine Antwort ohne Quelle, etwa eine Rückfrage oder ein kurzer Gesprächsbeitrag, nur den Word-Download an, sodass Sie keinen Satz daraus in eine E-Mail übernehmen konnten."
   },
   {
+    "en": "Every folder shows its subfolders first and its files after them. The list view keeps the size and date columns on a laptop screen, and on a phone each row shows them under the name.",
+    "de": "Jeder Ordner zeigt zuerst seine Unterordner und danach seine Dateien. In der Listenansicht bleiben die Spalten für Größe und Datum auch auf einem Laptop-Bildschirm sichtbar. Auf dem Smartphone werden sie in jeder Zeile unter dem Namen angezeigt."
+  },
+  {
     "en": "Every office can now record its own standards, commentaries and directives, and ask which edition of a law applied on an earlier date.",
     "de": "Jedes Büro kann jetzt eigene Standards, Kommentare und Richtlinien erfassen und abfragen, welche Fassung eines Gesetzes zu einem früheren Zeitpunkt galt."
   },
@@ -1974,6 +2006,10 @@
   {
     "en": "Findings from a report now carry on in the project. An open finding can become its own task with Klären, and a finished report can be updated with Bericht fortschreiben, which marks each finding as new, changed or dropped.",
     "de": "Befunde aus einem Bericht bleiben im Projekt erhalten. Ein offener Befund wird mit „Klären“ zu einer eigenen Aufgabe, und ein fertiger Bericht lässt sich mit „Bericht fortschreiben“ aktualisieren, wobei jeder Befund als neu, geändert oder entfallen markiert wird."
+  },
+  {
+    "en": "Findings from the documents now stand as a button next to the line that says what was read, and open the overview at the top of Dateien.",
+    "de": "Ergebnisse aus den Dokumenten erscheinen jetzt als Schaltfläche neben der Zeile, die angibt, was gelesen wurde, und öffnen die Übersicht oben in Dateien."
   },
   {
     "en": "Findings of the skill check now appear under the field they concern. „Erneut prüfen“ checks the revised text, and a finding on text that has since changed is marked as outdated.",
@@ -2380,6 +2416,10 @@
     "de": "Lange Tiefenrecherchen hinterlassen im Chat keine überzähligen oder doppelten Nachrichten mehr, auch wenn sie im Hintergrund an ihr Zeitlimit stoßen."
   },
   {
+    "en": "Long file names are no longer broken in the middle of a word: a name that does not fit on two lines keeps its beginning and its end, with the file extension. Folder cards are all the same height, with the full name when you point at it.",
+    "de": "Lange Dateinamen werden nicht mehr mitten im Wort getrennt: Passt ein Name nicht in zwei Zeilen, bleiben Anfang und Ende samt Dateiendung sichtbar. Ordnerkarten sind alle gleich hoch; zeigen Sie auf eine Karte, wird der vollständige Name angezeigt."
+  },
+  {
     "en": "Long text documents now scroll correctly in the side preview.",
     "de": "Lange Textdokumente lassen sich in der Seitenvorschau jetzt korrekt scrollen."
   },
@@ -2566,6 +2606,10 @@
   {
     "en": "On the Skills tab, a skill can be switched off. Switched off, it disappears from the “/” menu and from what Piloti can pick for an answer.",
     "de": "Im Skills-Tab lässt sich ein Skill ausschalten. Ausgeschaltet verschwindet er aus dem „/“-Menü und aus der Auswahl, die Piloti für eine Antwort treffen kann."
+  },
+  {
+    "en": "On the last day a version of a law or regulation is in force, answers now use that version instead of leaving the law out or saying no version was found.",
+    "de": "Am letzten Tag, an dem eine Fassung eines Gesetzes oder einer Verordnung gilt, verwenden Antworten nun diese Fassung, statt die Rechtsvorschrift wegzulassen oder anzugeben, dass keine Fassung gefunden wurde."
   },
   {
     "en": "On the overview the Steckbrief is now a summary with a „Bearbeiten“ dialog, and closing a project asks who was involved, so the record is complete before it becomes read-only.",
@@ -3804,6 +3848,10 @@
     "de": "Die erste Frage in einem neuen Chat geht nicht mehr verloren, wenn Sie sie direkt aus einem Vorschlag senden, ohne etwas einzutippen."
   },
   {
+    "en": "The first tab in Dateien is now called „Ordner“, and inside a folder the page's title is the folder's name, with how many items it holds beside it. The line above the title shows the way there, each step one click back up, and on a phone it names the folder above.",
+    "de": "Der erste Tab in Dateien heißt jetzt „Ordner“. In einem Ordner ist der Seitentitel der Ordnername; daneben steht die Anzahl der darin enthaltenen Elemente. Die Zeile darüber zeigt den Pfad: Jeder Schritt führt Sie mit einem Klick eine Ebene nach oben. Auf dem Smartphone wird der übergeordnete Ordner angezeigt."
+  },
+  {
     "en": "The first time something waits on you, Piloti offers once to notify you on this device, also if you never open the Postfach.",
     "de": "Wenn zum ersten Mal etwas auf Sie wartet, bietet Piloti Ihnen einmalig an, Sie auf diesem Gerät zu benachrichtigen – auch wenn Sie das Postfach nie öffnen."
   },
@@ -4052,6 +4100,10 @@
     "de": "Die Suche findet jetzt dieselben Dokumente, egal ob Sie Flächenwidmung oder Flaechenwidmung eingeben, und die Einstellung „nur aktuelle“ berücksichtigt alle passenden Dokumente, statt ältere Uploads auszuschließen."
   },
   {
+    "en": "The search, the filter, the view and the buttons for the folder you are in now stand in one row under the tabs, which no longer breaks into several lines next to a long folder name. On a narrower window „Ordner anlegen“ is in the „Hochladen“ menu.",
+    "de": "Die Suche, der Filter, die Ansicht und die Schaltflächen für den Ordner, in dem Sie sich gerade befinden, stehen unter den Tabs nun in einer Zeile. Auch neben langen Ordnernamen wird die Zeile nicht mehr umgebrochen. Bei schmaleren Fenstern befindet sich „Ordner anlegen“ im Menü „Hochladen“."
+  },
+  {
     "en": "The settings overview of a project whose intake was never completed no longer shows an error. Its similar closed projects load again.",
     "de": "Die Einstellungsübersicht eines Projekts, dessen Erfassung nie abgeschlossen wurde, zeigt keinen Fehler mehr. Ähnliche abgeschlossene Projekte werden wieder geladen."
   },
@@ -4126,6 +4178,10 @@
   {
     "en": "The upload history in the project settings now reaches back to the project's first upload. With „Ältere Uploads laden“, you see the next older ones.",
     "de": "Der Upload-Verlauf in den Projekteinstellungen reicht jetzt bis zum ersten Upload des Projekts zurück. Mit „Ältere Uploads laden“ sehen Sie die nächstälteren Uploads."
+  },
+  {
+    "en": "The upload menu says which formats you can upload and the size limit, and that you can drop files anywhere on the page. An empty folder shows one „Hochladen“ button, and the upload panel shows its progress as „3,0 von 6,0 MB“.",
+    "de": "Im Upload-Menü steht, welche Formate Sie hochladen können, welches Größenlimit gilt und dass Sie Dateien überall auf der Seite ablegen können. In einem leeren Ordner wird ein einzelner Button „Hochladen“ angezeigt, und das Upload-Panel zeigt den Fortschritt als „3,0 von 6,0 MB“ an."
   },
   {
     "en": "The upload panel and the chat now show a file the content check held back as held for review, with what was found, instead of as failed, and no longer offer to retry it. A file that was kept but not read is shown as filed rather than citable.",
@@ -4806,6 +4862,14 @@
   {
     "en": "Where an office has upload screening switched on, Piloti checks the text of each upload on its servers before any AI model reads it. A file the check holds back waits in Quarantine, where no model reads it, until an office or project admin releases or deletes it under Organization → Quarantine.",
     "de": "Wo eine Organisation die Prüfung von Uploads eingeschaltet hat, prüft Piloti den Text jedes Uploads auf Pilotis Servern, bevor ein KI-Modell ihn liest. Eine Datei, die die Prüfung zurückhält, wartet unter Organisation → Quarantäne, wo kein Modell sie liest, bis ein Büro- oder Projekt-Admin sie freigibt oder löscht."
+  },
+  {
+    "en": "Where nobody has reviewed a country's records yet, the chat says it reads that law from an uncurated official source, and it says when a newer edition is known.",
+    "de": "Wenn die Unterlagen eines Landes noch niemand geprüft hat, weist der Chat darauf hin, dass er das betreffende Gesetz aus einer nicht kuratierten offiziellen Quelle bezieht, und nennt, falls bekannt, eine neuere Fassung."
+  },
+  {
+    "en": "Where the law of a project's site cannot be named (the office is not entitled to its country, or it cannot be read), no building class is named either: not in the evaluation, the setup or the project profile.",
+    "de": "Kann das am Projektstandort geltende Baurecht nicht bestimmt werden (weil das Büro für das betreffende Bundesland nicht berechtigt ist oder die Bauordnung nicht ausgelesen werden kann), wird auch keine Gebäudeklasse angegeben – weder in der Auswertung noch in der Konfiguration oder im Projektprofil."
   },
   {
     "en": "Where your office has switched it on, Piloti now checks a newly uploaded document against the project's other documents. If a key figure disagrees, for example the number of dwellings, it marks the place as a proposal with both sources; when everything agrees it says nothing.",

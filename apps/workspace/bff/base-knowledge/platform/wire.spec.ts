@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { PROPOSED_RECORD_TYPES, proposedRecordSchema } from './wire'
+import { PROPOSED_RECORD_TYPES, proposedRecordSchema, reviewBodySchema } from './wire'
 
 const GUIDE = readFileSync(join(process.cwd(), 'bff/agent-api/door/platform/onboarding-guide.md'), 'utf8')
 
@@ -44,5 +44,24 @@ describe('a work’s identifiers at its source', () => {
 
   it('refuses an ELI that does not end with "/": …/1930/11 would also name …/1930/110', () => {
     expect(work({ eli: 'https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11' }).success).toBe(false)
+  })
+})
+
+const REVISION = '00000000-0000-4000-8000-000000000001'
+
+describe('reviewBodySchema', () => {
+  it('takes one decision per claim', () => {
+    expect(reviewBodySchema.safeParse({ decisions: [{ revisionId: REVISION, claimPath: 'name', decision: 'accepted' }] }).success).toBe(true)
+  })
+
+  it('refuses two decisions on one claim in one body', () => {
+    const result = reviewBodySchema.safeParse({
+      decisions: [
+        { revisionId: REVISION, claimPath: 'name', decision: 'accepted' },
+        { revisionId: REVISION, claimPath: 'name', decision: 'rejected' },
+      ],
+    })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.message).toMatch(/one decision per review/)
   })
 })

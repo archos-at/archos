@@ -91,9 +91,11 @@ behavior with a warning):
    verified pointers directly — no HTTP call, no planner LLM.
 2. **`ris_catalog_lookup`**: explicit topic search in the catalog for the agent.
 3. **Prompt block**: `agent.common.norm_registry.render_block_for_prompt`
-   renders the catalog — Bundesrecht lane, the project's own Bundesland lane
-   (other states' law dropped), curated binding notes, and an OIB-corpus
-   citation note — into Piloti's and the deep researcher's prompts.
+   renders the catalog as addresses only — Bundesrecht lane, then the Land of
+   the site's knowledge context (other states' law dropped; with no site, every
+   Land's lane) — into the deep researcher's prompts, and only where the run's
+   knowledge context lets RIS run. It names no edition as binding: the chain
+   text does (ADR-0175). The chat prompt carries no catalog.
 
 **Jurisdiction-aware matching.** Building law is state law, and the nine state
 codes all match generic topics like "bauordnung", so both tool consumers
@@ -177,12 +179,12 @@ re-exported from `ris_adapter.client`. The norm admin route and
 (`federal_state_param`). `tests/test_source_record_parity.py` freezes the code
 the record replaced, so an edit that moves an Austrian request fails there.
 
-**`sourceRouting`.** With the organization's `source-routing` flag on
-(`routing.py`), `RisClient` makes the same requests through
-`public_sources.routing.source_transport("at-ris")`: the sandboxed
-`public-source-fetcher` when `PUBLIC_SOURCE_FETCHER_URL` is set, the same guard
-in process when not. Off is the default and the behaviour before it.
-`SOURCE_ROUTING=on|off` overrides the flag for a process (the answer suite).
+**Through the fetcher, always.** `RisClient` makes its requests through
+`public_sources.routing.source_transport("at-ris")`, which sends them to the
+sandboxed `public-source-fetcher` (`PUBLIC_SOURCE_FETCHER_URL`). Without a
+fetcher a RIS request is a `RisError`; there is no in-process path (ADR-0162
+amendment). For the answer suite, run the fetcher (`python -m
+public_sources.fetcher`) and point the variable at it.
 
 ## Configuration
 

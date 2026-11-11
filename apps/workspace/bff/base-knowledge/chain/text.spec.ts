@@ -15,9 +15,9 @@ import { MAX_NAME_CHARS, nameOf, renderChainText } from './text'
 
 const records = [
   { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
-  { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parentIds: ['AT'] },
-  { type: 'territory', id: 'AT-7', kind: 'state', name: 'Tirol', parentIds: ['AT'] },
-  { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'] },
+  { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parents: [{ id: 'AT' }] },
+  { type: 'territory', id: 'AT-7', kind: 'state', name: 'Tirol', parents: [{ id: 'AT' }] },
+  { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
   { type: 'work', key: 'bo-wien', kind: 'statute', title: 'Bauordnung für Wien', territoryIds: ['AT-9'] },
   { type: 'edition', key: 'bo-wien-2018', workKey: 'bo-wien', label: 'Fassung 2018', issuedOn: '2018-01-01', inForceFrom: '2018-01-01', inForceTo: '2024-01-01' },
   { type: 'edition', key: 'bo-wien-2024', workKey: 'bo-wien', label: 'Fassung 2024', issuedOn: '2024-01-01', inForceFrom: '2024-01-01' },
@@ -80,6 +80,17 @@ describe('the chain text', () => {
         '1 other edition is not in force here and is information only.',
       ].join('\n'),
     )
+  })
+
+  it('names a law whose edition is not determined, and why, instead of leaving it out silently', () => {
+    const overlapping = graphFromProposals(
+      [...records, { type: 'edition', key: 'bo-wien-2024b', workKey: 'bo-wien', label: 'Fassung 2024b', inForceFrom: '2024-06-01' }].map((record) =>
+        proposedRecordSchema.parse(record),
+      ),
+    )
+    const text = renderChainText(overlapping, resolveChain(overlapping, 'AT-9', '2026-11-10'), 'Wien')
+    expect(text).toContain('Not determined here')
+    expect(text).toContain('- Bauordnung für Wien: more than one edition is recorded as in force on this date')
   })
 
   it('defect 7: in Steiermark it names 2019 as binding and 2023 as guidance only', () => {

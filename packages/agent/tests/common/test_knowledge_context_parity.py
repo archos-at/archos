@@ -18,10 +18,13 @@ import re
 from pathlib import Path
 from typing import Any
 
-from agent.citations.roles import EDITION_ROLES
-from agent.citations.roles import ROUTE_VIAS
-from agent.citations.roles import EditionUse
+from agent.citations.roles import SOURCE_REF_SCHEMES
+from agent.common.knowledge_context import EDITION_ROLES
 from agent.common.knowledge_context import GATE_STATES
+from agent.common.knowledge_context import MAX_TEXT_CHARS
+from agent.common.knowledge_context import QUALIFIERS
+from agent.common.knowledge_context import ROUTE_VIAS
+from agent.common.knowledge_context import EditionUse
 from agent.common.knowledge_context import KnowledgeContext
 
 ROOT = Path(__file__).parents[4]
@@ -35,6 +38,8 @@ READ_ENUMS: dict[str, tuple[str, ...]] = {
     "/properties/gate/properties/state": GATE_STATES,
     "/properties/uses/items/properties/role": EDITION_ROLES,
     "/properties/uses/items/properties/via": ROUTE_VIAS,
+    "/properties/uses/items/properties/qualifier/anyOf/0": QUALIFIERS,
+    "/properties/uses/items/properties/sourceRefs/items/properties/scheme": SOURCE_REF_SCHEMES,
 }
 
 #: Each enum the agent does not read yet, and why. Moving one to ``READ_ENUMS`` is the decision this file asks for.
@@ -49,13 +54,12 @@ UNREAD_ENUMS: dict[str, str] = {
     "/properties/procedures/items/properties/referenceDates/additionalProperties/properties/basis": (
         "a reference day is read as its date or its basis, as a token for trace metadata"
     ),
-    "/properties/uses/items/properties/qualifier/anyOf/0": (
-        "this tier reads office_maintained only; #1582's typed EditionUse reads uncurated too"
+    "/properties/undetermined/items/properties/reason": (
+        "kept as a token in the trace metadata; the chain text words each reason"
     ),
-    "/properties/uses/items/properties/freshness": "the chain text states it; #1582 reads it per use",
-    "/properties/uses/items/properties/connectsBy/items": "the chain text states it; #1582 reads it per use",
-    "/properties/uses/items/properties/labels/items": "the chain text states each; #1582 reads them per use",
-    "/properties/uses/items/properties/sourceRefs/items/properties/scheme": "#1582 matches a passage read live by them",
+    "/properties/uses/items/properties/freshness": "the chain text states it, and the role already carries it",
+    "/properties/uses/items/properties/connectsBy/items": "the chain text states it, and the role already carries it",
+    "/properties/uses/items/properties/labels/items": "the chain text states each",
 }
 
 #: The context's properties the agent reads, as ``KnowledgeContext`` holds them.
@@ -68,21 +72,25 @@ READ_KEYS: dict[str, str] = {
     "procedures": "reference_dates",
     "date": "date",
     "updatedSinceLastAnswer": "updated_since_last_answer",
+    "text": "text",
+    "undetermined": "undetermined",
 }
 
 #: The context's properties the agent ignores, and why.
-IGNORED_KEYS: dict[str, str] = {
-    "text": "this tier reads the chain text from buildingLaw; #1582 reads it here",
-}
+IGNORED_KEYS: dict[str, str] = {}
 
 #: The use properties the agent ignores, and why; the rest are ``EditionUse``'s fields, camel-cased.
 IGNORED_USE_KEYS: dict[str, str] = {
     "date": "the context's own date holds for every use",
-    "freshness": "stated in the chain text",
+    "freshness": "stated in the chain text; the role already carries its correction",
     "lastCheckedAt": "stated in the chain text",
-    "connectsBy": "stated in the chain text",
+    "connectsBy": "stated in the chain text; the role already carries its correction",
     "labels": "stated in the chain text",
-    "sourceRefs": "#1582 matches a passage read live by them",
+}
+
+#: EditionUse fields read from a use key on a wire this branch does not carry yet, and where it comes from.
+FORWARD_USE_FIELDS: dict[str, str] = {
+    "scope_unsettled": "applicability (ADR-0177, #1589); absent, the edition states no scope",
 }
 
 
@@ -117,6 +125,11 @@ def test_every_property_of_the_context_is_read_or_named_as_ignored() -> None:
 
 
 def test_every_property_of_a_use_is_read_or_named_as_ignored() -> None:
-    read = {_camel(field.name) for field in dataclasses.fields(EditionUse)}
-    sent = set(CONTEXT["properties"]["uses"]["items"]["properties"])
+    read = {_camel(field.name) for field in dataclasses.fields(EditionUse) if field.name not in FORWARD_USE_FIELDS}
+    sent = set(CONTEXT["properties"]["uses"]["items"]["properties"]) - {"applicability"}
     assert sorted(sent) == sorted(read | set(IGNORED_USE_KEYS))
+
+
+def test_the_agent_keeps_the_whole_chain_text_the_bff_may_send() -> None:
+    """A shorter bound here would cut the chain text mid-line, past the BFF's own "the rest is cut" line."""
+    assert {"type": "string", "maxLength": MAX_TEXT_CHARS} in CONTEXT["properties"]["text"]["anyOf"]

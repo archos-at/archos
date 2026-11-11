@@ -8,12 +8,11 @@
  *   by an operator, which KC-6 checks every quote against;
  * - the JSON Schema of every record type, from the same zod the routes parse.
  *
- * Reads take `platform:settings:view` and writes `platform:settings:manage`
+ * Reads take `platform:settings:view` and writes `platform:knowledge:write`
  * (`requirePlatform`).
  */
 
 import 'server-only'
-import { z } from 'zod'
 import { ApiError, ConflictError, NotFoundError, ServiceUnavailableError, UnprocessableError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
@@ -36,12 +35,10 @@ import {
   requestRevisions,
 } from './store'
 import type { Tx } from '../store/repository'
-import { KIT_CHECKS, KIT_HINTS, KIT_PROBLEM_TYPE_BASE, namedTerritories, type Problem, validateProposal } from './validate'
+import { KIT_CHECKS, KIT_PROBLEM_TYPE_BASE, namedTerritories, type Problem, validateProposal } from './validate'
 import {
   type CaptureBody,
   type CaptureView,
-  citationSchema,
-  MAX_PROPOSED_RECORDS,
   PROPOSED_RECORD_TYPES,
   type ProposedRecord,
   proposedRecordSchema,
@@ -200,7 +197,7 @@ export async function configuredSource(tx: Tx, source: RegisteredSource): Promis
 
 /** Capture a page into a draft request: what records then cite, and KC-6 checks quotes against. */
 export async function capturePlatformCitation(session: UserSession | null, requestId: string, body: CaptureBody): Promise<CaptureView> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   const { draft, configured } = await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     // A configured source (ADR-0174): its testing revision in this request, else its released one. A repository

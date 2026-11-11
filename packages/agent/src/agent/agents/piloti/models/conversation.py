@@ -62,8 +62,6 @@ class ConversationState(BaseModel):
             withdraws the hand-off before it is proposed.
         licensed_text_allowed: Whether licensed text may reach the model inside
             the call (the `licensed-seam` flag, resolved per turn).
-        time_editions_allowed: Whether `law-lookup` is offered `as_of`, a past
-            day (the `time-editions` flag, resolved per turn, ADR-0171).
         tasks_allowed: Whether the tenant may have work handed over via
             `create_task` (the `task-automation` flag, resolved per turn).
         confined: Whether this turn's signed scope holds a restricted folder's
@@ -145,8 +143,6 @@ class ConversationState(BaseModel):
     # PER TURN: whether licensed text may reach the model inside the call (the `licensed-seam` flag,
     # `common/licensed_text.py`). Off lists a licensed passage without its text.
     licensed_text_allowed: bool = False
-    # PER TURN: whether `law-lookup` is offered `as_of` (the `time-editions` flag, ADR-0171).
-    time_editions_allowed: bool = False
     # PER TURN: the turn's signed scope holds a restricted folder's collection
     # (ADR-0087). Nothing from such a conversation may reach a colleague not
     # cleared for the folder, so the register layer also withdraws deep research
@@ -259,6 +255,7 @@ class ConversationState(BaseModel):
     # (``markers.CappedReason`` says which rule produces which). Five causes:
     #   "ungrounded"              nothing verified and nothing measured.
     #   "quote_unverified"        a quoted span matched no retrieved passage.
+    #   "law_unsettled"           rests on building law the records do not settle (ADR-0175).
     #   "normative_claim_uncited" the answer WAS measurement-grounded but also
     #                             asserts something normative with no verified
     #                             citation — the mixed case, held at "low" and
@@ -272,6 +269,7 @@ class ConversationState(BaseModel):
         Literal[
             "ungrounded",
             "quote_unverified",
+            "law_unsettled",
             "normative_claim_uncited",
             "measurement_only",
             "citation_fallback",

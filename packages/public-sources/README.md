@@ -18,6 +18,13 @@ which may fetch (published, or a draft within its own request's 24 hours) and
 hands this package the configuration; the guard still holds the hosts and the
 public addresses.
 
+Which one a source is: a repository file (**built in**) only when its engine's
+configuration is code-level, read by the agent's own tools (RIS, Fedlex);
+every other source is a platform record. The rule, once:
+[ADR-0174, Consequences](../../docs/adr/0174-public-sources-are-platform-records-kept-current-by-monitors.md#consequences).
+`platform-knowledge-source-status` lists both (`POST /v1/public-sources/built-in`
+gives it the built-in ones, with their fixtures' result).
+
 ## Where things are
 
 | Path | What |
@@ -31,7 +38,7 @@ public addresses.
 | `src/monitor.py` | One monitor check: the record's `monitor.probe` against what was seen last (`sha256`, `etag`, `version`) and the terms page's hash; no model call |
 | `src/capture.py` | One page for a citation capture (ADR-0170) |
 | `src/egress.py` | The guard: hosts at every hop, public addresses after DNS, the headers that may leave |
-| `src/routing.py` | The transport a caller uses: through the fetcher when `PUBLIC_SOURCE_FETCHER_URL` is set, the guard in process when not |
+| `src/routing.py` | The transport a caller uses: through the fetcher (`PUBLIC_SOURCE_FETCHER_URL`), and refused without one; a test hands in a transport |
 | `src/fetcher.py` | The sandboxed fetcher service (`python -m public_sources.fetcher`), deployed by `deploy/pulumi/src/app/public-source-fetcher.ts` |
 | `src/fixtures.py`, `src/__main__.py` | `source-test`: run a record's fixtures |
 

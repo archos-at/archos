@@ -3,10 +3,10 @@
  * @vitest-environment node
  */
 /**
- * Cross-language contract: bindingness, from the norm registry to the pill.
+ * Cross-language contract: bindingness, from the turn's edition roles to the pill.
  *
- * `binding_classification_for_entry` classifies a source, `source_entry_to_wire`
- * puts a coarse `binding_status` on EVERY citation, `citationFromWire` maps it,
+ * `citations/roles.py` gives a passage its edition's role at the site (ADR-0168,
+ * ADR-0175), `source_entry_to_wire` puts a coarse `binding_status` on EVERY citation, `citationFromWire` maps it,
  * and `CitationPeek` badges it. The rule that matters most has no positive
  * evidence anywhere on screen: `unknown` must render NOTHING, because a
  * missing pill has to read as "we do not know" and a fabricated one would be a
@@ -30,8 +30,8 @@
  * proves the frontend still reads it that way. Rename or re-value the field and
  * exactly one of the two fails.
  *
- * The fixture's two sources are deliberately the two cases: an OIB-Richtlinie a
- * Land declares binding, and a project upload that matches nothing.
+ * The fixture's two sources are deliberately the two cases: an OIB-Richtlinie the
+ * turn's records declare binding at the site, and a project upload no role reaches.
  */
 
 import { readFileSync } from 'node:fs'

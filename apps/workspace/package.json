@@ -14,6 +14,7 @@
     "lint": "node scripts/check-static-utility-modifiers.mjs && oxlint app bff ui i18n shared types utils tests proxy.ts instrumentation.ts",
     "lint:fix": "node scripts/check-static-utility-modifiers.mjs && oxlint app bff ui i18n shared types utils tests proxy.ts instrumentation.ts --fix",
     "a11y": "node scripts/a11y-audit.mjs",
+    "clip-check": "node scripts/clip-check.mjs",
     "lint:seams": "node scripts/depcruise.mjs app bff ui i18n shared types utils --ignore-known --output-type plugin:./scripts/module-seams-reporter.mjs",
     "lint:seams:baseline": "node scripts/depcruise.mjs app bff ui i18n shared types utils --baseline && UPDATE_FEATURE_CYCLES=1 bun run lint:seams",
     "format": "prettier --write .",
