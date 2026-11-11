@@ -806,8 +806,14 @@ jobs:
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       # The website's accessibility gate drives Chromium; this installs its system libraries
-      # (the version is apps/website's playwright devDependency).
-      - run: npx --yes playwright@1.63.0 install-deps chromium
+      # (the version is apps/website's playwright devDependency). Not fatal on its own: the
+      # runner image already carries every library Chromium links against, and what apt still
+      # fetches are nine optional font packages. When the runner cannot resolve the Ubuntu
+      # mirrors (2026-11-11: three runs within an hour), the gate below still runs, and it
+      # fails by itself if Chromium cannot start.
+      - run: >-
+          npx --yes playwright@1.63.0 install-deps chromium
+          || echo "::warning::playwright install-deps failed; website:verify fails if Chromium cannot start"
       - run: task website:verify
 
   cms:
