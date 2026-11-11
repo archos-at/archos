@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bindingOn, lawMapOf, reviewCounts } from './law-map'
+import { bindingOn, lawMapOf, nextChange, reviewCounts, summaryOn } from './law-map'
 import type { CaptureView, RevisionView } from './wire'
 
 type Decision = 'accepted' | 'rejected' | null
@@ -50,10 +50,11 @@ const REVISIONS: RevisionView[] = [
   revision('edition', 'edition:mc-2-2019', { workId: 'work:mc-2', label: 'Edition 2019', issuedOn: '2019-04-12' }),
   revision('edition', 'edition:mc-2-2023', { workId: 'work:mc-2', label: 'Edition 2023', issuedOn: '2023-05-25' }),
   revision('edition', 'edition:mc-10-2019', { workId: 'work:mc-10', label: 'Edition 2019', issuedOn: '2019-04-12' }),
+  revision('manifestation', 'manifestation:mc-2-2023-text', { editionId: 'edition:mc-2-2023', form: 'text', language: 'en', corpusFile: 'mc-2-2023.pdf' }, { url: 'https://publisher.xa.example/mc-2-2023.pdf' }),
   // Nordland: one act adopts both codes in 2020; an amendment moves MC 2 to 2023 in 2024. It cites the gazette.
   binding('n-2-19', 'work:to-n', 'edition:mc-2-2019', '2020-01-01', '2024-03-01', { captureId: 'c-gazette', decision: 'accepted' }),
   binding('n-10-19', 'work:to-n', 'edition:mc-10-2019', '2020-01-01', null, { captureId: 'c-gazette', decision: 'accepted' }),
-  binding('n-2-23', 'work:to-n', 'edition:mc-2-2023', '2024-03-01', null, { url: 'https://gazette.xa.example/lgbl/2024/9' }),
+  binding('n-2-23', 'work:to-n', 'edition:mc-2-2023', '2024-03-01', null, { url: 'https://data.gazette.xa.example/lgbl/2024/9' }),
   // Südland cites only the publisher's overview of adoption dates, and one claim was rejected.
   binding('s-2-19', 'work:to-s', 'edition:mc-2-2019', '2021-06-01', null, { url: 'https://publisher.xa.example/adoption-dates', decision: 'rejected' }),
   revision('relation', 'relation:n-dev', { relationType: 'deviates_from', fromId: 'work:to-n', fromType: 'work', toId: 'edition:mc-2-2023', toType: 'edition', anchors: [{ to: 'pkt_2.2' }], provision: 'TO-N § 4', validFrom: '2024-03-01' }),
@@ -105,5 +106,19 @@ describe('lawMapOf', () => {
   it('falls back to the topmost regions when the request holds no country record', () => {
     const regions = lawMapOf('XA', REVISIONS.filter((one) => one.recordId !== 'XA'), CAPTURES)
     expect(regions.rootIds).toEqual(['XA-1', 'XA-2'])
+  })
+
+  it('says a region’s editions once, with the exceptions, and what comes next', () => {
+    const now = summaryOn(map, 'XA-1', '2025-01-01')
+    // A tie goes to the first topic's edition; the other is the exception.
+    expect(now.main?.label).toBe('Edition 2023')
+    expect(now.exceptions.map(({ topic, edition }) => [topic.designation, edition.label])).toEqual([['MC 10', 'Edition 2019']])
+    expect(nextChange(map, 'XA-1', '2023-01-01')?.validFrom).toBe('2024-03-01')
+    expect(nextChange(map, 'XA-1', '2025-01-01')).toBeNull()
+  })
+
+  it('carries an edition’s text from its manifestation', () => {
+    expect(map.editions.get('edition:mc-2-2023')?.text).toEqual({ file: 'mc-2-2023.pdf', url: 'https://publisher.xa.example/mc-2-2023.pdf' })
+    expect(map.editions.get('edition:mc-2-2019')?.text).toBeNull()
   })
 })

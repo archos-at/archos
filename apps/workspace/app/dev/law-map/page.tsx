@@ -2,8 +2,7 @@
 
 /**
  * Dev preview for the law map: the REAL `LawMapPage` on Austria's pack served
- * as one submitted change request (`_fixtures/law-map-at.ts`). `?node=AT-6`
- * opens a Land, a statement's key (from a Land's list) opens that act. A
+ * as one submitted change request (`_fixtures/law-map-at.ts`). A
  * module-scope fetch shim (browser + dev only) serves the request; 404s
  * outside development (`app/dev/layout.tsx`).
  */
@@ -35,7 +34,7 @@ export default function LawMapDevPage(): JSX.Element {
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-8">
       <Suspense>
-        <LawMapPage countryId="AT" today="2026-11-11" mapHref="/dev/law-map" />
+        <LawMapPage countryId="AT" today="2026-11-11" />
       </Suspense>
     </div>
   )

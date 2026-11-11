@@ -31,6 +31,9 @@ export interface LawMapEdition {
   workId: string
   label: string
   issuedOn: string | null
+  /** The file its manifestation holds and the page it cites, when the request carries one. */
+  text: { file: string | null; url: string | null } | null
+  review: ReviewState
 }
 
 /** A column: a work some relation makes binding (a guideline series, a standard). */
@@ -119,6 +122,15 @@ const hostOf = (url: string): string | null => {
   }
 }
 
+/** A host on one of the sites: the same host, or a subdomain of one (`ogd.` beside `www.` of the same legal database). */
+function onSite(host: string | null, sites: ReadonlySet<string>): boolean {
+  if (!host) return false
+  return [...sites].some((site) => {
+    const base = site.replace(/^www\./, '')
+    return host === site || host === base || host.endsWith(`.${base}`)
+  })
+}
+
 /** Every http(s) address among a work's identifiers (its ELI, a database link). */
 function identifierUrls(body: Body): string[] {
   const identifiers = body.identifiers
@@ -167,9 +179,18 @@ function indexWorksAndEditions(revisions: readonly RevisionView[]): Indexed {
     if (revision.type === 'work') works.set(revision.recordId, { revision, body: bodyOfRevision(revision) })
     if (revision.type === 'edition') {
       const body = bodyOfRevision(revision)
-      editions.set(revision.recordId, { id: revision.recordId, workId: text(body.workId) ?? '', label: text(body.label) ?? revision.recordId, issuedOn: text(body.issuedOn) })
+      editions.set(revision.recordId, { id: revision.recordId, workId: text(body.workId) ?? '', label: text(body.label) ?? revision.recordId, issuedOn: text(body.issuedOn), text: null, review: reviewOf([revision]) })
       editionRevisions.set(revision.recordId, revision)
     }
+  }
+  for (const revision of revisions.filter((one) => one.type === 'manifestation')) {
+    const body = bodyOfRevision(revision)
+    const edition = editions.get(text(body.editionId) ?? '')
+    if (!edition) continue
+    const url = revision.citations.find((citation) => citation.url)?.url ?? null
+    edition.text = { file: text(body.corpusFile), url }
+    const own = editionRevisions.get(edition.id)
+    edition.review = reviewOf(own ? [own, revision] : [revision])
   }
   return { works, editions, editionRevisions }
 }
@@ -215,7 +236,7 @@ function statementsOf(revisions: readonly RevisionView[], indexed: Indexed, capt
     const sources = members.flatMap(({ revision }) => sourcesOf(revision, captures))
     const unique = [...new Map(sources.map((source) => [`${source.url}|${source.quote ?? ''}`, source])).values()]
     const hosts = primaryHosts.get(group.territoryId) ?? new Set<string>()
-    const sourceKind: SourceKind = unique.length === 0 ? 'none' : unique.some((source) => hosts.has(hostOf(source.url) ?? '')) ? 'primary' : 'secondary'
+    const sourceKind: SourceKind = unique.length === 0 ? 'none' : unique.some((source) => onSite(hostOf(source.url), hosts)) ? 'primary' : 'secondary'
     const provisions = members.map(({ body }) => text(body.provision)).filter((one): one is string => one !== null)
     return {
       key,
@@ -300,4 +321,33 @@ export function reviewCounts(map: LawMap, territoryId: string): Record<ReviewSta
   const counts: Record<ReviewState, number> = { accepted: 0, rejected: 0, open: 0 }
   for (const statement of map.statements) if (under.has(statement.territoryId)) counts[statement.review] += 1
   return counts
+}
+
+/** The topics a region binds on a day, said once: the edition most of them use, then the exceptions by topic. */
+export function summaryOn(map: LawMap, territoryId: string, date: string): { main: LawMapEdition | null; exceptions: { topic: LawMapTopic; edition: LawMapEdition }[] } {
+  const bound = map.topics.flatMap((topic) => {
+    const binding = bindingOn(map, territoryId, topic.workId, date)
+    const edition = binding ? map.editions.get(binding.cell.editionId) : undefined
+    return edition ? [{ topic, edition }] : []
+  })
+  return summaryOf(bound)
+}
+
+/** Editions said once: the label most of them share, then each one that differs. */
+/** When an edition was issued, for ordering: its date, else a year its label names. */
+export function editionOrder(edition: LawMapEdition): string {
+  return edition.issuedOn ?? edition.label.match(/\b(1[89]|20)\d{2}\b/)?.[0] ?? edition.label
+}
+
+export function summaryOf<T extends { edition: LawMapEdition }>(bound: readonly T[]): { main: LawMapEdition | null; exceptions: T[] } {
+  const counts = new Map<string, number>()
+  for (const { edition } of bound) counts.set(edition.label, (counts.get(edition.label) ?? 0) + 1)
+  const label = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+  const main = bound.find(({ edition }) => edition.label === label)?.edition ?? null
+  return { main, exceptions: bound.filter(({ edition }) => edition.label !== label) }
+}
+
+/** The next statement in a region that starts after a day: what is coming. */
+export function nextChange(map: LawMap, territoryId: string, date: string): LawMapStatement | null {
+  return map.statements.filter((statement) => statement.territoryId === territoryId && (statement.validFrom ?? '') > date).sort((a, b) => (a.validFrom ?? '').localeCompare(b.validFrom ?? ''))[0] ?? null
 }
