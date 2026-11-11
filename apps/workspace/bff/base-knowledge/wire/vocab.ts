@@ -108,7 +108,7 @@ export const DECISION_TABLE_PURPOSES = ['classification', 'derivation', 'referen
  * The payload schemas a ruleset body may carry: the evaluator's decision table,
  * the two setup records (migration 0207, ADR-0169), and the advice policy and
  * terminology (ADR-0174), and a country's citation style
- * (migration 0234, `wire/citation-style.ts`). A v2 arrives with a pure converter from v1 (design §3.7).
+ * (migration 0233, `wire/citation-style.ts`). A v2 arrives with a pure converter from v1 (design §3.7).
  */
 export const RULESET_PAYLOAD_SCHEMAS = [
   'decision_table.v1',

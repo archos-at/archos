@@ -74,7 +74,7 @@ const styleOf = (ref: CitationRef, styles: CitationStylePayload) => styleFor(sty
 export const toCslItem = (ref: CitationRef, now: Date, styles = FALLBACK_CITATION_STYLES): CslItem =>
   styledCslItem(citedSource(ref), now, styleOf(ref, styles))
 
-/** The reference line, in the form of the source's country and language. */
+/** The reference line, in the style of the office's country, in the language of the source's text. */
 export const toTechnicalText = (ref: CitationRef, now: Date, styles = FALLBACK_CITATION_STYLES): string =>
   citationLine(toCslItem(ref, now, styles), now, styleOf(ref, styles))
 

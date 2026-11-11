@@ -16,6 +16,8 @@ const load = (): Promise<CitationStylePayload | null> =>
   (pending ??= fetch('/api/citations/style')
     .then((response) => (response.ok ? (response.json() as Promise<{ style?: unknown }>) : null))
     .then((body) => {
+      // A refused read (`body` null) is asked again by the next reader; a read that says none is released holds.
+      if (!body) pending = null
       const parsed = citationStyleSchema.safeParse(body?.style)
       return parsed.success ? parsed.data : null
     })

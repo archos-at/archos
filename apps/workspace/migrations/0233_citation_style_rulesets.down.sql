@@ -1,7 +1,13 @@
--- Reverse 0234. ORDER: roll the frontend back first; the newer build may write a
--- `citation_style` ruleset. LOSSY only if one was written: those revisions are
--- deleted, since the narrowed CHECKs cannot hold them.
-DELETE FROM "knowledge_ruleset_revisions" WHERE "purpose" = 'citation_style';
+-- Reverse 0233. ORDER: roll the frontend back first; the newer build writes
+-- `citation_style` rulesets.
+--
+-- Lossy: every record that ever held a citation style goes, with its whole
+-- history. Records, not revisions: revisions are append-only (0202's trigger
+-- refuses a direct DELETE) and go only with their record, by cascade, as 0207's
+-- down does. Lines are then written in the fallback style, as before 0233.
+DELETE FROM "knowledge_records" WHERE "type" = 'ruleset' AND "id" IN (
+  SELECT "record_id" FROM "knowledge_ruleset_revisions"
+  WHERE "purpose" = 'citation_style' OR "payload_schema" = 'citation_style.v1');
 --> statement-breakpoint
 ALTER TABLE "knowledge_ruleset_revisions" DROP CONSTRAINT IF EXISTS knowledge_ruleset_revisions_citation_style_purpose;
 --> statement-breakpoint

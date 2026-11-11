@@ -305,7 +305,7 @@ door text. i18n key coverage.
 peek and the Word page.
 
 **Built (the record and its interpreter).** The form is a ruleset of purpose `citation_style`
-(`citation_style.v1`, migration 0234): a ruleset rather than a record type, because a ruleset already carries
+(`citation_style.v1`, migration 0233): a ruleset rather than a record type, because a ruleset already carries
 territories, validity, review and release and needs no body table of its own. Per language it holds which
 sources are a standard or a law (`kinds`, matched by authority, tint, lane prefix or origin), who publishes a
 standard and where a law is read, one template per kind of line, the bare-locus and page labels, the quote
@@ -337,7 +337,10 @@ is the office's home country's, not the source's: an EU or a foreign source is w
 until a citation carries its work's country. "Abs." with dots (decision 1) and the law's Fundstelle with
 "idF" are revisions of Austria's record, not code, once a law's locus arrives as units rather than text (the
 RIS adapter writes "Abs 1"); the locus vocabulary and the "ohne Fundstelle" mark (decision 2) join the
-record with slice 3, which is their first reader. Terminology and the answer register did not fall out of
+record with slice 3, which is their first reader. Two edges are not as before: an edition word that is not
+German ("Ausgabe Février 2023") is now read as one, where the old pattern took only a-z and umlauts; and a
+segment with an empty field drops whole, so a template cannot yet say "(publisher[, place])" (the guide
+says to write a kind of its own). Terminology and the answer register did not fall out of
 this record: they are the prompt's, and stay the next slice of plan row 6.
 
 ### Slice 3. What the sentence says is what opens

@@ -107,7 +107,8 @@
         ]
       },
       "quote": [
-        "„{quote}“ — {title}",
+        "„{quote}“",
+        " — {title}",
         ", {page}"
       ]
     }
