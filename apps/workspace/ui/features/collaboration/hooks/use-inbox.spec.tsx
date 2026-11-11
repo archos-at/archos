@@ -86,6 +86,20 @@ describe('useInboxList', () => {
     expect(result.current.hasMore).toBe(true)
   })
 
+  it('never shows one filter’s rows under another: a switch is loading from its first render', async () => {
+    const inbox = client({ first: page(['a'], null) })
+    const { result, rerender } = renderHook(({ filter }) => useInboxList(true, filter, inbox), {
+      initialProps: { filter: 'all' as InboxListFilter },
+    })
+    await waitFor(() => expect(result.current.items.map((item) => item.id)).toEqual(['a']))
+    rerender({ filter: 'archived' })
+    // The very render of the switch, before any effect ran: the rows were „Alle“'s.
+    expect(result.current.items).toEqual([])
+    expect(result.current.loading).toBe(true)
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.items.map((item) => item.id)).toEqual(['a'])
+  })
+
   it('drops an older page that arrives after the filter changed', async () => {
     let release: (value: InboxListResponse) => void = () => undefined
     const inbox = client({ first: page(['a'], 'c1') })

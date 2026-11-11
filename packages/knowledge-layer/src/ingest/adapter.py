@@ -29,6 +29,7 @@ import base64
 import contextlib
 import dataclasses
 import hashlib
+import itertools
 import json
 import logging
 import os
@@ -2296,11 +2297,9 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
     def _heartbeat_loop(self) -> None:
         self._settle_stranded_jobs()
         ingest_status_store.prune_expired(FILE_TRACKING_RETENTION_SECONDS)
-        beats = 0
-        while True:
+        for beats in itertools.count(1):
             time.sleep(ingest_status_store.HEARTBEAT_INTERVAL_SECONDS)
             self._beat()
-            beats += 1
             if beats % _PRUNE_EVERY_BEATS == 0:
                 ingest_status_store.prune_expired(FILE_TRACKING_RETENTION_SECONDS)
 
@@ -2334,11 +2333,20 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         starts, so a retry can never put an older status over a newer one.
         Lock order: ``_persist_lock`` then ``_lock``, so never call this while
         holding ``_lock``. ``_persist_lock`` also guards ``_unpersisted``.
+
+        A run that was told to stop writes no live or failed status again
+        (``_told_to_stop``): whoever stopped it settled the row, and this write,
+        or the heartbeat's re-write of a row it no longer owns, would turn a
+        person's ``cancelled`` back into ``processing``. The skip counts as
+        stored, so the heartbeat does not try it again. ``completed`` is still
+        written: past the last ownership check the chunks are indexed, and the
+        row must say so (the BFF heals a stopped document from it).
         """
         with self._persist_lock:
             with self._lock:
                 snapshot = job.model_copy(deep=True)
-            if ingest_status_store.put(snapshot):
+            stopped = snapshot.status != JobState.COMPLETED and self._told_to_stop(job.job_id)
+            if stopped or ingest_status_store.put(snapshot):
                 self._unpersisted.discard(job.job_id)
             else:
                 self._unpersisted.add(job.job_id)
@@ -2877,18 +2885,27 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         finally:
             self._claim_guards.pop(prepared.job_id, None)
 
+    def _told_to_stop(self, job_id: str) -> bool:
+        """Whether the job's run was cancelled; a job this process's own pool runs has no guard and never is."""
+        guard = self._claim_guards.get(job_id)
+        return guard is not None and not guard()
+
     def _assert_still_owner(self, job_id: str) -> None:
         """Raise ``_ClaimLost`` when the job's run was stopped."""
-        guard = self._claim_guards.get(job_id)
-        if guard is not None and not guard():
+        if self._told_to_stop(job_id):
             raise _ClaimLost(job_id)
 
     def _abandon(self, job_id: str) -> None:
-        """Forget a job whose run was stopped: no status write, no heartbeat; whoever stopped it has the row."""
+        """Forget a job whose run was stopped: no status write and no heartbeat from here on.
+
+        Whoever stopped it has the row, and between the stop and this call
+        ``_persist`` already wrote nothing live over it. The run's own last
+        word is the workflow's (``ingest_workflow._stopped``). A write of it
+        still waiting for a retry is dropped by the next beat, as for any job
+        no longer tracked (``_retry_unpersisted``).
+        """
         with self._lock:
             self._jobs.pop(job_id, None)
-        with self._persist_lock:
-            self._unpersisted.discard(job_id)
         logger.warning("Ingestion job %s was stopped; this run ends without writing", job_id)
 
     def _job_config(self, prepared: PreparedIngestJob) -> dict[str, Any]:

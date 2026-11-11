@@ -85,6 +85,12 @@ and covers everything, as it should.
 * **Do not move an overlay in the DOM to fit beside the panel.** The file
   preview's panel is one element across parked, peek and modal; a portal
   remounts it. Position with the page-inset variables.
+* **Do not let the entry the reader opened leave the list under them.** Opening
+  an entry reads it, and a list of what is unread then drops it: the last one
+  took the whole list with it and showed „Alles erledigt“ beside the message
+  being read. The Postfach keeps that entry, drawn as read, while the reader is
+  at its place (`newsWithHeld` in `inbox-queue.ts`, decided in `InboxQueue`);
+  a list docked later needs the same.
 * **Do not switch the page's wrapper when the panel opens.** `DockedSplit`
   keeps the page the first panel's child either way; a conditional wrapper
   remounts the page and loses its drafts.

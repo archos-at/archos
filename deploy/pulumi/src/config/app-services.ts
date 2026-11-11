@@ -49,6 +49,12 @@ export interface AuthConfig {
   byokSecretBackend: string;
   byokLocalKek: pulumi.Output<string>;
   allowAgentOrgMemory: boolean;
+  /**
+   * One operator reviews, approves and publishes a platform change request
+   * alone (`KNOWLEDGE_SINGLE_OPERATOR`, migration 0233). The owner's decision
+   * of 2026-11-11: dev only. Prod keeps four eyes, so it never sets the key.
+   */
+  knowledgeSingleOperator: boolean;
 }
 
 export interface InternalConfig {
@@ -138,6 +144,7 @@ export function loadAppServices(
       byokSecretBackend: cfg.get("byokSecretBackend") ?? "",
       byokLocalKek: cfg.getSecret("byokLocalKek") ?? pulumi.output(""),
       allowAgentOrgMemory: bool(cfg, "allowAgentOrgMemory", false),
+      knowledgeSingleOperator: bool(cfg, "knowledgeSingleOperator", false),
     },
     internal: {
       apiToken: cfg.requireSecret("gridInternalApiToken"),
