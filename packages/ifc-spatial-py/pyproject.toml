@@ -9,7 +9,13 @@ description = "Spike: the ifc-spatial operator surface on IfcOpenShell, with the
 readme = "COVERAGE.md"
 requires-python = ">=3.14,<3.15"
 dependencies = [
-  "ifcopenshell>=0.8.5",
+  # Exact, and the version `uv.lock` holds. The agent image installs this package
+  # with `uv pip install -e`, which reads this line and never the lock, while the
+  # suite runs on the lock: a range ships the newest release, untested. 0.9.0.post1
+  # got in that way, and on it `select_ray` hands back `hit.instance` as a bare
+  # SWIG pointer with no `.id()`, so `clearHeight` raises AttributeError.
+  # Move this, `ifctester` below and the lock together, so the suite sees it first.
+  "ifcopenshell==0.8.5",
   "numpy>=1.26",
   # 2.1 rather than 2.0 for the SUITE, not for the operators: nothing under
   # `src/` calls anything newer than 2.0 (`Polygon`, `MultiPoint`, `box`,
@@ -36,8 +42,9 @@ dependencies = [
 # `ids_export` writes the blind spots as buildingSMART IDS. `ifctester` ships
 # with IfcOpenShell but as its own distribution, so it is optional here and the
 # tool degrades to a named refusal when it is absent — the findings themselves
-# are still in the briefing under FEHLT and BLIND.
-ids = ["ifctester>=0.8"]
+# are still in the briefing under FEHLT and BLIND. Exact for the reason
+# `ifcopenshell` is, and the same release: it declares no bound on IfcOpenShell.
+ids = ["ifctester==0.8.5"]
 dev = ["pytest>=8", "pytest-xdist>=3.6"]
 
 [tool.setuptools.packages.find]
