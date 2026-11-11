@@ -536,7 +536,7 @@ export function EntryPage({
       </header>
       <Editions entry={entry} onOpen={onOpenEdition} />
       {/* Keyed by id and state, so a saved change or another entry starts a fresh form. */}
-      <SheetBody key={`${entry.id}:${entry.status}:${entry.freshness.lastCheck?.checkedAt ?? ''}:${entry.textUse}`} entry={entry} {...rest} />
+      <SheetBody key={`${entry.id}:${entry.status}:${entry.freshness.lastCheck?.checkedAt ?? ''}:${entry.textUse}:${entry.values.licenceClass}`} entry={entry} {...rest} />
     </article>
   )
 }

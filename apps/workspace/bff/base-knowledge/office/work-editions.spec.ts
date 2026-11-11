@@ -6,7 +6,8 @@
 
 import { describe, expect, it } from 'vitest'
 import type { StoredEntry } from '../store/repository'
-import { editionOnDay, editionsByWork, editionsOf, workDesignation } from './work-editions'
+import { editionOnDay, editionsByWork, editionsOf } from './work-editions'
+import { workDesignation } from './work-designation'
 
 function edition(editionId: string, issuedOn: string | null, rest: Partial<StoredEntry> = {}, values: Partial<StoredEntry['values']> = {}): StoredEntry {
   return {

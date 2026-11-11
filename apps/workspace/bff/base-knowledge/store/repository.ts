@@ -39,7 +39,7 @@ import {
 import { knowledgeSourceRevisions } from '@/lib/db/schema/knowledge-sources'
 import { knowledgeGoldenCaseRevisions } from '@/lib/db/schema/knowledge-golden'
 import type { EntryCheck, EntryValues } from '../wire'
-import { workDesignation } from '../office/work-editions'
+import { workDesignation } from '../office/work-designation'
 import { OFFICE_WORK_KINDS, type OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 
 const isOfficeWorkKind = (kind: string): kind is OfficeWorkKind => (OFFICE_WORK_KINDS as readonly string[]).includes(kind)

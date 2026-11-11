@@ -23,7 +23,7 @@ import { isUniqueViolation } from '@/lib/db/errors'
 import { ConflictError } from '@/lib/api/errors'
 import { knowledgeEditionRevisions, knowledgeRecords, knowledgeRevisions, knowledgeWorkRevisions, type KnowledgeIdentifiers } from '@/lib/db/schema/knowledge-records'
 import type { EntryValues } from '../wire'
-import { workDesignation } from '../office/work-editions'
+import { workDesignation } from '../office/work-designation'
 import { appendRevision, bodiesOf, lockEditionWork, newRecordId, type EntryRecordIds, type StoredEntry, type Tx, type WriteContext } from './repository'
 
 type WorkRow = typeof knowledgeWorkRevisions.$inferSelect
