@@ -35,12 +35,11 @@ from agent.common import is_verbose
 from agent.common import unavailable_source_ids
 from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
-from agent.common.country_profile import austrian_corpus_applies
-from agent.common.country_profile import austrian_only_sources
-from agent.common.country_profile import record_site
 from agent.common.data_source_registry import get_all_sources
 from agent.common.decisions import SKIPPED_TOO_SHORT
 from agent.common.decisions import record_skipped
+from agent.common.knowledge_context import corpus_country_allowed
+from agent.common.law_gate import law_sources_withheld
 from agent.common.openrouter import PLATFORM_FIXED
 from agent.common.openrouter import pin_chat_model
 from agent.common.reasoning_settings import effort_of
@@ -85,7 +84,6 @@ from .reference_fit import FIT_THRESHOLD
 from .reference_fit import MIN_LINES as MIN_FIT_LINES
 from .reference_fit import ReferenceFit
 from .reference_fit import fit_references
-from .turn_tools import tools_for_flags
 from .turn_tools import tools_in_scope
 
 logger = logging.getLogger(__name__)
@@ -310,7 +308,7 @@ def _turn_facts(state: ResearchAgentState, runtime: SkillRuntime | None) -> Turn
     from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
     from agent.cards.catalog import card_index_entries
     from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
-    from agent.common.applicability import facts_from_project_context
+    from agent.common.project_facts import facts_from_project_context
     from agent.common.source_kinds import Shelf
     from agent.knowledge.inventory import get_norm_families
 
@@ -521,7 +519,7 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     # toggle combination. No `data_sources is not None` guard, for the same
     # reason as before: an org's toggle applies to a request that asked for
     # "all tools".
-    disabled_sources = unavailable_source_ids(state.data_sources) | austrian_only_sources(state.project_context)
+    disabled_sources = unavailable_source_ids(state.data_sources) | law_sources_withheld()
     _warn_if_nothing_is_reachable(disabled_sources)
     is_valid, unavailable_tools = _tool_availability(deployment, deployment.tools)
     if not is_valid:
@@ -543,7 +541,6 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     # nothing here depends on another, so the turn pays the slowest of the
     # three, not their sum.
     # The question's embedding is warmed beside them (_warm_question); the facts only feed the decision.
-    record_site(state.project_context)
     facts = _turn_facts(state, runtime) if config.turn_decisions else None
     _warm_question(facts)
     draft_tools, decisions, llm_provider, fit = await asyncio.gather(
@@ -561,7 +558,7 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     if runtime is not None:
         emit_skills_offered(runtime)
         record_trace_metadata(skills_offered=len(runtime.skills), skills_pinned=list(runtime.pinned) or None)
-    turn_tools = tools_in_scope(tools_for_flags(list(deployment.tools), state.time_editions_allowed) + draft_tools)
+    turn_tools = tools_in_scope(list(deployment.tools) + draft_tools)
     turn = TurnConfig(
         llm_provider=llm_provider,
         tools=turn_tools,
@@ -594,7 +591,7 @@ def _turn_prefetch(
             focus_shelf=state.focus_shelf,
             previous_message=facts.previous_message,
             reference_projects=facts.reference_projects,
-            austrian_law=austrian_corpus_applies(state.project_context),
+            austrian_law=corpus_country_allowed("AT"),
         )
     )
     record_reference_decision(decisions, facts.reference_projects, calls)

@@ -241,7 +241,6 @@ export function ChangeRequestReview({
   const holds: Record<ApprovalRole, boolean> = {
     domain_expert: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert),
     counsel: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel),
-    second_reviewer: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsSecondReviewer),
     privacy_reviewer: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsPrivacyReviewer),
   }
 
@@ -296,7 +295,8 @@ export function ChangeRequestReview({
   const canReview = canManage && secondReviewDue && !authored && reviewRole !== null
   // The UI approves as domain expert; once that role is approved, alone or not, another override can only answer 409.
   const approvedAsExpert = view.approvals.some((approval) => approval.role === 'domain_expert')
-  const offerAlone = canManage && canApproveAlone && authored && view.status === 'submitted' && wrong === 0 && !approvedAsExpert
+  // A pasted page nobody else checked refuses an approval alone too (migration 0218): another person checks it first.
+  const offerAlone = canManage && canApproveAlone && authored && view.status === 'submitted' && wrong === 0 && !approvedAsExpert && !view.sourcesUnchecked
   const decide = (revisionId: string) => (entries: { path: string; decision: Verdict }[], sourceChecked = false) =>
     void post(
       'review',
@@ -316,8 +316,16 @@ export function ChangeRequestReview({
       : view.status === 'submitted'
       ? {
           step: 'approve',
-          enabled: open === 0 && wrong === 0,
-          why: wrong > 0 ? t('countryKnowledge.why.wrong', { count: wrong }) : open > 0 ? t('countryKnowledge.why.open', { count: open }) : undefined,
+          // An author's plain approve can only be refused (four eyes): another person approves, or checks the pasted page first.
+          enabled: open === 0 && wrong === 0 && !authored,
+          why:
+            wrong > 0
+              ? t('countryKnowledge.why.wrong', { count: wrong })
+              : authored
+                ? t(view.sourcesUnchecked ? 'countryKnowledge.why.ownUnchecked' : 'countryKnowledge.why.own')
+                : open > 0
+                  ? t('countryKnowledge.why.open', { count: open })
+                  : undefined,
         }
       : view.status === 'approved' && disputed
         ? { step: 'reject', enabled: true }

@@ -84,6 +84,46 @@ class TavilyWebSearchToolConfig(FunctionBaseConfig, name="tavily_web_search"):
     )
 
 
+def _screened(results: list) -> tuple[list, str, bool]:
+    """The hits the agent may read as sources, the lines above them, and whether any hit was withheld.
+
+    ``agent.common.web_sources`` decides. Without the agent package (a standalone distribution) nothing is
+    screened and nothing is said.
+    """
+    try:
+        from agent.common.web_sources import preamble
+        from agent.common.web_sources import screen
+    except ImportError:
+        return results, "", False
+    kept, withheld = screen(doc for doc in results if isinstance(doc, dict))
+    return kept, preamble(withheld), bool(withheld)
+
+
+def _client_kwargs(tool_config: TavilyWebSearchToolConfig) -> dict:
+    """The Tavily client's arguments; the product's own site is always excluded (and screened, ``_screened``)."""
+    kwargs: dict = {
+        "max_results": tool_config.max_results,
+        "search_depth": "advanced" if tool_config.advanced_search else "basic",
+        "include_answer": tool_config.include_answer,
+    }
+    if tool_config.api_base_url:
+        kwargs["api_base_url"] = tool_config.api_base_url
+    if tool_config.include_domains:
+        kwargs["include_domains"] = tool_config.include_domains
+    if excluded := [*tool_config.exclude_domains, *_product_domains()]:
+        kwargs["exclude_domains"] = excluded
+    return kwargs
+
+
+def _product_domains() -> list[str]:
+    """The product's own domains, which no search hands on as a source for law (``agent.common.brand``)."""
+    try:
+        from agent.common.brand import PRODUCT_DOMAINS
+    except ImportError:
+        return []
+    return list(PRODUCT_DOMAINS)
+
+
 def _refusing_licensed_text(search):
     """``search``, refusing a query that repeats licensed text the turn read before the provider sees it.
 
@@ -139,18 +179,7 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
     # and TavilySearch.ainvoke takes the query per call, so a single reused
     # client is byte-identical in behavior. Latency: avoids a fresh TCP+TLS
     # handshake to api.tavily.com on every web search (connection keep-alive).
-    tavily_kwargs = {
-        "max_results": tool_config.max_results,
-        "search_depth": "advanced" if tool_config.advanced_search else "basic",
-        "include_answer": tool_config.include_answer,
-    }
-
-    if tool_config.api_base_url:
-        tavily_kwargs["api_base_url"] = tool_config.api_base_url
-    if tool_config.include_domains:
-        tavily_kwargs["include_domains"] = tool_config.include_domains
-    if tool_config.exclude_domains:
-        tavily_kwargs["exclude_domains"] = tool_config.exclude_domains
+    tavily_kwargs = _client_kwargs(tool_config)
     tavily_search = TavilySearch(**tavily_kwargs)
 
     # Platform-tunable result count (Platform → Retrieval), resolved per call.
@@ -205,7 +234,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
         for attempt in range(tool_config.max_retries):
             try:
                 search_docs = await client.ainvoke({"query": question})
-                # Handle cases where response is not a dict (e.g., error string from API)
                 if isinstance(search_docs, str):
                     raise ValueError(f"Search returned an error: {search_docs}")
 
@@ -222,6 +250,7 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                 results = search_docs.get("results", [])
                 if not isinstance(results, list):
                     raise ValueError(f"Tavily API returned unexpected results format: {type(results)}")
+                results, header, withheld = _screened(results)
 
                 outcome.hits = len(results)
                 try:
@@ -237,9 +266,9 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                         if url:
                             capture_lane_hit(url, title=doc.get("title") or None)
 
-                answer_text = ""
-                if search_docs.get("answer"):
-                    answer_text = f"<Answer>\n{search_docs['answer']}\n</Answer>\n\n---\n\n"
+                answer_text = header  # no provider summary when it was written from a withheld hit too
+                if search_docs.get("answer") and not withheld:
+                    answer_text += f"<Answer>\n{search_docs['answer']}\n</Answer>\n\n---\n\n"
 
                 web_search_results = "\n\n---\n\n".join(
                     [

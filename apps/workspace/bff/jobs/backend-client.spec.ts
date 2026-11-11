@@ -40,6 +40,17 @@ const payload: JobSubmitPayload = {
   owner_email: null,
   budget_header: null,
   model_overrides: null,
+  // Every run carries its project's knowledge context (ADR-0175); here, none was readable.
+  knowledge_context: {
+    gate: { state: 'knowledge_unavailable', reason: null, leaves: [] },
+    packs: [],
+    chains: {},
+    date: '2026-11-10',
+    procedures: [],
+    uses: [],
+    text: null,
+    retrieval: { countries: [] },
+  },
 }
 
 const fetchMock = vi.fn()

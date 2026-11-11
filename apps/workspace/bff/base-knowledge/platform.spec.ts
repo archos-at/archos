@@ -13,7 +13,7 @@ vi.mock('server-only', () => ({}))
 
 import type { SiteAuthority } from '@/lib/site-resolution/wire'
 import { directiveVerdict } from './platform'
-import { territoryChain } from './platform/territories'
+import { chainAt } from './chain/territory-chain'
 
 const MA37 = 'authority:at-wien-ma37'
 const ADDRESSEES = [{ name: 'MA 37', territoryId: 'AT-9', authorityId: MA37 }]
@@ -56,9 +56,21 @@ describe('directiveVerdict', () => {
   })
 })
 
-describe('territoryChain', () => {
+describe('chainAt, the one walk over territory parents', () => {
   it('walks parents, then the ISO country, itself first', () => {
-    const parents = new Map<string, string[]>([['AT:gkz:60101', ['AT-6']], ['AT-6', []]])
-    expect(territoryChain('AT:gkz:60101', parents)).toEqual(['AT:gkz:60101', 'AT-6', 'AT'])
+    const parents = new Map([['AT:gkz:60101', [{ id: 'AT-6' }]], ['AT-6', []]])
+    expect(chainAt('AT:gkz:60101', '2026-11-10', (id) => parents.get(id))).toEqual(['AT:gkz:60101', 'AT-6', 'AT'])
+  })
+
+  it('follows a dated parent only inside its half-open interval: the time path sees AT in the EU, GB out of it', () => {
+    const parents = new Map([
+      ['AT', [{ id: 'EU', validFrom: '1995-01-01' }]],
+      ['GB', [{ id: 'EU', validFrom: '1973-01-01', validTo: '2021-01-01' }]],
+    ])
+    const parentsOf = (id: string) => parents.get(id)
+    expect(chainAt('AT-9', '2026-11-10', parentsOf)).toEqual(['AT-9', 'AT', 'EU'])
+    expect(chainAt('AT-9', '1994-12-31', parentsOf)).toEqual(['AT-9', 'AT'])
+    expect(chainAt('GB', '2020-12-31', parentsOf)).toEqual(['GB', 'EU'])
+    expect(chainAt('GB', '2021-01-01', parentsOf)).toEqual(['GB'])
   })
 })

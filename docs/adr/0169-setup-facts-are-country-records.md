@@ -68,6 +68,13 @@ re-derives the classes only when it selects another classification.
 runs the classification on the planned values and, for a Bestand, on today's,
 and answers the shift, the open inputs, the classes still possible, and the
 document each open input needs (E34).
+Amended by ADR-0175: where the project's knowledge context withholds law (not
+entitled, unreadable, no coverage, no site), it names no class and answers
+`undetermined` with that gate, as the turn would. So does every other door to
+the class: the intake derives none (`lawWithheld` on `SetupScopeOptions`), a
+reading writes none and takes back a derived one, and `project-profile-get`
+shows none an earlier derivation wrote. A class a document stated or a person
+confirmed stays (`withoutDerivedClasses`, `project-intake/law-withheld.spec.ts`).
 
 **Where the records live today.** Austria's three records ship as seeds
 (`bff/base-knowledge/rulesets/seeds/`, listed in `rulesets/shipped.ts`) and are

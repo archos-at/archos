@@ -164,7 +164,8 @@ export const baseKnowledgeOperations = [
     summary: 'Evaluate a building’s class under its site’s rules',
     description:
       'One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document ' +
-      'settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.',
+      'settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Where the project’s knowledge ' +
+      'context withholds law, `undetermined` with its `gate`. Needs project:view.',
     method: 'POST',
     path: '/api/projects/[id]/classification-evaluations',
     params: z.object({ id: z.string().describe('The project id, from project-list.') }),

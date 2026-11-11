@@ -13,7 +13,7 @@
  * - **source-credential-set** stores a key write-only, on the person's yes.
  *
  * Reads take `platform:settings:view`, the live probe and the key
- * `platform:settings:manage` (`requirePlatform`).
+ * `platform:knowledge:write` (`requirePlatform`).
  */
 
 import 'server-only'
@@ -28,12 +28,13 @@ import { knowledgeRecords } from '@/lib/db/schema/knowledge-records'
 import { knowledgeChangeRequests } from '@/lib/db/schema/knowledge-platform'
 import { CaptureFetchError, callPublicSources, refusalDetail } from './capture-fetch'
 import { configuredSource } from './onboarding'
-import { checkSourceConfig, type SourceCheck } from './source-checks'
+import { type BuiltInSource, builtInSources, checkSourceConfig, type SourceCheck } from './source-checks'
 import {
   activeSources,
   credentialView,
   type CredentialView,
   draftSources,
+  MONITOR_REQUEST_OPEN_STATUSES,
   monitorStates,
   type MonitorState,
   type RegisteredSource,
@@ -95,7 +96,7 @@ export async function testPlatformSource(
   sourceKey: string,
   body: { changeRequestId?: string; live: boolean },
 ): Promise<SourceTestView> {
-  await requirePlatform(session, body.live ? PLATFORM_PERMISSIONS.settingsManage : PLATFORM_PERMISSIONS.settingsView)
+  await requirePlatform(session, body.live ? PLATFORM_PERMISSIONS.knowledgeWrite : PLATFORM_PERMISSIONS.settingsView)
   const found = await platformTransaction(async (tx) => {
     const source = await usableSource(tx, sourceKey, body.changeRequestId ?? null)
     return source ? { source, configured: await configuredSource(tx, source) } : null
@@ -144,7 +145,13 @@ async function liveProbe(configured: { config: Record<string, unknown>; credenti
 
 export interface SourceStatusView {
   sourceKey: string
-  recordId: string
+  /**
+   * `record`: a platform record, proposed and published through the door. `built_in`: one of the repository's own
+   * sources, an engine's configuration reviewed as code; read-only here, with no record, key or monitor of the platform's.
+   */
+  origin: 'record' | 'built_in'
+  /** The platform record; null for a built-in source. */
+  recordId: string | null
   countryId: string
   state: 'active' | 'testing'
   /** The request a testing source is proposed in; null for a published one. */
@@ -163,6 +170,8 @@ export interface SourceStatusView {
   credential: CredentialView
   /** The open request a monitor filed for this source, if any. */
   openMonitorRequestId: string | null
+  /** A built-in source's recorded fixtures, as KC-7 runs them on a record; null for a record (`source-test` runs its). */
+  fixtures: SourceCheck | null
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -184,6 +193,7 @@ function statusOf(
   const since = state?.okAt ?? null
   return {
     sourceKey: source.key,
+    origin: 'record',
     recordId: source.recordId,
     countryId: source.countryId,
     state: source.state,
@@ -200,12 +210,49 @@ function statusOf(
     },
     credential,
     openMonitorRequestId: openRequest,
+    fixtures: null,
   }
 }
 
-/** Every configured source, published and proposed, or the one `sourceKey` names. */
-export async function platformSourceStatus(session: UserSession | null, query: { sourceKey?: string }): Promise<{ sources: SourceStatusView[] }> {
+/** A built-in source in the status's shape: active on its hosts, watched by no platform monitor, keyed by nothing stored. */
+function builtInStatusOf(source: BuiltInSource): SourceStatusView {
+  return {
+    sourceKey: source.sourceKey,
+    origin: 'built_in',
+    recordId: null,
+    countryId: source.territory,
+    state: 'active',
+    changeRequestId: null,
+    hosts: source.hosts.map((host) => ({ host, state: 'active', usableUntil: null })),
+    dataFlow: source.dataFlow,
+    monitor: { kind: source.monitor.kind, intervalHours: source.monitor.intervalHours, checkedAt: null, okAt: null, failure: null, freshnessLagDays: null },
+    credential: { set: false, hint: null, setAt: null },
+    openMonitorRequestId: null,
+    fixtures: source.fixtures,
+  }
+}
+
+/** The built-in sources' statuses, or why the api tier could not list them. */
+async function builtInStatuses(sourceKey: string | undefined): Promise<{ views: SourceStatusView[]; unavailable: string | null }> {
+  try {
+    const views = (await builtInSources()).filter((source) => !sourceKey || source.sourceKey === sourceKey).map(builtInStatusOf)
+    return { views, unavailable: null }
+  } catch (error) {
+    if (!(error instanceof CaptureFetchError)) throw error
+    return { views: [], unavailable: error.message }
+  }
+}
+
+/**
+ * Every source, or the one `sourceKey` names: the built-in ones first, then the platform's records, published and
+ * proposed. `builtInUnavailable` says why the built-in ones are missing when the api tier could not list them.
+ */
+export async function platformSourceStatus(
+  session: UserSession | null,
+  query: { sourceKey?: string },
+): Promise<{ sources: SourceStatusView[]; builtInUnavailable: string | null }> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
+  const builtIn = await builtInStatuses(query.sourceKey)
   const now = new Date()
   const sources = await platformTransaction(async (tx) => {
     const all = [...(await activeSources(tx)), ...(await draftSources(tx))].filter(
@@ -221,7 +268,7 @@ export async function platformSourceStatus(session: UserSession | null, query: {
             and(
               eq(knowledgeChangeRequests.origin, 'monitor'),
               inArray(knowledgeChangeRequests.sourceRecordId, ids),
-              inArray(knowledgeChangeRequests.status, ['draft', 'submitted', 'approved']),
+              inArray(knowledgeChangeRequests.status, [...MONITOR_REQUEST_OPEN_STATUSES]),
             ),
           )
       : []
@@ -232,8 +279,12 @@ export async function platformSourceStatus(session: UserSession | null, query: {
       ),
     )
   })
-  if (query.sourceKey && sources.length === 0) throw new NotFoundError(`No source ${query.sourceKey} is published or proposed.`)
-  return { sources }
+  const all = [...builtIn.views, ...sources]
+  if (query.sourceKey && all.length === 0) {
+    const unlisted = builtIn.unavailable ? ` The built-in sources could not be listed: ${builtIn.unavailable}` : ''
+    throw new NotFoundError(`No source ${query.sourceKey} is built in, published or proposed.${unlisted}`)
+  }
+  return { sources: all, builtInUnavailable: builtIn.unavailable }
 }
 
 /**
@@ -246,7 +297,7 @@ export async function setPlatformSourceCredential(
   sourceKey: string,
   secret: string,
 ): Promise<{ sourceKey: string; credential: CredentialView }> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   const decisionSource = requirePersonDecision('Setting the key a public source is fetched with')
   const organizationId = await getPlatformOrganizationId()
   if (!organizationId) throw new ServiceUnavailableError('The platform organization is not configured.')

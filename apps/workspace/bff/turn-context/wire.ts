@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { buildingLawTurnSchema } from '@/lib/base-knowledge/chain/wire'
 import { knowledgeContextSchema } from '@/lib/base-knowledge/context/wire'
 
 export const turnContextRequestSchema = z.object({
@@ -45,17 +44,12 @@ export const turnContextResponseSchema = z.object({
    */
   baseKnowledgeLabels: z.array(z.record(z.string(), z.unknown())),
   /**
-   * The building law of the project's site from the platform's records
-   * (`lib/base-knowledge/chain/`, ADR-0168): the chain text and each
-   * edition's role. Null when the project states no Land, or nothing binds there by the records; an older
-   * agent ignores it.
-   */
-  buildingLaw: buildingLawTurnSchema.nullable(),
-  /**
    * The turn's knowledge context (`lib/base-knowledge/context/`, ADR-0173):
    * the gate, the chain, each edition's role with its coverage qualifier and
    * freshness, the packs and their release sequence, and the countries the
-   * turn may retrieve from. On every turn (ADR-0175): a context that could not
+   * turn may retrieve from, and the chain text (`text`, the `<building_law>`
+   * block) in the same roles: one payload for the law, never a second one beside
+   * it. On every turn (ADR-0175): a context that could not
    * be read is the gate's `knowledge_unavailable`, never absent, so the agent
    * fails closed.
    */

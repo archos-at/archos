@@ -3793,3 +3793,58 @@ check_in kc_0213 "SELECT count(*) FROM information_schema.columns WHERE table_na
 apply_in kc_0213 0213_knowledge_context.sql
 check_in kc_0213 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0213 applies again after its down"
 echo "==> 0213 knowledge context and its down migration verified"
+# 0218: four eyes in the database (architecture review of platform governance).
+# It refuses to run while a request is approved without a domain expert, and
+# names the way out; once that request is rejected it applies, and from then on
+# a request starts as a draft and moves only along its lifecycle. The down
+# drops the status trigger, and 0218 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0218 four eyes in the database and its down migration on fe_0218"
+migrate_before fe_0218 0218_knowledge_four_eyes_in_the_database
+STUCK=c0000000-0000-4000-8000-000000000218
+sql_in fe_0218 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$STUCK', 'approved alone in the old way', 'AT', 'user_author');
+UPDATE knowledge_change_requests SET status = 'approved' WHERE id = '$STUCK';
+SQL
+refused_in fe_0218 "$(cat migrations/0218_knowledge_four_eyes_in_the_database.sql)" "approved without a domain expert; reject them first" "0218 runs over a request approved without a domain expert"
+sql_in fe_0218 <<<"UPDATE knowledge_change_requests SET status = 'rejected', decided_at = now() WHERE id = '$STUCK';"
+apply_in fe_0218 0218_knowledge_four_eyes_in_the_database.sql
+apply_in fe_0218 0218_knowledge_four_eyes_in_the_database.sql   # up twice: idempotent, the trigger included
+refused_in fe_0218 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, status) VALUES (gen_random_uuid(), 'born published', 'AT', 'user_author', 'published')" "starts as a draft" "a request inserted as published"
+DRAFT=c1000000-0000-4000-8000-000000000218
+sql_in fe_0218 <<<"INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$DRAFT', 'a draft', 'AT', 'user_author');"
+refused_in fe_0218 "UPDATE knowledge_change_requests SET status = 'published' WHERE id = '$DRAFT'" "does not move from draft to published" "a draft published without approval"
+refused_in fe_0218 "UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$STUCK'" "does not move from rejected to submitted" "a rejected request resubmitted"
+check_in fe_0218 "SELECT array_to_string(knowledge_required_approval_roles('$DRAFT'), ',')" "domain_expert" "0218: every request needs a domain expert"
+apply_in fe_0218 0218_knowledge_four_eyes_in_the_database.down.sql
+check_in fe_0218 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_status_moves'" "0" "0218 down drops the status trigger"
+check_in fe_0218 "SELECT coalesce(array_to_string(knowledge_required_approval_roles('$DRAFT'), ','), '')" "" "0218 down: a request without an advice policy or a site-keyed source needs no named role again"
+apply_in fe_0218 0218_knowledge_four_eyes_in_the_database.sql
+check_in fe_0218 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_status_moves'" "1" "0218 applies again after its down"
+echo "==> 0218 four eyes in the database and its down migration verified"
+# ---------------------------------------------------------------------------
+# 0219: one parents field for a territory (design §3.2). A revision stored with
+# the two lists before it gets both in `parents`, undated first; the EU
+# entitlement reads `parents`; the down drops the column and 0219 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0219 territory parents and its down migration on tp_0219"
+migrate_before tp_0219 0219_territory_parents
+CR="c0000000-0000-4000-8000-000000000219"
+RV="e0000000-0000-4000-8000-000000000219"
+sql_in tp_0219 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'XA territories', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('XA-1', NULL, 'territory', 'XA', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$RV', 'XA-1', 'territory', NULL, 'user_author', '$CR');
+INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, parent_ids, dated_parents)
+  VALUES ('$RV', 'XA-1', NULL, 'state', 'Eins', '{XA}', '[{"id": "EU", "validFrom": "1995-01-01"}]');
+SQL
+apply_in tp_0219 0219_territory_parents.sql
+check_in tp_0219 "SELECT parents::text FROM knowledge_territory_revisions WHERE revision_id = '$RV'" '[{"id": "XA"}, {"id": "EU", "validFrom": "1995-01-01"}]' "0219 folds both lists into parents, undated first"
+check_in tp_0219 "SELECT (pg_get_functiondef('knowledge_country_entitled(text)'::regprocedure) LIKE '%t.parents @>%')::text" "true" "0219: the EU entitlement reads parents"
+refused_in tp_0219 "UPDATE knowledge_territory_revisions SET parents = '[]'" "append-only" "a parents list rewritten"
+apply_in tp_0219 0219_territory_parents.down.sql
+check_in tp_0219 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'parents'" "0" "0219 down drops parents"
+apply_in tp_0219 0219_territory_parents.sql
+check_in tp_0219 "SELECT jsonb_array_length(parents) FROM knowledge_territory_revisions WHERE revision_id = '$RV'" "2" "0219 applies again after its down"
+echo "==> 0219 territory parents and its down migration verified"

@@ -2768,14 +2768,16 @@ class TestDeepResearcherQuoteVerification:
                 return await agent.run(state)
 
     @pytest.mark.asyncio
-    async def test_fabricated_quote_annotated_inline(self, mock_llm_provider, real_tool):
+    async def test_fabricated_quote_kept_without_a_marker(self, mock_llm_provider, real_tool):
         markdown = (
             "Laut Norm gilt „Treppen muessen mit einer automatischen Loeschanlage "
             'ausgestattet sein" [1].\n\n## Sources\n[1] OIB-330.pdf, p.12'
         )
         result = await self._run(mock_llm_provider, real_tool, markdown)
         output = result.messages[-1].content
-        assert "[nicht wörtlich in der Quelle belegt]" in output
+        # No marker in the prose (ADR-0125, amended 2026-11-10): the report is degraded instead.
+        assert "[nicht wörtlich in der Quelle belegt]" not in output
+        assert "unverified_quotes" in (result.degraded_reasons or [])
         # Fail-open: the fabricated sentence is preserved verbatim.
         assert "automatischen Loeschanlage" in output
 
@@ -3065,7 +3067,7 @@ class TestDeepReportConfidence:
     async def test_fabricated_quote_marks_the_answer_degraded(self, mock_llm_provider, real_tool):
         """Backlog item 2 ratchet: an unverified quote never ships as verified.
 
-        The quote is still annotated inline (fail-open), but the answer carries
+        The quote still ships as written (fail-open, no marker), but the answer carries
         the degraded signal — state, banner, and honesty line — so a salvaged
         report cannot launder a fabricated quotation into a verified answer.
         """
@@ -3079,8 +3081,8 @@ class TestDeepReportConfidence:
         answer = result.messages[-1].content
         assert answer.startswith("> **Hinweis:**")
         assert "eingeschränkt belastbar" in answer
-        # The quote itself still ships, annotated — never stripped, never clean.
-        assert "[nicht wörtlich in der Quelle belegt]" in answer
+        # The quote itself still ships, never stripped, and never with a marker in the prose.
+        assert "Loeschanlage haben" in answer and "[nicht wörtlich in der Quelle belegt]" not in answer
 
     @pytest.mark.asyncio
     async def test_citation_health_ledger_records_the_cap_and_no_fallback(self, mock_llm_provider, real_tool):

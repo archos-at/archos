@@ -7,7 +7,13 @@
  */
 
 import { z } from 'zod'
-import { EDITION_ROLES, GATE_STATES } from './vocab'
+import { EDITION_ROLES, GATE_STATES, type GateState } from './vocab'
+
+/** The gate states that name no law: the turn refuses, and so do the page, the classification and the intake. */
+const REFUSING: ReadonlySet<GateState> = new Set(['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', 'none'])
+
+/** Whether a gate names law at the site. Pure. */
+export const gateNamesLaw = (gate: GateState): boolean => !REFUSING.has(gate)
 
 /** One use: the work and edition, the role and qualifier the turn reads, and the names a person reads. */
 export const projectLawUseSchema = z

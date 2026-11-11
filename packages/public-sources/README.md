@@ -18,6 +18,13 @@ which may fetch (published, or a draft within its own request's 24 hours) and
 hands this package the configuration; the guard still holds the hosts and the
 public addresses.
 
+Which one a source is: a repository file (**built in**) only when its engine's
+configuration is code-level, read by the agent's own tools (RIS, Fedlex);
+every other source is a platform record. The rule, once:
+[ADR-0174, Consequences](../../docs/adr/0174-public-sources-are-platform-records-kept-current-by-monitors.md#consequences).
+`platform-knowledge-source-status` lists both (`POST /v1/public-sources/built-in`
+gives it the built-in ones, with their fixtures' result).
+
 ## Where things are
 
 | Path | What |

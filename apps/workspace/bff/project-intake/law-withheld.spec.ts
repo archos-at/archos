@@ -1,0 +1,76 @@
+/**
+ * @vitest-environment node
+ *
+ * Where a project's knowledge context withholds law (an office not entitled to
+ * Austria, an unreadable context, an unplaced site), `classification-evaluate`
+ * answers undetermined, and so does every other door to the Gebäudeklasse
+ * (ADR-0169's amendment): the intake's derivations, the class a reading
+ * writes into the profile, and the profile a person reads. A class a document
+ * stated or a person confirmed is the office's own, and stays.
+ */
+
+import { describe, expect, it } from 'vitest'
+import { projectIntakeDefinitionV1 as definition } from '@/lib/project-profile/intake-definition'
+import { emptyProjectProfile } from '@/lib/project-profile/patch-engine'
+import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
+import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
+import { buildingClassKey, deriveAll, withDerivedClass, withoutDerivedClasses } from './derivation-view'
+import { buildIntakeView } from './view'
+
+const NOW = '2026-11-10T09:00:00.000Z'
+const CLASS = buildingClassKey('bldg1')
+
+/** A Viennese block of flats with every input the OIB's derivation reads, confirmed. */
+function vienna(): ProjectProfile {
+  const profile = emptyProjectProfile()
+  const confirmed = (key: string, value: ProjectPrimitiveValue) => {
+    profile.facts[key] = { value, confidence: 'confirmed', source: 'onboarding', updatedAt: NOW }
+  }
+  confirmed('country', 'at')
+  confirmed('federal_state', 'vienna')
+  const building: Record<string, ProjectPrimitiveValue> = {
+    building_type: 'building',
+    building_position: 'freestanding',
+    access_three_sides: true,
+    storeys_above_ground: 3,
+    escape_level_m: 7,
+    gfa_above_ground: 800,
+    use_units: 3,
+    units_over_400: false,
+    uses: ['residential'],
+  }
+  for (const [key, value] of Object.entries(building)) confirmed(`${key}@bldg1`, value)
+  return profile
+}
+
+const derived = () => withDerivedClass(vienna(), definition, 'bldg1', NOW).profile
+
+describe('a class while the knowledge context withholds law', () => {
+  it('is derived and written where law is named, so the cases below test something', () => {
+    expect(deriveAll(vienna(), definition)[0]?.value).not.toBeNull()
+    expect(derived().assumptions[CLASS]?.value).toBeDefined()
+  })
+
+  it('is neither derived nor written, and a derived one already written goes', () => {
+    expect(deriveAll(vienna(), definition, { lawWithheld: true })).toEqual([])
+    expect(withDerivedClass(vienna(), definition, 'bldg1', NOW, { lawWithheld: true }).profile.assumptions[CLASS]).toBeUndefined()
+    expect(withDerivedClass(derived(), definition, 'bldg1', NOW, { lawWithheld: true }).profile.assumptions[CLASS]).toBeUndefined()
+  })
+
+  it('is not shown on the profile a person reads, but a class a document stated stays', () => {
+    expect(withoutDerivedClasses(derived(), definition).assumptions[CLASS]).toBeUndefined()
+    const stated = vienna()
+    stated.assumptions[CLASS] = { value: 4, status: 'unconfirmed', reason: 'Plankopf', source: 'agent_suggested', updatedAt: NOW, evidence: [{ kind: 'document', fileName: 'Einreichplan.pdf', page: 1, quote: 'Gebäudeklasse 4' }] }
+    expect(withoutDerivedClasses(stated, definition).assumptions[CLASS]?.value).toBe(4)
+  })
+
+  it('is not in the intake the review shows', () => {
+    const row = { projectId: 'p1', status: 'read', mode: 'active', documentsRead: [] } as unknown as ProjectIntakeRow
+    const input = { row, profile: derived(), definition, needs: [], unreadDocuments: 0, canDecide: true, canComplete: false }
+    const named = buildIntakeView({ ...input, applicableLaw: { gate: 'core', uses: [] } })
+    expect(named.derivations[0]?.value).not.toBeNull()
+    const withheld = buildIntakeView({ ...input, applicableLaw: { gate: 'not_entitled', uses: [] } })
+    expect(withheld.derivations).toEqual([])
+    expect(JSON.stringify(withheld)).not.toContain(CLASS)
+  })
+})

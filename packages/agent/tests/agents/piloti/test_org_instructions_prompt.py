@@ -108,10 +108,7 @@ class TestTheLift:
         state = ConversationState(
             messages=[HumanMessage(content="Wie hoch?")],
             org_instructions=INSTRUCTIONS,
-            time_editions_allowed=True,
         )
         research = ConversationGraph._research_input(object.__new__(ConversationGraph), state, list(state.messages))
 
         assert research.org_instructions == INSTRUCTIONS
-        # The same edge carries the per-turn entitlements: without it `law-lookup` is never offered `as_of`.
-        assert research.time_editions_allowed is True

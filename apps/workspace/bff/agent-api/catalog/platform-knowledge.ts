@@ -2,8 +2,9 @@
  * The platform's base knowledge on the platform door (ADR-0165, design §4.5):
  * how an operator's agent brings a country's knowledge in as a reviewed data
  * release. Every route is a `platformApiRoute`, so only a platform operator's
- * call passes; reads need `platform:settings:view`, writes
- * `platform:settings:manage`, entitlements `platform:organizations:manage`.
+ * call passes; reads need `platform:settings:view`, drafting
+ * `platform:knowledge:write`, review and release `platform:knowledge:review`,
+ * entitlements `platform:organizations:manage`.
  *
  * The flow (ADR-0170 makes it agent-grade): read the onboarding guide and
  * schema-get; change-request-create; citation-capture for each page; then
@@ -26,6 +27,7 @@ import {
   homeCountryBodySchema,
   listOrganizationCountriesQuerySchema,
   listChangeRequestsQuerySchema,
+  PROPOSED_RECORD_TYPES,
   proposeRecordsBodySchema,
   publishBodySchema,
   reviewBodySchema,
@@ -104,8 +106,8 @@ export const platformKnowledgeOperations = [
     domain: 'platform',
     summary: 'Read the JSON Schema of each platform record type',
     description:
-      'What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, ' +
-      'manifestation; `type` for one), the citation every record carries, the batch limit and the checks of the ' +
+      `What platform-knowledge-records-propose takes, per record type (${PROPOSED_RECORD_TYPES.join(', ')}; \`type\` for one), ` +
+      'the citation every record carries, the batch limit and the checks of the ' +
       'validation kit with what to do about each. Read it before the first proposal.',
     method: 'GET',
     path: '/api/platform/knowledge/schemas',
@@ -138,7 +140,7 @@ export const platformKnowledgeOperations = [
     domain: 'platform',
     summary: 'Propose up to 200 cited records into a draft change request',
     description:
-      'Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation; shapes ' +
+      `Records of any type by key (a territory by its id): ${PROPOSED_RECORD_TYPES.join(', ')}; shapes ` +
       'from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every ' +
       'record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a ' +
       'problem is refused whole (422). The same key again adds a revision to the same record; the same proposal ' +
@@ -232,12 +234,13 @@ export const platformKnowledgeOperations = [
     domain: 'platform',
     summary: 'Approve or reject a submitted change request, or give the second review of one approved alone',
     description:
-      'The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone ' +
+      'The person’s own decision, asked of them. Every request needs a domain expert’s approval (`role: domain_expert`); ' +
+      'approval needs every claim accepted, is refused (409) for anyone ' +
       'who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an ' +
       'advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays ' +
       'submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. ' +
       '`override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone ' +
-      '(403 without), is never implied, and marks the request `approval: single` with a second review due; propose it ' +
+      '(403 without), is refused while a pasted capture is not source-checked by another person, is never implied, and marks the request `approval: single` with a second review due; propose it ' +
       'and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an ' +
       'approved request whose second review is due, another person gives it in each role approved alone they hold ' +
       '(`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed ' +

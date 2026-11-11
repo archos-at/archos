@@ -104,6 +104,23 @@ const workRecord = z.object({
     .max(3)
     .default(['site'])
     .describe('What the work attaches to: site, office_seat (HOAI), client (VgV). Anything but site never binds by the site alone.'),
+  identifiers: z
+    .object({
+      'ris_gesetzesnummer': z
+        .string()
+        .regex(/^\d{1,12}$/)
+        .optional()
+        .describe('RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. "20000006".'),
+      eli: z
+        .url()
+        .max(300)
+        .regex(/\/$/, 'an ELI ends with "/": a passage is this work only below that whole path segment')
+        .optional()
+        .describe('The European Legislation Identifier of the work, as a URL ending with "/"; a passage whose ELI path continues below it is this work (…/1930/11/ never matches …/1930/110/).'),
+    })
+    .strict()
+    .default({})
+    .describe('The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.'),
   ...common,
 })
 
@@ -114,7 +131,7 @@ const editionRecord = z.object({
   label: z.string().trim().min(1).max(120).describe('The Ausgabe as the masthead prints it, e.g. "2023-01-01".'),
   issuedOn: isoDate.nullable().default(null),
   inForceFrom: isoDate.nullable().default(null),
-  inForceTo: isoDate.nullable().default(null).describe('The last day in force, inclusive; null while in force.'),
+  inForceTo: isoDate.nullable().default(null).describe('The first day no longer in force, the next edition’s inForceFrom (intervals are half-open); a source that prints the last day in force, as RIS does, is entered one day later. Null while in force.'),
   transition: transitionTableSchema
     .nullable()
     .default(null)
@@ -145,8 +162,7 @@ const territoryRecord = z.object({
   id: territoryIdSchema,
   kind: z.enum(TERRITORY_KINDS),
   name: z.string().trim().min(1).max(200),
-  parentIds: z.array(territoryIdSchema).max(10).default([]).describe('Nearest first, e.g. ["AT"] for AT-6.'),
-  datedParents: z
+  parents: z
     .array(
       z.object({
         id: territoryIdSchema,
@@ -154,9 +170,9 @@ const territoryRecord = z.object({
         validTo: isoDate.nullable().default(null),
       }),
     )
-    .max(10)
+    .max(20)
     .default([])
-    .describe('Parents for an interval only, half-open: [{ id: "EU", validFrom: "1995-01-01" }] for AT.'),
+    .describe('Every territory it lies in directly, nearest first; a parent for an interval only states it, half-open: [{ id: "EU", validFrom: "1995-01-01" }] for AT, [{ id: "AT" }] for AT-6.'),
   aliases: z.record(z.string().regex(/^[a-z]{2,8}$/), z.string().min(1).max(40)).default({}),
   validFrom: isoDate.nullable().default(null),
   validTo: isoDate.nullable().default(null),
@@ -168,6 +184,8 @@ const territoryRecord = z.object({
   municipalLaw: z.boolean().nullable().default(null).describe('Whether this node’s own municipal law is held.'),
   ...common,
 })
+  // `parentIds` and `datedParents` became `parents` (0219): a proposal still naming them is refused, never stripped.
+  .strict()
 
 /** An AKN eId (`par_4__abs_2`, `pkt_3.1`, `cl_4.2`): what an anchor names, never prose. */
 const anchorIdSchema = z.string().trim().regex(/^[a-z]{2,6}_[A-Za-z0-9.]{1,20}(__[a-z]{2,6}_[A-Za-z0-9.]{1,20}){0,5}$/, 'an AKN eId such as par_4__abs_2 or pkt_3.1')
@@ -337,8 +355,8 @@ export interface CaptureView {
   retrievedAt: string
 }
 
-/** The record types `platform-knowledge-schema-get` describes. */
-export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'ruleset', 'source'] as const
+/** Every record type `records-propose` takes, in the order the guide proposes them; held to `proposedRecordSchema`'s union by `wire.spec.ts`. */
+export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'relation', 'ruleset', 'source'] as const
 
 export const schemaQuerySchema = z.object({
   type: z.enum(PROPOSED_RECORD_TYPES).optional().describe('One record type; all of them when absent.'),
@@ -382,7 +400,11 @@ export const reviewBodySchema = z.object({
       }),
     )
     .min(1)
-    .max(500),
+    .max(500)
+    // Two verdicts on one claim in one body would leave which one stands to insertion order.
+    .refine((decisions) => new Set(decisions.map((d) => `${d.revisionId}|${d.claimPath}`)).size === decisions.length, {
+      message: 'Each claim (revisionId, claimPath) takes one decision per review.',
+    }),
 })
 
 /** The shortest reason an override takes: a sentence somebody can follow up, not a word (ADR-0176). */
@@ -468,6 +490,8 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   revisions: RevisionView[]
   /** The pages the records cite, as captured (ADR-0170); their text stays on the server. */
   captures: CaptureView[]
+  /** A record cites an operator-supplied capture nobody but its author checked against its source: nobody approves until another person does, alone or not. */
+  sourcesUnchecked: boolean
   /** Each role approved alone and its second review (ADR-0176); empty on a four-eyes request. */
   secondReviewRoles: SecondReviewRoleView[]
   /** `overrideReason` is set on an author's own approval through the override (ADR-0176). */

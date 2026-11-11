@@ -85,7 +85,8 @@ _QUIET_IN_NOTE: dict[str, Any] = {
     "project_context": None,
     "platform_lessons": None,
     "org_instructions": None,
-    "oib_applicability": None,
+    # The knowledge context's gate note: the project's country and coverage (ADR-0173).
+    "jurisdiction_note": None,
     "parcel_note": None,
     # The site's law from the platform's records (ADR-0168): a fact of the project.
     "building_law": None,

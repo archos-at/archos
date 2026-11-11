@@ -11,6 +11,9 @@
 
 import 'server-only'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
+import { gateNamesLaw } from '@/lib/base-knowledge/wire/project-law'
+import { withoutDerivedClasses } from '@/lib/project-intake/derivation-view'
 
 /**
  * Writing the project profile — the intake brief and the standards the agent
@@ -83,9 +86,14 @@ export async function getProjectProfile(
   projectId: string
 ): Promise<ProjectProfileState> {
   await requireProjectAccess(session, projectId, 'project:view')
-  const state = await findProjectProfileInOrg(projectId, session.organizationId)
+  const [state, context] = await Promise.all([
+    findProjectProfileInOrg(projectId, session.organizationId),
+    contextForPage(session.organizationId, projectId),
+  ])
   if (!state) throw new NotFoundError()
-  return state
+  // Where the knowledge context withholds law, no derived Gebäudeklasse is shown either (ADR-0169's amendment).
+  if (gateNamesLaw(context.gate.state)) return state
+  return { ...state, profile: withoutDerivedClasses(state.profile, projectIntakeDefinitionV1) }
 }
 
 /**

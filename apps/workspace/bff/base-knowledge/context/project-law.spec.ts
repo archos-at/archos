@@ -28,7 +28,8 @@ vi.mock('./turn-snapshot', () => ({ rememberTurnContext: vi.fn() }))
 
 import { proposedRecordSchema } from '../platform/wire'
 import { graphFromProposals } from '../chain/from-proposals'
-import { gateNamesLaw, lawOf, projectLawFor } from './project-law'
+import { gateNamesLaw } from '../wire/project-law'
+import { lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
 
 /** Wien with its Bauordnung, OIB-RL 2 guiding there, and the HOAI connecting by the office's seat. */
@@ -36,8 +37,8 @@ const graphAt = (coverageLevel: 'open' | 'core') => {
   const graph = graphFromProposals(
     [
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich', coverageLevel },
-      { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'] },
-      { type: 'work', key: 'bo-wien', kind: 'statute', title: 'Bauordnung für Wien', designation: 'BO für Wien', territoryIds: ['AT-9'] },
+      { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
+      { type: 'work', key: 'bo-wien', kind: 'statute', title: 'Bauordnung für Wien', designation: 'BO für Wien', territoryIds: ['AT-9'], identifiers: { 'ris_gesetzesnummer': '20000006' } },
       { type: 'edition', key: 'bo-wien-2024', workKey: 'bo-wien', label: 'LGBl. 2024/1', issuedOn: '2024-01-01', inForceFrom: '2024-01-01' },
       { type: 'work', key: 'oib-rl-2', kind: 'model_code', title: 'Brandschutz', designation: 'OIB-RL 2', territoryIds: ['AT'] },
       { type: 'edition', key: 'oib-rl-2-2023', workKey: 'oib-rl-2', label: '2023', issuedOn: '2023-05-25' },
@@ -87,8 +88,51 @@ describe('projectLawFor', () => {
 
   it('says the law could not be read when a read fails, never that none applies', async () => {
     readOrganizationCountries.mockRejectedValue(new Error('database gone'))
-    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     expect(await projectLawFor('org_at', 'project_wien')).toEqual({ gate: 'knowledge_unavailable', uses: [] })
+    // A page polls: its failure has its own marker, never the turn alert's line (ADR-0173).
+    const lines = logged.mock.calls.map(([line]) => String(line))
+    expect(lines.some((line) => line.startsWith('[knowledge_context_page_read=false]'))).toBe(true)
+    expect(lines.some((line) => line.includes('knowledge_context_available=false'))).toBe(false)
+  })
+})
+
+describe('the one payload a turn reads (ADR-0175)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    officeTimeZone.mockResolvedValue('Europe/Vienna')
+    readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
+    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {} } })
+  })
+
+  it('names each use and carries its work’s identifiers at its source, by scheme', async () => {
+    loadGraph.mockResolvedValue({ graph: graphAt('core'), truncated: false })
+    const context = await knowledgeContextForTurn('org_at', 'project_wien')
+    expect(context.uses.find((use) => use.workId === 'work:bo-wien')).toMatchObject({
+      designation: 'BO für Wien',
+      editionLabel: 'LGBl. 2024/1',
+      sourceRefs: [{ scheme: 'ris_gesetzesnummer', value: '20000006' }],
+    })
+    expect(context.uses.find((use) => use.workId === 'work:oib-rl-2')).toMatchObject({ sourceRefs: [] })
+  })
+
+  it('writes the chain text in the roles its uses carry: guidance where curated, information where nobody curated it', async () => {
+    loadGraph.mockResolvedValue({ graph: graphAt('core'), truncated: false })
+    const core = await knowledgeContextForTurn('org_at', 'project_wien')
+    expect(core.text).toContain('Binding here:')
+    expect(core.text).toContain('BO für Wien „Bauordnung für Wien“, edition LGBl. 2024/1')
+    expect(core.text).toContain('OIB-RL 2 „Brandschutz“, edition 2023: guidance only')
+    loadGraph.mockResolvedValue({ graph: graphAt('open'), truncated: false })
+    const open = await knowledgeContextForTurn('org_at', 'project_wien')
+    expect(open.uses.find((use) => use.workId === 'work:oib-rl-2')?.role).toBe('information')
+    // The chain alone calls OIB-RL 2 guidance; the turn reads it as information, and so does its text.
+    expect(open.text).not.toContain('guidance only')
+    expect(open.text).toContain('1 other edition is not in force here and is information only.')
+  })
+
+  it('carries no text where the gate names no law', async () => {
+    readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [] })
+    expect((await knowledgeContextForTurn('org_at', 'project_wien')).text).toBeNull()
   })
 })
 
@@ -96,9 +140,9 @@ describe('lawOf', () => {
   it.each(['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', 'none'] as const)(
     'names nothing where the gate is %s, whatever the context holds',
     (state) => {
-      const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [] }
-      const context = { gate: { state, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses: [use], retrieval: { countries: [] } }
-      expect(lawOf({ context, names: { works: {}, editions: {} } })).toEqual({ gate: state, uses: [] })
+      const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [] }
+      const context = { gate: { state, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses: [use], text: null, retrieval: { countries: [] } }
+      expect(lawOf(context)).toEqual({ gate: state, uses: [] })
     },
   )
 

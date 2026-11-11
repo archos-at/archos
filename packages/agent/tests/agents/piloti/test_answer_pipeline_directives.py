@@ -91,11 +91,11 @@ async def test_directive_blocks_and_their_citations_reach_the_reader_intact():
 
 @pytest.mark.asyncio
 async def test_a_dropped_citation_leaves_the_blocks_as_written():
-    # [3] resolves to nothing: verification labels it in the prose, and the
+    # [3] resolves to nothing: verification removes it from the prose, and the
     # hygiene pass that closes the gap it leaves must not reach the blocks.
     final = await _finalize(_answer("1", "2").replace("Anforderung [2];", "Anforderung [3];"))
 
-    assert f"Anforderung {DROPPED_CITATION_MARKER};" in final.content
+    assert "Anforderung;" in final.content and DROPPED_CITATION_MARKER not in final.content
     for block in (CHECK, PROCEDURE, QUOTE):
         assert block.format(a="1", b="2") in final.content
 

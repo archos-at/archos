@@ -98,7 +98,7 @@ repos:
         entry: bash -c 'PYTHONPATH=packages/agent/src .venv/bin/python scripts/generate_vocabularies.py'
         language: system
         pass_filenames: false
-        files: ^(packages/agent/src/agent/cards/workspace_cards\.py|packages/agent/src/agent/common/source_kinds\.py|packages/public-sources/src/(access|engines)/__init__\.py|scripts/generate_vocabularies\.py|apps/workspace/shared/vocabularies\.generated\.ts)$
+        files: ^(packages/agent/src/agent/cards/workspace_cards\.py|packages/agent/src/agent/common/source_kinds\.py|packages/public-sources/src/(access|engines)/[^/]+\.py|scripts/generate_vocabularies\.py|apps/workspace/shared/vocabularies\.generated\.ts)$
 
       - id: data-flow-register
         name: every outbound flow has a row in the data-flow register, and the pages generated from it are current

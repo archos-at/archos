@@ -15,5 +15,5 @@ type Params = { changeRequestId: string }
 export const POST = platformApiRoute<Params>(
   async ({ session, params, request }) =>
     decidePlatformChangeRequest(session, params.changeRequestId, await parseJsonBody(request, approvalBodySchema)),
-  { permission: PLATFORM_PERMISSIONS.settingsManage },
+  { permission: PLATFORM_PERMISSIONS.knowledgeReview },
 )

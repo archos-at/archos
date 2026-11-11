@@ -6,13 +6,17 @@
  *
  * A read: nothing is written, and values passed in only try a „what if".
  * Fail closed: a project nothing places, or one in a country with no
- * classification record, gets no class, with the reason as its status.
+ * classification record, gets no class, with the reason as its status; so does
+ * one whose knowledge context withholds law (not entitled, unreadable, no
+ * coverage), with the turn's own gate.
  */
 
 import 'server-only'
 import { NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireProjectAccess } from '@/lib/authz/projects'
+import { gateNamesLaw } from '@/lib/base-knowledge/wire/project-law'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
 import { buildingClassFacts, candidateMeanings, classifyWithTable } from '@/lib/base-knowledge/rulesets/building-class'
 import { evaluateDecisionTable } from '@/lib/base-knowledge/rulesets/decision-table'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
@@ -127,7 +131,7 @@ export function evaluateClassification(
   const site = { chain: [...scope.chain] }
   if (!classification) {
     const status = scope.chain.length === 0 && siteCountry(profile) === null ? 'site_unknown' : 'no_classification'
-    return { status, site, classification: null, planned: null, existing: null, shift: null, requests: [] }
+    return { status, gate: null, site, classification: null, planned: null, existing: null, shift: null, requests: [] }
   }
   const fromProfile = buildingClassInputsFor(profile, definition, request.buildingId, classificationInputs(classification))
   const plannedInputs = { ...fromProfile, ...request.planned }
@@ -137,6 +141,7 @@ export function evaluateClassification(
   const open = new Set([...planned.missing, ...(existing?.missing ?? [])])
   return {
     status: 'evaluated',
+    gate: null,
     site,
     classification: {
       rulesetId: classification.rulesetId,
@@ -151,7 +156,11 @@ export function evaluateClassification(
   }
 }
 
-/** `POST /api/projects/[id]/classification-evaluations`: anyone who may view the project may ask. */
+/**
+ * `POST /api/projects/[id]/classification-evaluations`: anyone who may view the
+ * project may ask. Where the turn's gate withholds law, so does this: the class
+ * is undetermined and the gate says why, as the turn would.
+ */
 export async function evaluateProjectClassification(
   session: AuthorizedSession,
   projectId: string,
@@ -160,5 +169,21 @@ export async function evaluateProjectClassification(
   await requireProjectAccess(session, projectId, 'project:view')
   const state = await findProjectProfileInOrg(projectId, session.organizationId)
   if (!state) throw new NotFoundError()
+  // An operation's read, never the turn alert's (ADR-0173).
+  const { gate } = await contextForPage(session.organizationId, projectId)
+  if (!gateNamesLaw(gate.state)) {
+    const withheld = { state: gate.state, reason: gate.reason }
+    return { status: 'undetermined', gate: withheld, site: { chain: [] }, classification: null, planned: null, existing: null, shift: null, requests: [] }
+  }
   return evaluateClassification(state.profile, projectIntakeDefinitionV1, input)
+}
+
+/**
+ * Whether the project's knowledge context withholds law at its site: then the
+ * intake derives and writes no Gebäudeklasse either, as this operation answers
+ * (ADR-0169's amendment). An operation's read, never the turn alert's.
+ */
+export async function lawWithheldAt(organizationId: string, projectId: string): Promise<boolean> {
+  const { gate } = await contextForPage(organizationId, projectId)
+  return !gateNamesLaw(gate.state)
 }

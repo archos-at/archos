@@ -263,7 +263,14 @@ class TestTheTurn:
 
     async def test_a_two_word_family_question_is_warmed_for_its_undecided_prefetch(self):
         """„OIB 2" skips the decision, and the undecided path still searches it:
-        the search must find its embedding warm, not pay for it after."""
+        the search must find its embedding warm, not pay for it after. Austria's corpus is read only
+        because the turn's knowledge context allows it (ADR-0175)."""
+        from agent.common.knowledge_context import KnowledgeContext
+        from agent.common.knowledge_context import set_turn_knowledge_context
+
+        set_turn_knowledge_context(
+            KnowledgeContext(gate="core", site_country="AT", retrieval_countries=frozenset({"AT"}))
+        )
         with patch("agent.knowledge.factory.warm_search_query", new_callable=AsyncMock) as warm:
             turn, _state, decide = await _run_turn(
                 ResearchAgentConfig(llm="research_llm", tools=["knowledge_search"], skills_enabled=False),
@@ -271,6 +278,7 @@ class TestTheTurn:
                 [HumanMessage(content="OIB 2")],
             )
         decide.assert_not_awaited()
+        set_turn_knowledge_context(None)
         assert turn.prefetch == ({"name": "knowledge_search", "args": {"query": "OIB 2"}},)
         warm.assert_awaited_once_with("OIB 2")
 
@@ -482,75 +490,3 @@ def test_the_turn_start_records_the_catalog_the_precedent_and_whether_round_0_lo
     record_reference_decision(TurnDecisions.none(), 0, ())
     assert recorded == {"reference_projects_offered": 0, "precedent_p": None, "reference_prefetch": False}
     assert tags == []
-
-
-class TestTheTimeEditionsArgument:
-    """``law-lookup``'s ``as_of`` reaches the model only on a ``time-editions`` turn (ADR-0171).
-
-    The registered RIS tool hides the argument, so a turn without the flag binds
-    it as it is and sends the payload it sent before the flag existed.
-    """
-
-    @staticmethod
-    def _ris_lookup_tool():
-        from langchain_core.tools import StructuredTool
-        from pydantic import BaseModel
-        from pydantic.json_schema import SkipJsonSchema
-
-        class LookupArgs(BaseModel):
-            question: str
-            as_of: SkipJsonSchema[str] = ""
-
-        async def lookup(question: str, as_of: str = "") -> str:
-            return f"{question}|{as_of}"
-
-        return StructuredTool.from_function(
-            coroutine=lookup, name="ris_lookup_tool", description="RIS.", args_schema=LookupArgs
-        )
-
-    @staticmethod
-    def _arguments(bound) -> set[str]:
-        from langchain_core.utils.function_calling import convert_to_openai_tool
-
-        return set(convert_to_openai_tool(bound)["function"]["parameters"]["properties"])
-
-    @staticmethod
-    async def _turn_tools(time_editions_allowed: bool, lookup) -> list:
-        agent = MagicMock()
-        agent.run = AsyncMock(side_effect=lambda state, turn=None: state)
-        with (
-            patch.object(register_module, "ChatAgent", return_value=agent),
-            patch.object(register_module, "decide_turn", new_callable=AsyncMock, return_value=TurnDecisions.none()),
-            patch.object(register_module, "get_organization_id_from_context", return_value="org-1"),
-            patch.object(register_module, "SkillResolver") as resolver,
-        ):
-            resolver.return_value.resolve.return_value = ()
-            config = ResearchAgentConfig(llm="research_llm", tools=["ris_lookup_tool"], skills_enabled=False)
-            gen = research_agent.__wrapped__(config, _FakeBuilder({"ris_lookup_tool": lookup}))
-            info = await gen.__anext__()
-            state = ResearchAgentState(
-                messages=[HumanMessage(content="Was galt 2019 nach § 3?")], time_editions_allowed=time_editions_allowed
-            )
-            await info.single_fn(state)
-            await gen.aclose()
-        return list(agent.run.await_args.kwargs["turn"].tools)
-
-    async def test_a_turn_without_the_flag_binds_the_registered_tool_as_it_is(self):
-        lookup = self._ris_lookup_tool()
-
-        [bound] = await self._turn_tools(False, lookup)
-
-        assert bound is lookup
-        assert self._arguments(bound) == {"question"}
-
-    async def test_a_turn_with_the_flag_binds_the_copy_that_offers_as_of(self):
-        [bound] = await self._turn_tools(True, self._ris_lookup_tool())
-
-        assert "as_of" in self._arguments(bound)
-        assert "as_of (str)" in bound.description
-        assert await bound.ainvoke({"question": "q", "as_of": "2019-06-01"}) == "q|2019-06-01"
-
-    def test_without_the_flag_nothing_is_rebound(self):
-        tools = [self._ris_lookup_tool()]
-
-        assert register_module.tools_for_flags(tools, False) is tools

@@ -165,7 +165,7 @@ Directives carry `addressees`. A directive applies when the competent body match
 
 A **work** is the abstract instrument (BayBO, OIB-RL 2, ÖNORM B 1600, a MANZ commentary, an MA 37 directive). It carries `kind`, `areas[]`, `territory_ids[]` (empty for standards bodies), `connects_by`, `identifiers` (ELI, designation, ECLI, CELEX), `issuer_authority_id`, `addressees` and `applies_when` (JsonLogic over facts).
 
-An **edition** is ELI's point-in-time version: the Ausgabe, not a Fassung. It carries `label`, `issued_on`, `in_force_from`, `in_force_to` and an `outline`. There is one edition per distinct in-force date of the consolidated text. "Applies to procedures filed from X" is a transition, never a second date. The CPR 2024/3110, which applies article by article, gets one edition per date (KC-3; fixture `cpr-staggered`).
+An **edition** is ELI's point-in-time version: the Ausgabe, not a Fassung. It carries `label`, `issued_on`, `in_force_from`, `in_force_to` (exclusive, the first day no longer in force, like every interval here) and an `outline`. There is one edition per distinct in-force date of the consolidated text. "Applies to procedures filed from X" is a transition, never a second date. The CPR 2024/3110, which applies article by article, gets one edition per date (KC-3; fixture `cpr-staggered`).
 
 A **manifestation** is a text, dataset or link with `language` (BCP 47), `text_status` (`authentic`, `official_non_prevailing` for South Tyrol's German texts, `translation`), `licence_class` (`public_open`, `public_restricted`, `licensed`), `terms` (`mayIndex`, `quoteMaxChars`, `validTo`, attribution), `document_id` and `sha256`. An expression is the pair of edition and language and has no table.
 
@@ -461,14 +461,14 @@ knowledge_release_moves(pack_id, seq, record_id, channel CHECK (IN ('preview','s
   FOREIGN KEY (to_revision_id, record_id) REFERENCES knowledge_revisions (revision_id, record_id));   -- insert-only
 knowledge_review_decisions(change_request_id, revision_id, claim_path, decision CHECK (IN ('accepted','edited','rejected')),
   source_checked, reviewer, started_at, decided_at);
-knowledge_approvals(change_request_id, approver, role CHECK (IN ('domain_expert','counsel','second_reviewer','privacy_reviewer')),
+knowledge_approvals(change_request_id, approver, role CHECK (IN ('domain_expert','counsel','privacy_reviewer')),
   decision_source CHECK (IN ('app','elicitation')), decided_at);
 knowledge_golden_runs(pack_id, channel, release_seq, case_id, case_revision_id, result, scores, ran_at);
 knowledge_citation_captures(id, change_request_id, url, document_id, basis CHECK (IN ('fetched','operator_supplied')), sha256, retrieved_at);
 ```
 
 - **Flow.** draft, `validate`, `submit`, per-claim review, approvals, `publish {preview}`, `golden-run`, `publish {stable}`. A publish moves heads in one transaction, appends moves and bumps `stable_seq`. A rollback appends inverse moves. Released revisions stay readable, so old citations resolve.
-- **Approval roles.** A trigger requires `domain_expert` for legal content. It adds `counsel` for advice policy, `second_reviewer` for a hotfix, and `privacy_reviewer` for a site-keyed source.
+- **Approval roles.** A trigger requires `domain_expert` for every change request (migration 0218). It adds `counsel` for advice policy and `privacy_reviewer` for a site-keyed source. (A `second_reviewer` role for a hotfix was planned and removed in 0218: nothing required it.)
 - **Four eyes per revision.** No approval counts for a revision its approver created. A reviewer's edit becomes a revision in a follow-up change request that the proposer or another reviewer approves.
 - **The person's yes is server-side.** These operations are `personDecides`: review-approve, `publish`, `rollback`, `org-country-entitle` and `organization-home-country-set`.
   - On the platform door the caller is an `external_agent` [V `principal.ts`], so `confirmation.ts` elicits and signs the answer [V].

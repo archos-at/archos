@@ -8,8 +8,7 @@
       "id": "AT",
       "kind": "country",
       "name": "Österreich",
-      "parentIds": [],
-      "datedParents": [
+      "parents": [
         {
           "id": "EU",
           "validFrom": "1995-01-01",
@@ -28,8 +27,10 @@
       "id": "AT-1",
       "kind": "state",
       "name": "Burgenland",
-      "parentIds": [
-        "AT"
+      "parents": [
+        {
+          "id": "AT"
+        }
       ],
       "citations": [
         {
@@ -42,8 +43,10 @@
       "id": "AT-2",
       "kind": "state",
       "name": "Kärnten",
-      "parentIds": [
-        "AT"
+      "parents": [
+        {
+          "id": "AT"
+        }
       ],
       "citations": [
         {
@@ -56,8 +59,10 @@
       "id": "AT-3",
       "kind": "state",
       "name": "Niederösterreich",
-      "parentIds": [
-        "AT"
+      "parents": [
+        {
+          "id": "AT"
+        }
       ],
       "citations": [
         {
@@ -70,8 +75,10 @@
       "id": "AT-4",
       "kind": "state",
       "name": "Oberösterreich",
-      "parentIds": [
-        "AT"
+      "parents": [
+        {
+          "id": "AT"
+        }
       ],
       "citations": [
         {
@@ -84,8 +91,10 @@
       "id": "AT-5",
       "kind": "state",
       "name": "Salzburg",
-      "parentIds": [
-        "AT"
+      "parents": [
+        {
+          "id": "AT"
+        }
       ],
       "citations": [
         {
@@ -98,8 +107,10 @@
       "id": "AT-6",
       "kind": "state",
       "name": "Steiermark",
-      "parentIds": [
-        "AT"
+      "parents": [
+        {
+          "id": "AT"
+        }
       ],
       "citations": [
         {
@@ -112,8 +123,10 @@
       "id": "AT-7",
       "kind": "state",
       "name": "Tirol",
-      "parentIds": [
-        "AT"
+      "parents": [
+        {
+          "id": "AT"
+        }
       ],
       "citations": [
         {
@@ -126,8 +139,10 @@
       "id": "AT-8",
       "kind": "state",
       "name": "Vorarlberg",
-      "parentIds": [
-        "AT"
+      "parents": [
+        {
+          "id": "AT"
+        }
       ],
       "citations": [
         {
@@ -140,8 +155,10 @@
       "id": "AT-9",
       "kind": "state",
       "name": "Wien",
-      "parentIds": [
-        "AT"
+      "parents": [
+        {
+          "id": "AT"
+        }
       ],
       "citations": [
         {
@@ -417,9 +434,13 @@
       "issuer": "Land Wien",
       "citations": [
         {
-          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LWI40000225"
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LWI40000225, Gesetzesnummer 20000006, ELI https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/P0/LWI40000225"
         }
-      ]
+      ],
+      "identifiers": {
+        "ris_gesetzesnummer": "20000006",
+        "eli": "https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/"
+      }
     },
     {
       "type": "work",

@@ -16,7 +16,8 @@ import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { transitionTableSchema, type DatedEdition } from '@/lib/base-knowledge/wire/time'
-import { readTerritoryParents, territoryChain } from '../platform/territories'
+import { chainAt } from '../chain/territory-chain'
+import { readTerritoryParents } from '../platform/territories'
 import { recordReadable } from '../store/visibility'
 import type { WorkInTime } from './as-of'
 
@@ -91,13 +92,14 @@ export async function readWorkInTime(
   })
 }
 
-/** The legislating node and every territory it lies in, nearest first. */
+/** The legislating node and every territory it lies in on `date`, nearest first. */
 export async function readTerritoryChain(
   organizationId: string,
-  territoryId: string
+  territoryId: string,
+  date: string
 ): Promise<string[]> {
   const parents = await withTenant({ organizationId }, () =>
     readTerritoryParents(getDb(), organizationId, territoryId)
   )
-  return territoryChain(territoryId, parents)
+  return chainAt(territoryId, date, (id) => parents.get(id))
 }

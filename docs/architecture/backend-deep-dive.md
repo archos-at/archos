@@ -835,10 +835,7 @@ document summary:
 
 **Phase 1 — extraction (no VLM):**
 
-1. **Text** — `_extract_text_from_pdf` (pdfplumber), per page, in
-   `knowledge_layer/ingest/pdf_text.py`; `pdf_page_texts(bytes)` is the same pass
-   for a PDF held in memory, and a public source's capture and `pdf_document`
-   pages read through it (`packages/public-sources/src/pdf.py`). Licence/watermark
+1. **Text** — `_extract_text_from_pdf` (pdfplumber), per page. Licence/watermark
    boilerplate lines (e.g. `VECTORWORKS EDUCATIONAL VERSION`) are removed by
    `_strip_watermark_lines` **before** indexing and before the visual-page
    heuristic, so a drawing that is pure linework plus a stamped watermark does
@@ -1467,49 +1464,46 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   the YAML seed's pointers in place (merge-only; curated fields never
   clobbered).
 - **Prompt rendering** — `render_block_for_prompt(project_context)` renders
-  the doctrine-adjacent catalog block: Bundesrecht lane, the project's own
-  Bundesland lane (other states' law is dropped — `focus_entries` semantics),
-  the curated `binding_note` lines, a static OIB-corpus citation note, and the
-  project applicability section (`applicability.render_project_block`). The
-  Normenhierarchie doctrine itself is one constant (`NORM_DOCTRINE`) injected
-   into the deep-researcher, planner and writer templates as
-   `{{ norm_doctrine }}`.
-  **Piloti renders neither.** `ris_lookup` resolves a catalog pointer out of
-  the question itself, so the list is a per-turn copy of something the tool
-  already holds, and the doctrine is constant per deployment, so it belongs in
-  the cacheable prefix. Piloti renders the applicability section alone
-  (`prompt.oib_applicability`, derived from this project's `confirmed:` facts)
-  and keeps the doctrine in its system prompt, `chat_static.md`
-  (`<building_law>`), until the country-neutral static prompt moves it into the
-  turn context for Austrian sites only (ADR-0168, below). See the ADR-0060 amendment.
-- **Jurisdiction** — `country_profile.resolve_site(project_context)` places
-   the project by its own profile lines: a `country=<cc>` line (`at`/`de`/`ch`/
-   `other`, the intake's A2_country), else a Land token (`federal_state`,
-   `outside_austria` → `other`), the `confirmed:` section first and then
-   `assumptions:` (an unverified site still places it). Nothing places it by
-   default: no line is `site_unknown`, never Austria, and the office's seat
-   (`organizations.home_country`) never places a project (design
-   `docs/design/international/design.md` 3.1, A1). `norm_registry.resolve_country`
-   returns its country or None. A project abroad gets `UNCOVERED_SITE_NOTE`
-   (deep research's doctrine, the chat agent's turn context) and no OIB verdicts,
-   catalogue or derived class; an unplaced project gets `SITE_UNKNOWN_NOTE` and
-   no verdicts; an Austrian project's prompt is unchanged except the OIB
-   edition line below. The TypeScript twin is `bff/project-profile/site.ts`
-   (`siteCountry`), read by the OIB list and the
-   building-class derivation. Deep research's **Jurisdiction & Country
-   Handling** block (`country_profile.JURISDICTION_GROUNDING`) states the same.
+  the RIS catalogue for deep research: Bundesrecht lane, the project's own
+  Bundesland lane (other states' law is dropped — `focus_entries` semantics).
+  Addresses only, and only where the run's knowledge context lets the RIS
+  tools run (`law_gate.law_sources_withheld`); no `binding_note`, no corpus
+  edition, no verdicts (ADR-0175). **Piloti renders none of it**: `ris_lookup`
+  resolves a catalog pointer out of the question itself (ADR-0060 amendment).
+- **Which law applies** — the turn's knowledge context alone (ADR-0173,
+   ADR-0175, `common/knowledge_context.py`). The BFF resolves it on every turn
+   and puts it in every research run's payload (`knowledge_context`;
+   `agent_host/jobs/agent_job_setup.bind_knowledge`). Nothing
+   reads the project's text for a country or a Land, and nothing defaults to
+   one: absent or malformed, the context is `knowledge_unavailable`, which
+   withholds the legal-database tools (`law_gate.law_sources_withheld`), the
+   base corpus (`knowledge_layer.search.scoped_collections_for_site`), the
+   OIB family prefetch, and every edition's binding role, and the turn reads
+   the gate's note (`knowledge_context.gate_note`). The method that holds in
+   every country is constant: `<legal_method>` in `chat_static.md`, and
+   `law_gate.LEGAL_METHOD` for deep research's `{{ norm_doctrine }}`, which
+   appends the gate's note or the chain. Deep research's **Jurisdiction**
+   block (`law_gate.JURISDICTION_GROUNDING`) says to follow them.
 - **OIB edition per Land** — relation records of the Austria pack
-   (`configs/knowledge-packs/at.json`, ADR-0168). Since the cut-over (ADR-0175) the BFF resolves the project's Land against the
-   platform's records (`bff/base-knowledge/chain/`) and the turn context
-   carries `buildingLaw`: the chain text and each edition's role. The agent
-   binds it per turn (`citations/roles.py`, beside `set_turn_documents`); a
-   cited base-corpus passage maps to its edition by its corpus file, and its
-   role decides the chip's `binding_status` (OIB-RL 2:2023 is `interpretive`
-   in Steiermark). Without the flag `citations/binding.py` decides as before.
-   The `<building_law>` block moves into the turn context only once the static
-   prompt drops it (`turn/building_law.py`): an Austrian site then reads the
-   records' chain or the bundled block, any other site none. The summary per
-   Land is in
+   (`configs/knowledge-packs/at.json`, ADR-0168). Since the cut-over
+   (ADR-0175) the BFF resolves the project's site against the platform's records (`bff/base-knowledge/chain/`)
+   and the knowledge context carries the chain text (`text`) and each
+   edition's role (`uses`), with the open-coverage, freshness and
+   connecting-factor corrections applied, and each use's designation, edition
+   label and the work's identifiers at its source (`sourceRefs`,
+   `{scheme, value}`); the contract is
+   `apps/workspace/tests/fixtures/knowledge-context.schema.json`. It is the turn's one answer to which
+   law applies: the citation chip reads the same roles the gate does
+   (`citations/roles.py`), so a citation never says binding where the gate says
+   information. The chain text is the turn context's
+   `<building_law>` block (`law_gate.turn_building_law_block`), the only
+   building-law text a turn reads, and a gate that withholds law shows the
+   note instead. A cited base-corpus passage maps to its edition by its
+   corpus file, and its role is the chip's `binding_status` (OIB-RL 2:2023 is
+   `interpretive` in Steiermark); a passage no role reaches is `unknown`. A
+   static prompt still served from Langfuse with the old `<building_law>`
+   block is not served (`prompt.RETIRED_STATIC_BLOCK`): the bundled file is.
+   The summary per Land is in
    [`country-extensibility.md`](country-extensibility.md#oib-editions-per-land).
 - **Bundesland** — `resolve_federal_state`: the validated envelope token wins
    (`ausserhalb_oesterreichs` → None is final), then the structured
@@ -1524,15 +1518,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    facts (fluchtniveau, BG Fläche, Anzahl Geschoße, Bauweise, Nutzung,
    Brandschutzanlagen, …) as binding constraints, derive building classes from
    them, flag contradictions, and surface gaps.
-- **Applicability** — `common/applicability.py` is a small hand-written module
-  (no DSL): OIB verdicts from project facts (the UI's TS twin,
-  `applicable-standards.ts`, went with the cut-over, ADR-0175: the Steckbrief
-  shows the law the records resolve at the site), German trigger hints for the four boolean intake
-  facts (Kleingarten, Denkmalschutz, Betriebsanlage, Stellplatz; the Viennese
-  Kleingarten- and Garagengesetz only for a project in Wien), and the
-  prompt section Piloti renders from the project context, only for a project
-  placed in Austria.
-- **Display tagging** — `lane_for_hit` / `citations/binding.py::source_lane`
+- **Display tagging** — `lane_for_hit` / `citations/source_identity.py::source_lane`
   map a retrieval or citation hit to a stratum + lane label (Bundesrecht /
   Landesrecht / Verordnung via catalog rank; OIB lanes via filename class;
   Projektwissen / Büroablage / Web via collection origin) for the research

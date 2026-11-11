@@ -40,8 +40,6 @@ from agent.common.prompt_store import PromptStore
 from agent.common.prompt_store import ResolvedPrompt
 from agent.common.prompt_utils import render_prompt_template
 from agent.observability import langfuse_trace_attributes as lta
-from agent.turn.building_law import BUILDING_LAW_TAG
-from agent.turn.building_law import bundled_building_law
 
 FIXTURE = Path(__file__).parent / "fixtures" / "chat_prompt_rendered.txt"
 
@@ -62,7 +60,8 @@ PINNED = dict(
     org_instructions="<<ORG INSTRUCTIONS>>",
     focus_file_name="Einreichplan.pdf",
     focus_shelf_label="<<SHELF>>",
-    oib_applicability="<<OIB APPLICABILITY>>",
+    building_law="<building_law>\n<<CHAIN TEXT>>\n</building_law>",
+    jurisdiction_note="<<JURISDICTION NOTE>>",
     parcel_note="<<PARCEL NOTE>>",
     platform_lessons="<<PLATFORM LESSONS>>",
     project_context="name: Testprojekt\nPROPOSAL_DECISIONS v1\ndocuments_missing:\n- Bebauungsplan",
@@ -358,6 +357,12 @@ class TestServedTextThatDoesNotRender:
 
         assert resolve_static_block() == bundled_static_block()
 
+    def test_a_version_holding_the_retired_building_law_block_serves_the_bundled_file(self, monkeypatch):
+        """ADR-0175: a version published before the cut-over gives every turn Austria's chain; it is not served."""
+        self._serve(monkeypatch, "<role>x</role>\n<building_law>\nAustrian building law is a chain\n</building_law>")
+
+        assert resolve_static_block() == bundled_static_block()
+
     def test_json_braces_in_the_served_text_serve_the_bundled_file(self, monkeypatch):
         self._serve(monkeypatch, 'Beispiel: {{"a": 1}}')
 
@@ -452,13 +457,15 @@ def test_project_record_names_the_three_file_blocks_and_says_look_before_missing
     assert "documents_missing:" not in without
 
 
-def test_the_turn_s_building_law_block_is_the_static_prompt_s_byte_for_byte():
-    """ADR-0168: an Austrian site reads after the neutral push what it read before it.
+def test_the_static_prompt_names_no_country_s_law():
+    """ADR-0175: the chain text in the turn context is the only building law a turn reads.
 
-    Holds while the static prompt still carries the block; the push removes it
-    from ``chat_static.md``, and this test goes with it.
+    The static prompt carries the method (``<legal_method>``), never a ``<building_law>`` block: that
+    block held Austria's chain for every turn, a German or an unplaced project included (S8, defect 6).
     """
     static = (PROMPTS_DIR / STATIC_PROMPT_FILE).read_text(encoding="utf-8")
-    start = static.index(BUILDING_LAW_TAG)
-    end = static.index("</building_law>") + len("</building_law>")
-    assert bundled_building_law() == static[start:end]
+
+    assert "<building_law>" not in static and "building_law>" not in static
+    assert "<legal_method>" in static
+    for austrian in ("ÖNORM", "Bauordnung", "Land declared", "Flächenwidmungsplan", "MA 37"):
+        assert austrian not in static, austrian

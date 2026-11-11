@@ -1,11 +1,11 @@
-"""The tools one turn is sent: the boot set, narrowed to its scope and widened by its entitlements.
+"""The tools one turn is sent: the boot set, narrowed to its scope.
 
 The payload does not vary with the data-source toggles (a switched-off source
 keeps its tool and refuses the call), so an org lands on a handful of
 prompt-cache shards, never one per toggle combination. What does vary is
-fixed per turn: whether there is a project, whether the asking page can run a
-frontend tool (``common/client_tools``, ADR-0144), and an argument an
-entitlement adds to a tool (``time-editions``' ``as_of``, ADR-0171).
+fixed per turn: whether there is a project, and whether the asking page can run a
+frontend tool (``common/client_tools``, ADR-0144). The RIS lookup's ``as_of``
+(ADR-0171) is offered on every turn since the ``time-editions`` switch went (ADR-0175).
 """
 
 from __future__ import annotations
@@ -64,19 +64,3 @@ def tools_in_scope(tools: list[Any]) -> list[Any]:
         return in_project or name not in _PROJECT_MODEL_TOOLS
 
     return [tool for tool in tools if runs_here(tool)]
-
-
-def tools_for_flags(tools: list[Any], time_editions_allowed: bool) -> list[Any]:
-    """The boot tools, with an argument an entitlement adds shown when this turn's organization has it.
-
-    One today: ``law-lookup``'s ``as_of`` (``time-editions``, ADR-0171). Without the
-    flag the registered tool is bound as it is, so the payload is the one before
-    the flag existed; with it, an org gets one more cache shard, not one per turn.
-    """
-    from ris_adapter.lookup.as_of import as_of_offered
-
-    if not as_of_offered(time_editions_allowed):
-        return tools
-    from ris_adapter.lookup.tool import offer_as_of
-
-    return offer_as_of(tools)

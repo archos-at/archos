@@ -56,7 +56,7 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
       return {
         kind: record.kind,
         title: record.title,
-        identifiers: record.designation ? { designation: record.designation } : {},
+        identifiers: { ...record.identifiers, ...(record.designation ? { designation: record.designation } : {}) },
         territoryIds: record.territoryIds,
         issuer: record.issuer,
         addressees: record.addressees.map(({ name, territoryId, authorityKey }) => ({
@@ -89,8 +89,10 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
       return {
         kind: record.kind,
         name: record.name,
-        parentIds: record.parentIds,
-        datedParents: record.datedParents,
+        parents: record.parents,
+        // For builds before 0219 only, derived from `parents` and never a claim of their own.
+        parentIds: record.parents.filter((parent) => !parent.validFrom && !parent.validTo).map((parent) => parent.id),
+        datedParents: record.parents.filter((parent) => parent.validFrom || parent.validTo),
         aliases: record.aliases,
         validFrom: record.validFrom,
         validTo: record.validTo,
@@ -138,7 +140,7 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
 }
 
 /** Body columns that are no claim a reviewer decides: keys and the copy's licence statements. */
-const NOT_CLAIMS = new Set(['revisionId', 'recordId', 'organizationId', 'terms', 'sha256', 'textStatus'])
+const NOT_CLAIMS = new Set(['revisionId', 'recordId', 'organizationId', 'terms', 'sha256', 'textStatus', 'parentIds', 'datedParents'])
 
 /** A column 0213 added, left at what it says when nobody stated it: no claim, so older proposals review as they did. */
 function unstated(path: string, value: unknown): boolean {

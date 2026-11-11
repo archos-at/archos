@@ -40,7 +40,7 @@ vi.mock('./last-answer', async (original) => ({ ...(await original<typeof import
 import { contextCacheKey, contextDigest, knowledgeContextForTurn } from './service'
 
 const AUSTRIA = {
-  territories: new Map([['AT', { id: 'AT', kind: 'country', name: 'AT', parentIds: [], datedParents: [], validFrom: null, validTo: null, coverageLevel: 'core' }]]),
+  territories: new Map([['AT', { id: 'AT', kind: 'country', name: 'AT', parents: [], validFrom: null, validTo: null, coverageLevel: 'core' }]]),
   works: new Map(),
   editions: new Map(),
   relations: [],
@@ -94,10 +94,10 @@ describe('knowledgeContextForTurn', () => {
     expect(unavailableAdd).toHaveBeenCalledWith(1)
   })
 
-  it('counts only a turn’s failed read toward the alert, not an operation’s', async () => {
+  it.each(['operation', 'run'] as const)('counts only a turn’s failed read toward the alert, not an %s’s', async (reader) => {
     readOrganizationCountries.mockRejectedValue(new Error('database gone'))
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const context = await knowledgeContextForTurn('org_a', 'project_1', undefined, null, 'operation')
+    const context = await knowledgeContextForTurn('org_a', 'project_1', undefined, null, reader)
     expect(context?.gate.state).toBe('knowledge_unavailable')
     expect(unavailableAdd).not.toHaveBeenCalled()
   })

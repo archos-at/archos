@@ -245,6 +245,21 @@ describe('the exported file', () => {
     expect(without).not.toContain('Begr')
   })
 
+  it('carries a law_unsettled cap from the provenance, and drops a cap it has no sentence for', async () => {
+    const capped = async (reason: string) => {
+      vi.mocked(listMessagesForConversation).mockResolvedValue([
+        message({
+          metadata: { provenance: { answerConfidence: 'medium', answerConfidenceCappedReason: reason } },
+        }),
+      ])
+      return documentXml((await exportAnswerDocument(session, CONVERSATION_ID, ANSWER_ID)).bytes)
+    }
+    expect(await capped('law_unsettled')).toContain('verbindliche Fassung des Baurechts')
+    const retired = await capped('measurement_only')
+    expect(retired).toContain('Verl')
+    expect(retired).not.toContain('Begrenzt')
+  })
+
   /**
    * Art. 50(2) AI Act: the machine-readable marking is on every answer export,
    * printed notice or not. The positive control is the writer itself: called

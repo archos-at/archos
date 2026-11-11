@@ -22,6 +22,7 @@
 
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { approvedRequest } from './testing/lifecycle'
 
 vi.mock('server-only', () => ({}))
 
@@ -64,27 +65,9 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
 
   /** A request through to approval: proposed by the author, every claim accepted and approved by the expert. */
   async function approved(title: string, raw: unknown[]): Promise<string> {
-    const id = await store.insertChangeRequest({ title, countryId: 'AT', createdBy: AUTHOR })
-    await store.platformTransaction(async (tx) => {
-      const request = await store.lockChangeRequest(tx, id)
-      await store.insertProposedRecords(tx, request!, records(raw), { createdBy: AUTHOR, proposedBy: 'person' })
-      await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
-    })
-    const view = await store.readChangeRequest(id)
-    await store.platformTransaction(async (tx) => {
-      await store.insertReviewDecisions(
-        tx,
-        id,
-        { by: EXPERT, decisionSource: 'app' },
-        view!.revisions.flatMap((revision) =>
-          revision.claims.map((claim) => ({ revisionId: revision.revisionId, claimPath: claim.path, decision: 'accepted' as const })),
-        ),
-      )
-      await store.insertApproval(tx, { changeRequestId: id, approver: EXPERT, role: 'domain_expert', decisionSource: 'app' })
-      await store.setChangeRequestStatus(tx, id, 'approved', 'decidedAt')
-    })
-    return id
+    return approvedRequest({ title, countryId: 'AT', records: records(raw) }, { author: AUTHOR, expert: EXPERT })
   }
+
 
   async function published(title: string, raw: unknown[]): Promise<string> {
     const id = await approved(title, raw)
@@ -135,12 +118,12 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     // Austria's territories, one request: what authorities and directives name.
     await published('Austria: territories', [
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
-      { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parentIds: ['AT'] },
-      { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'] },
+      { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parents: [{ id: 'AT' }] },
+      { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
       // Run-scoped places, so the competence rules below decide for this run's places only and never for a
       // real Gemeinde another suite in the same database resolves (site-resolution's Graz).
-      { type: 'territory', id: GRAZ, kind: 'municipality', name: 'Graz (test)', parentIds: ['AT-6'] },
-      { type: 'territory', id: VIENNA, kind: 'municipality', name: 'Wien (test)', parentIds: ['AT-9'] },
+      { type: 'territory', id: GRAZ, kind: 'municipality', name: 'Graz (test)', parents: [{ id: 'AT-6' }] },
+      { type: 'territory', id: VIENNA, kind: 'municipality', name: 'Wien (test)', parents: [{ id: 'AT-9' }] },
     ])
   })
 
