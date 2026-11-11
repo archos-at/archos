@@ -435,11 +435,6 @@ export const annotationListResponseSchema = z.object({
   /** Whether this reader may set a new Anmerkung on the document. */
   canAnnotate: z.boolean(),
   /**
-   * Whether this reader gets the tape on this document: the organization holds `drawing-measure` and the
-   * file is a PDF (`lib/drawing-tape/service.ts`). Absent from a server that predates it, which is off.
-   */
-  canMeasure: z.boolean().optional(),
-  /**
    * Whether the organization lets events wake Piloti (the `piloti-wakes`
    * switch): a mark can be delegated to Piloti, and an @Piloti reply is
    * answered by the server rather than by this tab. Absent from a server

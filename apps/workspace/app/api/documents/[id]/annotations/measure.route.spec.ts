@@ -34,7 +34,7 @@ vi.mock('@/lib/annotations/attention', async (original) => ({
   onMarksSet: vi.fn(async () => undefined),
 }))
 // The engine, at its seam: what a kept measurement stores is what this answers.
-vi.mock('@/lib/drawing-tape/service', () => ({ measureOnReadDocument: vi.fn(), mayMeasure: vi.fn(() => false) }))
+vi.mock('@/lib/drawing-tape/service', () => ({ measureOnReadDocument: vi.fn() }))
 vi.mock('@/lib/annotations/repository', () => ({
   AnnotationLimitReachedError: class AnnotationLimitReachedError extends Error {},
   ReplyLimitReachedError: class ReplyLimitReachedError extends Error {},
@@ -53,7 +53,7 @@ import {
 } from '@/lib/annotations/repository'
 import type { Document } from '@/lib/db/schema/documents'
 import { getAccessibleDocument } from '@/lib/documents/access'
-import { mayMeasure, measureOnReadDocument } from '@/lib/drawing-tape/service'
+import { measureOnReadDocument } from '@/lib/drawing-tape/service'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 
 import { GET as list, POST as create } from './route'
@@ -116,7 +116,6 @@ beforeEach(() => {
   vi.mocked(findDocumentAnnotation).mockResolvedValue(RECORD)
   vi.mocked(insertDocumentAnnotations).mockResolvedValue([RECORD])
   vi.mocked(loadOrganizationDirectory).mockResolvedValue(new Map())
-  vi.mocked(mayMeasure).mockReturnValue(false)
 })
 
 describe('keeping a measurement on the sheet (ADR-0182, slice 8)', () => {
@@ -130,11 +129,12 @@ describe('keeping a measurement on the sheet (ADR-0182, slice 8)', () => {
     provenance: 'vector_estimated' as const,
     scaleState: 'estimated' as const,
     scaleRatio: 100,
+    printed: null,
     verdict: null,
     reasons: [],
     points: LINE.points,
   }
-  const KEPT = { value: ENGINE.value, unit: 'm', low: ENGINE.low, high: ENGINE.high, provenance: 'vector_estimated', scaleState: 'estimated' }
+  const KEPT = { value: ENGINE.value, unit: 'm', low: ENGINE.low, high: ENGINE.high, provenance: 'vector_estimated', scaleState: 'estimated', scaleRatio: 100, printed: null }
 
   it('asks the engine for the mark’s own points and stores what it answers, unchanged', async () => {
     vi.mocked(measureOnReadDocument).mockResolvedValue({ measurement: ENGINE })
@@ -164,15 +164,15 @@ describe('keeping a measurement on the sheet (ADR-0182, slice 8)', () => {
     expect(measureOnReadDocument).toHaveBeenCalledWith(expect.anything(), DOC, { page: 3, operation, points })
   })
 
-  it('keeps nothing where the engine gives no number, and says its reason and remedy', async () => {
+  it('keeps nothing where the engine gives no number, and says why by its code', async () => {
     vi.mocked(measureOnReadDocument).mockResolvedValue({
-      noNumber: { reason: 'this region has no usable scale', remedy: 'ask a person to confirm the scale', scaleState: 'uncalibrated', candidates: [] },
+      noNumber: { code: 'uncalibrated', reason: 'this region has no usable scale', remedy: 'ask a person to confirm the scale', scaleState: 'uncalibrated', candidates: [] },
     })
 
     await expect(createAnnotation('doc_1', LINE, { run })).rejects.toMatchObject({
       status: 422,
       reason: 'no-number',
-      message: expect.stringContaining('no usable scale'),
+      message: expect.stringContaining('(uncalibrated)'),
     })
     expect(insertDocumentAnnotations).not.toHaveBeenCalled()
   })
@@ -191,14 +191,6 @@ describe('keeping a measurement on the sheet (ADR-0182, slice 8)', () => {
     expect(insertDocumentAnnotations).toHaveBeenCalledWith(
       expect.objectContaining({ marks: [expect.objectContaining({ shape: 'point', points: null, measurement: null })] })
     )
-  })
-
-  it('tells the review whether this reader gets the tape on this document', async () => {
-    vi.mocked(listDocumentAnnotations).mockResolvedValue([])
-    expect((await listAnnotations('doc_1', run)).canMeasure).toBe(false)
-
-    vi.mocked(mayMeasure).mockReturnValueOnce(true)
-    expect((await listAnnotations('doc_1', run)).canMeasure).toBe(true)
   })
 
   it('is not offered to carry: a measurement is true of the Fassung it was measured on', async () => {

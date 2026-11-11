@@ -54,7 +54,7 @@
     "apps/workspace/ui/features/documents/components/review/thread-card.tsx": 1104,
     "apps/workspace/ui/features/documents/components/upload-tray.tsx": 681,
     "apps/workspace/ui/features/documents/components/use-file-preview-controller.tsx": 645,
-    "apps/workspace/ui/features/documents/hooks/use-document-review.ts": 735,
+    "apps/workspace/ui/features/documents/hooks/use-document-review.ts": 734,
     "apps/workspace/ui/features/documents/hooks/use-file-upload.ts": 627,
     "apps/workspace/ui/features/jobs/components/schedule-wizard.tsx": 1052,
     "apps/workspace/ui/features/knowledge/components/use-pdf-document-view-controller.tsx": 797,

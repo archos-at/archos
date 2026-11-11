@@ -1923,38 +1923,44 @@ export const files = {
     },
     pinOpenBy: 'open for {names}',
     draftCard: 'New annotation',
-    // The tape on a PDF drawing: a distance, a path or an area between corners of the linework. Every number is the
-    // measuring engine's; its reason and remedy for giving none are shown in its own words.
+    // The tape on a PDF drawing: a distance, a path or an area between corners of the linework. A reading is the
+    // value with a tolerance and one line on what it rests on; a refusal is one sentence, chosen by the measuring
+    // engine's code, and never the engine's own wording.
     measure: {
       toolsLabel: 'Measure',
       tools: { distance: 'Measure a distance', path: 'Measure a path', area: 'Measure an area' },
       toolsShort: { distance: 'Distance', path: 'Path', area: 'Area' },
       hint: {
-        distance: 'Click two corners · Esc cancels',
+        distance: 'Click two corners of the drawing · Esc cancels',
         path: 'Click the corners along the path · Esc cancels',
-        area: 'Click the corners in order · Esc cancels',
+        area: 'Click the corners of the area in order · Esc cancels',
+      },
+      hintTouch: {
+        distance: 'Tap two corners of the drawing',
+        path: 'Tap the corners along the path',
+        area: 'Tap the corners of the area in order',
       },
       readingLabel: 'Measurement',
-      interval: '{low} to {high}',
-      provenance: {
-        vector_verified: 'Measured on the linework',
-        vector_estimated: 'Measured on the linework, at an estimated scale: not enough to decide a requirement',
-        printed_figure: 'Not measured: the dimension printed on this span',
+      withTolerance: '{value} ± {tolerance}',
+      basis: {
+        verified: 'Scale confirmed',
+        verifiedRatio: 'Scale 1:{ratio}, confirmed',
+        estimated: 'Scale estimated, not confirmed yet',
+        estimatedRatio: 'Scale 1:{ratio}, estimated, not confirmed yet',
+        printed: 'Read off the printed dimension {figure}',
+        printedNoFigure: 'Read off the printed dimension',
       },
-      scale: {
-        verified: 'Scale confirmed by a person',
-        estimated: 'Scale estimated from the sheet’s own dimensions',
-        uncalibrated: 'No confirmed scale for this part of the sheet',
-      },
-      scaleWithRatio: {
-        verified: 'Scale 1:{ratio}, confirmed by a person',
-        estimated: 'Scale 1:{ratio}, estimated from the sheet’s own dimensions',
-        uncalibrated: 'No confirmed scale for this part of the sheet',
-      },
-      noNumber: 'No number',
-      miss: {
-        none: 'No line end or corner here. Click on a corner of the drawing.',
-        several: 'Several corners are in reach. Pick one of the marked ones.',
+      calibrate: 'Calibrate the scale',
+      refused: {
+        uncalibrated: 'No scale is confirmed for this part of the drawing.',
+        several_in_reach: 'Several corners are in reach. Pick one of the marked ones.',
+        none_in_reach: 'No line is near here. Click closer to the edge.',
+        too_dense: 'Too many lines lie close together here. Zoom in and pick a clear corner.',
+        too_flat: 'The line meets the wall at too flat an angle. Measure square across it.',
+        two_regions: 'The line runs across two drawings with different scales.',
+        scan: 'This page is a scan without lines. It cannot be measured.',
+        not_an_area: 'These corners enclose no area. Click them in order around it.',
+        other: 'That cannot be measured here.',
       },
       candidate: 'Use corner {number}',
       measuring: 'Measuring …',

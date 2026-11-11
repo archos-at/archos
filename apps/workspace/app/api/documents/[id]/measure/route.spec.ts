@@ -79,6 +79,7 @@ const ENGINE_MEASUREMENT = {
     provenance: 'vector_estimated',
     scaleState: 'estimated',
     scaleRatio: 100.00000000000001,
+    printed: null,
     verdict: null,
     reasons: [],
     points: [[0.21003, 0.39998], [0.36001, 0.39998]],
@@ -146,9 +147,9 @@ describe('POST /api/documents/{id}/measure', () => {
   it('answers a snap with where each point lands, or why it lands nowhere', async () => {
     const snap = {
       snap: [
-        { snapped: [0.21003, 0.39998], movedPt: 1.4, reason: null, detail: null, candidates: [] },
-        { snapped: null, movedPt: null, reason: 'several', detail: '2 line ends in reach', candidates: [[0.3, 0.4], [0.31, 0.4]] },
-        { snapped: null, movedPt: null, reason: 'none', detail: 'no line end in reach', candidates: [] },
+        { snapped: [0.21003, 0.39998], movedPt: 1.4, code: null, detail: null, candidates: [] },
+        { snapped: null, movedPt: null, code: 'several_in_reach', detail: '2 line ends in reach', candidates: [[0.3, 0.4], [0.31, 0.4]] },
+        { snapped: null, movedPt: null, code: 'none_in_reach', detail: 'no line end in reach', candidates: [] },
       ],
     }
     backend.mockImplementation(async () => Response.json(snap))
@@ -157,7 +158,7 @@ describe('POST /api/documents/{id}/measure', () => {
   })
 
   it('answers no number with the engine’s reason and remedy', async () => {
-    const refused = { noNumber: { reason: 'this region has no usable scale (no hint)', remedy: 'ask a person to confirm the scale', scaleState: 'uncalibrated', candidates: [] } }
+    const refused = { noNumber: { code: 'uncalibrated', reason: 'this region has no usable scale (no hint)', remedy: 'ask a person to confirm the scale', scaleState: 'uncalibrated', candidates: [] } }
     backend.mockImplementation(async () => Response.json(refused))
 
     expect(await measureOnDocument('doc_1', DISTANCE, run)).toEqual(refused)

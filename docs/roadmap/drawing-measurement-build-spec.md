@@ -675,11 +675,28 @@ otherwise to state as „not verified because“ in the closing checklist.
     `reason: measurement`), on the same document and onto a replacing one.
   * *The agent's canvas tools still set a point or a region only;* they read
     a measurement in their list, its place as the box around its points.
-  * *Not built:* the engine's reason and remedy are shown in its own English
-    words in a German interface; no hint line at the top of the canvas while
-    a tape tool is in hand (the tooltip says what to click); no keyboard
-    crosshair for the tape; the measured shape in hand is not shown to the
-    others in the room.
+  * *A reading is written for a person.* The card shows the value with a
+    tolerance, to no more digits than the tolerance supports („7,39 m ± 4 cm“,
+    `measure/tape-format.ts`), and one line on what it rests on: the scale
+    confirmed, or estimated and not confirmed yet with the way to calibrate
+    it, or the printed dimension it was read off. The kept mark stores the
+    engine's exact numbers; only the display rounds.
+  * *A refusal is a code, worded by the interface.* `NoNumber.cause`
+    (`sheet_answers.Cause`) is set where the engine decides and is no line of
+    `render()`; the tape passes it as `code`, with `scan` for a page without
+    linework. The review maps each code to one sentence in the reader's
+    language and at most one action (`review.measure.refused.*`); the engine's
+    English reason is the sentence's tooltip, for support, never its text.
+  * *One way the client learns the entitlement:* slice 5's
+    `DrawingMeasureAccess` context. The annotation list carries no flag. The
+    context does not know the file's type, so on a file the route refuses as no
+    PDF (422) the tape withdraws its tools for that document.
+  * *Keys D, W and F* take up distance, path and area; the line at the top of
+    the canvas says what the tool in hand does next, as for the other tools.
+  * *Not built:* no keyboard crosshair for the tape; the measured shape in
+    hand is not shown to the others in the room; who confirmed a verified
+    scale is not named (the engine's scale reading does not carry the
+    calibration's creator).
 
 ### Not in this build
 

@@ -37,12 +37,14 @@ export async function keptReadingFor(
     points: mark.points ?? [],
   })
   if (!('measurement' in answer)) {
-    const refused = 'noNumber' in answer ? answer.noNumber : null
-    throw new UnprocessableError(
-      refused ? `Nothing to keep: ${refused.reason}. ${refused.remedy}`.trim() : 'Nothing to keep: no measurement.',
-      { field: 'points', reason: 'no-number' }
-    )
+    // The code says why (`TAPE_CODES`); a person's interface words it, an agent reads it beside the message.
+    const code = 'noNumber' in answer ? answer.noNumber.code : 'other'
+    throw new UnprocessableError(`Nothing to keep: these points give no measurement (${code}).`, {
+      field: 'points',
+      reason: 'no-number',
+      code,
+    })
   }
-  const { value, unit, low, high, provenance, scaleState } = answer.measurement
-  return keptReadingSchema.parse({ value, unit, low, high, provenance, scaleState })
+  const { value, unit, low, high, provenance, scaleState, scaleRatio, printed } = answer.measurement
+  return keptReadingSchema.parse({ value, unit, low, high, provenance, scaleState, scaleRatio, printed })
 }

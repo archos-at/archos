@@ -47,11 +47,6 @@ const BACKEND_TAPE_PATH = '/v1/internal/drawing-tape'
 /** The engine bounds one answer at 30 s and a page read at 90 s; this is the backstop behind both. */
 const BACKEND_TAPE_TIMEOUT_MS = 125_000
 
-/** Whether this session's organization holds the tape, and the document is one it reads. */
-export function mayMeasure(session: AuthorizedSession, document: Pick<Document, 'filename'>): boolean {
-  return isDrawingMeasureEnabled(session) && isTapeDocument(document)
-}
-
 async function envelopeFor(session: AuthorizedSession, document: Document, secret: string) {
   try {
     return await signedEnvelopeHeaders(session, document.projectId ?? undefined, secret)

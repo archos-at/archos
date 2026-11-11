@@ -1894,38 +1894,44 @@ export const files: typeof en.files = {
     },
     pinOpenBy: 'offen bei {names}',
     draftCard: 'Neue Anmerkung',
-    // Das Maßband auf einer PDF-Zeichnung: Strecke, Weg oder Fläche zwischen Ecken der Linien. Jede Zahl stammt von
-    // der Messung selbst; ihr Grund und ihre Abhilfe, wenn sie keine gibt, stehen in ihren eigenen Worten da.
+    // Das Maßband auf einer PDF-Zeichnung: Strecke, Weg oder Fläche zwischen Ecken der Linien. Eine Messung ist der
+    // Wert mit einer Toleranz und eine Zeile, worauf er beruht; eine Absage ist ein Satz, gewählt nach dem Code der
+    // Messung, und nie deren eigener Wortlaut.
     measure: {
       toolsLabel: 'Messen',
       tools: { distance: 'Strecke messen', path: 'Weg messen', area: 'Fläche messen' },
       toolsShort: { distance: 'Strecke', path: 'Weg', area: 'Fläche' },
       hint: {
-        distance: 'Zwei Ecken anklicken · Esc bricht ab',
+        distance: 'Zwei Ecken der Zeichnung anklicken · Esc bricht ab',
         path: 'Die Ecken entlang des Wegs anklicken · Esc bricht ab',
-        area: 'Die Ecken der Reihe nach anklicken · Esc bricht ab',
+        area: 'Die Ecken der Fläche der Reihe nach anklicken · Esc bricht ab',
+      },
+      hintTouch: {
+        distance: 'Auf zwei Ecken der Zeichnung tippen',
+        path: 'Auf die Ecken entlang des Wegs tippen',
+        area: 'Auf die Ecken der Fläche der Reihe nach tippen',
       },
       readingLabel: 'Messung',
-      interval: '{low} bis {high}',
-      provenance: {
-        vector_verified: 'An den Linien gemessen',
-        vector_estimated: 'An den Linien gemessen, mit geschätztem Maßstab: reicht nicht, um eine Anforderung zu entscheiden',
-        printed_figure: 'Nicht gemessen: die Maßzahl, die an dieser Strecke gedruckt ist',
+      withTolerance: '{value} ± {tolerance}',
+      basis: {
+        verified: 'Maßstab bestätigt',
+        verifiedRatio: 'Maßstab 1:{ratio}, bestätigt',
+        estimated: 'Maßstab geschätzt, noch nicht bestätigt',
+        estimatedRatio: 'Maßstab 1:{ratio}, geschätzt, noch nicht bestätigt',
+        printed: 'Abgelesen von der Maßzahl {figure}',
+        printedNoFigure: 'Abgelesen von der gedruckten Maßzahl',
       },
-      scale: {
-        verified: 'Maßstab von einer Person bestätigt',
-        estimated: 'Maßstab aus den Maßzahlen des Blatts geschätzt',
-        uncalibrated: 'Kein bestätigter Maßstab für diesen Teil des Blatts',
-      },
-      scaleWithRatio: {
-        verified: 'Maßstab 1:{ratio}, von einer Person bestätigt',
-        estimated: 'Maßstab 1:{ratio}, aus den Maßzahlen des Blatts geschätzt',
-        uncalibrated: 'Kein bestätigter Maßstab für diesen Teil des Blatts',
-      },
-      noNumber: 'Keine Zahl',
-      miss: {
-        none: 'Hier ist kein Linienende und keine Ecke. Auf eine Ecke der Zeichnung klicken.',
-        several: 'Mehrere Ecken liegen in Reichweite. Eine der markierten wählen.',
+      calibrate: 'Maßstab kalibrieren',
+      refused: {
+        uncalibrated: 'Für diesen Teil der Zeichnung ist kein Maßstab bestätigt.',
+        several_in_reach: 'Mehrere Ecken liegen in Reichweite. Eine der markierten wählen.',
+        none_in_reach: 'Hier liegt keine Linie in der Nähe. Näher an die Kante klicken.',
+        too_dense: 'Hier liegen zu viele Linien dicht beieinander. Näher heranzoomen und eine klare Ecke wählen.',
+        too_flat: 'Die Strecke trifft die Linie zu schräg. Quer zur Wand messen.',
+        two_regions: 'Die Strecke reicht über zwei Zeichnungen mit verschiedenem Maßstab.',
+        scan: 'Diese Seite ist ein Scan ohne Linien. Darauf lässt sich nicht messen.',
+        not_an_area: 'Diese Ecken ergeben keine Fläche. Der Reihe nach um die Fläche klicken.',
+        other: 'Das lässt sich hier nicht messen.',
       },
       candidate: 'Ecke {number} nehmen',
       measuring: 'Wird gemessen …',

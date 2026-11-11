@@ -45,7 +45,7 @@ import {
   type RoomPeerState,
 } from '../../hooks/use-document-room'
 import { CursorChat } from './cursor-chat'
-import { MeasureTools } from './measure/measure-tools'
+import { MeasureTools, tapeHint } from './measure/measure-tools'
 import { TOOLS } from './palette-tools'
 import { keepTrigger, restoreFocus } from './focus-return'
 import { AgentAnswerCard } from './agent-answer-card'
@@ -1023,7 +1023,7 @@ export function DocumentReviewMode({
       ? aim
         ? t(`review.aim.hint.${tool}`)
         : t(`review.${touch ? 'toolHintTouch' : 'toolHint'}.${tool}`)
-      : null
+      : tapeHint(t, review.tape, touch)
 
   const toolsPalette = (variant: 'icons' | 'intro' | 'touch') => (
     <ReviewTools

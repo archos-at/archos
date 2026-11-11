@@ -35,6 +35,7 @@ import { reviewFocusOf } from '../lib/review-focus'
 import { useCanvasAsk, type UseCanvasAskOptions } from './use-canvas-ask'
 import { rebased, type HeldDecision } from './held-decision'
 import { useSheetTape } from './use-sheet-tape'
+import { useDrawingMeasureEnabled } from '../lib/drawing-measure-access'
 import type { PagePoint } from '@/lib/annotations/measure-shapes'
 import { useDocumentRoom, type RoomTransport } from './use-document-room'
 
@@ -168,8 +169,8 @@ export function useDocumentReview(
   /** The marks as the server last answered; `annotations` below shows them with the held decisions. */
   const [stored, setAnnotations] = useState<AnnotationView[]>([])
   const [canAnnotate, setCanAnnotate] = useState(false)
-  /** The tape is offered: a PDF, in an organization that holds measuring on drawings. */
-  const [canMeasure, setCanMeasure] = useState(false)
+  /** The organization holds measuring on drawings (`DrawingMeasureAccess`): the tape is offered once the marks are read. */
+  const measuring = useDrawingMeasureEnabled()
   /** The organization lets events wake Piloti: an @Piloti reply is the server's to answer, and a mark can be delegated. */
   const [pilotiWakes, setAgentWakes] = useState(false)
   const [attempt, setAttempt] = useState(0)
@@ -360,7 +361,6 @@ export function useDocumentReview(
     if (reads.current.documentId !== documentId || reads.current.list !== ticket) return result.annotations
     setAnnotations(result.annotations)
     setCanAnnotate(result.canAnnotate)
-    setCanMeasure(result.canMeasure ?? false)
     setAgentWakes(result.pilotiWakes)
     setListedFor(documentId)
     setLoad('ready')
@@ -560,7 +560,7 @@ export function useDocumentReview(
   )
   // The tape: a measurement in hand, kept as a mark through `create` (the server measures it again).
   const keepMark = useCallback((body: string, place: ReviewDraft) => create({ kind: 'hint', body }, place), [create])
-  const tape = useSheetTape({ documentId, available: canMeasure, reviewTool: tool, setReviewTool: setToolState, keepMark })
+  const tape = useSheetTape({ documentId, available: measuring && load === 'ready', reviewTool: tool, setReviewTool: setToolState, keepMark })
 
   /**
    * Decisions taken by a key (E, ⌫), held back for {@link DECISION_UNDO_MS}

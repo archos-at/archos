@@ -67,6 +67,8 @@ export const tapeMeasurementSchema = z.object({
   scaleState: z.enum(SCALE_STATES),
   /** The N of 1:N a person reads, where the region has a scale. */
   scaleRatio: z.number().nullable(),
+  /** The dimension figure the value was read off, as printed; only where nothing was measured (`printed_figure`). */
+  printed: z.string().max(200).nullable(),
   /** Always null for a person's tape: no threshold is passed, so nothing is decided. */
   verdict: z.enum(['met', 'not_met', 'undecidable']).nullable(),
   reasons: z.array(z.string()),
@@ -75,8 +77,30 @@ export const tapeMeasurementSchema = z.object({
 })
 export type TapeMeasurement = z.infer<typeof tapeMeasurementSchema>
 
-/** No number, and why: the engine's reason and remedy, and the candidates a point could be placed on. */
+/**
+ * Why there is no number, as the engine decides it (`agent.drawings.sheet_answers.Cause`). The interface words each
+ * one itself, in the reader's language; a code this build does not know reads as `other`.
+ */
+export const TAPE_CODES = [
+  'uncalibrated',
+  'several_in_reach',
+  'none_in_reach',
+  'too_dense',
+  'too_flat',
+  'two_regions',
+  'scan',
+  'not_an_area',
+  'other',
+] as const
+export type TapeCode = (typeof TAPE_CODES)[number]
+const tapeCode = z.enum(TAPE_CODES).catch('other')
+
+/**
+ * No number, and why: the `code` an interface words, the candidates a point could be placed on, and the engine's
+ * own English reason and remedy, which are for support and never a person's text.
+ */
 export const tapeNoNumberSchema = z.object({
+  code: tapeCode,
   reason: z.string(),
   remedy: z.string(),
   scaleState: z.enum(SCALE_STATES).nullable(),
@@ -84,11 +108,11 @@ export const tapeNoNumberSchema = z.object({
 })
 export type TapeNoNumber = z.infer<typeof tapeNoNumberSchema>
 
-/** Where one point lands: the snapped place, or why none (`none` in reach, or `several` with the candidates). */
+/** Where one point lands: the snapped place, or the code of why none (several in reach come with the candidates). */
 export const tapeSnapSchema = z.object({
   snapped: place.nullable(),
   movedPt: z.number().nullable(),
-  reason: z.enum(['none', 'several']).nullable(),
+  code: tapeCode.nullable(),
   detail: z.string().nullable(),
   candidates: z.array(place),
 })

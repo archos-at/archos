@@ -263,7 +263,8 @@ export const reviewOperations = [
       'Measures between points on a page of the document’s current version, from the file’s own linework: `distance` (two points), ' +
       '`path` (two or more) or `area` (three or more corners in order); `snap` returns where each point is tied to a line end or ' +
       'corner, or the candidates when several are in reach. Points are shares of the page as shown, 0 to 1, origin top left. ' +
-      'Returns a measurement with its interval, provenance and scale state, or no number with the reason and the remedy. ' +
+      'Returns a measurement with its interval, provenance and scale state, or no number with a `code` (for example `uncalibrated`, ' +
+      '`several_in_reach`, `two_regions`), the reason and the remedy. ' +
       'State a number with its interval and provenance; never recompute, round or convert one. Read-only: keep a measurement ' +
       'on the sheet with annotation-create.',
     method: 'POST',
@@ -271,6 +272,7 @@ export const reviewOperations = [
     params: documentParams,
     body: measureRequestSchema,
     readOnly: true,
+    feature: FEATURE_FLAGS.drawingMeasure,
     examples: [
       {
         params: { id: '5b1e7c2a-9d4f-4c3b-8a6e-2f1d0c9b8a7e' },

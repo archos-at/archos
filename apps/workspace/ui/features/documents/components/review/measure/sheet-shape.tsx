@@ -139,8 +139,43 @@ export function SheetClickSurface({ className, ...props }: ComponentProps<'div'>
   )
 }
 
-/** The middle of a shape, for its value tag: the mean of its points. */
-export function middleOf(points: readonly PagePoint[]): PagePoint {
+/** A reading's headline: the value with its tolerance, tabular so a value that updates does not jump. */
+export function ReadingTitle({ className, ...props }: ComponentProps<'p'>): JSX.Element {
+  return <p data-slot="reading-title" className={cn('text-foreground text-sm leading-5 font-semibold tabular-nums', className)} {...props} />
+}
+
+/** The one quiet line under a reading: what the value rests on. */
+export function ReadingBasis({ className, ...props }: ComponentProps<'p'>): JSX.Element {
+  return <p data-slot="reading-basis" className={cn('text-muted-foreground leading-snug', className)} {...props} />
+}
+
+/** A sentence that is the card's whole text: why there is no number, in ink at reading size. */
+export function ReadingText({ className, ...props }: ComponentProps<'p'>): JSX.Element {
+  return <p data-slot="reading-text" className={cn('text-foreground text-[13px] leading-snug', className)} {...props} />
+}
+
+/** The row of actions under a reading. */
+export function ReadingActions({ className, ...props }: ComponentProps<'div'>): JSX.Element {
+  return <div data-slot="reading-actions" className={cn('flex items-center gap-1.5 pt-1', className)} {...props} />
+}
+
+/**
+ * Where a shape's value tag sits. An area: the mean of its corners, inside it. A line or a path: halfway along it,
+ * ON the line, so the tag is never beside a path it does not seem to belong to.
+ */
+export function middleOf(points: readonly PagePoint[], closed = false): PagePoint {
   const count = Math.max(points.length, 1)
-  return [points.reduce((sum, [x]) => sum + x, 0) / count, points.reduce((sum, [, y]) => sum + y, 0) / count]
+  if (closed || points.length < 2) {
+    return [points.reduce((sum, [x]) => sum + x, 0) / count, points.reduce((sum, [, y]) => sum + y, 0) / count]
+  }
+  const legs = points.slice(1).map((end, index) => Math.hypot(end[0] - points[index][0], end[1] - points[index][1]))
+  let left = legs.reduce((sum, leg) => sum + leg, 0) / 2
+  for (const [index, leg] of legs.entries()) {
+    if (left <= leg && leg > 0) {
+      const [start, end] = [points[index], points[index + 1]]
+      return [start[0] + ((end[0] - start[0]) * left) / leg, start[1] + ((end[1] - start[1]) * left) / leg]
+    }
+    left -= leg
+  }
+  return points[0]
 }

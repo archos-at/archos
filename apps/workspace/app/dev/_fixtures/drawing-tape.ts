@@ -27,6 +27,7 @@ export const DISTANCE_ESTIMATED: SheetTape = {
     provenance: 'vector_estimated',
     scaleState: 'estimated',
     scaleRatio: 100,
+    printed: null,
     verdict: null,
     reasons: [],
     points: [[0.12, 0.5], [0.62, 0.5]],
@@ -47,6 +48,7 @@ export const AREA_VERIFIED: SheetTape = {
     provenance: 'vector_verified',
     scaleState: 'verified',
     scaleRatio: 50,
+    printed: null,
     verdict: null,
     reasons: [],
     points: [[0.12, 0.2], [0.44, 0.2], [0.44, 0.5], [0.12, 0.5]],
@@ -59,6 +61,7 @@ export const REFUSED_UNCALIBRATED: SheetTape = {
   tool: 'distance',
   points: [[0.62, 0.5], [0.62, 0.8]],
   refusal: {
+    code: 'uncalibrated',
     reason: 'this region has no usable scale (the sheet prints two different scale notes and stores no region)',
     remedy: 'ask a person to confirm the scale of this region (a calibration), then measure again',
     scaleState: 'uncalibrated',
@@ -66,12 +69,40 @@ export const REFUSED_UNCALIBRATED: SheetTape = {
   },
 }
 
+/** A span with a printed dimension on it, in a region nobody calibrated: the figure is read, nothing is measured. */
+export const READ_OFF_FIGURE: SheetTape = {
+  ...IN_HAND,
+  tool: 'distance',
+  points: [[0.44, 0.2], [0.88, 0.2]],
+  reading: {
+    quantity: 'clearance',
+    value: 4.25,
+    unit: 'm',
+    low: 4.245,
+    high: 4.255,
+    provenance: 'printed_figure',
+    scaleState: 'uncalibrated',
+    scaleRatio: null,
+    printed: '4,25',
+    verdict: null,
+    reasons: [],
+    points: [[0.44, 0.2], [0.88, 0.2]],
+  },
+}
+
+/** A click on a page that is a scan. */
+export const ON_A_SCAN: SheetTape = {
+  ...IN_HAND,
+  tool: 'distance',
+  miss: { page: 1, at: [0.3, 0.35], code: 'scan', candidates: [] },
+}
+
 /** A click between a wall's end and a lining a few centimetres inside it. */
 export const SEVERAL_IN_REACH: SheetTape = {
   ...IN_HAND,
   tool: 'path',
   points: [[0.12, 0.8]],
-  miss: { page: 1, at: [0.875, 0.79], reason: 'several', candidates: [[0.88, 0.8], [0.865, 0.8]] },
+  miss: { page: 1, at: [0.875, 0.79], code: 'several_in_reach', candidates: [[0.88, 0.8], [0.865, 0.8]] },
 }
 
 const mark = (number: number, extra: Partial<AnnotationView> & { points: PagePoint[] }): AnnotationView => ({
@@ -118,13 +149,13 @@ export const KEPT_MARKS: AnnotationView[] = [
   mark(1, {
     body: 'Flurbreite',
     points: [[0.44, 0.2], [0.44, 0.5]],
-    measurement: { value: 3, unit: 'm', low: 2.985, high: 3.015, provenance: 'vector_estimated', scaleState: 'estimated' },
+    measurement: { value: 3, unit: 'm', low: 2.985, high: 3.015, provenance: 'vector_estimated', scaleState: 'estimated', scaleRatio: 100 },
   }),
   mark(2, {
     shape: 'polygon',
     body: 'Zimmer 2, Fläche',
     points: [[0.62, 0.5], [0.88, 0.5], [0.88, 0.8], [0.62, 0.8]],
-    measurement: { value: 16.5, unit: 'm2', low: 16.434, high: 16.566, provenance: 'vector_verified', scaleState: 'verified' },
+    measurement: { value: 16.5, unit: 'm2', low: 16.434, high: 16.566, provenance: 'vector_verified', scaleState: 'verified', scaleRatio: 50 },
   }),
   mark(3, {
     shape: 'path',

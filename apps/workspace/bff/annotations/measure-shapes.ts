@@ -87,6 +87,10 @@ export const keptReadingSchema = z
     high: z.number().finite(),
     provenance: z.enum(MEASURE_PROVENANCES),
     scaleState: z.enum(SCALE_STATES),
+    /** The N of 1:N the scale was, where the region had one: what the kept card says the value rests on. */
+    scaleRatio: z.number().finite().positive().nullable().optional(),
+    /** The dimension figure the value was read off, as printed (`printed_figure`). */
+    printed: z.string().max(200).nullable().optional(),
   })
   .strict()
   .refine((reading) => reading.low <= reading.value && reading.value <= reading.high, {

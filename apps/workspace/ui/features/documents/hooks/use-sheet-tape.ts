@@ -21,8 +21,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MeasureShape, PagePoint } from '@/lib/annotations/measure-shapes'
-import { measureOnDocument } from '@/lib/drawing-tape/client'
-import type { MeasureRequest, MeasureResponse, TapeMeasurement, TapeNoNumber } from '@/lib/drawing-tape/wire'
+import { measureOnDocument, TapeRequestError } from '@/lib/drawing-tape/client'
+import type { MeasureRequest, MeasureResponse, TapeCode, TapeMeasurement, TapeNoNumber } from '@/lib/drawing-tape/wire'
 
 export const TAPE_TOOLS = ['distance', 'path', 'area'] as const
 export type TapeTool = (typeof TAPE_TOOLS)[number]
@@ -35,7 +35,8 @@ const FEWEST: Record<TapeTool, number> = { distance: 2, path: 2, area: 3 }
 export interface TapeMiss {
   page: number
   at: PagePoint
-  reason: 'none' | 'several'
+  /** Why, as the engine's code: several corners in reach (with `candidates`), none, too dense, a scan. */
+  code: TapeCode
   candidates: PagePoint[]
 }
 
@@ -118,6 +119,9 @@ export function useSheetTape({
   })
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
+  // The route said this file is none the tape reads (no PDF): the tools are withdrawn for this document.
+  const [unread, setUnread] = useState<string | null>(null)
+  const offered = available && unread !== documentId
   // Each request takes a ticket; an answer whose ticket is no longer the newest is dropped.
   const ticket = useRef(0)
 
@@ -133,19 +137,19 @@ export function useSheetTape({
   const take = useCallback(
     (next: TapeTool | null) => {
       clear()
-      setTool(available ? next : null)
-      if (next) setReviewTool('select')
+      setTool(offered ? next : null)
+      if (next && offered) setReviewTool('select')
     },
-    [available, clear, setReviewTool]
+    [offered, clear, setReviewTool]
   )
 
   // A review tool taken up, another document, or the tape withdrawn: the tape is put down.
   useEffect(() => {
-    if (reviewTool !== 'select' || !available) {
+    if (reviewTool !== 'select' || !offered) {
       setTool(null)
       clear()
     }
-  }, [reviewTool, available, clear])
+  }, [reviewTool, offered, clear])
   useEffect(() => {
     setTool(null)
     clear()
@@ -175,8 +179,9 @@ export function useSheetTape({
       try {
         const result = await measure(documentId, body)
         return ticket.current === mine ? result : null
-      } catch {
-        if (ticket.current === mine) setFailed(true)
+      } catch (error) {
+        if (error instanceof TapeRequestError && error.status === 422) setUnread(documentId)
+        else if (ticket.current === mine) setFailed(true)
         return null
       } finally {
         if (ticket.current === mine) setBusy(false)
@@ -196,7 +201,7 @@ export function useSheetTape({
       const found = snapped && 'snap' in snapped ? snapped.snap[0] : null
       if (!found) return
       if (!found.snapped) {
-        setMiss({ page, at, reason: found.reason ?? 'none', candidates: found.candidates })
+        setMiss({ page, at, code: found.code ?? 'none_in_reach', candidates: found.candidates })
         return
       }
       const points = [...before, found.snapped]
@@ -244,7 +249,7 @@ export function useSheetTape({
 
   return useMemo(
     () => ({
-      available,
+      available: offered,
       tool,
       page: shape.page,
       points: shape.points,
@@ -258,6 +263,6 @@ export function useSheetTape({
       keep,
       clear,
     }),
-    [available, tool, shape, miss, answer, busy, failed, take, click, keep, clear]
+    [offered, tool, shape, miss, answer, busy, failed, take, click, keep, clear]
   )
 }

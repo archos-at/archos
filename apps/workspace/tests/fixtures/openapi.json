@@ -12739,7 +12739,7 @@
       "post": {
         "operationId": "document-measure",
         "summary": "Measure a distance, a path or an area on a page of a PDF drawing, or snap points to its linework",
-        "description": "Measures between points on a page of the document’s current version, from the file’s own linework: `distance` (two points), `path` (two or more) or `area` (three or more corners in order); `snap` returns where each point is tied to a line end or corner, or the candidates when several are in reach. Points are shares of the page as shown, 0 to 1, origin top left. Returns a measurement with its interval, provenance and scale state, or no number with the reason and the remedy. State a number with its interval and provenance; never recompute, round or convert one. Read-only: keep a measurement on the sheet with annotation-create.",
+        "description": "Measures between points on a page of the document’s current version, from the file’s own linework: `distance` (two points), `path` (two or more) or `area` (three or more corners in order); `snap` returns where each point is tied to a line end or corner, or the candidates when several are in reach. Points are shares of the page as shown, 0 to 1, origin top left. Returns a measurement with its interval, provenance and scale state, or no number with a `code` (for example `uncalibrated`, `several_in_reach`, `two_regions`), the reason and the remedy. State a number with its interval and provenance; never recompute, round or convert one. Read-only: keep a measurement on the sheet with annotation-create.",
         "tags": [
           "review"
         ],

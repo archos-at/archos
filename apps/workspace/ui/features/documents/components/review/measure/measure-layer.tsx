@@ -8,7 +8,7 @@ import { isLive, type AnnotationView } from '@/lib/annotations/types'
 import type { DocumentReview } from '../../../hooks/use-document-review'
 import { TAPE_SHAPE } from '../../../hooks/use-sheet-tape'
 import { pointIn } from '../page-point'
-import { MeasureReadingCard } from './measure-reading'
+import { MeasureReadingCard, useRefusalSentence } from './measure-reading'
 import {
   middleOf,
   SheetAnchor,
@@ -18,20 +18,23 @@ import {
   SheetShape,
   SheetValueTag,
 } from './sheet-shape'
-import { formatReading } from './tape-format'
+import { formatRounded } from './tape-format'
 
 /** What the layer reads of the review: the marks, which one is open, and the tape. */
-export type MeasureLayerReview = Pick<DocumentReview, 'annotations' | 'selectedId' | 'select' | 'tape'>
+export type MeasureLayerReview = Pick<DocumentReview, 'annotations' | 'selectedId' | 'select' | 'tape'> &
+  Partial<Pick<DocumentReview, 'canAnnotate' | 'setTool'>>
 
 /** A kept measurement on its page: the shape through its points, its value at the middle, its reading when open. */
 function KeptMeasurement({
   annotation,
   selected,
   onSelect,
+  onCalibrate,
 }: {
   annotation: AnnotationView
   selected: boolean
   onSelect: () => void
+  onCalibrate?: () => void
 }): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
@@ -39,7 +42,7 @@ function KeptMeasurement({
   const reading = annotation.measurement
   const last = points[points.length - 1]
   if (!last) return null
-  const value = reading ? formatReading(reading.value, reading.unit, locale) : null
+  const value = reading ? formatRounded(reading, locale) : null
   return (
     <>
       <SheetShape
@@ -54,7 +57,7 @@ function KeptMeasurement({
       ))}
       {value && (
         <SheetValueTag
-          at={middleOf(points)}
+          at={middleOf(points, annotation.shape === 'polygon')}
           selected={selected}
           onClick={onSelect}
           aria-label={t('review.measure.kept', { number: annotation.number, value })}
@@ -65,7 +68,7 @@ function KeptMeasurement({
       )}
       {selected && reading && (
         <SheetAnchor at={last}>
-          <MeasureReadingCard reading={reading} />
+          <MeasureReadingCard reading={reading} onCalibrate={onCalibrate} />
         </SheetAnchor>
       )}
     </>
@@ -78,8 +81,10 @@ function KeptMeasurement({
  * the shape being placed and the engine's reading beside it.
  *
  * Every number shown is the engine's. A click is sent to be snapped; the point
- * drawn is where the engine tied it. A click it tied nowhere says why where the
- * click was, with the corners in reach to pick from.
+ * drawn is where the engine tied it. A click it tied nowhere says why, in one
+ * sentence where the click was, with the corners in reach to pick from. A value
+ * is shown rounded to what its tolerance supports; the kept mark stores the
+ * engine's exact numbers.
  */
 export function MeasureLayer({
   review,
@@ -92,7 +97,10 @@ export function MeasureLayer({
   focused?: boolean
 }): JSX.Element | null {
   const t = useTranslations(filesCopy)
-  const { annotations, selectedId, select, tape } = review
+  const sentence = useRefusalSentence()
+  const { annotations, selectedId, select, tape, canAnnotate, setTool } = review
+  // Calibrating is a write on the document: offered to whoever may set a mark on it.
+  const onCalibrate = canAnnotate && setTool ? () => setTool('calibrate') : undefined
   const kept = annotations.filter(
     (annotation) =>
       annotation.page === page &&
@@ -122,6 +130,7 @@ export function MeasureLayer({
           annotation={annotation}
           selected={annotation.id === selectedId}
           onSelect={() => select(annotation.id === selectedId ? null : annotation.id)}
+          onCalibrate={onCalibrate}
         />
       ))}
       {here && tape.tool && (
@@ -144,8 +153,8 @@ export function MeasureLayer({
             />
           ))}
           <SheetAnchor at={miss.at}>
-            <FloatingNote role="status" className="w-max max-w-[16rem]" data-testid="measure-miss" data-reason={miss.reason}>
-              {t(`review.measure.miss.${miss.reason}`)}
+            <FloatingNote role="status" className="w-max max-w-[16rem]" data-testid="measure-miss" data-code={miss.code}>
+              {sentence(miss.code)}
             </FloatingNote>
           </SheetAnchor>
         </>
@@ -159,6 +168,7 @@ export function MeasureLayer({
             failed={tape.failed}
             onKeep={() => void tape.keep(t(`review.measure.keptBody.${tape.tool ?? 'distance'}`))}
             onDiscard={tape.clear}
+            onCalibrate={onCalibrate}
           />
         </SheetAnchor>
       )}

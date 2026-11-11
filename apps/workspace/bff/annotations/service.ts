@@ -115,7 +115,6 @@ import { auditMarkDecided } from './mark-audit'
 import { toMark } from './mark-values'
 import { isMeasureShape } from './measure-shapes'
 import { keptReadingFor } from '@/lib/drawing-tape/kept-reading'
-import { mayMeasure } from '@/lib/drawing-tape/service'
 import { keepMentions, mentionsAgent, newlyMentioned, noLongerMentioned } from './mentions'
 import { enforceMentionBounds } from '@/lib/mentions/service'
 import { ANNOTATION_LIFECYCLE } from './lifecycles'
@@ -528,7 +527,7 @@ export async function listAnnotations(session: AuthorizedSession, documentId: st
     directoryNames(session.organizationId),
   ])
   const annotations = (await documentAnnotationViews(session, doc, records, { writable, names })).sort(compareAnnotations)
-  return { annotations, canAnnotate: writable, canMeasure: mayMeasure(session, doc), pilotiWakes: wakesEnabled(session) }
+  return { annotations, canAnnotate: writable, pilotiWakes: wakesEnabled(session) }
 }
 
 /**
