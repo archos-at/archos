@@ -293,8 +293,8 @@ consolidations: re-check each on RIS before quoting it.
   its edition: the publish's index run does, re-ingesting each manifestation's
   `corpusFile` with its release's mark (`base-knowledge/platform/indexing.ts`). A
   publish whose file is missing fails that run („upload it, then publish again"),
-  and a file uploaded after its release carries the unreleased mark `ZZ`
-  (`UNRELEASED_COUNTRY`, the same file), which no office is entitled to, until a
+  and a file uploaded after its release is ingested with no country and
+  `released: false` (`vector_store.writes.licence_mark`), which no office reads, until a
   later publish indexes it. So upload
   the eleven 2019, 2025 and 2015 texts first, under their published names, then
   publish the change request that carries their manifestations.

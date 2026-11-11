@@ -5,6 +5,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 
 import { PageSheet } from '@/components/ui/page-sheet'
+import { PAGE_SHEET_SKELETON_SLOT } from './page-sheet-skeleton'
 
 /**
  * A {@link PageSheet} that IS a route.
@@ -31,7 +32,33 @@ import { PageSheet } from '@/components/ui/page-sheet'
  * the exit off at whatever frame the router happened to reach. The page
  * beneath is already visible at the dimmed edges, so nothing is waiting on
  * the navigation except the URL.
+ *
+ * The sheet rises ONCE. The route's `loading.tsx` draws `PageSheetSkeleton`,
+ * which rises as the sheet; when the route resolves, this takes over where the
+ * skeleton stands, mid-rise if the route was quick, and finishes that rise
+ * (`enterFrom`). It used to start again from the screen's foot, so every open
+ * was two rises of one panel. A hard load never rises: nothing moves on a page
+ * load. Only a route that resolved with no skeleton on screen (it was already
+ * in the router's cache) plays the whole entrance itself.
  */
+
+const AT_REST = { y: 0, scrim: 1 }
+
+/**
+ * Where the sheet's skeleton stands right now, or undefined when none is on
+ * screen. Read while rendering, before the commit that removes the skeleton.
+ */
+function skeletonPlace(): { y: number; scrim: number } | undefined {
+  if (typeof document === 'undefined' || typeof DOMMatrixReadOnly === 'undefined') return undefined
+  const skeleton = document.querySelector(`[data-slot="${PAGE_SHEET_SKELETON_SLOT}"]`)
+  const [scrim, panel] = skeleton?.children ?? []
+  if (!scrim || !panel) return undefined
+  const opacity = Number(getComputedStyle(scrim).opacity)
+  return {
+    y: new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42,
+    scrim: Number.isFinite(opacity) ? opacity : 1,
+  }
+}
 
 interface RoutePageSheetProps {
   title: string
@@ -60,6 +87,7 @@ export function RoutePageSheet({
 }: RoutePageSheetProps): JSX.Element {
   const router = useRouter()
   const [open, setOpen] = React.useState(true)
+  const [enterFrom] = React.useState(() => (standalone ? AT_REST : skeletonPlace()))
 
   const handleOpenChange = React.useCallback((next: boolean) => {
     if (!next) setOpen(false)
@@ -79,6 +107,7 @@ export function RoutePageSheet({
       open={open}
       onOpenChange={handleOpenChange}
       onExitComplete={handleExitComplete}
+      enterFrom={enterFrom}
       title={title}
       subtitle={subtitle}
       closeLabel={closeLabel}

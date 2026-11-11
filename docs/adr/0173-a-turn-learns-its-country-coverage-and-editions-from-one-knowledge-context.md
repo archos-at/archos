@@ -140,7 +140,9 @@ Chosen option 3.
   `knowledge_search` reads only the countries the gate allows
   (`base_corpus_country_filter`), a chunk written before the field as Austrian.
   A rollback that leaves a text unreleased marks its chunks `ZZ`, which no
-  office reads. With the edition on the chunk, a search can read one edition's
+  office reads. (Amended by country-as-data row 7: it marks them
+  `released: false` and keeps their country; `ZZ` stays readable by nobody on
+  the points a rollback marked before the flag.) With the edition on the chunk, a search can read one edition's
   text (`filters={"knowledge_edition_id": …}`), the id from
   `base-knowledge-edition-as-of`; the tool's description says so with the
   country-neutral prompt, so the flag-off request stays as it was.

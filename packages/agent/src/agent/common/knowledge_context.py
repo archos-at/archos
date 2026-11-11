@@ -435,11 +435,6 @@ def turn_knowledge_context() -> KnowledgeContext:
     return _turn_knowledge_context.get() or UNAVAILABLE
 
 
-#: The country no office is entitled to (ISO 3166-1 user-assigned): a base-corpus chunk whose text no
-#: release names, or whose ingest job named no country, carries it and is read by nobody (fail closed).
-UNRELEASED_COUNTRY = "ZZ"
-
-
 class _Unscoped:
     """The marker type of :data:`UNSCOPED`; a class of its own so it can never be mistaken for a country set."""
 
@@ -518,6 +513,18 @@ def _belongs_to_no_request(request: RequestContext) -> bool:
         and request.user_id is None
         and request.envelope_header is None
     )
+
+
+def binding_editions() -> frozenset[str]:
+    """The editions that bind at the turn's site, by record id; empty without a bound context or a binding edition.
+
+    Retrieval prefers their passages (``vector_store.boost.ranking_formula``): a preference, never a filter,
+    so a question about another edition still finds it.
+    """
+    context = _turn_knowledge_context.get()
+    if context is None:
+        return frozenset()
+    return frozenset(use.edition_id for use in context.uses if use.role == "binding" and use.edition_id)
 
 
 def base_corpus_readable() -> bool | None:

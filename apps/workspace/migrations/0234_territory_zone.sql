@@ -5,8 +5,9 @@
 -- revision now, proposed, reviewed and released like every other platform
 -- claim, so a country's zone is data a release changes.
 --
--- NULL states none: the node inherits the nearest parent that does, and a
--- chain that none states answers `zone_unknown` (fail closed).
+-- NULL states none: the node inherits the nearest parent that does. A chain
+-- that none states reads the build's zone table while it still exists
+-- (`time/today.ts`), and `zone_unknown` once it is gone.
 --
 -- A nullable column on a table that already carries its policies (0202, 0205);
 -- revisions stay append-only, so a zone changes by a new revision.

@@ -1368,6 +1368,10 @@
     "de": "Beim Archivieren einer Datei wird diese nun aus der Dateiliste entfernt – so, wie es immer gedacht war. Mit einem neuen Filter können Sie archivierte Dateien jederzeit wieder anzeigen; gelöscht wird dabei nichts."
   },
   {
+    "en": "Archiving in the inbox is smoother: the rows below close the gap, a restored row fades back in, and the keyboard focus moves to the next entry.",
+    "de": "Das Archivieren im Posteingang läuft reibungsloser: Die Zeilen darunter rücken nach, eine wiederhergestellte Zeile blendet sich wieder ein und der Tastaturfokus wechselt zum nächsten Eintrag."
+  },
+  {
     "en": "Ask Piloti for a Skizze, such as rooms by how they connect, a site with its access or two options side by side, and it draws one in Excalidraw right in the chat, never to scale. Inside a project you can file the sketch, or open it in Excalidraw, change it and file your version.",
     "de": "Bitten Sie Piloti um eine Skizze, etwa von Räumen und ihren Verbindungen, einem Grundstück mit seiner Zufahrt oder zwei Optionen nebeneinander. Piloti erstellt sie direkt im Chat in Excalidraw, nie maßstabsgetreu. In einem Projekt können Sie die Skizze ablegen oder in Excalidraw öffnen, bearbeiten und Ihre Version ablegen."
   },
@@ -3488,6 +3492,10 @@
     "de": "Wenn Ihr Büro ein Modell ausgewählt hat, das vor jeder Antwort immer nachdenkt, erscheinen jetzt unter jeder Antwort Folgefragen. Bisher wurden diese Vorschläge bei solchen Modellen nicht angezeigt."
   },
   {
+    "en": "Switching the inbox filter no longer shows the previous filter's rows for a moment, and a failed background refresh keeps the list on screen.",
+    "de": "Beim Wechsel des Posteingangsfilters werden die Einträge des vorherigen Filters nicht mehr kurz angezeigt, und bei einem fehlgeschlagenen Hintergrund-Update bleibt die Liste sichtbar."
+  },
+  {
     "en": "Switching to another conversation and back, or reloading during an answer, shows the text that had already arrived at once instead of typing it out again, and each conversation reopens where you left it.",
     "de": "Wenn Sie zu einer anderen Unterhaltung wechseln und zurückkehren oder während einer Antwort die Seite neu laden, wird der bereits eingetroffene Text sofort vollständig angezeigt, statt erneut schrittweise eingeblendet zu werden. Außerdem öffnet sich jede Unterhaltung wieder an der Stelle, an der Sie sie verlassen haben."
   },
@@ -4028,6 +4036,10 @@
     "de": "Im Posteingang wird „Alles erledigt“ nicht mehr angezeigt, solange die Glocke noch eine Anzahl ausweist. Eine Anfrage, die ein Kollege beantwortet hat, bevor Sie sie geöffnet haben, wird als neu angezeigt, bis Sie sie gelesen haben. Wenn sich ein Teil des Posteingangs nicht laden lässt, sehen Sie die Fehlermeldung und können es erneut versuchen."
   },
   {
+    "en": "The inbox opens in one movement. It used to slide up twice, and its placeholder now has the shape of the list that replaces it.",
+    "de": "Der Posteingang öffnet sich in einer Bewegung. Bisher fuhr er zweimal nach oben, und sein Platzhalter hat jetzt die Form der Liste, die ihn ersetzt."
+  },
+  {
     "en": "The inbox's notice that e-mails to a project wait for filing now says how many wait. It used to count only those that arrived since you last opened it, so it could read \"One e-mail\" while two were waiting.",
     "de": "Der Hinweis im Posteingang, dass E-Mails zu einem Projekt auf die Ablage warten, zeigt jetzt an, wie viele es sind. Bisher zählte er nur die E-Mails, die eingegangen sind, seit Sie ihn zuletzt geöffnet haben. Daher konnte dort „Eine E-Mail“ stehen, obwohl zwei warteten."
   },
@@ -4090,6 +4102,10 @@
   {
     "en": "The message box no longer sits flush against your last answer. It now floats as its own translucent panel, and the conversation fades gently into it as you scroll, so it reads as the place where you type rather than another line of the chat.",
     "de": "Das Nachrichtenfeld liegt nicht mehr direkt an Ihrer letzten Antwort. Es schwebt jetzt als eigenes durchscheinendes Feld, und das Gespräch geht beim Scrollen sanft darin über, sodass es wie der Ort wirkt, an dem Sie tippen, und nicht wie eine weitere Zeile im Chat."
+  },
+  {
+    "en": "The message you open stays in the inbox while you read it. Opening your last unread message no longer flips the list to \"all done\" beside it.",
+    "de": "Die geöffnete Nachricht bleibt während des Lesens im Posteingang. Wenn Sie Ihre letzte ungelesene Nachricht öffnen, wechselt die Liste daneben nicht mehr zu „alles erledigt“."
   },
   {
     "en": "The model area is now reachable from the office archive, with structure, quantities and revisions. The Prüfbuch still needs a project, because it checks against building class and main use.",
@@ -4776,6 +4792,10 @@
     "de": "Wenn die Seitenzahl einer Fundstelle von der Seite in der PDF abweicht, wie es oft nach einem Deckblatt vorkommt, wird die zitierte Passage jetzt auch auf den Nachbarseiten gesucht. Lässt sie sich nicht finden, zeigt das Fenster einen Hinweis."
   },
   {
+    "en": "When a rule exists in more than one edition, the assistant now finds the passage of the edition that applies at your project's site first, so its answer cites that edition. An older or newer edition is still found when you ask about it.",
+    "de": "Wenn eine Regel in mehreren Ausgaben vorliegt, findet der Assistent jetzt zuerst die Passage aus jener Ausgabe, die am Standort Ihres Projekts gilt, und zitiert diese Ausgabe in seiner Antwort. Eine ältere oder neuere Ausgabe findet er weiterhin, wenn Sie danach fragen."
+  },
+  {
     "en": "When a scheduled task finishes or fails, you now hear about it in your inbox, with a link to the project's run history.",
     "de": "Ist ein geplanter Auftrag fertig oder fehlgeschlagen, erfahren Sie es jetzt im Posteingang, mit einem Link zur Laufhistorie des Projekts."
   },
@@ -4986,6 +5006,10 @@
   {
     "en": "When you share a chat that drew on a restricted folder, Piloti offers only colleagues who may read all of those folders, and shows the others greyed out with \"Has no access to a folder this chat draws on\". It never names the folder.",
     "de": "Wenn Sie einen Chat teilen, der aus einem eingeschränkten Ordner geschöpft hat, bietet Piloti nur Kolleginnen und Kollegen an, die alle diese Ordner lesen dürfen, und zeigt die anderen ausgegraut mit „Hat keinen Zugriff auf einen Ordner, aus dem dieser Chat stammt“. Den Ordner nennt es nie."
+  },
+  {
+    "en": "When you stop a document that is being read, it now stays stopped: it no longer briefly shows as being read again, and starting it again right away begins a fresh read.",
+    "de": "Wenn Sie das Lesen eines Dokuments anhalten, bleibt es jetzt angehalten: Es wird nicht mehr kurzzeitig wieder als gelesen angezeigt, und wenn Sie es sofort erneut starten, beginnt ein neuer Lesevorgang."
   },
   {
     "en": "When you upload a file that belongs in another folder, Piloti suggests that folder with a small chip on the file, and a bar above the folder moves several files into one folder together. Nothing moves until you confirm, and the suggestion shows the move and the reason first.",

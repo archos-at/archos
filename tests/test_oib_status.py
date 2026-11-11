@@ -134,6 +134,16 @@ def test_status_says_which_country_a_release_marked_a_file_with():
     assert by_name["draft.pdf"].country_id is None
 
 
+def test_a_withdrawn_file_names_no_country_so_no_office_lists_it():
+    """A rollback marks the file unreleased and keeps its country; the status says no country reads it."""
+    _stored("withdrawn.pdf", b"v1", ingested=b"v1")
+    corpus_store.set_mark("withdrawn.pdf", corpus_store.FileMark(country_id="AT", released=False))
+
+    status = oib_status.get_status(ingestor=FakeIngestor(_collection(chunk_count=8), files=[]))
+
+    assert {f.file_name: f.country_id for f in status.files}["withdrawn.pdf"] is None
+
+
 def test_a_file_ingested_by_an_older_chunk_format_is_stale():
     _stored("old-format.pdf", b"x", ingested=b"x", format_version=oib_sync.CHUNK_FORMAT_VERSION - 1)
     ingestor = FakeIngestor(_collection(), files=[_file_info("old-format.pdf", 5)])

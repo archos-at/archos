@@ -387,6 +387,30 @@ def test_a_cancel_reports_finished_when_the_job_is_no_longer_live(db, hatchet, k
     assert hatchet.runs.cancelled == []
 
 
+def test_a_cancel_reports_finished_when_the_job_ended_before_the_settle(db, hatchet, kek):
+    """The job completed between the cancel's read and its settle: the file is indexed, not stopped."""
+    _dispatched()
+
+    def completes_first(run_id: str) -> None:
+        done = _prepared().status
+        done.status = JobState.COMPLETED
+        ingest_status_store.put(done)
+
+    hatchet.runs.cancel = completes_first
+
+    assert ingest_dispatch.cancel("job-1") == ingest_dispatch.CANCEL_FINISHED
+    assert ingest_status_store.get("job-1").status == JobState.COMPLETED
+
+
+def test_a_cancel_whose_settle_could_not_be_written_still_reports_cancelled(db, hatchet, kek, monkeypatch):
+    """The run was cancelled and settles its row itself; a database error is not "finished"."""
+    _dispatched()
+    monkeypatch.setattr(ingest_status_store, "settle_cancelled", lambda job_id: False)
+
+    assert ingest_dispatch.cancel("job-1") == ingest_dispatch.CANCEL_STOPPED
+    assert hatchet.runs.cancelled == ["run-1"]
+
+
 def test_a_job_with_no_run_cannot_be_cancelled_from_here(db, hatchet):
     """A job in another process's own pool has no run: that process is out of reach."""
     ingest_status_store.put(_prepared().status)
