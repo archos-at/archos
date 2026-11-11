@@ -55,15 +55,18 @@ def engine(tmp_path_factory):
     os.environ.update({key: env[key] for key in saved})
     orchestrator_client.reset_for_tests(None)
     ingest_workflow._declared = None
-    worker = subprocess.Popen(  # noqa: S603 - our own module, with our own interpreter
-        [sys.executable, "-m", "agent_testing.orchestrator_engine_worker", str(directory)], env=env
-    )
+    worker = None
     try:
-        _wait_for_worker(directory)
+        warmup = _trigger_before_any_worker()
+        worker = subprocess.Popen(  # noqa: S603 - our own module, with our own interpreter
+            [sys.executable, "-m", "agent_testing.orchestrator_engine_worker", str(directory)], env=env
+        )
+        _until(lambda: _state(warmup) == "completed", what="the worker to take the run that waited for it")
         yield directory
     finally:
-        worker.terminate()
-        worker.wait(timeout=60)
+        if worker is not None:
+            worker.terminate()
+            worker.wait(timeout=60)
         orchestrator_client.reset_for_tests(None)
         ingest_workflow._declared = None
         ingest_status_store._initialized.discard(env["SUMMARY_DB"])
@@ -74,22 +77,15 @@ def engine(tmp_path_factory):
                 os.environ[key] = value
 
 
-def _wait_for_worker(directory: Path) -> None:
-    """The worker has registered once a warm-up run completes through it.
+def _trigger_before_any_worker() -> str:
+    """A run triggered in a namespace no worker has registered anything in waits for one; it is not dropped.
 
-    A trigger before the worker registered the workflow is refused, so the
-    warm-up is retried until the workflow exists.
+    A pool that scales to zero starts only when KEDA sees a waiting run, so the
+    trigger registers the workflow itself (``ingest_workflow.ensure_registered``).
     """
-    deadline = time.monotonic() + _WAIT_SECONDS
-    while True:
-        try:
-            job = _start("ok-warmup", "org-warmup")
-            break
-        except Exception:  # noqa: BLE001 - not registered yet
-            if time.monotonic() > deadline:
-                raise
-            time.sleep(1)
-    _until(lambda: _state(job) == "completed", what="the worker to take a first run")
+    job = _start("ok-warmup", "org-warmup")
+    _until(lambda: _run_status_or_none(job) == "QUEUED", what="the run to wait in the queue")
+    return job
 
 
 def _start(job_id: str, organization_id: str) -> str:
@@ -116,6 +112,14 @@ def _run_status(job_id: str) -> str:
     from agent.knowledge import ingest_run_hold
 
     return str(orchestrator_client.client().runs.get_status(ingest_run_hold.run_id_of(job_id)).value)
+
+
+def _run_status_or_none(job_id: str) -> str | None:
+    """The run's status, or None while the engine does not list it yet."""
+    try:
+        return _run_status(job_id)
+    except Exception:  # noqa: BLE001 - the engine answers 404 until the run is written
+        return None
 
 
 def _until(check, *, what: str, seconds: float = _WAIT_SECONDS) -> None:

@@ -80,6 +80,10 @@ class FakeWorkflow:
     def step(self, name: str) -> FakeStep:
         return next(step for step in self.steps if step.name == name)
 
+    def to_proto(self) -> str:
+        """The declaration as a worker registers it; the fake's stands for the workflow's name."""
+        return self.options["name"]
+
 
 class FakeRuns:
     def __init__(self) -> None:
@@ -117,14 +121,29 @@ class FakeRateLimits:
 class FakeWorkflows(list):
     """The declared workflows, which also answer ``workflows.list`` as the engine would once a worker registered them.
 
-    ``registered = False`` is an engine no worker has registered anything on yet.
+    ``registered = False`` is an engine no worker has registered anything on yet; a
+    workflow put through ``admin.put_workflow`` is listed from then on.
     """
 
     registered = True
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.put: list[str] = []
+
     def list(self, workflow_name: str | None = None, **_: Any) -> SimpleNamespace:
-        names = [w.options["name"] for w in self] if self.registered else []
+        names = [w.options["name"] for w in self] if self.registered else list(self.put)
         return SimpleNamespace(rows=[SimpleNamespace(name=n) for n in names if workflow_name in (None, n)])
+
+
+class FakeAdmin:
+    """The SDK's internal admin client, which a worker registers its workflows through."""
+
+    def __init__(self, workflows: FakeWorkflows) -> None:
+        self._workflows = workflows
+
+    def put_workflow(self, proto: str) -> None:
+        self._workflows.put.append(proto)
 
 
 class FakeConfig:
@@ -143,6 +162,7 @@ class FakeHatchet:
         self.runs = FakeRuns()
         self.workers: list[FakeWorker] = []
         self.rate_limits = FakeRateLimits()
+        self._client = SimpleNamespace(admin=FakeAdmin(self.workflows))
 
     def workflow(self, **options) -> FakeWorkflow:
         workflow = FakeWorkflow(options)

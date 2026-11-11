@@ -600,13 +600,20 @@ def _null():
     return contextlib.nullcontext()
 
 
-def test_a_trigger_before_any_worker_registered_the_workflow_is_refused_not_lost(hatchet, db):
-    # The engine answers such a trigger with a run id and creates nothing.
+def test_a_trigger_before_any_worker_registered_the_workflow_registers_it_so_the_run_waits(hatchet, db):
+    # The engine answers a trigger of an unknown workflow with a run id and creates nothing, and a pool
+    # that scales to zero starts no worker to register it until a run waits: the trigger registers it.
     hatchet.workflows.registered = False
-    with pytest.raises(ingest_workflow.WorkflowNotRegistered):
-        ingest_workflow.trigger("job-early", "org-a", "interactive", "sealed")
-    assert hatchet.workflow_runs == []
-
-    hatchet.workflows.registered = True
     assert ingest_workflow.trigger("job-early", "org-a", "interactive", "sealed")
+    assert hatchet.workflows.put == ["ingest-document"]
+    assert {key for key, _, _ in hatchet.rate_limits.put_calls} == {"ingest-provider-credits"}
     assert [run.input.job_id for run in hatchet.workflow_runs] == ["job-early"]
+
+    assert ingest_workflow.trigger("job-later", "org-a", "interactive", "sealed")
+    assert hatchet.workflows.put == ["ingest-document"]
+
+
+def test_a_workflow_a_worker_registered_is_not_registered_again(hatchet, db):
+    assert ingest_workflow.trigger("job-1", "org-a", "interactive", "sealed")
+    assert hatchet.workflows.put == []
+    assert hatchet.rate_limits.put_calls == []

@@ -1,0 +1,8 @@
+---
+operators:
+  - >
+    On an environment whose ingest workers scale to zero, the first ingestion
+    job now starts a worker. Before, none ever started, so a public-source text
+    captured into the base corpus was stored but never read, and the capture
+    answered with an error. A capture whose file is stored now answers with its
+    file name; the next base-corpus sync queues a job that could not be queued.

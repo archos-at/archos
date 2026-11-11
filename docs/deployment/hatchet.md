@@ -67,10 +67,13 @@ asks for no replica it could not use. The prefix ends in the colon, so
 | Size (defaults) | 6Gi, 2 or 3 files a pod | 12Gi, one file, 0 to 1 pods (`ingestWorkerHeavy*`) |
 
 A trigger of a workflow no worker has registered yet gets a run id and creates
-nothing, so `trigger` asks the engine (`workflows.list`) once per process and
-refuses until the workflow exists; `ingest_dispatch` then runs the job in the
-API pod, as it does when Hatchet is away. Deploy the ingest workers with or
-before the API pods on a fresh platform.
+nothing, so `trigger` asks the engine (`workflows.list`) once per process and,
+when the workflow is missing, registers it itself (`ensure_registered`): the
+declaration a worker registers at start, and the `ingest-provider-credits`
+rate-limit key. The run then waits in `v1_queue_item`, KEDA counts it, and a
+pool at zero (`ingestWorkerMinReplicas: 0`, dev) starts. Without this the pool
+never started: no worker, so no registration, so no queued run for KEDA to see.
+The first worker re-registers its own version over the trigger's.
 
 Both workflows share two **tenant-scoped** concurrency limits, which span
 task definitions: `ingest-org` (`GROUP_ROUND_ROBIN` on the organisation,

@@ -254,6 +254,11 @@ def credit_rate_limit_key(client: Any) -> str:
     return f"{namespace}{CREDIT_RATE_LIMIT_KEY}"
 
 
+def put_credit_rate_limit(client: Any) -> None:
+    """Create the key every ``index`` consumes; a static key must exist before a step consumes it. Only ever paused."""
+    client.rate_limits.put(credit_rate_limit_key(client), CREDIT_RATE_LIMIT_PER_SECOND, RateLimitDuration.SECOND)
+
+
 def index_options(heavy: bool = False, *, rate_limit_key: str = CREDIT_RATE_LIMIT_KEY) -> dict[str, Any]:
     """The ``index`` step, as ``Workflow.task`` takes it; the heavy one needs a high-memory worker to itself."""
     options: dict[str, Any] = {
@@ -347,31 +352,35 @@ def workflow_for(byte_size: int | None) -> bool:
     return bool(threshold) and byte_size is not None and byte_size >= threshold
 
 
-class WorkflowNotRegistered(RuntimeError):
-    """No worker has registered the workflow yet: a run triggered now would be dropped, not queued."""
-
-
 #: The client each workflow was last seen registered on; a registration outlives the worker that made it.
 _registered: dict[bool, object] = {}
 
 
-def require_registered(heavy: bool) -> None:
-    """Raise ``WorkflowNotRegistered`` unless a worker registered the workflow (asked once per process).
+def ensure_registered(heavy: bool) -> None:
+    """Register the workflow on the engine unless it is registered already (asked once per process).
 
     The engine answers a trigger of a workflow it does not know with a run id
     and then creates nothing, so a job sent before the first ingest worker came
-    up would wait for a run that never was. The caller treats the refusal as
-    Hatchet being away (``ingest_dispatch`` runs the job itself).
+    up would wait for a run that never was. A worker registers the workflow when
+    it starts, but a pool that scales to zero (``ingestWorkerMinReplicas: 0``)
+    starts only when KEDA sees a waiting run, and a run waits only once the
+    workflow exists. So the trigger registers the same declaration itself, and
+    the rate-limit key its ``index`` consumes: the run then waits in the queue,
+    KEDA counts it, and the first worker to start takes it and registers its own
+    version over this one.
     """
-    ingest_workflow(heavy)
+    workflow = ingest_workflow(heavy)
     client = orchestrator_client.client()
     if _registered.get(heavy) is client:
         return
     name = HEAVY_WORKFLOW_NAME if heavy else WORKFLOW_NAME
     listed = orchestrator_client.within_rest_timeout(lambda: client.workflows.list(workflow_name=name))
     wanted = client.config.apply_namespace(name)
-    if not any(workflow.name == wanted for workflow in listed.rows or []):
-        raise WorkflowNotRegistered(f"no worker has registered {wanted} yet")
+    if not any(row.name == wanted for row in listed.rows or []):
+        logger.info("No worker has registered %s yet; registering it for the first run", wanted)
+        put_credit_rate_limit(client)
+        # The call a worker makes when it starts (``Worker.register_workflow``); the SDK has no public one.
+        client._client.admin.put_workflow(workflow.to_proto())
     _registered[heavy] = client
 
 
@@ -390,12 +399,11 @@ def trigger(
     ``byte_size`` (the original's, as the BFF stated it) picks the workflow;
     ``document_id`` is what a later upload of the document supersedes. The run's
     metadata carries the trigger span's ``traceparent`` (``orchestrator_tracing``).
-    Raises when Hatchet cannot be reached or no worker registered the workflow
-    yet; the caller decides what that costs.
+    Raises when Hatchet cannot be reached; the caller decides what that costs.
     """
     rank = priority if priority in PRIORITIES else "interactive"
     heavy = workflow_for(byte_size)
-    require_registered(heavy)
+    ensure_registered(heavy)
     run_input = IngestDocumentInput(
         job_id=job_id,
         organization_id=lane_of(organization_id),
@@ -568,8 +576,7 @@ def serve(
                 _runtime.ingestor = None
 
     orchestrator_tracing.instrument(getattr(client, "config", None))
-    # A static key must exist before a step consumes it; it is only ever paused.
-    client.rate_limits.put(credit_rate_limit_key(client), CREDIT_RATE_LIMIT_PER_SECOND, RateLimitDuration.SECOND)
+    put_credit_rate_limit(client)
     worker = client.worker(
         f"{WORKER_NAME}-heavy" if heavy else WORKER_NAME,
         slots=heavy_worker_slots() if heavy else max(1, slots),

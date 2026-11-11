@@ -143,12 +143,14 @@ def _keep_corpus_text(name: str, content: bytes, sha256: str) -> str:
     """Store the bytes under ``name`` and queue their ingestion: ``stored``, ``unchanged`` or ``name_taken``.
 
     Nothing is ever replaced: a name that holds other bytes (somebody put a file there by hand, or twelve hex
-    digits collided) is refused.
+    digits collided) is refused. A file that is stored but whose job the queue did not take is still ``stored``:
+    the next sync cycle queues it, and a refusal would tell the caller that a file the corpus keeps is not there.
     """
     from agent import corpus_store
     from agent import oib_sync
     from agent.common.norm_registry import guess_doc_class
 
+    from ..jobs.ingest_dispatch import QueueUnavailable
     from ..jobs.ingest_dispatch import enqueue_only
 
     row = corpus_store.get_file(name)
@@ -159,6 +161,8 @@ def _keep_corpus_text(name: str, content: bytes, sha256: str) -> str:
     except corpus_store.CorpusFileImmutable:
         # Somebody stored other bytes under the name between the read above and the store's lock.
         return "name_taken"
+    except QueueUnavailable as error:
+        logger.warning("Stored the fetched text %s; its ingestion waits for the next sync cycle: %s", name, error)
     return "stored"
 
 
