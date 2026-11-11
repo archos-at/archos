@@ -24,7 +24,7 @@
  */
 
 import type { JSX } from 'react'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { AlertCircle, Check } from 'lucide-react'
 import { toast } from 'sonner'
@@ -39,13 +39,13 @@ import { Button } from '@/components/ui/button'
 import { FadeIn, motion, springSnap, useMotionToken } from '@/components/motion'
 import { LoadError } from '@/components/ui/load-error'
 import { LoadMore } from '@/components/ui/load-more'
-import { Skeleton } from '@/components/ui/skeleton'
 import { withReviewBack } from '@/features/documents/review-links'
 import { useInboxList } from '../hooks/use-inbox'
 import { ARCHIVE_UNDO_MS, useUndoableArchive } from '../hooks/use-undoable-archive'
-import { isAtHref, isOpenRequest, newsOf, queueOrder, waitingGroups } from '../lib/inbox-queue'
+import { isAtHref, isOpenRequest, newsOf, newsWithHeld, queueOrder, waitingGroups } from '../lib/inbox-queue'
 import { isPlainClick } from '../lib/plain-click'
 import { InboxQueueList } from './InboxQueueList'
+import { InboxQueueSkeleton } from './InboxSkeleton'
 
 export interface InboxQueueProps {
   enabled?: boolean
@@ -87,12 +87,23 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
     () => waitingGroups(waiting.items.filter((item) => !archiveLater.pendingIds.has(item.id)), today),
     [waiting.items, archiveLater.pendingIds, today],
   )
-  const news = useMemo(() => newsOf(fresh.items).filter((item) => !archiveLater.pendingIds.has(item.id)), [fresh.items, archiveLater.pendingIds])
-  const order = useMemo(() => queueOrder(groups, news), [groups, news])
-
   const pathname = usePathname() ?? ''
   const searchParams = useSearchParams()
   const here = `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ''}`
+
+  // The news entry the reader opened, kept in the list while they are at its
+  // place (`newsWithHeld` says why). `from` is where they clicked, and holds it
+  // until the navigation lands; from then on only its own place does.
+  const [held, setHeld] = useState<{ item: InboxItemView; at: number; from: string | null } | null>(null)
+  const atHeld = held !== null && held.item.href !== null && isAtHref(held.item.href, pathname, searchParams)
+  if (held && atHeld && held.from !== null) setHeld({ ...held, from: null })
+  else if (held && !atHeld && held.from !== here) setHeld(null)
+
+  const news = useMemo(
+    () => newsWithHeld(newsOf(fresh.items), held).filter((item) => !archiveLater.pendingIds.has(item.id)),
+    [fresh.items, held, archiveLater.pendingIds],
+  )
+  const order = useMemo(() => queueOrder(groups, news), [groups, news])
   const hrefOf = useCallback(
     (item: InboxItemView) => (item.href && returnHere && isMarkAnchored(item.type) ? withReviewBack(item.href, here) : item.href),
     [returnHere, here],
@@ -108,8 +119,18 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
     [ownerOf],
   )
 
+  const rootRef = useRef<HTMLDivElement>(null)
   const archive = useCallback(
     (itemId: string) => {
+      // The entry leaves with whatever of it held the focus (its link under a
+      // key, its archive control under the pointer). The next entry takes it,
+      // so the keys go on working and the focus does not fall to the page.
+      const links = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-testid="inbox-queue-entry"]') ?? [])]
+      const at = links.findIndex((link) => link.getAttribute('data-item-id') === itemId)
+      if (at >= 0 && links[at].closest('li')?.contains(document.activeElement)) {
+        ;(links[at + 1] ?? links[at - 1])?.focus({ preventScroll: true })
+      }
+      setHeld((current) => (current?.item.id === itemId ? null : current))
       archiveLater.request(itemId)
       toast(t('inbox.archived'), {
         duration: ARCHIVE_UNDO_MS,
@@ -120,7 +141,6 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
   )
 
   // ---- Keys: the entries are links, so moving is moving focus, and Enter is the link's ----
-  const rootRef = useRef<HTMLDivElement>(null)
   const onKey = useCallback(
     (event: KeyboardEvent): void => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typingInto(event.target)) return
@@ -139,8 +159,6 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
       if (!item) return
       event.preventDefault()
       if (event.key === 'e') {
-        // The keyboard stays in the list: the next entry takes the focus.
-        ;(links[at + 1] ?? links[at - 1])?.focus()
         archive(item.id)
         return
       }
@@ -183,7 +201,10 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
   if (!loading && order.length === 0 && !waiting.hasMore && !fresh.hasMore) {
     return (
       <div ref={rootRef} data-testid="inbox-queue">
-        <QueueDone />
+        {/* Arrives, like the list it follows: it used to replace it in one frame. */}
+        <FadeIn distance={4}>
+          <QueueDone />
+        </FadeIn>
       </div>
     )
   }
@@ -201,17 +222,9 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
       )}
 
       {loading ? (
-        // The shape of what is coming: a heading, then rows of a title and its
-        // line, so the list lands where the skeleton stood instead of reflowing.
-        <div className="space-y-4 px-2" aria-busy="true" data-testid="inbox-queue-skeleton">
-          <Skeleton className="h-3 w-28" />
-          {[0, 1, 2].map((index) => (
-            <div key={index} className="space-y-1.5">
-              <Skeleton className="h-3.5 w-4/5" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
-          ))}
-        </div>
+        // The shape of what is coming, so the list lands where the skeleton
+        // stood instead of reflowing; the sheet's loading state draws the same.
+        <InboxQueueSkeleton />
       ) : (
         // Lands where the skeleton stood, settling the last few pixels instead of snapping in.
         <FadeIn distance={4}>
@@ -224,10 +237,15 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
             hrefOf={hrefOf}
             onFollow={(event, item) => {
               // Following an entry is reading it; a background tab is not.
-              if (isPlainClick(event)) markRead(item)
+              if (!isPlainClick(event)) return
+              markRead(item)
+              // Read news leaves the news: this one stays while the reader is at it.
+              if (!item.read && !isOpenRequest(item)) {
+                setHeld({ item: { ...item, read: true, state: item.state === 'unread' ? 'read' : item.state }, at: news.indexOf(item), from: here })
+              }
             }}
             onArchive={archive}
-            onNewsRead={news.length > 0 ? () => void fresh.markAllRead() : undefined}
+            onNewsRead={news.some((item) => !item.read) ? () => void fresh.markAllRead() : undefined}
             waitingMore={
               <LoadMore
                 hasMore={waiting.hasMore}
