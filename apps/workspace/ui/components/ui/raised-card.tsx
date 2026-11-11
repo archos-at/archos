@@ -58,7 +58,7 @@ export function RaisedCard({
   const card = (
     <div
       className={cn(
-        'border-border bg-muted/50 shadow-sm relative flex h-full min-w-0 flex-col overflow-hidden rounded-surface border',
+        'bg-muted/50 shadow-sm relative flex h-full min-w-0 flex-col overflow-hidden rounded-surface',
         'transition-shadow duration-quick ease-out motion-reduce:transition-none',
         interactive && 'hover:shadow-md',
         className

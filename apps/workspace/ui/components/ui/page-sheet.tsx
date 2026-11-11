@@ -78,7 +78,7 @@ export const PAGE_SHEET_OVERLAY_CLASS = 'bg-overlay fixed inset-0 z-50 backdrop-
  * meant for the page behind.
  */
 export const PAGE_SHEET_PANEL_CLASS =
-  'bg-background fixed inset-x-0 bottom-0 top-[max(0.75rem,env(safe-area-inset-top))] z-50 flex flex-col overflow-hidden rounded-surface border border-b-0 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] shadow-xl outline-none md:inset-x-5 md:top-5 md:mx-auto [--shell-inset-bottom:env(safe-area-inset-bottom)]'
+  'bg-background fixed inset-x-0 bottom-0 top-[max(0.75rem,env(safe-area-inset-top))] z-50 flex flex-col overflow-hidden rounded-surface pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] shadow-xl outline-none md:inset-x-5 md:top-5 md:mx-auto [--shell-inset-bottom:env(safe-area-inset-bottom)]'
 
 /**
  * How wide the panel may grow from `md` up. One width: a page sheet is a whole

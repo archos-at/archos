@@ -52,15 +52,16 @@ function Toaster({ ...props }: ToasterProps) {
           // Every non-error tone stays monochrome (`bg-popover`); error alone
           // gains the danger-subtle body. Icons are untouched throughout, so
           // error stays distinguishable without color alone.
-          // One full hairline on every toast, and no accent edge (side
+          // One full hairline on every toast (the shadow's ring), and no accent edge (side
           // stripes are discouraged, design-language.md "Emphasis
           // without a stripe"): the tone is the icon, in its signal ink, and
           // the toast's own words.
-          toast: 'text-popover-foreground border-border rounded-surface border shadow-md',
+          toast: 'text-popover-foreground rounded-surface shadow-md',
           default: 'bg-popover',
           loading: 'bg-popover',
           success: 'bg-popover [&_[data-icon]]:text-success',
-          error: 'border-danger bg-danger-subtle [&_[data-icon]]:text-error',
+          // A failure keeps its red edge: a border that carries meaning (design-language.md, „One edge“).
+          error: 'border border-danger bg-danger-subtle [&_[data-icon]]:text-error',
           warning: 'bg-popover [&_[data-icon]]:text-warning',
           info: 'bg-popover [&_[data-icon]]:text-info',
         },

@@ -336,7 +336,7 @@ const DialogContent = React.forwardRef<
             focusPanelUnderFinger(event)
           }}
           className={cn(
-            'bg-popover text-popover-foreground fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] grid-cols-1 gap-4 overflow-y-auto overscroll-contain rounded-overlay border p-6 shadow-lg sm:max-w-lg',
+            'bg-popover text-popover-foreground fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] grid-cols-1 gap-4 overflow-y-auto overscroll-contain rounded-overlay p-6 shadow-lg sm:max-w-lg',
             !instant && CARD_MOTION,
             phoneClasses,
             className

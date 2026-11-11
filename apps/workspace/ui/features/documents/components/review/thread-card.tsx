@@ -423,7 +423,7 @@ export function ReviewCard({
       aria-label={labelledBy ? undefined : label}
       className={cn(
         'focus-visible:ring-ring/60 outline-none focus-visible:ring-2',
-        'bg-popover text-popover-foreground border-border/70 animate-in fade-in-0 zoom-in-95 duration-base ease-entrance motion-reduce:animate-none w-[20rem] rounded-overlay border shadow-xl',
+        'bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 duration-base ease-entrance motion-reduce:animate-none w-[20rem] rounded-overlay shadow-xl',
         'flex max-h-(--card-max-height) flex-col',
         PLACEMENT_CLASSES[placement]
       )}

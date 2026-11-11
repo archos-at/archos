@@ -84,7 +84,7 @@ export function NoticeCard({
           }}
           onInteractOutside={(event) => event.preventDefault()}
           className={cn(
-            'bg-popover text-popover-foreground rounded-surface fixed z-50 border p-5 shadow-lg',
+            'bg-popover text-popover-foreground rounded-surface fixed z-50 p-5 shadow-lg',
             // The bottom-right corner on a wide screen. On a phone the bottom is the tab bar's and
             // the thumb's, so the card hangs below the header, full width less the gutters.
             'md:right-4 md:bottom-4 md:w-[min(24rem,calc(100vw-2rem))]',

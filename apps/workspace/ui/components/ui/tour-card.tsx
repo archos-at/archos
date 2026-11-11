@@ -81,7 +81,7 @@ export function TourCard({
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       className={cn(
-        'bg-popover text-popover-foreground w-[min(22rem,calc(100vw-2rem))] rounded-surface border p-5 shadow-lg',
+        'bg-popover text-popover-foreground w-[min(22rem,calc(100vw-2rem))] rounded-surface p-5 shadow-lg',
         className,
       )}
     >

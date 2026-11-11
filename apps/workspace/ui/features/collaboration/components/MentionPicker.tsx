@@ -509,7 +509,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
           // over it hid the conversation the mention was about. Radix measures
           // that room (`--radix-popover-content-available-height`); outside a
           // popover the 320px stands alone.
-          'bg-popover text-popover-foreground flex max-h-[min(20rem,var(--radix-popover-content-available-height,20rem))] w-full flex-col overflow-hidden rounded-xl border shadow-lg',
+          'bg-popover text-popover-foreground flex max-h-[min(20rem,var(--radix-popover-content-available-height,20rem))] w-full flex-col overflow-hidden rounded-xl shadow-lg',
           'animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none',
           className,
         )}

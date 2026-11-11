@@ -26,7 +26,7 @@ const Eyebrow: FC<{ children: React.ReactNode }> = ({ children }) => (
 )
 
 const FramingFlowNode: FC<NodeProps<Node<FramingData>>> = ({ data }) => (
-  <div className="bg-card w-[var(--banner-w)] max-w-full rounded-surface border px-4 py-3 text-left shadow-xs">
+  <div className="bg-card w-[var(--banner-w)] max-w-full rounded-surface px-4 py-3 text-left shadow-xs">
     <Eyebrow>
       <span className="inline-flex items-center gap-1.5">{data.label}</span>
     </Eyebrow>
@@ -63,7 +63,7 @@ const FramingFlowNode: FC<NodeProps<Node<FramingData>>> = ({ data }) => (
  * than pointing at nothing.
  */
 const RoundFlowNode: FC<NodeProps<Node<RoundData>>> = ({ data }) => (
-  <div className="bg-card relative w-[var(--banner-w)] max-w-full rounded-surface border px-4 pt-3 pb-2 text-left shadow-xs">
+  <div className="bg-card relative w-[var(--banner-w)] max-w-full rounded-surface px-4 pt-3 pb-2 text-left shadow-xs">
     {data.targets.map((h) => (
       <Handle
         key={h.id}
@@ -309,10 +309,11 @@ const UncitedFoldCard: FC<{
 const FindingsFlowNode: FC<NodeProps<Node<FindingsData>>> = ({ data }) => (
   <div
     className={cn(
-      'bg-card w-[var(--banner-w)] max-w-full rounded-surface border px-4 py-3 text-left shadow-xs',
+      'bg-card w-[var(--banner-w)] max-w-full rounded-surface px-4 py-3 text-left shadow-xs',
       // Pending reads as in-flight rather than as an empty result: dashed
-      // hairline, no fill — the same visual grammar the uncited fold uses.
-      data.pending && 'border-dashed bg-transparent shadow-none'
+      // hairline, no fill — the same visual grammar the uncited fold uses. The
+      // dash is a border of its own, since the settled node's edge is its shadow.
+      data.pending && 'border border-dashed bg-transparent shadow-none'
     )}
   >
     {data.targets.map((h) => (

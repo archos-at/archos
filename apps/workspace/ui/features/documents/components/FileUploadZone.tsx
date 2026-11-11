@@ -240,7 +240,7 @@ export const FileUploadZone: FC<FileUploadZoneProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={row}
-            className="flex items-center gap-3 rounded-control border bg-card px-3 py-2 shadow-xs"
+            className="flex items-center gap-3 rounded-control bg-card px-3 py-2 shadow-xs"
           >
             <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             <div className="min-w-0 flex-1">

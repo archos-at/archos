@@ -26,7 +26,7 @@ export function ModelStageView({ controller }: { controller: ModelStageControlle
         // `sm:max-w-lg` and a bare `max-w-*` loses to it at exactly the
         // breakpoint where it matters.
         className={cn(
-          'flex h-[100dvh] max-h-[100dvh] w-full max-w-full flex-col gap-0 overflow-hidden rounded-none border p-0',
+          'flex h-[100dvh] max-h-[100dvh] w-full max-w-full flex-col gap-0 overflow-hidden rounded-none p-0',
           /*
             The safe area, once, for everything inside.
 
