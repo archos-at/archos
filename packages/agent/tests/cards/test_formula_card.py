@@ -152,8 +152,9 @@ class TestTheModelNamesACaseNeverANumber:
         assert "result" not in text and "limits" not in text
         assert card["title"] == "U-Wert Außenwand AW 01"
 
-    def test_the_envelope_teaches_the_formula_shape_up_front(self):
-        assert "formula" in ENVELOPE_SHAPE_TYPES
+    def test_the_static_prompt_no_longer_carries_the_formula_shape(self):
+        """A turn that earns one gets the shape attached (``test_register_decisions``), not every call."""
+        assert "formula" not in ENVELOPE_SHAPE_TYPES
 
 
 class TestAStatedResultIsCounted:

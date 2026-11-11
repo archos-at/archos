@@ -1,9 +1,10 @@
 /**
  * The SQL of "which edition applied" (ADR-0171): a work's editions with their
  * in-force dates and transitions, and how far back its history is held. Runs as
- * the office (`withTenant`) and names the owner and entitlement condition
- * itself: the office's own records, or released platform records of a country
- * it is entitled to. The layered RLS is the backstop, not the filter.
+ * the office (`withTenant`) and names the office's read itself
+ * (`store/visibility.ts`): the same records the chain reads, so an edition
+ * that binds there is one this path answers for. The layered RLS is the
+ * backstop, not the filter.
  *
  * Fail closed on the stored data: a transition the current schema cannot read
  * is reported, never skipped, since skipping it would let the reference date
@@ -15,15 +16,13 @@ import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { transitionTableSchema, type DatedEdition } from '@/lib/base-knowledge/wire/time'
-import { readTerritoryParents, territoryChain } from '../platform/territories'
+import { chainAt } from '../chain/territory-chain'
+import { readTerritoryParents } from '../platform/territories'
+import { recordReadable } from '../store/visibility'
 import type { WorkInTime } from './as-of'
 
 /** Most editions one work has; a consolidated law has one per in-force date, so this is generous. */
 export const MAX_EDITIONS = 500
-
-/** The office's own row, or a platform row of a country it is entitled to. */
-const visible = (alias: 'wr' | 'er', organizationId: string) =>
-  sql`(${sql.raw(alias)}.organization_id = ${organizationId} OR (${sql.raw(alias)}.organization_id IS NULL AND knowledge_country_entitled(${sql.raw(alias)}.country_id)))`
 
 /** A `date` column as an ISO date, whichever form the driver returns it in. */
 export function isoDateOf(value: unknown): string | null {
@@ -63,13 +62,13 @@ export async function readWorkInTime(
     const works = await db.execute<WorkRow>(sql`
       SELECT w.history_available_from
       FROM knowledge_records wr JOIN knowledge_work_revisions w ON w.revision_id = wr.head_revision_id
-      WHERE wr.id = ${workId} AND wr.type = 'work' AND ${visible('wr', organizationId)}`)
+      WHERE wr.id = ${workId} AND wr.type = 'work' AND ${recordReadable('wr', organizationId)}`)
     const [work] = works
     if (!work) return null
     const rows = await db.execute<EditionRow>(sql`
       SELECT er.id, e.label, e.in_force_from, e.in_force_to, e.transition
       FROM knowledge_records er JOIN knowledge_edition_revisions e ON e.revision_id = er.head_revision_id
-      WHERE er.type = 'edition' AND e.work_id = ${workId} AND ${visible('er', organizationId)}
+      WHERE er.type = 'edition' AND e.work_id = ${workId} AND ${recordReadable('er', organizationId)}
       ORDER BY e.in_force_from NULLS FIRST, er.id
       LIMIT ${MAX_EDITIONS + 1}`)
     const unreadable: string[] = []
@@ -93,13 +92,14 @@ export async function readWorkInTime(
   })
 }
 
-/** The legislating node and every territory it lies in, nearest first. */
+/** The legislating node and every territory it lies in on `date`, nearest first. */
 export async function readTerritoryChain(
   organizationId: string,
-  territoryId: string
+  territoryId: string,
+  date: string
 ): Promise<string[]> {
   const parents = await withTenant({ organizationId }, () =>
-    readTerritoryParents(getDb(), territoryId)
+    readTerritoryParents(getDb(), organizationId, territoryId)
   )
-  return territoryChain(territoryId, parents)
+  return chainAt(territoryId, date, (id) => parents.get(id))
 }

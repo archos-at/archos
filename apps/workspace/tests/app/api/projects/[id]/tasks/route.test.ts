@@ -69,7 +69,7 @@ describe('GET /api/projects/[id]/tasks', () => {
   it('returns 403 feature-disabled when the gate is off (default)', async () => {
     const res = await GET(req(), makeParams('proj_1'))
     expect(res.status).toBe(403)
-    expect(await res.json()).toEqual({ error: 'feature-disabled', feature: 'skills' })
+    expect(await res.json()).toMatchObject({ code: 'feature_disabled', feature: 'skills' })
     expect(mockList).not.toHaveBeenCalled()
   })
 

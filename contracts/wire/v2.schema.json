@@ -3618,9 +3618,7 @@
               "enum": [
                 "ungrounded",
                 "quote_unverified",
-                "normative_claim_uncited",
-                "measurement_only",
-                "citation_fallback"
+                "law_unsettled"
               ],
               "type": "string"
             },

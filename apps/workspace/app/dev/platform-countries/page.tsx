@@ -50,6 +50,7 @@ const REQUEST = {
   secondReviewRoles: [],
   approvals: [],
   releases: [],
+  sourcesUnchecked: true,
   captures: [
     {
       captureId: 'cap-ma37',

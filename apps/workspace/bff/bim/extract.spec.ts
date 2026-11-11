@@ -1,5 +1,7 @@
 // @disk-inputs: tests/fixtures/ifc/sample-building.ifc
 /**
+ * @vitest-environment node
+ *
  * Extraction is the foundation every other IFC surface stands on — the viewer,
  * the query tool and the digest all read what this produces — so it is pinned
  * against a real IFC file rather than a hand-built store double. The fixture is
@@ -12,6 +14,8 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { extractIfcModel, IfcExtractionError, looksLikeStepIfc } from './extract'
+import { buildStoredRuleInputs, readStoredRuleInputs } from './rule-inputs'
+import { runBimRules } from './rules'
 import { createZip } from './zip'
 import type { BimModelIndex } from './types'
 
@@ -268,5 +272,47 @@ describe('extractIfcModel', () => {
     expect(capped.quantityTotals.netFloorAreaM2).toBe(whole.quantityTotals.netFloorAreaM2)
     expect(capped.quantityTotals.grossFloorAreaM2).toBe(whole.quantityTotals.grossFloorAreaM2)
     expect(capped.quantityTotals.netVolumeM3).toBe(whole.quantityTotals.netVolumeM3)
+  })
+})
+
+describe('IsExternal, from the file to the verdict', () => {
+  const EXTERNAL_WALL_FLAG = "#44=IFCPROPERTYSINGLEVALUE('IsExternal',$,IFCBOOLEAN(.T.),$);"
+  const VIENNA = { chain: ['AT-9', 'AT'] }
+
+  async function envelopeRule(edit: (step: string) => string) {
+    const step = edit(readFileSync(FIXTURE, 'latin1'))
+    const bytes = new TextEncoder().encode(step)
+    const index = await extractIfcModel(bytes.buffer as ArrayBuffer, 'sample-building.ifc')
+    const stored = readStoredRuleInputs(buildStoredRuleInputs(index.elements, false))
+    const results = runBimRules(stored?.elements ?? [], { site: VIENNA, mainUse: 'residential' })
+    return results.find((result) => result.ruleId === 'oib6-u-value-external-wall')
+  }
+
+  it('judges the flagged walls on the value the file publishes', async () => {
+    const rule = await envelopeRule((step) => step)
+
+    expect([rule?.passed, rule?.undecidable]).toEqual([3, 0])
+  })
+
+  it('reads a flag the exporter wrote as a label', async () => {
+    const rule = await envelopeRule((step) =>
+      step.replace(EXTERNAL_WALL_FLAG, "#44=IFCPROPERTYSINGLEVALUE('IsExternal',$,IFCLABEL('TRUE'),$);")
+    )
+
+    expect([rule?.passed, rule?.undecidable]).toEqual([3, 0])
+  })
+
+  it('leaves the walls undecidable when the file drops the flag', async () => {
+    const rule = await envelopeRule((step) => step.replace('(#44,#45,#46,#47)', '(#45,#46,#47)'))
+
+    expect([rule?.passed, rule?.undecidable]).toEqual([0, 3])
+  })
+
+  it('leaves the walls undecidable when the file says it does not know', async () => {
+    const rule = await envelopeRule((step) =>
+      step.replace(EXTERNAL_WALL_FLAG, "#44=IFCPROPERTYSINGLEVALUE('IsExternal',$,IFCLOGICAL(.U.),$);")
+    )
+
+    expect([rule?.passed, rule?.undecidable]).toEqual([0, 3])
   })
 })

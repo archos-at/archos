@@ -8,7 +8,9 @@
  */
 
 import { z } from 'zod'
-import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES } from '../wire/vocab'
+import { useApplicabilitySchema } from '../wire/project-law'
+import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS } from '../wire/vocab'
+import { sourceRefSchema } from '../chain/source-refs'
 
 /** Most uses a turn carries (design §5.5: works ≤ 40). */
 export const MAX_CONTEXT_USES = 40
@@ -16,8 +18,7 @@ export const MAX_CONTEXT_USES = 40
 /** What the turn may claim about the law of its site: in the vocabulary (`wire/vocab.ts`), so the intake's wire reads it too. */
 export { GATE_STATES, type GateState } from '../wire/vocab'
 
-/** Why a site is unknown: no site was stated, or a point lies in no territory the records hold. */
-export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
+export { SITE_UNKNOWN_REASONS } from '../wire/vocab'
 
 /** How sure the site is: confirmed from a register or by a person, or only assumed. */
 export const SITE_CERTAINTY = ['verified', 'unverified'] as const
@@ -54,6 +55,10 @@ export const gateSchema = z
   })
   .strict()
 
+
+/** The longest chain text the context carries; the resolver cuts a longer one at a line, with a note. */
+export const MAX_CONTEXT_TEXT_CHARS = 16_000
+
 export const contextUseSchema = z
   .object({
     workId: z.string(),
@@ -70,6 +75,21 @@ export const contextUseSchema = z
     connectsBy: z.array(z.enum(CONNECTING_FACTORS)).min(1),
     labels: z.array(z.enum(USE_LABELS)).max(USE_LABELS.length),
     corpusFiles: z.array(z.string()),
+    /** The work's designation (`BO für Wien`), a name for a person and a chip; null when the record states none. */
+    designation: z.string().nullable(),
+    /** The edition's label (`Ausgabe Mai 2023`); null for law read live at its source. */
+    editionLabel: z.string().nullable(),
+    /** The work's identifiers at its source, sorted by scheme and value; [] when the record states none. */
+    sourceRefs: z.array(sourceRefSchema).max(8),
+    /** Where a person opens the edition's text: the page its manifestation cites first; null when none does. */
+    sourceUrl: z.string().max(2000).nullable(),
+    /**
+     * Whether the edition applies to the project's buildings, by its scope
+     * (ADR-0178): `applies` with the facts that decided it, or `check` with the
+     * facts it waits for. Null where the edition states no scope. An edition no
+     * building needs is not a use at all.
+     */
+    applicability: useApplicabilitySchema.nullable(),
   })
   .strict()
 
@@ -97,6 +117,12 @@ export const knowledgeContextSchema = z
     date: z.iso.date(),
     procedures: z.array(procedureContextSchema).max(4),
     uses: z.array(contextUseSchema).max(MAX_CONTEXT_USES),
+    /**
+     * The chain text the agent reads (the `<building_law>` block): what binds at
+     * the site and why, in the roles of `uses`. Null where no law binds there by
+     * the records, or where the gate names no law.
+     */
+    text: z.string().max(MAX_CONTEXT_TEXT_CHARS).nullable(),
     /** What the turn may retrieve from the shared corpus: the countries whose chunks it may read. Empty reads none. */
     retrieval: z.object({ countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(300) }).strict(),
     /**
@@ -105,6 +131,20 @@ export const knowledgeContextSchema = z
      * Read per conversation, after the cached context; absent outside one.
      */
     updatedSinceLastAnswer: z.array(z.string()).max(16).optional(),
+    /**
+     * Law on the site's chain whose edition at the date the records cannot
+     * name (two in force at once, undated, before the history held): no edition
+     * is assumed, and the answer says the edition is not determined. Absent on
+     * a gate that resolved nothing.
+     */
+    undetermined: z
+      .array(
+        z
+          .object({ workId: z.string(), reason: z.enum(['history_not_held', 'edition_dates_unknown', 'ambiguous_editions']) })
+          .strict(),
+      )
+      .max(MAX_CONTEXT_USES)
+      .optional(),
   })
   .strict()
 

@@ -9,19 +9,21 @@ parameter [verify the OGD API], so a Land search may return only today's
 versions.
 
 Fail closed, whatever the search returns: a hit is read only when its own
-in-force window covers the day. The day it went out of force is excluded, so
-the reading holds whether RIS prints that date as the last day or as the first
-day without. The whole-law document is today's consolidation and is never read
+in-force window covers the day. RIS prints ``Ausserkrafttretensdatum`` as the
+last day in force (the Bauproduktegesetz 1997 ends ``2018-12-31``, its
+successor starts ``2019-01-01``, OGD API checked 2026-11-10), shown here as
+``In Kraft bis``; that day is in force. Base knowledge stores the same end one
+day later, half-open (ADR-0171, migration 0216). The whole-law document is today's consolidation and is never read
 for a past day, nor is the catalog's pointer to it. Nothing found is a miss
 that says the version was not found, never today's text under a past date.
 """
 
 from __future__ import annotations
 
-import asyncio
-import os
 import re
 from datetime import date
+
+from public_sources.engines import RIS_IN_FORCE_UNTIL
 
 _ISO = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
 #: An ISO timestamp, read as its day: OGD-RIS may state a date as one. Nothing else after a date is accepted.
@@ -58,53 +60,8 @@ def in_force_on(metadata: dict[str, str], day: date) -> bool:
     since = parse_day(metadata.get("In Kraft seit", ""))
     if since is None or since > day:
         return False
-    until_text = metadata.get("Außer Kraft seit", "").strip()
+    until_text = metadata.get(RIS_IN_FORCE_UNTIL, "").strip()
     if not until_text:
         return True
     until = parse_day(until_text)
-    return until is not None and day < until
-
-
-#: ``TIME_EDITIONS=on|off`` overrides the flag for a whole process: the answer suite runs without a BFF.
-ENV_OVERRIDE = "TIME_EDITIONS"
-
-
-def _override() -> bool | None:
-    override = os.environ.get(ENV_OVERRIDE, "").strip().lower()
-    return override == "on" if override in {"on", "off"} else None
-
-
-def as_of_offered(flag_allowed: bool) -> bool:
-    """Whether a turn is offered ``as_of``: the turn's flag, unless the process override says otherwise."""
-    override = _override()
-    return flag_allowed if override is None else override
-
-
-def _allowed_for(organization_id: str | None) -> bool:
-    """The ``time-editions`` flag for ``organization_id``; anything short of a yes is no. Blocking."""
-    override = _override()
-    if override is not None:
-        return override
-    if not organization_id:
-        return False
-    try:
-        from agent.stages.flags import fetch_turn_flags
-
-        return fetch_turn_flags(organization_id=organization_id).time_editions_allowed
-    except Exception:  # noqa: BLE001 - off is the safe answer: the lookup then refuses as_of
-        return False
-
-
-async def as_of_allowed() -> bool:
-    """Whether this turn's organization may ask for a past day; off the event loop."""
-    try:
-        from agent.project_context import get_organization_id_from_context
-    except ImportError:  # adapter used standalone, without the agent package
-        return _allowed_for(None)
-    return await asyncio.to_thread(_allowed_for, get_organization_id_from_context())
-
-
-AS_OF_REFUSED = (
-    "Error: as_of is not enabled for this organization, so no version of a past day can be read. "
-    "Ask without as_of for the version in force today, and say that the version of that day was not checked."
-)
+    return until is not None and day <= until

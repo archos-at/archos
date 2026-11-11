@@ -153,13 +153,19 @@ llms:
     # weigh it knowing that a truncated answer at 27 s is worse than a complete
     # one at 35 s.
     reasoning_effort: medium
-    # The Responses API. Nothing in this file needs it any more (the deferred
-    # tool loading it was switched on for is gone, ADR-0048), and the default
-    # (chat_completion) is what every other role runs on. It stays until the
-    # answer suite has measured Chat Completions for this role, because the
-    # transport of every research call is not a change to make as a side
-    # effect.
-    api_type: responses
+    # Chat Completions, like every other role in this file. The Responses API
+    # was switched on for deferred tool loading (gone, ADR-0048) and nothing
+    # needs it since. What decided the move: the chat prompt carries one cache
+    # breakpoint at the end of its static system block
+    # (`common/prompt_caching.py`), and the Responses API does not expose a
+    # per-block `cache_control` (OpenRouter prompt caching guide, on or after
+    # 2026-10-07); langchain's converter drops the key (measured 2026-11-10,
+    # `test_prompt_caching.py::TestTheMarkerIsOnTheWire`). On Responses the
+    # breakpoint never reaches the provider and every turn's first call
+    # re-writes the 23-31k-token static prefix at 1.25x. The answer suite has
+    # not yet measured this transport for this role (no credit on the suite's
+    # key, 2026-11-10); the token report's arm `terra-cc` is that run.
+    api_type: chat_completion
     # ── PROMPT CACHING: nothing to configure here, and that is the point ──
     # This role re-sends ~35 KB of identical prefix (system prompt + tool
     # schemas) on each of a turn's 3-6 calls. Two facts decide what that costs,
@@ -168,11 +174,12 @@ llms:
     # 1. USAGE ACCOUNTING IS ALWAYS ON. OpenRouter returns `cost`,
     #    `cache_discount` and `prompt_tokens_details.cached_tokens` on every
     #    response; its `usage: {include: true}` request option "[is] deprecated
-    #    and [has] no effect". Do not add one. What a `responses` role loses is
-    #    the *carrier*, not the flag — langchain-openai builds no `llm_output`
-    #    on that path and keeps only the normalized `usage_metadata` (counts +
-    #    cache bucket). `cost_tracking.install_responses_cost_carrier` puts the
-    #    provider's `cost` and `is_byok` back, so this role is charged in credits.
+    #    and [has] no effect". Do not add one. What a streamed call loses is
+    #    the *carrier*, not the flag: this role's answering call streams, and
+    #    langchain-openai keeps only the token counts of the final chunk.
+    #    `provider_usage.install_chat_stream_cost_carrier` (and, for a
+    #    `responses` role, `cost_tracking.install_responses_cost_carrier`) puts
+    #    the provider's `cost` and `is_byok` back, so the call is charged.
     # 2. THE CACHE KEY IS DERIVED, NOT CONFIGURED. Caching itself is automatic
     #    for the OpenAI family (≥1024 prompt tokens, no `cache_control`
     #    breakpoint). Claude caches only when asked, so the same module adds a
@@ -547,6 +554,18 @@ functions:
       - aenderungen_oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023.pdf
       - aenderungen_oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023_rev.1.pdf
       - oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023.pdf
+      # The diffs oib.or.at publishes beside the 2019 and 2025 Richtlinien (agent/common/oib_file_names.py)
+      - oib-rl-1-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2.1-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2.2-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2.3-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-3-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-4-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-5-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-6-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-6-aenderungen-gegenueber-version-2011.pdf
+      - aenderungen_oib-rl_6_september_2025.pdf
     generate_summary: true
     summary_model: summary_llm
     summary_db: ${SUMMARY_DB:-sqlite+aiosqlite:///./summaries.db}

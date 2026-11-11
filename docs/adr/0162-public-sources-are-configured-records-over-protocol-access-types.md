@@ -139,6 +139,29 @@ fetcher, the engines), `packages/ris-adapter/tests/test_source_record_parity.py`
 `test_source_routing.py`, `deploy/pulumi/src/app/public-source-fetcher.spec.ts`,
 and the answer suite before and after with `SOURCE_ROUTING=on`.
 
+## Amendment, 2026-11-10: the fetcher is the only path, and it parses the PDFs
+
+`sourceRouting` and its in-process path are gone. Every backend role reads a
+public source only through the `public-source-fetcher`, which every stack now
+deploys (the `publicSourceFetcherEnabled` switch is removed; Compose runs it as
+a service). `source_transport` without `PUBLIC_SOURCE_FETCHER_URL` refuses
+instead of running the guard in the caller's pod, and the RIS client has one
+client, routed. The `source-routing` WorkOS flag, the `SOURCE_ROUTING`
+override and `features.sourceRouting` on `/api/internal/stages` go with it.
+
+Why now, ahead of ADR-0175's "the release after the fetcher runs in
+production": the fetcher became the place a third party's PDF is parsed
+(ADR-0174 amendment), and a parse in the api pod, which reaches the database
+and the cluster, is limited by rlimit and a bare environment but not by any
+network or filesystem boundary. The same release brings the fetcher up in
+every stack, so the precondition holds when the fallback goes.
+
+- `POST /v1/extract` on the fetcher takes a PDF's bytes and answers its text
+  (or a 422 with the reader's code); `public_sources.pdf.read_pdf` sends the
+  bytes there whenever a fetcher is configured and parses nothing itself.
+- The fetcher's limits rise to hold two readers of 1 GiB each: 2.5 GiB, 1 CPU.
+- In Compose the fetcher has its own guard and no NetworkPolicy behind it.
+
 ## More Information
 
 - Design: `docs/design/international/design.md` 4.2 and 6.4 on `claude/intl-design`.

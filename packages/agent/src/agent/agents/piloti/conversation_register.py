@@ -25,8 +25,8 @@ from agent.agents.piloti.clarify import build_clarifier
 from agent.agents.piloti.conversation import ConversationGraph
 from agent.agents.piloti.history import warm_token_encoder
 from agent.agents.piloti.models import ConversationState
+from agent.agents.piloti.turn_tools import set_project_models
 from agent.auth.request_identity import skip_clarifier_requested
-from agent.citations.roles import set_turn_building_law
 from agent.common import AgentGroup
 from agent.common import filter_tools_by_sources
 from agent.common import format_tool_unavailability_error
@@ -38,6 +38,7 @@ from agent.common.agent_tools import load_agent_tools
 from agent.common.fenced_checkpointer import FencedCheckpointer
 from agent.common.knowledge_context import set_turn_knowledge_context
 from agent.common.knowledge_context import trace_metadata as knowledge_trace_metadata
+from agent.common.knowledge_context import turn_knowledge_context
 from agent.common.profiler import flush_after_answer
 from agent.common.profiler import track_agent_profile
 from agent.common.retrieval_status import documents_loading_step
@@ -287,7 +288,6 @@ def _turn_state(
         deep_research_allowed=context.deep_research_allowed,
         tasks_allowed=context.tasks_allowed,
         licensed_text_allowed=context.licensed_text_allowed,
-        time_editions_allowed=context.time_editions_allowed,
         confined=context.confined,
     )
 
@@ -457,19 +457,11 @@ async def _prepare_turn(
     set_turn_documents(inventory.all_documents or inventory.available_documents)
     set_norm_families(inventory.norm_families)
     set_inventory_drops(inventory.inventory_drops)
-    # Each edition's role at the site (ADR-0168), for the citation wire; None
-    # included, so a turn never keys a source on the last turn's records.
-    set_turn_building_law(context.building_law)
-    # Which country, coverage and editions apply, and what the turn may retrieve
-    # (ADR-0173); None included, so a turn never reads the last turn's gate.
+    set_project_models(context.project_models)  # which model files the project holds, for the tools bound
+    # Which country, coverage and editions apply (each edition's role, for the citation wire), and what
+    # the turn may retrieve (ADR-0173); bound every turn, so a turn never reads the last turn's gate.
     set_turn_knowledge_context(context.knowledge_context)
-    if context.knowledge_context is not None:
-        record_trace_metadata(**knowledge_trace_metadata(context.knowledge_context))
-    if context.building_law is not None:
-        record_trace_metadata(
-            building_law_chain=",".join(context.building_law.chain),
-            building_law_uses=len(context.building_law.uses),
-        )
+    record_trace_metadata(**knowledge_trace_metadata(turn_knowledge_context()))
     state = _turn_state(inputs, context, inventory, header_scope, request=request, skip_clarifier=skip_clarifier)
     yield _Turn(agent, state, session_registry, context, inputs, request, runtime, shown_notes)
 

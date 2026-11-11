@@ -46,7 +46,7 @@ describe('validateProposal', () => {
   it('names a seat territory that is not imported, and a territory outside the request’s country, by pointer', () => {
     const records = parse([
       ma37({ seatTerritoryId: 'AT-8' }),
-      { type: 'territory', id: 'DE-BY', kind: 'state', name: 'Bayern', parentIds: ['AT'], citations: cited() },
+      { type: 'territory', id: 'DE-BY', kind: 'state', name: 'Bayern', parents: [{ id: 'AT' }], citations: cited() },
     ])
     const found = validateProposal(records, 'AT', KNOWN, CAPTURES).map((p) => `${p.code} ${p.index} ${p.pointer}: ${p.detail}`)
     expect(found).toContainEqual(expect.stringContaining('KC-1 0 /seatTerritoryId: names territory AT-8'))
@@ -64,7 +64,7 @@ describe('validateProposal', () => {
   })
 
   it('keeps a record’s type and its country', () => {
-    const records = parse([{ type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'] }])
+    const records = parse([{ type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] }])
     const known = new Map<string, KnownRecord>([...KNOWN, ['AT-9', { type: 'territory', countryId: 'DE' }]])
     expect(kit(records, 'AT', known)).toContainEqual(expect.objectContaining({ detail: expect.stringContaining('belongs to DE') }))
   })
@@ -84,7 +84,7 @@ describe('validateProposal', () => {
 
     it('refuses a quote too short to show anything: "Wi" is in "Wien"', () => {
       expect(kc6(ma37({ citations: cited('MA 37') }))).toEqual(['/citations/0/quote'])
-      expect(kc6({ type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'], citations: cited('Wi') })).toContain('/citations/0/quote')
+      expect(kc6({ type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }], citations: cited('Wi') })).toContain('/citations/0/quote')
     })
 
     it('refuses quotes that never name what the record claims to be', () => {
@@ -190,6 +190,27 @@ describe('validateProposal', () => {
     ).toEqual(['KC-1', 'KC-5'])
   })
 
+  it('KC-5: runs an edition scope’s own examples, and accepts it when they hold (ADR-0178)', () => {
+    const scoped = (expected: boolean) => ({
+      type: 'edition',
+      key: 'oib-rl-2-1-2023',
+      workKey: 'oib-rl-2-1',
+      label: '2023',
+      appliesWhen: {
+        inputs: [{ key: 'uses', type: 'codes' }],
+        output: { type: 'boolean' },
+        rows: [{ id: 'production', when: { in: ['production', { var: 'uses' }] }, then: true }],
+        otherwise: { then: false },
+        examples: [{ facts: { uses: ['production'] }, expect: { then: expected } }],
+      },
+    })
+    const known = new Map<string, KnownRecord>([...KNOWN, ['work:oib-rl-2-1', { type: 'work', countryId: 'AT' }]])
+    const codes = (expected: boolean) => kit(parse([scoped(expected)]), 'AT', known).map((problem) => problem.code)
+    expect(codes(true)).not.toContain('KC-5')
+    expect(codes(false)).toContain('KC-5')
+    expect(kit(parse([scoped(false)]), 'AT', known).find((problem) => problem.code === 'KC-5')?.pointer).toBe('/appliesWhen')
+  })
+
   it('KC-3: refuses two editions of one work in force on the same day, and accepts them back to back', () => {
     const edition = (key: string, inForceFrom: string, inForceTo: string | null) => ({
       type: 'edition',
@@ -201,17 +222,25 @@ describe('validateProposal', () => {
     })
     const backToBack = parse([
       work,
-      edition('e2018', '2018-09-01', '2023-12-31'),
+      edition('e2018', '2018-09-01', '2024-01-01'),
       edition('e2024', '2024-01-01', null),
     ])
     expect(kit(backToBack, 'AT', KNOWN)).toEqual([])
     const overlapping = parse([
       work,
-      edition('e2018', '2018-09-01', '2024-01-01'),
+      edition('e2018', '2018-09-01', '2024-01-02'),
       edition('e2024', '2024-01-01', null),
     ])
     expect(kit(overlapping, 'AT', KNOWN)).toEqual([
       expect.objectContaining({ code: 'KC-3', key: 'e2018' }),
+    ])
+    // RIS's last day in force copied as the end leaves one day between the editions: refused, with the day to enter.
+    expect(kit(parse([work, edition('e2018', '2018-09-01', '2023-12-31'), edition('e2024', '2024-01-01', null)]), 'AT', KNOWN)).toEqual([
+      expect.objectContaining({ code: 'KC-3', key: 'e2018', pointer: '/inForceTo', detail: expect.stringContaining('plus one') }),
+    ])
+    // inForceTo is the first day no longer in force: an edition ending on the day it begins is in force on no day.
+    expect(kit(parse([work, edition('e2024', '2024-01-01', '2024-01-01')]), 'AT', KNOWN)).toEqual([
+      expect.objectContaining({ code: 'KC-3', pointer: '/inForceTo' }),
     ])
   })
 
@@ -239,7 +268,7 @@ describe('validateProposal', () => {
     expect(kit(alone, 'AT', known, published)).toEqual([
       expect.objectContaining({ code: 'KC-3', key: 'e2024', detail: expect.stringContaining('edition:e2018') }),
     ])
-    const closing = parse([edition('e2018', '2018-09-01', '2023-12-31'), edition('e2024', '2024-01-01', null)])
+    const closing = parse([edition('e2018', '2018-09-01', '2024-01-01'), edition('e2024', '2024-01-01', null)])
     expect(kit(closing, 'AT', known, published)).toEqual([])
     // An edition of another work does not count.
     expect(kit(alone, 'AT', known, [{ ...published[0], workId: 'work:other' }])).toEqual([])

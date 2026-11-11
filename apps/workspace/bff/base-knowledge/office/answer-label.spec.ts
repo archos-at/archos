@@ -11,6 +11,7 @@ const ENTRY: BaseKnowledgeEntry = {
   fileName: 'ÖNORM B 1600.pdf',
   status: 'confirmed',
   proposedBy: 'person',
+  confirmedBy: 'user_1',
   textUse: 'used',
   aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
   createdAt: '2026-11-01T00:00:00.000Z',

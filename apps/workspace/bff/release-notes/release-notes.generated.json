@@ -409,6 +409,54 @@
         },
         {
           "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The first tab in Dateien is now called „Ordner“, and inside a folder the page's title is the folder's name, with how many items it holds beside it. The line above the title shows the way there, each step one click back up, and on a phone it names the folder above.",
+            "de": "Der erste Tab in Dateien heißt jetzt „Ordner“. In einem Ordner ist der Seitentitel der Ordnername; daneben steht die Anzahl der darin enthaltenen Elemente. Die Zeile darüber zeigt den Pfad: Jeder Schritt führt Sie mit einem Klick eine Ebene nach oben. Auf dem Smartphone wird der übergeordnete Ordner angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The search, the filter, the view and the buttons for the folder you are in now stand in one row under the tabs, which no longer breaks into several lines next to a long folder name. On a narrower window „Ordner anlegen“ is in the „Hochladen“ menu.",
+            "de": "Die Suche, der Filter, die Ansicht und die Schaltflächen für den Ordner, in dem Sie sich gerade befinden, stehen unter den Tabs nun in einer Zeile. Auch neben langen Ordnernamen wird die Zeile nicht mehr umgebrochen. Bei schmaleren Fenstern befindet sich „Ordner anlegen“ im Menü „Hochladen“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Long file names are no longer broken in the middle of a word: a name that does not fit on two lines keeps its beginning and its end, with the file extension. Folder cards are all the same height, with the full name when you point at it.",
+            "de": "Lange Dateinamen werden nicht mehr mitten im Wort getrennt: Passt ein Name nicht in zwei Zeilen, bleiben Anfang und Ende samt Dateiendung sichtbar. Ordnerkarten sind alle gleich hoch; zeigen Sie auf eine Karte, wird der vollständige Name angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Every folder shows its subfolders first and its files after them. The list view keeps the size and date columns on a laptop screen, and on a phone each row shows them under the name.",
+            "de": "Jeder Ordner zeigt zuerst seine Unterordner und danach seine Dateien. In der Listenansicht bleiben die Spalten für Größe und Datum auch auf einem Laptop-Bildschirm sichtbar. Auf dem Smartphone werden sie in jeder Zeile unter dem Namen angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Findings from the documents now stand as a button next to the line that says what was read, and open the overview at the top of Dateien.",
+            "de": "Ergebnisse aus den Dokumenten erscheinen jetzt als Schaltfläche neben der Zeile, die angibt, was gelesen wurde, und öffnen die Übersicht oben in Dateien."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The upload menu says which formats you can upload and the size limit, and that you can drop files anywhere on the page. An empty folder shows one „Hochladen“ button, and the upload panel shows its progress as „3,0 von 6,0 MB“.",
+            "de": "Im Upload-Menü steht, welche Formate Sie hochladen können, welches Größenlimit gilt und dass Sie Dateien überall auf der Seite ablegen können. In einem leeren Ordner wird ein einzelner Button „Hochladen“ angezeigt, und das Upload-Panel zeigt den Fortschritt als „3,0 von 6,0 MB“ an."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "building-law",
           "text": {
             "en": "A project's setup now shows the law that applies at its site, each code and guideline with the edition that binds there, the same law the chat answers with. Where no law can be named yet, it says why: no site, or a country your office has not enabled.",
@@ -421,6 +469,22 @@
           "text": {
             "en": "Every office can now record its own standards, commentaries and directives, and ask which edition of a law applied on an earlier date.",
             "de": "Jedes Büro kann jetzt eigene Standards, Kommentare und Richtlinien erfassen und abfragen, welche Fassung eines Gesetzes zu einem früheren Zeitpunkt galt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "Answers can now quote the edition of an OIB guideline that actually binds in your Land: the April 2019 guidelines in Burgenland, Steiermark and Vorarlberg, and the 2019, 2025 and 2015 editions of OIB-RL 6 where a Land still applies them.",
+            "de": "Antworten können jetzt die Ausgabe einer OIB-Richtlinie zitieren, die in Ihrem Bundesland tatsächlich verbindlich ist: die Richtlinien vom April 2019 in Burgenland, Steiermark und Vorarlberg sowie die Ausgaben 2019, 2025 und 2015 der OIB-RL 6, sofern ein Bundesland diese noch anwendet."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "A guideline written only for some buildings, such as a garage or a high-rise, can now say so, and is then named only for the buildings it is for, in the setup and in the chat alike. Where a deciding fact is still missing it reads „zu prüfen“ and names it; where it applies it says why and opens its text.",
+            "de": "Eine Richtlinie, die nur für bestimmte Gebäude wie Garagen oder Hochhäuser gilt, kann das jetzt angeben und wird dann sowohl in der Einrichtung als auch im Chat nur für die Gebäude angezeigt, für die sie gilt. Fehlt noch eine entscheidende Angabe, steht dort „zu prüfen“ und die fehlende Angabe wird genannt; gilt die Richtlinie, wird erklärt, warum, und ihr Text geöffnet."
           }
         },
         {
@@ -537,6 +601,46 @@
         },
         {
           "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "A research run now works from the same law as the chat: the editions that apply at the project's site, in their role there, or a clear note when that law cannot be named.",
+            "de": "Ein Recherchelauf arbeitet jetzt mit derselben Rechtsgrundlage wie der Chat: mit den am Projektstandort geltenden Fassungen und ihrer dortigen Funktion – oder mit einem klaren Hinweis, wenn sich die Rechtsgrundlage nicht benennen lässt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "Where the law of a project's site cannot be named (the office is not entitled to its country, or it cannot be read), no building class is named either: not in the evaluation, the setup or the project profile.",
+            "de": "Kann das am Projektstandort geltende Baurecht nicht bestimmt werden (weil das Büro für das betreffende Bundesland nicht berechtigt ist oder die Bauordnung nicht ausgelesen werden kann), wird auch keine Gebäudeklasse angegeben – weder in der Auswertung noch in der Konfiguration oder im Projektprofil."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "An office's base knowledge entry keeps who proposed it after it is confirmed, and names who confirmed it.",
+            "de": "Ein Eintrag in der Wissensbasis eines Büros zeigt auch nach der Bestätigung, wer ihn vorgeschlagen hat, und nennt die bestätigende Person."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "Where nobody has reviewed a country's records yet, the chat says it reads that law from an uncurated official source, and it says when a newer edition is known.",
+            "de": "Wenn die Unterlagen eines Landes noch niemand geprüft hat, weist der Chat darauf hin, dass er das betreffende Gesetz aus einer nicht kuratierten offiziellen Quelle bezieht, und nennt, falls bekannt, eine neuere Fassung."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "A licensed standard your office holds but has not cleared for AI processing is now named in answers as held and not read, so the answer says why it cannot quote it instead of leaving it out.",
+            "de": "Eine lizenzierte Norm, über die Ihr Büro verfügt, die aber nicht für die KI-Verarbeitung freigegeben ist, wird in Antworten jetzt als vorhanden, aber nicht gelesen genannt. So erklärt die Antwort, warum sie daraus nicht zitieren kann, statt die Norm auszulassen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "general",
           "text": {
             "en": "Neuerungen is easier to read: each week shows its dates, its summary and how many changes it holds, and opens on demand. Inside a week the changes are grouped by area, and a single fix now reads \"1 fix\".",
@@ -557,6 +661,38 @@
           "text": {
             "en": "Answers now name the editions the Landesgesetzblatt itself makes binding: OIB-RL 6 Ausgabe 2025 in Burgenland from 5 November 2026, OIB-RL 6 Ausgabe März 2015 in Salzburg, and the 2023 guidelines in Salzburg from 1 September 2026 and in Niederösterreich from 20 March 2025.",
             "de": "Die Antworten nennen jetzt die Ausgaben, die das Landesgesetzblatt selbst für verbindlich erklärt: OIB-RL 6 Ausgabe 2025 im Burgenland ab 5. November 2026, OIB-RL 6 Ausgabe März 2015 in Salzburg sowie die Richtlinien 2023 in Salzburg ab 1. September 2026 und in Niederösterreich ab 20. März 2025."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "An answer now names a rule binding only where the reviewed building-law records say it binds at the project's site, in the edition they name. When the site's law cannot be read, the answer says so instead of assuming Austrian law.",
+            "de": "Eine Antwort nennt eine Vorschrift nun nur dann als verbindlich, wenn aus den geprüften baurechtlichen Unterlagen hervorgeht, dass sie am Projektstandort in der dort genannten Fassung gilt. Lässt sich das dort geltende Baurecht nicht feststellen, weist die Antwort darauf hin, statt österreichisches Recht vorauszusetzen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "Answers no longer cite a web copy of a guideline the knowledge base holds, or the product's own website, as a source for law, and no longer show internal notes such as \"citation not verified\" in the text.",
+            "de": "Antworten zitieren eine Webkopie einer in der Wissensdatenbank gespeicherten Richtlinie oder die Website des Produkts nicht mehr als Quelle für Rechtsauskünfte und zeigen im Text keine internen Hinweise wie „Quelle nicht verifiziert“ mehr an."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A question about an Austrian law is answered from the legal database even before the office's building-law base is published; the answer no longer claims the database is switched off.",
+            "de": "Eine Frage zu einem österreichischen Gesetz wird bereits aus der Rechtsdatenbank beantwortet, bevor die baurechtliche Wissensbasis des Büros veröffentlicht ist; die Antwort gibt nicht mehr an, dass die Datenbank deaktiviert ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "Asking for a room's clear height in an IFC model now gives the measured height again, instead of saying the calculation failed.",
+            "de": "Bei der Abfrage der lichten Höhe eines Raums in einem IFC-Modell wird wieder die gemessene Höhe ausgegeben, statt dass ein Berechnungsfehler gemeldet wird."
           }
         },
         {
@@ -587,6 +723,22 @@
           "section": "fixes",
           "area": "building-law",
           "text": {
+            "en": "On the last day a version of a law or regulation is in force, answers now use that version instead of leaving the law out or saying no version was found.",
+            "de": "Am letzten Tag, an dem eine Fassung eines Gesetzes oder einer Verordnung gilt, verwenden Antworten nun diese Fassung, statt die Rechtsvorschrift wegzulassen oder anzugeben, dass keine Fassung gefunden wurde."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "The U-value and sound insulation checks no longer treat a wall or slab without a readable IsExternal value as internal. The Prüfbuch now shows it as not decidable, and Was dem Modell fehlt lists the missing value.",
+            "de": "Die Prüfung von U-Wert und Schalldämmung behandelt eine Wand oder Decke ohne auswertbaren IsExternal-Wert nicht mehr als innenliegend. Im Prüfbuch erscheint sie jetzt als nicht entscheidbar, und „Was dem Modell fehlt“ nennt den fehlenden Wert."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
             "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",
             "de": "Bei Projekten außerhalb Österreichs oder mit noch nicht angegebenem Standort sucht oder präsentiert der Assistent österreichisches Recht, OIB-Richtlinien, das Rechtsinformationssystem (RIS) oder Gebäudeklassen nicht mehr als anwendbar. Stattdessen gibt er an, was nicht abgedeckt ist, oder fragt nach dem Projektstandort. Innerhalb Österreichs zitiert er bei Projekten in anderen Bundesländern nicht mehr die Gesetze Wiens."
           }
@@ -597,6 +749,14 @@
           "text": {
             "en": "An address typed when creating a project, rather than chosen from the search, now waits for your confirmation instead of counting as confirmed.",
             "de": "Eine bei der Projekterstellung eingegebene statt aus den Suchergebnissen ausgewählte Adresse gilt nun erst nach Ihrer Bestätigung als bestätigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "When you ask to see a model, a room or a storey, the 3D view now stays in the answer instead of disappearing as the answer finishes. Asking to open a model now keeps the tiles to choose from.",
+            "de": "Wenn Sie sich ein Modell, einen Raum oder ein Geschoss anzeigen lassen, bleibt die 3D-Ansicht jetzt in der Antwort, statt mit deren Abschluss zu verschwinden. Wenn Sie darum bitten, ein Modell zu öffnen, bleiben die Kacheln zur Auswahl sichtbar."
           }
         },
         {
@@ -617,6 +777,14 @@
         },
         {
           "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "When a building model is too large to measure or the file cannot be read, the assistant now says so and gives the reason, instead of claiming a temporary outage. You can split the model or export it again rather than wait for an outage that was never there.",
+            "de": "Wenn ein Gebäudemodell zu groß zum Messen ist oder die Datei nicht gelesen werden kann, weist der Assistent jetzt darauf hin und nennt den Grund, statt eine vorübergehende Störung zu melden. Sie können das Modell aufteilen oder erneut exportieren, anstatt auf eine Störung zu warten, die es gar nicht gibt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "The inbox's notice that e-mails to a project wait for filing now says how many wait. It used to count only those that arrived since you last opened it, so it could read \"One e-mail\" while two were waiting.",
@@ -629,6 +797,22 @@
           "text": {
             "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",
             "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "After you upload a corrected IFC file under the same name, the Prüfbuch now judges the new file as soon as it has been read. It could keep showing the previous file's results for up to an hour longer.",
+            "de": "Wenn Sie eine korrigierte IFC-Datei unter demselben Namen hochladen, bewertet das Prüfbuch die neue Datei jetzt, sobald sie eingelesen ist. Bisher konnte es die Ergebnisse der vorherigen Datei noch bis zu einer Stunde länger anzeigen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A standard that a building code makes binding, such as a Swiss or German norm referenced by Viennese law, can now also be asked about for a past date, instead of being reported as unknown.",
+            "de": "Eine durch eine Bauordnung verbindlich gemachte Norm, etwa eine im Wiener Recht referenzierte Schweizer oder deutsche Norm, kann nun auch für einen vergangenen Zeitpunkt abgefragt werden, statt als unbekannt gemeldet zu werden."
           }
         },
         {

@@ -1,12 +1,15 @@
-"""What an edition is to this turn's site, from the platform's records (ADR-0168).
+"""What an edition is to this turn's site, from the knowledge context (ADR-0168, ADR-0175).
 
-The BFF resolves the project's site against the knowledge records and sends
-the turn the chain text and every edition's role (``buildingLaw`` in the turn
-context, ``apps/workspace/bff/base-knowledge/chain/wire.ts``). This module
-holds them for the turn and answers, for a retrieved passage, which edition
-it is a text of and what that edition is here. It replaces the guesses of
-:mod:`agent.citations.binding` (a host regex, a filename prefix, a doc class)
-where the records speak; where they do not, nothing changes.
+The BFF resolves the project's site against the knowledge records and sends every edition's role in the
+turn's ``knowledgeContext.uses`` (``common/knowledge_context.py``), with the open-coverage, freshness and
+connecting-factor corrections applied: an uncurated node's guidance is information, a stale uncurated law
+no longer binds, a work that attaches to the office's seat is information. This module answers, for a
+retrieved passage, which of those editions it is a text of and what that edition is here. It is the only
+source of a source's binding status: where the context names no role for a passage, its status is
+``unknown`` and the chip shows none. It reads the same uses the gate does, so a citation never says
+``binding`` where the gate says information. The guesses that came before it (a host regex, a filename
+prefix, a doc class, a registry rank) are gone with ``citations/binding.py``, and the second answer, the
+turn context's ``buildingLaw``, is gone too.
 
 A role is computed from a route, never stored (design §3.5). The coarse
 status the citation chip shows stays the one the UI knows:
@@ -17,134 +20,125 @@ status the citation chip shows stays the one the UI knows:
   registry's ``authority_info`` rank always was;
 - an edition that only guides or interprets is ``interpretive``: OIB-RL
   2:2023 in Steiermark, where the 2019 edition binds (defect 7);
-- information is ``unknown``: the UI shows no chip rather than a false one.
+- information is ``unknown``: the UI shows no chip rather than a false one;
+- so is any edition whose own scope (``applicability``) is open for this project: a person's check, or a
+  building fact not yet known. The chain text says it neither binds nor does not bind; so does the chip.
 
-Per turn and fail closed: bound once before the graph starts, ``None``
-included (that is the reset), and a malformed use is dropped, never guessed.
-Only a base-corpus passage maps to an edition: an office's copy that happens
-to share a file name is the office's, and its label is the office layer's.
+Fail closed: no context bound, or a gate that carries no uses, maps every passage to nothing.
+A base-corpus passage maps to an edition by its corpus file, and a passage
+read through a legal database (RIS) by an identity the edition's records carry
+(``sourceRefs``, ``{scheme, value}``: a Gesetzesnummer as the RIS URL's query
+parameter, an ELI by whole path segments of the URL; an unknown scheme never
+matches). An
+office's copy that happens to share a file name is the office's, and its label
+is the office layer's.
 """
 
 from __future__ import annotations
 
-import contextvars
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import parse_qs
+from urllib.parse import urlsplit
 
-from agent.citations.binding import BindingClassification
 from agent.citations.citation_keys import entry_shelf
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.entries import SourceEntry
+from agent.citations.source_identity import is_legal_database_source
+from agent.common.knowledge_context import EditionUse
+from agent.common.knowledge_context import SourceRef
+from agent.common.knowledge_context import turn_knowledge_context
 from agent.common.norm_registry import canonical_oib_file_name
 from agent.common.source_kinds import Shelf
 
-#: The roles an edition can have (design §3.5); the TypeScript source is
-#: ``EDITION_ROLES`` in ``apps/workspace/bff/base-knowledge/wire/vocab.ts``.
-EDITION_ROLES: tuple[str, ...] = ("binding", "guidance", "interpretation", "authority_practice", "information")
-
-#: How a role arose: law in its territory, a relation's route, or nothing (a norm no route reaches).
-ROUTE_VIAS: tuple[str, ...] = ("territory", "relation", "none")
-
-#: Most uses a turn holds; the BFF's own bound (``MAX_TURN_USES``).
-MAX_USES = 40
-
-#: Longest chain text kept; the BFF's text is far shorter, this only bounds a broken one.
-MAX_TEXT_CHARS = 12_000
-
 
 @dataclass(frozen=True)
-class EditionUse:
-    """One edition's role at the turn's site."""
+class BindingClassification:
+    """A source's coarse binding status, as the citation chip shows it.
 
-    work_id: str
-    edition_id: str | None
-    role: str
-    via: str
-    qualifier: str | None = None
-    corpus_files: tuple[str, ...] = ()
-    designation: str | None = None
-    edition_label: str | None = None
+    ``binding`` / ``declared_binding`` / ``interpretive`` / ``unknown``. The default
+    is ``unknown``: a passage no edition role reaches gets no badge, because a
+    fabricated binding badge would be a false legal claim.
+    """
+
+    binding_status: str = "unknown"
 
 
-@dataclass(frozen=True)
-class BuildingLaw:
-    """The turn's building law: the chain text and every edition's role."""
-
-    text: str
-    chain: tuple[str, ...]
-    date: str
-    uses: tuple[EditionUse, ...]
+#: The identity schemes a work's records carry and this module matches (``SOURCE_REF_SCHEMES`` in the
+#: TypeScript wire); any other scheme never matches.
+SOURCE_REF_SCHEMES: tuple[str, ...] = ("ris_gesetzesnummer", "eli")
 
 
-def _text(value: object) -> str | None:
-    return value if isinstance(value, str) and value else None
+def _eli_segments(url: str) -> tuple[str, ...]:
+    """A URL as the segments an ELI is matched on: the host without ``www.`` (RIS links come both ways:
+    ``www.ris.bka.gv.at`` and the open-data ``ris.bka.gv.at``), then each path segment, lower case. Pure."""
+    parts = urlsplit(url.strip().lower())
+    return (parts.netloc.removeprefix("www."), *(segment for segment in parts.path.split("/") if segment))
 
 
-def _use(raw: object) -> EditionUse | None:
-    if not isinstance(raw, dict):
-        return None
-    work_id, role, via = _text(raw.get("workId")), raw.get("role"), raw.get("via")
-    if work_id is None or role not in EDITION_ROLES or via not in ROUTE_VIAS:
-        return None
-    files = raw.get("corpusFiles")
-    return EditionUse(
-        work_id=work_id,
-        edition_id=_text(raw.get("editionId")),
-        role=str(role),
-        via=str(via),
-        qualifier="office_maintained" if raw.get("qualifier") == "office_maintained" else None,
-        corpus_files=tuple(name for name in files if isinstance(name, str)) if isinstance(files, list) else (),
-        designation=_text(raw.get("designation")),
-        edition_label=_text(raw.get("editionLabel")),
-    )
+def _within_eli(url: str, eli: str) -> bool:
+    """Whether ``url`` is the work ``eli`` names or a part of it, by whole path segments: ``…/1930/11`` holds
+    ``…/1930/11/P63`` but not ``…/1930/110``, another law. A trailing ``/`` changes nothing. Pure."""
+    prefix = _eli_segments(eli)
+    return len(prefix) > 1 and _eli_segments(url)[: len(prefix)] == prefix
 
 
-def parse_building_law(raw: object) -> BuildingLaw | None:
-    """The turn context's ``buildingLaw``, or None when absent or not the shape the BFF sends. Pure."""
-    if not isinstance(raw, dict):
-        return None
-    text, date, chain, uses = _text(raw.get("text")), _text(raw.get("date")), raw.get("chain"), raw.get("uses")
-    if text is None or date is None or not isinstance(chain, list) or not isinstance(uses, list):
-        return None
-    parsed = tuple(use for use in (_use(item) for item in uses[:MAX_USES]) if use is not None)
-    return BuildingLaw(
-        text=text[:MAX_TEXT_CHARS],
-        chain=tuple(item for item in chain if isinstance(item, str)),
-        date=date,
-        uses=parsed,
-    )
+def _law_number(url: str | None) -> str | None:
+    """The ``Gesetzesnummer`` query parameter of a RIS URL (``GeltendeFassung.wxe?…&Gesetzesnummer=20000006``)."""
+    query = parse_qs(urlsplit(url or "").query)
+    values = next((value for key, value in query.items() if key.lower() == "gesetzesnummer"), [])
+    return values[0] if values else None
 
 
-_turn_building_law: contextvars.ContextVar[BuildingLaw | None] = contextvars.ContextVar(
-    "_turn_building_law", default=None
-)
+def _ref_matches(ref: SourceRef, entry: SourceEntry) -> bool:
+    """Whether one identity names the passage ``entry`` read, by its scheme; an unknown scheme never matches. Pure.
+
+    ``eli`` holds the passage's URL by whole path segments (host with or without ``www.``), and
+    ``ris_gesetzesnummer`` is the Gesetzesnummer its RIS URL asks for (``SOURCE_REF_SCHEMES``).
+    """
+    if ref.scheme == "eli":
+        return bool(entry.url) and _within_eli(entry.url, ref.value)
+    if ref.scheme == "ris_gesetzesnummer":
+        return _law_number(entry.url) == ref.value
+    return False
 
 
-def set_turn_building_law(value: BuildingLaw | None) -> None:
-    """Bind this turn's building law. Called on every turn, ``None`` included: that is the reset."""
-    _turn_building_law.set(value)
-
-
-def get_turn_building_law() -> BuildingLaw | None:
-    return _turn_building_law.get()
+def _use_for_legal_database(uses: tuple[EditionUse, ...], entry: SourceEntry) -> EditionUse | None:
+    """The edition a passage read through a legal database (RIS) is, by an identity its records carry."""
+    return next((use for use in uses if any(_ref_matches(ref, entry) for ref in use.source_refs)), None)
 
 
 def use_for_entry(entry: SourceEntry) -> EditionUse | None:
-    """The edition a base-corpus passage is a text of, with its role here; None when the records do not say."""
-    law = _turn_building_law.get()
-    if law is None or not entry.citation_key or entry_shelf(entry) is not Shelf.BASE:
+    """The edition a passage is a text of, with its role here; None when the records do not say.
+
+    A base-corpus passage maps by its corpus file; a passage read through a legal database by the
+    identities the edition's manifestation records carry (``sourceRefs``). Anything else maps to nothing,
+    and its status is ``unknown`` (fail closed).
+    """
+    uses = turn_knowledge_context().uses
+    if not uses:
+        return None
+    if is_legal_database_source(entry):
+        return _use_for_legal_database(uses, entry)
+    if not entry.citation_key or entry_shelf(entry) is not Shelf.BASE:
         return None
     file_name, _page = parse_citation_key(entry.citation_key)
     base_name = canonical_oib_file_name(file_name.rsplit("/", 1)[-1])
     if not base_name:
         return None
     return next(
-        (use for use in law.uses if base_name in (canonical_oib_file_name(name) for name in use.corpus_files)), None
+        (use for use in uses if base_name in (canonical_oib_file_name(name) for name in use.corpus_files)), None
     )
 
 
 def binding_status_for(use: EditionUse) -> str:
-    """The coarse status the citation chip shows for a role (module docstring). Pure."""
+    """The coarse status the citation chip shows for a role (module docstring). Pure.
+
+    An edition whose own scope is open for this project (a person's check, a building fact not yet known)
+    is ``unknown`` whatever its role: the chain text says it neither binds nor does not bind until then.
+    """
+    if use.scope_unsettled:
+        return "unknown"
     if use.role == "binding":
         return "binding" if use.via == "territory" else "declared_binding"
     if use.role == "authority_practice":
@@ -154,13 +148,11 @@ def binding_status_for(use: EditionUse) -> str:
     return "unknown"
 
 
-def with_role(classification: BindingClassification, use: EditionUse | None, *, place: bool) -> BindingClassification:
-    """The classification a source carries: a place never binds; a role replaces the guess; else the guess. Pure."""
-    if place:
-        return BindingClassification(rank=None, binding_status="unknown")
-    if use is None:
-        return classification
-    return BindingClassification(rank=classification.rank, binding_status=binding_status_for(use))
+def classification_for(use: EditionUse | None, *, place: bool) -> BindingClassification:
+    """The classification a source carries: its edition's role here, else ``unknown``; a place never binds. Pure."""
+    if place or use is None:
+        return BindingClassification()
+    return BindingClassification(binding_status=binding_status_for(use))
 
 
 def role_fields(use: EditionUse | None) -> dict[str, Any]:

@@ -88,9 +88,6 @@ class ResearchAgentState(BaseModel):
     tasks_allowed: bool = True
     #: Whether this turn may expand licensed passages inside the model call (``common/licensed_text.py``).
     licensed_text_allowed: bool = False
-    #: Whether this turn's ``law-lookup`` is offered ``as_of`` (the ``time-editions`` flag, ADR-0171).
-    #: Off, the tool keeps the payload it had before; on, the turn binds the copy that shows it.
-    time_editions_allowed: bool = False
     #: The turn's signed scope holds a restricted folder's collection (ADR-0087).
     #: Rendered as the block that keeps the run, task, profile and filing doors
     #: shut for this conversation, and picks the reason the reader is given.
@@ -189,6 +186,10 @@ class ResearchAgentState(BaseModel):
     # ``answer_citation_grounded`` to cap confidence to "low" with the
     # ``quote_unverified`` reason. Fail-open default True.
     answer_quotes_verified: bool = True
+    # Whether the answer rests on building law the turn's records do not settle (ADR-0175): it cites a
+    # building-law source while the gate withholds a binding claim or the coverage is open. The law gate
+    # caps the surfaced level to medium with the ``law_unsettled`` reason (``markers``).
+    answer_law_unsettled: bool = False
     # The SECOND kind of grounding: whether THIS turn produced at least one
     # `declared`/`computed` answer from the IFC model (see
     # ``piloti.grounding``). An IFC measurement carries a provenance,
@@ -330,6 +331,8 @@ class ResearchAgentState(BaseModel):
     # graph-direct path renders inline).
     cached_system_prompt: str | None = None
     cached_turn_context: str | None = None
+    #: The stable head of the conversation layout (``context_layout``), cached like the two above.
+    cached_conversation_context: str | None = None
 
     # -- derived signals --------------------------------------------------------
     # Read-only properties, NOT fields: they are pure functions of the signals
@@ -377,13 +380,15 @@ class ResearchAgentState(BaseModel):
             _checked_level(self.confidence_check),
             quotes_verified=self.answer_quotes_verified,
             citation_grounded=self.answer_citation_grounded,
+            law_unsettled=self.answer_law_unsettled,
         )
 
     @property
     def answer_confidence_capped_reason(self) -> CappedReason | None:
-        """``quote_unverified`` when the quote gate lowered the check's level; else None."""
+        """``quote_unverified`` or ``law_unsettled`` when a gate lowered the check's level; else None."""
         return checked_confidence_capped_reason(
             _checked_level(self.confidence_check),
             quotes_verified=self.answer_quotes_verified,
             citation_grounded=self.answer_citation_grounded,
+            law_unsettled=self.answer_law_unsettled,
         )

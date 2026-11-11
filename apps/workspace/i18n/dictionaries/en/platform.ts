@@ -42,7 +42,6 @@ export const platform = {
     roles: {
       domain_expert: 'domain expert',
       counsel: 'counsel',
-      second_reviewer: 'second reviewer',
       privacy_reviewer: 'privacy reviewer',
     },
     secondReviewNext: {
@@ -112,12 +111,12 @@ export const platform = {
       functionCodes: 'Responsible for',
       territoryIds: 'Applies in',
       addressees: 'Addressed to',
-      parentIds: 'Lies in',
+      parents: 'Lies in',
       issuedOn: 'Issued on',
       inForceFrom: 'In force from',
-      inForceTo: 'In force until',
+      inForceTo: 'No longer in force from',
       validFrom: 'Valid from',
-      validTo: 'Valid until',
+      validTo: 'No longer valid from',
       workId: 'Edition of',
       editionId: 'Text of edition',
       form: 'Form',
@@ -157,6 +156,8 @@ export const platform = {
     progress: '{checked} of {total} entries checked',
     wrongCount: 'not correct: {count}',
     why: {
+      own: 'You wrote in this request, so another person approves it.',
+      ownUnchecked: 'You wrote in this request, so another person approves it. A page pasted rather than fetched is checked against its source by another person before you may approve alone.',
       open: 'Entries still to check: {count}',
       alone: 'You wrote in this request: a second person approves it, or you approve it alone with a reason.',
       wrong: 'Entries not correct: {count}. A request with a wrong entry cannot be approved.',
@@ -1433,7 +1434,7 @@ export const platform = {
     // Document types. The German dictionary mirrors the backend's
     // DOCUMENT_CLASS_LABELS (`lib/knowledge/doc-class.ts`).
     docClasses: {
-      oib_guideline: 'OIB directive (binding)',
+      oib_guideline: 'OIB directive',
       oib_guide: 'OIB guideline',
       oib_explanatory_note: 'OIB explanatory notes',
       oib_definitions: 'OIB definitions',
@@ -1629,7 +1630,7 @@ export const platform = {
     missingCited: '{turns} turn(s) · {organizations} org(s)',
     missingCaveat:
       'Each button opens the manager that owns the add flow and copies the identifier to your clipboard. A PDF has to come from you, and a norm-catalog entry needs its legal rank and Bundesland confirmed before {productName} may quote it as binding.',
-    missingReadOnly: 'Adding sources needs permission to manage platform settings.',
+    missingReadOnly: 'Adding sources needs permission to write platform knowledge, or to manage platform settings for the norm catalog.',
     shownOfTotal: 'Showing {shown} of {total}.',
     missingInventoryUnknown:
       'The platform inventory could not be checked, so it is unknown whether these sources are already held. Adding is hidden until the check works again.',

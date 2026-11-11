@@ -58,7 +58,7 @@ const ASOF_VIENNA = { file: RESOLVE_SPEC, name: 'asof-vienna: Wien binds RL 6 in
 const DEVIATION = { file: RESOLVE_SPEC, name: 'deviation-wbtv-pkt: a WBTV clause displaces an OIB-RL 2 Punkt in Wien, and nowhere else' }
 const OFFICE_ROUTE = { file: RESOLVE_SPEC, name: 'E37: an office relation makes a DIN edition binding as office_maintained, and a platform relation displaces it' }
 const CROSS_PACK = { file: RESOLVE_SPEC, name: 'li-sia500: Liechtenstein law reaches SIA and VKF works in another pack through relations' }
-const DATED_PARENT = { file: RESOLVE_SPEC, name: 'gb-2021-no-eu: Great Britain lies in the EU until the end of 2020, and not after' }
+const LEGACY_PARENTS = { file: 'apps/workspace/bff/base-knowledge/platform/records.spec.ts', name: 'writes the older builds’ parent_ids and dated_parents from parents' }
 const EVERY_KIND = { file: RESOLVE_SPEC, name: '%s reads as its kind and route say' }
 const CHAIN_NAMED = { file: TEXT_SPEC, name: 'names what binds in Wien, why, and the clause the Land displaces' }
 const STYRIA_DB = { file: CHAIN_SPEC, name: 'reads the chain for Steiermark: OIB-RL 2 binds in 2019, and 2023 only guides (defect 7)' }
@@ -75,6 +75,7 @@ const PLATFORM_SPEC = 'apps/workspace/bff/base-knowledge/platform/platform.integ
 const PLATFORM_STORE = 'apps/workspace/bff/base-knowledge/platform/store.ts'
 const PLATFORM_RELEASE = 'apps/workspace/bff/base-knowledge/platform/release.ts'
 const PLATFORM_READ = 'apps/workspace/bff/base-knowledge/platform/office-read.ts'
+const RECORD_VISIBILITY = 'apps/workspace/bff/base-knowledge/store/visibility.ts'
 const PLATFORM_INDEXING = 'apps/workspace/bff/base-knowledge/platform/indexing.ts'
 const PLATFORM_ENTITLEMENTS = 'apps/workspace/bff/base-knowledge/platform/entitlements.ts'
 const PLATFORM_VALIDATE = 'apps/workspace/bff/base-knowledge/platform/validate.ts'
@@ -153,7 +154,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_work_revisions.organization_id', consumer: STORE, test: ISOLATION },
   { element: 'knowledge_work_revisions.kind', consumer: TURN, test: NAMED },
   { element: 'knowledge_work_revisions.title', consumer: TURN, test: NAMED },
-  { element: 'knowledge_work_revisions.identifiers', consumer: STORE, test: ISOLATION },
+  { element: 'knowledge_work_revisions.identifiers', consumer: CHAIN_LOAD, test: { file: CHAIN_SPEC, name: 'reads a work’s identifiers at its source as its sourceRefs, by scheme, and nothing else of them' } },
   { element: 'knowledge_work_revisions.territory_ids', consumer: SERVICE, test: PROPOSAL },
   { element: 'knowledge_work_revisions.issuer', consumer: SERVICE, test: PROPOSAL },
   { element: 'knowledge_work_revisions.addressees', consumer: TURN, test: DIRECTIVE },
@@ -168,6 +169,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_edition_revisions.in_force_from', consumer: TIME_READ, test: TIME_READ_TEST },
   { element: 'knowledge_edition_revisions.in_force_to', consumer: TIME_READ, test: TIME_READ_TEST },
   { element: 'knowledge_edition_revisions.transition', consumer: TIME_READ, test: TIME_READ_TEST },
+  { element: 'knowledge_edition_revisions.applies_when', consumer: CHAIN_LOAD, test: { file: CHAIN_SPEC, name: 'reads an edition’s scope and the page its text opens at (0221, ADR-0178)' } },
   { element: 'knowledge_edition_revisions.outline', awaits: 'S8: clause anchors from the masthead outline' },
   // knowledge_manifestation_revisions
   { element: 'knowledge_manifestation_revisions.revision_id', consumer: STORE, test: HEADS },
@@ -211,16 +213,18 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'point.quote_max_chars', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_a_cap_that_is_no_positive_count_is_left_out' } },
   { element: 'point.knowledge_edition_id', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: MARK_SPEC, name: 'test_the_ingest_job_carries_the_mark_into_its_config' } },
   // Migration 0205 (ADR-0165): the platform's columns and tables.
-  { element: 'knowledge_records.country_id', consumer: PLATFORM_READ, test: LISTING },
+  { element: 'knowledge_records.country_id', consumer: RECORD_VISIBILITY, test: LISTING },
   { element: 'knowledge_revisions.change_request_id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
   { element: 'knowledge_manifestation_revisions.corpus_file', consumer: PLATFORM_READ, test: INDEXED },
   { element: 'knowledge_territory_revisions.revision_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.record_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.organization_id', consumer: PLATFORM_READ, test: MA37 },
-  { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_TERRITORIES, test: MA37 },
+  // Migration 0219: one parents field; the two lists before it are written, derived, for older builds only.
+  { element: 'knowledge_territory_revisions.parents', consumer: PLATFORM_TERRITORIES, test: MA37 },
+  { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_RECORDS, test: LEGACY_PARENTS },
   { element: 'knowledge_territory_revisions.kind', awaits: ADDRESS },
   { element: 'knowledge_territory_revisions.name', consumer: CHAIN_TEXT, test: CHAIN_NAMED },
-  { element: 'knowledge_territory_revisions.dated_parents', consumer: CHAIN_RESOLVE, test: DATED_PARENT },
+  { element: 'knowledge_territory_revisions.dated_parents', consumer: PLATFORM_RECORDS, test: LEGACY_PARENTS },
   // Migration 0213 (ADR-0173): coverage and the connecting factor, read by the turn's knowledge context.
   { element: 'knowledge_territory_revisions.coverage_level', consumer: CONTEXT_RESOLVE, test: { file: EDGE_CASES, name: 'id: E02' } },
   { element: 'knowledge_territory_revisions.municipal_law', consumer: CONTEXT_RESOLVE, test: { file: EDGE_CASES, name: 'id: E-core-AT' } },

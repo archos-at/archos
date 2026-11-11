@@ -1784,6 +1784,10 @@ describe('reconcileDocumentStatuses — upload screening', () => {
     expect(db.values).toHaveBeenCalledWith(
       expect.objectContaining({ reasons: 'iban,passport', reasonsOmitted: 4, checked: 'partial' })
     )
+    expect(captureServer).toHaveBeenCalledWith(
+      expect.objectContaining({ properties: expect.objectContaining({ status: 'quarantined', hold_kinds: 'iban,other' }) })
+    )
+    expect(JSON.stringify(captureServer.mock.calls)).not.toContain('AT61')
   })
 
   it('takes the typed verdict over the message beside it', async () => {
@@ -1843,6 +1847,10 @@ describe('reconcileDocumentStatuses — upload screening', () => {
     expect(result.status).toBe('quarantined')
     expect(db.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'quarantined' }))
     expect(db.values).toHaveBeenCalledWith(expect.objectContaining({ jobId: 'job-1' }))
+    expect(captureServer).toHaveBeenCalledWith(
+      expect.objectContaining({ properties: expect.objectContaining({ hold_kinds: 'term' }) })
+    )
+    expect(JSON.stringify(captureServer.mock.calls)).not.toContain('Lohnzettel')
   })
 
   it('records no decision for a row it did not move, nor for one that came to rest otherwise', async () => {

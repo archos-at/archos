@@ -39,6 +39,12 @@ export interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLElement>,
   titleEnd?: React.ReactNode
   /** The action stays on the title's line at every width: a compact one (a single ⋯) that a phone need not stack. */
   actionInline?: boolean
+  /** Classes for the title itself (`line-clamp-2` where a title can be a folder's sentence-long name). */
+  titleClassName?: string
+  /** The whole title as a tooltip, where `titleClassName` may cut it. */
+  titleTooltip?: string
+  /** Beside the title, on its first line's baseline: what the place holds („240 Elemente“). */
+  titleAside?: React.ReactNode
 }
 
 /**
@@ -98,9 +104,20 @@ export function PageHeader({
   titleStartClassName,
   titleEnd,
   actionInline = false,
+  titleClassName,
+  titleTooltip,
+  titleAside,
   className,
   ...props
 }: PageHeaderProps): JSX.Element {
+  // The aside follows the title's last word inline („Index C  2 Elemente“): beside a two-line title as a box it stood
+  // at the far edge of the column, away from what it counts.
+  const heading = (
+    <h1 className={cn('min-w-0 flex-1 text-balance text-page-title phone:text-section', titleClassName)} title={titleTooltip}>
+      {title}
+      {titleAside && <span className="ml-2 whitespace-nowrap align-baseline font-normal">{titleAside}</span>}
+    </h1>
+  )
   return (
     <header className={cn('min-w-0', TITLE_ROW_CLASS, actionInline && 'flex-row items-center justify-between', className)} {...props}>
       <div className={TITLE_COLUMN_CLASS}>
@@ -114,14 +131,16 @@ export function PageHeader({
           </p>
         )}
         {titleStart || titleEnd ? (
-          <div className="flex min-w-0 items-center gap-2" data-slot="page-header-title-line">
+          // `items-start`: a way back stands on the title's first line when the title takes two (it floated beside
+          // the second, centred on both).
+          <div className="flex min-w-0 items-start gap-2" data-slot="page-header-title-line">
             {/* -10px each side: a 44px target on the title's 24px line. */}
             {titleStart && <div className={cn('-my-2.5 flex shrink-0 items-center', titleStartClassName)}>{titleStart}</div>}
-            <h1 className="min-w-0 flex-1 text-balance text-page-title phone:text-section">{title}</h1>
+            {heading}
             {titleEnd && <div className="-my-2.5 flex shrink-0 items-center">{titleEnd}</div>}
           </div>
         ) : (
-          <h1 className="text-balance text-page-title phone:text-section">{title}</h1>
+          heading
         )}
         {subtitle && (
           <p className="mt-1 text-pretty text-sm text-muted-foreground phone:hidden">{subtitle}</p>

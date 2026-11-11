@@ -32,6 +32,11 @@ const editionUse = (workId: string, editionId: string | null, corpusFiles: strin
   connectsBy: ['site'],
   labels: [],
   corpusFiles,
+  designation: null,
+  editionLabel: null,
+  sourceRefs: [],
+  sourceUrl: null,
+  applicability: null,
 })
 
 const CONTEXT: KnowledgeContext = {
@@ -47,6 +52,7 @@ const CONTEXT: KnowledgeContext = {
     editionUse('work:oib-rl-2', 'edition:oib-rl-2-2019', ['OIB-RL2-2019.pdf']),
     editionUse('work:oib-rl-6', 'edition:oib-rl-6-2025', ['OIB-RL6-2025.pdf']),
   ],
+  text: null,
   retrieval: { countries: ['AT', 'EU'] },
 }
 

@@ -23,5 +23,5 @@ export const PUT = platformApiRoute<Params>(
       const body = await parseJsonBody(request, sourceCredentialBodySchema)
       return setPlatformSourceCredential(session, sourceKey, body.secret)
     }),
-  { permission: PLATFORM_PERMISSIONS.settingsManage },
+  { permission: PLATFORM_PERMISSIONS.knowledgeWrite },
 )

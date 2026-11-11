@@ -8,19 +8,11 @@ called, what it takes, and which stage runs next.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
-from functools import cache
-from typing import Any
 
-from pydantic import BaseModel
 from pydantic import Field
-from pydantic import create_model
-from pydantic.json_schema import SkipJsonSchema
 from ris_adapter.client import DEFAULT_BASE_URL
 from ris_adapter.client import RisClient
 from ris_adapter.lookup.address import parse_address
-from ris_adapter.lookup.as_of import AS_OF_REFUSED
-from ris_adapter.lookup.as_of import as_of_allowed
 from ris_adapter.lookup.as_of import as_of_error
 from ris_adapter.lookup.candidates import collect_candidates
 from ris_adapter.lookup.extract import select_passages
@@ -68,7 +60,7 @@ those it did not read.
     application (str): Only for the non-statute corpora: "Vfgh", "Vwgh", "Justiz", "Bvwg", "Lvwg" for case \
 law, "BgblAuth"/"LgblAuth" for the authentic gazettes, "Begut"/"RegV" for drafts. Empty for statute law."""
 
-#: The ``as_of`` argument's line, offered only to a turn whose organization has ``time-editions`` (ADR-0171).
+#: The ``as_of`` argument's line (ADR-0171), offered on every turn since the ``time-editions`` switch went (ADR-0175).
 AS_OF_ARG = """
     as_of (str): Optional YYYY-MM-DD: the version in force on that day (e.g. the filing day of a \
 submission), read only from RIS version documents of that day; a miss rather than today's text."""
@@ -80,10 +72,8 @@ Returns:
 paragraph text. A miss says what was searched, which Bundesland was assumed and where that came from, what \
 matched but was not read, and one concrete retry."""
 
-#: What every caller sees: no ``as_of``, byte for byte the contract before ADR-0171.
-RIS_LOOKUP_DESCRIPTION = _ARGS + _RETURNS
-#: What a turn with ``time-editions`` sees (:func:`offer_as_of`).
-RIS_LOOKUP_AS_OF_DESCRIPTION = _ARGS + AS_OF_ARG + _RETURNS
+#: What every caller sees, ``as_of`` included.
+RIS_LOOKUP_DESCRIPTION = _ARGS + AS_OF_ARG + _RETURNS
 
 
 class RisLookupToolConfig(FunctionBaseConfig, name="ris_lookup"):
@@ -129,8 +119,7 @@ async def ris_lookup(tool_config: RisLookupToolConfig, builder: Builder):
         jurisdiction: str = "",
         instrument: str = "",
         application: str = "",
-        # Hidden from the schema; a `time-editions` turn binds `offer_as_of`'s copy, which shows it.
-        as_of: SkipJsonSchema[str] = "",
+        as_of: str = "",
     ) -> str:
         # `conclusion` is deliberately unread, exactly like the knowledge
         # tools': it is the Herleitung's checkpoint slot, read off the CALL by
@@ -142,8 +131,6 @@ async def ris_lookup(tool_config: RisLookupToolConfig, builder: Builder):
         as_of = (as_of or "").strip()
         if error := as_of_error(as_of):
             return error
-        if as_of and not await as_of_allowed():
-            return AS_OF_REFUSED
         outcome = ActionOutcome()
         row = ActionRow("law", query=question, target=(instrument or "").strip())
         try:
@@ -203,39 +190,3 @@ async def _resolve_llms(tool_config: RisLookupToolConfig, builder: Builder):
         )
         return None, None
     return _make_planner(llm), make_picker(llm)
-
-
-def _offers_as_of(tool: Any) -> bool:
-    schema = getattr(tool, "args_schema", None)
-    return "ris_lookup" in (getattr(tool, "name", "") or "") and "as_of" in getattr(schema, "model_fields", {})
-
-
-@cache
-def _schema_with_as_of(schema: type[BaseModel]) -> type[BaseModel]:
-    """``schema`` with ``as_of`` shown: the same fields, the skip annotation dropped from that one."""
-    fields: dict[str, Any] = {
-        # A fresh field for `as_of`: its FieldInfo carries the skip marker in its metadata.
-        name: (str, Field(default=info.default)) if name == "as_of" else (info.annotation, info)
-        for name, info in schema.model_fields.items()
-    }
-    return create_model(schema.__name__, __config__=schema.model_config, **fields)
-
-
-def offer_as_of(tools: Sequence[Any]) -> list[Any]:
-    """``tools`` with the RIS lookup rebound to offer ``as_of``: for a turn whose organization has ``time-editions``.
-
-    The registered tool hides the argument (its schema skips it, its description
-    leaves it out), so a turn without the flag sends the payload it sent before
-    ADR-0171. Everything else is returned untouched.
-    """
-    return [
-        tool.model_copy(
-            update={
-                "description": RIS_LOOKUP_AS_OF_DESCRIPTION,
-                "args_schema": _schema_with_as_of(tool.args_schema),
-            }
-        )
-        if _offers_as_of(tool)
-        else tool
-        for tool in tools
-    ]

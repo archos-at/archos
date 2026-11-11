@@ -100,10 +100,13 @@ The paths that went with them:
 | Switch | Why it stays |
 |---|---|
 | `licensed-seam` (ADR-0164) | A per-office licence decision, not an old path: off lists a licensed passage without its text, which is the right answer for an office that has not attested its licence (design 4.7) |
-| `source-routing` (ADR-0162) | Its off state is an old path (the agent fetches public sources from its own pod), but that path lives in the agent tier (`packages/`) and the fetcher Deployment must run in every environment before it can go. It goes in the release after the fetcher runs in production |
 | `site-resolution` (ADR-0172) | Gates the BEV import, data a cell does not hold yet |
 | `source-monitors` (ADR-0174) | Gates a sweep that fetches and writes; switched on per environment once its sources are published |
 | the residency switches (ADR-0167) | Gate the EU contract, which does not exist yet |
+
+`source-routing` was kept here until the fetcher ran in production; it went on
+2026-11-10, in the release that deploys the fetcher in every stack (ADR-0162
+amendment), because the fetcher became where a third party's PDF is parsed.
 
 ### Release order
 
@@ -131,15 +134,17 @@ The paths that went with them:
 - Bad: offices that had none of the switches see the Steckbrief card change
   from OIB verdicts to the law the records name, and the base knowledge card
   in their settings.
-- Bad, until its own change lands: the OIB list narrowed by the building
+- Bad, until ADR-0178 lands: the OIB list narrowed by the building
   (OIB-RL 2.1 for a Betriebsbau, 2.2 for a garage, 2.3 for a high-rise by its
   escape level), the reason on each chip, its source link and the door's
-  `decidingFact` went with `bff/oib`. They return as data, not code: the
-  applicability conditions as rules over the building facts run by the one
-  evaluator (ADR-0166, `classification-evaluate`), so the chain narrows by the
-  building as well as by the site, each chip with its reason and the source
-  link of its edition's manifestation. That change follows this one; Wave 5
-  is done only once it has landed.
+  `decidingFact` went with `bff/oib`. They return as data, not code
+  (ADR-0178): each edition's scope (`appliesWhen`) as a decision table over
+  the building facts, run by the one evaluator (ADR-0166), so the chain
+  narrows by the building as well as by the site. Each chip says why, with
+  the provision, and opens the text its manifestation cites, and
+  `decidingFact` is `applicability.open` on each use of `project-base-get`'s
+  `law`. Wave 5 is done once ADR-0178 has landed and Austria's scopes are
+  published.
 
 ### Confirmation
 

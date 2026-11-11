@@ -2,9 +2,8 @@
  * What an office reads of the platform's base knowledge (ADR-0165): the norms
  * the platform lists that the office holds no copy of, and the authority
  * directives that apply to a project. Every query runs as the office
- * (`withTenant`) and names the owner and entitlement condition itself, so the
- * layered RLS is the backstop, not the filter: a platform row with a head, of a
- * country the office is entitled to, at its released revision.
+ * (`withTenant`) and names the office's read itself (`store/visibility.ts`),
+ * so the layered RLS is the backstop, not the filter.
  */
 
 import 'server-only'
@@ -17,6 +16,7 @@ import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { competentAuthorities } from '@/lib/site-resolution/competence'
 import type { SiteAuthority } from '@/lib/site-resolution/wire'
 import { directiveVerdict, type PlatformAddressee } from '../platform'
+import { recordReadable } from '../store/visibility'
 import { readTerritoryChain } from '../time/repository'
 
 /** Most listings or directives one turn reads. */
@@ -47,8 +47,8 @@ async function listedFor(organizationId: string): Promise<ListedEdition[]> {
       JOIN knowledge_work_revisions w ON w.revision_id = wr.head_revision_id
       JOIN knowledge_edition_revisions e ON e.work_id = wr.id
       JOIN knowledge_records er ON er.id = e.record_id AND er.head_revision_id = e.revision_id
-      WHERE wr.organization_id IS NULL AND wr.type = 'work' AND knowledge_country_entitled(wr.country_id)
-        AND er.organization_id IS NULL
+      WHERE wr.organization_id IS NULL AND wr.type = 'work' AND ${recordReadable('wr', organizationId)}
+        AND er.organization_id IS NULL AND ${recordReadable('er', organizationId)}
         AND w.identifiers ->> 'designation' IS NOT NULL
       ORDER BY designation
       LIMIT ${MAX_READ}`),
@@ -75,8 +75,9 @@ interface AuthorityRow extends Record<string, unknown> {
 
 /** Who is competent at the site, by the competence rulesets of its chain on the office's today. */
 async function competenceAt(organizationId: string, territoryId: string): Promise<SiteAuthority> {
-  const [chain, zone] = await Promise.all([readTerritoryChain(organizationId, territoryId), officeTimeZone(organizationId)])
-  const [site] = await competentAuthorities(organizationId, [chain], calendarDayIn(zone))
+  const today = calendarDayIn(await officeTimeZone(organizationId))
+  const chain = await readTerritoryChain(organizationId, territoryId, today)
+  const [site] = await competentAuthorities(organizationId, [chain], today)
   return site ?? { status: 'undetermined', reason: 'no_territory' }
 }
 
@@ -91,7 +92,7 @@ async function directivesFor(organizationId: string, territoryId: string | null)
            ORDER BY e.issued_on DESC NULLS LAST LIMIT 1) AS edition_label
       FROM knowledge_records wr
       JOIN knowledge_work_revisions w ON w.revision_id = wr.head_revision_id
-      WHERE wr.organization_id IS NULL AND wr.type = 'work' AND knowledge_country_entitled(wr.country_id)
+      WHERE wr.organization_id IS NULL AND wr.type = 'work' AND ${recordReadable('wr', organizationId)}
         AND w.kind = 'authority_directive'
       ORDER BY w.title
       LIMIT ${MAX_READ}`)
@@ -99,7 +100,7 @@ async function directivesFor(organizationId: string, territoryId: string | null)
     const authorities = await db.execute<AuthorityRow>(sql`
       SELECT r.id, a.name
       FROM knowledge_records r JOIN knowledge_authority_revisions a ON a.revision_id = r.head_revision_id
-      WHERE r.organization_id IS NULL AND r.type = 'authority' AND knowledge_country_entitled(r.country_id)
+      WHERE r.organization_id IS NULL AND r.type = 'authority' AND ${recordReadable('r', organizationId)}
       LIMIT ${MAX_READ}`)
     return { directives, authorities }
   })
@@ -132,7 +133,7 @@ export const PLATFORM_RECORDS_KNOWLEDGE: PlatformKnowledge = {
       getDb().execute(sql`
         SELECT 1 FROM knowledge_revisions
         WHERE revision_id = ${revisionId} AND organization_id IS NULL AND knowledge_revision_released(revision_id)
-          AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id AND knowledge_country_entitled(r.country_id))`),
+          AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id AND ${recordReadable('r', organizationId)})`),
     )
     return rows.length > 0
   },

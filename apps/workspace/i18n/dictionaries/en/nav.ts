@@ -60,7 +60,9 @@ export const nav = {
   /** A page inside a section (Files › Project mail): its title, under the crumb „Project › Files“. */
   subpages: {
     'files/all': {
-      title: 'All files',
+      title: 'Files',
+      /** The tab: true at every depth of the tree, where „Alle Dateien“ over a subfolder was not. */
+      tab: 'Folders',
     },
     'files/mail': {
       title: 'Project mail',

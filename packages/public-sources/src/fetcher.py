@@ -15,16 +15,27 @@ never logged and never kept on a client another request reuses. Its Deployment
 and DNS only. Logs carry the source, host, path, status and size, never the
 query string: a search term is derived from somebody's question.
 
+``POST /v1/extract`` takes a PDF's bytes and answers its text
+(:mod:`public_sources.pdf`): a third party's file is parsed here, in the pod
+with no secret and no way into the cluster, and never in a backend pod. At
+most :data:`public_sources.pdf.MAX_PDF_READERS` parse at once, each on a
+thread of the readers' own pool; a further one is answered 503 at once rather
+than queued, so waiting parses never hold the event loop's default pool, which
+resolves every ``/v1/fetch`` host.
+
 Run: ``python -m public_sources.fetcher`` (``PORT``, default 8095).
 """
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import partial
 from urllib.parse import urlparse
 
 import httpx
@@ -95,20 +106,92 @@ def make_app(*, transport: httpx.AsyncBaseTransport | None = None) -> Starlette:
     async def health(_: Request) -> Response:
         return JSONResponse({"ok": True})
 
+    readers = _Readers()
+
     @contextlib.asynccontextmanager
     async def lifespan(_: Starlette):
         yield
         for client in clients.values():
             await client.aclose()
+        readers.pool.shutdown(wait=False, cancel_futures=True)
 
     return Starlette(
-        routes=[Route("/v1/fetch", fetch, methods=["POST"]), Route("/healthz", health, methods=["GET"])],
+        routes=[
+            Route("/v1/fetch", fetch, methods=["POST"]),
+            Route("/v1/extract", partial(_extract, readers=readers), methods=["POST"]),
+            Route("/healthz", health, methods=["GET"]),
+        ],
         lifespan=lifespan,
     )
 
 
 class _TooLarge(Exception):
     pass
+
+
+class _Readers:
+    """The PDF readers' slots and their own threads, apart from the pool that resolves hosts."""
+
+    def __init__(self) -> None:
+        from public_sources.pdf import MAX_PDF_READERS
+
+        self.slots = asyncio.Semaphore(MAX_PDF_READERS)
+        self.pool = ThreadPoolExecutor(max_workers=MAX_PDF_READERS, thread_name_prefix="pdf-reader")
+
+
+def _busy() -> Response:
+    """Every reader is taken: answered now, since a queued parse would outlive the caller's wait and hold a slot."""
+    from public_sources.pdf import MAX_PDF_READERS
+
+    logger.info("extract refused: %s readers busy", MAX_PDF_READERS)
+    message = f"all {MAX_PDF_READERS} PDF readers are busy; try again in a minute"
+    return JSONResponse({"code": "pdf_parse_timeout", "message": message}, status_code=503)
+
+
+async def _extract(request: Request, readers: _Readers) -> Response:
+    """``POST /v1/extract``: a PDF's text, parsed here, where a hostile file reaches nothing.
+
+    The body is the PDF (at most the egress ceiling), ``max_pages`` a query
+    parameter. Answers ``{pages, page_count, title}``, or ``{code, message}``
+    with :class:`public_sources.pdf.PdfError`'s code: 422 for the file, 413 for
+    a body past the ceiling, 503 (``pdf_parse_timeout``) when every reader is
+    busy. The parse runs in a child process with its deadline, memory ceiling
+    and bare environment (:func:`public_sources.pdf.parse_pdf`). A caller that
+    gives up does not cancel it, but nothing waits for a slot, and the deadline
+    (45 s) ends before the caller's wait (50 s), so a slot is held at most that
+    long. Logs carry the size and the outcome, never the text.
+    """
+    from public_sources.pdf import MAX_PDF_PAGES
+    from public_sources.pdf import PdfError
+    from public_sources.pdf import parse_pdf
+
+    if readers.slots.locked():
+        return _busy()
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > MAX_BODY_BYTES:
+            return JSONResponse(
+                {"code": "body_too_large", "message": f"the PDF is larger than {MAX_BODY_BYTES} bytes"}, 413
+            )
+        chunks.append(chunk)
+    try:
+        max_pages = min(max(int(request.query_params.get("max_pages", MAX_PDF_PAGES)), 1), MAX_PDF_PAGES)
+    except ValueError:
+        max_pages = MAX_PDF_PAGES
+    # Again, after the upload: another one may have taken the last slot meanwhile. No await until it is ours.
+    if readers.slots.locked():
+        return _busy()
+    try:
+        async with readers.slots:
+            parse = partial(parse_pdf, b"".join(chunks), max_pages=max_pages)
+            read = await asyncio.get_running_loop().run_in_executor(readers.pool, parse)
+    except PdfError as exc:
+        logger.info("extract refused bytes=%s code=%s", size, exc.code)
+        return JSONResponse({"code": exc.code, "message": str(exc)}, status_code=422)
+    logger.info("extracted bytes=%s pages=%s of=%s", size, len(read.pages), read.page_count)
+    return JSONResponse({"pages": list(read.pages), "page_count": read.page_count, "title": read.title})
 
 
 async def _send_for(source, credential, client_for, transport, request: tuple[str, str, dict, bytes]):

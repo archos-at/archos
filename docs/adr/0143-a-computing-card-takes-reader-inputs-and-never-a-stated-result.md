@@ -150,6 +150,14 @@ envelope teaches the `formula` shape up front (`ENVELOPE_SHAPE_TYPES`), because
 a model guessing it from the index line writes the `limits` list the card no
 longer takes.
 
+*Amended 2026-11-10 (slice Q1 of `docs/design/international/quality-and-cost.md`):*
+`ENVELOPE_SHAPE_TYPES` is empty. The `formula` and `calculation` shapes were
+2,506 tokens of every call of every turn; the turn's decision is offered both
+like any other type and attaches the full shape to the turn that picks one,
+and a shape a turn guesses from the index line is repaired (`card:invalid`
+counts `repaired` against `dropped`, the number that says whether to bring
+one back). The decision above, inputs and never a stated result, is unchanged.
+
 ### Consequences
 
 - Good: the what-if costs no turn, no token and no model call; it is precise by

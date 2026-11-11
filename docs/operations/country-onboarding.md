@@ -54,6 +54,22 @@ Two kinds of configured source:
   (`door/index.spec.ts` holds the guide to the door's operations; review holds
   its list of sources).
 
+## Saying which buildings an edition is for
+
+An edition the chain reaches binds every project at the site until its scope
+says otherwise (ADR-0178). Where a text's own scope clause turns on the
+building, give its edition record an `appliesWhen`: a `decision_table.v1`
+over facts the country's `fact_definitions` define, with a `boolean` output
+(true: it applies; false: it does not), and a `provision` on each row citing
+that scope clause (the chip shows it). Write the rows from the published
+text, never from memory, and leave a case the clause does not settle to an
+undetermined `otherwise`. Give it examples; the kit runs them. A fact the
+intake does not ask can only answer „zu prüfen“. Where a text has no scope
+clause, as OIB-RL 2.1 to 2.3 have none, its title and the terms it defines are
+its scope. Austria's are `configs/knowledge-packs/at-scopes.json`: the editions
+again with their scope, proposed as a change request of their own after the
+pack.
+
 ## Keeping a country current
 
 The `source-monitor` sweep (every 15 minutes) checks each published source

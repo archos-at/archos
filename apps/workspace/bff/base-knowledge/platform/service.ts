@@ -8,7 +8,8 @@
  *   publish to stable (the person's yes) → rollback if needed (the person's yes).
  *
  * Reads take `platform:settings:view` (whose description already covers the base
- * knowledge corpus); writes `platform:settings:manage`; entitlements and a home
+ * knowledge corpus); drafting `platform:knowledge:write`, review, decision,
+ * publish and rollback `platform:knowledge:review` (migration 0218); entitlements and a home
  * country `platform:organizations:manage`. Approve,
  * publish, rollback and entitlement need the person's own yes at the server
  * (`requirePersonDecision`), whichever path the call took; each is audited.
@@ -37,6 +38,7 @@ import { moveHomeCountry, readOrganizationCountries, setEntitlement } from './en
 import { enqueueDeindex, enqueueIndexRuns, readIndexStatus } from './indexing'
 import { readOverview } from './overview'
 import { audit, auditOfDecision, decideInTransaction, SECOND_REVIEW_STATUSES, type DecisionOutcome } from './decide'
+import { readOrganizationPlacements } from './organization-countries'
 import { requestSourceChecks, runKit, validateRequest } from './onboarding'
 import { sourceChecksOf } from './source-checks'
 import { requirePlatform } from './service-gate'
@@ -62,6 +64,7 @@ import {
   type IndexStatusView,
   type OrganizationCountriesView,
   type PlatformKnowledgeOverview,
+  type PlatformOrganizationCountries,
   type ProposalRecordResult,
   type ProposalView,
   type ProposedRecord,
@@ -73,7 +76,6 @@ import {
 const APPROVAL_ROLE_PERMISSIONS: Readonly<Record<ApprovalRole, PlatformPermission>> = {
   domain_expert: PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert,
   counsel: PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel,
-  second_reviewer: PLATFORM_PERMISSIONS.knowledgeApproveAsSecondReviewer,
   privacy_reviewer: PLATFORM_PERMISSIONS.knowledgeApproveAsPrivacyReviewer,
 }
 
@@ -111,7 +113,7 @@ export async function createPlatformChangeRequest(
   session: UserSession | null,
   body: { title: string; countryId: string },
 ): Promise<{ id: string }> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   return { id: await insertChangeRequest({ ...body, createdBy: person.userId }) }
 }
 
@@ -127,7 +129,7 @@ export async function proposePlatformRecords(
   body: { records: ProposedRecord[]; dryRun: boolean },
   proposedBy: 'person' | 'agent' = 'person',
 ): Promise<ProposalView> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   // KC-7 runs on the api tier, before the request's lock is taken (ADR-0174).
   const sourceChecks = await sourceChecksOf(body.records)
   return platformTransaction(async (tx) => {
@@ -155,7 +157,7 @@ export async function proposePlatformRecords(
 }
 
 export async function submitPlatformChangeRequest(session: UserSession | null, requestId: string): Promise<{ status: 'submitted' }> {
-  await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   const sourceChecks = await requestSourceChecks(requestId)
   await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
@@ -182,7 +184,7 @@ export async function reviewPlatformChangeRequest(
   requestId: string,
   decisions: ReviewDecisionBody['decisions'],
 ): Promise<{ recorded: number }> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
   // A source check vouches for a page nobody fetched: the person's own yes, never a model's (ADR-0170).
   if (decisions.some((decision) => decision.sourceChecked)) requirePersonDecision('Marking a cited source as checked')
   await platformTransaction(async (tx) => {
@@ -220,7 +222,7 @@ export async function decidePlatformChangeRequest(
   requestId: string,
   body: ApprovalBody,
 ): Promise<DecisionOutcome> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
   const role = body.role ?? 'domain_expert'
   if (body.override && body.decision !== 'approve') throw new UnprocessableError('An override is for approving; a reject needs none.')
   await requirePlatformPermission(person, APPROVAL_ROLE_PERMISSIONS[role])
@@ -248,7 +250,7 @@ export async function publishPlatformChangeRequest(
   requestId: string,
   body: ReleaseChannelBody,
 ): Promise<PublishReceipt> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
   const decisionSource = requirePersonDecision(`Publishing a change request to ${body.channel}`)
   const request = await requireRequest(requestId)
   if (request.secondReview === 'disputed') {
@@ -269,7 +271,7 @@ export async function rollbackPlatformChangeRequest(
   requestId: string,
   reason: string,
 ): Promise<RollbackOutcome> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
   const decisionSource = requirePersonDecision('Rolling back a published change request')
   await requireRequest(requestId)
   const outcome = await rollbackChangeRequest(requestId, reason, { by: person.userId, decisionSource })
@@ -327,6 +329,15 @@ export async function setOrganizationHomeCountry(
     metadata: { homeCountry: home.data, previous: previous ?? '', decisionSource },
   })
   return { homeCountry: home.data, previous }
+}
+
+/** Where every office is placed: its home country or why it has none, and its entitlements (read only). */
+export async function listOrganizationPlacements(
+  session: UserSession | null,
+  page: { limit?: number; cursor?: string } = {},
+): Promise<PlatformOrganizationCountries> {
+  await requirePlatform(session, PLATFORM_PERMISSIONS.organizationsView)
+  return readOrganizationPlacements(page)
 }
 
 /** An office's own countries: any member reads them. */

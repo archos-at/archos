@@ -38,6 +38,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from agent.cards.catalog import MODEL_BACKED_CARD_TYPES
 from agent.cards.catalog import RETIRED_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
 from agent.cards.catalog import render_card_details
@@ -55,20 +56,36 @@ from agent.common.tool_errors import render_error_detail
 
 logger = logging.getLogger(__name__)
 
-#: The card types whose FULL shape the envelope contract teaches up front.
+#: The card types whose FULL shape the envelope contract teaches up front: none.
 #:
 #: The whole catalog's shapes are far too much for a prefix re-sent on every
-#: call. `calculation` is the one content card an answer earns that Markdown
-#: cannot carry and whose shape is easy to get wrong (operands, a `factor`, a
-#: limit, no result field). `formula` stands beside it since ADR-0143: its
-#: shape is a discriminated `formula` with a case per rule (`stair_type`,
-#: `component`, `start`), and a model guessing it from the index line writes a
-#: `limits` list the card no longer takes. The cards that stood here before they were
-#: deleted (`legal_basis`, `condition_tree`, `process_map`) are written in the
-#: answer's Markdown now (``catalog.RETIRED_CARD_TYPES``). Every other type
-#: keeps its index line, and a miss on one of those is repaired by the small
-#: model rather than by a round.
-ENVELOPE_SHAPE_TYPES: tuple[str, ...] = ("calculation", "formula")
+#: call. `calculation` and `formula` (ADR-0143) stood here, 2,506 tokens of
+#: shapes and worked examples, 23 % of the system prompt, on every call of
+#: every turn, though most turns earn neither. "An instruction belongs in the
+#: system prompt only if it is relevant to about a third of traffic, the rest
+#: goes in skills" (Claude blog, The anatomy of effective commerce agents,
+#: 2026-09-02). They are now offered to the turn's decision like every other
+#: type (the chat agent's ``register._turn_facts``), whose pick attaches the full
+#: shape to that turn's note (``card_shapes_block``); a turn that emits one
+#: unpicked writes it from its index line, and a miss is repaired by the small
+#: model (``card:invalid`` counts ``repaired`` against ``dropped``). The cards
+#: that stood here before they were deleted (`legal_basis`, `condition_tree`,
+#: `process_map`) are written in the answer's Markdown now
+#: (``catalog.RETIRED_CARD_TYPES``).
+ENVELOPE_SHAPE_TYPES: tuple[str, ...] = ()
+
+#: What the short-answer floor may not clear (``answer_pipeline._suppress_cards``). A tool's card is
+#: the product, and a card that shows the model is the answer to "zeig mir", whose prose is short by
+#: nature. The picker names no ids, so it joins here and not ``MODEL_BACKED_CARD_TYPES``.
+FLOOR_EXEMPT_CARD_TYPES = SYSTEM_CARD_TYPES | MODEL_BACKED_CARD_TYPES | {"ifc_model_picker"}
+
+
+def is_floor_exempt(card: dict[str, Any]) -> bool:
+    """Whether the short-answer floor must keep ``card``; a ``surface`` counts by the leaves it holds."""
+    if card.get("type") != "surface":
+        return card.get("type") in FLOOR_EXEMPT_CARD_TYPES
+    return any(leaf.get("component") in FLOOR_EXEMPT_CARD_TYPES for leaf in card.get("components", []))
+
 
 #: Composition (ADR-0065). Taught as prose plus one worked shape rather than
 #: through `render_card_details`: the model's `components` field is an A2UI

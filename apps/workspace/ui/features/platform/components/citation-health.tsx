@@ -527,7 +527,7 @@ function MissingSourcesCard({
   locale: string
 }): JSX.Element {
   const t = useTranslations(platformCopy)
-  const canManage = usePlatformCan(PLATFORM_PERMISSIONS.settingsManage)
+  const can = { corpus: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite), norms: usePlatformCan(PLATFORM_PERMISSIONS.settingsManage) } // per page opened
   const { count } = useNumberFormats(locale)
 
   return (
@@ -615,7 +615,7 @@ function MissingSourcesCard({
                     <UtcTime iso={candidate.lastSeenAt} locale={locale} />
                   </TableCell>
                   <TableCell className="pr-0 text-right">
-                    {anchor && canManage ? (
+                    {anchor && can[candidate.action === 'add_to_norm_catalog' ? 'norms' : 'corpus'] ? (
                       <Button
                         asChild
                         variant="outline"
@@ -661,7 +661,7 @@ function MissingSourcesCard({
           {total > sources.length
             ? `${t('citations.shownOfTotal', { shown: count(sources.length), total: count(total) })} `
             : null}
-          {canManage ? t('citations.missingCaveat') : t('citations.missingReadOnly')}
+          {can.corpus || can.norms ? t('citations.missingCaveat') : t('citations.missingReadOnly')}
         </p>
       </CardContent>
     </Card>

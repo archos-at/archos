@@ -94,9 +94,9 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
   const session = (userId: string, permissions: string[]): AuthorizedSession => platformSession(fixed.platformOrg, userId, permissions)
   const operator = (who: AuthorizedSession): Principal => platformOperator(who)
   const APPROVER = 'platform:knowledge:approve_as_domain_expert'
-  const author = operator(session(`user_onb_author_${RUN}`, ['platform:settings:view', 'platform:settings:manage', APPROVER]))
+  const author = operator(session(`user_onb_author_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:knowledge:write', 'platform:knowledge:review', APPROVER]))
   const expert = operator(
-    session(`user_onb_expert_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:organizations:manage', APPROVER]),
+    session(`user_onb_expert_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:knowledge:write', 'platform:knowledge:review', 'platform:organizations:manage', APPROVER]),
   )
 
   const key = (name: string) => `${name}-${RUN}`
@@ -166,7 +166,7 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     expect(text).toContain('idempotencyKey')
 
     const shapes = await ok(author, 'platform-knowledge-schema-get', {})
-    expect(Object.keys(shapes.recordTypes as object).sort()).toEqual(['authority', 'edition', 'manifestation', 'ruleset', 'source', 'territory', 'work'])
+    expect(Object.keys(shapes.recordTypes as object).sort()).toEqual(['authority', 'edition', 'manifestation', 'relation', 'ruleset', 'source', 'territory', 'work'])
     expect(shapes.maxBatch).toBe(200)
     expect((shapes.checks as { code: string }[]).map((check) => check.code)).toEqual(['KC-1', 'KC-3', 'KC-5', 'KC-6', 'KC-7'])
 

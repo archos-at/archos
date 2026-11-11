@@ -268,7 +268,7 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
     // How long a terminating replica waits for its turns; the pod's grace period
     // is this plus the endpoint drain and slack (`backendRollout`).
     { name: "CHAT_DRAIN_SECONDS", value: String(cfg.backend.drainSeconds) },
-    ...publicSourceFetcherEnv(cfg),
+    ...publicSourceFetcherEnv(),
     // Project-memory write path (backend → frontend BFF).
     { name: "FRONTEND_INTERNAL_URL", value: `http://frontend:${PORT.frontend}` },
     sref("INTERNAL_API_TOKEN"),

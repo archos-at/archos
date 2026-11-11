@@ -17,11 +17,12 @@ import { getDb } from '@/lib/db'
 import { projectBaseConfirmations } from '@/lib/db/schema/knowledge-context'
 import { sqlTextArray } from '@/lib/db/sql-list'
 import { withTenant } from '@/lib/db/tenant-context'
+import { recordReadable } from '../store/visibility'
 import { readOrganizationCountries } from '../platform/entitlements'
 import { insertChangeRequest } from '../platform/store'
 import type { CoverageLevel } from '../wire/vocab'
 import { lawOf } from './project-law'
-import { contextWithNames, knowledgeContextForTurn } from './service'
+import { contextForPage, knowledgeContextForTurn } from './service'
 import type {
   BaseKnowledgeReportBody,
   BaseKnowledgeReportResult,
@@ -54,8 +55,8 @@ export async function readCoverage(session: AuthorizedSession, query: CoverageQu
     getDb().execute<CoverageRow>(sql`
       SELECT r.id, r.country_id, t.name, t.kind, t.coverage_level, t.municipal_law
       FROM knowledge_records r JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
-      WHERE r.organization_id IS NULL AND r.type = 'territory' AND r.head_revision_id IS NOT NULL
-        AND knowledge_country_entitled(r.country_id) AND r.country_id = ANY(${sqlTextArray(countries)})
+      WHERE r.organization_id IS NULL AND r.type = 'territory' AND ${recordReadable('r', organizationId)}
+        AND r.country_id = ANY(${sqlTextArray(countries)})
         AND (t.coverage_level IS NOT NULL OR r.id = r.country_id)
       ORDER BY r.country_id, r.id
       LIMIT ${MAX_NODES * countries.length}`),
@@ -101,8 +102,8 @@ const contextOf = (session: AuthorizedSession, projectId: string) =>
 /** A project's base as the turn reads it, the law it names (`lawOf`), and the newest Steckbrief a person confirmed. Needs project:view. */
 export async function readProjectBase(session: AuthorizedSession, projectId: string): Promise<ProjectBaseView> {
   await requireProjectAccess(session, projectId, 'project:view')
-  const [resolved, confirmed] = await Promise.all([
-    contextWithNames(session.organizationId, projectId),
+  const [context, confirmed] = await Promise.all([
+    contextForPage(session.organizationId, projectId),
     withTenant({ organizationId: session.organizationId }, () =>
       getDb()
         .select({
@@ -119,7 +120,7 @@ export async function readProjectBase(session: AuthorizedSession, projectId: str
   ])
   const row = confirmed[0]
   // One resolution for both: the page names the same uses, in the same roles, as the context it shows.
-  return { context: resolved.context, law: lawOf(resolved), confirmed: row ? { ...row, confirmedAt: row.confirmedAt.toISOString() } : null }
+  return { context, law: lawOf(context), confirmed: row ? { ...row, confirmedAt: row.confirmedAt.toISOString() } : null }
 }
 
 const sameSeqs = (a: readonly { packId: string; seq: number }[], b: readonly { packId: string; seq: number }[]) =>

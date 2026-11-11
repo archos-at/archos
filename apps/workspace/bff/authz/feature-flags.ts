@@ -54,6 +54,7 @@
 import type { UserSession } from '@/lib/auth/types'
 import { isAuthRequired } from '@/lib/auth/auth-required'
 import { NextResponse } from 'next/server'
+import { featureDisabledProblem } from './feature-disabled'
 
 export const FEATURE_FLAGS = {
   /** Runtime AI model configuration (ADR-0014) — a premium admin feature. */
@@ -275,18 +276,6 @@ export const FEATURE_FLAGS = {
    */
   folderCards: 'folder-cards',
   /**
-   * Public sources through the sandboxed fetcher (ADR-0162): the agent's RIS
-   * requests leave from the `public-source-fetcher` Deployment, which reaches
-   * public hosts and nothing in the cluster, instead of from the agent's own
-   * pod. The requests are the same either way. Read per organization by the
-   * agent tier through `GET /api/internal/stages` (`features.sourceRouting`).
-   *
-   * Kind `entitlement` only for its default: off until an operator targets an
-   * organization, and off in a deployment that signs nobody in, because off is
-   * what shipped before it. It costs nothing and changes no one's access.
-   */
-  sourceRouting: 'source-routing',
-  /**
    * The office's conventions (ADR-0129): Piloti counts how the office files
    * (folders its projects keep, where each Dokumentart goes, the Plannummer
    * shape) and tells a turn that asks about filing or finding. Read per
@@ -369,7 +358,6 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'platform-agent-mcp': 'entitlement',
   'piloti-ask': 'entitlement',
   'folder-cards': 'entitlement',
-  'source-routing': 'entitlement',
   'office-conventions': 'entitlement',
   'licensed-seam': 'entitlement',
   'inbound-mail': 'entitlement',
@@ -521,14 +509,11 @@ export function requireTaskAutomationEnabled(
   return requireFeature(session, FEATURE_FLAGS.taskAutomation)
 }
 
-/**
- * Route guard: stable-coded 403 when the feature is off, null when allowed.
- * Usage: `const gated = requireFeature(session, FEATURE_FLAGS.x); if (gated) return gated`
- */
+/** Route guard: the feature-disabled problem (403, `feature-disabled.ts`) when off, null when allowed. */
 export function requireFeature(
   session: Pick<UserSession, 'featureFlags'>,
   flag: KnownFeatureFlag
 ): Response | null {
   if (isFeatureEnabled(session, flag)) return null
-  return NextResponse.json({ error: 'feature-disabled', feature: flag }, { status: 403 })
+  return NextResponse.json(featureDisabledProblem(flag), { status: 403, headers: { 'Content-Type': 'application/problem+json' } })
 }

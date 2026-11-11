@@ -15,6 +15,7 @@
 
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { publishedRequest } from '../platform/testing/lifecycle'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
@@ -34,13 +35,10 @@ const ORG = `org_time_${RUN}`
 const OUTSIDER = `org_time_${RUN}_outsider`
 const AUTHOR = 'user_time_author'
 const EXPERT = 'user_time_expert'
-const ACTOR = { by: EXPERT, decisionSource: 'app' as const }
 const NODE = `AT:test:${RUN}`
 const NOW = new Date('2026-11-10T09:00:00Z')
 
 describe.skipIf(!url)('editions in time against Postgres', () => {
-  let store: typeof import('../platform/store')
-  let release: typeof import('../platform/release')
   let wire: typeof import('../platform/wire')
   let repository: typeof import('./repository')
   let rulesets: typeof import('../store/rulesets')
@@ -53,37 +51,10 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
   const workId = () => `work:${key('noe-bo')}`
 
   async function published(title: string, raw: unknown[]): Promise<void> {
-    const id = await store.insertChangeRequest({ title, countryId: 'AT', createdBy: AUTHOR })
-    await store.platformTransaction(async (tx) => {
-      const request = await store.lockChangeRequest(tx, id)
-      const records = raw.map((record) => wire.proposedRecordSchema.parse(record))
-      await store.insertProposedRecords(tx, request!, records, {
-        createdBy: AUTHOR,
-        proposedBy: 'person',
-      })
-      await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
-    })
-    const view = await store.readChangeRequest(id)
-    await store.platformTransaction(async (tx) => {
-      const decisions = view!.revisions.flatMap((revision) =>
-        revision.claims.map((claim) => ({
-          revisionId: revision.revisionId,
-          claimPath: claim.path,
-          decision: 'accepted' as const,
-        }))
-      )
-      await store.insertReviewDecisions(tx, id, { by: EXPERT, decisionSource: 'app' }, decisions)
-      await store.insertApproval(tx, {
-        changeRequestId: id,
-        approver: EXPERT,
-        role: 'domain_expert',
-        decisionSource: 'app',
-      })
-      await store.setChangeRequestStatus(tx, id, 'approved', 'decidedAt')
-    })
-    await release.publishChangeRequest(id, 'preview', ACTOR)
-    await release.publishChangeRequest(id, 'stable', ACTOR)
+    const records = raw.map((record) => wire.proposedRecordSchema.parse(record))
+    await publishedRequest({ title, countryId: 'AT', records }, { author: AUTHOR, expert: EXPERT })
   }
+
 
   const transition = {
     inputs: [
@@ -131,8 +102,6 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
     db = (await import('@/lib/db')).getDb()
-    store = await import('../platform/store')
-    release = await import('../platform/release')
     wire = await import('../platform/wire')
     repository = await import('./repository')
     rulesets = await import('../store/rulesets')
@@ -149,13 +118,13 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
     }
     await published('Austria: territories for time', [
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
-      { type: 'territory', id: 'AT-3', kind: 'state', name: 'Niederösterreich', parentIds: ['AT'] },
+      { type: 'territory', id: 'AT-3', kind: 'state', name: 'Niederösterreich', parents: [{ id: 'AT' }] },
       {
         type: 'territory',
         id: NODE,
         kind: 'municipality',
         name: 'Testgemeinde',
-        parentIds: ['AT-3'],
+        parents: [{ id: 'AT-3' }],
       },
     ])
     await published('A Land building code in time', [
@@ -173,7 +142,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
         workKey: key('noe-bo'),
         label: 'LGBl. 1/2015',
         inForceFrom: '2015-02-01',
-        inForceTo: '2022-12-31',
+        inForceTo: '2023-01-01',
       },
       {
         type: 'edition',
@@ -226,7 +195,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
   async function answerFor(organizationId: string, procedure: Record<string, unknown>) {
     const read = await repository.readWorkInTime(organizationId, workId())
     if (!read) return null
-    const chain = await repository.readTerritoryChain(organizationId, NODE)
+    const chain = await repository.readTerritoryChain(organizationId, NODE, '2026-11-10')
     const rules = await rulesets.readRulesetsInForce(organizationId, {
       purpose: 'reference_date',
       territoryIds: chain,
@@ -253,10 +222,11 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
         edition.transition !== null,
       ])
     ).toEqual([
-      ['LGBl. 1/2015', '2015-02-01', '2022-12-31', false],
+      ['LGBl. 1/2015', '2015-02-01', '2023-01-01', false],
       ['LGBl. 2023/1', '2023-01-01', null, true],
     ])
-    expect(await repository.readTerritoryChain(ORG, NODE)).toEqual([NODE, 'AT-3', 'AT'])
+    // `EU` follows `AT` where another spec in the same database published the Austria pack's dated parent.
+    expect((await repository.readTerritoryChain(ORG, NODE, '2026-11-10')).slice(0, 3)).toEqual([NODE, 'AT-3', 'AT'])
   })
 
   it('names the edition that applied: the stored transition keeps the old law for a procedure open at the boundary', async () => {
@@ -281,6 +251,17 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
     expect(await answerFor(ORG, { filedOn: '2014-01-01' })).toMatchObject({
       reason: 'history_not_held',
     })
+  })
+
+  it('holds an edition’s end exclusive in the database: one ending on the day it begins is refused (0217)', async () => {
+    const rows = await withPlatformAccess('test: the edition order check', () =>
+      db.execute<{ definition: string }>(sql`
+        SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
+        WHERE conname = 'knowledge_edition_revisions_dates_ordered'`)
+    )
+    expect(rows.map((row) => row.definition)).toEqual([
+      'CHECK (((in_force_to IS NULL) OR (in_force_from IS NULL) OR (in_force_to > in_force_from)))',
+    ])
   })
 
   it('an office not entitled to Austria reads no such work', async () => {

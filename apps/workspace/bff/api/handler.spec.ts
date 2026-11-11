@@ -11,9 +11,18 @@ vi.mock('server-only', () => ({}))
 import { errorResponse, internalApiRoute, SIGNED_INTERNAL_PREFIX } from './handler'
 import { readBoundedBody } from './bounded-body'
 import { NotFoundError, UpstreamError } from './errors'
+import { featureDisabledProblem } from '@/lib/authz/feature-disabled'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
 import { signedRequest, TEST_KEY_ID, TEST_SIGNING_SECRET, type SignedRequestOptions } from '@/test-utils/signed-request'
 
 describe('errorResponse', () => {
+  it('answers a switched-off feature found in a service with the one problem requireFeature gives', async () => {
+    const response = errorResponse(new FeatureDisabledError('collaboration'), new Request('https://grid.test/api/conversations/c1/messages', { method: 'POST' }))
+    expect(response.status).toBe(403)
+    expect(response.headers.get('content-type')).toContain('application/problem+json')
+    expect(await response.json()).toMatchObject(featureDisabledProblem('collaboration'))
+  })
+
   it('turns a postgres invalid-uuid failure into a 404, not a 500 (#572)', () => {
     const error = Object.assign(new Error('Failed query: select ... from "documents"'), {
       cause: Object.assign(new Error('invalid input syntax for type uuid: "HdB-Hamm.jpg"'), {

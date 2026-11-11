@@ -15,11 +15,14 @@
  */
 
 import { chainAt, resolveChain } from '../chain/resolve'
-import type { GraphEdition, KnowledgeGraph } from '../chain/graph'
+import type { BuildingScope } from '../rulesets/applicability'
+import type { GraphEdition, KnowledgeGraph, ResolvedChain } from '../chain/graph'
+import { nameOf, renderChainText, keyOfUse, type UseNotes } from '../chain/text'
 import { PLATFORM_FRESHNESS_DAYS } from '../platform/freshness'
 import type { ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind } from '../wire/vocab'
 import {
   GATE_STATES,
+  MAX_CONTEXT_TEXT_CHARS,
   MAX_CONTEXT_USES,
   type ContextUse,
   type Gate,
@@ -52,6 +55,8 @@ export interface ContextInputs {
   procedures: readonly ProcedureContext[]
   /** The newest stable release sequence per pack. */
   packSeqs: Readonly<Record<string, number>>
+  /** The project's buildings, read by each edition's scope (ADR-0178); null or absent narrows nothing. */
+  building?: BuildingScope | null
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -94,6 +99,7 @@ function refusal(state: GateState, inputs: ContextInputs, leaves: Leaf[], retrie
     date: inputs.date,
     procedures: [...inputs.procedures],
     uses: [],
+    text: null,
     retrieval: { countries: retrieval },
   }
 }
@@ -165,7 +171,39 @@ function contextUse(
     connectsBy,
     labels,
     corpusFiles: [...(edition?.corpusFiles ?? [])],
+    designation: work.designation ? nameOf(work.designation) : null,
+    editionLabel: edition?.label ? nameOf(edition.label) : null,
+    sourceRefs: [...(work.sourceRefs ?? [])].slice(0, 8),
+    sourceUrl: edition?.sourceUrl ?? null,
+    applicability: use.applicability,
   }
+}
+
+/**
+ * The chain text of a resolution in the roles the context gives each use: the
+ * open-coverage, freshness and connecting-factor corrections reach the words
+ * the agent reads, so the block and the uses never disagree. Null where no
+ * law binds in its own territory by the records: there is no chain to read.
+ */
+function textOf(graph: KnowledgeGraph, resolved: ResolvedChain, uses: readonly ContextUse[], leafId: string): string | null {
+  const corrected = new Map(uses.map((use) => [keyOfUse(use), use]))
+  const named = resolved.uses.flatMap((use) => {
+    const context = corrected.get(keyOfUse(use))
+    return context ? [{ ...use, role: context.role }] : []
+  })
+  const lawHere = named.some((use) => use.role === 'binding' && use.route.length === 1 && use.route[0]?.via === 'territory')
+  // A law whose edition is undetermined still reaches the turn: its "Not determined here" line says so, never silence.
+  if (!lawHere && resolved.undetermined.length === 0) return null
+  const notes = new Map<string, UseNotes>([...corrected].map(([key, use]) => [key, use]))
+  return capText(renderChainText(graph, { ...resolved, uses: named }, graph.territories.get(leafId)?.name ?? leafId, notes))
+}
+
+/** The text within the wire's bound (`MAX_CONTEXT_TEXT_CHARS`): cut at a line, with a note saying so. */
+export function capText(text: string): string {
+  if (text.length <= MAX_CONTEXT_TEXT_CHARS) return text
+  const note = '\n[The rest of the building law at this site is cut; ask about one instrument by name.]'
+  const cut = text.slice(0, MAX_CONTEXT_TEXT_CHARS - note.length)
+  return `${cut.slice(0, Math.max(cut.lastIndexOf('\n'), 0))}${note}`
 }
 
 /** The countries a site's chain reads from the shared corpus: its own, and a union the graph let it read. */
@@ -200,15 +238,21 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
     date: inputs.date,
     procedures: [...inputs.procedures],
     uses: [],
+    text: null,
     retrieval: { countries: retrieval },
   }
   // `none` holds territories only: "Für <Land> sind keine Grundlagen hinterlegt".
   if (coverage === 'none') return base
-  const resolved = resolveChain(graph, first.territoryId, inputs.date)
+  const resolved = resolveChain(graph, first.territoryId, inputs.date, inputs.building ?? null)
   if (resolved.truncated) return refusal('knowledge_unavailable', inputs, [leaf], [])
   const uses = resolved.uses
     .map((use) => contextUse(graph, use, coverage, inputs))
     .filter((use): use is ContextUse => use !== null)
     .slice(0, MAX_CONTEXT_USES)
-  return { ...base, uses }
+  return {
+    ...base,
+    uses,
+    undetermined: resolved.undetermined.slice(0, MAX_CONTEXT_USES).map(({ workId, reason }) => ({ workId, reason })),
+    text: textOf(graph, resolved, uses, first.territoryId),
+  }
 }

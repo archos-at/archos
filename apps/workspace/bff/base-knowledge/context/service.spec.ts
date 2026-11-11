@@ -40,7 +40,7 @@ vi.mock('./last-answer', async (original) => ({ ...(await original<typeof import
 import { contextCacheKey, contextDigest, knowledgeContextForTurn } from './service'
 
 const AUSTRIA = {
-  territories: new Map([['AT', { id: 'AT', kind: 'country', name: 'AT', parentIds: [], datedParents: [], validFrom: null, validTo: null, coverageLevel: 'core' }]]),
+  territories: new Map([['AT', { id: 'AT', kind: 'country', name: 'AT', parents: [], validFrom: null, validTo: null, coverageLevel: 'core' }]]),
   works: new Map(),
   editions: new Map(),
   relations: [],
@@ -52,7 +52,7 @@ describe('knowledgeContextForTurn', () => {
     cache.clear()
     officeTimeZone.mockResolvedValue('Europe/Vienna')
     readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
-    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {} } })
+    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {}, goals: {}, unknowns: [] } })
     loadGraph.mockResolvedValue({ graph: AUSTRIA, truncated: false })
   })
 
@@ -94,10 +94,10 @@ describe('knowledgeContextForTurn', () => {
     expect(unavailableAdd).toHaveBeenCalledWith(1)
   })
 
-  it('counts only a turn’s failed read toward the alert, not an operation’s', async () => {
+  it.each(['operation', 'run'] as const)('counts only a turn’s failed read toward the alert, not an %s’s', async (reader) => {
     readOrganizationCountries.mockRejectedValue(new Error('database gone'))
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const context = await knowledgeContextForTurn('org_a', 'project_1', undefined, null, 'operation')
+    const context = await knowledgeContextForTurn('org_a', 'project_1', undefined, null, reader)
     expect(context?.gate.state).toBe('knowledge_unavailable')
     expect(unavailableAdd).not.toHaveBeenCalled()
   })
@@ -118,5 +118,13 @@ describe('contextDigest', () => {
     const stamped = { ...inputs, recordsStamp: '2026-12-14T09:00:00.000Z/2026-12-01T00:00:00.000Z' }
     expect(contextDigest(stamped)).not.toBe(contextDigest({ ...stamped, recordsStamp: '2026-12-14T10:00:00.000Z/2026-12-01T00:00:00.000Z' }))
     expect(contextDigest(stamped)).not.toBe(contextDigest({ ...stamped, recordsStamp: '2026-12-14T09:00:00.000Z/2026-12-14T08:00:00.000Z' }))
+  })
+
+  it('changes with the project’s buildings, so a new use is read by each edition’s scope on the next turn (ADR-0178)', () => {
+    const house = { buildingId: 'bldg1', inputs: { uses: ['residential'] } }
+    const withGarage = { buildingId: 'bldg1', inputs: { uses: ['residential', 'garage'] } }
+    expect(contextDigest({ ...inputs, buildings: { buildings: [house] } })).toBe(contextDigest({ ...inputs, buildings: { buildings: [{ ...house }] } }))
+    expect(contextDigest({ ...inputs, buildings: { buildings: [house] } })).not.toBe(contextDigest({ ...inputs, buildings: { buildings: [withGarage] } }))
+    expect(contextDigest(inputs)).not.toBe(contextDigest({ ...inputs, buildings: { buildings: [house] } }))
   })
 })

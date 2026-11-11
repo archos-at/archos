@@ -22,7 +22,7 @@ import { streetKey } from './normalize'
 import { ADDRESS_REGISTERS, STATE_NAMES, federalStateToken, registerFor } from './registers'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
-import { territoryChain } from '@/lib/base-knowledge/platform/territories'
+import { chainAt } from '@/lib/base-knowledge/chain/territory-chain'
 import { readTerritoryParents } from '@/lib/base-knowledge/platform/territories'
 import { siteProfileOperations } from './profile'
 import { activeReleases, findByAddressId, findByKeys, type RegisterRow } from './store'
@@ -62,12 +62,12 @@ export function siteOf(row: RegisterRow, chain: readonly string[]): Omit<Registe
  * records (ADR-0165), so a Bezirk between it and its Land is kept; empty when
  * no record holds it. Never built from the code alone.
  */
-async function recordedChains(session: Session, territoryIds: readonly string[]): Promise<Map<string, string[]>> {
+async function recordedChains(session: Session, territoryIds: readonly string[], day: string): Promise<Map<string, string[]>> {
   const chains = new Map<string, string[]>()
   await withTenant({ organizationId: session.organizationId }, async () => {
     for (const territoryId of new Set(territoryIds)) {
-      const parents = await readTerritoryParents(getDb(), territoryId)
-      chains.set(territoryId, parents.has(territoryId) ? territoryChain(territoryId, parents) : [])
+      const parents = await readTerritoryParents(getDb(), session.organizationId, territoryId)
+      chains.set(territoryId, parents.has(territoryId) ? chainAt(territoryId, day, (id) => parents.get(id)) : [])
     }
   })
   return chains
@@ -76,7 +76,7 @@ async function recordedChains(session: Session, territoryIds: readonly string[])
 async function withAuthorities(session: Session, rows: readonly RegisterRow[], now: Date): Promise<RegisterSite[]> {
   const shown = rows.slice(0, SITE_RESOLVE_MAX_CANDIDATES)
   const territoryOf = (row: RegisterRow) => ADDRESS_REGISTERS[row.release.register].municipalityTerritory(row.municipalityCode)
-  const chains = await recordedChains(session, shown.map(territoryOf))
+  const chains = await recordedChains(session, shown.map(territoryOf), today(now))
   const sites = shown.map((row) => siteOf(row, chains.get(territoryOf(row)) ?? []))
   const authorities = await competentAuthorities(session.organizationId, sites.map((site) => site.chain), today(now))
   return sites.map((site, index) => ({ ...site, authority: authorities[index] }))

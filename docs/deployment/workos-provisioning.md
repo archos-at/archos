@@ -25,8 +25,10 @@ WORKOS_API_KEY=sk_… npm run provision:authz -- --apply # reconcile
 `WORKOS_API_KEY` belongs to, so a permission or role added to the catalog
 exists in WorkOS once the release that checks it is deployed. It creates what
 is missing, sets a catalog role's permissions to the catalog's (a permission
-added to such a role in the dashboard is taken off again), and deletes no
-permission and no role. Custom roles are not in the catalog and are left alone. A tier whose resource type is missing fails
+added to such a role in the dashboard is taken off again), deletes a
+[retired permission](#retiring-a-permission) and nothing else: no role, and no
+other permission. Custom roles are not in the catalog and are left alone, except
+that a retired permission is taken off them. A tier whose resource type is missing fails
 the Job, and the stack update with it, naming the type. Running `--apply` by
 hand is for an environment no stack deploys against.
 
@@ -46,6 +48,38 @@ name and description in WorkOS, a provisioning step that waits for the
 product owner's go. Change the
 `name` and `description` in `catalog.ts` and run `--apply` together, never one
 without the other: the drift check would fail in between.
+
+### Retiring a permission
+
+Removing a permission from the catalog is two edits in one change: delete it
+from `apps/workspace/bff/authz/catalog.ts`, and add its slug to
+`RETIRED_PERMISSIONS` in `apps/workspace/bff/authz/retired-permissions.ts` with
+the ADR, migration or pull request that retired it. Nobody deletes it in a
+dashboard.
+
+- **`--apply`** (every deploy): a retired permission the environment still has
+  is taken off every role that holds it (the catalog's roles are reset first,
+  then environment roles and every organization's custom roles are read), then
+  deleted. An environment that no longer has it is not touched, and the
+  organizations are read only when there is something to retire.
+- **`--check`**: it is drift, reported as `RETIRED … retired, still present:
+  run with --apply`, so the weekly drift workflow says which environment has
+  not been deployed to since.
+- A slug in one of our namespaces (`org`, `platform`, `project`, `folder`, and
+  the former `skill` and `workflow`) that is in WorkOS, **not** in the catalog
+  and **not** on the retired list is `UNKNOWN`, and it is drift in both modes.
+
+**Any drift exits 1, under `--apply` too.** So removing a permission from the
+catalog without retiring it fails the catalog Job on every deploy of every
+environment that still has it: `grid-app-authz-catalog` goes into
+`CrashLoopBackOff` and `Pulumi up` fails. That happened on dev on 2026-11-10,
+when #1594 removed `platform:knowledge:approve_as_second_reviewer`. The log's
+`UNKNOWN <slug>` line names the slug to retire.
+
+An entry stays on the list. `retired-permissions.spec.ts` fails a slug that is
+both retired and declared, which would be created and deleted on every deploy.
+Roles and resource types are not retired this way: deleting one is still a
+dashboard step, after checking that no membership holds the role.
 
 **Resource types are the one manual step**: the Node SDK exposes no CRUD for
 them, so create them in the dashboard. The script still catches a missing one —
@@ -152,16 +186,17 @@ About 5,000 resources of one type per organization is WorkOS's soft limit.
 > the parent project, enforced in `lib/documents/service.ts`. See ADR-0038.
 >
 > The `workflow` resource type and its three permissions/roles met the same
-> fate when Agent Skills replaced Workflows. Environments the old feature
-> reached still carry the `workflow:*` leftovers — the provisioning script
-> reports them as `UNKNOWN … absent from the catalog`, which is how they stay
-> visible until an operator deletes them in the dashboard.
+> fate when Agent Skills replaced Workflows. Its four permissions are on the
+> [retired list](#retiring-a-permission), so a deploy deletes them from an
+> environment that still has them; the `workflow-*` roles and the resource type
+> are a dashboard step.
 >
 > So did the `skill` type and `skill:view` / `skill:run` / `skill:manage`
 > (2026-10-27, ADR-0038's amendment): no skill resource was ever created and no
 > role held them, so a skill schedule is decided by its project's permissions
 > (`project:skills:manage`, `project:view`). They were deleted in both
-> environments when the catalog dropped them.
+> environments when the catalog dropped them, and are on the retired list for
+> any other environment.
 
 ### 1. Organization-tier permissions (resource type: Organization)
 
@@ -217,7 +252,8 @@ through `org:projects:administer`, not through this tier.
 | `platform:organizations:manage` | Administer any org (reserved, unused in v1) |
 | `platform:usage:view` | Cross-org LLM usage/spend |
 | `platform:settings:manage` | Platform-wide settings (reserved) |
-| `platform:knowledge:approve_as_domain_expert`, `…_as_counsel`, `…_as_second_reviewer`, `…_as_privacy_reviewer` | Approve a platform knowledge change request in that role (ADR-0165, ADR-0174); `org-platform-owner` holds all four, a narrower role may hold one |
+| `platform:knowledge:write`, `platform:knowledge:review` | Draft platform knowledge change requests (open, capture, propose, submit) and manage the base corpus (upload, retitle, classify, delete, sync, reingest), and review, decide, publish and roll them back (ADR-0165). Split from `platform:settings:manage`, which keeps models, prices and retrieval; `org-platform-owner` holds both |
+| `platform:knowledge:approve_as_domain_expert`, `…_as_counsel`, `…_as_privacy_reviewer` | Approve a platform knowledge change request in that role (ADR-0165, ADR-0174); every request needs a domain expert. `org-platform-owner` holds all three, a narrower role may hold one. `…_as_second_reviewer` was removed (migration 0218) and is on the [retired list](#retiring-a-permission): the deploy's catalog Job deletes it from an environment that still has it. Dev was cleaned by hand on 2026-11-11 |
 | `platform:knowledge:approve_alone` | Approve a change request one wrote, with a reason, when no second person can (ADR-0176). The request is marked `single` and a second review stays due. `org-platform-owner` only; no narrower role should hold it |
 
 They live on the Organization resource type because WorkOS permissions attach to
@@ -542,7 +578,7 @@ running job reads its flags from the pinned session
 | `folder-cards` | entitlement | Written folder cards (ADR-0127, tier 1): a model-written abstract per folder, built in the background when a document's facts change, shown in `list_files(view="tree")` and in the folder channel of a ranked `knowledge_search`. Read per organization by the agent tier through `GET /api/internal/stages` (`features.folderCards`, `isOrgFeatureEnabled`) when a change is marked, when a folder is claimed to be built, when the nightly reconcile visits a collection and when a listing reads the cards. Off: nothing is marked or built, a queued folder is dropped and a listing shows the live counts alone. An entitlement because a card is a model call nobody asked for. Description to enter: "Written folder cards: a model-written abstract per folder, built in the background and shown in file listings and search." **State (2026-10-22):** created; ON for every organization in Staging and in Production. |
 | `licensed-seam` | entitlement | The licensed seam (`packages/agent/src/agent/common/licensed_text.py`): text an office marked licensed (its own ÖNORM or DIN copy, a paid commentary) reaches the model inside the call, as a reference in every trace, checkpoint and log, with each quote of it capped at the licence's `quote_max_chars`. Read per turn by the agent tier through `GET /api/internal/stages` (`features.licensedSeam`, `isOrgFeatureEnabled`). Off: a passage marked licensed is listed with its document, page and clause and no text; it is never sent unguarded. An entitlement because it decides whether an office's licensed copy is read by a model at all. Description to enter: "Licensed seam: an office's licensed norms and commentaries reach the model only inside the call, never in traces or logs." **State (2026-11-06):** not created yet; create it in both environments, OFF everywhere, and switch it on per office once it has attested its licence (design 4.7). |
 | `office-conventions` | entitlement | The office's conventions (ADR-0129): Piloti counts how the office files (folders its projects keep, where each Dokumentart goes, the Plannummer shape) and tells a turn that asks about filing or finding; the settings card lists the lines for confirmation. Read per organization (`isOrgFeatureEnabled`) when the turn context is assembled and when the card is listed. Off: nothing is counted and the turn context is unchanged. An entitlement because the count reads every project of the office. Description to enter: "Office conventions: Piloti learns how the office files and finds documents and uses it when asked." **State (2026-10-22):** created; ON for every organization in Staging and in Production. |
-| `source-routing` | entitlement | Public sources through the sandboxed fetcher (ADR-0162): the agent's RIS requests leave from the `public-source-fetcher` Deployment instead of its own pod. Read per turn by the agent tier (`features.sourceRouting`, `GET /api/internal/stages`). Off: the requests leave from the agent's pod, as before. Kept by ADR-0175 until the fetcher runs in production; then the switch and the old path go |
+| `source-routing` | entitlement | **Retired 2026-11-10** (ADR-0162 amendment): nothing reads it. The fetcher is the only path for public sources in every stack, so delete the flag in WorkOS in both environments |
 | `site-resolution` | rollout | Site resolution from official address registers in the cell (ADR-0172): `site-resolve` and `project-site-set`. Off: both routes answer 403, the typed address stays unconfirmed. Kept by ADR-0175: it gates the BEV import, data a cell does not hold yet |
 | `source-monitors` | entitlement | The source monitor sweep (ADR-0174), read for the platform organization. Off: the sweep reads, fetches and writes nothing. Kept by ADR-0175 |
 | `ifc-models` | rollout | IFC/BIM models (ADR-0045): the `.ifc` entry in the upload accept-list (client **and** the server-side allow-list), the model surfaces, every `/api/**/bim/*` route, and the agent's `ifc_query` tool via the internal service route. Worth knowing before enabling it for a customer: the feature renders OIB compliance verdicts, and `docs/roadmap/ifc-review-findings.md` lists the rules that still overstate |
@@ -738,7 +774,7 @@ Three things follow, and each has cost somebody an afternoon:
 >   its three `workflow-*` roles were deleted from both environments. It was
 >   superseded by Agent Skills, no code has read any of it since, and every one
 >   of the six roles had a membership count of zero — all four facts checked
->   before anything was deleted, because `provision:authz` does not delete and
+>   before anything was deleted, because `provision:authz` did not delete then and
 >   therefore nothing else would have caught a mistake here. The legacy
 >   `workflows` FEATURE FLAG, which was likewise in no registry, went with it.
 > - **`multipleRolesEnabled` is `false` in both.** Staging was `true`. The

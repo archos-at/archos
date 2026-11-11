@@ -37,6 +37,7 @@ bundling the deploy scripts, type checking) and never the runtime (ADR-0103):
 |---|---|---|
 | Add an `app/api` route | Declare `authz` on the factory from `@/lib/api/handler` | `apiRoute` does not compile; `authz-coverage.spec.ts` |
 | Add a permission | `bff/authz/catalog.ts`. The deploy applies it to its environment (Job `grid-app-authz-catalog`); a new **resource type** is a dashboard step per environment, before the deploy | WorkOS drifts from the code. A project-tier permission that exists only in the catalog is held by nobody |
+| Remove a permission | Delete it from `bff/authz/catalog.ts` and add its slug to `RETIRED_PERMISSIONS` in `bff/authz/retired-permissions.ts` in the same change. The deploy then takes it off every role and deletes it. [Retiring a permission](../../docs/deployment/workos-provisioning.md#retiring-a-permission) | Nothing in CI: the catalog Job `grid-app-authz-catalog` fails on the next deploy of every environment that still has it (exit 1, `UNKNOWN <slug>`) |
 | Decide access | Check a permission through `bff/authz/decide.ts`, the single decision point. Adoption is incremental, so gates still call `hasPermission` / `requireProjectAccess` / `requirePlatformPermission` (ADR-0038 §6) | A role-name check breaks every custom role |
 | Create a table | `SELECT secure_table('<table>','<predicate>');` in the same migration | `rls-coverage.spec.ts`, by name |
 | Read tenant rows | Context from `getUserSession()`, or state it (`withTenant`, `withPlatformAccess`, `withOptionalTenant`) | `internalApiRoute` does not compile |

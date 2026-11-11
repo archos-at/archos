@@ -323,12 +323,14 @@ def test_base_knowledge_labels_are_read_as_records_and_bounded(request_context, 
     assert blocks.base_knowledge_labels[0] == labels[0]
 
 
-def test_the_building_law_is_read_and_an_older_bff_reads_as_none(request_context, opener):
-    """ADR-0168: the chain text and each edition's role, from the platform's records."""
-    assert client.fetch_turn_context(request_context).building_law is None
-    building_law = {
+def test_the_chain_and_the_roles_are_read_from_the_knowledge_context_alone(request_context, opener):
+    """ADR-0168, ADR-0175: the chain text and each edition's role come from ``knowledgeContext``; a
+    ``buildingLaw`` beside it is no second answer and is not read."""
+    knowledge_context = {
+        "gate": {"state": "core", "reason": None, "leaves": [{"country": "AT", "coverage": "core"}]},
+        "retrieval": {"countries": ["AT"]},
+        "chains": {"AT-9": ["AT-9", "AT", "EU"]},
         "text": "Building law at this site, Wien (AT-9, AT, EU) …",
-        "chain": ["AT-9", "AT", "EU"],
         "date": "2026-11-10",
         "uses": [
             {
@@ -343,12 +345,29 @@ def test_the_building_law_is_read_and_an_older_bff_reads_as_none(request_context
             }
         ],
     }
+    disagreeing = {"text": "Some other chain", "uses": [{**knowledge_context["uses"][0], "role": "guidance"}]}
+    data = {"projectContext": None, "projectMemory": None, "orgInstructions": None}
     opener.open.return_value.read.return_value = json.dumps(
-        {"data": {"projectContext": None, "projectMemory": None, "orgInstructions": None, "buildingLaw": building_law}}
+        {"data": {**data, "knowledgeContext": knowledge_context, "buildingLaw": disagreeing}}
     ).encode("utf-8")
-    law = client.fetch_turn_context(request_context).building_law
-    assert law is not None
-    assert law.chain == ("AT-9", "AT", "EU")
-    assert [(use.edition_id, use.role, use.via) for use in law.uses] == [
+    context = client.fetch_turn_context(request_context).knowledge_context
+    assert context.text == "Building law at this site, Wien (AT-9, AT, EU) …"
+    assert [(use.edition_id, use.role, use.via) for use in context.uses] == [
         ("edition:oib-rl-2-2023", "binding", "relation")
     ]
+
+
+@pytest.mark.parametrize(
+    ("sent", "read"),
+    [
+        ({"ifc": True, "dxf": False}, frozenset({"ifc"})),
+        ({"ifc": False, "dxf": False}, frozenset()),
+        (None, None),
+        ("ifc", None),
+    ],
+)
+def test_the_project_models_are_read_and_anything_else_is_unknown(request_context, opener, sent, read):
+    """Unknown (an older BFF, no project) keeps the measuring tools bound as before (``turn_tools``)."""
+    body = {"projectContext": None, "projectMemory": None, "orgInstructions": None, "projectModels": sent}
+    opener.open.return_value.read.return_value = json.dumps({"data": body}).encode("utf-8")
+    assert client.fetch_turn_context(request_context).project_models == read

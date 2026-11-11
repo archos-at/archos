@@ -68,9 +68,9 @@ export function storeyFacts(
  * and the least honest about what it had read.
  *
  * The order matters: memo, then the stored projection, then the full load.
- * Each step is a fact about an IMMUTABLE model — a `ready` model never changes
- * and a new revision is a new id — so a hit can never describe a building that
- * has since moved.
+ * Each step is a fact about ONE EXTRACTION — a re-upload keeps the model id but
+ * moves `updatedAt` with the elements — so a hit can never describe a building
+ * that has since moved.
  */
 export async function complianceRun(
   header: BimModelHeader,
@@ -80,7 +80,7 @@ export async function complianceRun(
   given?: BimSite
 ): Promise<CachedCompliance> {
   const site = given === undefined ? await siteOfModel(header, organizationId) : given
-  const cached = readComplianceCache(header.id, facts.buildingClass, facts.mainUse, siteKey(site))
+  const cached = readComplianceCache(header, facts.buildingClass, facts.mainUse, siteKey(site))
   if (cached) return cached
 
   // The fast path: a single column of a single row, ~120 bytes per element
@@ -133,6 +133,6 @@ export async function complianceRun(
     complianceSummary: summarizeBimRules(compliance),
     complianceShoppingList: missingPropertyShoppingList(compliance),
   }
-  writeComplianceCache(header.id, facts.buildingClass, facts.mainUse, siteKey(site), computed)
+  writeComplianceCache(header, facts.buildingClass, facts.mainUse, siteKey(site), computed)
   return computed
 }

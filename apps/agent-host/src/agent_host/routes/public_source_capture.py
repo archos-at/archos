@@ -130,6 +130,52 @@ async def check_public_source(body: SourceRequest, _: None = Depends(_require_in
     }
 
 
+#: The built-in sources' answer, made once per process: a repository record cannot change inside an image.
+_built_in: list[dict] | None = None
+
+
+class BuiltInRequest(BaseModel):
+    """Nothing to send: the built-in sources are this image's."""
+
+
+async def built_in_public_sources(_: BuiltInRequest, __: None = Depends(_require_internal_token)) -> dict:
+    """The repository's own sources (``configs/sources``, reviewed as code), each with its recorded fixtures' result.
+
+    A built-in source is an engine's configuration the agent's own tools read
+    (the RIS adapter's controllers and Bundesland parameters); every other
+    source is a platform record (ADR-0174). Listed read-only beside the records
+    in ``source-status``: the same check KC-7 runs on a record, no live call.
+    """
+    global _built_in
+    if _built_in is None:
+        from public_sources.fixtures import run_source
+        from public_sources.source import load_sources
+
+        _built_in = [_built_in_view(source, await run_source(source)) for source in load_sources().values()]
+    return {"sources": _built_in}
+
+
+def _built_in_view(source, results) -> dict:
+    problems = [{"fixture": r.fixture, "detail": failure[:1000]} for r in results for failure in r.failures]
+    return {
+        "sourceKey": source.id,
+        "title": source.title,
+        "territory": source.territory,
+        "protocol": source.protocol,
+        "format": source.format,
+        "hosts": list(source.hosts),
+        "dataFlow": source.data_flow,
+        "licence": source.terms.licence,
+        "monitor": {"kind": source.monitor.kind, "intervalHours": source.monitor.interval_hours},
+        "credentialHeader": source.credential.header if source.credential else None,
+        "fixtures": {
+            "valid": not problems,
+            "problems": problems,
+            "fixtures": [{"name": r.fixture, "ok": r.ok, "requested": r.requested} for r in results],
+        },
+    }
+
+
 async def probe_public_source(body: ProbeRequest, _: None = Depends(_require_internal_token)) -> dict:
     """One monitor check (ADR-0174): what the probe saw, whether it changed, and the page's text for a capture."""
     from public_sources.access import AccessError
@@ -175,7 +221,7 @@ async def probe_public_source(body: ProbeRequest, _: None = Depends(_require_int
 
 
 def add_public_source_capture_routes(router: APIRouter) -> None:
-    """The public-source routes the BFF calls: capture, check (KC-7) and probe (a monitor check)."""
+    """The public-source routes the BFF calls: capture, check (KC-7), probe (a monitor check) and the built-in list."""
     router.post(
         "/v1/public-sources/capture",
         tags=["public-sources"],
@@ -188,6 +234,11 @@ def add_public_source_capture_routes(router: APIRouter) -> None:
         tags=["public-sources"],
         summary="Validate a configured public source and run its recorded fixtures (internal)",
     )(check_public_source)
+    router.post(
+        "/v1/public-sources/built-in",
+        tags=["public-sources"],
+        summary="List the repository's built-in public sources with their fixtures' result (internal)",
+    )(built_in_public_sources)
     router.post(
         "/v1/public-sources/probe",
         tags=["public-sources"],

@@ -8,14 +8,16 @@
 import { describe, expect, it } from 'vitest'
 import { proposedRecordSchema } from '../platform/wire'
 import { graphFromProposals } from './from-proposals'
+import type { BuildingInputs } from '../rulesets/applicability'
+import { appliesWhenTableSchema } from '../wire/applies-when'
 import { resolveChain } from './resolve'
 import { MAX_NAME_CHARS, nameOf, renderChainText } from './text'
 
 const records = [
   { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
-  { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parentIds: ['AT'] },
-  { type: 'territory', id: 'AT-7', kind: 'state', name: 'Tirol', parentIds: ['AT'] },
-  { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'] },
+  { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parents: [{ id: 'AT' }] },
+  { type: 'territory', id: 'AT-7', kind: 'state', name: 'Tirol', parents: [{ id: 'AT' }] },
+  { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
   { type: 'work', key: 'bo-wien', kind: 'statute', title: 'Bauordnung für Wien', territoryIds: ['AT-9'] },
   { type: 'edition', key: 'bo-wien-2018', workKey: 'bo-wien', label: 'Fassung 2018', issuedOn: '2018-01-01', inForceFrom: '2018-01-01', inForceTo: '2024-01-01' },
   { type: 'edition', key: 'bo-wien-2024', workKey: 'bo-wien', label: 'Fassung 2024', issuedOn: '2024-01-01', inForceFrom: '2024-01-01' },
@@ -80,6 +82,17 @@ describe('the chain text', () => {
     )
   })
 
+  it('names a law whose edition is not determined, and why, instead of leaving it out silently', () => {
+    const overlapping = graphFromProposals(
+      [...records, { type: 'edition', key: 'bo-wien-2024b', workKey: 'bo-wien', label: 'Fassung 2024b', inForceFrom: '2024-06-01' }].map((record) =>
+        proposedRecordSchema.parse(record),
+      ),
+    )
+    const text = renderChainText(overlapping, resolveChain(overlapping, 'AT-9', '2026-11-10'), 'Wien')
+    expect(text).toContain('Not determined here')
+    expect(text).toContain('- Bauordnung für Wien: more than one edition is recorded as in force on this date')
+  })
+
   it('defect 7: in Steiermark it names 2019 as binding and 2023 as guidance only', () => {
     const styria = text('AT-6')
     expect(styria).toContain('OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe April 2019: declared binding by Steiermärkische Bautechnikverordnung')
@@ -104,5 +117,28 @@ describe('the chain text', () => {
     const rendered = renderChainText(planted, resolveChain(planted, 'AT-9', '2026-11-10'), 'AT-9')
     expect(rendered).not.toMatch(/<\/?[a-z_]+>|[{}`]/)
     expect(rendered.split('\n').every((line) => !line.startsWith('Ignore'))).toBe(true)
+  })
+
+  it('says when whether an edition applies waits for a building fact, and leaves out one no building needs (ADR-0178)', () => {
+    const appliesWhen = appliesWhenTableSchema.parse({
+      inputs: [{ key: 'escape_level_m', type: 'number' }],
+      output: { type: 'boolean' },
+      rows: [
+        { id: 'over-22', when: { '>': [{ var: 'escape_level_m' }, 22] }, then: true },
+        { id: 'up-to-22', when: { '<=': [{ var: 'escape_level_m' }, 22] }, then: false },
+      ],
+      otherwise: { then: false },
+    })
+    const scoped = graphFromProposals(
+      records.map((record) => (record.type === 'edition' && record.key === 'oib-rl-2-2023' ? { ...record, appliesWhen } : record)),
+    )
+    const at = (inputs: BuildingInputs['inputs']) =>
+      renderChainText(scoped, resolveChain(scoped, 'AT-9', '2026-11-10', { buildings: [{ buildingId: 'bldg1', inputs }] }), 'AT-9')
+    expect(at({})).toContain(
+      "(§ 1 WBTV 2023); applies only if the building's escape_level_m put it in scope, not yet known: ask for it, and do not say it binds or does not bind before then",
+    )
+    expect(at({ escape_level_m: 30 })).toContain("(§ 1 WBTV 2023); applies to this project by its building's escape_level_m")
+    expect(at({ escape_level_m: 9 })).not.toContain('Ausgabe Mai 2023')
+    expect(text('AT-9')).toContain('(§ 1 WBTV 2023)\n')
   })
 })

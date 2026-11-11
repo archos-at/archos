@@ -33,6 +33,12 @@ export interface SetupScopeOptions {
   records?: readonly StoredRuleset[]
   /** ISO date; today by default. */
   on?: string
+  /**
+   * The project's knowledge context withholds law at its site (not entitled,
+   * unreadable, unplaced; `gateNamesLaw` false): no class is derived or
+   * written, as `classification-evaluate` answers (ADR-0169's amendment).
+   */
+  lawWithheld?: boolean
 }
 
 const today = () => new Date().toISOString().slice(0, 10)

@@ -1,7 +1,8 @@
 /**
- * Where the project is, as far as its profile says: the TypeScript twin of
- * `agent.common.country_profile.resolve_site` (design
- * `docs/design/international/design.md` 3.1, invariant A1).
+ * Where the project is, as far as its profile says (design
+ * `docs/design/international/design.md` 3.1, invariant A1). Since ADR-0175 this
+ * is the one reader: the agent takes the site from the knowledge context the BFF
+ * sends, and has no twin of its own.
  *
  * A project is placed by its own `country` line, else by a Land token, the
  * confirmed facts first and then the assumptions (a typed address, a reading's
@@ -21,8 +22,8 @@ function stringValue(entry: { value: unknown } | undefined): string | null {
 
 /**
  * The site one section places, or null. A value the intake does not offer (a
- * stray `federal_state=foo`) places nothing, as in the Python twin: the OIB list
- * and the agent's prompt must read one profile the same way.
+ * stray `federal_state=foo`) places nothing: the page and the turn read one
+ * profile the same way.
  */
 function countryOf(country: string | null, federalState: string | null): SiteCountry {
   if (country && (isValidCountryToken(country) || /^[a-z]{2}$/.test(country))) return country

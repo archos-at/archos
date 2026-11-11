@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { proposedRecordSchema, type ProposedRecord } from '../platform/wire'
 import { graphFromProposals, mergeGraphs } from './from-proposals'
 import type { EditionUse, ResolvedChain } from './graph'
-import { chainAt, MAX_ROUTE_DEPTH, resolveChain } from './resolve'
+import { chainAt, editionsInForceAt, MAX_ROUTE_DEPTH, resolveChain } from './resolve'
 
 const parse = (records: unknown[]): ProposedRecord[] => records.map((record) => proposedRecordSchema.parse(record))
 
@@ -19,8 +19,7 @@ const territory = (id: string, kind: string, parentIds: string[] = [], datedPare
   id,
   kind,
   name: id,
-  parentIds,
-  datedParents,
+  parents: [...parentIds.map((parent) => ({ id: parent })), ...datedParents],
 })
 const work = (key: string, kind: string, territoryIds: string[] = [], extra: object = {}) => ({
   type: 'work',
@@ -163,6 +162,111 @@ describe('law and routes', () => {
     )
     expect(usesOf(resolveChain(dated, 'AT-9', '2026-11-10'), 'work:bo-wien')).toEqual([])
     expect(usesOf(resolveChain(dated, 'AT-9', '2030-01-01'), 'work:bo-wien')).toMatchObject([{ editionId: 'edition:bo-wien-2030' }])
+  })
+
+  it('binds a law on its edition’s last day and its successor from the day the first ends (half-open, the one rule)', () => {
+    const dated = graphFromProposals(
+      parse([
+        ...AUSTRIA,
+        edition('bo-wien-2018', 'bo-wien', null, { inForceFrom: '2018-09-01', inForceTo: '2024-01-01' }),
+        edition('bo-wien-2024', 'bo-wien', null, { inForceFrom: '2024-01-01' }),
+      ]),
+    )
+    expect(usesOf(resolveChain(dated, 'AT-9', '2023-12-31'), 'work:bo-wien')).toMatchObject([{ role: 'binding', editionId: 'edition:bo-wien-2018' }])
+    expect(usesOf(resolveChain(dated, 'AT-9', '2024-01-01'), 'work:bo-wien')).toMatchObject([{ role: 'binding', editionId: 'edition:bo-wien-2024' }])
+  })
+
+  it('names a law whose edition at the date is unknown as undetermined, and binds no guessed edition', () => {
+    const overlapping = graphFromProposals(
+      parse([
+        ...AUSTRIA,
+        edition('bo-wien-a', 'bo-wien', null, { inForceFrom: '2018-01-01' }),
+        edition('bo-wien-b', 'bo-wien', null, { inForceFrom: '2020-01-01' }),
+      ]),
+    )
+    const resolved = resolveChain(overlapping, 'AT-9', '2026-11-10')
+    expect(usesOf(resolved, 'work:bo-wien')).toEqual([])
+    expect(resolved.undetermined).toEqual([{ workId: 'work:bo-wien', reason: 'ambiguous_editions' }])
+    const undated = graphFromProposals(parse([...AUSTRIA, edition('bo-wien-x', 'bo-wien', '2018-01-01')]))
+    // A law counts from its in-force date, never from its issue.
+    expect(resolveChain(undated, 'AT-9', '2026-11-10').undetermined).toEqual([{ workId: 'work:bo-wien', reason: 'edition_dates_unknown' }])
+    const held = graphFromProposals(
+      parse([...AUSTRIA.filter((record) => !('key' in record && record.key === 'bo-wien')), work('bo-wien', 'statute', ['AT-9'], { historyAvailableFrom: '2018-01-01' }), edition('bo-wien-2018', 'bo-wien', null, { inForceFrom: '2018-01-01' })]),
+    )
+    expect(resolveChain(held, 'AT-9', '2017-06-01').undetermined).toEqual([{ workId: 'work:bo-wien', reason: 'history_not_held' }])
+  })
+
+  it('binds a norm a law references by work in its newest edition: norm editions succeed each other without an end date', () => {
+    const swiss = graphFromProposals(
+      parse([
+        ...AUSTRIA,
+        work('sia-500', 'technical_standard'),
+        edition('sia-500-2009', 'sia-500', '2009-01-01'),
+        edition('sia-500-2020', 'sia-500', '2020-01-01'),
+        binds('wbtv-sia', 'work:wbtv', 'work:sia-500', { mode: 'dynamic_reference' }),
+      ]),
+    )
+    expect(roleOf(resolveChain(swiss, 'AT-9', '2026-11-10'), 'edition:sia-500-2020')).toBe('binding')
+    expect(roleOf(resolveChain(swiss, 'AT-9', '2015-06-01'), 'edition:sia-500-2009')).toBe('binding')
+  })
+
+  it('binds an office’s own law, entered with its issue date only, from that date', () => {
+    const own = graphFromProposals(parse([work('own-bo', 'statute', ['AT-9']), edition('own-bo-2023', 'own-bo', '2023-01-01')]), 'office')
+    const merged = mergeGraphs(graph, own)
+    expect(usesOf(resolveChain(merged, 'AT-9', '2026-11-10'), 'work:own-bo')).toMatchObject([{ role: 'binding', editionId: 'edition:own-bo-2023' }])
+  })
+
+  it('leaves out an undated law edition beside dated ones instead of undetermining the work', () => {
+    const mixed = graphFromProposals(
+      parse([...AUSTRIA, edition('bo-wien-old', 'bo-wien', null), edition('bo-wien-2024', 'bo-wien', null, { inForceFrom: '2024-01-01' })]),
+    )
+    expect(usesOf(resolveChain(mixed, 'AT-9', '2026-11-10'), 'work:bo-wien')).toMatchObject([{ editionId: 'edition:bo-wien-2024' }])
+  })
+
+  it('lets a withdrawn guideline guide no more', () => {
+    const withdrawn = graphFromProposals(parse([...AUSTRIA, work('rvs', 'guideline', ['AT']), edition('rvs-2010', 'rvs', '2010-01-01', { inForceTo: '2020-01-01' })]))
+    expect(usesOf(resolveChain(withdrawn, 'AT-9', '2019-12-31'), 'work:rvs')).toMatchObject([{ role: 'guidance' }])
+    expect(usesOf(resolveChain(withdrawn, 'AT-9', '2026-11-10'), 'work:rvs')).toMatchObject([{ role: 'information' }])
+  })
+
+  it('asks `editionFor` which edition applies: a reference date per work plugs in without a second rule', () => {
+    const dated = graphFromProposals(
+      parse([
+        ...AUSTRIA,
+        edition('bo-wien-2018', 'bo-wien', null, { inForceFrom: '2018-09-01', inForceTo: '2024-01-01' }),
+        edition('bo-wien-2024', 'bo-wien', null, { inForceFrom: '2024-01-01' }),
+      ]),
+    )
+    const onFiling = editionsInForceAt(dated, '2023-06-01')
+    const today = editionsInForceAt(dated, '2026-11-10')
+    const editionFor = (workId: string) => (workId === 'work:bo-wien' ? onFiling(workId) : today(workId))
+    expect(usesOf(resolveChain(dated, 'AT-9', '2026-11-10', null, editionFor), 'work:bo-wien')).toMatchObject([{ editionId: 'edition:bo-wien-2018' }])
+    expect(roleOf(resolveChain(dated, 'AT-9', '2026-11-10', null, editionFor), 'edition:oib-rl-6-2025')).toBe('binding')
+  })
+
+  it('reads the scope of the edition chosen for the date, not of another edition of the work (ADR-0178)', () => {
+    // Synthetic thresholds: the 2023 edition is written for buildings above 22 m, the 2025 one above 25 m.
+    const above = (metres: number) => ({
+      inputs: [{ key: 'escape_level_m', type: 'number' }],
+      output: { type: 'boolean' },
+      rows: [
+        { id: 'above', when: { '>': [{ var: 'escape_level_m' }, metres] }, then: true },
+        { id: 'up-to', when: { '<=': [{ var: 'escape_level_m' }, metres] }, then: false },
+      ],
+      otherwise: { then: false },
+    })
+    const thresholds: Record<string, number> = { 'oib-rl-6-2023': 22, 'oib-rl-6-2025': 25 }
+    const scoped = graphFromProposals(
+      parse(AUSTRIA.map((record) => ('key' in record && record.key in thresholds ? { ...record, appliesWhen: above(thresholds[record.key]) } : record))),
+    )
+    const bindingAt = (date: string, metres: number) =>
+      usesOf(resolveChain(scoped, 'AT-9', date, { buildings: [{ buildingId: 'bldg1', inputs: { escape_level_m: metres } }] }), 'work:oib-rl-6').filter(
+        (use) => use.role === 'binding',
+      )
+    // Wien binds the 2023 edition until 2026-07-15 and the 2025 edition from that day.
+    expect(bindingAt('2026-07-14', 23)).toMatchObject([{ editionId: 'edition:oib-rl-6-2023', applicability: { verdict: 'applies' } }])
+    expect(bindingAt('2026-07-15', 23)).toEqual([])
+    expect(bindingAt('2026-07-15', 26)).toMatchObject([{ editionId: 'edition:oib-rl-6-2025', applicability: { verdict: 'applies' } }])
   })
 })
 

@@ -11,8 +11,26 @@
  * the agent reads it; the names are the jurisdiction's own.
  */
 
-import type { KnowledgeWorkKind } from '../wire/vocab'
-import type { EditionUse, KnowledgeGraph, ResolvedChain, RouteStep } from './graph'
+import type { ConnectingFactor, KnowledgeWorkKind } from '../wire/vocab'
+import type { EditionUse, KnowledgeGraph, ResolvedChain, RouteStep, UndeterminedLaw } from './graph'
+
+/**
+ * What the knowledge context corrected on a use (design §4.6, §5.2): the
+ * coverage qualifier, the freshness and its labels, and the connecting
+ * factors. The text says each, so the words and the uses never disagree.
+ */
+export interface UseNotes {
+  qualifier: 'uncurated' | 'office_maintained' | null
+  freshness: 'current' | 'check_due' | 'newer_known' | 'superseded'
+  lastCheckedAt: string | null
+  labels: readonly string[]
+  connectsBy: readonly ConnectingFactor[]
+}
+
+/** The key a use's notes are found under. */
+export const keyOfUse = (use: Pick<EditionUse, 'workId' | 'editionId'>): string => `${use.workId}/${use.editionId ?? ''}`
+
+const CONNECTING_WORDS: Record<ConnectingFactor, string> = { site: 'the site', office_seat: 'where the office sits', client: 'who the client is' }
 
 /** Longest name taken from a record. */
 export const MAX_NAME_CHARS = 120
@@ -49,6 +67,13 @@ export function nameOf(value: string | null | undefined): string {
   return flat.length > MAX_NAME_CHARS ? `${flat.slice(0, MAX_NAME_CHARS - 1)}…` : flat
 }
 
+/** Why an edition is not determined, as the agent reads it. */
+const UNDETERMINED_REASON: Record<UndeterminedLaw['reason'], string> = {
+  ambiguous_editions: 'more than one edition is recorded as in force on this date',
+  edition_dates_unknown: 'its editions carry no in-force date',
+  history_not_held: 'the platform holds no edition this old',
+}
+
 const PREAMBLE =
   'What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only ' +
   'where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, ' +
@@ -75,13 +100,48 @@ function stepWords(graph: KnowledgeGraph, step: RouteStep): string {
   return `${mode} ${by}${provision}${office}`
 }
 
-function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly string[]): string[] {
+/**
+ * Whether the line's edition applies to this project's buildings, by its scope
+ * (ADR-0178), in fixed words; the facts are the scope's keys, reduced like any
+ * name. While a fact is open the answer may not say the edition binds or does
+ * not: it names the fact and asks. An edition no building needs is not here.
+ */
+function applicabilityWords(use: EditionUse): string {
+  const applicability = use.applicability
+  if (!applicability) return ''
+  const facts = (keys: readonly string[]) => keys.map(nameOf).join(', ')
+  if (applicability.verdict === 'applies') {
+    return applicability.basis.length > 0 ? `; applies to this project by its building's ${facts(applicability.basis)}` : '; applies to this project'
+  }
+  return applicability.open.length > 0
+    ? `; applies only if the building's ${facts(applicability.open)} put it in scope, not yet known: ask for it, and do not say it binds or does not bind before then`
+    : "; whether its scope covers this project needs a person's check: do not say it binds or does not bind"
+}
+
+/** What the context says of a use beyond its role, in fixed words: its source's curation and how current it is. */
+function noteWords(notes: UseNotes | undefined): string {
+  if (!notes) return ''
+  const words: string[] = []
+  if (notes.qualifier === 'uncurated') words.push('read from an uncurated official source; nobody on the platform reviewed this route')
+  if (notes.freshness === 'newer_known') words.push('a newer edition is known at its source: say so, and check which one binds')
+  if (notes.freshness === 'superseded') words.push('withdrawn at its source: say so')
+  if (notes.labels.includes('unchecked_since'))
+    words.push(notes.lastCheckedAt ? `not checked since ${notes.lastCheckedAt}: name that date` : 'never checked against its source by the platform: say so')
+  else if (notes.labels.includes('check_overdue')) words.push("the platform's check of it is overdue")
+  return words.map((word) => `; ${word}`).join('')
+}
+
+/** Whether a use is in force by the records as far as the context knows: not where its source names a newer edition or withdrew it. */
+const inForceWords = (notes: UseNotes | undefined): string =>
+  notes?.freshness === 'newer_known' || notes?.freshness === 'superseded' ? 'in force by the records' : 'in force'
+
+function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly string[], notes?: UseNotes): string[] {
   const work = graph.works.get(use.workId)
   const kind = work ? KIND_WORDS[work.kind] : 'instrument'
   const last = use.route.at(-1)
   const where = work?.territoryIds.find((id) => chain.includes(id))
-  const why = !last || last.via === 'territory' ? `${kind}${where ? ` of ${where}` : ''}, in force` : stepWords(graph, last)
-  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}`]
+  const why = !last || last.via === 'territory' ? `${kind}${where ? ` of ${where}` : ''}, ${inForceWords(notes)}` : stepWords(graph, last)
+  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}${noteWords(notes)}${applicabilityWords(use)}`]
   for (const displaced of use.displaced) {
     const target = displaced.anchor ?? 'the whole instrument'
     const by = workName(graph, displaced.byWorkId)
@@ -97,7 +157,7 @@ function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly str
 
 function guidanceLine(graph: KnowledgeGraph, use: EditionUse): string {
   const binding = use.relatedEditionId ? `; the edition that binds here is ${editionName(graph, use.relatedEditionId)}` : "; the records name no binding edition here; check the Land's ordinance"
-  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: guidance only${binding}`
+  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: guidance only${binding}${applicabilityWords(use)}`
 }
 
 function interpretationLine(graph: KnowledgeGraph, use: EditionUse): string {
@@ -109,6 +169,11 @@ function practiceLine(graph: KnowledgeGraph, use: EditionUse): string {
   return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: the practice of the authority that decides here, not a norm`
 }
 
+function connectedLine(graph: KnowledgeGraph, use: EditionUse, notes: UseNotes): string {
+  const factors = notes.connectsBy.filter((factor) => factor !== 'site').map((factor) => CONNECTING_WORDS[factor])
+  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: binds by ${factors.join(' or ')}, not by the site; cite it as binding only once that is known`
+}
+
 function section(header: string, lines: readonly string[]): string[] {
   if (lines.length === 0) return []
   const shown = lines.slice(0, MAX_SECTION_LINES)
@@ -116,16 +181,24 @@ function section(header: string, lines: readonly string[]): string[] {
   return [header, ...shown, ...(more > 0 ? [`- and ${more} more`] : [])]
 }
 
-/** The chain text for a resolved site; `place` is the leaf's name as the project states it. */
-export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, place: string): string {
+/**
+ * The chain text for a resolved site; `place` is the leaf's name as the
+ * project states it. `notes` are the knowledge context's corrections by
+ * `keyOfUse`; without them every use reads as the chain resolved it.
+ */
+export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, place: string, notes?: ReadonlyMap<string, UseNotes>): string {
   const leaf = resolved.chain[0]
   const leafName = nameOf(graph.territories.get(leaf)?.name ?? place) || leaf
-  const by = (role: EditionUse['role']) => resolved.uses.filter((use) => use.role === role)
+  const noteOf = (use: EditionUse) => notes?.get(keyOfUse(use))
+  const connected = (use: EditionUse) => (noteOf(use)?.connectsBy ?? ['site']).some((factor) => factor !== 'site')
+  const by = (role: EditionUse['role']) => resolved.uses.filter((use) => use.role === role && !connected(use))
   const interpretations = by('interpretation')
   const information = by('information').length
+  const uncurated = resolved.uses.some((use) => noteOf(use)?.qualifier === 'uncurated')
+  const source = uncurated ? "from the platform's records, some read from an uncurated official source (marked)" : "from the platform's reviewed records"
   const lines = [
-    `Building law at this site, ${leafName} (${resolved.chain.join(', ')}), on ${resolved.date}, from the platform's reviewed records. ${PREAMBLE}`,
-    ...section('Binding here:', by('binding').flatMap((use) => bindingLine(graph, use, resolved.chain))),
+    `Building law at this site, ${leafName} (${resolved.chain.join(', ')}), on ${resolved.date}, ${source}. ${PREAMBLE}`,
+    ...section('Binding here:', by('binding').flatMap((use) => bindingLine(graph, use, resolved.chain, noteOf(use)))),
     ...section('Authority practice here:', by('authority_practice').map((use) => practiceLine(graph, use))),
     ...section(
       'Guidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):',
@@ -134,6 +207,14 @@ export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, 
     ...(interpretations.length > 0
       ? section('Interpretation:', interpretations.map((use) => interpretationLine(graph, use)))
       : ['Legal commentaries are not available; say so when asked for one.']),
+    ...section(
+      'Binding by something other than the site:',
+      resolved.uses.filter(connected).map((use) => connectedLine(graph, use, noteOf(use) as UseNotes)),
+    ),
+    ...section(
+      'Not determined here (the records cannot name the edition in force on this date; name the law, say its edition is not determined, never assume one):',
+      resolved.undetermined.map((entry) => `- ${workName(graph, entry.workId)}: ${UNDETERMINED_REASON[entry.reason]}`),
+    ),
     ...(information === 1 ? ['1 other edition is not in force here and is information only.'] : []),
     ...(information > 1 ? [`${information} other editions are not in force here and are information only.`] : []),
   ]

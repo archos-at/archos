@@ -5,6 +5,10 @@
  * by hand ("paper" fixtures).
  */
 
+import type { Applicability } from '../rulesets/applicability'
+import type { AppliesWhenTable } from '../wire/applies-when'
+import type { SourceRef } from './source-refs'
+import type { TerritoryParent } from './territory-chain'
 import type { BindingMode, ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
 
 /** Who owns a record: the platform, or the office reading it. Another office's records are never in a graph. */
@@ -14,10 +18,8 @@ export interface GraphTerritory {
   id: string
   kind: TerritoryKind
   name: string
-  /** Undated parents, nearest first. */
-  parentIds: readonly string[]
-  /** Parents for an interval only, half-open: `AT` lies in `EU` from 1995-01-01. */
-  datedParents: readonly { id: string; validFrom?: string | null; validTo?: string | null }[]
+  /** Every parent, nearest first; one for an interval only states it, half-open: `AT` lies in `EU` from 1995-01-01. */
+  parents: readonly TerritoryParent[]
   validFrom: string | null
   validTo: string | null
   /** How far the records go here (0213); absent or null inherits from the parent. */
@@ -38,6 +40,10 @@ export interface GraphWork {
   addresseeTerritoryIds: readonly string[]
   /** What it attaches to (0213); absent reads as the site. */
   connectsBy?: readonly ConnectingFactor[]
+  /** Its identifiers at its source (`ris_gesetzesnummer`, `eli`): how a passage read live finds it; absent reads as none. */
+  sourceRefs?: readonly SourceRef[]
+  /** The first day whose edition is held (0206); absent or null: no earlier than the oldest edition present. */
+  historyAvailableFrom?: string | null
 }
 
 export interface GraphEdition {
@@ -52,6 +58,10 @@ export interface GraphEdition {
   corpusFiles: readonly string[]
   /** The platform's newest check of it (0202 `knowledge_checks`), for freshness; absent when nobody read it. */
   lastCheck?: { checkedAt: string; result: string } | null
+  /** Its scope: which buildings it is written for (0221, ADR-0178); absent or null, every building. */
+  appliesWhen?: AppliesWhenTable | null
+  /** Where a person opens its text: the page its platform manifestation cites first; absent when none cites one. */
+  sourceUrl?: string | null
 }
 
 export interface RelationAnchorPair {
@@ -116,6 +126,14 @@ export interface EditionUse {
   displaced: readonly Displacement[]
   /** For a norm that guides here, the edition that binds where one does; for a commentary, the edition it interprets. */
   relatedEditionId: string | null
+  /** Whether the edition applies to the project's buildings (ADR-0178); null where it states no scope or no building scope was given. */
+  applicability: Applicability | null
+}
+
+/** A law on the chain whose edition at the date the records cannot name: it binds no edition, and says why. */
+export interface UndeterminedLaw {
+  workId: string
+  reason: 'history_not_held' | 'edition_dates_unknown' | 'ambiguous_editions'
 }
 
 export interface ResolvedChain {
@@ -123,6 +141,8 @@ export interface ResolvedChain {
   /** The site's leaf first, then every territory it lies in at the date. */
   chain: readonly string[]
   uses: readonly EditionUse[]
+  /** Law on the chain left out because its edition at the date is unknown, never guessed (`time/editions.ts`). */
+  undetermined: readonly UndeterminedLaw[]
   /** More uses than one resolution returns: what was left out reads as nothing, so a caller fails closed. */
   truncated: boolean
 }

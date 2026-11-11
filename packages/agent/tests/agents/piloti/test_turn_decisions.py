@@ -247,7 +247,7 @@ class TestThePrefetch:
         return TurnDecisions(decided=True, needs_evidence=evidence, corpus=corpus, corpus_p=p, families=families)
 
     def test_a_law_question_prefetches_itself_and_the_top_family_overview(self):
-        calls = prefetch_calls(self._decided("baurecht"), "Wie lang darf der  Fluchtweg sein?")
+        calls = prefetch_calls(self._decided("baurecht"), "Wie lang darf der  Fluchtweg sein?", austrian_law=True)
         assert calls == [
             {"name": "knowledge_search", "args": {"query": "Wie lang darf der Fluchtweg sein?"}},
             {"name": "knowledge_search", "args": {"query": "OIB-Richtlinie 2"}},
@@ -259,6 +259,12 @@ class TestThePrefetch:
         assert calls == [{"name": "knowledge_search", "args": {"query": "Wie lang darf der Fluchtweg sein?"}}]
         undecided = TurnDecisions()
         assert prefetch_calls(undecided, "Was weißt du über die OIB 2?", austrian_law=False) == []
+
+    def test_without_the_caller_saying_so_no_austrian_family_is_read(self):
+        """ADR-0175: the default is closed; only the knowledge context opens Austria's corpus."""
+        calls = prefetch_calls(self._decided("baurecht"), "Wie lang darf der Fluchtweg sein?")
+        assert calls == [{"name": "knowledge_search", "args": {"query": "Wie lang darf der Fluchtweg sein?"}}]
+        assert prefetch_calls(TurnDecisions.none(), "Was weißt du über die OIB 2?") == []
 
     def test_a_family_question_is_its_own_overview_and_prefetches_once(self):
         calls = prefetch_calls(self._decided("baurecht"), "Was weißt du über die OIB 2?")
@@ -332,7 +338,7 @@ class TestThePrefetch:
 
     def test_a_decision_that_missed_its_budget_still_prefetches_a_family_question(self):
         """The decider rarely lands in 1.5 s; the family question is evidence by construction."""
-        assert prefetch_calls(TurnDecisions.none(), "Was weißt du über die OIB 2?") == [
+        assert prefetch_calls(TurnDecisions.none(), "Was weißt du über die OIB 2?", austrian_law=True) == [
             {"name": "knowledge_search", "args": {"query": "Was weißt du über die OIB 2?"}}
         ]
 

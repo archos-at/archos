@@ -1,4 +1,4 @@
-// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, migrations/0205_platform_base_knowledge.sql, migrations/0207_setup_fact_records.sql, migrations/0211_country_pack.sql, migrations/0212_country_onboarding_tooling.sql, migrations/0213_knowledge_context.sql, migrations/0214_knowledge_approve_alone.sql, migrations/0215_pdf_document_sources.sql, tests/fixtures/base-knowledge.schema.json
+// @disk-inputs: migrations/0*.sql, tests/fixtures/base-knowledge.schema.json
 /**
  * @vitest-environment node
  *
@@ -9,25 +9,16 @@
  * way round) fails before a write could.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { DECISION_TABLE_PURPOSES, KNOWLEDGE_VOCABULARIES } from './vocab'
 
-/** Oldest first: a later migration that redefines a CHECK wins. */
-const MIGRATIONS = [
-  'migrations/0202_base_knowledge.sql',
-  'migrations/0204_rulesets.sql',
-  'migrations/0205_platform_base_knowledge.sql',
-  'migrations/0207_setup_fact_records.sql',
-  'migrations/0211_country_pack.sql',
-  'migrations/0212_country_onboarding_tooling.sql',
-  'migrations/0213_knowledge_context.sql',
-  'migrations/0214_knowledge_approve_alone.sql',
-  'migrations/0215_pdf_document_sources.sql',
-].map((path) =>
-  readFileSync(join(process.cwd(), path), 'utf8'),
-)
+/** Every forward migration, oldest first: a later one that redefines (or drops) a CHECK wins. */
+const MIGRATION_FILES = readdirSync(join(process.cwd(), 'migrations'))
+  .filter((name) => /^\d{4}_.+\.sql$/.test(name) && !name.endsWith('.down.sql'))
+  .sort()
+const MIGRATIONS = MIGRATION_FILES.map((name) => readFileSync(join(process.cwd(), 'migrations', name), 'utf8'))
 const FIXTURE = join(process.cwd(), 'tests/fixtures/base-knowledge.schema.json')
 
 /**
@@ -63,8 +54,24 @@ describe('the base knowledge vocabularies', () => {
     expect(checkedValues(table, column).sort()).toEqual([...values].sort())
   })
 
+  it('holds no CHECK on a source\'s protocol or format: the Python registry is their one list', () => {
+    const latest = (constraint: string): 'added' | 'dropped' | undefined =>
+      [...MIGRATIONS]
+        .reverse()
+        .map((text) =>
+          new RegExp(`DROP CONSTRAINT IF EXISTS ${constraint}\\b`).test(text) ? ('dropped' as const)
+          : new RegExp(`CONSTRAINT ${constraint}\\s+CHECK`).test(text) ? ('added' as const)
+          : undefined,
+        )
+        .find(Boolean)
+    expect(latest('knowledge_source_revisions_protocol_known')).toBe('dropped')
+    expect(latest('knowledge_source_revisions_format_known')).toBe('dropped')
+    expect(Object.keys(KNOWLEDGE_VOCABULARIES)).not.toContain('knowledge_source_revisions.format')
+  })
+
   it('allows a decision table only for the purposes the wire gives one', () => {
-    const constraint = /knowledge_ruleset_revisions_table_purpose CHECK \(([^;]*?)\),\n/.exec(MIGRATIONS[1])?.[1] ?? ''
+    const rulesets = MIGRATIONS[MIGRATION_FILES.indexOf('0204_rulesets.sql')] ?? ''
+    const constraint = /knowledge_ruleset_revisions_table_purpose CHECK \(([^;]*?)\),\n/.exec(rulesets)?.[1] ?? ''
     expect(checkedValues('knowledge_ruleset_revisions', 'purpose', constraint).sort()).toEqual([...DECISION_TABLE_PURPOSES].sort())
   })
 
