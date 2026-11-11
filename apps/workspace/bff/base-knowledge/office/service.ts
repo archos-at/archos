@@ -65,7 +65,7 @@ import { platformKnowledge } from '../platform'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { territoryChoices } from './territory-choices'
 import { isStandardsFolder, standardsFolderRows, standardsRoot } from './folders'
-import { editionStanding, inForceOn, seriesOf } from './editions'
+import { editionStanding } from './editions'
 import { byAttention, countByFolder, countEntries, matchesQuery, subtreeOf } from './listing'
 
 
@@ -400,7 +400,12 @@ export interface BaseKnowledgeTurn {
 
 export async function baseKnowledgeForTurn(organizationId: string, projectId: string | null): Promise<BaseKnowledgeTurn | null> {
   // Confirmed copies, and licensed ones still proposals: those are named as held and never read (ADR-0164).
-  const stored = (await readOfficeEntries(organizationId)).filter((entry) => entry.confirmed || entry.values.licenceClass === 'licensed')
+  // Of several editions of one standard, the one in force today; the others are superseded and stay out of answers.
+  const all = await readOfficeEntries(organizationId)
+  const standing = standingOf(all, new Date())
+  const stored = all.filter(
+    (entry) => (entry.confirmed && standing.get(entry.workId)?.inForce !== false) || (!entry.confirmed && entry.values.licenceClass === 'licensed'),
+  )
   const held = stored.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
   const [documents, profile, listed, setupRecords] = await Promise.all([
     visibleOfficeDocuments(organizationId, stored.map((entry) => entry.documentId), SCREENED_ONLY),

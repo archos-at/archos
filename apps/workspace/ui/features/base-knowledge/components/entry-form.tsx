@@ -17,11 +17,12 @@ import { DateInput } from '@/components/ui/date-input'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { MultiSelect } from '@/components/ui/multi-select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { EntryValues } from '@/lib/base-knowledge/wire'
-import { LICENCE_CLASSES, OFFICE_WORK_KINDS } from '@/lib/base-knowledge/wire/vocab'
+import { OFFICE_WORK_KINDS } from '@/lib/base-knowledge/wire/vocab'
 import { cn } from '@/lib/utils'
 
 export interface TerritoryChoice {
@@ -151,21 +152,29 @@ export function EntryForm({ values, onChange, disabled, showLicence, territories
         </Field>
       )}
       {showLicence && (
+        // One question for the office: bought, or free to read? Restricted and open public copies are read alike
+        // (`text-use.ts`), so the form does not ask which; a restricted copy keeps its class until someone changes it.
         <Field>
-          <FieldLabel htmlFor="bk-licence">{t('field.licenceClass')}</FieldLabel>
-          <Select value={values.licenceClass} disabled={disabled} onValueChange={(licence) => set('licenceClass', licence as EntryValues['licenceClass'])}>
-            <SelectTrigger id="bk-licence" className="w-full sm:w-64">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {LICENCE_CLASSES.map((licence) => (
-                <SelectItem key={licence} value={licence}>
-                  {t(`licence.${licence}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FieldDescription>{t(`licenceHint.${values.licenceClass}`)}</FieldDescription>
+          <FieldLabel id="bk-licence">{t('field.purchased')}</FieldLabel>
+          <RadioGroup
+            aria-labelledby="bk-licence"
+            value={values.licenceClass === 'licensed' ? 'licensed' : 'public'}
+            disabled={disabled}
+            onValueChange={(choice) =>
+              set('licenceClass', choice === 'licensed' ? 'licensed' : values.licenceClass === 'licensed' ? 'public_open' : values.licenceClass)
+            }
+            className="grid gap-2"
+          >
+            {(['licensed', 'public'] as const).map((choice) => (
+              <label key={choice} className="flex items-start gap-2 text-sm">
+                <RadioGroupItem value={choice} />
+                <span>
+                  {t(`field.purchasedChoice.${choice}`)}
+                  <span className="block text-xs text-muted-foreground">{t(`field.purchasedHint.${choice}`)}</span>
+                </span>
+              </label>
+            ))}
+          </RadioGroup>
         </Field>
       )}
       <Collapsible open={more} onOpenChange={setMore}>

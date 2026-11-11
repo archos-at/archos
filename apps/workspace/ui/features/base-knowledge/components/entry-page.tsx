@@ -39,7 +39,6 @@ import { BackControl } from '@/components/shell/back-link'
 import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { EntryValues } from '@/lib/base-knowledge/wire'
-import type { KnowledgeCheckResult } from '@/lib/base-knowledge/wire/vocab'
 import { day, StatusChip, TextUseChip } from './entry-atoms'
 import { EntryForm, type TerritoryChoice } from './entry-form'
 
@@ -208,14 +207,6 @@ function LicenceSection({
   )
 }
 
-const CHECKS: {
-  result: KnowledgeCheckResult
-  label: 'detail.checkCurrent' | 'detail.checkNewer' | 'detail.checkWithdrawn'
-}[] = [
-  { result: 'current', label: 'detail.checkCurrent' },
-  { result: 'newer_known', label: 'detail.checkNewer' },
-  { result: 'withdrawn', label: 'detail.checkWithdrawn' },
-]
 
 function CheckSection({
   entry,
@@ -249,17 +240,10 @@ function CheckSection({
       {canManage && (
         <>
           <div className="flex flex-wrap gap-2">
-            {CHECKS.map(({ result, label }) => (
-              <Button
-                key={result}
-                size="sm"
-                variant={result === 'current' ? 'default' : 'outline'}
-                disabled={busy}
-                onClick={() => void run(() => recordBaseKnowledgeCheck(entry.id, { result }))}
-              >
-                {t(label)}
-              </Button>
-            ))}
+            {/* One answer is the common one; a newer edition is answered by uploading it, which records the check itself. */}
+            <Button size="sm" disabled={busy} onClick={() => void run(() => recordBaseKnowledgeCheck(entry.id, { result: 'current' }))}>
+              {t('detail.checkCurrent')}
+            </Button>
           </div>
           <div className="space-y-1">
             <input

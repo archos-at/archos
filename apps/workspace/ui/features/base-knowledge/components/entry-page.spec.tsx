@@ -36,7 +36,7 @@ describe('EntryPage', () => {
     const onChanged = renderSheet(PROPOSAL)
     const confirm = await screen.findByTestId('base-knowledge-save')
     expect((confirm as HTMLButtonElement).disabled).toBe(true)
-    await userEvent.click(screen.getByRole('checkbox', { name: /Lizenz gilt für alle im Büro/ }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /Lizenz gilt für unser ganzes Büro/ }))
     await userEvent.click(confirm)
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
@@ -48,7 +48,7 @@ describe('EntryPage', () => {
     const fetchMock = vi.fn(async () => Response.json(CONFIRMED))
     vi.stubGlobal('fetch', fetchMock)
     renderSheet(CONFIRMED)
-    await userEvent.click(await screen.findByRole('button', { name: 'Ist aktuell' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Ist noch aktuell' }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/api/base-knowledge/oenorm-b-1600/checks')

@@ -58,6 +58,13 @@ export function StatusChip({ entry }: { entry: BaseKnowledgeEntry }): JSX.Elemen
       </Chip>
     )
   }
+  if (entry.edition && !entry.edition.inForce) {
+    return (
+      <Chip size="sm" variant="muted" data-testid="base-knowledge-status">
+        {t('status.superseded')}
+      </Chip>
+    )
+  }
   if (checkDue(entry)) {
     return (
       <Chip size="sm" variant="warning" data-testid="base-knowledge-status">
