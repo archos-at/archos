@@ -10,6 +10,11 @@ reviewer looking at one screenshot both miss those.
 The matrices live in [`../design/lifecycles/`](../design/lifecycles/README.md).
 The first one is the [streaming chat turn](../design/lifecycles/chat-turn.md).
 
+A matrix is not the machine. Which states a record has and which moves between
+them are legal is a declaration in code
+([`../architecture/lifecycles.generated.md`](../architecture/lifecycles.generated.md),
+ADR-0178); a matrix says what a reader sees at each edge of one surface.
+
 ## When to write one
 
 Write one only when the surface meets **all** of these:

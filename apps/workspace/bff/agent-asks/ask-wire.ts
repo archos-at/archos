@@ -12,14 +12,34 @@
  */
 
 import { z } from 'zod'
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import { conversationIdSchema } from '@/lib/session-documents/conversation-id'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 export const ASK_STATES = ['submitted', 'working', 'completed', 'canceled', 'failed', 'rejected'] as const
 export type AskState = (typeof ASK_STATES)[number]
 
+/**
+ * An ask's lifecycle (ADR-0178), the A2A task's: submitted, working once its
+ * turn runs, then one final word. An ask may end before it was ever marked
+ * working (a cancel, the start's own refusal, a turn that errors at once).
+ * `canceled` is A2A's spelling.
+ */
+export const ASK_LIFECYCLE = defineLifecycle<AskState, 'start' | 'complete' | 'cancel' | 'fail' | 'reject'>({
+  id: 'agent-ask',
+  initial: 'submitted',
+  states: {
+    submitted: { on: { start: 'working', complete: 'completed', cancel: 'canceled', fail: 'failed', reject: 'rejected' } },
+    working: { on: { complete: 'completed', cancel: 'canceled', fail: 'failed', reject: 'rejected' } },
+    completed: { type: 'final' },
+    canceled: { type: 'final' },
+    failed: { type: 'final' },
+    rejected: { type: 'final' },
+  },
+})
+
 /** The states an ask never leaves. */
-export const TERMINAL_ASK_STATES: ReadonlySet<AskState> = new Set<AskState>(['completed', 'canceled', 'failed', 'rejected'])
+export const TERMINAL_ASK_STATES: ReadonlySet<AskState> = new Set<AskState>(ASK_LIFECYCLE.finalStates)
 
 export const isTerminalAskState = (state: AskState): boolean => TERMINAL_ASK_STATES.has(state)
 

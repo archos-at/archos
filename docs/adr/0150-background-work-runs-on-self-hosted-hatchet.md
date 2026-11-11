@@ -150,9 +150,9 @@ dashboard and its backups hold nothing an office wrote.
 
 **The engine stays replaceable.** The pipeline's step functions never import
 `hatchet_sdk`. One thin layer per tier declares the tasks
-(`knowledge/ingest_hatchet.py`, `jobs/research_hatchet.py`,
-`bff/jobs-queue/hatchet*.ts`, `bff/scheduling/tasks.ts`), and the Python process
-builds its one client in `agent.common.hatchet_client`. Moving to Temporal means
+(`knowledge/ingest_workflow.py`, `jobs/research_workflow.py`,
+`bff/jobs-queue/orchestrator.ts`, `bff/scheduling/tasks.ts`), and the Python process
+builds its one client in `agent.common.orchestrator_client`. Moving to Temporal means
 rewriting those layers, not the pipeline.
 
 **Status is pushed.** When an ingest job ends, `settle` calls

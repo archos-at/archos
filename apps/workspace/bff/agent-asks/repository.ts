@@ -13,7 +13,7 @@ import { messages } from '@/lib/db/schema/messages'
 import { agentAsks, type AgentAskRow } from '@/lib/db/schema/piloti-asks'
 import { withTenant } from '@/lib/db/tenant-context'
 import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibility'
-import type { AskDocument, AskState } from './ask-wire'
+import { ASK_LIFECYCLE, type AskDocument, type AskState } from './ask-wire'
 
 /** The most documents one answer lists; a turn that filed more is an outlier, and the conversation shows them all. */
 export const ASK_DOCUMENT_LIMIT = 20
@@ -115,7 +115,7 @@ export async function markAskWorking(organizationId: string, id: string): Promis
     db
       .update(agentAsks)
       .set({ state: 'working', updatedAt: new Date() })
-      .where(and(eq(agentAsks.organizationId, organizationId), eq(agentAsks.id, id), eq(agentAsks.state, 'submitted')))
+      .where(and(eq(agentAsks.organizationId, organizationId), eq(agentAsks.id, id), inArray(agentAsks.state, [...ASK_LIFECYCLE.sourcesOf('start')])))
       .returning({ id: agentAsks.id }),
   )
   return rows.length > 0
@@ -135,7 +135,7 @@ export async function endAsk(organizationId: string, id: string, end: AskEnd): P
   const db = getDb()
   const now = new Date()
   const reason = 'reason' in end ? clipReason(end.reason) : null
-  const open: AskState[] = ['submitted', 'working']
+  const open: AskState[] = [...ASK_LIFECYCLE.liveStates]
   const [row] = await withTenant({ organizationId }, () =>
     db
       .update(agentAsks)

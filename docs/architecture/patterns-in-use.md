@@ -65,6 +65,7 @@ fail on a difference.
 | `apps/workspace/bff/skills/platform-skills.ts` | `packages/agent/src/agent/skills/builtin/*/SKILL.md` | yes, the `sync-platform-skills` pre-commit hook |
 | `contracts/cards/schemas.json` | the card models (`packages/agent/src/agent/cards/models.py` and its card modules), via `scripts/generate_card_schema.py` | yes, the `card-schemas` pre-commit hook |
 | `apps/workspace/shared/cards/generated.ts` | `contracts/cards/schemas.json`, via `apps/workspace/scripts/generate-card-schemas.mjs` | yes, the same hook |
+| `docs/architecture/lifecycles.generated.md` | the declarations in `apps/workspace/bff/lifecycles/registry.ts` | yes, `apps/workspace/bff/lifecycles/registry.spec.ts` (rewrite with `UPDATE_FIXTURES=1`) |
 
 The card schema is a two-stage pipeline from Pydantic models to Zod. Neither
 generator has a `--check` flag, so the hook simply runs both: pre-commit fails
@@ -193,6 +194,26 @@ person's act (transport, sign-in plumbing) is exempt with a reason. ADR-0122,
 [`agent-surface.md`](agent-surface.md).
 **Enforced by:** `apps/workspace/bff/agent-api/agent-reachability.spec.ts`; the
 routes that predate it sit in a shrink-only baseline.
+
+## A lifecycle is declared once, as a statechart table
+
+A record that moves through a fixed set of states declares them and every legal
+move with `defineLifecycle` (`apps/workspace/shared/lifecycle/define-lifecycle.ts`):
+the config a statechart takes (`initial`, `states[state].on[event] = target`,
+`type: 'final'`), with no runtime behind it. The state stays in the row; a move
+stays the repository's compare-and-set, whose `WHERE` reads its list from the
+declaration (`sourcesOf(event)`, `liveStates`, `finalStates`) and not from a
+literal. Who may make a move and what it stamps stay in the service. Work that
+takes time runs on Hatchet (ADR-0150), and its queued, running and retrying are
+the engine's, not states of the record. ADR-0178; the declared ones are drawn in
+[`lifecycles.generated.md`](lifecycles.generated.md), the ones still implicit
+are listed in [`../audit/implicit-state-machines-2026-11.md`](../audit/implicit-state-machines-2026-11.md).
+**Enforced by:** `apps/workspace/shared/lifecycle/define-lifecycle.spec.ts`
+(the helper against XState's interpreter) and
+`apps/workspace/bff/lifecycles/registry.spec.ts` (every declaration under
+`bff/` is registered, agrees with XState and is drawn in the reference as
+declared). Nothing forces a new status column to come with a declaration;
+review is the gate.
 
 ## Bulk work is a server run, never a browser loop
 

@@ -27,6 +27,7 @@
 
 import { ForbiddenError } from '@/lib/api/api-error'
 import type { ProjectPermission } from '@/lib/authz/permissions'
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import { dateToMonth, isMonth, isOrderedPeriod, type Month } from './month'
 
 export const PROJECT_STATUSES = ['active', 'paused', 'closed'] as const
@@ -40,20 +41,41 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 export const PROJECT_OUTCOMES = ['completed', 'cancelled'] as const
 export type ProjectOutcome = (typeof PROJECT_OUTCOMES)[number]
 
-/** Every move the lifecycle allows, from each state. Anything else is refused (409 `invalid-transition`). */
+/**
+ * The machine, declared once (ADR-0178): every state, and each move by the
+ * name it is audited under (`project.paused`, `project.resumed`,
+ * `project.closed`, `project.reopened`). Anything else is refused (409
+ * `invalid-transition`).
+ */
+export const PROJECT_LIFECYCLE = defineLifecycle<ProjectStatus, 'pause' | 'resume' | 'close' | 'reopen'>({
+  id: 'project',
+  initial: 'active',
+  states: {
+    active: { on: { pause: 'paused', close: 'closed' } },
+    paused: { on: { resume: 'active', close: 'closed' } },
+    closed: { on: { reopen: 'active' } },
+  },
+})
+
+/** Every move the lifecycle allows, from each state: {@link PROJECT_LIFECYCLE} read as a table. */
 export const PROJECT_TRANSITIONS: Readonly<Record<ProjectStatus, readonly ProjectStatus[]>> = {
-  active: ['paused', 'closed'],
-  paused: ['active', 'closed'],
-  closed: ['active'],
+  active: PROJECT_STATUSES.filter((to) => PROJECT_LIFECYCLE.canTransition('active', to)),
+  paused: PROJECT_STATUSES.filter((to) => PROJECT_LIFECYCLE.canTransition('paused', to)),
+  closed: PROJECT_STATUSES.filter((to) => PROJECT_LIFECYCLE.canTransition('closed', to)),
 }
 
 export function canTransition(from: ProjectStatus, to: ProjectStatus): boolean {
-  return PROJECT_TRANSITIONS[from].includes(to)
+  return PROJECT_LIFECYCLE.canTransition(from, to)
+}
+
+/** What a refused move tells its caller (409 `invalid-transition`): the move asked for, and the states the project may become. */
+export function invalidTransition(from: ProjectStatus, to: ProjectStatus) {
+  return { reason: 'invalid-transition', from, to, allowed: PROJECT_TRANSITIONS[from] } as const
 }
 
 /** The states a project may be in for a move to `to`: what the repository's UPDATE matches on. */
 export function statusesThatMayBecome(to: ProjectStatus): ProjectStatus[] {
-  return PROJECT_STATUSES.filter((from) => canTransition(from, to))
+  return [...PROJECT_LIFECYCLE.statesThatMayBecome(to)]
 }
 
 export function isProjectStatus(value: unknown): value is ProjectStatus {
