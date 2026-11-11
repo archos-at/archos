@@ -1,10 +1,10 @@
--- Reverse 0233. ORDER: roll the frontend back first; the newer build writes
+-- Reverse 0234. ORDER: roll the frontend back first; the newer build writes
 -- `citation_style` rulesets.
 --
 -- Lossy: every record that ever held a citation style goes, with its whole
 -- history. Records, not revisions: revisions are append-only (0202's trigger
 -- refuses a direct DELETE) and go only with their record, by cascade, as 0207's
--- down does. Lines are then written in the fallback style, as before 0233.
+-- down does. Lines are then written in the fallback style, as before 0234.
 DELETE FROM "knowledge_records" WHERE "type" = 'ruleset' AND "id" IN (
   SELECT "record_id" FROM "knowledge_ruleset_revisions"
   WHERE "purpose" = 'citation_style' OR "payload_schema" = 'citation_style.v1');

@@ -1,4 +1,4 @@
--- 0233: a citation line's form is a country's record (country-as-data plan row 6,
+-- 0234: a citation line's form is a country's record (country-as-data plan row 6,
 -- docs/design/citations.md slice 2).
 --
 -- A country states how its sources are cited, per language, as a ruleset of the

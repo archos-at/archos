@@ -1,5 +1,5 @@
 /**
- * The wire of a country's citation style (`citation_style.v1`, migration 0233,
+ * The wire of a country's citation style (`citation_style.v1`, migration 0234,
  * country-as-data plan row 6): how its sources are cited, per language. The
  * interpreter is `@/shared/citation-style`; this is what a record may say.
  *

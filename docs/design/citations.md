@@ -305,7 +305,7 @@ door text. i18n key coverage.
 peek and the Word page.
 
 **Built (the record and its interpreter).** The form is a ruleset of purpose `citation_style`
-(`citation_style.v1`, migration 0233): a ruleset rather than a record type, because a ruleset already carries
+(`citation_style.v1`, migration 0234): a ruleset rather than a record type, because a ruleset already carries
 territories, validity, review and release and needs no body table of its own. Per language it holds which
 sources are a standard or a law (`kinds`, matched by authority, tint, lane prefix or origin), who publishes a
 standard and where a law is read, one template per kind of line, the bare-locus and page labels, the quote
