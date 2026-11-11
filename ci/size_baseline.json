@@ -92,7 +92,7 @@
     "packages/ifc-spatial-py/src/ifc_spatial/ids_export.py": 689,
     "packages/knowledge-layer/src/ingest/adapter.py": 2993,
     "packages/knowledge-layer/src/ingest/visual_analysis.py": 737,
-    "packages/knowledge-layer/src/view_image.py": 621,
+    "packages/knowledge-layer/src/view_image.py": 623,
     "packages/ris-adapter/src/register.py": 679,
     "scripts/loop_eval.py": 691,
     "scripts/turn_census/suite.py": 1123
