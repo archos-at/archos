@@ -601,16 +601,16 @@ ceiling.
    ([testing-and-verification.md](../contributing/testing-and-verification.md#the-workspace-set));
    its `uses` rows check the job got done with the native tool.
 
-**What it holds today** (371 entries: 364 operations, 7 read tools; regenerate from `apps/workspace/tests/fixtures/exposure.json`):
+**What it holds today** (429 entries: 422 operations, 7 read tools; regenerate from `apps/workspace/tests/fixtures/exposure.json`):
 
 | Column | Count |
 |---|---|
-| `external: true` | 261 |
-| `agent: true` | 217 |
-| `agent: 'native:…'` | 16 |
-| `agent: false` | 138 (75 withheld, 35 platform, 14 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
-| `platform: true` | 35 (of the 55 console operations; the other 20 are `tenant-content`) |
-| `withheld` | 75 (29 `product-config`, 20 `tenant-content`, 17 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
+| `external: true` | 283 |
+| `agent: true` | 235 |
+| `agent: 'native:…'` | 17 |
+| `agent: false` | 177 (withheld, platform, sensitive, asks, decisions, the Outlook archive and held mail bytes, skill reads, and the standing decision `mail-thread-unfollow`; the fixture names each) |
+| `platform: true` | 70 (of the 91 console operations; the other 21 are withheld, 20 `tenant-content` and 1 `product-config`) |
+| `withheld` | 76 (30 `product-config`, 20 `tenant-content`, 17 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
 | `app: true` | 2 (the proposal card's buttons, the fixture's `appTools`; not counted in the entries above) |
 
 | Piloti uses | Instead of |
