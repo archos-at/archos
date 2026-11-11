@@ -96,6 +96,12 @@ export function installPublicSourceFetcher(
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
   dependsOn: pulumi.Resource[],
+  /**
+   * The registry pull Secret, as every app pod has it: the fetcher runs the private backend image.
+   * Required, not defaulted: without it the pod never pulls on a private registry (ImagePullBackOff,
+   * every dev deploy after #1592 until #1603).
+   */
+  imagePullSecrets: { name: string }[],
 ): PublicSourceFetcher {
   const { name, port } = PUBLIC_SOURCE_FETCHER;
   const labels = commonLabels(name);
@@ -116,6 +122,7 @@ export function installPublicSourceFetcher(
           spec: {
             enableServiceLinks: false, // see platform/security.ts — service-link env collisions
             automountServiceAccountToken: false,
+            imagePullSecrets,
             terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
             securityContext: { runAsNonRoot: true, runAsUser: UID.backend, runAsGroup: UID.backend },
             // Beside the backend roles that call it.
