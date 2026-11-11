@@ -749,8 +749,8 @@ class TestLegacyCountryBackfill:
         corpus_store.set_mark("marked.pdf", corpus_store.FileMark(country_id="DE"))
 
         assert oib_sync.backfill_legacy_marks(store.mark) == 1
-        assert corpus_store.get_mark("old.pdf") == corpus_store.FileMark(country_id="AT")
-        assert store.payloads == [(oib_sync.COLLECTION_NAME, {"old.pdf": {"country_id": "AT"}})]
+        assert corpus_store.get_mark("old.pdf") == corpus_store.FileMark(country_id="AT", released=True)
+        assert store.payloads == [(oib_sync.COLLECTION_NAME, {"old.pdf": {"country_id": "AT", "released": True}})]
 
         corpus_store.put("new.pdf", b"beta")
         assert oib_sync.backfill_legacy_marks(store.mark) == 0
