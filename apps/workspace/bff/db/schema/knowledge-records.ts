@@ -75,6 +75,8 @@ export interface KnowledgeProvenance {
   viaClient?: string
   /** Where a platform manifestation's base-corpus file came from: attached in its change request (ADR-0165). */
   text?: KnowledgeTextProvenance
+  /** The release bundle (its canonical sha256) a platform revision was imported from, from another deployment. */
+  imported?: { bundle: string }
 }
 
 /**
