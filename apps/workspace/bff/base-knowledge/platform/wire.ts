@@ -122,7 +122,7 @@ const workRecord = z.object({
     })
     .default({})
     .describe(
-      'The work’s identifiers at its source, {"<scheme>": "<value>"}: how a passage the agent reads live at that source finds this work and its role. A scheme is the word the country’s source record declares under its `identifiers` (e.g. a law number its links carry as a query parameter); copy each value from the captured page. A passage finds the work when its address carries the value where the source record says (a query parameter); a scheme no source record declares is kept and finds nothing. At most ' + String(MAX_SOURCE_REFS) + ' schemes; `designation` is not one (it is the work’s own field). `eli` is the European Legislation Identifier, a URL ending with "/": checked for shape, read by no source record yet.',
+      'The work’s identifiers at its source, {"<scheme>": "<value>"}: a passage read live there finds this work when its address carries the value where the country’s source record declares the scheme (`identifiers`, e.g. a query parameter); an undeclared scheme finds nothing. Copy each value from the captured page. At most ' + String(MAX_SOURCE_REFS) + '; `designation` is the work’s own field, not a scheme. `eli` (European Legislation Identifier) is a URL ending with "/", checked for shape only.',
     ),
   ...common,
 })
@@ -256,11 +256,20 @@ const rulesetRecord = z.object({
 })
 
 /** A public source (ADR-0174): its key is the source id the fetcher, captures and monitors name. */
-const sourceRecord = z.object({
-  type: z.literal('source'),
-  ...sourceRecordFields,
-  ...common,
-})
+const sourceRecord = z
+  .object({
+    type: z.literal('source'),
+    ...sourceRecordFields,
+    ...common,
+  })
+  .superRefine((record, ctx) => {
+    // The fetcher refuses a record whose copies are its own hosts (public_sources `Source`): refused here,
+    // or it would be released and every lookup would fall back past it.
+    const own = new Set(record.hosts)
+    record.copyHosts.forEach((host, index) => {
+      if (own.has(host)) ctx.addIssue({ code: 'custom', path: ['copyHosts', index], message: `${host} is one of hosts, not a copy` })
+    })
+  })
 
 // A golden case (0228): one question of a country's quality bar (`wire/golden-case.ts`).
 const goldenCaseRecord = z.object({ type: z.literal('golden_case'), key: keySchema, ...goldenCaseFields(territoryIdSchema, keySchema), ...common })

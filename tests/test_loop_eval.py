@@ -380,6 +380,13 @@ class TestTheRisColumns:
     def test_the_consolidated_shape_counts_one(self):
         assert loop_eval.count_ris_calls(["ris_lookup_tool", "knowledge_search"]) == 1
 
+    def test_the_renamed_lookup_counts_and_its_span_is_read(self):
+        """`law_lookup` is the lookup's name since the rename; a turn recorded before it says `ris_lookup_tool`."""
+        assert loop_eval.count_ris_calls(["law_lookup", "ris_lookup_tool", "knowledge_search"]) == 2
+        span = ("retrieve.law_lookup", {"input": {"round": 0}, "output": {"clause_ids": ["§63Abs1"]}})
+
+        assert loop_eval.paragraph_matches(self._question(), "… § 63 Abs 1 BO Wien …", [span]) == "yes"
+
     def test_a_turn_that_never_touched_ris_counts_zero(self):
         assert loop_eval.count_ris_calls(["knowledge_search", "read_passage"]) == 0
 

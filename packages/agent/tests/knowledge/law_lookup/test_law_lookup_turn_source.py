@@ -102,7 +102,7 @@ async def test_the_fallback_is_no_way_past_the_gate():
     assert output.requested == ()
 
 
-def test_the_chat_binding_is_gated_by_the_turn_s_sources_and_deep_research_by_its_country():
+def test_the_chat_binding_is_gated_by_whether_the_turn_reads_law_and_deep_research_by_its_country():
     from agent.common.law_gate import law_sources_withheld
 
     xa = TurnSource(key="xa-gazette", revision_id="r-xa", country="XA", config={"lookup": {}})

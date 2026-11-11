@@ -211,6 +211,12 @@ export const sourceRecordFields = {
   protocol: z.enum(SOURCE_PROTOCOLS),
   format: z.enum(SOURCE_FORMATS),
   hosts: z.array(hostSchema).min(1).max(20).describe('Every host it may reach. Usable by this request’s tests for 24 hours, by everyone once published.'),
+  copyHosts: z
+    .array(hostSchema)
+    .max(20)
+    .default([])
+    // A web hit on one is a copy: withheld where the source can be read, labelled where not (web_sources.py).
+    .describe('Sites that republish its texts: never fetched, never one of hosts.'),
   dataFlow: z
     .enum(SOURCE_DATA_FLOWS)
     .default('public_only')
@@ -252,6 +258,7 @@ export function sourceConfigOf(record: SourceRecordValues): Record<string, unkno
     protocol: record.protocol,
     format: record.format,
     hosts: record.hosts,
+    ...((record.copyHosts ?? []).length > 0 ? { copy_hosts: record.copyHosts } : {}),
     data_flow: record.dataFlow,
     ...(Object.keys(record.identifiers ?? {}).length > 0 ? { identifiers: record.identifiers } : {}),
     terms: { url: record.terms.url, licence: record.terms.licence, attribution: record.terms.attribution, checked: record.terms.checked },
