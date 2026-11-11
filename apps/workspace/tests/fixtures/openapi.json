@@ -29923,6 +29923,287 @@
         }
       }
     },
+    "/api/platform/knowledge/countries/{countryId}/documents": {
+      "post": {
+        "operationId": "platform-knowledge-document-add",
+        "summary": "Add a PDF to a country from its publisher’s URL, in one call",
+        "description": "The whole flow for one document: `url` is the PDF on a host of one of the country’s sources (refused with HOST_NOT_ON_SOURCE otherwise, and NOT_A_PDF when it answers no PDF). The platform fetches it, so its origin is proven. `work` is `{workKey}` from platform-knowledge-work-list or a new `{title, designation, kind}`. Goes into the country’s open draft change request, or a new one titled for the document when none is open. Proposes the work (when new), the edition and its manifestation, each quoting where the document prints the work’s designation or title and the edition’s label, then attaches the PDF. Returns `changeRequestId`, `opened` (a new request), the keys and the text’s `sha256`. Refused with EDITION_EXISTS when the work has that edition, NOT_PRINTED when the document does not print the designation or label as given. A text step that fails leaves the records in the draft and its refusal carries `changeRequestId`: the same call again reuses the capture and the records and attaches only the text. Then platform-knowledge-validate and -change-request-submit. TEXT_CHANGED when the text fetched is other bytes than the capture the records quote.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "countryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+            },
+            "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "format": "uri",
+                    "description": "The PDF at its publisher, on a host of one of this country’s sources: the platform fetches it itself, so its origin is proven."
+                  },
+                  "work": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "workKey": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+                            "description": "A work of this country, from platform-knowledge-work-list."
+                          }
+                        },
+                        "required": [
+                          "workKey"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300,
+                            "description": "The work’s title as the document prints it."
+                          },
+                          "designation": {
+                            "default": null,
+                            "description": "Its short designation as printed, e.g. a guideline’s number.",
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 120
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "statute",
+                              "ordinance",
+                              "administrative_regulation",
+                              "directive",
+                              "intergovernmental_agreement",
+                              "model_code",
+                              "technical_standard",
+                              "guideline",
+                              "commentary",
+                              "authority_directive"
+                            ],
+                            "description": "What the work is: a statute, an ordinance, a model code, a guideline, a commentary (explanatory notes) and so on."
+                          }
+                        },
+                        "required": [
+                          "title",
+                          "kind"
+                        ]
+                      }
+                    ]
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "The edition as the document prints it, e.g. its date or year; the document must print it."
+                  },
+                  "inForceFrom": {
+                    "default": null,
+                    "description": "The day this edition applies from.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "licenceClass": {
+                    "default": "public_open",
+                    "type": "string",
+                    "enum": [
+                      "public_open",
+                      "public_restricted"
+                    ]
+                  }
+                },
+                "required": [
+                  "url",
+                  "work",
+                  "label"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Add a PDF to a country from its publisher’s URL, in one call",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/countries/{countryId}/documents/upload": {
+      "post": {
+        "operationId": "platform-knowledge-document-add-upload",
+        "summary": "Add an uploaded PDF to a country, in one call",
+        "description": "When no source of the country serves the PDF; otherwise use platform-knowledge-document-add. Send `body.files[0]` (one PDF, up to 32 MiB) and `body.fields`: `work` as JSON, `label`, `inForceFrom`, `publishedAt` (where the publisher publishes it) and `titleText` (the title lines copied from the PDF, which the records quote; the platform does not read the PDF). Nobody fetched it, so the reviewer checks both against the file before anyone approves. Goes into the country’s open draft change request, or a new one titled for the document when none is open. Proposes the work (when new), the edition and its manifestation, each quoting where the document prints the work’s designation or title and the edition’s label, then attaches the PDF. Returns `changeRequestId`, `opened` (a new request), the keys and the text’s `sha256`. Refused with EDITION_EXISTS when the work has that edition, NOT_PRINTED when the document does not print the designation or label as given. A text step that fails leaves the records in the draft and its refusal carries `changeRequestId`: the same call again reuses the capture and the records and attaches only the text. Then platform-knowledge-validate and -change-request-submit.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "countryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+            },
+            "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "work": {
+                    "description": "The work as JSON: {\"workKey\"} or {\"title\",\"designation\",\"kind\"}.",
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "The edition as the document prints it, e.g. its date or year; the document must print it."
+                  },
+                  "inForceFrom": {
+                    "description": "The day this edition applies from, YYYY-MM-DD.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "const": ""
+                      }
+                    ]
+                  },
+                  "publishedAt": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "format": "uri",
+                    "description": "Where the publisher publishes the document, for the reviewer to check the file against."
+                  },
+                  "titleText": {
+                    "type": "string",
+                    "minLength": 15,
+                    "maxLength": 20000,
+                    "description": "The document’s title lines copied from the PDF, naming the work and the edition: what the records quote, checked by the reviewer against the file."
+                  }
+                },
+                "required": [
+                  "file",
+                  "work",
+                  "label",
+                  "publishedAt",
+                  "titleText"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Add an uploaded PDF to a country, in one call",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/documents/{fileName}": {
       "delete": {
         "operationId": "platform-knowledge-document-delete",
@@ -30582,7 +30863,7 @@
                             },
                             "identifiers": {
                               "default": {},
-                              "description": "The work’s identifiers at its source, {\"<scheme>\": \"<value>\"}: how a passage read live there finds this work. A scheme is one the country’s source record declares under `identifiers` (e.g. a law number in its links); copy each value from the captured page. An undeclared scheme finds nothing. At most 8 schemes; not `designation`. `eli`: a European Legislation Identifier URL ending with \"/\".",
+                              "description": "The work’s identifiers at its source, {\"<scheme>\": \"<value>\"}: a passage read live there finds this work when its address carries the value where the country’s source record declares the scheme (`identifiers`, e.g. a query parameter); an undeclared scheme finds nothing. Copy each value from the captured page. At most 8; `designation` is the work’s own field, not a scheme. `eli` (European Legislation Identifier) is a URL ending with \"/\", checked for shape only.",
                               "type": "object",
                               "propertyNames": {
                                 "type": "string",
@@ -34677,6 +34958,82 @@
         },
         "x-mcp-annotations": {
           "title": "Run the validation kit on a whole change request",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/countries/{countryId}/works": {
+      "get": {
+        "operationId": "platform-knowledge-work-list",
+        "summary": "List a country’s released works with their editions",
+        "description": "Each released work of `countryId` with its `workKey`, title, designation and kind, and its released editions’ labels: what platform-knowledge-document-add files a PDF under, by `workKey`. Sorted by key; `nextCursor` pages on.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "countryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+            },
+            "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "nextCursor of the previous page: the last workKey it held.",
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+            },
+            "description": "nextCursor of the previous page: the last workKey it held."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List a country’s released works with their editions",
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,

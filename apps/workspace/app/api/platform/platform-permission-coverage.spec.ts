@@ -62,6 +62,9 @@ const EXPECTED: Record<string, string> = {
   'knowledge/change-requests/[changeRequestId]/texts/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/texts/upload/route.ts POST': 'knowledgeWrite',
   'knowledge/texts/route.ts GET': 'settingsView',
+  'knowledge/countries/[countryId]/works/route.ts GET': 'settingsView',
+  'knowledge/countries/[countryId]/documents/route.ts POST': 'knowledgeWrite',
+  'knowledge/countries/[countryId]/documents/upload/route.ts POST': 'knowledgeWrite',
   'knowledge/sources/route.ts GET': 'settingsView',
   // A POST that can fetch live: the operator's permission, as the change requests' writes.
   'knowledge/sources/[sourceKey]/test/route.ts POST': 'knowledgeWrite',

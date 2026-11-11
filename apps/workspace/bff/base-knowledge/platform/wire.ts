@@ -122,7 +122,7 @@ const workRecord = z.object({
     })
     .default({})
     .describe(
-      'The work’s identifiers at its source, {"<scheme>": "<value>"}: how a passage read live there finds this work. A scheme is one the country’s source record declares under `identifiers` (e.g. a law number in its links); copy each value from the captured page. An undeclared scheme finds nothing. At most ' + String(MAX_SOURCE_REFS) + ' schemes; not `designation`. `eli`: a European Legislation Identifier URL ending with "/".',
+      'The work’s identifiers at its source, {"<scheme>": "<value>"}: a passage read live there finds this work when its address carries the value where the country’s source record declares the scheme (`identifiers`, e.g. a query parameter); an undeclared scheme finds nothing. Copy each value from the captured page. At most ' + String(MAX_SOURCE_REFS) + '; `designation` is the work’s own field, not a scheme. `eli` (European Legislation Identifier) is a URL ending with "/", checked for shape only.',
     ),
   ...common,
 })
