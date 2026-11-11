@@ -83,4 +83,10 @@ describe("private images and the registry pull Secret", () => {
       .filter((ref) => !secrets.has(ref.split(" -> ")[1]));
     expect(dangling).toEqual([]);
   });
+
+  it("gives the fetcher the app tier's own pull Secret", () => {
+    const pullOf = (name: string) =>
+      podSpecOf("kubernetes:apps/v1:Deployment", RESOURCES.find((r) => r.type === "kubernetes:apps/v1:Deployment" && r.name === name)!.inputs)?.imagePullSecrets;
+    expect(pullOf("public-source-fetcher")).toEqual(pullOf("api"));
+  });
 });
