@@ -12,6 +12,7 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ChevronRight, Globe2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -30,6 +31,7 @@ export const COUNTRIES_HREF = '/app/platform/countries'
 
 export function CountryKnowledge(): JSX.Element {
   const t = useTranslations(platformCopy)
+  const router = useRouter()
   const { locale } = useLocale()
   const { load, reload } = usePlatformJson<PlatformKnowledgeOverview>('/api/platform/knowledge')
   const [openId, setOpenId] = useState<string | null>(null)
@@ -73,9 +75,11 @@ export function CountryKnowledge(): JSX.Element {
                 const step = countryNextStep(country, ready.queue)
                 const href = `${COUNTRIES_HREF}/${country.countryId}`
                 return (
-                  <TableRow key={country.countryId} data-testid={`country-row-${country.countryId}`} className="relative">
+                  // The whole row opens the country. Not a link stretched over the row: Safari ignores position on a
+                  // <tr>, so every row's overlay covered the table and the last row took every tap.
+                  <TableRow key={country.countryId} data-testid={`country-row-${country.countryId}`} className="cursor-pointer" onClick={() => router.push(href)}>
                     <TableCell>
-                      <Link href={href} className="font-medium after:absolute after:inset-0">
+                      <Link href={href} className="font-medium" onClick={(event) => event.stopPropagation()}>
                         {countryName(country.countryId, locale)}
                       </Link>
                     </TableCell>

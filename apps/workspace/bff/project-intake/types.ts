@@ -393,6 +393,11 @@ export const intakeViewSchema = z.object({
    * from a BFF without the register (a rolling deploy) shows no requests.
    */
   locationRegister: locationRegisterViewSchema.optional(),
+  /**
+   * False when no setup record is released for the project's country: the review then asks and
+   * derives nothing and says so. Optional on the wire (a rolling deploy); absent reads as published.
+   */
+  setupPublished: z.boolean().optional(),
   // --- Step 3, Erfassung (`reading`, `steps/reading-step.tsx`) ---------------
   // The reading's milestones, live while it runs. Values, contradictions and
   // decisive gaps are `counts` above: computed from the profile on every read,
@@ -556,6 +561,8 @@ export const internalIntakeNeedsResponseSchema = z.object({
    * Null before the first reading finished.
    */
   previousSummary: z.string().max(MAX_INTAKE_SUMMARY_LENGTH).nullable(),
+  /** False when no setup record is released for the project's country, so no question or class follows from it. */
+  setupPublished: z.boolean().optional(),
 })
 export type InternalIntakeNeedsResponse = z.infer<typeof internalIntakeNeedsResponseSchema>
 

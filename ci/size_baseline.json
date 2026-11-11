@@ -83,7 +83,7 @@
     "packages/agent/src/agent/common/provider_limiter.py": 635,
     "packages/agent/src/agent/common/wire_v2.py": 1087,
     "packages/agent/src/agent/tokenomics/report/_report_template_single.py": 761,
-    "packages/agent/src/agent/tools/bim/register.py": 700,
+    "packages/agent/src/agent/tools/bim/register.py": 694,
     "packages/agent/src/agent/tools/cross_project/register.py": 816,
     "packages/ifc-spatial-py/src/ifc_spatial/circulation.py": 613,
     "packages/ifc-spatial-py/src/ifc_spatial/daylight.py": 869,

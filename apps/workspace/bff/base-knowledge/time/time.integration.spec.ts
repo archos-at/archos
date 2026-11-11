@@ -117,7 +117,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
       )
     }
     await published('Austria: territories for time', [
-      { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
+      { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich', zone: 'Europe/Vienna' },
       { type: 'territory', id: 'AT-3', kind: 'state', name: 'Niederösterreich', parents: [{ id: 'AT' }] },
       {
         type: 'territory',
@@ -205,6 +205,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
       work: read.work,
       rulesets: rules.rulesets,
       chain,
+      zones: await repository.readTerritoryZones(organizationId, chain),
       procedure: procedureSchema.parse(procedure),
       now: NOW,
     })
@@ -241,6 +242,28 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
     expect(await answerFor(ORG, { filedOn: '2023-02-01', decidedOn: 'pending' })).toMatchObject({
       edition: { label: 'LGBl. 2023/1' },
     })
+  })
+
+  it('reads the zone a day is in from the territory record, through the office’s entitlement', async () => {
+    expect(await repository.readTerritoryZones(ORG, [NODE, 'AT-3', 'AT'])).toEqual({ AT: 'Europe/Vienna' })
+    // An office not entitled to Austria does not read its record.
+    expect(await repository.readTerritoryZones(OUTSIDER, ['AT'])).toEqual({})
+    const read = await repository.readWorkInTime(ORG, workId())
+    const chain = await repository.readTerritoryChain(ORG, NODE, '2026-11-10')
+    const rules = await rulesets.readRulesetsInForce(ORG, { purpose: 'reference_date', territoryIds: chain })
+    const { procedureSchema } = await import('@/lib/base-knowledge/wire/time')
+    const open = (zones: Record<string, string>) =>
+      asOf.editionForProcedure({
+        work: read!.work,
+        rulesets: rules.rulesets,
+        chain,
+        zones,
+        procedure: procedureSchema.parse({ filedOn: '2023-02-01', decidedOn: 'pending' }),
+        now: NOW,
+      })
+    expect(open(await repository.readTerritoryZones(ORG, chain))).toMatchObject({ status: 'determined' })
+    // No zone released on the chain: the build's zone of the country answers, as before the records.
+    expect(open({})).toEqual(open(await repository.readTerritoryZones(ORG, chain)))
   })
 
   it('asks for the filing day it does not have, and refuses a day before the history held', async () => {

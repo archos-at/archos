@@ -13,6 +13,10 @@ import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/project-intake/setup-records', async () => ({
+  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
+  readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
+}))
 const { findProjectProfileInOrg, loadGraph, officeTimeZone, readOrganizationCountries, cache, getCached } =
   vi.hoisted(() => {
     const cache = new Map<string, unknown>()

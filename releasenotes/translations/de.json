@@ -5064,6 +5064,10 @@
     "de": "Wenn die Prüfvorgaben Ihres Büros auf einen Upload nicht angewendet werden können, werden dessen Dateien nun ungelesen zurückgehalten, statt ungeprüft eingelesen zu werden. Beim erneuten Einlesen werden die Vorgaben erneut angewendet."
   },
   {
+    "en": "When your own agent asks a question in the workspace, each source of the answer now comes with its reference line, written the way your country cites it, so your agent can paste it as you would.",
+    "de": "Wenn Ihr eigener Agent im Workspace eine Frage stellt, wird nun jede Antwortquelle mit einer Quellenangabe im landesüblichen Zitierstil versehen, sodass Ihr Agent sie genauso einfügen kann wie Sie."
+  },
+  {
     "en": "When your own assistant is connected to Piloti, Piloti's proposals now appear as Piloti's card inside Claude, ChatGPT and VS Code, in your assistant's colours and language. You apply or discard the change there with one press, with your rights, and the assistant keeps the card's buttons from its own model.",
     "de": "Wenn Ihr eigener Assistent mit Piloti verbunden ist, erscheinen die Vorschläge von Piloti jetzt als Piloti-Karte in Claude, ChatGPT und VS Code – in den Farben und der Sprache Ihres Assistenten. Mit einem Klick übernehmen oder verwerfen Sie die Änderung dort, mit Ihren Berechtigungen. Die Schaltflächen auf der Karte stammen weiterhin vom eigenen Modell des Assistenten."
   },

@@ -11,10 +11,9 @@
  * purpose are a data error and also give nothing, never the first one found.
  */
 
-import { SHIPPED_SETUP_RECORDS } from '@/lib/base-knowledge/rulesets/shipped'
 import { selectRecord, selectRuleset, type StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import type { DecisionTable } from '@/lib/base-knowledge/wire/ruleset'
-import type { DerivationDefinition, FactDefinitions, FactSources } from '@/lib/base-knowledge/wire/setup-facts'
+import type { AddressRegisterRecord, DerivationDefinition, FactDefinitions, FactSources } from '@/lib/base-knowledge/wire/setup-facts'
 import { siteCountry } from '@/lib/project-profile/site'
 import type { ProjectProfile } from '@/lib/project-profile/types'
 
@@ -29,8 +28,8 @@ export interface SetupScope {
 export interface SetupScopeOptions {
   /** The geocoder's reading at creation: places the subdivision when the profile names none. */
   location?: { federalState: string | null } | null
-  /** The records to select from; the shipped pack by default. */
-  records?: readonly StoredRuleset[]
+  /** The released setup records to select from (`readSetupRecords`); none gives nothing, never a default country. */
+  records: readonly StoredRuleset[]
   /** ISO date; today by default. */
   on?: string
   /**
@@ -70,9 +69,9 @@ function countryOfSubdivision(records: readonly StoredRuleset[], token: string, 
 /** The project's chain: its country and, where a record lists the stated subdivision, that subdivision first. */
 export function setupScopeOf(
   profile: Pick<ProjectProfile, 'facts' | 'assumptions'>,
-  options: SetupScopeOptions = {}
+  options: SetupScopeOptions
 ): SetupScope {
-  const records = options.records ?? SHIPPED_SETUP_RECORDS
+  const { records } = options
   const on = options.on ?? today()
   const located = options.location?.federalState ?? null
   const site = siteCountry(profile)
@@ -135,3 +134,66 @@ export function buildingClassificationOf(scope: SetupScope): BuildingClassificat
 /** The inputs a classification reads, in its table's order: what a change to the profile must touch to move a class. */
 export const classificationInputs = (classification: BuildingClassification | null): string[] =>
   classification ? classification.table.inputs.map((input) => input.key) : []
+
+const inForce = (values: { validFrom: string; validTo: string | null }, on: string) =>
+  values.validFrom <= on && (values.validTo === null || on < values.validTo)
+
+/** The `fact_definitions` payloads in force on `on`, each with the countries its record names. */
+function definitionsInForce(records: readonly StoredRuleset[], on: string): Array<{ countries: string[]; payload: FactDefinitions }> {
+  return records.flatMap(({ values }) =>
+    values.body.kind === 'fact_definitions' && inForce(values, on)
+      ? [{ countries: values.territoryIds.filter((id) => /^[A-Z]{2}$/.test(id)), payload: values.body.payload }]
+      : []
+  )
+}
+
+/**
+ * The territory each subdivision token names (`styria` is `AT-6`), from the
+ * records in force. A token two records give different territories is
+ * ambiguous and names none: which one is the question.
+ */
+export function subdivisionTerritories(records: readonly StoredRuleset[], on: string = today()): Readonly<Record<string, string>> {
+  const found = new Map<string, string | null>()
+  for (const { payload } of definitionsInForce(records, on))
+    for (const option of payload.subdivisions?.options ?? []) {
+      const known = found.get(option.token)
+      found.set(option.token, known === undefined || known === option.territoryId ? option.territoryId : null)
+    }
+  return Object.fromEntries([...found].filter((entry): entry is [string, string] => entry[1] !== null))
+}
+
+/** A subdivision as a person reads it: its label by territory id, from the records in force. */
+export function subdivisionLabels(records: readonly StoredRuleset[], on: string = today()): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    definitionsInForce(records, on).flatMap(({ payload }) => (payload.subdivisions?.options ?? []).map((option) => [option.territoryId, option.label]))
+  )
+}
+
+/** The address registers the records in force describe, with the country each belongs to. */
+export function addressRegistersOf(
+  records: readonly StoredRuleset[],
+  on: string = today()
+): Array<{ country: string; register: AddressRegisterRecord }> {
+  return definitionsInForce(records, on).flatMap(({ countries, payload }) =>
+    payload.addressRegister && countries.length === 1 ? [{ country: countries[0], register: payload.addressRegister }] : []
+  )
+}
+
+/** Whether the records in force hold a setup (`fact_definitions`) for `country`: false is "not yet published". */
+export function hasSetupRecords(records: readonly StoredRuleset[], country: string, on: string = today()): boolean {
+  return definitionsInForce(records, on).some(({ countries }) => countries.includes(country))
+}
+
+/**
+ * True when no setup record is released for the project's country (or for any country, when the
+ * project names none): the intake then asks and derives nothing, and says so instead of staying silent.
+ */
+export function setupUnpublished(
+  profile: Pick<ProjectProfile, 'facts' | 'assumptions'>,
+  records: readonly StoredRuleset[],
+  on?: string
+): boolean {
+  const { chain } = setupScopeOf(profile, { records, on })
+  const country = chain.length > 0 ? chain[chain.length - 1] : null
+  return country ? !hasSetupRecords(records, country, on) : records.length === 0
+}

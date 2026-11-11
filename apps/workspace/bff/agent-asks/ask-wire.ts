@@ -156,6 +156,8 @@ export interface AskSource {
   /** What kind of source it is: building law, the office's or the project's own document, a web page, or a measurement. */
   kind: SourceKind
   url: string
+  /** The reference line in the citation form of the office's country (`citation-style-get`). */
+  citation: string
 }
 
 /** How far the answer rests on its sources, as the answer stored it (ADR-0125). */

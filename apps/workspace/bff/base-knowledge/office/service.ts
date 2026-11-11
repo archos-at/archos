@@ -49,6 +49,8 @@ import {
   type ProposeEntryBody,
   type RecordCheckBody,
 } from '../wire'
+import { readSetupRecords } from '@/lib/project-intake/setup-records'
+import { subdivisionTerritories } from '@/lib/project-intake/setup-scope'
 import { projectTerritory } from './authority'
 import { freshnessOf } from './freshness'
 import { markCopyPoints } from './mark'
@@ -178,7 +180,7 @@ async function recordProposal(
     throw new ConflictError('This document is already recorded as base knowledge; edit that entry instead.')
   }
   const given = valuesOf(body)
-  const values = merged(proposeFromReading({ fileName }), given)
+  const values = merged(proposeFromReading({ fileName }, subdivisionTerritories(await readSetupRecords(session.organizationId))), given)
   const source = Object.values(given).some((value) => value !== undefined) ? proposedBy : 'reading'
   const ids = await insertProposedEntry(body.documentId, values, {
     organizationId: session.organizationId,
@@ -359,13 +361,14 @@ export async function baseKnowledgeForTurn(organizationId: string, projectId: st
   // Confirmed copies, and licensed ones still proposals: those are named as held and never read (ADR-0164).
   const stored = (await readOfficeEntries(organizationId)).filter((entry) => entry.confirmed || entry.values.licenceClass === 'licensed')
   const held = stored.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
-  const [documents, profile, listed] = await Promise.all([
+  const [documents, profile, listed, setupRecords] = await Promise.all([
     visibleOfficeDocuments(organizationId, stored.map((entry) => entry.documentId), SCREENED_ONLY),
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
     platformKnowledge().listedNotHeld(organizationId, held),
+    readSetupRecords(organizationId),
   ])
   const facts = profile?.profile?.facts ?? {}
-  const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value })
+  const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value }, subdivisionTerritories(setupRecords))
   const directives = await platformKnowledge().directivesFor(organizationId, territory.territoryId)
   const now = new Date()
   const entries = stored.flatMap((entry) => {

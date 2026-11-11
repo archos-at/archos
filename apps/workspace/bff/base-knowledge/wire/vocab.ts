@@ -98,6 +98,7 @@ export const RULESET_PURPOSES = [
   'fact_sources',
   'advice_policy',
   'terminology',
+  'citation_style',
 ] as const
 export type RulesetPurpose = (typeof RULESET_PURPOSES)[number]
 
@@ -106,7 +107,8 @@ export const DECISION_TABLE_PURPOSES = ['classification', 'derivation', 'referen
 /**
  * The payload schemas a ruleset body may carry: the evaluator's decision table,
  * the two setup records (migration 0207, ADR-0169), and the advice policy and
- * terminology (ADR-0174). A v2 arrives with a pure converter from v1 (design §3.7).
+ * terminology (ADR-0174), and a country's citation style
+ * (migration 0234, `wire/citation-style.ts`). A v2 arrives with a pure converter from v1 (design §3.7).
  */
 export const RULESET_PAYLOAD_SCHEMAS = [
   'decision_table.v1',
@@ -114,6 +116,7 @@ export const RULESET_PAYLOAD_SCHEMAS = [
   'fact_sources.v1',
   'advice_policy.v1',
   'terminology.v1',
+  'citation_style.v1',
 ] as const
 export type RulesetPayloadSchema = (typeof RULESET_PAYLOAD_SCHEMAS)[number]
 
@@ -128,6 +131,7 @@ export const RECORD_SCHEMA_PURPOSES = {
   ...SETUP_RECORD_PURPOSES,
   'advice_policy.v1': 'advice_policy',
   'terminology.v1': 'terminology',
+  'citation_style.v1': 'citation_style',
 } as const satisfies Partial<Record<RulesetPayloadSchema, RulesetPurpose>>
 
 /**
