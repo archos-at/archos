@@ -71,7 +71,9 @@ DESCRIPTION = (
     "the document open on the canvas, then this chat's document. `page` starts at 1. `region` is shares of the "
     "page as shown: 0 to 1, origin top left, never pixels. `image_index` shows the embedded image a hit's "
     "`Image:` line names, at its own resolution; a hit's `Region:` line gives the numbers for the place it sits. "
-    "Where something lies on a sheet is read off the image, not off the text. "
+    "Where something lies on a sheet is read off the image, not off the text. For a PDF page the result also lists "
+    "the text printed inside the crop, read from the file's text layer, each with its place: quote a printed figure "
+    "from that list, not from the pixels. "
     "`question` (optional): a second reader, the office's vision model, answers it from the same crop as short "
     "lines starting `Gelesen:`, a reading of the drawing and never a measurement; a reading does not cost a "
     "look. A look's result carries its `[N]` to cite. A look that finds nothing is reported as absence in the "
@@ -121,7 +123,7 @@ def _observe(
     )
 
 
-async def _licence_of(resolved: Any) -> Any:
+async def licence_of(resolved: Any) -> Any:
     """The licence of the document a look reads, read off the document itself, whatever shelf it sits on.
 
     The base corpus (the published legal corpus: no collection, no workspace document) holds no office's copy.
@@ -151,6 +153,28 @@ def refuse_unattested_look(licence: Any) -> None:
         )
 
 
+def with_printed(text: str, printed: Any) -> str:
+    """A look's text with the page's printed text under it: our words, then the document's own inside a fence.
+
+    The lines are what the file's text layer holds inside the crop
+    (``knowledge_layer.sheet.crop_text``). They are a document's text, so they
+    sit in the fence every quoted passage sits in (``common/passage_fence.py``):
+    a sentence printed on a sheet is read, never followed. They stay off the
+    look card, which keeps a reading and never the page's text.
+    """
+    from agent.common.image_view_budget import remaining_views_text
+    from agent.common.passage_fence import fence
+
+    if printed is None:
+        return text
+    # A look's text ends with how many looks are left (`view_image._with_remaining`); it still does.
+    left = remaining_views_text()
+    tail = f"\n\n{left}" if left and text.endswith(left) else ""
+    text = text[: len(text) - len(left)].rstrip() if tail else text
+    lines = f"\n{fence(chr(10).join(printed.lines))}" if printed.lines else ""
+    return f"{text}\n\n{printed.head}{lines}{tail}"
+
+
 async def _licensed_blocks(
     view: Any, question: str, place: PlaceFacts | None, licence: Any
 ) -> tuple[list[dict], str, str]:
@@ -175,7 +199,10 @@ async def _licensed_blocks(
         return [{"type": "text", "text": "This page belongs to a licensed copy no look may read."}], "", ""
     with licensed_document_scope(licence):
         reading = await read_region(view.jpeg, question.strip() or DEFAULT_QUESTION, region=True)
-    body = f"{view.text}\n\n{render_readings(reading, blind=True)}"
+    printed = getattr(view, "printed", None)
+    # The text layer of a licensed page is licensed text: it goes inside the hit's body, never beside it.
+    text_layer = f"\n\n{printed.head}\n" + "\n".join(printed.lines) if printed is not None else ""
+    body = f"{view.text}{text_layer}\n\n{render_readings(reading, blind=True)}"
     return (
         [
             {
@@ -213,6 +240,7 @@ async def _blocks_for(
 
     if licence is not None and licence.licensed:
         return await _licensed_blocks(view, question, place, licence)
+    view = view.with_text(with_printed(view.text, getattr(view, "printed", None)))
     blind = sees is False
     question = question.strip() or (DEFAULT_QUESTION if blind else "")
     if not question:
@@ -304,7 +332,7 @@ async def _run_look(
                 rendered = await render
             if isinstance(rendered, View):
                 place = place_facts(resolved, page, rendered.region, image_index)
-                licence = await _licence_of(resolved)
+                licence = await licence_of(resolved)
                 refuse_unattested_look(licence)
                 sees = await turn_sees()
                 result, reading, read = await _blocks_for(rendered, question or "", sees, region, place, licence)

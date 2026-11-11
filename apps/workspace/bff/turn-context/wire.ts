@@ -78,10 +78,13 @@ export const turnContextResponseSchema = z.object({
   /**
    * Which kinds of model file the project holds and the agent may read
    * (`lib/bim/model-kinds-repository.ts`), so the agent binds its IFC and DXF
-   * tools only where there is one. Null outside a project or when it could not
-   * be read: the agent then binds them as before. An older agent ignores it.
+   * tools only where there is one. `pdf` is a PDF in an organization that holds
+   * the `drawing-measure` entitlement (ADR-0182): the agent binds `drawing_measure`
+   * only where it is true. Null outside a project or when it could not be read:
+   * the agent then binds the IFC and DXF tools as before, and never the PDF one.
+   * An older agent ignores the whole field, and reads an unknown key as absent.
    */
-  projectModels: z.object({ ifc: z.boolean(), dxf: z.boolean() }).strict().nullable(),
+  projectModels: z.object({ ifc: z.boolean(), dxf: z.boolean(), pdf: z.boolean() }).strict().nullable(),
 }).strict()
 
 export const turnContextApiResponseSchema = z.object({ data: turnContextResponseSchema }).strict()

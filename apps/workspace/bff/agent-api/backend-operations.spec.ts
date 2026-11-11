@@ -86,13 +86,14 @@ afterEach(() => {
 })
 
 describe('the operations', () => {
-  it('are the seven read tools, named like the catalog and unique across it', () => {
+  it('are the eight read tools, named like the catalog and unique across it', () => {
     expect(BACKEND_OPERATIONS.map((op) => op.name)).toEqual([
       'knowledge-search',
       'passage-read',
       'files-list',
       'document-look',
       'ifc-measure',
+      'drawing-measure',
       'dxf-measure',
       'law-lookup',
     ])

@@ -366,6 +366,7 @@ class TestTheMeasuringToolsNeedAModel:
     """In a project known to hold no IFC (or no DXF) the tool that measures one is not sent."""
 
     NAMES = ("knowledge_search", "ifc_query", "ifc_measure", "dxf_measure", "bim__ifc_query")
+    WITH_PDF = (*NAMES, "drawing_measure")
 
     def _scoped(self, monkeypatch, kinds):
         from types import SimpleNamespace
@@ -393,6 +394,32 @@ class TestTheMeasuringToolsNeedAModel:
 
     def test_unknown_keeps_every_tool_in_a_project(self, monkeypatch):
         assert self._scoped(monkeypatch, None) == list(self.NAMES)
+
+    def _scoped_with_pdf(self, monkeypatch, kinds):
+        monkeypatch.setattr(self, "NAMES", self.WITH_PDF)
+        return self._scoped(monkeypatch, kinds)
+
+    def test_the_drawing_tool_is_sent_only_where_the_bff_states_a_pdf(self, monkeypatch):
+        """`pdf` is a PDF in an organization that holds the `drawing-measure` entitlement: the BFF ANDs the two."""
+        assert self._scoped_with_pdf(monkeypatch, frozenset({"pdf"})) == ["knowledge_search", "drawing_measure"]
+        assert "drawing_measure" not in self._scoped_with_pdf(monkeypatch, frozenset({"ifc", "dxf"}))
+
+    def test_an_unknown_answer_never_sends_the_drawing_tool(self, monkeypatch):
+        """An older BFF, or a turn outside a project, states no kinds. Every other tool stays as it was; the one
+        behind an entitlement stays unbound, or "unknown" would hand it to an organization without the feature."""
+        assert self._scoped_with_pdf(monkeypatch, None) == list(self.WITH_PDF[:-1])
+
+    def test_outside_a_project_the_drawing_tool_is_not_sent(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from agent.agents.piloti import turn_tools
+
+        monkeypatch.setattr(turn_tools, "get_project_id_from_context", lambda: None)
+        turn_tools.set_project_models(None)
+
+        kept = turn_tools.tools_in_scope([SimpleNamespace(name="drawing_measure"), SimpleNamespace(name="look")])
+
+        assert [tool.name for tool in kept] == ["look"]
 
 
 class TestTheBuildingModelToolsNeedAProject:

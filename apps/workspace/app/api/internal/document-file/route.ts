@@ -39,6 +39,13 @@
  * storage key (`buildImageStorageKey`). The backend never names a derived key
  * itself: the only thing it can vary is a bounded integer, so a derived read
  * can only ever land under the owning document's prefix.
+ *
+ * With `calibrationsPage`, the answer also carries `calibrations`: the active
+ * calibrations a person set on that page of the version these bytes are
+ * (ADR-0183), at most 50, oldest first, for the measuring tool. Only for a
+ * caller that presented a verified envelope, a document with a version row and
+ * an organization that holds the `drawing-measure` entitlement; otherwise the
+ * list is empty.
  */
 
 import { z } from 'zod'
@@ -49,6 +56,7 @@ import { NotFoundError } from '@/lib/api/errors'
 import { restrictedCollectionBase } from '@/lib/authz/folder-access-rule'
 import { drawableRestrictedCollections } from '@/lib/conversations/restricted-use'
 import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/documents/document-storage-keys'
+import { activeCalibrationsOfPage } from '@/lib/drawing-calibrations/page-read'
 import { type VerifiedRequestContext } from '@/lib/request-context'
 import { hasHeader } from '@/lib/http/legacy-header-names'
 
@@ -57,6 +65,7 @@ const querySchema = z.object({
   filename: z.string().min(1),
   organizationId: z.string().min(1).optional(),
   imageIndex: z.coerce.number().int().min(0).optional(),
+  calibrationsPage: z.coerce.number().int().min(1).optional(),
 })
 
 type DocumentFileQuery = z.infer<typeof querySchema>
@@ -120,6 +129,20 @@ async function lookUp({ collection, filename, imageIndex }: DocumentFileQuery, o
   }
 }
 
+type Found = Awaited<ReturnType<typeof lookUp>>
+
+/** `found` with the page's active calibrations when the query asks for them; none for a caller with no envelope. */
+async function withCalibrations(found: Found, page: number | undefined, context: VerifiedRequestContext | null) {
+  if (page === undefined) return found
+  if (!context || !('documentId' in found) || !found.versionId) return { ...found, calibrations: [] }
+  const calibrations = await activeCalibrationsOfPage(context.organizationId, {
+    documentId: found.documentId,
+    versionId: found.versionId,
+    page,
+  })
+  return { ...found, calibrations }
+}
+
 export const GET = internalApiRoute(
   'document-file',
   async ({ request }) => {
@@ -133,7 +156,7 @@ export const GET = internalApiRoute(
       }
       return withTenant({ organizationId: context.organizationId }, async () => {
         await requireReadable(query.collection, context)
-        return lookUp(query, context.organizationId)
+        return withCalibrations(await lookUp(query, context.organizationId), query.calibrationsPage, context)
       })
     }
     // No envelope: a caller acting as nobody. The backend derives an
@@ -144,7 +167,7 @@ export const GET = internalApiRoute(
       'document addressed by collection name, with no envelope and no organization supplied',
       async () => {
         await requireReadable(query.collection, null)
-        return lookUp(query, query.organizationId)
+        return withCalibrations(await lookUp(query, query.organizationId), query.calibrationsPage, null)
       }
     )
   },
