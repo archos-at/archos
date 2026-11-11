@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest'
-import { detectRecordingSupport, isMicrophoneDenied } from './recording-support'
+import { describe, expect, test, vi } from 'vitest'
+import { PERMISSION_QUERY_LIMIT_MS, detectRecordingSupport, isMicrophoneDenied } from './recording-support'
 
 const mic = { mediaDevices: { getUserMedia: () => undefined } }
 const recorder = (supported: string[]) => ({ isTypeSupported: (type: string) => supported.includes(type) })
@@ -54,5 +54,30 @@ describe('isMicrophoneDenied', () => {
         },
       }),
     ).resolves.toBe(false)
+  })
+
+  // Seen as a permission query that never settles: the button stayed disabled for good.
+  test('a query that never answers is not treated as denied, after a short wait', async () => {
+    vi.useFakeTimers()
+    try {
+      const answer = vi.fn<(denied: boolean) => void>()
+      void isMicrophoneDenied({ query: () => new Promise(() => {}) }).then(answer)
+      await vi.advanceTimersByTimeAsync(PERMISSION_QUERY_LIMIT_MS - 1)
+      expect(answer).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(answer.mock.calls).toEqual([[false]])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('an answer in time leaves no timer behind', async () => {
+    vi.useFakeTimers()
+    try {
+      await expect(isMicrophoneDenied({ query: async () => ({ state: 'denied' }) })).resolves.toBe(true)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

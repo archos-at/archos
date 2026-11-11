@@ -10,8 +10,10 @@ import { createActor, fromCallback, fromPromise } from 'xstate'
 import { MAX_DICTATION_SECONDS } from '@/lib/dictation/contract'
 import type { DictationOutcome } from './client'
 import {
+  MICROPHONE_ANSWER_LIMIT_MS,
   MIN_RECORDING_MS,
   SILENCE_RMS,
+  STOP_LIMIT_MS,
   WAVE_BARS,
   dictationMachine,
   dictationStateOf,
@@ -182,15 +184,63 @@ describe('idle', () => {
 })
 
 describe('starting', () => {
-  test('ignores a toggle, a level and a finished recording', async () => {
+  test('ignores a level and a finished recording', async () => {
     const { actor, toStarting, phase, capture } = harness()
     await toStarting()
-    actor.send({ type: 'toggle' })
     actor.send({ type: 'level.sampled', level: 0.2, elapsedSeconds: 3 })
     actor.send({ type: 'recording.finished', audio: AUDIO, durationMs: 2000, meterTrusted: false })
     expect(phase()).toBe('starting')
     expect(capture.inputs).toHaveLength(1)
     expect(capture.commands).toHaveLength(0)
+  })
+
+  // A permission prompt left unanswered, or hidden behind another window, never settles.
+  test('a second toggle gives up: back to idle, the capture released, nothing said', async () => {
+    const { actor, toStarting, phase, capture, onError } = harness()
+    await toStarting()
+    actor.send({ type: 'toggle' })
+    expect(phase()).toBe('idle')
+    expect(capture.released).toBe(1)
+    expect(onError).not.toHaveBeenCalled()
+    // What the abandoned microphone reports later belongs to nobody.
+    capture.report({ type: 'microphone.failed', key: 'denied' })
+    capture.report({ type: 'microphone.opened' })
+    expect(phase()).toBe('idle')
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  test('after giving up, the next toggle opens the microphone afresh', async () => {
+    const { actor, toStarting, phase, capture } = harness()
+    await toStarting()
+    actor.send({ type: 'toggle' })
+    actor.send({ type: 'toggle' })
+    expect(phase()).toBe('starting')
+    expect(capture.inputs).toHaveLength(2)
+    capture.report({ type: 'microphone.opened' })
+    expect(phase()).toBe('recording')
+  })
+
+  test('a microphone that never answers ends by itself, releases the capture and says so', async () => {
+    const { toStarting, phase, capture, onError } = harness()
+    await toStarting()
+    vi.advanceTimersByTime(MICROPHONE_ANSWER_LIMIT_MS - 1)
+    expect(phase()).toBe('starting')
+    vi.advanceTimersByTime(1)
+    expect(phase()).toBe('idle')
+    expect(onError.mock.calls).toEqual([['noAnswer']])
+    expect(capture.released).toBe(1)
+  })
+
+  test('the answer limit is long enough for a person reading a permission prompt', () => {
+    expect(MICROPHONE_ANSWER_LIMIT_MS).toBeGreaterThanOrEqual(60_000)
+  })
+
+  test('a microphone that answered in time is not ended by the answer limit', async () => {
+    const { toRecording, phase, onError } = harness()
+    await toRecording()
+    vi.advanceTimersByTime(MAX_DICTATION_SECONDS * 1000 - 1)
+    expect(phase()).toBe('recording')
+    expect(onError).not.toHaveBeenCalled()
   })
 
   test('an opened microphone is a recording at zero seconds with a flat wave', async () => {
@@ -272,7 +322,58 @@ describe('recording', () => {
     await toRecording()
     actor.send({ type: 'toggle' })
     vi.advanceTimersByTime(MAX_DICTATION_SECONDS * 1000)
-    expect(capture.commands).toHaveLength(1)
+    expect(capture.commands.filter((command) => command.type === 'stop')).toHaveLength(1)
+  })
+
+  test('a recorder that does not report its stop is asked once to hand over what it has', async () => {
+    const { actor, toRecording, capture, phase } = harness()
+    await toRecording()
+    actor.send({ type: 'toggle' })
+    vi.advanceTimersByTime(STOP_LIMIT_MS - 1)
+    expect(capture.commands).toEqual([{ type: 'stop' }])
+    vi.advanceTimersByTime(1)
+    expect(capture.commands).toEqual([{ type: 'stop' }, { type: 'finish' }])
+    expect(phase()).toBe('recording')
+    vi.advanceTimersByTime(STOP_LIMIT_MS * 10)
+    expect(capture.commands).toHaveLength(2)
+  })
+
+  test('what a silent recorder had captured is sent', async () => {
+    const { actor, toRecording, capture, transcribe, phase } = harness()
+    await toRecording()
+    actor.send({ type: 'toggle' })
+    vi.advanceTimersByTime(STOP_LIMIT_MS)
+    capture.report({ type: 'recording.finished', audio: AUDIO, durationMs: 2500, meterTrusted: false })
+    expect(phase()).toBe('transcribing')
+    expect(transcribe.inputs).toEqual([{ audio: AUDIO, format: 'webm', durationMs: 2500 }])
+  })
+
+  test('a silent recorder that captured nothing is dropped without a word', async () => {
+    const { actor, toRecording, capture, transcribe, onError, phase } = harness()
+    await toRecording()
+    actor.send({ type: 'toggle' })
+    vi.advanceTimersByTime(STOP_LIMIT_MS)
+    capture.report({ type: 'recording.finished', audio: new Blob([]), durationMs: 2500, meterTrusted: false })
+    expect(phase()).toBe('idle')
+    expect(transcribe.inputs).toHaveLength(0)
+    expect(onError).not.toHaveBeenCalled()
+    expect(capture.released).toBe(1)
+  })
+
+  test('a recorder that reports in time is not asked again', async () => {
+    const { actor, toRecording, capture } = harness()
+    await toRecording()
+    actor.send({ type: 'toggle' })
+    capture.report({ type: 'recording.finished', audio: AUDIO, durationMs: 1500, meterTrusted: false })
+    vi.advanceTimersByTime(STOP_LIMIT_MS * 2)
+    expect(capture.commands).toEqual([{ type: 'stop' }])
+  })
+
+  test('the recording limit also bounds the stop it asks for', async () => {
+    const { toRecording, capture } = harness()
+    await toRecording()
+    vi.advanceTimersByTime(MAX_DICTATION_SECONDS * 1000 + STOP_LIMIT_MS)
+    expect(capture.commands).toEqual([{ type: 'stop' }, { type: 'finish' }])
   })
 
   test('a recorder that stops on its own, without a toggle, still finishes', async () => {
@@ -368,6 +469,7 @@ describe('stopping the machine', () => {
     actor.stop()
     expect(capture.released).toBe(1)
     capture.report({ type: 'microphone.failed', key: 'denied' })
+    vi.advanceTimersByTime(MICROPHONE_ANSWER_LIMIT_MS)
     expect(onError).not.toHaveBeenCalled()
   })
 

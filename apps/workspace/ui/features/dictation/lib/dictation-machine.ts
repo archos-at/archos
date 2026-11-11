@@ -18,6 +18,14 @@ import type { DictationUnavailableReason, RecordingSupport } from './recording-s
 export const SILENCE_RMS = 0.01
 /** A press-and-release this short is a misclick, not an utterance. */
 export const MIN_RECORDING_MS = 400
+/**
+ * How long an opening microphone may stay silent before the button gives up on
+ * it. Long, because the usual reason is a permission prompt a person is still
+ * reading or has to find behind another window; a second press ends it sooner.
+ */
+export const MICROPHONE_ANSWER_LIMIT_MS = 120_000
+/** How long a recorder asked to stop may take to report it. A healthy one answers within a few frames. */
+export const STOP_LIMIT_MS = 2_000
 /** How many recent levels the waveform shows. */
 export const WAVE_BARS = 14
 /** The RMS a raised voice reaches; the waveform's full height. */
@@ -37,7 +45,7 @@ export function heldSpeech(durationMs: number, peak: number, meterTrusted: boole
   return !meterTrusted || peak >= SILENCE_RMS
 }
 
-export type DictationErrorKey = DictationFailure | 'noMicrophone' | 'denied'
+export type DictationErrorKey = DictationFailure | 'noMicrophone' | 'denied' | 'noAnswer'
 
 /** What the button renders: the machine's state, flattened to one phase. */
 export type DictationState =
@@ -74,9 +82,13 @@ export type CaptureEvent =
 
 export type DictationEvent = { type: 'toggle' } | CaptureEvent
 
-/** The one thing the machine asks of the capture actor; the recorder answers with `recording.finished`. */
+/**
+ * What the machine asks of the capture actor. `stop` asks the recorder, which
+ * answers with `recording.finished` once it has flushed. `finish` is for a
+ * recorder that did not: the actor answers at once with what it holds.
+ */
 export interface CaptureCommand {
-  type: 'stop'
+  type: 'stop' | 'finish'
 }
 
 export interface CaptureInput {
@@ -114,6 +126,8 @@ export const dictationMachine = setup({
   },
   delays: {
     recordingLimit: MAX_DICTATION_SECONDS * 1000,
+    microphoneAnswerLimit: MICROPHONE_ANSWER_LIMIT_MS,
+    stopLimit: STOP_LIMIT_MS,
   },
 }).createMachine({
   id: 'dictation',
@@ -157,6 +171,9 @@ export const dictationMachine = setup({
       states: {
         starting: {
           on: {
+            // Giving up on a microphone that has not answered. Leaving `capturing`
+            // releases the capture, and with it a stream that arrives later.
+            toggle: '#dictation.idle',
             'microphone.opened': 'recording',
             'microphone.failed': [
               {
@@ -172,6 +189,13 @@ export const dictationMachine = setup({
                 actions: { type: 'notifyError', params: ({ event }) => ({ key: event.key }) },
               },
             ],
+          },
+          // Nobody answered the prompt and nobody pressed again: end it, and say what happened.
+          after: {
+            microphoneAnswerLimit: {
+              target: '#dictation.idle',
+              actions: { type: 'notifyError', params: { key: 'noAnswer' } },
+            },
           },
         },
         recording: {
@@ -202,6 +226,9 @@ export const dictationMachine = setup({
             // The recorder flushes its last chunk before it reports; a second press here has nothing to stop.
             stopping: {
               entry: sendTo('capture', { type: 'stop' }),
+              // A recorder that never reports its stop would hold the button here. The capture
+              // then reports what it has, and `recording.finished` above sends it or drops it.
+              after: { stopLimit: { actions: sendTo('capture', { type: 'finish' }) } },
             },
           },
         },

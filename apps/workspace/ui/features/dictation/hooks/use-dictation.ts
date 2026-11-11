@@ -132,8 +132,7 @@ async function checkSupport(): Promise<RecordingSupport> {
 function captureMicrophone(
   mimeType: string,
   sendBack: (event: CaptureEvent) => void,
-  onFailureAfterCancel: (key: DictationErrorKey) => void,
-): { stop: () => void; cancel: () => void } {
+): { stop: () => void; finish: () => void; cancel: () => void } {
   const session: RecordingSession = {
     stream: null,
     recorder: null,
@@ -178,18 +177,18 @@ function captureMicrophone(
       session.stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
       })
+      // Given up on while the prompt was open: `cancel` closed the context, and the stream goes straight back.
+      if (session.cancelled) return release(session)
       session.meter = attachMeter(context, session.stream)
       if (!session.meter) void context?.close().catch(() => {})
-      if (session.cancelled) return release(session)
       record(session.stream)
     } catch (error) {
       const meterAttached = session.meter !== null
       release(session)
       if (!meterAttached) void context?.close().catch(() => {})
-      const key = startErrorKey(error)
-      // A refusal that lands after the button is gone still reaches the composer, as it always has.
-      if (session.cancelled) onFailureAfterCancel(key)
-      else sendBack({ type: 'microphone.failed', key })
+      // A refusal that lands after the person gave up, or left, is said to nobody: the
+      // composer it would reach is gone or has moved on, and the next press learns it afresh.
+      if (!session.cancelled) sendBack({ type: 'microphone.failed', key: startErrorKey(error) })
     }
   }
   void open()
@@ -199,8 +198,12 @@ function captureMicrophone(
       const recorder = session.recorder
       if (recorder && recorder.state !== 'inactive') recorder.stop()
     },
+    // For a recorder that never fired `onstop`: report what arrived, as `onstop` would have.
+    finish,
     cancel: () => {
       session.cancelled = true
+      // Until a stream arrives the context belongs to no meter, and a microphone that never answers would keep it open.
+      if (!session.meter) void context?.close().catch(() => {})
       release(session)
     },
   }
@@ -218,8 +221,8 @@ export function useDictation({ locale, onTranscript, onError }: UseDictationOpti
       actors: {
         checkSupport: fromPromise<RecordingSupport>(checkSupport),
         capture: fromCallback<CaptureCommand, CaptureInput>(({ input, sendBack, receive }) => {
-          const capture = captureMicrophone(input.mimeType, sendBack, (key) => callbacks.current.onError(key))
-          receive(capture.stop)
+          const capture = captureMicrophone(input.mimeType, sendBack)
+          receive((command) => (command.type === 'stop' ? capture.stop() : capture.finish()))
           return capture.cancel
         }),
         transcribe: fromPromise<DictationOutcome, TranscriptionInput>(({ input, signal }) =>
