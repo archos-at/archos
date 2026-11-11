@@ -171,7 +171,7 @@ describe('BaseKnowledge', () => {
     expect(released).toHaveTextContent('released')
     expect(within(released).getByRole('link', { name: 'Request “OIB 2019”' })).toHaveAttribute(
       'href',
-      '/app/platform/countries?request=0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e'
+      '/app/platform/countries/at/map?request=0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e'
     )
     expect(within(screen.getAllByRole('row')[at('oenorm-b-1600.pdf')]!).getByTestId('corpus-placement')).toHaveTextContent('not released yet')
     // A file no record names carries no placement; its group says so.
