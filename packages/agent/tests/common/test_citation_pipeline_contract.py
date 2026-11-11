@@ -30,11 +30,6 @@ from types import SimpleNamespace
 import pytest
 from knowledge_layer.search import format_results
 from knowledge_layer.search.grounding_hits import _CHUNK_TRUNCATE_CHARS
-from ris_adapter.lookup.address import Address
-from ris_adapter.lookup.passages import SCORE_ADDRESSED
-from ris_adapter.lookup.passages import SCORE_RANKED_TOP
-from ris_adapter.lookup.passages import Passage
-from ris_adapter.lookup.render import format_passages
 
 from agent.citations.entries import SourceEntry
 from agent.citations.extraction import extract_sources_from_tool_result
@@ -50,6 +45,18 @@ from agent.common.knowledge_context import EditionUse
 from agent.common.knowledge_context import KnowledgeContext
 from agent.common.knowledge_context import UseRoute
 from agent.common.knowledge_context import set_turn_knowledge_context
+from agent.knowledge.law_lookup.address import Address
+from agent.knowledge.law_lookup.passages import SCORE_ADDRESSED
+from agent.knowledge.law_lookup.passages import SCORE_RANKED_TOP
+from agent.knowledge.law_lookup.passages import Passage
+from agent.knowledge.law_lookup.render import format_passages as _format_passages
+from agent.knowledge.law_lookup.source import law_source
+
+
+def format_passages(passages, ingested_name, address):
+    """The law lookup's renderer, reading RIS from its record and bound under the name the chat tool has."""
+    return _format_passages(passages, ingested_name, address, law_source("at-ris"), "ris_lookup")
+
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "citation_pipeline"
@@ -678,7 +685,7 @@ class TestTheTwoReadersAgree:
         from agent.common.grounding_block import begin_grounding_capture
         from agent.common.grounding_block import end_grounding_capture
 
-        address = Address(kind="§", number="63", subsection="1", federal_state="W", federal_state_source="the question")
+        address = Address(kind="§", number="63", subsection="1", territory="W", territory_source="the question")
         token = begin_grounding_capture()
         try:
             tool_output = format_passages(self.RIS_PASSAGES, None, address)
@@ -699,7 +706,7 @@ class TestTheTwoReadersAgree:
         assert [entry.public_url for entry in structured] == [passage.url for passage in self.RIS_PASSAGES]
         assert all(entry.url is None for entry in structured)
         assert all(entry.public_url is None for entry in parsed)
-        address = Address(kind="§", number="63", subsection="1", federal_state="W", federal_state_source="the question")
+        address = Address(kind="§", number="63", subsection="1", territory="W", territory_source="the question")
         text = format_passages(self.RIS_PASSAGES, None, address)
         assert all(passage.url not in text for passage in self.RIS_PASSAGES)
 
