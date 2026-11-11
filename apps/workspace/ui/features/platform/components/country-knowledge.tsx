@@ -80,7 +80,7 @@ export function CountryKnowledge(): JSX.Element {
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <StageBadge stage={countryStage(country)} />
+                      <StageBadge stage={countryStage(country, ready.queue)} />
                     </TableCell>
                     <TableCell>
                       {step.kind === 'none' ? (

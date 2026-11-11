@@ -4643,40 +4643,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/platform/components/knowledge-upload-panel.tsx",
-    "to": "ui/features/documents/components/file-drop-overlay.tsx",
-    "unresolvedTo": "@/features/documents/components/file-drop-overlay",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/platform/components/knowledge-upload-panel.tsx",
-    "to": "ui/features/documents/hooks/use-file-drag-drop.ts",
-    "unresolvedTo": "@/features/documents/hooks/use-file-drag-drop",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/features/product-feedback/components/feedback-threads.tsx",
     "to": "ui/features/chat/components/UserMessage.tsx",
     "unresolvedTo": "@/features/chat/components/UserMessage",

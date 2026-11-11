@@ -28938,7 +28938,7 @@
       "get": {
         "operationId": "platform-knowledge-change-request-list",
         "summary": "List the platform’s knowledge change requests",
-        "description": "Newest first, at most 200; filter by `status`.",
+        "description": "Newest first, at most 200; filter by `status` and by `countryId` for one country.",
         "tags": [
           "platform"
         ],
@@ -28958,6 +28958,17 @@
                 "rolled_back"
               ]
             }
+          },
+          {
+            "name": "countryId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only this country’s requests, by its ISO 3166-1 alpha-2 code; every country when absent.",
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            },
+            "description": "Only this country’s requests, by its ISO 3166-1 alpha-2 code; every country when absent."
           },
           {
             "name": "origin",

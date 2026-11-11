@@ -297,7 +297,7 @@ export const platform = {
     },
     connectAssistant: 'Connect your assistant',
     page: {
-      subtitle: 'All of this country’s knowledge in one place. It changes only through a change request that a second person reviews.',
+      subtitle: 'All of this country’s knowledge in one place. It changes only through a reviewed change request.',
       sectionsLabel: 'Country sections',
     },
     sections: {

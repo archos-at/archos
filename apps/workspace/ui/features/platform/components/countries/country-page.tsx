@@ -102,7 +102,7 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
 
   return (
     <div className="flex flex-col gap-6" data-testid="country-page">
-      <PageHeader crumb={crumb} title={name} subtitle={t('countryPages.page.subtitle')} action={<StageBadge stage={countryStage(coverage)} />} />
+      <PageHeader crumb={crumb} title={name} subtitle={t('countryPages.page.subtitle')} action={<StageBadge stage={countryStage(coverage, value.queue)} />} />
       <Tabs value={section} onValueChange={(next) => (isCountrySection(next) ? go(next) : null)} className="gap-6">
         <TabsList className="w-full overflow-x-auto sm:w-fit" aria-label={t('countryPages.page.sectionsLabel')}>
           {COUNTRY_SECTIONS.map((key) => (

@@ -295,7 +295,7 @@ export const platform: typeof en.platform = {
     },
     connectAssistant: 'Assistenten verbinden',
     page: {
-      subtitle: 'Alles Wissen dieses Landes an einem Ort. Es ändert sich nur über einen Änderungsantrag, den eine zweite Person prüft.',
+      subtitle: 'Alles Wissen dieses Landes an einem Ort. Es ändert sich nur über einen geprüften Änderungsantrag.',
       sectionsLabel: 'Bereiche des Landes',
     },
     sections: {

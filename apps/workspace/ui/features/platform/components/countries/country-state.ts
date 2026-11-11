@@ -31,9 +31,10 @@ export function isCountrySection(value: string | null): value is CountrySection 
 export const releasedTotal = (coverage: CountryCoverage): number =>
   Object.values(coverage.released).reduce((sum, count) => sum + count, 0)
 
-export function countryStage(coverage: CountryCoverage): CountryStage {
+/** A request waiting for review is work under way, whether or not the overview counts it as open. */
+export function countryStage(coverage: CountryCoverage, queue: readonly ChangeRequestSummary[] = []): CountryStage {
   if (releasedTotal(coverage) > 0) return 'published'
-  return coverage.openRequests > 0 ? 'in_progress' : 'not_started'
+  return coverage.openRequests > 0 || awaitingReview(queue, coverage.countryId).length > 0 ? 'in_progress' : 'not_started'
 }
 
 /** What waits for a reviewer in this country: submitted, or approved alone with its second review due. */
