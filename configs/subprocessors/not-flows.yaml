@@ -140,6 +140,8 @@ packages:
     - 'js:remark-mdx'
     - 'js:remark-parse'
     - 'js:unified'
+    - 'js:@xstate/react'
+    - 'js:xstate'
     - 'js:yaml'
     - 'js:graphql'
     - 'js:jose'
