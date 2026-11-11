@@ -3878,6 +3878,7 @@ RV_URL="e1000000-0000-4000-8000-000000000222"
 sql_in tf_0222 <<SQL
 INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR_UP', 'an uploaded text', 'XA', 'user_author'), ('$CR_URL', 'a fetched text', 'XA', 'user_author');
 INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES
+  ('edition:xa-1', NULL, 'edition', 'XA', 'user_author'),
   ('manifestation:xa-up', NULL, 'manifestation', 'XA', 'user_author'), ('manifestation:xa-url', NULL, 'manifestation', 'XA', 'user_author');
 INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id, provenance) VALUES
   ('$RV_UP', 'manifestation:xa-up', 'manifestation', NULL, 'user_author', '$CR_UP',

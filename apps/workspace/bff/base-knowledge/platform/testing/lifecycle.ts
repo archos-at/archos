@@ -21,11 +21,20 @@ export interface LifecycleActors {
   expert: string
 }
 
-/** Proposed, submitted, every claim accepted and approved as domain expert. Returns the request's id. */
-export async function approvedRequest(
-  request: { title: string; countryId: string; records: readonly ProposedRecord[] },
-  actors: LifecycleActors,
-): Promise<string> {
+/** A request to take through its lifecycle; `pins` is the sha256 of the corpus file each manifestation names, by record id, as the kit pins it. */
+export interface LifecycleRequest {
+  title: string
+  countryId: string
+  records: readonly ProposedRecord[]
+  pins?: ReadonlyMap<string, string>
+}
+
+/**
+ * Proposed, submitted, every claim accepted and approved as domain expert. Returns the request's id.
+ * The expert also vouches for the sources (`sourceChecked`): a pasted page, or a text nobody fetched, holds
+ * every approval up until another person than its author did (migrations 0218 and 0222).
+ */
+export async function approvedRequest(request: LifecycleRequest, actors: LifecycleActors): Promise<string> {
   const store = await import('../store')
   const id = await store.insertChangeRequest({ title: request.title, countryId: request.countryId, createdBy: actors.author })
   await store.platformTransaction(async (tx) => {
@@ -33,14 +42,14 @@ export async function approvedRequest(
     // In batches, as records-propose takes them: a pack may hold more records than one batch carries.
     for (let start = 0; start < request.records.length; start += MAX_PROPOSED_RECORDS) {
       const batch = request.records.slice(start, start + MAX_PROPOSED_RECORDS)
-      await store.insertProposedRecords(tx, draft!, batch, { createdBy: actors.author, proposedBy: 'person' })
+      await store.insertProposedRecords(tx, draft!, batch, { createdBy: actors.author, proposedBy: 'person', pins: request.pins })
     }
     await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
   })
   const view = await store.readChangeRequest(id)
   await store.platformTransaction(async (tx) => {
     const decisions = view!.revisions.flatMap((revision) =>
-      revision.claims.map((claim) => ({ revisionId: revision.revisionId, claimPath: claim.path, decision: 'accepted' as const })),
+      revision.claims.map((claim) => ({ revisionId: revision.revisionId, claimPath: claim.path, decision: 'accepted' as const, sourceChecked: true })),
     )
     await store.insertReviewDecisions(tx, id, { by: actors.expert, decisionSource: 'app' }, decisions)
     await store.insertApproval(tx, { changeRequestId: id, approver: actors.expert, role: 'domain_expert', decisionSource: 'app' })
@@ -50,10 +59,7 @@ export async function approvedRequest(
 }
 
 /** As {@link approvedRequest}, then published to preview and stable by the expert. */
-export async function publishedRequest(
-  request: { title: string; countryId: string; records: readonly ProposedRecord[] },
-  actors: LifecycleActors,
-): Promise<string> {
+export async function publishedRequest(request: LifecycleRequest, actors: LifecycleActors): Promise<string> {
   const id = await approvedRequest(request, actors)
   const release = await import('../release')
   const actor = { by: actors.expert, decisionSource: 'app' as const }
