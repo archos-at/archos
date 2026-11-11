@@ -37,7 +37,10 @@ export interface Exempt {
   readonly exempt: string
 }
 
-/** The mirror is not built. `slice` closes it (ADR-0128 plan); `card`/`step` name what it will use. */
+/**
+ * The mirror is not built. `slice` closes it: `V<n>` of the ADR-0128 plan, or `<plan> slice <n>` for a slice of
+ * another build spec (`drawing-measure slice 6`). `card`/`step` name what it will use.
+ */
 export interface Gap {
   readonly gap: {
     readonly slice: string
@@ -205,6 +208,20 @@ export const SURFACE_CAPABILITIES = {
     canvas: { component: 'features/documents/components/file-preview-pane.tsx' },
     // The row under the answer: what moved, „Zurück“, or „Anzeigen“ when it did not.
     chat: { component: 'features/chat/components/ViewerActionRow.tsx' },
+  },
+  calibrateScale: {
+    summary: 'Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for',
+    // No operations named yet: the list, set and withdraw operations arrive with the headless slice
+    // (drawing-measurement-build-spec.md, slice 4) and are added here when both are on one branch.
+    // The calibrate tool: the layer takes the points and the region, the panel shows the ratio before saving and the page's active calibrations.
+    canvas: { component: `${REVIEW}/calibration-panel.tsx` },
+    chat: {
+      gap: {
+        slice: 'drawing-measure slice 6',
+        reason:
+          'The chat has no card that asks a person to confirm a scale yet: a calibration is set and withdrawn in the review view only, and an answer that needs one cannot ask for it.',
+      },
+    },
   },
 } as const satisfies Readonly<Record<string, SurfaceCapability>>
 

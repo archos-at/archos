@@ -642,7 +642,8 @@ reply, compare Fassungen, ask about a box, open at a place, reference a
 document with `#` in the composer, show in the asker's viewer) with its `canvas`
 and its `chat` form. A form is a rendering (a component, a card type, a step
 kind), an `exempt` line (the surface has no meaning for it), or a `gap` that
-names the slice closing it; the spec fails a gap whose card now exists, so a
+names the slice closing it (`V<n>` of the ADR-0128 plan, or `<plan> slice <n>`
+for another build spec's, as `drawing-measure slice 6`); the spec fails a gap whose card now exists, so a
 closed gap does not stay written down as open.
 
 `parity.config.spec.ts` fails when an op of `internalAnnotationRequestSchema` or
