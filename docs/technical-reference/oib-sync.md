@@ -74,7 +74,7 @@ The hash and version are written only after the file's job reached `FileStatus.S
 
 **The ingest workers do.** A file that needs ingestion becomes exactly one ingest job, an `ingest-document` run on Hatchet (ADR-0150, [`hatchet.md`](../deployment/hatchet.md)) with no organisation and `bulk` priority. The rest of this paragraph describes the claim queue it replaced, `ingest_job_queue`, kept until the cutover drains it: one job on that table, the queue `POST /v1/ingest` uses (`agent.knowledge.ingest_queue`), in the platform lane (no organisation) at `bulk` priority. It is claimed by the ingest-worker tier, and by nothing else: the `chat` and `api` roles only enqueue (ADR-0082 step B). Kubernetes runs it as the `ingest-worker` Deployment and both Compose files as the `ingest-worker` service, with the queue's heartbeat, stale-claim reclaim, attempt limit, dead rows and drain behaviour. The queue is on whenever `SUMMARY_DB` is set, which the corpus needs anyway.
 
-**There is no in-process path.** `oib_sync` never calls `upload_file`, `submit_job` or `run_prepared`, and has no thread pool (a test greps for it). If the queue is off or cannot take the job (`INGEST_QUEUE=off`, no database, a write error), `ingest_dispatch.enqueue_only` (the API tier's own enqueue, which its routes hand to `oib_sync` as `enqueue`, so the agent tier never imports the API tier) raises `QueueUnavailable`: the upload route answers 500, the sync cycle fails loudly, and the next cycle queues the file once the queue is back.
+**There is no in-process path.** `oib_sync` never calls `upload_file`, `submit_job` or `run_prepared`, and has no thread pool (a test greps for it). If the queue is off or cannot take the job (no database, a write error), `ingest_dispatch.enqueue_only` (the API tier's own enqueue, which its routes hand to `oib_sync` as `enqueue`, so the agent tier never imports the API tier) raises `QueueUnavailable`: the upload route answers 500, the sync cycle fails loudly, and the next cycle queues the file once the queue is back.
 
 **The job** is built like `POST /v1/ingest` builds one: `ingestor.prepare_job(...)` records a `PENDING` status and `ingest_dispatch.enqueue_only(prepared)` stores it. Its pieces:
 
@@ -173,7 +173,6 @@ The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `inge
 | `SUMMARY_DB` | none | The knowledge database; holds `oib_corpus_files`. Required |
 | `FRONTEND_INTERNAL_URL`, `INTERNAL_API_TOKEN` | none | How the backend reaches the BFF to write and delete objects |
 | `SEAWEED_ENDPOINT`, `SEAWEED_ACCESS_KEY`, `SEAWEED_SECRET_KEY`, `SEAWEED_BUCKET` | none, none, none, `grid-documents` | The read-only credential and bucket the backend downloads with |
-| `INGEST_QUEUE` | on when a database is set | `off` turns the durable ingest queue off. The base corpus then cannot be ingested: uploads and sync cycles fail loudly |
 | `OIB_COLLECTION_NAME` | `oib_knowledge` | Target collection (a scope in Qdrant's corpus collection) |
 | `QDRANT_URL` | none (required) | The Qdrant cluster every chunk is stored in |
 

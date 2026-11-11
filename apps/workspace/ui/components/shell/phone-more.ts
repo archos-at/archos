@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { Building2, ServerCog, Sparkles, UserRound } from 'lucide-react'
+import { Brain, Building2, ServerCog, Sparkles, UserRound } from 'lucide-react'
 
 import {
   railSections,
@@ -65,6 +65,14 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
       href: '/app/profile',
       icon: UserRound,
       label: { namespace: 'nav', key: 'userMenu.profile' },
+      group: 'account',
+    },
+    // The person's own notes (ADR-0180), beside the profile as in the avatar menu.
+    {
+      key: 'memory',
+      href: '/app/memory',
+      icon: Brain,
+      label: { namespace: 'nav', key: 'userMenu.memory' },
       group: 'account',
     },
   ]

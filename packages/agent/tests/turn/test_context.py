@@ -26,6 +26,9 @@ from agent.turn.context import user_info_for
 from agent.turn.context_client import ContextBlocks
 from agent.turn.context_client import TurnContextError
 
+#: What every turn records about the asker's personal memory (ADR-0180) when it has none.
+_NO_PERSONAL_FACTS = {"personal_memory_lines": 0, "temporary_conversation": False}
+
 
 def _request(**fields) -> RequestContext:
     return RequestContext(**fields)
@@ -454,7 +457,11 @@ class TestLessonsReachTheTrace:
             resolve_stages=True,
         )
         assert context.platform_lessons == "LESSONS"
-        assert snapshot_contributions()["metadata"] == {"lessons_arm": "treated", "lesson_ids": self.LESSON_A}
+        assert snapshot_contributions()["metadata"] == {
+            "lessons_arm": "treated",
+            "lesson_ids": self.LESSON_A,
+            **_NO_PERSONAL_FACTS,
+        }
         reset_contributions()
 
     async def test_a_holdout_turn_records_the_arm_and_injects_nothing(self, stubs, monkeypatch):
@@ -472,7 +479,7 @@ class TestLessonsReachTheTrace:
             resolve_stages=True,
         )
         assert context.platform_lessons is None
-        assert snapshot_contributions()["metadata"] == {"lessons_arm": "holdout"}
+        assert snapshot_contributions()["metadata"] == {"lessons_arm": "holdout", **_NO_PERSONAL_FACTS}
         reset_contributions()
 
     async def test_a_failed_lookup_claims_no_arm(self, stubs, monkeypatch):
@@ -490,7 +497,7 @@ class TestLessonsReachTheTrace:
             query_text="q",
             resolve_stages=True,
         )
-        assert snapshot_contributions()["metadata"] == {"lessons_arm": "off"}
+        assert snapshot_contributions()["metadata"] == {"lessons_arm": "off", **_NO_PERSONAL_FACTS}
         reset_contributions()
 
 

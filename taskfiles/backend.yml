@@ -265,6 +265,19 @@ tasks:
       # docs/contributing/testing-and-verification.md, "The intake eval".
       - '{{.PY}} -m scripts.intake_eval.run {{.CLI_ARGS}}'
 
+  be:eval:memory-shelves:
+    desc: 'Memory-shelves eval — which shelf (personal, project, organization) the reflection pass and the remember tool file a note on, with the leak rate of personal matters onto shared shelves (NEEDS OPENROUTER_API_KEY; no backend)'
+    cmds:
+      # ADR-0180's harm, measured: a note about a person on a shelf other
+      # people read. The real reflection pass and the real `remember` tool on
+      # tests/fixtures/memory_shelves/cases.yaml, 3 runs each, only the BFF
+      # write faked; about 420 short calls. Run before and after a change to
+      # either prompt, the tool's schema or the personal-data filter. Exit 1 =
+      # a leak or a kept secret was written; 3 = a run errored.
+      #   task be:eval:memory-shelves -- --runs 1 --only per-01 adv-sec-02
+      #   task be:eval:memory-shelves -- --report /tmp/memory_shelves_eval/<time>/results.json
+      - '{{.PY}} -m scripts.memory_shelves_eval.run {{.CLI_ARGS}}'
+
   be:eval:turn-census:
     desc: 'Turn census — run a chat question through the real agent and count every model call, token and second it cost; writes to /tmp/turn_census unless --out, takes --override KEY VALUE (NEEDS OPENROUTER_API_KEY and the corpus ingested locally)'
     cmds:

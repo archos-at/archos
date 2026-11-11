@@ -2123,6 +2123,56 @@
    "withheld": null,
    "reason": null
   },
+  "personal-memory-clear": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-create": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": "native:remember",
+   "platform": false,
+   "withheld": null,
+   "reason": "The agent keeps a note about the person with its own `remember` (scope `personal`), which records the conversation it came from"
+  },
+  "personal-memory-delete": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-list": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-update": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "proposal-apply": {
    "kind": "catalog",
    "domain": "collaboration",

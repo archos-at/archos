@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid'
 import { getActiveLocale } from '@/i18n'
 import type { StateCreator } from 'zustand'
 import type {
@@ -27,7 +26,9 @@ import {
 import { mapServerMessagesToChatMessages } from '../lib/server-message-mapper'
 import { mergeRemoteMessages, turnStateFor } from './messages-store'
 import { encodeCitations } from '../lib/citations'
-import { markConversationMinted, markConversationOnServer } from '../lib/conversation-on-server'
+import { markConversationOnServer } from '../lib/conversation-on-server'
+import { recordCreateFailed, recordCreateStarted, recordCreatedTemporary } from '../lib/temporary-created'
+import { createNewConversation } from './new-conversation'
 import type { CardInteractions } from '@/features/cards/card-decision'
 import type { MessageStages } from '@/lib/conversations/message-stages'
 
@@ -137,7 +138,7 @@ export type SessionsSlice = {
    * is no turn end left to hang it on: the answer settled seconds ago and this
    * is the last thing that will ever happen to it.
    */
-  _persistStageOutput: (messageId: string, stages: MessageStages) => Promise<void>
+  _persistStageOutput: (conversationId: string, messageId: string, stages: MessageStages) => Promise<void>
   /**
    * Ask the BFF to cut a stopped answer's stored row to what was on screen
    * (`shown`). For a Stop that crossed the server's finished answer: the
@@ -149,31 +150,6 @@ export type SessionsSlice = {
 }
 
 // Helper functions
-
-/** An id minted here names nothing on the server until its first message is stored. */
-const mintConversationId = (): string => {
-  const id = `s_${uuidv4().replace(/-/g, '_')}`
-  markConversationMinted(id)
-  return id
-}
-
-const createNewConversation = (
-  userId: string,
-  projectId: string | null,
-  subject?: { resourceType: 'document'; resourceId: string; title?: string | null } | null
-): Conversation => ({
-  id: mintConversationId(),
-  userId,
-  // Stamp the active project so the session stays scoped to it (UX-8);
-  // null = created outside a project context (visible everywhere).
-  projectId,
-  title: subject?.title ?? '',
-  subjectResourceType: subject?.resourceType ?? null,
-  subjectResourceId: subject?.resourceId ?? null,
-  messages: [],
-  createdAt: new Date(),
-  updatedAt: new Date(),
-})
 
 const updateConversationInList = (
   conversations: Conversation[],
@@ -288,16 +264,18 @@ const ensureServerConversation = (
 
   const promise = (async () => {
     const conversationsClient = await getConversationsClient()
-    // Stamp the server row with the session's project so future
-    // project-scoped lists stay accurate.
-    await conversationsClient.create(
+    // The temporary switch hears what the create carries (stamped with the session's project for the lists).
+    recordCreateStarted(conversation.id, conversation.temporary === true)
+    const created = await conversationsClient.create(
       conversation.id,
       conversation.title || undefined,
       conversation.projectId ?? fallbackProjectId,
       conversation.subjectResourceId
         ? { resourceType: 'document', resourceId: conversation.subjectResourceId }
-        : null
+        : null,
+      conversation.temporary
     )
+    recordCreatedTemporary(conversation.id, created?.temporary === true)
     // The readers that were waiting for the row may ask about it now.
     markConversationOnServer(conversation.id)
   })()
@@ -305,6 +283,7 @@ const ensureServerConversation = (
   // Drop the cached promise on failure so the next append retries the check.
   const tracked = promise.catch((err) => {
     ensuredServerConversations.delete(conversation.id)
+    recordCreateFailed(conversation.id)
     throw err
   })
   ensuredServerConversations.set(conversation.id, tracked)
@@ -454,6 +433,7 @@ export const createSessionsSlice: StateCreator<
           // which quietly re-fills the owner's chat history with 52 job
           // threads a year while every test still passes.
           jobId: serverConv.jobId ?? null,
+          temporary: serverConv.temporary === true,
           subjectResourceType: locked
             ? null
             : serverConv.subjectResourceType === 'document'
@@ -1281,12 +1261,11 @@ export const createSessionsSlice: StateCreator<
     }
   },
 
-  _persistStageOutput: async (messageId: string, stages: MessageStages) => {
-    const { currentConversation } = get()
-    if (!currentConversation) return
+  // The turn's own conversation, never the open one: a frame can land after the reader moved on.
+  _persistStageOutput: async (conversationId: string, messageId: string, stages: MessageStages) => {
     try {
       const conversationsClient = await getConversationsClient()
-      await conversationsClient.updateMessageStages(currentConversation.id, messageId, {
+      await conversationsClient.updateMessageStages(conversationId, messageId, {
         ...stages,
       })
     } catch (err) {

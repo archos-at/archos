@@ -15,7 +15,7 @@
 import type { JSX } from 'react'
 import { createContext, useContext } from 'react'
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, MessageCircleDashed } from 'lucide-react'
 
 import { motion, springGlide } from '@/components/motion'
 import { useTranslations } from '@/i18n'
@@ -32,6 +32,8 @@ export interface RailChat {
   href: string
   /** The chat open on the page: the rail's current place. */
   current: boolean
+  /** A temporary chat (ADR-0180): nothing from it is kept. Marked with the composer switch's glyph. */
+  temporary?: boolean
 }
 
 export interface RailChats {
@@ -69,7 +71,7 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
           <li key={chat.id} className="relative">
             <Link
               href={chat.href}
-              title={chat.title}
+              title={chat.temporary ? t('temporaryChatTitle', { title: chat.title }) : chat.title}
               aria-current={chat.current ? 'page' : undefined}
               onClick={() => chats.onOpen?.(chat.id)}
               data-focus-inset
@@ -83,6 +85,12 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
                 <motion.span layoutId={pillId} data-slot="rail-active-pill" aria-hidden className="bg-sheet absolute inset-0 rounded-control shadow-xs" transition={springGlide} />
               )}
               <span className="relative truncate">{chat.title}</span>
+              {chat.temporary && (
+                <>
+                  <MessageCircleDashed className="text-muted-foreground relative size-3.5 shrink-0" aria-hidden data-testid="rail-chat-temporary" />
+                  <span className="sr-only">{t('temporaryChat')}</span>
+                </>
+              )}
             </Link>
           </li>
         ))}

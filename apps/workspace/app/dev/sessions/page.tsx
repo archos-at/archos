@@ -61,7 +61,7 @@ const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000)
 
 const SESSIONS = [
   { id: 's-1', title: 'Rettungswege Bürogebäude GK4 Wien', date: minutesAgo(4) },
-  { id: 's-2', title: 'Fluchtweglänge im Erdgeschoss', date: minutesAgo(95) },
+  { id: 's-2', title: 'Fluchtweglänge im Erdgeschoss', date: minutesAgo(95), temporary: true },
   { id: 's-3', title: 'Brandabschnitte Tiefgarage', date: minutesAgo(240), hasCompletedReport: true },
   { id: 's-4', title: 'Sicherheitstreppenhaus — Anforderungen GK5', date: daysAgo(1) },
   { id: 's-5', title: 'Barrierefreiheit Sanitärräume', date: daysAgo(1) },

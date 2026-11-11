@@ -16,11 +16,17 @@ import { MemoryProposalCard } from './MemoryProposalCard'
 let mockProjectId: string | null = 'proj-1'
 // Decisions already recorded on the message the card belongs to.
 let mockCardInteractions: CardInteractions | undefined
+// Whether the open conversation is temporary (ADR-0180 rule 2).
+let mockTemporary = false
 const setCardDecision = vi.fn()
 
 interface MockStoreState {
   projectId: string | null
-  currentConversation: { id: string; messages: Array<{ id: string; cardInteractions?: CardInteractions }> } | null
+  currentConversation: {
+    id: string
+    temporary?: boolean
+    messages: Array<{ id: string; cardInteractions?: CardInteractions }>
+  } | null
   conversations: []
   setCardDecision: typeof setCardDecision
 }
@@ -29,6 +35,7 @@ const mockStoreState = (): MockStoreState => ({
   projectId: mockProjectId,
   currentConversation: {
     id: 'conv-1',
+    temporary: mockTemporary,
     messages: [{ id: 'msg-1', cardInteractions: mockCardInteractions }],
   },
   conversations: [],
@@ -76,6 +83,7 @@ describe('MemoryProposalCard', () => {
   beforeEach(() => {
     mockProjectId = 'proj-1'
     mockCardInteractions = undefined
+    mockTemporary = false
     vi.unstubAllGlobals()
     vi.clearAllMocks()
   })
@@ -144,6 +152,22 @@ describe('MemoryProposalCard', () => {
     // The pressed button left with the question; the keyboard lands on what
     // replaced it rather than at the top of the page.
     await waitFor(() => expect(receipt.closest('[data-proposal-body]')).toHaveFocus())
+  })
+
+  it('writes nothing from a temporary chat, on either button, and says why', async () => {
+    mockTemporary = true
+    const { posts } = stubFetch()
+    const user = userEvent.setup()
+    render(<MemoryProposalCard {...ownedProps} />)
+
+    await user.click(screen.getByRole('button', { name: 'Yes, remember org-wide' }))
+    expect(screen.getByText(/^Not saved: this chat is temporary/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /just this project/i }))
+
+    expect(posts).toEqual([])
+    expect(setCardDecision).not.toHaveBeenCalled()
+    // Still offered: once the chat is switched back, the same card saves.
+    expect(screen.getByRole('button', { name: 'Yes, remember org-wide' })).toBeInTheDocument()
   })
 
   it('hides the project action when there is no project in scope', () => {

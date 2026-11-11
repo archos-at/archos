@@ -59,7 +59,10 @@ def workflow(monkeypatch):
 
     async def prepare(*_args, runtime, **_kwargs):
         context = types.SimpleNamespace(
-            stage_facts=types.SimpleNamespace(ws_parent_id="t1", memory_digest=None), restricted_scope=()
+            stage_facts=types.SimpleNamespace(ws_parent_id="t1", memory_digest=None),
+            restricted_scope=(),
+            temporary=False,
+            personal_memory=None,
         )
         yield cr._Turn(None, None, None, context, None, types.SimpleNamespace(organization_id=None), runtime)
 

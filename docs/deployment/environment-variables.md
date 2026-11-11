@@ -58,8 +58,10 @@ Variables set in `docker-compose.yaml` under `environment:` take precedence over
 | `MCP_FORMER_ORIGINS` | No | _(unset)_ | During a domain move (`formerBaseDomain`, [domain cutover](domain-cutover.md#connected-agents-keep-working)), the origins the agent doors answered at before it, comma-separated (for example `https://app.dev.piloti.at`). Each door then also accepts a token issued for its URL under a former origin, and on a request whose `Host` is a former host its protected-resource metadata and 401 challenge name that host, so a connector set up before the move keeps working. Set by the Kubernetes deployment from `formerBaseDomain`; unset otherwise. Frontend service (BFF). |
 | `PLATFORM_MCP_ADMISSION_TOKEN` | Where the platform MCP gateway runs | _(unset: the route answers 503)_ | **Secret.** The token the platform MCP gateway presents (in `x-internal-token`) to `/api/internal/platform-mcp-admission`, which admits a person whose token names another organization from their live platform membership ([platform MCP gateway](platform-mcp-gateway.md#who-gets-in)). Its own secret, so it opens that route alone. On Kubernetes, Secret `platform-mcp-admission` (key `token`), an HMAC of `pgAppPassword`, created with the frontend while `mcpGatewayEnabled`. Frontend service (BFF). |
 | `PLATFORM_MCP_SERVER_URLS` | No | — | The in-cluster MCP servers the platform MCP gateway serves (ADR-0154), comma-separated `https://<host>/<name>/mcp`, for example `https://platform-mcp.piloti.at/langfuse/mcp`. Read only by Platform → Agents, which lists each with its setup; an entry of any other shape is left out. Unset: that section says the gateway is not rolled out here. Frontend service (BFF); Pulumi sets it from `mcpServers` while `mcpGatewayEnabled` is on. |
+| `NEXT_PUBLIC_WORKOS_REDIRECT_URI` | When `REQUIRE_AUTH=true` | — | The redirect URI as AuthKit reads it (its only source for it); the BFF reads `WORKOS_REDIRECT_URI` first and falls back to this. Inlined at build time like every `NEXT_PUBLIC_*` variable, so a production image needs it when it is built. |
+| `WORKOS_API_HOSTNAME`, `WORKOS_API_HTTPS`, `WORKOS_API_PORT` | No | `api.workos.com`, `true`, — | Where AuthKit sends its WorkOS API calls (JWKS, sessions). Read by AuthKit only: the BFF's own WorkOS client (`bff/workos/client.ts`) is built without them and always calls `api.workos.com`. The [local stack](../contributing/local-stack.md) points them at its test double and redirects the BFF's calls with a preload. |
 | `WORKOS_COOKIE_PASSWORD` | When `REQUIRE_AUTH=true` | — | 32-byte random hex string used to encrypt the AuthKit session cookie. Generate with: `openssl rand -hex 32`. |
-| `REQUIRE_AUTH` | No | `false` | Set to `true` to require WorkOS AuthKit login. When `false`, the app uses a "Default User" with no login required. Read by the frontend and by the backend. On the backend, `true` enforces job access control (a job reaches its owner, and a caller whose signed envelope places it in the job's organization and project, or for reads its conversation; ADR-0084), the signed-envelope rule for WorkOS callers, and the validator requirement at boot, on every request. In Kubernetes it is set on the frontend and on all four backend tiers (chat, api, agent-worker, ingest-worker) from `grid-oib:requireAuth`, the same value for each (default `true`). In Compose the backend reads it from `deploy/.env` through `env_file`, and the default there is `false`. |
+| `REQUIRE_AUTH` | No | `false` | Set to `true` to require WorkOS AuthKit login. When `false` there is no session at all: the `/dev` previews render, but every page behind a session answers 500 and every session route under `/api` answers 403 (`SessionRequiredError`); there is no anonymous "Default User" on the server. To run the app signed in without a WorkOS account, use the [local stack](../contributing/local-stack.md). Read by the frontend and by the backend. On the backend, `true` enforces job access control (a job reaches its owner, and a caller whose signed envelope places it in the job's organization and project, or for reads its conversation; ADR-0084), the signed-envelope rule for WorkOS callers, and the validator requirement at boot, on every request. In Kubernetes it is set on the frontend and on all four backend tiers (chat, api, agent-worker, ingest-worker) from `grid-oib:requireAuth`, the same value for each (default `true`). In Compose the backend reads it from `deploy/.env` through `env_file`, and the default there is `false`. |
 
 ---
 
@@ -253,6 +255,26 @@ The renderer runs the production permit pen over the precedent fixture office, *
 | `BACKFILL_SUMMARY_MODEL` | No | `DEFAULT_MODEL`, then `openai/gpt-6-luna` | Extraction model id. Match the config's `summary_llm` model. |
 
 *Required only when rendering the fixture; not needed by the running services.
+
+---
+
+## Local stack (`scripts/local-stack/`, development only)
+
+Read by `scripts/local-stack/local-stack.sh` and the files beside it, never by the product. Set them in the shell before `task local:up` (and the same values for every later `task local:*`). [`local-stack.md`](../contributing/local-stack.md).
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `LOCAL_STACK_DIR` | No | `/var/tmp/local-stack` as root, else `$XDG_STATE_HOME/local-stack` (`~/.local/state/local-stack`) | Where the stack writes everything: the Postgres cluster, Redis, the backend's SQLite stores, logs, pid files, the test double's signing key. Outside the repository, and reachable by the `postgres` user when run as root |
+| `LOCAL_STACK_PG_PORT`, `LOCAL_STACK_REDIS_PORT`, `LOCAL_STACK_WORKOS_PORT` | No | `55432`, `56379`, `4010` | Ports of Postgres, Redis and the WorkOS test double, on 127.0.0.1 |
+| `LOCAL_STACK_UI_PORT`, `LOCAL_STACK_NEXT_PORT` | No | `3000`, `3001` | The gateway (`server.js`, what the browser opens) and `next dev` behind it |
+| `LOCAL_STACK_API_PORT`, `LOCAL_STACK_CHAT_PORT` | No | `8000`, `8001` | The backend's `api` and `chat` roles |
+| `LOCAL_STACK_UI_DIR` | No | `apps/workspace` | The UI directory `next dev` and the migrations run in. Next allows one `next dev` per directory, so a second stack runs from a copy (`local-stack.sh copy-ui <dir>`) |
+| `LOCAL_STACK_BACKEND_CONFIG` | No | `configs/config_oib_openrouter.yml` | The backend's config file |
+| `LOCAL_STACK_FLAGS` | No | _(none)_ | Comma-separated feature flags the local office has on top of every `rollout` flag and `runtime-model-config` |
+| `LOCAL_STACK_WORKOS_ORIGIN` | Set by the stack | — | The test double's URL, read by `workos-redirect.cjs` in the UI's processes |
+| `LOCAL_STACK_UI_ORIGIN`, `LOCAL_STACK_COOKIE_ANNA`, `LOCAL_STACK_COOKIE_BERT` | Set by the stack | — | What `smoke-memory.cjs` opens and as whom |
+| `PLAYWRIGHT_MODULE` | No | `playwright`, then `/opt/node-tools/node_modules/playwright`, then the UI's `playwright-core` | The Playwright package `smoke-memory.cjs` loads |
+| `PGBIN` | No | the newest `/usr/lib/postgresql/*/bin` | PostgreSQL server binaries, as for `scripts/rls-test-db.sh` |
 
 ---
 

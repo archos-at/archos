@@ -81,8 +81,10 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     const real = window.fetch.bind(window)
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      if (url === `/api/projects/${CLEARED}/memory`) return Response.json({ items: [RESTRICTED, JUDGED, ...OPEN] })
-      if (url === `/api/projects/${UNCLEARED}/memory`) return Response.json({ items: OPEN })
+      // The panel asks for a page (`?limit=200`): match the path, not the whole address.
+      const path = url.split('?')[0]
+      if (path === `/api/projects/${CLEARED}/memory`) return Response.json({ items: [RESTRICTED, JUDGED, ...OPEN] })
+      if (path === `/api/projects/${UNCLEARED}/memory`) return Response.json({ items: OPEN })
       return real(input, init)
     }
   }

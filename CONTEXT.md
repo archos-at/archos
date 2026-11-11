@@ -420,6 +420,19 @@ delivered and never holding it up.
 Memory is the briefing Piloti carries into every turn (what the office and the
 project have told it). Knowledge is the library it searches on demand.
 
+**Personal memory**:
+What the agent keeps about one person: how they want it to work, and their role
+and recurring topics at the office. Only that person reads it, no colleague
+and no administrator of the office. A note's home follows what the note is
+about, so a note about the person is personal even when it was said in a
+project chat. Project memory is read by the project's members and organization
+memory by everyone in the office.
+
+**Temporary conversation**:
+A conversation from which nothing is kept in personal, project or organization
+memory. It still reads what is already known. Its owner switches it on or off;
+switching it off keeps nothing from the turns before.
+
 ## Research
 
 **Shallow research**:
