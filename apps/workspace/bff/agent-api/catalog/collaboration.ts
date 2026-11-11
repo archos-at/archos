@@ -28,6 +28,11 @@ import {
   unreadAnchorsQuerySchema,
 } from '@/lib/inbox/inbox-wire'
 import { pushPreferencesPatchSchema } from '@/lib/inbox/push-categories'
+import {
+  createPersonalMemorySchema,
+  listPersonalMemoryQuerySchema,
+  patchPersonalMemorySchema,
+} from '@/lib/personal-memory/wire'
 import { grantPostSchema, roleChangeSchema, visibilitySchema } from '@/lib/sharing/sharing-wire'
 import { SHAREABLE_RESOURCE_TYPES } from '@/lib/sharing/sharing-vocabulary'
 import { applyProposalRequestSchema, proposalListQueryShape } from '@/lib/proposals/types'
@@ -42,6 +47,10 @@ const resourceParams = z.object({
 })
 
 const inboxItemParams = z.object({ id: z.string().describe('The inbox item id (a UUID), from inbox-list.') })
+
+const personalMemoryParams = z.object({
+  itemId: z.string().describe('The personal memory note id (a UUID), from personal-memory-list.'),
+})
 
 const conversationParams = z.object({
   id: z.string().describe('The conversation id, from conversation-list.'),
@@ -442,6 +451,60 @@ export const collaborationOperations = [
     body: updatePreferencesSchema,
     idempotent: true,
     load: () => import('@/app/api/user/preferences/route'),
+  },
+
+  // Personal memory (ADR-0180)
+  {
+    name: 'personal-memory-list',
+    domain: 'collaboration',
+    summary: 'List the person’s personal memory',
+    description:
+      'The notes kept about the person themself (how they want answers, their role and recurring topics), ' +
+      'pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the ' +
+      'organization sees them. Item ids feed personal-memory-update and personal-memory-delete.',
+    method: 'GET',
+    path: '/api/user/memory',
+    query: listPersonalMemoryQuerySchema,
+    load: () => import('@/app/api/user/memory/route'),
+  },
+  {
+    name: 'personal-memory-create',
+    domain: 'collaboration',
+    summary: 'Add a personal memory note',
+    description:
+      'Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in ' +
+      'project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item }` with its id.',
+    method: 'POST',
+    path: '/api/user/memory',
+    body: createPersonalMemorySchema,
+    idempotent: true,
+    load: () => import('@/app/api/user/memory/route'),
+  },
+  {
+    name: 'personal-memory-update',
+    domain: 'collaboration',
+    summary: 'Edit a personal memory note',
+    description:
+      'Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. ' +
+      '409 when another note of the person already says the new content. Answers `{ item }`.',
+    method: 'PATCH',
+    path: '/api/user/memory/[itemId]',
+    params: personalMemoryParams,
+    body: patchPersonalMemorySchema,
+    idempotent: true,
+    load: () => import('@/app/api/user/memory/[itemId]/route'),
+  },
+  {
+    name: 'personal-memory-delete',
+    domain: 'collaboration',
+    summary: 'Delete a personal memory note',
+    description:
+      'Removes one personal note for good; it cannot be undone. `itemId` is from personal-memory-list.',
+    method: 'DELETE',
+    path: '/api/user/memory/[itemId]',
+    params: personalMemoryParams,
+    destructive: true,
+    load: () => import('@/app/api/user/memory/[itemId]/route'),
   },
 
   // Files attached to a chat

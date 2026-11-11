@@ -217,6 +217,7 @@ function stubConversation(
     updatedAt: new Date('2026-07-02T10:00:00Z'),
     subjectResourceType: null,
     subjectResourceId: null,
+    temporary: false,
     ...tenancy,
   })
 }
@@ -569,6 +570,24 @@ describe('a chat the reader may no longer read (ADR-0088)', () => {
         details: { reason: 'rights-lost', resourceType: 'conversation' },
       })
     )
+  })
+})
+
+describe('creating a temporary conversation (ADR-0180)', () => {
+  it('writes the flag with the row, so the first turn already keeps nothing', async () => {
+    vi.mocked(insertConversation).mockImplementation(async (values) => values as never)
+
+    await createConversation(session, { id: CONVERSATION_ID, temporary: true })
+
+    expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ id: CONVERSATION_ID, temporary: true }))
+  })
+
+  it('creates a conversation that keeps memory unless the caller says otherwise', async () => {
+    vi.mocked(insertConversation).mockImplementation(async (values) => values as never)
+
+    await createConversation(session, { id: CONVERSATION_ID })
+
+    expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ temporary: false }))
   })
 })
 

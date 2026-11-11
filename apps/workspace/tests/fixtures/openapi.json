@@ -15028,7 +15028,7 @@
       "post": {
         "operationId": "conversation-create",
         "summary": "Start a new conversation",
-        "description": "Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document. You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.",
+        "description": "Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document, and optionally `temporary` (nothing from it is kept in memory). You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.",
         "tags": [
           "conversations"
         ],
@@ -15082,6 +15082,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "temporary": {
+                    "description": "True starts a temporary conversation: nothing from it is kept in project, organization or personal memory.",
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -15310,8 +15314,8 @@
       },
       "patch": {
         "operationId": "conversation-update",
-        "summary": "Rename a conversation or change when ARCHOS answers",
-        "description": "Sets `title` (owner role) and/or the `engagement` mode that decides when ARCHOS answers (collaborator role); at least one. Returns it.",
+        "summary": "Rename a conversation, make it temporary, or change when ARCHOS answers",
+        "description": "Sets `title` (owner role), `temporary` (owner role) and/or the `engagement` mode that decides when ARCHOS answers (collaborator role); at least one. A temporary conversation keeps nothing in project, organization or personal memory; switching it off keeps nothing from earlier turns. Returns it.",
         "tags": [
           "conversations"
         ],
@@ -15344,6 +15348,10 @@
                       "ask",
                       "mention"
                     ]
+                  },
+                  "temporary": {
+                    "description": "True makes the conversation temporary: from now on nothing from it is kept in project, organization or personal memory. False keeps memory again from the next turn; nothing from the turns before is kept.",
+                    "type": "boolean"
                   }
                 }
               }
@@ -15376,7 +15384,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Rename a conversation or change when ARCHOS answers",
+          "title": "Rename a conversation, make it temporary, or change when ARCHOS answers",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": true,
@@ -17922,6 +17930,280 @@
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/user/memory": {
+      "post": {
+        "operationId": "personal-memory-create",
+        "summary": "Add a personal memory note",
+        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item }` with its id.",
+        "tags": [
+          "collaboration"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "preference",
+                      "profile"
+                    ],
+                    "description": "`preference`: how the person wants the agent to work. `profile`: their role, responsibilities and recurring topics."
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "description": "One self-contained sentence about the person, max 2000 characters."
+                  },
+                  "pinned": {
+                    "description": "A pinned note reaches every turn first.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "content"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Add a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "get": {
+        "operationId": "personal-memory-list",
+        "summary": "List the person’s personal memory",
+        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Item ids feed personal-memory-update and personal-memory-delete.",
+        "tags": [
+          "collaboration"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Default 50, max 200.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Default 50, max 200."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the person’s personal memory",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/user/memory/{itemId}": {
+      "delete": {
+        "operationId": "personal-memory-delete",
+        "summary": "Delete a personal memory note",
+        "description": "Removes one personal note for good; it cannot be undone. `itemId` is from personal-memory-list.",
+        "tags": [
+          "collaboration"
+        ],
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The personal memory note id (a UUID), from personal-memory-list."
+            },
+            "description": "The personal memory note id (a UUID), from personal-memory-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "patch": {
+        "operationId": "personal-memory-update",
+        "summary": "Edit a personal memory note",
+        "description": "Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
+        "tags": [
+          "collaboration"
+        ],
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The personal memory note id (a UUID), from personal-memory-list."
+            },
+            "description": "The personal memory note id (a UUID), from personal-memory-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "preference",
+                      "profile"
+                    ],
+                    "description": "`preference`: how the person wants the agent to work. `profile`: their role, responsibilities and recurring topics."
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "description": "One self-contained sentence about the person, max 2000 characters."
+                  },
+                  "pinned": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Edit a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
           "openWorldHint": false
         }
       }

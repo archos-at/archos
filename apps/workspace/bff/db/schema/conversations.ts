@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { boolean, index, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 import { taskDefinitions } from './task-model'
 import { projects } from './projects'
 import { type ResourceVisibility, type ShareableResourceType } from './resource-shares'
@@ -99,6 +99,15 @@ export const conversations = pgTable(
      */
     subjectResourceType: text('subject_resource_type').$type<ShareableResourceType>(),
     subjectResourceId: text('subject_resource_id'),
+    /**
+     * A temporary conversation keeps nothing (ADR-0180 rule 2, migration 0226):
+     * no project, organization or personal memory is written from it. The
+     * memory writers refuse (`lib/conversations/temporary.ts`), and the turn
+     * context tells the agent so it skips them. Reading is untouched: the turn
+     * is still given what is already known. Set by an owner, at creation or
+     * later; switching it off keeps nothing from the turns before.
+     */
+    temporary: boolean('temporary').notNull().default(false),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

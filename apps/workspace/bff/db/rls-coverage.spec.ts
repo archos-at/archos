@@ -249,6 +249,9 @@ const BOUNDARY_MIGRATIONS = [
   // Adds knowledge_second_reviews, one second review per role approved alone
   // (ADR-0176), platform-private like the change-request tables.
   '0214_knowledge_approve_alone.sql',
+  // Adds personal_memory (ADR-0180), keyed to the person as user_preferences
+  // is: `organization_id = current_org() AND user_id = current_user_id()`.
+  '0225_personal_memory.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

@@ -13,6 +13,7 @@ import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { withOptionalTenant } from '@/lib/db/tenant-context'
 import { BadRequestError, NotFoundError, OrgMemoryDisabledError } from '@/lib/api/errors'
 import { requireMayRememberFrom } from '@/lib/conversations/cross-project-use'
+import { requireConversationKeepsMemory } from '@/lib/conversations/temporary'
 import { findProjectTenancy } from '@/lib/projects/repository'
 import {
   createProjectMemoryItem,
@@ -159,6 +160,9 @@ export const POST = internalApiRoute(
         // conversation's cross-project record refuses before anything is written.
         const tenant = organizationId ?? (projectId ? (await findProjectTenancy(projectId))?.organizationId : null)
         await requireMayRememberFrom(sourceConversationId, tenant)
+        // A temporary conversation keeps nothing (ADR-0180): refused here, at
+        // the single writer, whatever the agent decided.
+        await requireConversationKeepsMemory(sourceConversationId, tenant)
 
         // Reported by the service, never derived from the returned row: a duplicate
         // or paraphrase refresh returns an EXISTING item whose `supersedesId` may

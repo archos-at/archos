@@ -50,6 +50,7 @@ import {
   CANVAS,
   DECISION,
   MEMORY,
+  PERSONAL_MEMORY,
   NATIVE_READ,
   OFFERED,
   SENSITIVE,
@@ -340,6 +341,11 @@ export const EXPOSURE = {
   'sharing-grant-revoke': SENSITIVE,
   'sharing-grant-update': SENSITIVE,
   'sharing-visibility-set': SENSITIVE,
+  // personal memory (ADR-0180): the person's own notes, acted on as the person
+  'personal-memory-create': { external: true, agent: 'native:remember', reason: PERSONAL_MEMORY },
+  'personal-memory-delete': OFFERED,
+  'personal-memory-list': OFFERED,
+  'personal-memory-update': OFFERED,
   'user-preference-get': withheld('ui-state', 'the person’s interface preferences (language, active project); screen state'),
   'user-preference-update': withheld('ui-state', 'the person’s interface preferences (language, active project); screen state'),
 

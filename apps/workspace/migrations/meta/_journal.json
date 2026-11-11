@@ -1576,6 +1576,20 @@
       "when": 1793900000000,
       "tag": "0224_knowledge_text_four_eyes",
       "breakpoints": true
+    },
+    {
+      "idx": 225,
+      "version": "7",
+      "when": 1793910000000,
+      "tag": "0225_personal_memory",
+      "breakpoints": true
+    },
+    {
+      "idx": 226,
+      "version": "7",
+      "when": 1793920000000,
+      "tag": "0226_conversation_temporary",
+      "breakpoints": true
     }
   ]
 }

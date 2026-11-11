@@ -395,9 +395,9 @@ export async function insertConversation(values: {
   jobId?: string | null
   subjectResourceType?: ShareableResourceType | null
   subjectResourceId?: string | null
+  temporary?: boolean
 }): Promise<Conversation | null> {
-  const db = getDb()
-  const [row] = await db.insert(conversations).values(values).onConflictDoNothing().returning()
+  const [row] = await getDb().insert(conversations).values(values).onConflictDoNothing().returning()
   return row ?? null
 }
 
