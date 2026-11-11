@@ -18,7 +18,7 @@ context and chain text from them (ADR-0173), and the agent reads nothing else.
 |---|---|---|
 | Which countries a turn may retrieve, the gate, coverage | `knowledgeContext` in the turn context, or `knowledge_context` in a research run's payload | `common/knowledge_context.py` |
 | Which edition binds at the site, and every edition's role | the same `knowledgeContext`: its `text` (the chain) and its `uses` (role, qualifier, `sourceRefs` as `{scheme, value}`), corrected for coverage, freshness and connecting factor. A use whose `applicability` is `check`, or has `open` building facts, gets no binding badge: the chain text says it neither binds nor does not bind until then (ADR-0178). There is no second answer: `buildingLaw` is gone | `citations/roles.py`, `common/law_gate.turn_building_law_block` |
-| Whether the law lookup may run | the gate's `reads_law` (`GatePolicy`), then the country of the source record the lookup reads (`law_lookup.turn_source.withheld_note`); deep research's three RIS tools still by their adapter's country (`law_gate.LAW_SOURCE_COUNTRIES`: `ris` is `AT`) until they go | `common/law_gate.law_sources_withheld` |
+| Whether the law lookup may run | the gate, and the turn's released source of a country it may read (`law_sources_withheld(reads_turn_sources=True)`); without one, the country of the repository record it falls back to (`law_lookup.turn_source.withheld_note`). Deep research's three RIS tools by their adapter's country (`law_gate.LAW_SOURCE_COUNTRIES`: `ris` is `AT`) until they go (#1644) | `common/law_gate.law_sources_withheld` |
 | How to reason about building law anywhere | constant: `<legal_method>` in `chat_static.md`, `law_gate.LEGAL_METHOD` for deep research | |
 
 Absent or malformed, the context is `knowledge_unavailable`: no verdict, no
@@ -194,11 +194,11 @@ countries, Austria's record is a door payload
 (`configs/knowledge-packs/at-sources.json`), and the parity rig holds the
 country-neutral lookup to the RIS tool's requests and text on 26 recorded calls
 (`packages/agent/tests/knowledge/test_law_lookup_parity.py`). Step 4b, part
-one: the model tool is `law_lookup`, bound under that name with a data source
-of its own (`law_lookup`, which a stored job plan's or switch's `ris` still
-names: `DataSourceEntry.aliases`), and the chat binding is gated by whether the
-turn reads law and by its record's country, never by `LAW_SOURCE_COUNTRIES`. A
-turn stored before the rename keeps its step label, its sources step and its
+one: the model tool is `law_lookup`, bound under that name and still under the
+`ris` data source and its switch: a second, country-neutral entry would be a box
+in the job wizard and the composer that no one can uncheck, and that deep
+research (which does not bind the lookup) refuses with a 422, until a
+country-neutral picker exists (#1644). A turn stored before the rename keeps its step label, its sources step and its
 citation parser under `ris_lookup_tool`. Part two deletes the package,
 `LAW_SOURCE_COUNTRIES` and the built-in class once Austria's record is
 published on stable in production; the repository file goes after that.

@@ -22,38 +22,6 @@ def _clean_registry():
     reset_registry()
 
 
-class TestARenamedSourceAnswersToItsOldId:
-    """A job plan or a switch stored before a rename names the old id (`ris` for the law lookup)."""
-
-    def _register(self):
-        populate_from_config(
-            [
-                {"id": "law_lookup", "name": "Law lookup", "aliases": ["ris"], "tools": ["law_lookup"]},
-                {"id": "knowledge_layer", "name": "Knowledge Base", "tools": ["knowledge_search"]},
-            ]
-        )
-
-    def test_a_stored_selection_of_the_old_id_selects_the_source(self):
-        from agent.common.data_sources import unavailable_source_ids
-
-        self._register()
-        assert unavailable_source_ids(["knowledge_layer", "ris"], set()) == frozenset()
-        assert unavailable_source_ids(["knowledge_layer"], set()) == frozenset({"law_lookup"})
-
-    def test_a_stored_switch_of_the_old_id_switches_it_off(self):
-        from agent.common.data_sources import unavailable_source_ids
-
-        self._register()
-        assert unavailable_source_ids(None, {"ris"}) == frozenset({"ris", "law_lookup"})
-
-    def test_a_validator_knows_the_old_id(self):
-        from agent.common.data_source_registry import names_of
-
-        self._register()
-        assert names_of({"law_lookup", "knowledge_layer"}) == {"law_lookup", "ris", "knowledge_layer"}
-        assert get_source("law_lookup").aliases == ("ris",)
-
-
 class TestPopulateFromConfig:
     """Tests for populate_from_config (YAML-driven registration)."""
 

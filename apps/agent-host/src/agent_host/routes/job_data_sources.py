@@ -11,7 +11,6 @@ from fastapi import HTTPException
 from agent.common.data_source_registry import get_all_sources
 from agent.common.data_source_registry import get_all_tool_refs
 from agent.common.data_source_registry import get_source_id_for_tool
-from agent.common.data_source_registry import names_of
 from nat.plugin_api import LLMFrameworkEnum
 
 if TYPE_CHECKING:
@@ -27,8 +26,7 @@ def _source_ids_by_lowercase() -> tuple[list[str], dict[str, str]]:
     convention is snake_case (e.g. ``web_search``, ``knowledge_layer``); two IDs
     differing only by case would collapse here.
     """
-    # A stored plan may name a source by the id it had before a rename (a job's ``ris``): still known.
-    known_ids = sorted(names_of({source.id for source in get_all_sources()}))
+    known_ids = sorted(source.id for source in get_all_sources())
     return known_ids, {source_id.lower(): source_id for source_id in known_ids}
 
 
@@ -64,7 +62,7 @@ async def _get_agent_available_source_ids(builder: WorkflowBuilder, agent_config
         sid = get_source_id_for_tool(name)
         if sid is not None:
             source_ids.add(sid)
-    return sorted(names_of(source_ids))
+    return sorted(source_ids)
 
 
 async def validate_data_sources_for_agent(

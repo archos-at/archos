@@ -255,11 +255,20 @@ const rulesetRecord = z.object({
 })
 
 /** A public source (ADR-0174): its key is the source id the fetcher, captures and monitors name. */
-const sourceRecord = z.object({
-  type: z.literal('source'),
-  ...sourceRecordFields,
-  ...common,
-})
+const sourceRecord = z
+  .object({
+    type: z.literal('source'),
+    ...sourceRecordFields,
+    ...common,
+  })
+  .superRefine((record, ctx) => {
+    // The fetcher refuses a record whose copies are its own hosts (public_sources `Source`): refused here,
+    // or it would be released and every lookup would fall back past it.
+    const own = new Set(record.hosts)
+    record.copyHosts.forEach((host, index) => {
+      if (own.has(host)) ctx.addIssue({ code: 'custom', path: ['copyHosts', index], message: `${host} is one of hosts, not a copy` })
+    })
+  })
 
 // A golden case (0228): one question of a country's quality bar (`wire/golden-case.ts`).
 const goldenCaseRecord = z.object({ type: z.literal('golden_case'), key: keySchema, ...goldenCaseFields(territoryIdSchema, keySchema), ...common })

@@ -3,7 +3,7 @@
 operators:
   - >
     The law lookup is one tool for every country, named law_lookup: which
-    country's law it reads is its source record's. A data-source switch or a
-    job that names RIS still turns it off or on. A country's source record can
+    country's law it reads is its source record's. The RIS switch still turns
+    it off or on. A country's source record can
     now name the sites that republish its law (copy hosts), and a web search
     withholds those copies wherever the law can be read at its source.

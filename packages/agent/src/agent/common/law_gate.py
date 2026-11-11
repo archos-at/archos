@@ -25,34 +25,33 @@ if TYPE_CHECKING:
     from agent.citations.entries import SourceEntry
 
 #: The country whose law each legal-database adapter holds (``configs/*.yml`` ``data_sources`` ids).
-#: A fact about the source, like its URL: RIS is Austria's legal information system. Deep research's three
-#: RIS tools read their database directly, so a turn may call them only where its knowledge context allows
-#: that country's law (:func:`law_sources_withheld`). The law lookup is not in it: its record says its country.
+#: A fact about the source, like its URL: RIS is Austria's legal information system. A turn may call an
+#: adapter only where its knowledge context allows that country's law (:func:`law_sources_withheld`).
 LAW_SOURCE_COUNTRIES: dict[str, str] = {"ris": "AT"}
-
-#: The data source of the country-neutral law lookup (``agent.knowledge.law_lookup``). Which country it reads is
-#: its source record's, so the gate withholds it only on a turn that reads no law at all.
-LAW_LOOKUP_SOURCE = "law_lookup"
 
 #: The tag that marks the turn's building law, in the turn context and in a research prompt.
 BUILDING_LAW_TAG = "<building_law>"
 
 
 def law_sources_withheld(*, reads_turn_sources: bool = False) -> frozenset[str]:
-    """The legal-database sources this turn may not consult.
+    """The legal-database sources this turn may not consult: each one whose country the gate does not allow.
 
     Joined to the switched-off sources, so a call is refused at the tools node with the same notice
     (the chat agent) or the tool is not offered (deep research), and the gate's note says why.
 
-    The law lookup is withheld only where the turn reads no law (``GatePolicy.reads_law``); otherwise the
-    lookup decides by its source record's country (``law_lookup.turn_source.withheld_note``), never by a table
-    here. ``reads_turn_sources``: the caller binds only the lookup (the chat binding), so the adapters' table
-    is not read. Deep research's RIS tools stay gated by their country.
+    ``reads_turn_sources``: the caller's lookup reads the released source the turn carries for its country
+    (``agent.knowledge.law_lookup``, the chat binding), so it is not withheld where the turn carries one of a
+    country it may read; the lookup checks its fallback record's own country itself. Deep research's tools read
+    their database directly and stay gated by its country.
     """
-    lookup = frozenset() if gate_policy(turn_knowledge_context().gate).reads_law else frozenset({LAW_LOOKUP_SOURCE})
-    if reads_turn_sources:
-        return lookup
-    return lookup | {source for source, country in LAW_SOURCE_COUNTRIES.items() if not law_tools_allowed(country)}
+    if reads_turn_sources and turn_carries_readable_source():
+        return frozenset()
+    return frozenset(source for source, country in LAW_SOURCE_COUNTRIES.items() if not law_tools_allowed(country))
+
+
+def turn_carries_readable_source() -> bool:
+    """Whether the turn carries a released law source of a country it may read (``KnowledgeContext.sources``)."""
+    return any(law_tools_allowed(source.country) for source in turn_knowledge_context().sources)
 
 
 def withheld_notice(source_id: str, label: str) -> str | None:
@@ -62,27 +61,21 @@ def withheld_notice(source_id: str, label: str) -> str | None:
     as a setting the person could change (QC on staging: „RIS ist deaktiviert"). The answer then says what it
     could not read and holds its confidence below high.
     """
-    if source_id.lower() == LAW_LOOKUP_SOURCE:
-        return None if gate_policy(turn_knowledge_context().gate).reads_law else _refusal(label, None)
     country = LAW_SOURCE_COUNTRIES.get(source_id.lower())
     return None if country is None else withheld_notice_for_country(country, label)
 
 
 def withheld_notice_for_country(country: str, label: str) -> str | None:
     """:func:`withheld_notice` for a source known by its country (a source record's territory)."""
-    return None if law_tools_allowed(country) else _refusal(label, country)
-
-
-def _refusal(label: str, country: str | None) -> str:
-    """The refusal, saying why from the turn's gate; ``country`` is the source's, when it holds one country's law."""
+    if law_tools_allowed(country):
+        return None
     context = turn_knowledge_context()
     site = context.site_country or "a country"
-    holds = f"{label} holds the law of {country}, which this turn does not read" if country else "no law is read"
     reason = {
         "organization_unplaced": "the office's country is not set, so no country's law is read",
         "not_entitled": f"the site is in {site} and this office's workspace does not include its law",
         "knowledge_unavailable": "the building-law base could not be read for this turn",
-    }.get(context.gate, holds)
+    }.get(context.gate, f"{label} holds the law of {country}, which this turn does not read")
     return (
         f"Not executed: {label} was not consulted because {reason}. Answer with what you already have, say in "
         "one sentence which source could not be read and why, and keep confidence below high."

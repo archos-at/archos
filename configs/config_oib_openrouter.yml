@@ -419,23 +419,16 @@ functions:
           # turn whose only finding was a precedent was replaced by the canned
           # "search unavailable" reply (found by the precedent eval).
           - project_lookup
-      - id: law_lookup
-        name: "Law lookup"
-        description: "Look up a law at its official source and read the provision."
-        # A selection or a switch stored before the rename names the old id: a
-        # job plan's `ris` still selects this source (`unavailable_source_ids`).
-        aliases:
-          - ris
-        tools:
-          # `get_source_id_for_tool` must resolve the name a tool result
-          # arrives under, or nothing it returned is captured as a citable source.
-          - law_lookup
       - id: ris
         name: "RIS – Österreichisches Recht"
         description: "Search Austrian federal/state law and case law in the official RIS (Rechtsinformationssystem des Bundes) and fetch entire documents on demand."
         tools:
-          # Deep research's three RIS tools (and its own internals); the chat
-          # surface reads law through `law_lookup` above.
+          # All four, deliberately: `get_source_id_for_tool` must resolve the
+          # name a tool result arrives under, or nothing it returned is captured
+          # as a citable source. `law_lookup` is the chat surface's law tool and
+          # stays under this source (and its switch) until a country-neutral
+          # picker exists (#1644); the other three are deep research's.
+          - law_lookup
           - ris_search_tool
           - ris_fetch_tool
           - ris_catalog_lookup_tool

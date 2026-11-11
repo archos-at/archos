@@ -120,13 +120,13 @@ def test_every_law_tool_resolves_to_a_data_source(config: dict):
 
     Every bound name is listed: a result arriving under a name the registry does
     not know is never captured as citable, and the answer's citations are then
-    stripped as unsupported. The lookup has its own source, named for what it
-    does; a selection stored under the old id `ris` still selects it.
+    stripped as unsupported. The law lookup stays under the `ris` source, and its
+    switch, until a country-neutral picker exists (#1644).
     """
     sources = {source["id"]: source for source in config["functions"]["data_sources"]["sources"]}
-    assert sources["law_lookup"]["tools"] == ["law_lookup"]
-    assert sources["law_lookup"]["aliases"] == ["ris"]
-    assert {"ris_search_tool", "ris_fetch_tool", "ris_catalog_lookup_tool"} <= set(sources["ris"]["tools"])
+    assert {"law_lookup", "ris_search_tool", "ris_fetch_tool", "ris_catalog_lookup_tool"} <= set(
+        sources["ris"]["tools"]
+    )
 
 
 def test_the_deep_researcher_can_show_a_file_and_not_only_cite_it(config: dict):

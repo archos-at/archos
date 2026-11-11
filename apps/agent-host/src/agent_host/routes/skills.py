@@ -288,9 +288,8 @@ async def _check_skill_data_sources(body: SkillSubmitPayload, agent_type: str, c
         # check (unknown IDs still 422; only per-agent availability is
         # unverifiable without the builder).
         from agent.common.data_source_registry import get_all_sources
-        from agent.common.data_source_registry import names_of
 
-        known_ids = names_of({source.id for source in get_all_sources()})
+        known_ids = {source.id for source in get_all_sources()}
         unknown = sorted(set(body.data_sources) - known_ids)
         if unknown:
             raise HTTPException(422, f"Unknown data source IDs: {', '.join(unknown)}")

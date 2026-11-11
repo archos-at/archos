@@ -33,4 +33,12 @@ describe('Austria’s source records, as the door takes them', () => {
     expect(record.copyHosts?.length).toBeGreaterThan(0)
     expect(record.copyHosts?.filter((host) => record.hosts.includes(host))).toEqual([])
   })
+
+  it('refuses a copy that is one of the source’s own hosts: the fetcher would refuse the released record', () => {
+    const record = payload.records[0] as { hosts: string[]; copyHosts: string[] }
+    const own = { ...record, copyHosts: [...record.copyHosts, record.hosts[0]] }
+    const result = proposeRecordsBodySchema.safeParse({ records: [own] })
+    expect(result.success).toBe(false)
+    expect(JSON.stringify(result.error?.issues)).toContain('is one of hosts')
+  })
 })

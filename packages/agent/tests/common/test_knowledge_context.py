@@ -147,14 +147,14 @@ def test_without_a_bound_context_nothing_is_allowed():
     assert turn_knowledge_context() == UNAVAILABLE
     assert law_tools_allowed("AT") is False
     assert corpus_country_allowed("AT") is False
-    assert law_sources_withheld() == frozenset({"ris", "law_lookup"})
+    assert law_sources_withheld() == frozenset({"ris"})
     assert "not available this turn" in (jurisdiction_note() or "")
 
 
 def test_a_gate_that_does_not_read_austria_withholds_the_corpus_and_ris():
     set_turn_knowledge_context(KnowledgeContext(gate="not_entitled", site_country="AT"))
     assert corpus_country_allowed("AT") is False
-    assert law_sources_withheld() == frozenset({"ris", "law_lookup"})
+    assert law_sources_withheld() == frozenset({"ris"})
 
 
 @pytest.mark.parametrize("gate", ["site_unknown", "none", "open", "core"])
@@ -246,28 +246,6 @@ def test_a_german_site_never_runs_the_austrian_legal_database():
     assert law_sources_withheld() == frozenset({"ris"})
 
 
-@pytest.mark.parametrize("gate", ["organization_unplaced", "not_entitled", "knowledge_unavailable", "partial"])
-def test_the_law_lookup_is_withheld_only_where_the_turn_reads_no_law(gate):
-    """The chat binding's lookup is gated by whether the turn reads law, never by a country table (ADR-0174)."""
-    from agent.common.law_gate import withheld_notice
-
-    set_turn_knowledge_context(KnowledgeContext(gate=gate, site_country="AT"))
-    assert law_sources_withheld(reads_turn_sources=True) == frozenset({"law_lookup"})
-    assert (withheld_notice("law_lookup", "Law lookup") or "").startswith("Not executed: Law lookup was not consulted")
-
-
-@pytest.mark.parametrize("site", ["AT", "DE", "XA"])
-def test_a_turn_that_reads_law_offers_the_law_lookup_in_any_country(site):
-    """Which country the lookup reads is its record's: a turn in any country that reads law is offered it."""
-    from agent.common.law_gate import withheld_notice
-
-    set_turn_knowledge_context(
-        KnowledgeContext(gate="core", site_country=site, retrieval_countries=frozenset({site, "EU"}))
-    )
-    assert law_sources_withheld(reads_turn_sources=True) == frozenset()
-    assert withheld_notice("law_lookup", "Law lookup") is None
-
-
 @pytest.mark.parametrize(
     ("gate", "country", "heading"),
     [
@@ -355,7 +333,7 @@ def test_an_unknown_gate_state_fails_closed():
     assert gate_policy("partial") == gate_policy("knowledge_unavailable")
     assert KnowledgeContext(gate="partial").withholds_law
     set_turn_knowledge_context(KnowledgeContext(gate="partial", retrieval_countries=frozenset({"AT"})))
-    assert law_sources_withheld() == frozenset({"ris", "law_lookup"})
+    assert law_sources_withheld() == frozenset({"ris"})
 
 
 # --- the strict-versus-unscoped rule of corpus_countries (a request's silence is never "unscoped") ---

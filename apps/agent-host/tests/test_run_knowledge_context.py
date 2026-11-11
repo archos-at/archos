@@ -50,4 +50,4 @@ def test_a_run_without_a_context_fails_closed():
     context, withheld = _bound()
     assert context.gate == "knowledge_unavailable"
     assert context.text is None and context.uses == ()
-    assert withheld == frozenset({"ris", "law_lookup"})
+    assert withheld == frozenset({"ris"})
