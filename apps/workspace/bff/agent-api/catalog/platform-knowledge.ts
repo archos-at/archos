@@ -36,6 +36,7 @@ import {
   territoryImportBodySchema,
 } from '@/lib/base-knowledge/platform/wire'
 import { importTextBodySchema, listTextsQuerySchema, uploadTextFields } from '@/lib/base-knowledge/platform/text-wire'
+import { releaseExportParamsSchema, releaseImportFields } from '@/lib/base-knowledge/platform/release-wire'
 import { goldenRunAdvanceBodySchema, goldenRunBodySchema, goldenRunParamsSchema } from '@/lib/base-knowledge/wire/golden-case'
 import { addDocumentBodySchema, listWorksQuerySchema, uploadDocumentFields } from '@/lib/base-knowledge/platform/document-add-wire'
 import type { AgentOperation, PersonConfirmation } from '../operation'
@@ -355,6 +356,46 @@ export const platformKnowledgeOperations = [
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/validation',
     params: requestParams,
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/validation/route'),
+  },
+  {
+    name: 'platform-knowledge-release-export',
+    domain: 'platform',
+    summary: 'Export a country’s stable release as one bundle file, to import on another deployment',
+    description:
+      'Reads the stable revision of every platform record of the country and answers one versioned bundle as a gzipped ' +
+      'JSON file (`knowledge-release-<country>-<seq>.json.gz`): each record as the proposal it was published from ' +
+      '(records name each other by key, so they resolve anywhere), the captures its citations name with their text, ' +
+      'URL, sha256 and basis, each attached text as its file name, URL and sha256 (never the PDF), and `requires`: ' +
+      'records of other countries it names. Writes nothing. Refused while a second review disputes a released record. ' +
+      'Upload the file unchanged to platform-knowledge-release-import on the other deployment.',
+    method: 'GET',
+    path: '/api/platform/knowledge/releases/[countryId]',
+    params: releaseExportParamsSchema,
+    load: () => import('@/app/api/platform/knowledge/releases/[countryId]/route'),
+  },
+  {
+    name: 'platform-knowledge-release-import',
+    domain: 'platform',
+    summary: 'Import another deployment’s release bundle as a new draft change request',
+    description:
+      'Send the file platform-knowledge-release-export answered as `body.files[0]` ({ name, mimeType, contentBase64 }, ' +
+      `up to ${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB) and optionally \`body.fields.title\`. Writes it into a NEW draft ` +
+      'change request of its country, and nothing more: it never submits, approves or publishes, so the draft is ' +
+      'reviewed here with four eyes like any other. The records are checked as a proposal is first; a bundle that ' +
+      'fails is refused whole (422 with the problems) and leaves nothing behind. Every capture comes in as ' +
+      'operator-supplied (nobody fetched it here), so a reviewer checks it against its source (`sourceChecked`) ' +
+      'before approval. Each manifestation names the released file: attach bytes with the released sha256 through ' +
+      'platform-knowledge-text-import (the text’s `url` and `sourceId`) or platform-knowledge-text-upload; other ' +
+      'bytes are refused (`TEXT_NOT_RELEASED`). Answers the draft’s id and the `texts` to attach. Refused with ' +
+      '`REFERENCE_NOT_RELEASED` while a record names another country’s record this deployment has not released to ' +
+      'stable: import and publish that country first. The same bundle again answers the request it went into, ' +
+      '`unchanged`, with its `requestStatus`. Then platform-knowledge-validate and platform-knowledge-change-request-submit.',
+    method: 'POST',
+    path: '/api/platform/knowledge/releases',
+    body: uploadBodySchemaWith(releaseImportFields),
+    bodyEncoding: 'multipart',
+    idempotent: true,
+    load: () => import('@/app/api/platform/knowledge/releases/route'),
   },
   {
     name: 'platform-territory-import',

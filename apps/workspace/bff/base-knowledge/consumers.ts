@@ -244,7 +244,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   // Migration 0213 (ADR-0173): coverage and the connecting factor, read by the turn's knowledge context.
   { element: 'knowledge_territory_revisions.coverage_level', consumer: CONTEXT_RESOLVE, test: { file: EDGE_CASES, name: 'id: E02' } },
   { element: 'knowledge_territory_revisions.municipal_law', consumer: CONTEXT_RESOLVE, test: { file: EDGE_CASES, name: 'id: E-core-AT' } },
-  // Migration 0234 (country-as-data, step 3): the zone a day is read in, read by the time path for an open procedure's window.
+  // Migration 0235 (country-as-data, step 3): the zone a day is read in, read by the time path for an open procedure's window.
   { element: 'knowledge_territory_revisions.zone', consumer: 'apps/workspace/bff/base-knowledge/time/repository.ts', test: { file: 'apps/workspace/bff/base-knowledge/time/as-of.spec.ts', name: 'is the nearest zone a record on the chain states, and none without one' } },
   { element: 'knowledge_work_revisions.connects_by', consumer: CONTEXT_RESOLVE, test: { file: EDGE_CASES, name: 'id: E40' } },
   // Migration 0211 (ADR-0168): relations, read by the resolver that gives every edition its role.

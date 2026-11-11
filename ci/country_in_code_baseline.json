@@ -133,7 +133,6 @@
   "apps/workspace/ui/features/chat/lib/derivation-basis.ts": 8,
   "apps/workspace/ui/features/chat/lib/document-names.ts": 24,
   "apps/workspace/ui/features/chat/lib/executed-steps.ts": 5,
-  "apps/workspace/ui/features/chat/lib/source-citation.ts": 20,
   "apps/workspace/ui/features/chat/lib/turn-event-keys.ts": 1,
   "apps/workspace/ui/features/chat/lib/wire-citation.ts": 1,
   "apps/workspace/ui/features/chat/types.ts": 1,

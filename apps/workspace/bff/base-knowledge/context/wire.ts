@@ -12,8 +12,13 @@ import { useApplicabilitySchema } from '../wire/project-law'
 import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS, TEXT_STATUSES } from '../wire/vocab'
 import { MAX_SOURCE_REFS, sourceRefSchema } from '../chain/source-refs'
 
-/** Most uses a turn carries (design §5.5: works ≤ 40). */
-export const MAX_CONTEXT_USES = 40
+/**
+ * Most uses a turn carries, binding first: a bound on the payload, not on the
+ * law. The resolver resolves every use and the chain text words them all; a
+ * site with more (a Land whose administrative regulation lists hundreds of
+ * standards) still answers, and a citation of a use past it reads no role.
+ */
+export const MAX_CONTEXT_USES = 500
 
 /** What the turn may claim about the law of its site: in the vocabulary (`wire/vocab.ts`), so the intake's wire reads it too. */
 export { GATE_STATES, type GateState } from '../wire/vocab'

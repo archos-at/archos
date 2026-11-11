@@ -358,6 +358,19 @@ export const conversationsOperations = [
     load: () => import('@/app/api/citations/format/route'),
   },
   {
+    name: 'citation-style-get',
+    domain: 'conversations',
+    summary: 'Read how the office’s country writes a citation',
+    description:
+      'The citation style released for the office’s home country, per language: which sources are a standard or a law, ' +
+      'the line template per kind, the locus and page labels, the edition phrase and the date form. Write references in it. ' +
+      'Returns `{ style }`, null while the country has none released.',
+    method: 'GET',
+    path: '/api/citations/style',
+    readOnly: true,
+    load: () => import('@/app/api/citations/style/route'),
+  },
+  {
     name: 'passage-similar-search',
     domain: 'conversations',
     summary: 'Find passages like one in the office’s documents',

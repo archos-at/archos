@@ -1,0 +1,60 @@
+{
+  "$comment": "FALLBACK, delete after rollover: the citation style a line is written in while no country's `citation_style` ruleset is released (docs/design/international/rollover-to-prod.md). It is the payload of configs/knowledge-packs/at-citation-styles.json, held equal by shared/citation-lines.fixture.spec.ts; it is how every line was written before the form became a record. Delete it, with shared/citation-style-fallback.ts and the null answer of bff/citations/style.ts, once that record is published on prod.",
+  "styles": [
+    {
+      "language": "de",
+      "kinds": [
+        {
+          "match": {"authorities": ["OIB"], "tints": ["oib"], "lanePrefixes": ["building_law_oib"]},
+          "type": "standard",
+          "publisher": "Österreichisches Institut für Bautechnik",
+          "place": "Wien"
+        },
+        {"match": {"authorities": ["ÖNORM"]}, "type": "standard"},
+        {
+          "match": {"lanePrefixes": ["building_law"], "origins": ["ris"]},
+          "type": "legislation",
+          "container": "Rechtsinformationssystem des Bundes (RIS)"
+        }
+      ],
+      "edition": {
+        "word": "Ausgabe",
+        "label": ["Ausgabe", " {month}", " {year}"],
+        "months": {
+          "jänner": 1,
+          "januar": 1,
+          "februar": 2,
+          "märz": 3,
+          "maerz": 3,
+          "april": 4,
+          "mai": 5,
+          "juni": 6,
+          "juli": 7,
+          "august": 8,
+          "september": 9,
+          "oktober": 10,
+          "november": 11,
+          "dezember": 12
+        }
+      },
+      "date": "{day}.{month}.{year}",
+      "bareLocus": "Pkt. {locus}",
+      "page": "S. {page}",
+      "lines": {
+        "standard": [
+          "{title}",
+          ", {edition}",
+          ", {locus}",
+          ", {page}",
+          " ({publisher}, {place})",
+          ", abgerufen am {accessed}: {url}",
+          "."
+        ],
+        "legislation": ["{title}", ", {locus}", ", {page}", ", in: {container}", ", abgerufen am {accessed}: {url}", "."],
+        "webpage": ["{title}", ", {container}", ", abgerufen am {accessed}: {url}", "."],
+        "report": ["{title}", ", {locus}", ", {page}", " [{note}]", "."]
+      },
+      "quote": ["„{quote}“", " — {title}", ", {page}"]
+    }
+  ]
+}

@@ -14,7 +14,7 @@
  * on a country: adding one adds records.
  */
 
-import { chainAt, resolveChain } from '../chain/resolve'
+import { chainAt, resolveChain, roleRank } from '../chain/resolve'
 import { MAX_SOURCE_REFS } from '../chain/source-refs'
 import type { BuildingScope } from '../rulesets/applicability'
 import type { GraphEdition, KnowledgeGraph, ResolvedChain } from '../chain/graph'
@@ -49,7 +49,7 @@ export interface ContextInputs {
   sites: readonly SiteLeaf[]
   /** The graph read for the first leaf; null when it could not be read. */
   graph: KnowledgeGraph | null
-  /** The graph hit its bound: what was left out reads as nothing, so the turn uses none of it. */
+  /** A read hit its safety bound: what was left out reads as nothing, so the turn uses none of it. */
   truncated: boolean
   /** The day the turn resolves at: today in the office's zone, or a procedure's reference day. */
   date: string
@@ -278,14 +278,13 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
   // `none` holds territories only: "Für <Land> sind keine Grundlagen hinterlegt".
   if (coverage === 'none') return base
   const resolved = resolveChain(graph, first.territoryId, inputs.date, inputs.building ?? null)
-  if (resolved.truncated) return refusal('knowledge_unavailable', inputs, [leaf], [])
-  const uses = resolved.uses
-    .map((use) => contextUse(graph, use, coverage, inputs))
-    .filter((use): use is ContextUse => use !== null)
-    .slice(0, MAX_CONTEXT_USES)
+  const uses = resolved.uses.map((use) => contextUse(graph, use, coverage, inputs)).filter((use): use is ContextUse => use !== null)
+  // The text words every use; the wire carries the first, binding and shortest route first. `contextUse` may
+  // demote a use (one that connects by the client informs), so the cut is made on the final roles, kept stable.
+  const carried = [...uses].sort((a, b) => roleRank(a.role) - roleRank(b.role))
   return {
     ...base,
-    uses,
+    uses: carried.slice(0, MAX_CONTEXT_USES),
     undetermined: resolved.undetermined.slice(0, MAX_CONTEXT_USES).map(({ workId, reason }) => ({ workId, reason })),
     text: textOf(graph, resolved, uses, first.territoryId, inputs.dateBasis === 'filed_on'),
   }

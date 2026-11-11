@@ -97,9 +97,16 @@ async function nameTheText(
     if (request?.status !== 'draft') throw new ConflictError('The change request left draft while the text was stored.')
     // The fetch or the upload ran outside the lock. A proposal of this manifestation made meanwhile is not written
     // over with the snapshot taken before it: the attach is refused, and attaching again names the stored bytes.
-    const latest = proposedRecordSchema.safeParse((await draftManifestation(tx, requestId, recordIdOfKey(record.key)))?.proposal)
+    const current = await draftManifestation(tx, requestId, recordIdOfKey(record.key))
+    const latest = proposedRecordSchema.safeParse(current?.proposal)
     if (!latest.success || JSON.stringify(latest.data) !== JSON.stringify(record)) {
       throw new ConflictError('The manifestation was proposed again while its text was stored; nothing was named. Attach the text again.')
+    }
+    // An imported release names the bytes it was reviewed with (`./release-transfer.ts`): only those are attached to it.
+    if (current?.releasedSha256 && current.releasedSha256 !== text.sha256) {
+      throw new ApiError(409, 'TEXT_NOT_RELEASED', `The imported release has sha256 ${current.releasedSha256} for this text; these bytes have ${text.sha256}, so nothing was named.`, {
+        hint: 'Attach the PDF whose sha256 the import answered for this manifestation, fetched from its URL or uploaded.',
+      })
     }
     const problems = await runKit(tx, request, [next], checks)
     if (problems.length > 0) {
