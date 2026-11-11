@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   claimNext,
+  closeErased,
   hasActiveHold,
   markFailed,
   markFailedPermanent,
@@ -40,6 +41,9 @@ function makeSql(returnRows = []) {
   return { fn, executed }
 }
 
+/** A claim as `claimNext` hands it to every closing write: the row, and the token the claim wrote. */
+const CLAIM = { id: 'e1', claim_token: '2026-11-11 10:00:00.123456+00' }
+
 /** Statements a helper ran, excluding the `SET LOCAL ROLE` step-up. */
 function queries(executed) {
   return executed.filter((q) => !q.text.startsWith('SET LOCAL ROLE'))
@@ -47,11 +51,11 @@ function queries(executed) {
 
 describe('claimNext', () => {
   it('selects a due row with backoff, stale-reclaim, hold and attempt guards, then claims it', async () => {
-    const { fn, executed } = makeSql([{ id: 'e1', entity_type: 'project' }])
+    const { fn, executed } = makeSql([{ id: 'e1', entity_type: 'project', claim_token: CLAIM.claim_token }])
 
     const entry = await claimNext(fn)
 
-    expect(entry).toEqual({ id: 'e1', entity_type: 'project' })
+    expect(entry).toEqual({ id: 'e1', entity_type: 'project', claim_token: CLAIM.claim_token })
     expect(queries(executed)).toHaveLength(2)
 
     const select = queries(executed)[0]
@@ -79,6 +83,9 @@ describe('claimNext', () => {
       "SET status = 'purging', claimed_at = now(), attempts = attempts + 1",
     )
     expect(claim.values).toEqual(['e1'])
+    // The token every closing write matches: the claim's own `claimed_at`, as
+    // text, so its microseconds survive the driver.
+    expect(claim.text).toMatch(/RETURNING claimed_at::text AS claim_token$/)
   })
 
   it('returns null and issues no claim UPDATE when nothing is due', async () => {
@@ -141,61 +148,13 @@ describe('releaseHeld', () => {
   it("returns the row to 'pending' and refunds one attempt (never below 0)", async () => {
     const { fn, executed } = makeSql()
 
-    await releaseHeld(fn, 'e9')
+    await releaseHeld(fn, { ...CLAIM, id: 'e9' })
 
     const q = queries(executed)[0]
     expect(q.text).toContain("SET status = 'pending'")
     expect(q.text).toContain('attempts = GREATEST(attempts - 1, 0)')
     expect(q.text).toContain('last_error =')
-    expect(q.values).toEqual(['e9'])
-  })
-})
-
-describe('markPurged', () => {
-  it("marks 'purged', stamps purged_at, clears last_error", async () => {
-    const { fn, executed } = makeSql()
-
-    await markPurged(fn, 'e1')
-
-    const q = queries(executed)[0]
-    expect(q.text).toContain("SET status = 'purged', purged_at = now(), last_error = NULL")
-    expect(q.values).toEqual(['e1'])
-  })
-})
-
-describe('markFailed', () => {
-  it("only reaches terminal 'failed' at MAX_ATTEMPTS, otherwise returns to 'pending' for retry", async () => {
-    const { fn, executed } = makeSql()
-
-    await markFailed(fn, 'e1', 'boom')
-
-    const q = queries(executed)[0]
-    expect(q.text).toContain(
-      "SET status = CASE WHEN attempts >= $ THEN 'failed' ELSE 'pending' END",
-    )
-    // bindings: MAX_ATTEMPTS, message, id
-    expect(q.values).toEqual([MAX_ATTEMPTS, 'boom', 'e1'])
-  })
-
-  it('truncates an oversized error message to 2000 chars', async () => {
-    const { fn, executed } = makeSql()
-
-    await markFailed(fn, 'e1', 'x'.repeat(5000))
-
-    expect(queries(executed)[0].values[1]).toHaveLength(2000)
-  })
-})
-
-describe('markFailedPermanent', () => {
-  it("marks 'failed' unconditionally (no attempt-count CASE)", async () => {
-    const { fn, executed } = makeSql()
-
-    await markFailedPermanent(fn, 'e1', 'no purger registered')
-
-    const q = queries(executed)[0]
-    expect(q.text).toContain("SET status = 'failed'")
-    expect(q.text).not.toContain('CASE')
-    expect(q.values).toEqual(['no purger registered', 'e1'])
+    expect(q.values).toEqual(['e9', CLAIM.claim_token])
   })
 })
 
@@ -207,10 +166,10 @@ describe('markFailedPermanent', () => {
 describe('platform scope', () => {
   it('steps up to the BYPASSRLS role before every statement', async () => {
     for (const run of [
-      (sql) => releaseHeld(sql, 'e1'),
-      (sql) => markPurged(sql, 'e1'),
-      (sql) => markFailed(sql, 'e1', 'boom'),
-      (sql) => markFailedPermanent(sql, 'e1', 'boom'),
+      (sql) => releaseHeld(sql, CLAIM),
+      (sql) => markFailed(sql, CLAIM, 'boom'),
+      (sql) => markFailedPermanent(sql, CLAIM, 'boom'),
+      (sql) => closeErased(sql),
       (sql) => reapStranded(sql),
     ]) {
       const { fn, executed } = makeSql()

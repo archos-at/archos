@@ -1163,5 +1163,57 @@
       ],
       "additionalProperties": false
     }
+  },
+  "x-lifecycle": {
+    "id": "run-ledger",
+    "initial": "created",
+    "states": {
+      "created": {
+        "on": {
+          "start": "running",
+          "ask": "waiting",
+          "finish": "done",
+          "fail": "failed",
+          "cancel": "cancelled"
+        }
+      },
+      "running": {
+        "on": {
+          "ask": "waiting",
+          "finish": "done",
+          "fail": "failed",
+          "cancel": "cancelled",
+          "salvage": "interrupted"
+        }
+      },
+      "waiting": {
+        "on": {
+          "resume": "running",
+          "finish": "done",
+          "fail": "failed",
+          "cancel": "cancelled"
+        }
+      },
+      "done": {
+        "on": {
+          "salvage": "interrupted"
+        }
+      },
+      "failed": {
+        "type": "final"
+      },
+      "cancelled": {
+        "type": "final"
+      },
+      "interrupted": {
+        "type": "final"
+      }
+    },
+    "ended": [
+      "done",
+      "failed",
+      "cancelled",
+      "interrupted"
+    ]
   }
 }

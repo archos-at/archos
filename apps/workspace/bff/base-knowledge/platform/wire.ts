@@ -160,7 +160,9 @@ const manifestationRecord = z.object({
     .regex(/^[^/\\]{1,200}\.pdf$/, 'a PDF file name in the base corpus')
     .nullable()
     .default(null)
-    .describe('The text, as a file uploaded to the base corpus; null for a listing without text.'),
+    .describe(
+      'The text’s file in the base corpus; propose null and attach the PDF with platform-knowledge-text-import or -text-upload, which set it to a name of the text’s own. A file another record names is refused, and the revision keeps the hash of the bytes named.',
+    ),
   ...common,
 })
 
@@ -292,6 +294,11 @@ export interface ProposalRecordResult {
   status: 'valid' | 'invalid' | 'written' | 'unchanged'
   revisionId: string | null
   problems: KitProblemView[]
+  /**
+   * What the record still waits for before the request validates, each with what to do: a source whose fixture
+   * names no capture yet (`captureId: null`) is written into the draft with this set, and fails validate until it is recorded.
+   */
+  awaiting?: string[]
 }
 
 /** A problem of the validation kit as the wire carries it (`validate.ts`). */
@@ -348,6 +355,14 @@ export interface CaptureView {
   changeRequestId: string
   basis: 'fetched' | 'operator_supplied'
   sourceId: string | null
+  /** What a fetch went through: a built-in source, a source record's released revision, or one still in this draft. */
+  sourceOrigin: 'built_in' | 'released' | 'draft' | null
+  /**
+   * Whether the product fetched it through a reviewed source. False for an operator's text and for a fetch through a
+   * source proposed in a draft or released by one person alone: another person checks those against the source
+   * (`sourceChecked`) before any approval.
+   */
+  countsAsFetched: boolean
   url: string
   finalUrl: string | null
   contentType: string | null
@@ -403,7 +418,9 @@ export const reviewBodySchema = z.object({
         sourceChecked: z
           .boolean()
           .default(false)
-          .describe('You checked the cited capture against its source; required before approving a record that cites an operator-supplied capture.'),
+          .describe(
+            'You checked the cited capture, or the manifestation’s text, against its source; required before approving a record that cites an operator-supplied capture or names a text nobody fetched (uploaded, or only named in the base corpus).',
+          ),
       }),
     )
     .min(1)
@@ -495,9 +512,10 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   submittedAt: string | null
   publishedAt: string | null
   revisions: RevisionView[]
+  texts: import('./text-wire').AttachedTextView[]
   /** The pages the records cite, as captured (ADR-0170); their text stays on the server. */
   captures: CaptureView[]
-  /** A record cites an operator-supplied capture nobody but its author checked against its source: nobody approves until another person does, alone or not. */
+  /** A record cites an operator-supplied capture, or names a text nobody fetched, that nobody but its author checked against its source: nobody approves until another person does, alone or not. */
   sourcesUnchecked: boolean
   /** Each role approved alone and its second review (ADR-0176); empty on a four-eyes request. */
   secondReviewRoles: SecondReviewRoleView[]

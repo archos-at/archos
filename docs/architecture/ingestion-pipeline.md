@@ -69,9 +69,12 @@ Three things in this picture decide almost everything about speed and reliabilit
    (32 by default, a lease pool on Dragonfly, A:419). That pool is shared by every
    office on the platform. It is the throughput ceiling, not CPU.
 3. **Status is pulled, never pushed.** The BFF learns a document is done when someone
-   reads the document list (`reconcile-status.ts:829`), polled every 5 s and then
-   every 60 s by an open tab. ADR-0150 adds a push when a job ends
-   ([section 7](#7-who-runs-the-job)); the read and the sweep stay as fallbacks.
+   reads the document list (`reconcileDocumentStatuses`). ADR-0150 adds a push
+   when a job ends ([section 7](#7-who-runs-the-job)); the read and the sweep
+   stay as fallbacks. The settle publishes `shelf.changed` to the shelf's live
+   channel, and an open tab reads its upload's status on that hint and once a
+   minute otherwise; only a chat's attachments, which are on no shelf, are
+   still polled every 5 s and then every 60 s.
 
 ## 2. How a file reaches the queue
 

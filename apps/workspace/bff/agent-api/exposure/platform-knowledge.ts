@@ -33,6 +33,13 @@ export const PLATFORM_KNOWLEDGE_EXPOSURE = {
   'platform-knowledge-source-credential-set': PLATFORM_PUBLIC,
   'platform-knowledge-source-status': PLATFORM_PUBLIC,
   'platform-knowledge-source-test': PLATFORM_PUBLIC,
+  // An edition's public text, attached in its draft: fetched by the sandboxed fetcher or uploaded, platform content only.
+  'platform-knowledge-base-get': PLATFORM_PUBLIC,
+  'platform-knowledge-document-get': PLATFORM_PUBLIC,
+  'platform-knowledge-text-get': PLATFORM_PUBLIC,
+  'platform-knowledge-text-import': PLATFORM_PUBLIC,
+  'platform-knowledge-text-list': PLATFORM_PUBLIC,
+  'platform-knowledge-text-upload': PLATFORM_PUBLIC,
   'platform-knowledge-validate': PLATFORM_PUBLIC,
   'platform-org-countries-list': PLATFORM_PUBLIC,
   'platform-org-country-entitle': PLATFORM_PUBLIC,

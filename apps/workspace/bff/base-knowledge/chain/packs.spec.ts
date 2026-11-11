@@ -69,7 +69,13 @@ describe('the Austria and EU packs', () => {
     for (let start = 0; start < atRecords.length; start += MAX_PROPOSED_RECORDS)
       expect(() => proposeRecordsBodySchema.parse({ records: at.records.slice(start, start + MAX_PROPOSED_RECORDS) })).not.toThrow()
     expect(structural(validateProposal(euRecords, 'EU', new Map(), new Map()))).toEqual([])
-    expect(structural(validateProposal(atRecords, 'AT', published, new Map()))).toEqual([])
+    // A text's file is in the base corpus before its record is written (ADR-0165): the corpus answers for each, as the api tier does.
+    const held = new Map(atRecords.filter((record) => record.type === 'manifestation' && record.corpusFile).map((record) => [recordIdOf(record), []]))
+    expect(held.size).toBeGreaterThan(0)
+    expect(structural(validateProposal(atRecords, 'AT', published, new Map(), [], held))).toEqual([])
+    // Unasked, each of those texts is a problem at its corpusFile, and nothing else is.
+    const unasked = validateProposal(atRecords, 'AT', published, new Map()).filter((problem) => problem.code !== 'KC-6')
+    expect(unasked.map((problem) => `${problem.code} ${problem.pointer}`)).toEqual([...held].map(() => 'KC-1 /corpusFile'))
   })
 
   it('cannot be published from the file alone: every record still needs a captured, quoted source', () => {

@@ -1,0 +1,13 @@
+---
+# area: administration
+security:
+  - >
+    A ZIP of source texts uploaded on the platform console is now measured by
+    the bytes it really unpacks to, so an archive that understates its size can
+    no longer exhaust the server's memory.
+operators:
+  - >
+    A text released into a country is now always indexed with its release, even
+    when the release lands while the text is being indexed, so a released text
+    can no longer stay unreadable without anything saying so. A failed refresh
+    of the draft change requests now says so and retries that refresh.

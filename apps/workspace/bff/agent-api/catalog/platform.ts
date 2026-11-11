@@ -747,10 +747,10 @@ export const platformOperations = [
     domain: 'platform',
     summary: 'Upload a PDF or ZIP to the base corpus',
     description:
-      `Adds a PDF, or a ZIP of PDFs, to the shared building-law corpus every organization reads. Up to ${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB per call ` +
+      `Adds a PDF, or a ZIP of PDFs, to the base corpus store. Up to ${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB per call ` +
       'through the agent door. Send `body.files[0]` as { name, mimeType, contentBase64 }; `body.fields.doc_class` presets the document type ' +
       'of a single PDF. Ingestion runs in the background: the answer is `pending`, follow it with the corpus status operations. ' +
-      'Platform owners only.',
+      'No country reads a file added here; attach an edition’s text in its change request with platform-knowledge-text-import or -text-upload instead. Other bytes under a file a platform record names are refused with NAME_TAKEN: a named text changes only in a change request. Platform owners only.',
     method: 'POST',
     path: '/api/platform/knowledge/documents',
     body: uploadBodySchemaWith({

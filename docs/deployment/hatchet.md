@@ -4,8 +4,11 @@ Every background job of the workspace runs on Hatchet (ADR-0150): ingesting a
 document (`ingest-document`, and `ingest-document-heavy` for a large file), a
 research run (`research-run`) and the BFF's jobs (`bff-job`, one task with the
 job kind in its input). The claim queues it
-replaced (`ingest_job_queue`, `research_job_queue`, `bff_job_queue`) are no
+replaced for ingest and research (`ingest_job_queue`, `research_job_queue`) are no
 longer written; their tables stay until a later migration drops them.
+`bff_job_queue` is still written: its row is each BFF job's record (payload,
+attempts, holder), which the `bff-job` run reads and settles
+(`apps/workspace/bff/jobs-queue/repository.ts`).
 
 This page is for the operator: what runs where, how a stack gets it, how to
 upgrade it, how to reach the dashboard, what to watch, and the cutover from
@@ -124,6 +127,98 @@ crons, cancels, pausing a workflow. That is why every tier is given
 (`HATCHET_API_URL`, `platform/hatchet.ts`), and the token's claim is never
 used. Exposing the dashboard on a real hostname would mean changing
 `serverUrl` and the cookie domain together; the clients would not notice.
+
+## Crons and scheduled runs: what the engine does
+
+Found by trial on `hatchet-lite` v0.114.2 with TypeScript SDK 1.46.0
+(2026-11-11; ADR-0150 has the note):
+
+* **A cron is UTC unless it names a zone.** An expression that starts with
+  `CRON_TZ=<IANA zone> ` runs on that zone's clock (tried for Vienna and Tokyo
+  on one November day; the summer offset was not tried):
+  `frist-reminder` is `CRON_TZ=Europe/Vienna 45 6 * * *`. The crons API and
+  the dashboard show the expression as written and no next start time.
+* **A cron tick that comes due while the task's previous run is still going
+  is dropped** (`CANCEL_NEWEST`), and one the engine was down for is not
+  caught up as far as we know (not tried). Work that must not skip an
+  occurrence is a scheduled run, as a task definition is.
+* **A scheduled run that fired is gone from the API**: get, update and delete
+  answer 404. `scheduled.update` moves a pending run's `triggerAt` and keeps
+  its input, so it cannot stand in for delete and create where the input
+  carries the due time (`bff/scheduling/scheduled-runs.ts`).
+* **Every maintenance sweep is a cron task of the `bff-jobs` worker**
+  (`SWEEPS`, `apps/workspace/bff/scheduling/tasks.ts`; the table is in
+  [`agent-skills.md`](../architecture/agent-skills.md#scheduler-worker-hatchet-appsworkspacebffscheduling)).
+  A sweep that exists only as a function or an internal route has no caller:
+  the inbox retention ran nowhere, on the old scheduler or since, until it
+  became `collaboration-retention`.
+
+## Folder cards on the ingest worker
+
+The folder card builder (ADR-0127, tier 1) has no Deployment and no scaler of
+its own. The standard `ingest-worker` serves its three workflows beside
+`ingest-document` (`packages/agent/src/agent/knowledge/folder_cards/workflow.py`),
+because a build needs the summary model and the embedder that worker holds:
+
+| Workflow | When | What it does |
+|---|---|---|
+| `folder-cards-sweep` | cron, every minute | asks the dirty set (`folder_card_queue`) which collections hold a folder that went quiet and starts one build for each |
+| `folder-cards-build` | started by the sweep | builds one collection's due folders, children before parents; its failure handler is `give-up` |
+| `folder-cards-reconcile` | cron, 02:23 UTC | marks every folder whose card no longer matches its inputs |
+
+What the engine does, and what stayed ours:
+
+* **Ours: the dirty set.** `folder_card_queue` in the agent database (the one
+  `document_metadata` is in) is one row per dirty folder with two clocks: a
+  folder is due once nothing marked it for ten minutes, or once it has been
+  dirty an hour. A parent waits for every dirty folder below it. Hatchet has no
+  debounce and must never hold a folder path (a person's words), so the set
+  stays, and the sweep reads it. A run carries the collection and the
+  organisation, nothing else.
+* **The engine's: who builds, and how often.** One live `folder-cards-build`
+  run per collection (idempotency on `input.collection`; the sweep's next
+  minute collides and starts nothing; a run waiting out its backoff is still
+  that one run, which `test_folder_card_workflow_engine.py` holds on a real
+  engine), one collection at a time per
+  organisation (`folder-cards-org`, round robin), three attempts 25 s and ten
+  minutes apart, 30 minutes per attempt. A failed folder fails the attempt
+  after the other folders were built; the last attempt gives it up (out of the
+  set, its card `failed`), and the nightly reconcile marks it again.
+* **Ours: the bound on a build that cannot pass.** A run that dies on every
+  attempt (its worker lost, every attempt timed out) settles no folder, so its
+  failure handler `give-up` counts the run on each dirty folder of the
+  collection (`folder_card_queue.attempts`) and starts their clocks again. A
+  folder that has counted three such runs (`queue.GIVE_UP_ROUNDS`) leaves the
+  set, with a warning `N folder(s) of <collection> left the dirty set`, and the
+  nightly reconcile marks it again if its card is still stale: at most three
+  runs a day, where it used to be one every quiet period without end. A build
+  that passes, or a row that goes, ends the count.
+* **Slots.** The three tasks are durable tasks for one reason: the durable
+  slots are the only second pool a worker of hatchet-sdk 1.44.0 has. Each
+  standard ingest pod offers two (`WORKER_SLOTS`), so a build, which waits on a
+  model for up to half an hour, neither takes one of the pod's two or three
+  document slots nor waits behind ingestion
+  (`test_a_build_neither_waits_for_the_document_slot_nor_takes_it`, on a real
+  engine). The heavy pool serves none of them. What was tried instead, read in
+  the SDK and run on engine v0.114.2 on 2026-11-11: a worker has the pools
+  `default` and `durable` and no public way to name a third (`slot_cost`
+  charges `default`); a second `hatchet.worker(...)` in the process serves, but
+  only the worker built last gets SIGTERM, the other took a new run after it
+  and the process never exited, and its tasks run on another event loop than
+  the lifespan that built the summary model; a worker label routes a run to a
+  worker and reserves nothing inside one. File and line for each are in the
+  header of `folder_cards/workflow.py`. Sharing the standard slots was
+  rejected on the numbers: one build per organisation, so two organisations'
+  builds would hold every upload of a two-slot pod for up to half an hour.
+* **Scaling.** KEDA counts `ingest-document` only. A stack whose
+  `ingestWorkerMinReplicas` is 0 (dev) builds cards while an ingest pod is up
+  and not otherwise, as it did when the builder was a loop in that pod: a sweep
+  that finds no worker within 50 s is dropped, and the dirty set waits.
+
+To see what waits: `SELECT collection, count(*), min(dirty_since) FROM
+folder_card_queue GROUP BY 1` in the agent database, and the runs of
+`folder-cards-build` in the dashboard. To build one collection now, trigger
+`folder-cards-build` there with `{"collection": …, "organization_id": …}`.
 
 ## Enabling a stack (dev first)
 
@@ -288,6 +383,41 @@ There is no way back to the claim queues on the same release: rolling back is
 deploying the previous release, whose tiers still claim from the old tables.
 Runs already started in Hatchet then finish only once a release that runs on
 Hatchet is back.
+
+### Folder cards need no re-dispatch
+
+Until this release the builder claimed rows of `folder_card_queue` itself
+(`claimed_at`, a reclaim after 900 s, `attempts`). The table is the same table
+and its rows mean what they meant, so whatever a stack holds at the deploy
+(production moves to Hatchet and to this in one step) is found by the first
+`folder-cards-sweep`: nothing to move, no command to run. A card is derived and
+can always be rebuilt; a row lost anywhere is marked again by the nightly
+reconcile.
+
+While the rollout lasts, an ingest pod of the release before still runs its
+loop and may claim a folder a Hatchet run is building too. Both write the same
+card through the same idempotent `PUT`; the cost is one model call, and it ends
+with the last old pod. A rollback needs nothing either: the old code reads the
+columns it left.
+
+`attempts` has a use again: the count of runs that failed for good over a dirty
+folder (above). It is `NOT NULL` with no database default, so `queue.mark`
+writes its zero. An old pod still raises it on each claim and gives a folder up
+at three, so while a rollout lasts a folder can leave the set a run early; the
+reconcile marks it again.
+
+`claimed_at` is dead and deliberately still there. Nothing on this release
+creates, writes or reads it, so a table made from now on lacks it. A table made
+before has it, and it is **not** dropped yet: no migration owns the table, the
+agent tier creates it at first use (`folder_cards/queue.py`, `ensure_schema`),
+in the agent database, not the BFF's, so a drop there would run in the first
+new pod of the rollout while every old pod's claim still reads the column, and
+a rollback would land on a table its claim cannot read. The trigger for the
+drop: the release after the one that removes the claim loop is on production.
+Then add `ALTER TABLE folder_card_queue DROP COLUMN claimed_at` to
+`_create_tables`, behind a check that the column exists (SQLite has no `IF
+EXISTS` for a column; `db_utils` has the column check the sibling stores use
+before an `ADD COLUMN`).
 
 ## Compose
 

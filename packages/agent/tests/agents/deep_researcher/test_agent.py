@@ -1583,7 +1583,7 @@ class TestDeepResearcherAgent:
             agent = DeepResearcherAgent(
                 llm_provider=mock_llm_provider,
                 tools=[real_tool],
-                max_run_seconds=1,
+                max_run_seconds=0.2,
             )
             state = DeepResearchAgentState(messages=[HumanMessage(content="Test query")])
             with pytest.raises(TimeoutError, match="wall-clock budget"):
@@ -1934,7 +1934,7 @@ class TestDeepResearchCutoffSalvage:
             agent = DeepResearcherAgent(
                 llm_provider=mock_llm_provider,
                 tools=[real_tool],
-                max_run_seconds=1,
+                max_run_seconds=0.2,
             )
             state = DeepResearchAgentState(messages=[HumanMessage(content="Test query")])
             with seeded_session_registry(SourceEntry(url="https://example.com")):
@@ -1967,7 +1967,7 @@ class TestDeepResearchCutoffSalvage:
             agent = DeepResearcherAgent(
                 llm_provider=mock_llm_provider,
                 tools=[real_tool],
-                max_run_seconds=1,
+                max_run_seconds=0.2,
             )
             state = DeepResearchAgentState(messages=[HumanMessage(content="Test query")])
             with seeded_session_registry(SourceEntry(url="https://example.com")):
@@ -2939,7 +2939,7 @@ class TestDeepReportConfidence:
                 llm_provider=mock_llm_provider,
                 tools=[real_tool],
                 callbacks=list(callbacks or []),
-                max_run_seconds=1 if cutoff else 0,
+                max_run_seconds=0.2 if cutoff else 0,
             )
             state = DeepResearchAgentState(messages=[HumanMessage(content="Treppenhoehe?")])
             with seeded_session_registry(self._KB_ENTRY):
@@ -3364,7 +3364,7 @@ class TestUpstreamTimeoutIsNotTheBudget:
             patch("agent.agents.deep_researcher.factory.create_deep_agent", return_value=graph),
             patch("agent.agents.deep_researcher.cutoff.emit_deep_research_cutoff", _capture),
         ):
-            agent = DeepResearcherAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_run_seconds=1)
+            agent = DeepResearcherAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_run_seconds=0.2)
             with pytest.raises(TimeoutError, match="wall-clock budget"):
                 await agent.run(DeepResearchAgentState(messages=[HumanMessage(content="Q")]))
 

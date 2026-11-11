@@ -1037,7 +1037,7 @@ services:
     #   - --libreoffice-deny-private-ips / --libreoffice-deny-public-ips:
     #     LibreOffice refuses every URL a file links, whatever it resolves to.
     #     The internal network already blocks that here; the flags keep the
-    #     same guarantee where no such network exists (Coolify, K8s without
+    #     same guarantee where no such network exists (K8s without
     #     networkPolicies).
     #   - --api-timeout=120s matches the BFF's own request timeout, and
     #     --gotenberg-graceful-shutdown-duration=120s with stop_grace_period

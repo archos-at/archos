@@ -68,6 +68,10 @@
     "de": "Eine kurze Verbindungsunterbrechung beim Einlesen einer Datei führt nicht mehr dazu, dass Seitenvorschauen, Bilder oder Thumbnails fehlen. Bei großen Plänen und langen Dokumenten bleiben Dokumenttyp und wichtige Fakten erhalten, die {productName} daraus ausliest."
   },
   {
+    "en": "A cancelled upload in a chat's files now reads as cancelled instead of still uploading and can be removed with one click, and a file that finished reading just as you stopped it stays read.",
+    "de": "Ein abgebrochener Upload in den Dateien eines Chats wird jetzt als abgebrochen statt weiterhin als laufend angezeigt und lässt sich mit einem Klick entfernen; eine Datei, deren Einlesen genau beim Abbrechen abgeschlossen wurde, bleibt als eingelesen markiert."
+  },
+  {
     "en": "A cancelled, crashed or never-started run no longer shows as running forever in the task list. It now closes with its real outcome, and whoever started it is told.",
     "de": "Ein abgebrochener, abgestürzter oder nie gestarteter Lauf steht in der Aufgabenliste nicht mehr endlos auf „läuft“. Er schließt jetzt mit seinem tatsächlichen Ergebnis, und wer ihn angestoßen hat, erfährt davon."
   },
@@ -110,6 +114,10 @@
   {
     "en": "A citation Piloti could not verify is now marked „Beleg nicht verifiziert\" where it stood, instead of disappearing unnoticed. Piloti no longer attaches a source the answer did not cite.",
     "de": "Eine Quellenangabe, die Piloti nicht verifizieren konnte, wird nun an ihrer Stelle als „Beleg nicht verifiziert“ markiert, statt unbemerkt zu verschwinden. Piloti fügt einer Antwort keine Quelle mehr hinzu, die in der Antwort nicht zitiert wurde."
+  },
+  {
+    "en": "A connection that hangs while it is being set up is retried after a few seconds, and the chat says it is restoring the connection also when you return to a tab mid-answer.",
+    "de": "Eine Verbindung, deren Aufbau hängen bleibt, wird nach einigen Sekunden erneut hergestellt. Der Chat meldet auch „Verbindung wird wiederhergestellt“, wenn Sie während einer Antwort zu einem Tab zurückkehren."
   },
   {
     "en": "A copied annotation link now opens only that annotation, and new annotations a colleague sets while you have the document open in the review no longer stay unread in your inbox.",
@@ -224,12 +232,24 @@
     "de": "Ein Dokument, das nie zitierfähig wurde, trägt nicht mehr das grüne Abzeichen, das es als zitierfähig ausweist. Stattdessen zeigt es einen Fehler mit der Möglichkeit, es erneut zu versuchen, oder einen neutralen Status für Dokumente, die vor dieser Änderung abgelegt wurden."
   },
   {
+    "en": "A document that was read again, archived or replaced while an older background step was still finishing no longer flips to failed.",
+    "de": "Ein Dokument, das erneut eingelesen, archiviert oder ersetzt wird, während ein älterer Hintergrundschritt noch läuft, wird nicht mehr als fehlgeschlagen markiert."
+  },
+  {
     "en": "A document whose reading failed can be read again from its own card: \"Erneut lesen\" is in the ⋯ menu, beside rename and delete, wherever the failure is shown. Until now the card only said it had failed, and the one retry was two clicks inside a viewer you had no reason to open.",
     "de": "Ein Dokument, dessen Lesen fehlgeschlagen ist, lässt sich direkt auf seiner Karte erneut lesen: „Erneut lesen“ steht im ⋯-Menü neben Umbenennen und Löschen, überall dort, wo der Fehler angezeigt wird. Bisher meldete die Karte nur den Fehler, und der einzige Versuch führte über zwei Klicks in einer Ansicht, die Sie ohne Grund öffnen mussten."
   },
   {
     "en": "A document whose reading failed for a passing reason is read again on its own, and drawing sets are read faster while several offices upload at once.",
     "de": "Ein Dokument, dessen Einlesen vorübergehend fehlgeschlagen ist, wird automatisch erneut eingelesen, und Plansätze werden schneller eingelesen, wenn mehrere Büros gleichzeitig Uploads durchführen."
+  },
+  {
+    "en": "A document whose reading has failed for good now shows as failed right away, with the option to read it again, instead of still looking as if it were being read for about a quarter of an hour.",
+    "de": "Ein Dokument, bei dem das Einlesen endgültig fehlgeschlagen ist, wird jetzt sofort als fehlgeschlagen angezeigt und kann erneut eingelesen werden, statt etwa eine Viertelstunde lang so auszusehen, als würde es noch eingelesen."
+  },
+  {
+    "en": "A document whose reading was interrupted and then finished after all is now shown as read, instead of staying marked as failed with a retry offered.",
+    "de": "Ein Dokument, dessen Lesen unterbrochen und später doch abgeschlossen wurde, wird jetzt als gelesen angezeigt, statt weiterhin als fehlgeschlagen markiert zu sein und einen erneuten Versuch anzubieten."
   },
   {
     "en": "A document's revisions and their approval now use one word each, everywhere: every state of a document is a revision, numbered \"Revision 3 of 5\", and a revision sent back reads \"Changes requested\", matching the button.",
@@ -484,6 +504,10 @@
     "de": "Eine zurückgehaltene Mail weist nun in einem Satz darauf hin, wenn ihr Absender derzeit keine Dateien im Projekt ablegen darf, und im Papierkorb wird bei den Datumsangaben keine Ordneranzahl von null mehr angezeigt."
   },
   {
+    "en": "A mail sent to a project address whose original could not be read or scanned now waits visibly for a decision, instead of being tried again in the background every two weeks without anyone seeing it.",
+    "de": "Eine E-Mail an eine Projektadresse, deren Originaldatei nicht gelesen oder gescannt werden konnte, wartet nun sichtbar auf eine Entscheidung, statt alle zwei Wochen im Hintergrund erneut verarbeitet zu werden, ohne dass jemand davon etwas mitbekommt."
+  },
+  {
     "en": "A member budget can no longer be set for someone who does not belong to the organization; such a limit used to be saved and never applied.",
     "de": "Ein Mitgliederbudget lässt sich nicht mehr für jemanden festlegen, der der Organisation nicht angehört; so ein Limit wurde bisher gespeichert und griff nie."
   },
@@ -514,6 +538,10 @@
   {
     "en": "A note that research was cut off, or that an answer came out weaker than usual, now stays with the answer when you reopen the conversation later. Previously that caveat was visible only while the run was live, so a partial answer read as a complete one the next morning.",
     "de": "Ein Hinweis darauf, dass die Recherche unterbrochen wurde oder eine Antwort schwächer als üblich ausgefallen ist, bleibt jetzt auch dann bei der Antwort, wenn Sie die Unterhaltung später wieder öffnen. Bisher war dieser Hinweis nur während des laufenden Vorgangs sichtbar, sodass eine unvollständige Antwort am nächsten Morgen wie eine vollständige wirkte."
+  },
+  {
+    "en": "A notice that a document has a new version under another name can no longer be lost when it could not be prepared at that moment.",
+    "de": "Ein Hinweis auf eine neue Version eines Dokuments unter anderem Namen geht nicht mehr verloren, wenn er in diesem Moment nicht erstellt werden kann."
   },
   {
     "en": "A one-off task now has the same colour on its card as its block in the timetable.",
@@ -716,8 +744,16 @@
     "de": "Ein Recherchelauf oder eine Aufgabe, die während einer kurzen Störung fertig wurde, zeigt jetzt ihr Ergebnis, statt dauerhaft als „läuft“ mit einer leeren Meldung stehen zu bleiben."
   },
   {
+    "en": "A research run that had already finished when all runs were stopped now ends as completed with its report filed, instead of as interrupted.",
+    "de": "Ein Recherchelauf, der bereits abgeschlossen war, als alle Läufe gestoppt wurden, wird nun als abgeschlossen mit abgelegtem Bericht statt als unterbrochen geführt."
+  },
+  {
     "en": "A research run that hits your organization's budget now says so and tells you where an admin can raise the limit, instead of reporting an internal error.",
     "de": "Scheitert ein Recherchelauf am Budget Ihrer Organisation, sagt die Meldung das jetzt und nennt, wo ein Admin die Grenze anheben kann, statt einen internen Fehler zu melden."
+  },
+  {
+    "en": "A research run that was cut short now still reads as interrupted after a reload, and a run that ended as interrupted or failed stays that way when a late result arrives.",
+    "de": "Ein vorzeitig abgebrochener Recherchelauf wird auch nach dem Neuladen weiterhin als unterbrochen angezeigt, und ein Lauf, der mit dem Status „unterbrochen“ oder „fehlgeschlagen“ endet, behält diesen Status auch dann, wenn später noch ein Ergebnis eintrifft."
   },
   {
     "en": "A research run whose end your browser missed no longer locks the chat, and a running research never blocks typing, renaming or deleting.",
@@ -1156,6 +1192,10 @@
     "de": "Ein von der Inhaltsprüfung zurückgehaltener Upload wartet jetzt immer auf Prüfung, statt als fehlgeschlagen angezeigt zu werden, und bei einer nicht lesbaren Datei bleibt der tatsächliche Grund erhalten."
   },
   {
+    "en": "An upload to a project or the office shelf now shows as read the moment reading finishes, instead of up to five seconds later. The same holds for a filing suggestion on a fresh upload, an IFC model becoming ready in a project, and the progress of a mail import while its dialog is open.",
+    "de": "Ein Upload in ein Projekt oder in die Büroablage wird jetzt direkt nach Abschluss des Einlesens als gelesen angezeigt, statt erst bis zu fünf Sekunden später. Dasselbe gilt für einen Ablagevorschlag bei einem neuen Upload, ein IFC-Modell, sobald es in einem Projekt bereitsteht, und den Fortschritt eines Mail-Imports, solange der Dialog geöffnet ist."
+  },
+  {
     "en": "An uploaded file now reaches colleagues only once its check for sensitive data has passed. Until then only the person who uploaded it and those who may release quarantined files see it.",
     "de": "Eine hochgeladene Datei erreicht Kolleginnen und Kollegen erst, wenn ihre Prüfung auf sensible Daten bestanden ist. Bis dahin sieht sie nur die Person, die sie hochgeladen hat, und wer zurückgehaltene Dateien freigeben darf."
   },
@@ -1282,6 +1322,10 @@
   {
     "en": "Archivieren is now called Stilllegen, since filing into the Archiv is what makes a document part of the office's knowledge. Stilllegen asks first and says what it does: the file leaves the list, Piloti stops citing it, nothing is deleted.",
     "de": "„Archivieren“ heißt jetzt „Stilllegen“, denn ins Archiv legt man ein Dokument, damit es zu Bürowissen wird. Stilllegen fragt nach und sagt vorher, was passiert: Die Datei verschwindet aus der Liste, Piloti zitiert sie nicht mehr, gelöscht wird nichts."
+  },
+  {
+    "en": "Archiving a document that is still being read stops the reading, so the archived document no longer turns up in answers afterwards.",
+    "de": "Wenn Sie ein Dokument archivieren, das gerade gelesen wird, wird der Lesevorgang beendet, sodass das archivierte Dokument danach nicht mehr in Antworten auftaucht."
   },
   {
     "en": "Archiving a file now takes it out of the file list, which is what archiving was always meant to mean. A new filter shows the archived files again whenever you want them back; nothing is deleted either way.",
@@ -1470,6 +1514,10 @@
   {
     "en": "Check tables show their result up front, such as „2 erfüllt · 1 offen“, and on a phone wide tables stack row by row instead of scrolling sideways.",
     "de": "Prüftabellen zeigen ihr Ergebnis vorab, etwa „2 erfüllt · 1 offen“, und am Telefon stehen breite Tabellen zeilenweise untereinander, statt seitlich zu scrollen."
+  },
+  {
+    "en": "Checking a held upload again now works: it is read anew and stays hidden from colleagues until that reading passes.",
+    "de": "Ein zurückgehaltener Upload kann jetzt erneut geprüft werden: Er wird neu eingelesen und bleibt für Kollegen verborgen, bis die Prüfung erfolgreich ist."
   },
   {
     "en": "Checking the skill is now a step you run before saving. Its findings are yours to weigh, and they never stop you from saving.",
@@ -1984,6 +2032,10 @@
     "de": "Dateien eines abgeschlossenen Projekts sind überall, wo sie erscheinen, als solche gekennzeichnet, und die Projektliste kann aktive, abgeschlossene oder alle Projekte zeigen."
   },
   {
+    "en": "Files that had been read in full but showed as failed after a large upload show as read again the next time their folder is opened.",
+    "de": "Dateien, die vollständig gelesen wurden, nach einem großen Upload jedoch als fehlgeschlagen angezeigt wurden, werden beim nächsten Öffnen ihres Ordners wieder als gelesen angezeigt."
+  },
+  {
     "en": "Files the name check stops are now called \"Not uploaded\" everywhere. \"Held back\" means only a file the content check holds in quarantine.",
     "de": "Dateien, deren Upload durch die Namensprüfung gestoppt wird, werden jetzt überall als „Nicht hochgeladen“ bezeichnet. „Zurückgehalten“ bezeichnet nur Dateien, die von der Inhaltsprüfung unter Quarantäne gestellt werden."
   },
@@ -2170,6 +2222,10 @@
   {
     "en": "If a browser tab was open during the update, it shows a connection error until you reload it.",
     "de": "Wenn ein Browser-Tab während des Updates geöffnet war, zeigt er einen Verbindungsfehler, bis Sie ihn neu laden."
+  },
+  {
+    "en": "If a dictation could not be saved although you spoke, the chat now says so instead of ending silently.",
+    "de": "Wenn ein Diktat trotz Ihrer Spracheingabe nicht gespeichert werden konnte, weist der Chat jetzt darauf hin, statt kommentarlos zu enden."
   },
   {
     "en": "If a file is deleted right after someone uploaded it to a project or the Archiv, the upload now says so instead of reporting success.",
@@ -2502,6 +2558,10 @@
   {
     "en": "Nothing is changed until you press Apply, and the change then runs as you, with your own permissions. A change is shown as done only once it has been carried out.",
     "de": "Nichts ändert sich, bis Sie auf „Übernehmen“ drücken, und die Änderung läuft dann in Ihrem Namen mit Ihren eigenen Berechtigungen. Eine Änderung gilt erst als erledigt, wenn sie ausgeführt wurde."
+  },
+  {
+    "en": "Notifications in the inbox are now removed once they are older than the longest keeping period of any notification type. This clean-up was planned from the start but had never run.",
+    "de": "Benachrichtigungen im Posteingang werden jetzt entfernt, sobald sie älter sind als die längste Aufbewahrungsfrist aller Benachrichtigungstypen. Diese Bereinigung war von Anfang an geplant, wurde aber bisher nie ausgeführt."
   },
   {
     "en": "Offene Punkte can now file its Protokoll in the project: „Im Projekt ablegen“ in „Protokoll exportieren“ saves it as „Offene Punkte – <Projekt> – <Datum>“ in the project's top folder, with the filters you set. It is not offered while a listed point is on a document not everyone in the project may open, and the menu says why.",
@@ -3092,6 +3152,10 @@
     "de": "Bestätigungen im Prüfbuch (IFC-Prüfprotokoll) zu einem IFC-Modell, das noch in Prüfung ist, sowie die Anzahl solcher Dateien in einem Ordner im Papierkorb werden Kolleginnen und Kollegen nicht mehr angezeigt, die das Modell oder die Datei nicht sehen dürfen."
   },
   {
+    "en": "Publishing a new version of an IFC model while the previous one is still being read no longer shows the old file's elements or marks the model as failed.",
+    "de": "Beim Veröffentlichen einer neuen Version eines IFC-Modells, während die vorherige noch eingelesen wird, werden die Elemente der alten Datei nicht mehr angezeigt und das Modell nicht mehr als fehlgeschlagen gekennzeichnet."
+  },
+  {
     "en": "Questions about Austrian law are answered with citable paragraphs from the RIS, and an office can give Piloti standing instructions that apply to every question. Deep research and the Automation section are switched off for now, and an office that needs them can ask us to switch them on.",
     "de": "Fragen zum österreichischen Recht beantwortet Piloti mit zitierbaren Paragraphen aus dem RIS, und ein Büro kann Piloti stehende Anweisungen geben, die für jede Frage gelten. Tiefenrecherche und der Bereich Automatisierung sind vorerst ausgeschaltet; ein Büro, das sie braucht, kann uns bitten, sie für dieses Büro einzuschalten."
   },
@@ -3596,6 +3660,10 @@
     "de": "Der Steckbrief zeigt in einer Tabelle die Gebäudeklasse samt Herleitung, die geltenden OIB-Richtlinien und die von Piloti ermittelten Werte. Wenn Sie mit der Maus auf eine Quelle zeigen, wird die Passage auf der entsprechenden Seite angezeigt."
   },
   {
+    "en": "The Subprocessors page is corrected after a full review: the hosting provider appears under its current company name, sign-in is shown to also send invitation e-mails and to keep an office's own AI keys, and address search is marked optional. Session recording is no longer called sampled.",
+    "de": "Die Seite „Subprocessors“ ist nach einer vollständigen Überprüfung korrigiert: Der Hosting-Anbieter erscheint unter seinem aktuellen Unternehmensnamen, beim Login ist nun auch angegeben, dass Einladungs-E-Mails versendet und die eigenen KI-Schlüssel eines Büros gespeichert werden, und die Adresssuche ist als optional gekennzeichnet. Die Sitzungsaufzeichnung wird nicht mehr als stichprobenbasiert bezeichnet."
+  },
+  {
     "en": "The Subprocessors page now names Cloudflare, which answers for the ARCHOS web addresses, and the search software ARCHOS really runs on its own servers.",
     "de": "Auf der Seite „Subprocessors“ werden jetzt Cloudflare, das Anfragen zu den ARCHOS-Webadressen beantwortet, und die Suchsoftware genannt, die ARCHOS tatsächlich auf eigenen Servern betreibt."
   },
@@ -3770,6 +3838,10 @@
   {
     "en": "The detail view shows where the file sat inside the folder you uploaded, and one click copies that path.",
     "de": "Die Detailansicht zeigt, wo die Datei im hochgeladenen Ordner lag, und ein Klick kopiert diesen Pfad."
+  },
+  {
+    "en": "The dictation button can no longer get stuck: pressing it again while it waits for the microphone cancels, and a microphone or recorder that does not answer ends by itself.",
+    "de": "Die Diktiertaste bleibt nicht mehr hängen: Erneutes Drücken während des Wartens auf das Mikrofon bricht den Vorgang ab; antwortet das Mikrofon oder der Recorder nicht, wird der Vorgang automatisch beendet."
   },
   {
     "en": "The docked inbox is calmer. Entries are no longer boxed into cards, the heading says once how many wait and how many are overdue, and a finished inbox shows a quiet check instead of an empty frame.",
@@ -4082,6 +4154,10 @@
   {
     "en": "The project's mail address is on the project overview and says what it is for: put it in Cc when you write to the Behörde, the Statik or the Bauherrschaft.",
     "de": "Die Mailadresse des Projekts steht in der Projektübersicht und zeigt, wofür sie gedacht ist: Setzen Sie sie in Cc, wenn Sie an die Behörde, die Statik oder die Bauherrschaft schreiben."
+  },
+  {
+    "en": "The reminder for marks whose deadline is near is sent at 06:45 Vienna time all year, also across the change to and from summer time.",
+    "de": "Die Erinnerung an Markierungen mit nahender Frist wird das ganze Jahr über um 06:45 Uhr Wiener Zeit versendet, auch bei der Umstellung auf die Sommerzeit und zurück."
   },
   {
     "en": "The replaced document keeps its identity: references from answers, the link in the chat and its folder stay intact.",
@@ -4722,6 +4798,10 @@
   {
     "en": "When the confidence check cannot run, the chip says so instead of showing a level.",
     "de": "Wenn die Konfidenzprüfung nicht ausgeführt werden kann, zeigt der Chip dies an, statt eine Stufe anzuzeigen."
+  },
+  {
+    "en": "When the connection drops during an answer, the chat now says it is restoring the connection, and a connection that cannot be set up at all is retried and reported instead of leaving the chat silently not working.",
+    "de": "Wenn während einer Antwort die Verbindung abbricht, zeigt der Chat jetzt an, dass die Verbindung wiederhergestellt wird. Kann keine Verbindung aufgebaut werden, wird der Verbindungsaufbau erneut versucht und der Fehler gemeldet, statt dass der Chat ohne Hinweis nicht funktioniert."
   },
   {
     "en": "When the content check holds a file back for more reasons than it lists, the audit log now records how many it left out. A shortened list of reasons no longer reads as the complete one.",

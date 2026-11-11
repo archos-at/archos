@@ -5,7 +5,8 @@ holder last vouched for it. Taking a slot drops the leases older than the lease
 and refuses when the pool is full, in ONE script, because split into count and
 add two holders both read "one slot left" and both take it. A holder that dies
 never releases its slot; the lease ages it out instead, so a pool never shrinks
-for good.
+for good. A holder that lives longer than one lease renews it (``RENEW_LUA``):
+every user here does.
 
 Two users: chat admission (``turn_admission``), which refuses a turn it has no
 slot for, and ``hold``, for short calls that should WAIT for a slot rather than
@@ -28,6 +29,7 @@ from __future__ import annotations
 
 import logging
 import random
+import threading
 import time
 import uuid
 from collections.abc import Iterator
@@ -281,12 +283,17 @@ return removed
 
 @contextmanager
 def hold(
-    key: str, limit: int, *, lease_seconds: int, max_wait_seconds: float, lane: str | None = None
+    key: str, limit: int, *, lease_seconds: float, max_wait_seconds: float, lane: str | None = None
 ) -> Iterator[None]:
     """Hold one of ``limit`` fleet-wide slots in ``key`` for the ``with`` body, waiting for one.
 
-    The lease must outlast the body (a call's own timeout is the natural
-    value): the slot is not renewed. ``limit`` of 0 or less disables the pool.
+    The slot is renewed every third of ``lease_seconds`` for as long as the
+    body runs, so the lease says only how long a holder that DIED keeps its
+    slot. It was not renewed at first, and "the lease must outlast the body"
+    did not hold for its one caller: a vision call under one SDK retry and a
+    wait for a provider slot lasts several of its timeouts, its lease aged out
+    mid-call, and the pool admitted one call more than its limit for each.
+    ``limit`` of 0 or less disables the pool.
 
     It waits for as long as the pool stays full, saying so every
     ``max_wait_seconds``. Running without a slot after a deadline (as this
@@ -304,33 +311,49 @@ def hold(
         yield
         return
     member = f"{lane.replace('|', '_')}|{uuid.uuid4().hex}" if lane else uuid.uuid4().hex
-    waiting_key = f"{key}:waiting"
+    held = _wait_for_slot(key, limit, member, lease_seconds, max_wait_seconds, lane)
+    done = threading.Event()
+    if held:
+        threading.Thread(target=_renew_until, args=(done, key, member, lease_seconds), daemon=True).start()
+    try:
+        yield
+    finally:
+        done.set()
+        if held:
+            cache.eval_script(RELEASE_LUA, [key], [member])
+
+
+def _wait_for_slot(
+    key: str, limit: int, member: str, lease_seconds: float, max_wait_seconds: float, lane: str | None
+) -> bool:
+    """Poll until ``member`` holds a slot in ``key``; False when there is no shared store (fail open)."""
     started = time.monotonic()
     next_warning = started + max_wait_seconds
     delay = 0.05
-    held = False
     while True:
         if lane:
             taken = cache.eval_script(
                 FAIR_ACQUIRE_LUA,
-                [key, waiting_key],
+                [key, f"{key}:waiting"],
                 [time.time(), lease_seconds, limit, member, member.split("|", 1)[0], WAITING_PATIENCE_SECONDS],
             )
         else:
             taken = cache.eval_script(ACQUIRE_LUA, [key], [time.time(), lease_seconds, limit, member])
         if taken is None:
-            break  # no shared store: fail open
+            return False
         if int(taken) == 1:
-            held = True
-            break
+            return True
         if time.monotonic() >= next_warning:
             logger.warning("Still waiting for a slot in %s after %.0fs", key, time.monotonic() - started)
             next_warning = time.monotonic() + max_wait_seconds
         # Jittered so a fleet of waiters does not retry in lockstep.
         time.sleep(delay * (0.5 + random.random()))
         delay = min(delay * 2, 2.0)
-    try:
-        yield
-    finally:
-        if held:
-            cache.eval_script(RELEASE_LUA, [key], [member])
+
+
+def _renew_until(done: threading.Event, key: str, member: str, lease_seconds: float) -> None:
+    """Vouch for ``member``'s slot in ``key`` until ``done``; a slot already reclaimed stays gone."""
+    while not done.wait(lease_seconds / 3):
+        if cache.eval_script(RENEW_LUA, [key], [time.time(), lease_seconds, member]) == 0:
+            logger.warning("Slot in %s was reclaimed while its holder still ran", key)
+            return

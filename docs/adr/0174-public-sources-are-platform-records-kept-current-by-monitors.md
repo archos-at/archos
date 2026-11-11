@@ -235,6 +235,66 @@ it.
   sha256, so the view stays under the door's result cap. Licensed documents
   still cannot be a source.
 
+## Amendment, 2026-11-11: a document's fixture is a capture the platform took
+
+A record's fixture carried its response inline, at most 500,000 characters, a
+PDF as base64 within that length. The smallest OIB-Richtlinie is 834 KB, a
+megabyte and more as base64, and so is nearly every published document. No
+agent could propose a source of PDFs with a fixture that was the response "as
+the source served it"; the choice left was an invented small PDF or a
+repository file, and a repository file puts a country into the code, which
+this record exists to end.
+
+- **The fixture names a capture.** A fixture's response is inline
+  (`{contentType, body, encoding}`), or `{captureId}`: a citation capture of
+  that URL (ADR-0170), fetched by the platform through the public-source
+  fetcher. Its bytes' sha256, size and time are the platform's own, and
+  nobody's paste. No second store: it is the capture a citation names, in the
+  same table, append-only, listed in the request with what it went through.
+- **The record keeps the id, the check gets the text.** The revision's
+  `config` holds `{capture_id}` and no text. For KC-7 and for `source-test`
+  the BFF hands the capture's content type and text to the api tier with the
+  configuration; the fixture run proves the request the access type builds as
+  before, and the engine reads the capture's text
+  (`Engine.recorded_document`). Only `pdf_document` offers that: a PDF
+  capture's text is the reader's own pages, joined by a form feed (the one PDF
+  pipeline above), so the passages are the ones a parse of the bytes gives. A
+  capture of an HTML page keeps what a person reads, not the markup an engine
+  selects on, so every other format's fixture stays inline, which their
+  responses fit.
+- **What the capture must be** (KC-7, at
+  `/fixtures/<n>/responses/<url>/captureId`): a `fetched` capture, of the same
+  change request, of that very URL, through that source, that kept text,
+  of a PDF (its content type is `application/pdf`; an HTML page has text too),
+  and read whole (a text cut at a page boundary by the text cap proves only a
+  prefix). A pasted text, another request's capture, another page, another
+  source's fetch, a scan, a page that is no PDF and a cut text are each
+  refused by name; `recorded_document` refuses a non-PDF content type again.
+- **The draft is proposed before its capture.** A source's hosts open to its
+  request only once the source is proposed (the testing window), and the
+  capture is fetched through them. So a proposal whose fixture names no
+  capture yet (`captureId: null`) is written, and its result says what it
+  awaits; the capture is taken; the record is proposed again with the id.
+  Validate and submit hold a response still `null` as a KC-7 problem, so
+  nothing unproven is reviewed. This opens nothing new: a draft's hosts were
+  already its author's choice, behind a fixture the author wrote; what they
+  fetch still does not count as fetched until another person has checked it.
+- **A later revision is recorded again.** A capture belongs to its request, as
+  a citation's does: a source re-proposed in another request names a capture
+  of that request. A published source's `source-test` reads the captures its
+  released revision names, wherever they are; a capture never changes.
+- Considered and rejected: raising the inline cap (megabytes of base64 through
+  a tool call, kept in every revision, and still the proposer's bytes); a
+  store of fixture bytes of its own (a second copy of what a capture is, with
+  its own retention and review questions); fetching the document inside
+  `records-propose` (a dry run that fetches, and a proposal that waits on a
+  publisher). A repository record keeps files: a capture belongs to a change
+  request, and `load_sources` refuses one there.
+- Inline base64 stays for a body that fits. Confirmation:
+  `pdf-source-door.integration.spec.ts` (the three calls through the door,
+  each refusal beside its control), `packages/public-sources/tests/test_pdf.py`
+  and `apps/agent-host/tests/test_public_source_capture_route.py`.
+
 ## More Information
 
 - Design §3.7, §4.1 to §4.5, §9b(b) on `claude/intl-design`.

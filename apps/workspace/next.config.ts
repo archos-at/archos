@@ -209,10 +209,18 @@ export const nextConfig: NextConfig = {
       // emits the last one (see next.config headers "Header Overriding
       // Behavior"), so the more specific SAMEORIGIN replaces DENY here rather
       // than both being emitted. The route handler
-      // (streamKnowledgeBaseDocument) sets the same two headers on its Response
-      // as defense-in-depth.
+      // (`streamCorpusPdf`, lib/knowledge/source-pdf.ts) sets the same two headers
+      // on its Response as defense-in-depth.
       {
         source: '/api/knowledge-base/documents/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+        ],
+      },
+      // The platform operator's read of the same PDFs, framed by the same viewer.
+      {
+        source: '/api/platform/knowledge/documents/:fileName',
         headers: [
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },

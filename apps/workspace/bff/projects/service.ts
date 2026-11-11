@@ -32,6 +32,7 @@ import { getProjectOverviewData, type ProjectOverviewReader } from './overview-q
 import {
   closingProblem,
   canTransition,
+  invalidTransition,
   isProjectClosed,
   keptWhenClosed,
   openToOrganizationWhenClosed,
@@ -510,11 +511,7 @@ export async function setProjectStatus(
   if (!current) throw new NotFoundError()
   const from = current.status
   if (!canTransition(from, change.status)) {
-    throw new ConflictError(`A ${from} project cannot become ${change.status}.`, {
-      reason: 'invalid-transition',
-      from,
-      to: change.status,
-    })
+    throw new ConflictError(`A ${from} project cannot become ${change.status}.`, invalidTransition(from, change.status))
   }
 
   const write: ProjectStatusWrite =
@@ -531,7 +528,7 @@ export async function setProjectStatus(
         : { status: 'active' }
   const project = await setProjectStatusInOrg(projectId, session.organizationId, from, write)
   if (!project) {
-    throw new ConflictError('The project changed meanwhile.', { reason: 'invalid-transition', from, to: change.status })
+    throw new ConflictError('The project changed meanwhile.', invalidTransition(from, change.status))
   }
   if (change.status === 'active') await rearmParkedOneShots(projectId, session.organizationId)
   if (change.status === 'closed') await endFollowsOfClosedProject(session, projectId, now)

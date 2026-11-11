@@ -3,7 +3,7 @@
  * same event.
  *
  * Before this, a failed turn gave the reader a sentence and the operator
- * nothing: `grep -c OTEL_ deploy/compose/docker-compose.coolify.yaml` is `0`,
+ * nothing: the deployment of the day exported no telemetry at all,
  * and the BFF minted no correlation id of its own, so an error a user reported
  * on Tuesday could not be found in Tuesday's logs. The reader is the only person
  * who knows WHICH request failed, and the only way they can tell anyone is if

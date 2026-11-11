@@ -1,0 +1,15 @@
+---
+# area: general
+fixes:
+  - >
+    When the connection drops during an answer, the chat now says it is
+    restoring the connection, and a connection that cannot be set up at all is
+    retried and reported instead of leaving the chat silently not working.
+  - >
+    The dictation button can no longer get stuck: pressing it again while it
+    waits for the microphone cancels, and a microphone or recorder that does
+    not answer ends by itself.
+  - >
+    A cancelled upload in a chat's files now reads as cancelled instead of
+    still uploading and can be removed with one click, and a file that
+    finished reading just as you stopped it stays read.

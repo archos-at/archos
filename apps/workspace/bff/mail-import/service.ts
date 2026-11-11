@@ -18,7 +18,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { isMailImportEnabled } from '@/lib/authz/feature-flags'
 import { hasPermission, ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { requireProjectAccess } from '@/lib/authz/projects'
-import type { MailImport } from '@/lib/db/schema/mail-imports'
+import { MAIL_IMPORT_LIFECYCLE, type MailImport } from '@/lib/db/schema/mail-imports'
 import { requireShelfWrite } from '@/lib/documents/shelf-authz'
 import { decodeDocumentListCursor, encodeDocumentListCursor } from '@/lib/documents/list-cursor'
 import { projectShelf } from '@/lib/documents/shelf'
@@ -193,7 +193,7 @@ export async function cancelMailImport(
   if (!isOpen(row)) return toView(row, session)
 
   const now = new Date()
-  const cancelled = await repository.updateMailImport(session.organizationId, row.id, ['uploading', 'queued', 'importing'], {
+  const cancelled = await repository.updateMailImport(session.organizationId, row.id, MAIL_IMPORT_LIFECYCLE.sourcesOf('cancel'), {
     status: 'cancelled',
     completedAt: now,
     inflightPosition: null,
@@ -234,7 +234,7 @@ async function joinParts(row: MailImport): Promise<void> {
 export async function discardStaging(row: MailImport): Promise<void> {
   if (row.uploadId) await abortStagedUpload(staged(row), row.uploadId)
   await deleteStagedArchive(staged(row))
-  await repository.updateMailImport(row.organizationId, row.id, ['completed', 'failed', 'cancelled'], {
+  await repository.updateMailImport(row.organizationId, row.id, MAIL_IMPORT_LIFECYCLE.finalStates, {
     uploadId: null,
     stagingDeletedAt: new Date(),
   })

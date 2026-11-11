@@ -39,6 +39,7 @@ vi.mock('@/lib/bim/service', async (importOriginal) => ({
 // leaves a job, and `runQueuedJob` is the `bff-jobs` worker that picks it up.
 vi.mock('@/lib/jobs-queue/enqueue', () => ({ enqueueJob: vi.fn().mockResolvedValue({ jobId: 'bff-job-1' }) }))
 vi.mock('@/lib/jobs-queue/repository', () => ({ findOpenJobId: vi.fn().mockResolvedValue(null) }))
+vi.mock('./shelf-live', () => ({ publishShelfChanged: vi.fn() }))
 
 vi.mock('./repository', () => ({
   markDocumentProcessing: vi.fn().mockResolvedValue(undefined),
@@ -90,6 +91,7 @@ import {
   setDocumentIngestJob,
   markDocumentNotIndexed,
 } from './repository'
+import { publishShelfChanged } from './shelf-live'
 import { makeDocument } from '@/test-utils/db-fixtures'
 import { internalRead } from '@/lib/documents/document-reader'
 import { DOCUMENT_TYPE_TAGS } from './tag-vocabulary'
@@ -106,6 +108,13 @@ const input = (filename: string): DispatchDocumentInput => ({
   storageKey: `org/org-1/project/proj-1/doc/doc-1/${filename}`,
   storageBucket: 'test-bucket',
   collectionName: 'proj_abc',
+})
+
+/** What a job run without an id of its own (these specs' default attempt) says it owns: the bytes. */
+const ownedBy = (filename: string) => ({
+  storageKey: input(filename).storageKey,
+  backgroundJobId: null,
+  unnamedCounts: true,
 })
 
 let fetchSpy: ReturnType<typeof vi.fn>
@@ -386,6 +395,21 @@ describe('dispatchDocument', () => {
       expect.objectContaining({ documentId: 'doc-1', filename: 'haus.ifc' }),
     )
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('tells the project’s shelf once the model is ready, and nobody for a model outside a project or one that failed', async () => {
+    await dispatchDocument(input('haus.ifc'))
+    await runQueuedJob()
+    expect(publishShelfChanged).toHaveBeenCalledTimes(1)
+    expect(publishShelfChanged).toHaveBeenCalledWith('org-1', { kind: 'project', projectId: 'proj-1' })
+
+    vi.mocked(publishShelfChanged).mockClear()
+    await dispatchDocument({ ...input('haus.ifc'), projectId: null })
+    await runQueuedJob()
+    vi.mocked(runBimExtraction).mockResolvedValueOnce({ modelId: 'm-1', status: 'failed', elementCount: 0, error: 'unreadable' })
+    await dispatchDocument(input('haus.ifc'))
+    await runQueuedJob()
+    expect(publishShelfChanged).not.toHaveBeenCalled()
   })
 
   it('queues a reindex’s model behind the people who are waiting', async () => {
@@ -867,7 +891,13 @@ describe('an office file is converted, by a job, before it is ingested', () => {
     // finishes (no throw), and "Erneut lesen" is what runs the converter again.
     await expect(runQueuedJob()).resolves.toBeUndefined()
 
-    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', RENDITION_REQUIRED_MESSAGE)
+    // Held to the bytes the job was queued for: a row archived or replaced meanwhile is not failed.
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith(
+      'doc-1',
+      'org-1',
+      RENDITION_REQUIRED_MESSAGE,
+      ownedBy('Baubeschreibung.docx'),
+    )
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -881,7 +911,12 @@ describe('an office file is converted, by a job, before it is ingested', () => {
     await dispatchDocument(input('Katasterauszug.dxf'))
     await expect(runQueuedJob()).resolves.toBeUndefined()
 
-    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', DRAWING_UNREADABLE_MESSAGE)
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith(
+      'doc-1',
+      'org-1',
+      DRAWING_UNREADABLE_MESSAGE,
+      ownedBy('Katasterauszug.dxf'),
+    )
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -913,7 +948,67 @@ describe('an office file is converted, by a job, before it is ingested', () => {
     expect(markDocumentIngestFailed).not.toHaveBeenCalled()
 
     await expect(runQueuedJob({ last: true })).rejects.toThrow('database gone')
-    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', INGEST_DISPATCH_FAILED_MESSAGE)
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith(
+      'doc-1',
+      'org-1',
+      INGEST_DISPATCH_FAILED_MESSAGE,
+      ownedBy('Baubeschreibung.docx'),
+    )
+  })
+
+  // The same bytes read again run under a new job. The earlier job, failing on
+  // its last attempt, must not fail the row the new job is about to read.
+  describe('a job knows its row by its own id, not only by the bytes', () => {
+    const waitingFor = (jobId: string | null) =>
+      makeDocument({
+        authoredBy: 'user',
+        filename: 'Baubeschreibung.docx',
+        storageKey: input('Baubeschreibung.docx').storageKey,
+        status: 'processing',
+        metadata: jobId ? { bffJobId: jobId } : {},
+      })
+    const runAs = async (jobId: string, last = false) => {
+      await dispatchDocument(input('Baubeschreibung.docx'))
+      vi.mocked(markDocumentProcessing).mockClear()
+      return () =>
+        runOfficeRenditionJob('org-1', officeRenditionPayloadSchema.parse(queuedJob().payload), { last, jobId })
+    }
+
+    it('leaves a row a later job of the same bytes has taken', async () => {
+      const run = await runAs('job-earlier')
+      vi.mocked(findDocumentInOrg).mockResolvedValue(waitingFor('job-later'))
+
+      await run()
+
+      expect(ensureRendition).not.toHaveBeenCalled()
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(markDocumentIngestFailed).not.toHaveBeenCalled()
+    })
+
+    it('reads the row that names it, and one that names no job yet', async () => {
+      const run = await runAs('job-earlier')
+      for (const row of [waitingFor('job-earlier'), waitingFor(null)]) {
+        fetchSpy.mockClear()
+        vi.mocked(findDocumentInOrg).mockResolvedValue(row)
+        await run()
+        await ingested()
+      }
+    })
+
+    it('writes its failure under the same identity it checked with', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+      const run = await runAs('job-earlier', true)
+      vi.mocked(findDocumentInOrg).mockResolvedValue(waitingFor('job-earlier'))
+      vi.mocked(setDocumentIngestJob).mockRejectedValue(new Error('database gone'))
+
+      await expect(run()).rejects.toThrow('database gone')
+
+      expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', INGEST_DISPATCH_FAILED_MESSAGE, {
+        storageKey: input('Baubeschreibung.docx').storageKey,
+        backgroundJobId: 'job-earlier',
+        unnamedCounts: true,
+      })
+    })
   })
 
   it('leaves a row alone that is no longer waiting for the job: deleted, replaced or already moved on', async () => {

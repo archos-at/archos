@@ -54,6 +54,7 @@ function file(
     chunkCount: 4,
     ingestedSha256: null,
     currentSha256: null,
+    countryId: null,
     ingestedAt: null,
     summary: null,
     docClass: 'other',
@@ -129,6 +130,54 @@ describe('BaseKnowledge', () => {
   })
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  test('groups the files by the country of the record that names each, with its edition and change request', async () => {
+    // The owner's complaint: an Austrian guideline looked like part of a shared, country-less pile.
+    const placement = (corpusFile: string, countryId: string, released: boolean) => ({
+      corpusFile,
+      countryId,
+      recordId: `manifestation:${corpusFile}`,
+      editionId: 'edition:e',
+      editionLabel: 'April 2019',
+      workTitle: 'Brandschutz',
+      released,
+      changeRequestId: '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e',
+      changeRequestTitle: 'OIB 2019',
+      changeRequestStatus: released ? 'published' : 'draft',
+    })
+    const texts = { texts: [placement('oib-richtlinie-2.pdf', 'AT', true), placement('oenorm-b-1600.pdf', 'DE', false)], nextCursor: null }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => Promise.resolve(jsonResponse(url.startsWith('/api/platform/knowledge/texts') ? texts : STATUS)))
+    )
+
+    render(<BaseKnowledge />)
+
+    const groups = await screen.findAllByTestId('corpus-group')
+    expect(groups.map((group) => group.textContent)).toEqual([
+      'Austria',
+      'Germany',
+      expect.stringContaining('Assigned to no country'),
+    ])
+    // Each group opens above its own files, in table order.
+    const rows = screen.getAllByRole('row').map((row) => row.textContent ?? '')
+    const at = (text: string) => rows.findIndex((row) => row.includes(text))
+    expect(at('Austria')).toBeLessThan(at('oib-richtlinie-2.pdf'))
+    expect(at('oib-richtlinie-2.pdf')).toBeLessThan(at('Germany'))
+    expect(at('Germany')).toBeLessThan(at('oenorm-b-1600.pdf'))
+    expect(at('Assigned to no country')).toBeLessThan(at('sonstiges-notiz.pdf'))
+
+    const released = within(screen.getAllByRole('row')[at('oib-richtlinie-2.pdf')]!).getByTestId('corpus-placement')
+    expect(released).toHaveTextContent('Brandschutz · April 2019')
+    expect(released).toHaveTextContent('released')
+    expect(within(released).getByRole('link', { name: 'Request “OIB 2019”' })).toHaveAttribute(
+      'href',
+      '/app/platform/countries?request=0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e'
+    )
+    expect(within(screen.getAllByRole('row')[at('oenorm-b-1600.pdf')]!).getByTestId('corpus-placement')).toHaveTextContent('not released yet')
+    // A file no record names carries no placement; its group says so.
+    expect(within(screen.getAllByRole('row')[at('sonstiges-notiz.pdf')]!).queryByTestId('corpus-placement')).toBeNull()
   })
 
   test('renders the corpus summary and every document as a table row', async () => {
@@ -429,9 +478,24 @@ describe('BaseKnowledge', () => {
     })
   })
 
+  test('reads the whole corpus from the platform route, never from the office listing', async () => {
+    // The office listing holds only what is released to the operator's own office (ADR-0173);
+    // the page manages every file, released or not.
+    const fetchSpy = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(jsonResponse(STATUS)))
+    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
+
+    render(<BaseKnowledge />)
+    await screen.findByText('oib-richtlinie-2.pdf')
+
+    const urls = fetchSpy.mock.calls.map(([url]) => url)
+    expect(urls).toContain('/api/platform/knowledge/documents')
+    expect(urls.filter((url) => url.startsWith('/api/knowledge-base'))).toEqual([])
+  })
+
   test('uploading a file posts to the corpus and starts background polling', async () => {
-    const fetchSpy = vi.fn((url: string, _init?: RequestInit) => {
-      if (typeof url === 'string' && url.includes('/api/platform/knowledge/documents')) {
+    const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
+      // The same path lists the corpus (GET) and takes an upload (POST).
+      if (typeof url === 'string' && url.includes('/api/platform/knowledge/documents') && init?.method === 'POST') {
         return Promise.resolve(
           jsonResponse({
             status: 'pending',
@@ -729,11 +793,13 @@ describe('BaseKnowledge', () => {
   })
 
   test('a failed status load offers a retry that refetches', async () => {
-    const fetchSpy = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ error: 'nope' }, false, 500))
-      .mockResolvedValue(jsonResponse(STATUS))
-    vi.stubGlobal('fetch', fetchSpy)
+    let loads = 0
+    const fetchSpy = vi.fn((url: string) => {
+      if (url.startsWith('/api/platform/knowledge/texts')) return Promise.resolve(jsonResponse({ texts: [], nextCursor: null }))
+      loads += 1
+      return Promise.resolve(loads === 1 ? jsonResponse({ error: 'nope' }, false, 500) : jsonResponse(STATUS))
+    })
+    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
     const user = userEvent.setup()
 
     render(<BaseKnowledge />)
@@ -807,6 +873,7 @@ describe('BaseKnowledge', () => {
     let loads = 0
     const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
       if (init?.method === 'PATCH') return Promise.resolve(jsonResponse({ ok: true }))
+      if (url.startsWith('/api/platform/knowledge/texts')) return Promise.resolve(jsonResponse({ texts: [], nextCursor: null }))
       loads += 1
       return Promise.resolve(
         loads === 1 ? jsonResponse(STATUS) : jsonResponse({ error: 'flaky' }, false, 502)

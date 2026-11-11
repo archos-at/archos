@@ -34,19 +34,30 @@ export function detectRecordingSupport(env: RecordingEnvironment | undefined): R
   return match ? { available: true, ...match } : { available: false, reason: 'noFormat' }
 }
 
+/** How long the permission query may take. It reads a stored setting, so a browser that answers at all answers at once. */
+export const PERMISSION_QUERY_LIMIT_MS = 1_000
+
 /**
  * Whether the microphone permission is already denied, without prompting.
  * `false` when the browser cannot say (Firefox has no `microphone` permission
- * name): the prompt on first press is then what tells us.
+ * name) or does not answer within `limitMs`: the prompt on first press is then
+ * what tells us, and a button that waited for the answer would stay disabled.
  */
 export async function isMicrophoneDenied(
   permissions: { query?: (descriptor: { name: PermissionName }) => Promise<{ state: string }> } | undefined,
+  limitMs: number = PERMISSION_QUERY_LIMIT_MS,
 ): Promise<boolean> {
   if (typeof permissions?.query !== 'function') return false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const unanswered = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), limitMs)
+  })
   try {
-    const status = await permissions.query({ name: 'microphone' })
-    return status.state === 'denied'
+    const status = await Promise.race([permissions.query({ name: 'microphone' }), unanswered])
+    return status?.state === 'denied'
   } catch {
     return false
+  } finally {
+    clearTimeout(timer)
   }
 }

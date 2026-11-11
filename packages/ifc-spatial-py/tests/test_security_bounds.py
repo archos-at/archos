@@ -1,8 +1,8 @@
 """What this package refuses to do with input it does not control.
 
-Three of these are not questions about a building. They are questions about the
+Four of these are not questions about a building. They are questions about the
 PROCESS the building is measured in, and each was reproduced against the code
-before it was fixed. (A fourth, ``open_model(url=…)`` reading whatever a URL
+before it was fixed. (A fifth, ``open_model(url=…)`` reading whatever a URL
 named, went with the URL itself on 2026-11-04: the engine opens a path its host
 fetched through the host's own access check.)
 
@@ -11,16 +11,20 @@ fetched through the host's own access check.)
   - ``render.plan`` derived the raster HEIGHT from the model's aspect ratio and
     allocated it. A 400 m × 2 m gallery is 365 megapixels at the default width,
     which is 1.41 GB and an OOM-killed worker rather than a refused request;
+  - opening a model followed its length unit's conversion chain with no limit,
+    so a chain leading back to itself never returned;
   - a file the parser dies on in C took the process with it, and with the process
     every conversation running there.
 
 The first is a refusal and read as ``ToolError``: the call could not be
-made. None of them is an ``undecidable`` — that is a finding about an export,
-and "we will not connect there" is a finding about us.
+made. The last two are refusals about the file, a ``ModelUnreadableError``.
+None of them is an ``undecidable`` — that is a finding about an export, and
+"we will not connect there" is a finding about us.
 """
 
 from __future__ import annotations
 
+import os
 import resource
 import signal
 import subprocess
@@ -32,6 +36,7 @@ import ifcopenshell
 import pytest
 from ifc_spatial import render
 from ifc_spatial.model import SpatialModel
+from ifc_spatial.project_units import MAX_UNIT_STEPS
 from ifc_spatial.tools import ToolError
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -295,6 +300,146 @@ def test_a_real_document_still_lands_under_the_given_name(tmp_path: Path) -> Non
 
     assert facts["path"] == str(tmp_path / "haus.ids")
     assert (tmp_path / "haus.ids").is_file()
+
+
+# ── a length unit with no end ─────────────────────────
+
+
+UNITS_FEET = FIXTURES / "units-feet.ifc"
+FOOT = "#10=IFCCONVERSIONBASEDUNIT(#7,.LENGTHUNIT.,'FOOT',#9);"
+FOOT_FACTOR = "#9=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(0.3048),#8);"
+UNIT_LIST = "#13=IFCUNITASSIGNMENT((#10,#11,#12));"
+
+_OPEN_AND_PRINT = """
+import sys
+from ifc_spatial.model import ModelUnreadableError, SpatialModel
+try:
+    print(repr(SpatialModel(sys.argv[1]).unit_scale))
+except ModelUnreadableError as refused:
+    print(refused.reason)
+"""
+
+
+def _foot_through(conversions: int) -> str:
+    """The foot's factor, reaching the metre through ``conversions`` more units."""
+    lines = ["#9=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(0.3048),#100);"]
+    for i in range(conversions):
+        unit, factor, target = 100 + 2 * i, 101 + 2 * i, 102 + 2 * i if i + 1 < conversions else 8
+        lines.append(f"#{unit}=IFCCONVERSIONBASEDUNIT(#7,.LENGTHUNIT.,'U',#{factor});")
+        lines.append(f"#{factor}=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(1.),#{target});")
+    return "\n".join(lines)
+
+
+def _open_units_in_a_child(tmp_path: Path, *swaps: tuple[str, str]) -> str:
+    """A regression here never returns, so it has to fail this test and not hang the run."""
+    text = UNITS_FEET.read_text()
+    for old, new in swaps:
+        assert old in text
+        text = text.replace(old, new)
+    path = tmp_path / "units.ifc"
+    path.write_text(text)
+    done = subprocess.run(
+        [sys.executable, "-c", _OPEN_AND_PRINT, str(path)],
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=30,
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src")},
+    )
+    assert done.returncode == 0, done.stderr[-500:]
+    return done.stdout.strip()
+
+
+@pytest.mark.parametrize(
+    "swaps",
+    [
+        pytest.param([(FOOT_FACTOR, FOOT_FACTOR.replace("#8)", "#10)"))], id="points-at-itself"),
+        pytest.param(
+            [
+                (
+                    FOOT_FACTOR,
+                    "#9=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(3.),#50);\n"
+                    "#50=IFCCONVERSIONBASEDUNIT(#7,.LENGTHUNIT.,'YARD',#51);\n"
+                    "#51=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(0.3048),#10);",
+                )
+            ],
+            id="two-units-point-at-each-other",
+        ),
+        pytest.param(
+            [
+                ("FILE_SCHEMA(('IFC2X3'))", "FILE_SCHEMA(('IFC4'))"),
+                (FOOT_FACTOR, FOOT_FACTOR.replace("#8)", "#10)")),
+                (
+                    FOOT,
+                    FOOT.replace("IFCCONVERSIONBASEDUNIT", "IFCCONVERSIONBASEDUNITWITHOFFSET").replace("#9)", "#9,0.)"),
+                ),
+            ],
+            id="with-offset-points-at-itself",
+        ),
+        pytest.param([(FOOT_FACTOR, _foot_through(MAX_UNIT_STEPS - 1))], id="a-chain-past-the-limit"),
+        pytest.param(
+            [(UNIT_LIST, f"#13=IFCUNITASSIGNMENT(({'#10,' * (MAX_UNIT_STEPS // 2)}#10,#11,#12));")],
+            id="a-list-of-short-chains-past-the-limit",
+        ),
+        pytest.param(
+            [(UNIT_LIST, f"#13=IFCUNITASSIGNMENT(({'#8,' * (MAX_UNIT_STEPS - 1)}#10,#11,#12));")],
+            id="a-list-of-plain-length-units-past-the-limit",
+        ),
+    ],
+)
+def test_a_length_unit_that_cannot_be_followed_is_refused_with_a_reason(tmp_path: Path, swaps) -> None:
+    assert "Längeneinheit" in _open_units_in_a_child(tmp_path, *swaps)
+
+
+@pytest.mark.parametrize(
+    ("swaps", "scale"),
+    [
+        pytest.param([], 0.3048, id="foot"),
+        pytest.param(
+            [
+                (
+                    FOOT_FACTOR,
+                    "#9=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(3.),#50);\n"
+                    "#50=IFCCONVERSIONBASEDUNIT(#7,.LENGTHUNIT.,'FOOT',#51);\n"
+                    "#51=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(0.3048),#8);",
+                )
+            ],
+            0.9144000000000001,
+            id="yard-via-foot",
+        ),
+        pytest.param([(FOOT_FACTOR, _foot_through(MAX_UNIT_STEPS - 2))], 0.3048, id="a-chain-at-the-limit"),
+        pytest.param(
+            [(UNIT_LIST, f"#13=IFCUNITASSIGNMENT(({'#8,' * (MAX_UNIT_STEPS - 2)}#10,#11,#12));")],
+            0.3048,
+            id="a-list-of-plain-length-units-at-the-limit",
+        ),
+        pytest.param(
+            [
+                (
+                    UNIT_LIST,
+                    "#60=IFCCONVERSIONBASEDUNIT(#7,.USERDEFINED.,'U',#9);\n"
+                    f"#13=IFCUNITASSIGNMENT(({'#60,' * MAX_UNIT_STEPS}#60,#10,#11,#12));",
+                )
+            ],
+            0.3048,
+            id="a-long-list-of-units-the-scale-never-reads",
+        ),
+        pytest.param(
+            [
+                (
+                    UNIT_LIST,
+                    "#60=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(1.),#61);\n"
+                    "#61=IFCCONVERSIONBASEDUNIT(#7,.AREAUNIT.,'A',#60);\n"
+                    "#13=IFCUNITASSIGNMENT((#10,#61,#12));",
+                )
+            ],
+            0.3048,
+            id="a-loop-on-a-unit-the-scale-never-reads",
+        ),
+    ],
+)
+def test_a_length_unit_that_can_be_followed_reports_the_same_scale(tmp_path: Path, swaps, scale: float) -> None:
+    assert _open_units_in_a_child(tmp_path, *swaps) == repr(scale)
 
 
 # ── a file the parser dies on ───────────────────────────────────────────────
