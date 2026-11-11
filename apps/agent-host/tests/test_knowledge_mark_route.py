@@ -239,7 +239,8 @@ async def test_a_base_corpus_country_lands_on_its_corpus_row_so_a_reingest_keeps
     assert marks["OIB-RL_2.pdf"] == corpus_store.FileMark(country_id="ZZ", edition_id="edition:rl2")
 
 
-async def test_a_withdrawal_reaches_the_corpus_row_of_a_file_that_has_no_chunks_yet(store, monkeypatch):
+@pytest.mark.parametrize("missing", ["chunks", "collection"])
+async def test_a_withdrawal_reaches_the_corpus_row_of_a_file_that_has_no_chunks_yet(store, monkeypatch, missing):
     """A text rolled back before it was indexed: no chunk to mark (404), and still nobody's to read as a PDF."""
     from agent import corpus_store
     from agent.oib_sync import COLLECTION_NAME
@@ -248,6 +249,7 @@ async def test_a_withdrawal_reaches_the_corpus_row_of_a_file_that_has_no_chunks_
     monkeypatch.setattr(corpus_store, "get_mark", lambda name: marks.get(name))
     monkeypatch.setattr(corpus_store, "set_mark", lambda name, mark: marks.__setitem__(name, mark))
     store.chunks = 0
+    store.present = missing != "collection"
 
     response = await _put(
         {"file_name": "a-text.pdf", "country_id": "ZZ"}, path=f"/v1/collections/{COLLECTION_NAME}/knowledge-mark"
