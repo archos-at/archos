@@ -208,7 +208,7 @@
           }
         },
         "uses": {
-          "maxItems": 40,
+          "maxItems": 500,
           "type": "array",
           "items": {
             "type": "object",
@@ -549,7 +549,7 @@
           }
         },
         "undetermined": {
-          "maxItems": 40,
+          "maxItems": 500,
           "type": "array",
           "items": {
             "type": "object",
