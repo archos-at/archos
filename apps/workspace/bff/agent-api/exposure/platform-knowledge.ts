@@ -22,6 +22,11 @@ export const PLATFORM_KNOWLEDGE_EXPOSURE = {
   'platform-knowledge-change-request-list': PLATFORM_PUBLIC,
   'platform-knowledge-change-request-review': PLATFORM_PUBLIC,
   'platform-knowledge-change-request-submit': PLATFORM_PUBLIC,
+  // A country's quality bar, run on platform records as the operator in the platform organization (ADR-0165 amendment):
+  // the run answers verdicts and scores, never an answer's text.
+  'platform-knowledge-golden-run': PLATFORM_PUBLIC,
+  'platform-knowledge-golden-run-advance': PLATFORM_PUBLIC,
+  'platform-knowledge-golden-run-get': PLATFORM_PUBLIC,
   'platform-knowledge-index-status': PLATFORM_PUBLIC,
   'platform-knowledge-overview-get': PLATFORM_PUBLIC,
   'platform-knowledge-publish': PLATFORM_PUBLIC,

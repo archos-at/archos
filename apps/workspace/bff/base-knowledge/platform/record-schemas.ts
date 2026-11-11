@@ -3,8 +3,10 @@
  * type `records-propose` takes, a citation's, the batch size and the kit's
  * checks. The decision table (`decision_table.v1`, ADR-0166) is written once
  * under `$defs` and referenced wherever a record carries one (a ruleset's body,
- * an edition's `transition` and its scope, `appliesWhen`, ADR-0178), so the
- * whole set fits one tool result on the door (`MAX_RESULT_CHARS`). Pure.
+ * an edition's `transition` and its scope, `appliesWhen`, ADR-0178), and a
+ * record's citations reference the one citation schema the answer carries
+ * beside the types (`#/citation`), so the whole set fits one tool result on
+ * the door (`MAX_RESULT_CHARS`). Pure.
  */
 
 import { z } from 'zod'
@@ -17,6 +19,7 @@ export type ProposedRecordType = (typeof PROPOSED_RECORD_TYPES)[number]
 
 const DECISION_TABLE = 'decision_table.v1'
 const DECISION_TABLE_REF = `#/$defs/${DECISION_TABLE}`
+const CITATION_REF = '#/citation'
 const OPTIONS = { io: 'input', unrepresentable: 'any' } as const
 
 type JsonSchema = Record<string, unknown>
@@ -31,6 +34,12 @@ function isDecisionTable(schema: unknown): boolean {
 
 /** A node that is a decision table becomes a reference to the one written under `$defs`. */
 function referenceTables(context: { zodSchema: unknown; jsonSchema: JsonSchema }): void {
+  if (context.zodSchema === citationSchema) {
+    // Every record carries the same citation: written once, as the answer's `citation`.
+    for (const key of Object.keys(context.jsonSchema)) delete context.jsonSchema[key]
+    context.jsonSchema.$ref = CITATION_REF
+    return
+  }
   if (!isDecisionTable(context.zodSchema)) return
   for (const key of Object.keys(context.jsonSchema)) delete context.jsonSchema[key]
   context.jsonSchema.$ref = DECISION_TABLE_REF

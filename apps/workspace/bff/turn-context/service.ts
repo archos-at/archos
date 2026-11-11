@@ -28,6 +28,7 @@ import { countActiveRunsInProject } from '@/lib/tasks/repository'
 import { officeConventionsForTurn } from '@/lib/office-conventions/service'
 import { baseKnowledgeForTurn } from '@/lib/base-knowledge/office/service'
 import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
+import { goldenTurnFor } from '@/lib/base-knowledge/golden/turn'
 import { projectModelKinds } from '@/lib/bim/model-kinds-repository'
 import type { ProjectAccess } from '@/lib/authz/projects'
 import { TurnContextTiming } from './timing'
@@ -164,6 +165,9 @@ export async function loadTurnContext(
   const query = input.query || undefined
   const digestTiming: DigestTiming = {}
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
+  // A golden run's turn has no project: its case states the site and the facts (ADR-0165 amendment). Null for every
+  // other turn, and never awaited ahead of the reads below: it costs an office's turn no time.
+  const goldenTurn = goldenTurnFor(organizationId, conversationId)
   const solo = readSoloAudience(context)
 
   const [projectContext, orgInstructions, digest, personalMemory, temporary, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace, baseKnowledge, knowledgeContext, projectModels] = await Promise.all([
@@ -198,7 +202,7 @@ export async function loadTurnContext(
     // Which country, coverage and editions apply, what binds at the site and why (its chain text),
     // and what the turn may retrieve (ADR-0168, ADR-0173): one payload for the law.
     // Not advisory: it fails closed to `knowledge_unavailable` itself, and is timed as `knowledge`.
-    knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null),
+    goldenTurn.then((golden) => golden?.knowledgeContext ?? knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null)),
     // Which model files the project holds, so the agent binds its measuring tools only where there is one.
     projectId
       ? timed('models', () => advisory('read the project models', () => projectModelKinds(organizationId, projectId, conversationId ?? null)))
@@ -207,7 +211,7 @@ export async function loadTurnContext(
   // Whether the memory read waited for the query embed is what decides its cost.
   if (digestTiming.dense) timing.describe('memory', digestTiming.dense)
   return {
-    projectContext,
+    projectContext: (await goldenTurn)?.projectContext ?? projectContext,
     projectMemory: composeMemoryContext(digest, decisions, reviewDecisions, folders),
     orgInstructions,
     personalMemory,
