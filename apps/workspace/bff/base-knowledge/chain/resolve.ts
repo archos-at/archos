@@ -364,7 +364,8 @@ function unroutedUses(
   return []
 }
 
-const roleRank = (role: EditionRole) => ROLE_ORDER.indexOf(role)
+/** A role's place in the order uses are listed and carried: binding first. */
+export const roleRank = (role: EditionRole) => ROLE_ORDER.indexOf(role)
 
 /**
  * Each use with whether its edition applies to the project's buildings, by the

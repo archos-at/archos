@@ -125,4 +125,45 @@ describe('a country with hundreds of listed standards', () => {
     )
     expect(best).toBeLessThan(RESOLVER_BEST_MS)
   })
+
+  it('cuts the wire on the final roles: a use demoted for its connecting factor never pushes out one that binds', () => {
+    // MAX_CONTEXT_USES standards the VV TB lists that attach by the client only (contextUse informs, E40), and one
+    // that attaches by the site, listed last: the resolver orders all of them binding, the context does not.
+    const many = MAX_CONTEXT_USES
+    const set: unknown[] = [
+      { type: 'territory', id: 'XS', kind: 'country', name: 'Synthetic', coverageLevel: 'core' },
+      { type: 'territory', id: 'XS-1', kind: 'state', name: 'XS-1', parents: [{ id: 'XS' }] },
+      { type: 'work', key: 'vvtb-xs-1', kind: 'administrative_regulation', title: 'VV TB XS-1', territoryIds: ['XS-1'] },
+      { type: 'edition', key: 'vvtb-xs-1-2024', workKey: 'vvtb-xs-1', label: '2024', issuedOn: '2024-01-01' },
+      { type: 'work', key: 'code-xs-1', kind: 'statute', title: 'Building code XS-1', territoryIds: ['XS-1'] },
+      { type: 'edition', key: 'code-xs-1-2020', workKey: 'code-xs-1', label: '2020', issuedOn: '2020-01-01', inForceFrom: '2020-01-01' },
+      relation('code-vvtb-xs-1', 'code-xs-1', 'vvtb-xs-1'),
+    ]
+    for (let index = 0; index < many; index++) {
+      set.push(
+        { type: 'work', key: `client-${index}`, kind: 'technical_standard', title: `Client ${index}`, connectsBy: ['client'] },
+        { type: 'edition', key: `client-${index}-2021`, workKey: `client-${index}`, label: '2021', issuedOn: '2021-01-01' },
+        relation(`lists-client-${index}`, 'vvtb-xs-1', `client-${index}`),
+      )
+    }
+    set.push(
+      { type: 'work', key: 'zz-site', kind: 'technical_standard', title: 'Site standard' },
+      { type: 'edition', key: 'zz-site-2021', workKey: 'zz-site', label: '2021', issuedOn: '2021-01-01' },
+      relation('lists-zz-site', 'vvtb-xs-1', 'zz-site'),
+    )
+    const graph = graphFromProposals(set.map((record) => proposedRecordSchema.parse(record)))
+    const context = resolveKnowledgeContext({
+      homeCountry: 'XS',
+      entitled: new Set(['XS']),
+      sites: [{ territoryId: 'XS-1', certainty: 'verified' }],
+      graph,
+      truncated: false,
+      date: '2026-12-14',
+      now: new Date('2026-12-14T12:00:00Z'),
+      procedures: [],
+      packSeqs: { XS: 1 },
+    })
+    expect(context.uses).toHaveLength(MAX_CONTEXT_USES)
+    expect(context.uses.find((use) => use.workId === 'work:zz-site')?.role).toBe('binding')
+  })
 })
