@@ -35,3 +35,8 @@ class LookupTrace:
     as_of: str = ""
     #: Hits of an ``as_of`` search left unread because no version of that day.
     versions_dropped: int = 0
+    #: Which source record answered: its id, its revision (a released record's), and how the call came to read
+    #: it (``turn``: the record the turn carries; ``repository``: the fallback file).
+    source: str = ""
+    source_revision: str = ""
+    source_origin: str = ""

@@ -34,9 +34,8 @@ def turn_source() -> TurnSource | None:
     context = turn_knowledge_context()
     usable = [source for source in context.sources if "lookup" in source.config]
     if context.site_country:
-        at_site = [source for source in usable if source.country == context.site_country]
-        if at_site:
-            return at_site[0]
+        # A site's law is its own country's: another country's record never answers for it.
+        return next((source for source in usable if source.country == context.site_country), None)
     return usable[0] if len(usable) == 1 else None
 
 
@@ -75,3 +74,21 @@ def dropped_note(law: LawSource) -> str:
         f"or past the number a turn carries), so {law.wording.source} was read from its fallback record. Say in one "
         "sentence that the published source could not be read for this answer."
     )
+
+
+#: How a refusal of the fallback begins: the call is answered with it, not run.
+WITHHELD_PREFIX = "Not executed:"
+
+
+def withheld_note(law: LawSource) -> str:
+    """The refusal when the fallback record's own country is one this turn may not read; empty otherwise.
+
+    The chat binding is not withheld by country where the turn carries a released source (``law_gate``), so the
+    fallback is checked here, by its record's territory: it is never a way past the gate.
+    """
+    from agent.common.knowledge_context import get_turn_knowledge_context
+    from agent.common.law_gate import withheld_notice_for_country
+
+    if get_turn_knowledge_context() is None:  # a script or a door call: the turn's gate is not this call's
+        return ""
+    return withheld_notice_for_country(law.source.territory[:2], law.wording.source) or ""

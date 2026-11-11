@@ -457,7 +457,23 @@
             "Tirol",
             "Vorarlberg",
             "Burgenland"
-          ]
+          ],
+          "fact_keys": [
+            "federal_state",
+            "bundesland"
+          ],
+          "fact_values": {
+            "vienna": "Wien",
+            "lower_austria": "Niederösterreich",
+            "upper_austria": "Oberösterreich",
+            "styria": "Steiermark",
+            "carinthia": "Kärnten",
+            "salzburg": "Salzburg",
+            "tyrol": "Tirol",
+            "vorarlberg": "Vorarlberg",
+            "burgenland": "Burgenland",
+            "outside_austria": ""
+          }
         },
         "case_law_signals": [
           "vwgh",
@@ -471,6 +487,7 @@
           "urteil"
         ],
         "search_guidance": "Search term rules:\n- `terms` must be German legal terminology; strip filler words. Prefer the statutory term (e.g. \"Stellplatzverpflichtung\" not \"Parkplätze vorgeschrieben\").\n- Use `title` only when the user names a specific law (\"Bauordnung für Wien\", \"Garagengesetz\").\n- Dates only when the request clearly constrains time (decision periods, version in force at a date).\n- Keep `reasoning` to one short sentence.",
+        "unplaced_collection": "kons",
         "wording": {
           "source": "RIS",
           "subdivision": "Bundesland",

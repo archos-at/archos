@@ -106,6 +106,11 @@ class Territory(_Strict):
     names: dict[str, str] = Field(default_factory=dict)
     #: The territories a reference or a question may name, as the planner may choose them.
     choices: tuple[str, ...] = ()
+    #: A structured fact line a text may carry (``federal_state=lower_austria``, the project brief's form): its
+    #: keys, and each token's territory name ("" for a token that names none). When present it decides alone,
+    #: so a town's name in the text ("Wiener Neustadt") never overrides it.
+    fact_keys: tuple[str, ...] = ()
+    fact_values: dict[str, str] = Field(default_factory=dict)
 
 
 class Wording(_Strict):
@@ -160,6 +165,8 @@ class Lookup(_Strict):
     case_law_signals: tuple[str, ...] = ()
     #: The search planner's guidance on terms, after the collections (``Prefer the statutory term …``).
     search_guidance: str = Field(default="", max_length=2000)
+    #: The collection segment of a passage read from an address no collection was named for (a URL, a number).
+    unplaced_collection: str = ""
     wording: Wording
     #: The first segment of the collection id a passage states (``ris`` in ``ris/LrKons/Wien``), which the
     #: lanes and the citation reader know the source by; also the namespace of its cache keys. Empty: the source id.

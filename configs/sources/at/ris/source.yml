@@ -260,6 +260,20 @@ lookup:
       AT-9: Wien
     # In the order a question is probed for them.
     choices: [Wien, Niederösterreich, Oberösterreich, Steiermark, Kärnten, Salzburg, Tirol, Vorarlberg, Burgenland]
+    # The project brief's fact line (`federal_state=lower_austria`; `bundesland=` from an older pod): it decides
+    # alone, so "Wiener Neustadt" never flips a Lower Austrian project to Wien. A project outside Austria names none.
+    fact_keys: [federal_state, bundesland]
+    fact_values:
+      vienna: Wien
+      lower_austria: Niederösterreich
+      upper_austria: Oberösterreich
+      styria: Steiermark
+      carinthia: Kärnten
+      salzburg: Salzburg
+      tyrol: Tirol
+      vorarlberg: Vorarlberg
+      burgenland: Burgenland
+      outside_austria: ""
   case_law_signals: [vwgh, vfgh, judikatur, erkenntnis, entscheidung, geschäftszahl, geschaeftszahl, beschluss, urteil]
   search_guidance: |-
     Search term rules:
@@ -270,6 +284,8 @@ lookup:
   # The collection id a passage states starts with this (ris/LrKons/Wien); the lanes and the
   # citation reader know RIS by it, and the shared cache keys share it with the RIS tools.
   namespace: ris
+  # A passage read from a URL or a document number names no application: its collection segment.
+  unplaced_collection: kons
   # A whole-law page or a consolidated document is informational, not the authentic text.
   consolidated_urls: [GeltendeFassung, /Bundesnormen/, /Landesnormen/]
   # A bare document number (NOR40217157) names its citizen-application segment by its prefix.

@@ -104,7 +104,7 @@ def collection_for(candidate: Candidate, law: LawSource) -> str:
     FACT the ``Collection:`` line carries for a corpus hit (which body of law
     this is), and the lanes read the doc_class, never this string.
     """
-    parts = [law.namespace, candidate.collection]
+    parts = [law.namespace, candidate.collection or law.lookup.unplaced_collection]
     if candidate.territory:
         parts.append(candidate.territory)
     return "/".join(part for part in parts if part)

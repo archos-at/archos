@@ -34,10 +34,12 @@ from agent.knowledge.law_lookup.source import law_source
 from agent.knowledge.law_lookup.telemetry import capture_passages
 from agent.knowledge.law_lookup.telemetry import emit_lookup_span
 from agent.knowledge.law_lookup.trace import LookupTrace
+from agent.knowledge.law_lookup.turn_source import WITHHELD_PREFIX
 from agent.knowledge.law_lookup.turn_source import dropped_note
 from agent.knowledge.law_lookup.turn_source import note_fallback
 from agent.knowledge.law_lookup.turn_source import released_law_source
 from agent.knowledge.law_lookup.turn_source import turn_source
+from agent.knowledge.law_lookup.turn_source import withheld_note
 from nat.plugin_api import Builder
 from nat.plugin_api import FunctionBaseConfig
 from nat.plugin_api import FunctionInfo
@@ -45,6 +47,9 @@ from nat.plugin_api import LLMRef
 from nat.plugin_api import register_function
 
 logger = logging.getLogger(__name__)
+
+#: Sources (revisions) one bound tool keeps clients for; the oldest is let go past it.
+_MAX_BOUND = 16
 
 
 class LawLookupToolConfig(FunctionBaseConfig, name="law_lookup"):
@@ -118,6 +123,9 @@ class _Bound:
     client: object
     search: Search
     picker: object
+    #: ``turn`` (the released record the turn carries) or ``repository`` (the fallback file), and the revision.
+    origin: str = ""
+    revision: str = ""
 
 
 class _Lookup:
@@ -127,30 +135,46 @@ class _Lookup:
         self.config, self.llms = config, llms
         self.ttl = ttl_seconds(config.cache_ttl_days)
         self.bound: dict[str, _Bound] = {}
+        #: Let go of past the cap, closed with the tool.
+        self.retired: list[_Bound] = []
 
-    def _bind(self, key: str, law: LawSource) -> _Bound:
+    def _bind(self, key: str, law: LawSource, origin: str, revision: str) -> _Bound:
         if key not in self.bound:
+            if len(self.bound) >= _MAX_BOUND:  # revisions come and go; a process keeps a few
+                self.retired.append(self.bound.pop(next(iter(self.bound))))
             client = SourceClient(law, base_url=self.config.base_url, timeout=self.config.timeout)
             planner, picker = self.llms(law) if self.llms else (None, None)
             search = Search(law=law, client=client, planner=planner, catalog_path=self.config.catalog_path)
-            self.bound[key] = _Bound(law=law, client=client, search=search, picker=picker)
+            self.bound[key] = _Bound(
+                law=law, client=client, search=search, picker=picker, origin=origin, revision=revision
+            )
         return self.bound[key]
 
     def for_turn(self) -> tuple[_Bound, str]:
-        """The source this turn reads, and a note when the turn's own source could not be carried."""
+        """The source this turn reads, and a note when the turn's own source could not be carried or read."""
         chosen = turn_source()
         if chosen is not None:
-            return self._bind(f"turn:{chosen.revision_id}", released_law_source(chosen)), ""
+            try:
+                law = released_law_source(chosen)
+            except ValueError:  # SourceError, LawSourceError: a record this build cannot read
+                logger.exception(
+                    "[law_source_record_unreadable=true] the turn's source %s could not be read", chosen.key
+                )
+            else:
+                return self._bind(f"turn:{chosen.revision_id}", law, "turn", chosen.revision_id), ""
         law = law_source(self.config.source)
         note_fallback(law)
-        return self._bind(f"repository:{self.config.source}", law), dropped_note(law)
+        bound = self._bind(f"repository:{self.config.source}", law, "repository", "")
+        return bound, dropped_note(law) or withheld_note(law)
 
     async def aclose(self) -> None:
-        for bound in self.bound.values():
+        for bound in [*self.bound.values(), *self.retired]:
             await bound.client.aclose()
 
     async def call(self, question: str, jurisdiction: str, instrument: str, application: str, as_of: str) -> str:
         bound, note = self.for_turn()
+        if note.startswith(WITHHELD_PREFIX):
+            return note
         question = (question or "").strip()
         if not question:
             language = bound.law.wording.language or bound.law.lookup.language
@@ -175,6 +199,7 @@ class _Lookup:
         law, tool = bound.law, self.config.tool_name
         address = parse_address(question, instrument, jurisdiction, law)
         trace = LookupTrace(collection=application, as_of=as_of)
+        trace.source, trace.source_revision, trace.source_origin = law.source.id, bound.revision, bound.origin
         trace.candidates = await collect_candidates(bound.search, question, address, trace, as_of)
         documents = await fetch_documents(bound.client, trace.candidates, trace, self.ttl)
         selections = await select_passages(bound.picker, question, address, documents, trace, law)

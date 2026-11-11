@@ -222,7 +222,23 @@ def territory_in(text: str, law: LawSource) -> str:
     if not text or territory is None:
         return ""
     normalized = _normalize(text)
+    fact = _territory_fact(normalized, territory)
+    if fact is not None:
+        return fact
     return next((choice for choice in territory.choices if _normalize(choice) in normalized), "")
+
+
+def _territory_fact(normalized: str, territory) -> str | None:
+    """The territory a structured fact line names (``federal_state=<token>``); None when the text has none."""
+    if not territory.fact_keys:
+        return None
+    keys = "|".join(re.escape(_normalize(key)) for key in territory.fact_keys)
+    found = re.search(rf"\b(?:{keys})=([a-z_]+)", normalized)
+    if found is None:
+        return None
+    from agent.profile_names import normalize_profile_token
+
+    return territory.fact_values.get(normalize_profile_token(territory.fact_keys[0], found.group(1)), "")
 
 
 def assumed_territory(jurisdiction: str, instrument: str, question: str, law: LawSource) -> tuple[str, str]:

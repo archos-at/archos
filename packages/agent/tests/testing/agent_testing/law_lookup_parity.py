@@ -70,6 +70,7 @@ class Case:
 
 
 Q_GARAGE = "Was sagt § 50 Wiener Garagengesetz?"
+_RIS_LAW = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage="
 Q_BAU = "Welche Unterlagen sind dem Bauansuchen anzuschließen?"
 
 CASES: tuple[Case, ...] = (
@@ -111,6 +112,11 @@ CASES: tuple[Case, ...] = (
     ),
     Case("federal-act", {"question": "Was regelt das ASchG zu Arbeitsstätten?", "instrument": "§ 19 ASchG"}),
     Case("document-number", {"question": Q_GARAGE, "instrument": "LWI40010002"}),
+    Case(
+        "ris-url-hit",
+        {"question": "Was sagt § 63 dazu?", "instrument": f"{_RIS_LAW}LrW&Gesetzesnummer=20000006"},
+        note="a passage read from an address names no application",
+    ),
     Case(
         "ris-url",
         {
@@ -291,7 +297,11 @@ def _turn_carrying(record: dict[str, Any] | None):
         revision = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()[:16]
         country = record["territory"][:2]
         source = TurnSource(key=record["id"], revision_id=revision, country=country, config=record)
-        set_turn_knowledge_context(KnowledgeContext(gate="core", site_country=country, sources=(source,)))
+        set_turn_knowledge_context(
+            KnowledgeContext(
+                gate="core", site_country=country, sources=(source,), retrieval_countries=frozenset({country})
+            )
+        )
     try:
         yield
     finally:

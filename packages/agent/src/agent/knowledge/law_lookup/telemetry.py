@@ -65,6 +65,10 @@ def _span_context(question: str, address: Address, trace: LookupTrace, passages:
         "documents_fetched": len(trace.fetched),
         # Whether this call cost a picker call at all: a named provision does not.
         "deterministic": address.has_section,
+        # Which record answered, and whether the turn's own or the fallback file (ADR-0174, amendment 2026-11-11).
+        "source": trace.source,
+        "source_revision": trace.source_revision,
+        "source_origin": trace.source_origin,
     }
     if address.territory:
         context["federal_state"] = address.territory
