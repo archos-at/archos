@@ -629,6 +629,16 @@ otherwise to state as „not verified because“ in the closing checklist.
   | A calibration at twice the true scale on a sheet with two dimension figures, or on one dimensioned in whole centimetres | `met` and `not_met`: 28 of 56 verdicts wrong on the whole-centimetre sheet | Contradicted, `undecidable` (decision 10) |
   | A point placed by hand 2 pt from a corner, within 1 pt of the hatch end beside it | The distance to the hatch end, ± the stroke: 13 of 5,360 numbers at 2 pt, 26 of 5,335 at 3 pt (twelve seeds) | Refused, the candidates listed: 0 of 5,313 and 0 of 5,269 (decision 9) |
 
+  **What the two-direction rule costs on a real plot.** The one real
+  dimensioned floor plan measured in slice 2 (a basement floor, A1, 1:50, 52 of
+  65 figures agreeing) was asked for its scale at a 30 by 30 grid of places
+  over the page, margins included. Before the rule: 514 of 900 places
+  `estimated`. With it: 131 of 900. The other 383 now answer „uncalibrated: no
+  agreeing dimension runs past this place in two directions“ and need a
+  person's calibration. No threshold was loosened to win them back; whether the
+  rule is too strict for real drafting is the product owner's call, on the
+  pilot offices' files.
+
   What the set costs in refusals, by sheet (a probe is counted once as placed
   and six times moved):
 
