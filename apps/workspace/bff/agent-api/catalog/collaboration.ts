@@ -237,7 +237,8 @@ export const collaborationOperations = [
     description:
       'Grants `subjectUserId` a `role` on the resource: `viewer`, `collaborator` (the default) or `owner`. User ids come from ' +
       'sharing-candidate-list. Only the resource owner may grant. `{ escalate: true }` instead makes a project administrator ' +
-      'the owner of a resource they were not party to, recorded as its own act. Returns the sharing state. ' +
+      'the owner of a resource they can already read and do not own, recorded as its own act, and its owners are told; ' +
+      'a resource the caller cannot read answers 404. Returns the sharing state. ' +
       'Sensitive: the organization switches it on for agents, and the person confirms every call.',
     method: 'POST',
     path: '/api/sharing/[resourceType]/[resourceId]/grants',
