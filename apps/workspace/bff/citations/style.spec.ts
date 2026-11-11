@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest'
-import { FALLBACK_CITATION_STYLES } from '@/lib/base-knowledge/wire/citation-style'
+import { FALLBACK_CITATION_STYLES } from '@/shared/citation-style-fallback'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 
 vi.mock('server-only', () => ({}))

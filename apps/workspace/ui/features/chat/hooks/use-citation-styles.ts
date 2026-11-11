@@ -8,7 +8,8 @@
  */
 
 import { useEffect, useState } from 'react'
-import { citationStyleSchema, FALLBACK_CITATION_STYLES, type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import { citationStyleSchema, type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import { FALLBACK_CITATION_STYLES } from '@/shared/citation-style-fallback'
 
 let pending: Promise<CitationStylePayload | null> | null = null
 

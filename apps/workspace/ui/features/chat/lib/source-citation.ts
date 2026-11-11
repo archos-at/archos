@@ -12,7 +12,8 @@
  * rather than guessed. A fabricated Fundstelle is worse than a short one.
  */
 
-import { FALLBACK_CITATION_STYLES, type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import { type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import { FALLBACK_CITATION_STYLES } from '@/shared/citation-style-fallback'
 import { citationLine, quoteLine, styleFor, toCslItem as styledCslItem, type CitedSource, type CslItem } from '@/shared/citation-style'
 import { refHost, refNumber, refPage, type CitationRef } from './citations'
 

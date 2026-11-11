@@ -23,7 +23,8 @@ import { encodeCitations } from '@/features/chat/lib/citations/persistence'
 import { renderCitations } from '@/features/chat/lib/citation-export'
 import { toQuoteList, toTechnicalText } from '@/features/chat/lib/source-citation'
 import type { CitationSource } from '@/features/chat/types'
-import { FALLBACK_CITATION_STYLES, type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import { type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import { FALLBACK_CITATION_STYLES } from '@/shared/citation-style-fallback'
 
 interface Expected {
   line: string

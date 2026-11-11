@@ -8,7 +8,8 @@
 
 import { describe, expect, it } from 'vitest'
 import { fillTemplate } from '@/shared/citation-style'
-import { citationStyleSchema, FALLBACK_CITATION_STYLES } from './citation-style'
+import { citationStyleSchema } from './citation-style'
+import { FALLBACK_CITATION_STYLES } from '@/shared/citation-style-fallback'
 
 const style = FALLBACK_CITATION_STYLES.styles[0]
 

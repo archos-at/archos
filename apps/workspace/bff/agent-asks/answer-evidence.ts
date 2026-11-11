@@ -21,7 +21,8 @@ import { citedLoci, isHttpUrl, refHost, type CitationRef } from '@/features/chat
 import { decodeCitations } from '@/features/chat/lib/citations/persistence'
 import { describeResource } from '@/lib/sharing/registry'
 import { sanitizeProvenance } from '@/lib/conversations/message-provenance'
-import { FALLBACK_CITATION_STYLES, type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import { type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import { FALLBACK_CITATION_STYLES } from '@/shared/citation-style-fallback'
 import { citationLine, styleFor, toCslItem } from '@/shared/citation-style'
 import type { AskAnswerEvidence } from './ask-wire'
 

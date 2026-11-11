@@ -1,5 +1,5 @@
 {
-  "$comment": "FALLBACK, delete after rollover: the citation style a line is written in while no country's `citation_style` ruleset is released (docs/design/international/rollover-to-prod.md). It is the payload of configs/knowledge-packs/at-citation-styles.json, held equal by shared/citation-lines.fixture.spec.ts; it is how every line was written before the form became a record. Delete it, with FALLBACK_CITATION_STYLES (bff/base-knowledge/wire/citation-style.ts) and the null answer of bff/citations/style.ts, once that record is published on prod.",
+  "$comment": "FALLBACK, delete after rollover: the citation style a line is written in while no country's `citation_style` ruleset is released (docs/design/international/rollover-to-prod.md). It is the payload of configs/knowledge-packs/at-citation-styles.json, held equal by shared/citation-lines.fixture.spec.ts; it is how every line was written before the form became a record. Delete it, with shared/citation-style-fallback.ts and the null answer of bff/citations/style.ts, once that record is published on prod.",
   "styles": [
     {
       "language": "de",

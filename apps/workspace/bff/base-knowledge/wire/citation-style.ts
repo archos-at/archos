@@ -11,7 +11,6 @@
  */
 
 import { z } from 'zod'
-import fallbackStyles from '@/shared/citation-style.fallback.json'
 
 const segment = z.string().min(1).max(200)
 const template = z.array(segment).min(1).max(12)
@@ -85,10 +84,3 @@ export const citationStyleSchema = z
   .strict()
   .refine((payload) => new Set(payload.styles.map((style) => style.language)).size === payload.styles.length, 'one style per language')
 export type CitationStylePayload = z.infer<typeof citationStyleSchema>
-
-/**
- * FALLBACK, delete after rollover: the style a line is written in while no
- * country's `citation_style` ruleset is released (rollover-to-prod.md). It is the
- * payload of the first country's record, the form every line had before.
- */
-export const FALLBACK_CITATION_STYLES: CitationStylePayload = citationStyleSchema.parse({ styles: fallbackStyles.styles })

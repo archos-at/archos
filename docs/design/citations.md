@@ -327,7 +327,7 @@ The interpreter fills templates, each a list of segments printed only when all t
 
 *Fallback, delete after rollover.* Until a style is released on an environment, lines are written in
 `shared/citation-style.fallback.json`, which a spec holds equal to a pack's record. Delete it, with
-`FALLBACK_CITATION_STYLES` (`wire/citation-style.ts`) and the `null` answer of `bff/citations/style.ts`, once Austria's record is
+`FALLBACK_CITATION_STYLES` (`shared/citation-style-fallback.ts`) and the `null` answer of `bff/citations/style.ts`, once Austria's record is
 published on prod.
 
 *Not yet, and why.* The Word export (`bff/answer-export/citations.ts`), the copy-answer Markdown
