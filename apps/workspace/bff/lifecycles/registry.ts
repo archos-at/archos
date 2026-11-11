@@ -10,6 +10,7 @@
  */
 import { AGENT_WAKE_LIFECYCLE, ANNOTATION_LIFECYCLE } from '@/lib/annotations/lifecycles'
 import { ASK_LIFECYCLE } from '@/lib/agent-asks/ask-wire'
+import { CALIBRATION_LIFECYCLE } from '@/lib/drawing-calibrations/wire'
 import { MAIL_IMPORT_LIFECYCLE } from '@/lib/db/schema/mail-imports'
 import { DOCUMENT_READING_LIFECYCLE } from '@/lib/documents/reading-lifecycle'
 import { DOCUMENT_VERSION_LIFECYCLE } from '@/lib/documents/version-lifecycle'
@@ -62,6 +63,12 @@ export const LIFECYCLES: readonly RegisteredLifecycle[] = [
     what: 'One time the agent was woken on a mark (a mention, a reply, a delegation) and what came of it (ADR-0106).',
     where: 'bff/annotations/lifecycles.ts',
     column: 'agent_wakes.status',
+  },
+  {
+    lifecycle: CALIBRATION_LIFECYCLE,
+    what: 'The scale a person set for a region of a page of one version of a drawing: in force, replaced by a newer one for the same region, or withdrawn.',
+    where: 'bff/drawing-calibrations/wire.ts',
+    column: 'drawing_calibrations.status',
   },
   {
     lifecycle: ASK_LIFECYCLE,

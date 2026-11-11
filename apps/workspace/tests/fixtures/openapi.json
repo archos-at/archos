@@ -14176,6 +14176,331 @@
         }
       }
     },
+    "/api/documents/{id}/calibrations": {
+      "get": {
+        "operationId": "drawing-calibration-list",
+        "summary": "List the calibrations of a PDF drawing",
+        "description": "The calibrations people set on the document’s current version, oldest first: each a region of a page, two reference points and the true length between them in metres, places as shares of the page (origin top left). `status` defaults to `active`; `canCalibrate` says whether the caller may set one. Paged by `cursor`. A new version starts with none.",
+        "tags": [
+          "review"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The document id, from a project document listing or workspace-search."
+            },
+            "description": "The document id, from a project document listing or workspace-search."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Default 50, max 200.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Default 50, max 200."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only this page’s calibrations.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            },
+            "description": "Only this page’s calibrations."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Default `active`.",
+              "type": "string",
+              "enum": [
+                "active",
+                "superseded",
+                "withdrawn"
+              ]
+            },
+            "description": "Default `active`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the calibrations of a PDF drawing",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "post": {
+        "operationId": "drawing-calibration-set",
+        "summary": "Set the scale of a region of a PDF drawing",
+        "description": "Calibrates a region of a page of the document’s current version from two reference points and the true length between them, superseding the region’s earlier calibration. Both points lie inside `region`, which is never the whole page by default. A file that is not a PDF is refused (422), a document with no version too (409). Returns the calibration.",
+        "tags": [
+          "review"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The document id, from a project document listing or workspace-search."
+            },
+            "description": "The document id, from a project document listing or workspace-search."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000,
+                    "description": "The page, starting at 1."
+                  },
+                  "region": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "w": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 1
+                      },
+                      "h": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 1
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "w",
+                      "h"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The part of the page the scale holds for, as shares of the page (origin top left). Required: the region the file stores a scale for when both points lie in one, otherwise a box around the drawing the points are in. Never the whole page by default."
+                  },
+                  "from": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The first reference point, as shares of the page."
+                  },
+                  "to": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The second reference point."
+                  },
+                  "lengthM": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 100000,
+                    "description": "The true length between the two points, in metres."
+                  }
+                },
+                "required": [
+                  "page",
+                  "region",
+                  "from",
+                  "to",
+                  "lengthM"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Set the scale of a region of a PDF drawing",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/documents/{id}/calibrations/{calibrationId}/withdraw": {
+      "post": {
+        "operationId": "drawing-calibration-withdraw",
+        "summary": "Withdraw a calibration of a PDF drawing",
+        "description": "Withdraws one active calibration (id from drawing-calibration-list); its region is uncalibrated again, and the calibration it had superseded is not brought back. One that is not active is refused (409).",
+        "tags": [
+          "review"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The document id, from a project document listing or workspace-search."
+            },
+            "description": "The document id, from a project document listing or workspace-search."
+          },
+          {
+            "name": "calibrationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The calibration id, from drawing-calibration-list."
+            },
+            "description": "The calibration id, from drawing-calibration-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Withdraw a calibration of a PDF drawing",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/projects/{id}/annotations": {
       "get": {
         "operationId": "project-annotation-list",

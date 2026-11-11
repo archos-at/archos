@@ -1636,6 +1636,36 @@
    "withheld": null,
    "reason": null
   },
+  "drawing-calibration-list": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": null,
+   "external": false,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": "a person’s calibration of a PDF drawing; behind the drawing-measure entitlement, which the route checks, and the door has no per-operation flag yet, so `external: true` would list it for every outside agent"
+  },
+  "drawing-calibration-set": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": null,
+   "external": false,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": "a person’s calibration of a PDF drawing; behind the drawing-measure entitlement, which the route checks, and the door has no per-operation flag yet, so `external: true` would list it for every outside agent"
+  },
+  "drawing-calibration-withdraw": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": null,
+   "external": false,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": "a person’s calibration of a PDF drawing; behind the drawing-measure entitlement, which the route checks, and the door has no per-operation flag yet, so `external: true` would list it for every outside agent"
+  },
   "project-annotation-list": {
    "kind": "catalog",
    "domain": "review",

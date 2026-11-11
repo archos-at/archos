@@ -67,3 +67,5 @@ export const TASK = 'The agent proposes a task, or commissions a run, with its o
 export const SKILL_READ =
   'The agent is given the office’s skills at turn start and reads one with its own `read_file`, which the turn records; the door offers them to outside agents'
 export const CANVAS = 'The agent marks a document, and answers in a mark’s thread, with its own canvas tools, anchored where it looked'
+export const DRAWING_CALIBRATION =
+  'a person’s calibration of a PDF drawing; behind the drawing-measure entitlement, which the route checks, and the door has no per-operation flag yet, so `external: true` would list it for every outside agent'

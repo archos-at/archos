@@ -138,8 +138,9 @@ def _need_two(arguments: DrawingMeasureInput, page: int) -> NoNumber | None:
 
 def measure(loaded: LoadedSheet, arguments: DrawingMeasureInput) -> Answer:
     """A measuring operation over a loaded sheet. Pure, so the tests drive it without a store."""
-    # No calibration is read yet and no crop is attached: nothing is verified, so no threshold is decided here.
-    request = Request(loaded.page, arguments.threshold_min, arguments.threshold_max)
+    # No crop is attached yet (the card of slice 6 carries it), so a threshold is decided only where a person
+    # calibrated the region AND a printed figure on the span agrees with the measurement.
+    request = Request(loaded.page, arguments.threshold_min, arguments.threshold_max, loaded.calibrations)
     sheet = loaded.sheet
     if arguments.operation in ("path", "area"):
         operation = sheet_measure.path if arguments.operation == "path" else sheet_measure.area
@@ -156,7 +157,7 @@ def listing(loaded: LoadedSheet, arguments: DrawingMeasureInput) -> tuple[Listin
     """A reading operation over a loaded sheet. Pure."""
     sheet = loaded.sheet
     if arguments.operation == "sheet":
-        return (sheet_listing.overview(sheet),)
+        return (sheet_listing.overview(sheet, loaded.calibrations),)
     if arguments.operation == "figures":
         return (sheet_listing.figures(sheet, arguments.region, arguments.query, arguments.kind, arguments.limit),)
     if arguments.operation == "rooms":
@@ -175,6 +176,10 @@ def _listed(found: Listing) -> str:
 def answer(loaded: LoadedSheet, arguments: DrawingMeasureInput) -> tuple[str, bool]:
     """The operation's text, and whether it answered (a number, or a listing) rather than refused."""
     head = f"File: {loaded.file_name}, page {loaded.page}"
+    if loaded.calibrations_unread:
+        head += (
+            f"\n{loaded.calibrations_unread} stored calibration(s) of this page could not be read and were not used."
+        )
     if arguments.operation in MEASURING:
         result = measure(loaded, arguments)
         return f"{head}\n{render(result)}", not isinstance(result, NoNumber)

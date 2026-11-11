@@ -503,8 +503,8 @@ otherwise to state as „not verified because“ in the closing checklist.
 ### 4. A person's calibration, headless
 
 * **Build:** migration and table `drawing_calibrations` (organization, document,
-  version, page, region as shares, `metres_per_point`, the two reference points
-  and their true length, who and when, status) under `secure_table`; the lifecycle
+  version, page, region as shares, the two reference points
+  and their true length, who and when, status; no scale column, see „As built“) under `secure_table`; the lifecycle
   `active`, `superseded`, `withdrawn` declared with `defineLifecycle` and
   registered, with `withdrawn_at` and `withdrawn_by`; a partial unique index for
   one active row per region; withdrawing does not revive what it superseded. Read
@@ -519,6 +519,22 @@ otherwise to state as „not verified because“ in the closing checklist.
   the neighbouring region as it was; a calibration contradicting a stored region
   or the figure check is reported and makes every verdict in its region
   `undecidable`; the list operation pages.
+* **As built** (ADR-0183): the row holds what the person did (region, two
+  points, the true length) and no `metres_per_point`. A scale column would be a
+  number a client computed from a page size it claims; the agent computes the
+  scale from the sheet it read (`agent/drawings/sheet_calibration.py`). The
+  internal read is not a route of its own: `GET /api/internal/document-file`
+  takes `calibrationsPage` and answers the page's active calibrations with the
+  file's key, under one scope check, for the version whose bytes are read. The
+  agent never caches them. With the entitlement off the three operations answer
+  403 `feature_disabled`, as `requireFeature` does. A list on a document that
+  cannot be calibrated (no version, or no PDF) answers empty with
+  `canCalibrate: false`; a set on one is refused. Listing follows the document's
+  own read rule (`getAccessibleDocument`), which is `project:view` for a
+  project's document. The operations are `external: false, agent: true`: the
+  in-product agent's set is a proposal a person accepts, which slice 6 builds
+  on. A verdict still needs a printed figure on the span
+  that agrees, because no crop is attached before slice 6.
 
 ### 5. Calibrating in the review view
 

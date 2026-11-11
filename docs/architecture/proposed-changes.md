@@ -215,7 +215,8 @@ the person's tenant scope (the MCP route opens none), with the turn's answer
 operation only reads or is unknown, when the input does not fit the operation's
 schemas, or when the input is longer than `MAX_PROPOSED_INPUT_CHARS` (20,000
 characters of JSON: the card shows all of it). It is refused (403) for a
-sensitive operation, and (404) when the call names a project, document, folder
+sensitive operation, and (403 `feature_disabled`) for an operation whose `feature` the
+organization does not hold, and (404) when the call names a project, document, folder
 or conversation the person whose turn it is may not read
 (`requireTargetsReadable`, `lib/agent-api/operation-targets.ts`): otherwise a
 member's Piloti could put a change to a project the member cannot see in front

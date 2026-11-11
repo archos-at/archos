@@ -240,6 +240,28 @@ Born as `queued`, `suppressed`. Final: `answered`, `stopped`, `suppressed`, `ref
 | `started` | `stop` | `stopped` |
 | `started` | `fail` | `failed` |
 
+## drawing-calibration
+
+The scale a person set for a region of a page of one version of a drawing: in force, replaced by a newer one for the same region, or withdrawn.
+
+Stored in `drawing_calibrations.status`. Declared in [`bff/drawing-calibrations/wire.ts`](../../apps/workspace/bff/drawing-calibrations/wire.ts).
+
+```mermaid
+stateDiagram-v2
+  [*] --> active
+  active --> superseded: supersede
+  active --> withdrawn: withdraw
+  superseded --> [*]
+  withdrawn --> [*]
+```
+
+Born as `active`. Final: `superseded`, `withdrawn`.
+
+| From | Move | To |
+|---|---|---|
+| `active` | `supersede` | `superseded` |
+| `active` | `withdraw` | `withdrawn` |
+
 ## agent-ask
 
 A question another agent put to the agent, as an A2A task.
