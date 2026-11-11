@@ -120,7 +120,8 @@ describe('CountryKnowledge', () => {
     expect(await screen.findByTestId('country-review-waiting')).toHaveTextContent('MA 37')
     await user.click(screen.getByRole('tab', { name: 'Works and editions' }))
     expect(await screen.findByText('No texts yet')).toBeInTheDocument()
-    expect(screen.getByText('No draft is open. Your assistant opens one when it proposes records.')).toBeInTheDocument()
+    // With no draft open, a person still adds a document: the dialog opens one (add-document-dialog.spec.tsx).
+    expect(screen.getByRole('button', { name: 'Add a document' })).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'Sources' }))
     expect(await screen.findByText('No source yet')).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'Rules' }))
