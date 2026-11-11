@@ -856,6 +856,10 @@
     "de": "Eine einzelne Quelle, die nicht rechtzeitig antwortet, beendet die Tiefenrecherche nicht mehr; der Lauf geht ohne sie weiter."
   },
   {
+    "en": "A site whose building law makes hundreds of technical standards binding now gets its law named in the answer, instead of being told the knowledge base could not be read.",
+    "de": "Bei einem Standort, an dem das Baurecht Hunderte technische Normen verbindlich macht, wird nun das betreffende Gesetz in der Antwort genannt, statt mitzuteilen, dass die Wissensdatenbank nicht gelesen werden kann."
+  },
+  {
     "en": "A skill your organization writes may now carry any name; if it shares a name with an offered skill, yours applies.",
     "de": "Ein Skill Ihrer Organisation darf jetzt jeden Namen tragen; heißt er wie ein angebotener Skill, gilt Ihre Fassung."
   },

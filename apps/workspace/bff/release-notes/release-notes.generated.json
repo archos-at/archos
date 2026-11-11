@@ -579,6 +579,14 @@
           "section": "improvements",
           "area": "building-law",
           "text": {
+            "en": "A site whose building law makes hundreds of technical standards binding now gets its law named in the answer, instead of being told the knowledge base could not be read.",
+            "de": "Bei einem Standort, an dem das Baurecht Hunderte technische Normen verbindlich macht, wird nun das betreffende Gesetz in der Antwort genannt, statt mitzuteilen, dass die Wissensdatenbank nicht gelesen werden kann."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
             "en": "Answers can now quote the edition of an OIB guideline that actually binds in your Land: the April 2019 guidelines in Burgenland, Steiermark and Vorarlberg, and the 2019, 2025 and 2015 editions of OIB-RL 6 where a Land still applies them.",
             "de": "Antworten können jetzt die Ausgabe einer OIB-Richtlinie zitieren, die in Ihrem Bundesland tatsächlich verbindlich ist: die Richtlinien vom April 2019 in Burgenland, Steiermark und Vorarlberg sowie die Ausgaben 2019, 2025 und 2015 der OIB-RL 6, sofern ein Bundesland diese noch anwendet."
           }
