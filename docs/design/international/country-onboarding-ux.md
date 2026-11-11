@@ -49,18 +49,29 @@ On prod Jana opens Release, reads that sentence, opens the gazette link because 
 
 ## B. Information architecture
 
-### Navigation: the country is a folder
+### The surface: one outline, for seeing, building and confirming
 
-The owner found a sidebar of jobs and tabs hard to navigate, so the navigation is a tree, as in a file browser. There is one column, with no sidebar and no tabs. A path bar at the top (`Countries / Österreich / Steiermark / StBTV-Novelle 2027`) says where you are.
+This is the direction the owner agreed after seven prototype rounds (the prototype, version 7). It replaces the earlier sidebar, folder-browser and side-panel versions. The owner rejected each one as too busy or too clumsy, and rejected side panels in any form.
 
-- **Countries** holds one folder per country.
-- **A country** holds one folder per law-making region, then the shelves: the publisher's texts (`OIB-Richtlinien / OIB-RL 2 / Ausgabe Mai 2023`), the rules, the test questions, the imported regions and municipalities, and the watched sources.
-- **A region's folder** opens on a timeline: one bar per guideline, one segment per edition, and a line for today. Below it are its building law and the acts that adopt guidelines, one item per act.
-- **An item** (an act, a text, a rule, a question) is the decision itself, on one page: what it says, the source, and "Yes, confirm".
+**One surface, one column, the hierarchy as an outline.** No sidebar, no tabs and no side panel. The country is the heading. Under it, a tree line runs down to its law-making regions, and each region opens to its acts and then its municipalities. A second branch under the country holds what the regions adopt: the publisher's guideline series (`OIB-Richtlinien`), each guideline's editions, and each edition's text. Countries are switched from a picker above the heading, and that picker also holds "+ New country".
 
-Status rolls up the tree the way unread counts do in a mail client. A folder says "2 need you" or "3 with the agent", so the operator follows the numbers and never has to know the order. The country's row of Länder shows each Land's fingerprint: one small square per guideline, with the edition year in force today. That replaces the grid as the at-a-glance view. One button in the path bar, **Next for you**, walks to the next item that needs this person, and confirming an item opens the next one. A change that is not yet released shows as a banner on the country folder, with the release page behind it.
+**Each row says its value once.** A region's row names the edition most of its guidelines use and only the exceptions ("Salzburg · Energie 2015 · 2023"), and a coming change in the one accent colour ("Steiermark 2019 → 2023 on 1.7.2027"). An act's row says what it adopts and from when. The municipalities are one quiet line, "286 Gemeinden · same as Steiermark". That is inheritance stated once: what a level does not say, it takes from the level above.
 
-The six jobs below are still the content. They are now places in the tree, not tabs.
+**Everything opens in place.** Clicking a row unfolds it directly beneath:
+- An act shows its sentence ("StBTV-Novelle 2027 makes the OIB-Richtlinien 2023 binding in Steiermark from 1.7.2027"). Under it come the gazette quote, what happens to procedures already filed, its deviations, links to the edition texts it adopts, and "That is what the act says" / "Something is wrong".
+- An edition shows its PDF, where it binds, and, where its date is missing, "Is this the text of this edition?".
+
+**Building happens in the same place.** Each list ends with a quiet "+ Add …" row whose form unfolds in place:
+- An act for a region: drop the act's PDF or type it. The fields are the act, binding from, the edition, an exception, and procedures already filed.
+- An edition for a guideline, with its PDF.
+- A guideline series.
+- For a new country: its regions, imported from ISO 3166-2.
+
+An act still citing a pointer takes its act's PDF in place, or "ask the agent to find it". What a person enters waits for a second person, and the row says so ("added by you · waits for a second person"). The agent adds through the same operations, so its additions arrive as rows like anyone's.
+
+**What needs you is one dot.** An orange dot marks every row with something for this person, rolled up to its region. "N to confirm →" at the top unfolds the next one and scrolls to it, and confirming opens the one after. The only other colour is a ✓ for confirmed. Rules, the citation style and the test questions sit under "What applies country-wide", the country's own row, because every region inherits them.
+
+The six jobs below are still the content. They are now places in one outline, not screens.
 
 A country has six jobs and a release. The navigation is those jobs in the order a person does them; each screen opens with one sentence saying what to do there. The prototype implements every screen below.
 

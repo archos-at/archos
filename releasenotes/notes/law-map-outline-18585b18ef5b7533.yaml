@@ -1,0 +1,10 @@
+---
+# area: building-law
+operators:
+  - >
+    Platform → a country → "Open the law map" shows the country as one outline,
+    read from its open change request: the country, each region with the
+    edition that binds there and only its exceptions, and under each region the
+    acts that make editions binding, each opening in place to the statement,
+    its source and its deviations. A second branch lists what the
+    regions adopt, with editions and texts.
