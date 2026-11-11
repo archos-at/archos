@@ -209,6 +209,11 @@ ignore_imports = [
   "agent.tools.look.reading -> knowledge_layer.ingest",
   "agent.tools.look.register -> knowledge_layer.view_image",
   "agent.tools.look.resolve -> knowledge_layer.view_image",
+  # The law lookup, moved out of ris_adapter (outside `agent`, so unbound by this contract):
+  # the corpus's passage bound and its lane fan-out, read rather than restated. The port
+  # (`agent.knowledge.factory`) is at its size ceiling; route both through it when it shrinks.
+  "agent.knowledge.law_lookup.render -> knowledge_layer.search",
+  "agent.knowledge.law_lookup.sections -> knowledge_layer.search",
 ]
 
 [tool.yapf]

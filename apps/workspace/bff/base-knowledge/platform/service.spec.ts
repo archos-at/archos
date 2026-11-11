@@ -44,7 +44,11 @@ const roles = vi.hoisted(() => ({ due: vi.fn(async (): Promise<{ role: string; s
 const REVISION = 'e0000000-0000-4000-8000-000000000001'
 vi.mock('./store', () => ({
   platformTransaction: async <T,>(fn: (tx: unknown) => Promise<T>) => fn({}),
-  lockChangeRequest: async (_tx: unknown, id: string) => ({ id, status: 'submitted', countryId: 'AT', approval: 'four_eyes', secondReview: null }),
+  // After an override approval the row carries the trigger's marks (migration 0214), as the database's would.
+  lockChangeRequest: async (_tx: unknown, id: string) => {
+    const alone = writes.approval.mock.calls.some(([, input]) => (input as { overrideReason?: string }).overrideReason)
+    return { id, status: 'submitted', countryId: 'AT', approval: alone ? 'single' : 'four_eyes', secondReview: alone ? 'due' : null }
+  },
   requestAuthors: async () => new Set(['user_author']),
   secondReviewRoles: async () => roles.due(),
   insertSecondReview: writes.status,

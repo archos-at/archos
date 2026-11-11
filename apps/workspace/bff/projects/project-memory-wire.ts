@@ -24,6 +24,12 @@ export const listMemoryQuerySchema = z.object({
 /** `GET /api/organization/memory`. */
 export const listOrganizationMemoryQuerySchema = z.object({
   includeArchived: z.enum(['true', 'false']).optional().describe('"true" also returns archived items.'),
+  conversationId: z
+    .string()
+    .min(1)
+    .max(255)
+    .optional()
+    .describe('Only the notes written from this conversation.'),
   ...pageQueryShape,
 })
 

@@ -2034,7 +2034,6 @@
                   "status": {
                     "type": "string",
                     "enum": [
-                      "proposed",
                       "active",
                       "superseded",
                       "dismissed"
@@ -15028,7 +15027,7 @@
       "post": {
         "operationId": "conversation-create",
         "summary": "Start a new conversation",
-        "description": "Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document. You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.",
+        "description": "Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document, and optionally `temporary` (nothing from it is kept in memory). You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.",
         "tags": [
           "conversations"
         ],
@@ -15082,6 +15081,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "temporary": {
+                    "description": "True starts a temporary conversation: nothing from it is kept in project, organization or personal memory.",
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -15310,8 +15313,8 @@
       },
       "patch": {
         "operationId": "conversation-update",
-        "summary": "Rename a conversation or change when ARCHOS answers",
-        "description": "Sets `title` (owner role) and/or the `engagement` mode that decides when ARCHOS answers (collaborator role); at least one. Returns it.",
+        "summary": "Rename a conversation, make it temporary, or change when ARCHOS answers",
+        "description": "Sets `title` (owner role), `temporary` (owner role) and/or the `engagement` mode that decides when ARCHOS answers (collaborator role); at least one. A temporary conversation keeps nothing in project, organization or personal memory; switching it off keeps nothing from earlier turns. Returns it.",
         "tags": [
           "conversations"
         ],
@@ -15344,6 +15347,10 @@
                       "ask",
                       "mention"
                     ]
+                  },
+                  "temporary": {
+                    "description": "True makes the conversation temporary: from now on nothing from it is kept in project, organization or personal memory. False keeps memory again from the next turn; nothing from the turns before is kept.",
+                    "type": "boolean"
                   }
                 }
               }
@@ -15376,7 +15383,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Rename a conversation or change when ARCHOS answers",
+          "title": "Rename a conversation, make it temporary, or change when ARCHOS answers",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": true,
@@ -17923,6 +17930,332 @@
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/user/memory": {
+      "delete": {
+        "operationId": "personal-memory-clear",
+        "summary": "Delete all personal memory notes",
+        "description": "Removes every personal note of the person for good, pinned ones included; it cannot be undone. Notes of the project and of the organization are not touched. Answers `{ removed }`, the number of notes removed (0 when there were none). To remove one note use personal-memory-delete.",
+        "tags": [
+          "collaboration"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete all personal memory notes",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "post": {
+        "operationId": "personal-memory-create",
+        "summary": "Add a personal memory note",
+        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. 400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.",
+        "tags": [
+          "collaboration"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "preference",
+                      "profile"
+                    ],
+                    "description": "`preference`: how the person wants the agent to work. `profile`: their role, responsibilities and recurring topics."
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "description": "One self-contained sentence about the person, max 2000 characters."
+                  },
+                  "pinned": {
+                    "description": "A pinned note reaches every turn first.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "content"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Add a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "get": {
+        "operationId": "personal-memory-list",
+        "summary": "List the person’s personal memory",
+        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Item ids feed personal-memory-update and personal-memory-delete.",
+        "tags": [
+          "collaboration"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Default 50, max 200.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Default 50, max 200."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "sourceConversationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "description": "Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the person’s personal memory",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/user/memory/{itemId}": {
+      "delete": {
+        "operationId": "personal-memory-delete",
+        "summary": "Delete a personal memory note",
+        "description": "Removes one personal note for good; it cannot be undone. `itemId` is from personal-memory-list.",
+        "tags": [
+          "collaboration"
+        ],
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The personal memory note id (a UUID), from personal-memory-list."
+            },
+            "description": "The personal memory note id (a UUID), from personal-memory-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "patch": {
+        "operationId": "personal-memory-update",
+        "summary": "Edit a personal memory note",
+        "description": "Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
+        "tags": [
+          "collaboration"
+        ],
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The personal memory note id (a UUID), from personal-memory-list."
+            },
+            "description": "The personal memory note id (a UUID), from personal-memory-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "preference",
+                      "profile"
+                    ],
+                    "description": "`preference`: how the person wants the agent to work. `profile`: their role, responsibilities and recurring topics."
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "description": "One self-contained sentence about the person, max 2000 characters."
+                  },
+                  "pinned": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Edit a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
           "openWorldHint": false
         }
       }
@@ -25436,6 +25769,18 @@
             "description": "\"true\" also returns archived items."
           },
           {
+            "name": "conversationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the notes written from this conversation.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "description": "Only the notes written from this conversation."
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -25588,7 +25933,6 @@
                   "status": {
                     "type": "string",
                     "enum": [
-                      "proposed",
                       "active",
                       "superseded",
                       "dismissed"
@@ -29061,7 +29405,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-decide",
         "summary": "Approve or reject a submitted change request, or give the second review of one approved alone",
-        "description": "The person’s own decision, asked of them. Every request needs a domain expert’s approval (`role: domain_expert`); approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. `override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone (403 without), is refused while a pasted capture is not source-checked by another person, is never implied, and marks the request `approval: single` with a second review due; propose it and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an approved request whose second review is due, another person gives it in each role approved alone they hold (`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed request is not published further; rejecting it again withdraws its preview, and a published one is rolled back (platform-knowledge-rollback), each a separate decision. Answers `secondReviewDue`, the roles still owed. Audited.",
+        "description": "The person’s own decision, asked of them. Every request needs a domain expert’s approval (`role: domain_expert`); approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. `override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone (403 without), is refused while a pasted capture is not source-checked by another person, is never implied, and marks the request `approval: single` with a second review due; propose it and ask, the person decides. On a deployment set to one operator alone (dev) the author’s own source check counts and no second review is due (`secondReview: null`): the author reviews, approves with the override and publishes alone, still audited and marked `single`; the 409 that names the source check says which applies. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an approved request whose second review is due, another person gives it in each role approved alone they hold (`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed request is not published further; rejecting it again withdraws its preview, and a published one is rolled back (platform-knowledge-rollback), each a separate decision. Answers `secondReviewDue`, the roles still owed. Audited.",
         "tags": [
           "platform"
         ],
@@ -29218,7 +29562,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-review",
         "summary": "Record verdicts on the claims of a change request under review",
-        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture, or the manifestation’s text, against its source, which an operator-supplied capture and a text nobody fetched (uploaded, or only named) need before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone stays reviewable until its second review is given.",
+        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture, or the manifestation’s text, against its source, which an operator-supplied capture and a text nobody fetched (uploaded, or only named) need before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request, except on a deployment set to one operator alone (dev): there the author records verdicts, `sourceChecked` included, on their own request. A verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone stays reviewable until its second review is given.",
         "tags": [
           "platform"
         ],
@@ -33059,6 +33403,11 @@
                                 "additionalProperties": false
                               },
                               "description": "Recorded exchanges that prove the record with no live call."
+                            },
+                            "lookup": {
+                              "description": "How a law lookup reads this source, in snake case (see public_sources.lookup): the language, the locus grammar of its texts, the collections its search offers, the territory filter and the wording. Without it, no lookup reads the source.",
+                              "type": "object",
+                              "additionalProperties": {}
                             },
                             "citations": {
                               "default": [],

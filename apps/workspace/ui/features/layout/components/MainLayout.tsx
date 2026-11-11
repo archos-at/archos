@@ -28,6 +28,7 @@ import { ChatDropZone } from './chat-drop-zone'
 import { RightsLostPanel } from './RightsLostPanel'
 import { useChatStore } from '@/features/chat/store'
 import { NoSourcesBanner, ChatUsageNotice } from '@/features/chat'
+import { ConversationPrivacyLine } from '@/features/chat/conversation-privacy'
 import { useSessionUrl } from '@/hooks/use-session-url'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { useTranslations } from '@/i18n'
@@ -306,6 +307,12 @@ export const MainLayout: FC<MainLayoutProps> = ({
                   // composer (spec NF-8).
                   canCollaborate={canCollaborate}
                   canChatInProject={canChatInProject}
+                />
+
+                {/* Who reads this chat and what is kept from it (ADR-0180). */}
+                <ConversationPrivacyLine
+                  conversationId={currentConversationId ?? null}
+                  canCollaborate={canCollaborate}
                 />
               </motion.div>
             </>

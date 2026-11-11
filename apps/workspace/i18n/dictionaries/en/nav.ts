@@ -5,6 +5,9 @@ export const nav = {
   /** The project's last chats under „Chat“ in the rail, and the way to all of them. */
   recentChats: 'Recent chats',
   allChats: 'All chats',
+  // A temporary chat in the rail's list: the glyph, said in words to a screen reader and a pointer.
+  temporaryChat: '(temporary chat)',
+  temporaryChatTitle: '{title} (temporary chat: nothing from it is kept)',
   allProjects: '{productName} — all projects',
   collapseSidebar: 'Collapse sidebar',
   expandSidebar: 'Expand sidebar',
@@ -42,6 +45,8 @@ export const nav = {
     setup: 'Setup',
   },
   sectionGroups: {
+    // Everything done inside one project; the rail shows it without a heading.
+    work: 'This project',
     org: 'Organization',
   },
   sectionSubtitles: {
@@ -146,6 +151,7 @@ export const nav = {
     defaultUser: 'Default User',
     authNotConfigured: 'Authentication not configured',
     profile: 'Profile',
+    memory: 'My memory',
     organization: 'Organization',
     platform: 'Platform',
     switchOrganization: 'Switch organization',

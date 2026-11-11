@@ -91,4 +91,9 @@ describe('PageHeader', () => {
     expect(title.className).toContain('text-page-title')
     expect(title.className).toContain('phone:text-section')
   })
+
+  it('keeps the description on a phone for a page that asks to, a page the tab bar does not name', () => {
+    render(<PageHeader title="My memory" subtitle="What is kept about you." subtitleOnPhone />)
+    expect(screen.getByText('What is kept about you.').className.split(/\s+/)).not.toContain('phone:hidden')
+  })
 })

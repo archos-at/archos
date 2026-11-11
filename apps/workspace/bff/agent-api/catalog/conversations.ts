@@ -78,7 +78,8 @@ export const conversationsOperations = [
     links: 'conversation',
     summary: 'Start a new conversation',
     description:
-      'Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document. ' +
+      'Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document, ' +
+      'and optionally `temporary` (nothing from it is kept in memory). ' +
       'You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.',
     method: 'POST',
     path: '/api/conversations',
@@ -101,9 +102,10 @@ export const conversationsOperations = [
     name: 'conversation-update',
     domain: 'conversations',
     links: 'conversation',
-    summary: 'Rename a conversation or change when ' + PRODUCT_NAME + ' answers',
+    summary: 'Rename a conversation, make it temporary, or change when ' + PRODUCT_NAME + ' answers',
     description:
-      'Sets `title` (owner role) and/or the `engagement` mode that decides when ' + PRODUCT_NAME + ' answers (collaborator role); at least one. Returns it.',
+      'Sets `title` (owner role), `temporary` (owner role) and/or the `engagement` mode that decides when ' + PRODUCT_NAME + ' answers (collaborator role); at least one. ' +
+      'A temporary conversation keeps nothing in project, organization or personal memory; switching it off keeps nothing from earlier turns. Returns it.',
     method: 'PATCH',
     path: '/api/conversations/[id]',
     params: conversationParams,

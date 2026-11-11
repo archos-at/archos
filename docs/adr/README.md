@@ -244,6 +244,7 @@ Consequences, where a reader looks for them.
 | [0177](0177-what-the-project-and-the-office-set-goes-at-the-head-of-a-chat-request.md) | What the project and the office set goes at the head of a chat request, and history is edited in steps | Accepted |
 | [0178](0178-an-edition-states-which-buildings-it-applies-to.md) | An edition states which buildings it applies to, and the chain runs that scope per building | Proposed |
 | [0179](0179-lifecycles-are-declared-as-statechart-tables.md) | A record's lifecycle is declared once, as a statechart table | Proposed |
+| [0180](0180-personal-memory-is-its-own-table-keyed-to-the-person.md) | A note has one home that says who reads it: personal memory is its own table, keyed to the person | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

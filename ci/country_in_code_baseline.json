@@ -223,7 +223,7 @@
   "packages/agent/src/agent/knowledge/permit_extraction.py": 16,
   "packages/agent/src/agent/knowledge/schema.py": 1,
   "packages/agent/src/agent/legacy_corpus_import.py": 5,
-  "packages/agent/src/agent/memory/reflection.py": 2,
+  "packages/agent/src/agent/memory/reflection.py": 1,
   "packages/agent/src/agent/observability/langfuse_catalog.py": 4,
   "packages/agent/src/agent/oib_status.py": 40,
   "packages/agent/src/agent/oib_sync.py": 15,

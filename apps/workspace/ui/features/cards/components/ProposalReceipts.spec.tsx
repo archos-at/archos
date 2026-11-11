@@ -373,6 +373,44 @@ describe('memory proposal with a proposal_id', () => {
   })
 })
 
+describe('a memory proposal accepted in a temporary chat', () => {
+  it('says the chat is temporary instead of a generic failure, and stays open', async () => {
+    serve(memoryProposal())
+    server.use(
+      http.post(`/api/proposals/${PROPOSAL_ID}/apply`, () =>
+        HttpResponse.json(
+          { error: 'This conversation is temporary: nothing from it is kept in memory', code: 'TEMPORARY_CONVERSATION' },
+          { status: 403 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    render(memoryCard)
+
+    await user.click(await screen.findByRole('button', { name: 'Apply' }))
+
+    const refusal = await screen.findByTestId('proposal-refused')
+    expect(refusal).toHaveTextContent(/^Not kept: this chat is temporary/)
+    expect(refusal).toHaveAttribute('data-code', 'TEMPORARY_CONVERSATION')
+    expect(screen.queryByText('Could not be applied.')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument()
+  })
+
+  it('keeps the generic line for a refusal the server did not name', async () => {
+    serve(memoryProposal())
+    server.use(
+      http.post(`/api/proposals/${PROPOSAL_ID}/apply`, () => HttpResponse.json({ error: 'boom' }, { status: 500 }))
+    )
+    const user = userEvent.setup()
+    render(memoryCard)
+
+    await user.click(await screen.findByRole('button', { name: 'Apply' }))
+
+    expect(await screen.findByText('Could not be applied.')).toBeInTheDocument()
+    expect(screen.queryByTestId('proposal-refused')).toBeNull()
+  })
+})
+
 describe('project profile proposal with a proposal_id', () => {
   it('draws before → after from the stored PATCH and the profile as it is, and offers the decision', async () => {
     serve(profileProposal())

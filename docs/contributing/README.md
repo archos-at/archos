@@ -12,6 +12,7 @@ holds the depth behind it.
 | [ci-north-star.md](ci-north-star.md) | Where CI is going: the measured baseline (merge to staging, red develop, cost), what each change is expected to save (to be measured), the next slices ranked, and the settings only an owner can change |
 | [definition-of-done.md](definition-of-done.md) | The bar a change clears before anyone calls it done: the baseline, what to show per kind of change, the revert-check, the closing checklist |
 | [testing-and-verification.md](testing-and-verification.md) | `task verify` as the merge gate, which task to run while iterating, and the traps the task list cannot tell you about |
+| [local-stack.md](local-stack.md) | The whole app on one machine with a real signed-in session and no Docker or WorkOS account (`task local:up`): what runs, the users, a browser session, what a chat turn needs, what is left out, troubleshooting |
 | [naming.md](naming.md) | How to name anything: the explain test, no brand in a name, English only, casing per family, one word per concept, renaming a stored or external name, terms under review |
 | [code-conventions.md](code-conventions.md) | House rules with a history: the `any` ban, coercing raw `sql<T>` results, where a shared helper belongs, the capability doctrine |
 | [release-notes.md](release-notes.md) | reno mechanics, what makes a note customer copy, publishing and the translation cache |

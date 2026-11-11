@@ -27,7 +27,7 @@ describe('MemorySettings', () => {
     render(<MemorySettings projectId="p1" canWrite={false} />)
 
     expect(await screen.findByText(ITEM.content)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /add memory/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /add note/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Pin' })).not.toBeInTheDocument()
     expect(screen.getByText(/Changing it needs write access/)).toBeInTheDocument()
   })
@@ -37,7 +37,7 @@ describe('MemorySettings', () => {
     render(<MemorySettings projectId="p1" canWrite />)
 
     expect(await screen.findByText(ITEM.content)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /add memory/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add note/i })).toBeInTheDocument()
     expect(screen.queryByText(/Changing it needs write access/)).not.toBeInTheDocument()
   })
 })
