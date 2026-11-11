@@ -29,7 +29,8 @@ stored region with `Y` or `CYX`.
 
 ## Facts about the readers
 
-Checked against pypdfium2 5.14.0 and pdfminer as installed.
+Checked against pypdfium2 5.14.0 and pdfminer as installed; the declared floor is
+`pypdfium2>=5.12.1`.
 
 * **PDFium gives geometry and characters, not page dictionary entries.** `/VP`,
   `/Measure`, `/UserUnit`, the boxes and optional content are read with pdfminer
@@ -90,38 +91,67 @@ fixtures of slice 1.
    * `look` reads characters only, never paths.
 2. **The reader lives in `knowledge_layer`, the measuring in `agent`.**
    `packages/knowledge-layer/src/sheet/` holds everything that touches PDFium or
-   pdfminer and returns a plain `Sheet` value. `packages/agent/src/agent/drawings/`
-   holds pure functions over that value. The agent may not import
-   `knowledge_layer` (`pyproject.toml`, contract `agent-knowledge-port`), so one
-   line joins that contract's `ignore_imports`:
-   `agent.tools.drawings.sheet_source -> knowledge_layer.sheet`, with its reason,
-   and the ADR records it.
+   pdfminer. Three things make that true rather than said:
+   * the package lists its modules by hand (`packages/knowledge-layer/pyproject.toml`,
+     `[tool.setuptools] packages`): add `knowledge_layer.sheet`, or it does not
+     import;
+   * `pdfplumber` and `pypdfium2` are declared only in that package's `llamaindex`
+     extra and pdfminer arrives transitively: declare `pdfminer.six` beside them,
+     as the file's own comments ask of every library imported directly;
+   * the agent may not import `knowledge_layer` (`pyproject.toml`, contract
+     `agent-knowledge-port`), and the contract counts annotation imports too. So
+     the `Sheet` value and its parts are dataclasses in
+     `agent/drawings/sheet_types.py`, `knowledge_layer.sheet` returns plain
+     tuples and dicts, and `agent/tools/drawings/sheet_source.py` converts. One
+     line joins the contract's `ignore_imports`:
+     `agent.tools.drawings.sheet_source -> knowledge_layer.sheet`, with its
+     reason, and the ADR records it. `agent/drawings/` imports nothing of
+     `knowledge_layer`.
 3. **One frame: the page as shown, in points, origin top left.** Places cross
    every boundary as shares of that page, as `look` and the annotations do. A page
    whose `/UserUnit` is not 1 is refused until handled.
 4. **A scale belongs to a region and is `metres_per_point`.** The ratio a person
    reads is derived for display: `metres_per_point × 1000 × 72 / 25.4`.
 5. **A number needs a scale that is a person's or is corroborated.** At a point,
-   the scale is, in this order within the smallest region containing the point:
-   * `verified`: a person's calibration covers it;
-   * `estimated`: the file stores a region there whose unit label names a known
-     unit; or whose label is blank, or a printed scale note applies, **and at
-     least three printed dimension figures in that region agree with the linework
-     at that scale within 0.5 %**. The answer says which, and how many figures
-     agreed;
-   * `uncalibrated`: anything else. In particular a printed note alone, a stored
-     region with a `Y` array, a `CYX` factor or a subtype other than `RL`, and a
-     page with two different scale notes and no stored regions.
-   A sheet re-plotted from A1 to A3 keeps a standard size and its printed „1:100“;
-   the figure check is what catches it.
-6. **Only a verified scale can decide a threshold.** On `estimated` a length is
-   returned with its caveat and the verdict is always `undecidable`, with
-   „confirm the scale“ as the remedy. `uncalibrated` returns no length and no area.
+   within the smallest region containing it, the scale is:
+   * `verified` when a person's calibration covers the point;
+   * `estimated` when the file's own figures corroborate a hint, where the hint
+     is a stored region or a printed scale note that applies. **Every hint is
+     checked, a stored region whose unit label names a unit included**: a file
+     re-plotted with its viewports intact is otherwise believed. The answer names
+     the hint and how many figures agreed;
+   * `uncalibrated` otherwise. In particular: a hint the figures do not
+     corroborate, a stored region with a `Y` array, a `CYX` factor or a subtype
+     other than `RL`, two different scale notes with no stored regions, and a
+     page without linework (a scan).
+
+   **The corroboration check, defined.** One unit convention is fixed for the
+   region before anything is matched (the one under which most figures parse),
+   never per figure. A figure counts as a dimension when it parses under that
+   convention and sits on a dimension line: a segment parallel to the figure's
+   direction, within twice the figure's height of its centre, that ends in two
+   terminators (a tick, an arrowhead or a crossing extension line). The figure
+   agrees when the distance between those two terminators, at the hinted scale,
+   is within 0.5 % of its value. No other pair of crossings counts: on a sheet
+   of 64,606 segments some pair along any line matches any scale. The hint is
+   corroborated when at least three figures agree **and** they are at least 80 %
+   of the region's dimension figures. The 39 of 42 under [Measured](#measured)
+   came from a looser match (any crossing pair around the figure); the first
+   thing slice 2 does is repeat that measurement with this definition on the
+   slice 1 fixtures and state the result.
+6. **Only a verified, uncontradicted scale can decide a threshold.** On
+   `estimated` a length is returned with its caveat and the verdict is always
+   `undecidable`, with „confirm the scale“ as the remedy. `uncalibrated` returns
+   no length and no area. A verdict other than `undecidable` also needs what
+   decision 9 asks of the span.
 7. **A calibration's region is never the page by default.** It is the stored
    region containing both reference points when there is one; otherwise a box the
    person draws, which is a required step. Both points lie inside it. A
-   calibration that disagrees with the stored region it sits in by more than the
-   tolerance is saved and reported as a contradiction.
+   calibration that disagrees with its stored region or with the figure check by
+   more than the tolerance is saved and reported, and while it disagrees every
+   verdict in its region is `undecidable`: two sources say different things and
+   a person has to look. A calibration belongs to one version of a document;
+   none carries over to a new version.
 8. **A measurement never crosses two regions.** Both ends lie in one region, or
    the answer is undecidable and names both.
 9. **The engine produces the one span.** `clearance` takes two points placed near
@@ -129,10 +159,15 @@ fixtures of slice 1.
    crossing within 6 pt. If an end has two crossings within that radius, or none,
    the operation returns the crossings along the probe (each with its place,
    stroke width, dash state and colour) and no number; the caller then names the
-   two by index. The answer carries the span, how far each end moved, and how many
-   crossings lie strictly inside the span, as a caveat. The engine does not choose
-   between structural and finished faces: the answer says „between linework as
-   drawn“.
+   two by index (`between`). The answer carries the span, how far each end moved,
+   and how many crossings lie strictly inside the span. The engine does not
+   choose between structural and finished faces: the answer says „between
+   linework as drawn“. Six points are 21 cm at 1:100 and the ends were placed by
+   a model looking at a rendered crop, so **a verdict of `met` or `not_met`
+   needs all of**: a verified scale (decision 6), no crossing inside the span,
+   and either a printed figure on the span that agrees or the answer carrying
+   the crop with the span drawn on it for the person. Anything less is
+   `undecidable` with the reason.
 10. **Tolerance, first version.** A length carries
     `max(widest end stroke at scale, value × relative_scale_error)`:
     `1 pt / reference_length_pt` for a two-point calibration, 0.001 for a stored
@@ -153,17 +188,24 @@ fixtures of slice 1.
     stand at 20,418 of a 20,900-token ceiling (`test_static_prefix_size.py`,
     2026-11-10), and that test counts every configured tool: the ceiling is raised
     by the tool's measured cost in the same change, and the description is held
-    under 900 tokens. The door has its own per-tool ceiling
-    (`mcp-server.spec.ts`).
+    under 900 tokens. The same test holds a second ceiling for a project without
+    a model, `TOOLS_WITHOUT_A_MODEL_CEILING = 11_300` at 10,360 measured: with
+    the kind „a PDF“ nearly every project binds this tool, so it counts there
+    too and that ceiling rises by the same measured cost, with „pdf“ added to
+    the docstring's accounting. The door has a per-tool ceiling and an average
+    one (1,070 at 1,063 measured) in `mcp-server.spec.ts`.
 13. **Answers are records, not sources**, as for `dxf_measure` (ADR-0153).
     `workspace_records.py` holds `DRAWING_TOOL = "dxf_measure"` as one constant;
     it becomes a set.
 14. **It ships dark, at two gates.** One entitlement, `drawing-measure`
     (`bff/authz/feature-flags.ts`, `FEATURE_FLAGS` and `FLAG_KINDS`). The chat
     binding is gated where the BFF computes the turn's model kinds. The door
-    operation is catalogued `withheld`, with its reason, until the flag is retired:
-    `backend-operations.ts` has no flag on an operation, so offering it would open
-    it to every outside agent.
+    operation's exposure entry is
+    `{ external: false, agent: 'native:drawing_measure', reason }` until the flag
+    is retired: `backend-operations.ts` has no flag on an operation, so
+    `external: true` would open it to every outside agent. `withheld` is the
+    wrong form: it takes one of six categories (`WITHHELD_CATEGORIES`) and none
+    means „dark behind a flag“.
 15. **New code lands in new modules.** `view_image.py`, `use-document-review.ts`,
     `document-review.tsx`, `review-page-layer.tsx` and `bff/annotations/service.ts`
     are over the size limit and may not grow (`ci/size_baseline.json`). They gain
@@ -189,23 +231,26 @@ fixtures of slice 1.
 
 | Where | Holds |
 |---|---|
-| `knowledge_layer/sheet/reader.py` | `read_sheet(pdf_bytes, page_number) -> Sheet`: the page's box, rotation and size in points and millimetres, the ISO 216 format if within 3 mm, segments with a width, dash state and colour each, characters with box and matrix, the stored regions, whether the page is a scan. |
+| `knowledge_layer/sheet/reader.py` | `read_sheet(pdf_bytes, page_number)`, returning plain tuples and dicts: the page's box, rotation and size in points and millimetres, the ISO 216 format if within 3 mm, segments with a width, dash state and colour each, characters with box and matrix, the stored regions, whether the page is a scan. |
 | `knowledge_layer/sheet/figures.py` | Characters into figures in reading order; nothing else. `look` uses this alone. |
 | `knowledge_layer/sheet/crop_text.py` | The figures inside a crop, bounded, for `look`. |
+| `agent/drawings/sheet_types.py` | `Sheet`, `Segment`, `Character`, `Figure`, `StoredRegion`: frozen dataclasses, no imports outside the standard library. |
 | `agent/drawings/sheet_scale.py` | Scale at a point by decision 5; the corroboration check; the ratio for display. |
 | `agent/drawings/sheet_figures.py` | Classification of figures (dimension, level mark, opening size, scale note, room stamp) and the unit convention as an inference. |
 | `agent/drawings/sheet_probe.py` | Crossings over a grid index of the segments, so a probe never scans a million of them; `clearance`, `distance`, `path`, `area`; snapping that returns the point and the distance moved and refuses two candidates; the tolerance. |
 | `agent/drawings/sheet_answers.py` | The answer type and the one function that renders it. |
-| `agent/tools/drawings/sheet_source.py` | Loading through the scoped lookup, the cache of decision 1. |
+| `agent/tools/drawings/sheet_source.py` | Loading through the scoped lookup, converting the reader's plain values into a `Sheet`, the cache of decision 1. |
 | `agent/tools/drawings/measure_register.py` | The tool, modelled on `register.py` beside it. |
 
 A measuring answer carries: value and unit; interval; `provenance`, one of
-`printed_figure`, `vector_verified`, `vector_estimated`, `raster_estimated`; the
+`printed_figure`, `vector_verified`, `vector_estimated`; the
 place as page and shares; the scale with its state and source; a printed figure
 lying on the span (its centre within the span's bounding box grown by the figure's
 height, its direction within 10° of the span's), with whether it agrees; and, when
 a threshold was passed, `met`, `not_met` or `undecidable`. An answer without
-provenance and interval cannot be constructed.
+provenance and interval cannot be constructed. **A scan yields no length:** a
+page without linework is `uncalibrated`, `sheet` says it is a scan, and the
+agent goes on reading it with `look`. Measuring on a scan is not in this build.
 
 | Operation | Arguments | Needs a scale |
 |---|---|---|
@@ -217,6 +262,18 @@ provenance and interval cannot be constructed.
 | `distance` | the same without `between` | yes |
 | `path`, `area` | `document`, `page`, `points`, thresholds | yes |
 
+* `sheet`: size, format, rotation, whether it is a scan, the regions with each
+  one's scale, state and source, and the unit convention with its evidence.
+* `figures`: printed figures in a `region` (shares of the page), filtered by
+  `query` (a substring of the printed text) or `kind` (`dimension`,
+  `level_mark`, `opening_size`, `scale_note`, `room_stamp`, `other`), paged.
+* `rooms`: the room stamps of a page, each as its printed lines (name, printed
+  area, floor finish where printed) with its place. It reads what is printed and
+  computes nothing.
+* `scale_check`: runs decision 5's corroboration for a region and returns the
+  hint, the figures that agreed and those that did not, each with its place.
+* `between`: two indices into the crossings a refused `clearance` returned.
+
 ## Slices
 
 One pull request each, against `develop`, green on its own. A slice's „done when“
@@ -226,12 +283,14 @@ otherwise to state as „not verified because“ in the closing checklist.
 
 ### 1. The reader, and `look` returns the text in its crop
 
-* **Build:** `knowledge_layer/sheet/` (reader, figures, crop text); `look` calls
+* **Build:** `knowledge_layer/sheet/` (reader, figures, crop text), listed in the
+  package's `packages` with `pdfminer.six` declared (decision 2); `look` calls
   it for characters only. The result gains the figures inside the crop and the
   page's size in millimetres and sheet format. Bounded, with a note when cut. A
   page with no characters says so, scan or not.
 * **Fixtures:** a minimal PDF writer in the test helpers, extending
-  `pdf_fixtures.py`, that can set `/Rotate`, a CropBox with a non-zero origin,
+  `packages/knowledge-layer/testing/knowledge_layer_testing/pdf_fixtures.py`,
+  that can set `/Rotate`, a CropBox with a non-zero origin,
   `/UserUnit`, `/VP` with `/Measure`, and text matrices at any angle. matplotlib
   cannot write those entries and is not a dependency of this package.
 * **Mind:** text from a licensed copy reaches the model only inside a licensed
@@ -240,8 +299,11 @@ otherwise to state as „not verified because“ in the closing checklist.
 * **Done when:** figures read back exactly on all four rotations and on a cropped
   page; „185“ is read, not „581“; a figure straddling the crop edge is left out
   whole; a raised final digit is kept; the result-text tests are updated
-  (`test_view_image_region.py`, `tools/look/test_register.py`, `test_question.py`,
-  `test_place.py`); vector rows are added to `tests/fixtures/visual/drawings.json`
+  (`tests/knowledge_layer_tests/test_view_image_region.py`, and the agent's
+  `tools/look/test_register.py`, `test_question.py`, `test_place.py`); the
+  vector variant of `scripts/turn_census/render_fixture_drawings.py` is built
+  (its docstring names it as the later step: text and lines as page objects)
+  and only then are vector rows added to `tests/fixtures/visual/drawings.json`
   beside the raster ones, which stay as they are.
 * **Live, if a key is set:** `task be:eval:answer-suite -- --set visual` before
   and after.
@@ -251,9 +313,14 @@ otherwise to state as „not verified because“ in the closing checklist.
 * **Build:** `sheet_scale.py`, `sheet_figures.py`, `sheet_probe.py`,
   `sheet_answers.py`. No tool.
 * **Done when:** stored regions decode on all four rotations and on a cropped
-  page; a blank unit label is `estimated` only with three agreeing figures and
-  `uncalibrated` without; a re-plotted sheet is `uncalibrated`; a `Y` array is
-  refused; a probe between two known faces, its ends jittered by a seeded loop,
+  page; the 39-of-42 measurement is repeated with decision 5's match and its result
+  stated; a hint is `estimated` only when corroborated and `uncalibrated`
+  without, whatever its unit label says; the same sheet checked at ×0.5, ×0.707,
+  ×1.414 and ×2 of its true scale is `uncalibrated` each time; a sheet of dense
+  hatching with a wrong hint stays `uncalibrated`; a re-plotted sheet with its
+  viewports intact is `uncalibrated`; a `Y` array is refused; a scan yields no
+  length; a verdict with a crossing inside the span, or with neither an agreeing
+  figure nor a crop, is `undecidable`; a probe between two known faces, its ends jittered by a seeded loop,
   returns the drawn value inside its interval every time; an end with two
   crossings in reach returns the crossings and no number; each of the three
   verdicts is produced by a fixture; a verdict on `estimated` is `undecidable`;
@@ -275,6 +342,8 @@ otherwise to state as „not verified because“ in the closing checklist.
   `tests/fixtures/exposure.json`, `backend-tools.schema.json`
   (`scripts/generate_backend_tools_schema.py`);
   `ui/features/chat/lib/executed-steps.ts` and its copy in every dictionary;
+  both token ceilings of `test_static_prefix_size.py` and both of
+  `mcp-server.spec.ts` (decision 12);
   `agents/piloti/AGENTS.md`. <!-- brand-history -->
 * **Mind:** the turn-context wire is strict, so a new field needs the BFF and the
   agent to roll in an order the pull request states.
@@ -300,12 +369,13 @@ otherwise to state as „not verified because“ in the closing checklist.
   withdraw, their catalog operations and exposure; an internal read for the tool.
   Listing checks `project:view`, setting and withdrawing check
   `project:documents:write`: no new permission. A document with no version row has
-  no calibration and says so.
+  no calibration and says so; a new version starts with none.
 * **Done when:** `task db:test:rls` is green with the table's block in
   `scripts/rls-test-db.sh` and an integration spec as the runtime role; a
   calibration makes the tool answer `vector_verified` inside its region and leaves
   the neighbouring region as it was; a calibration contradicting a stored region
-  is reported; the list operation pages.
+  or the figure check is reported and makes every verdict in its region
+  `undecidable`; the list operation pages.
 
 ### 5. Calibrating in the review view
 
@@ -313,7 +383,12 @@ otherwise to state as „not verified because“ in the closing checklist.
   modules; two points, a length, the region taken from the stored region or drawn,
   the resulting ratio shown before saving; the scale state on the file listing and
   beside the page's readings; a `/dev/` preview; the `surface-parity` entry.
-* **Done when:** the component specs pass; the captures are on the pull request.
+* **Done when:** a spec beside each new module holds: two clicks and a length
+  produce the ratio shown before saving; the region is the stored one when both
+  points lie in it and otherwise must be drawn; saving calls the set operation
+  once with shares of the page; withdrawing returns the page to its earlier
+  state; `parity.config.spec.ts` is green with the new entry. Captures of the
+  `/dev/` preview are on the pull request.
 
 ### 6. The card that asks a person to confirm a scale
 
@@ -323,7 +398,10 @@ otherwise to state as „not verified because“ in the closing checklist.
   agent's proposal is that card, and the person confirms or dismisses it with no
   new kind. What it lacks is the crop with the reference span and changing the
   value in the card. Write the four answers for both routes: the `operation` kind
-  with a richer receipt body, and a fifth kind `drawing_scale`.
+  with a richer receipt body, and a fifth kind `drawing_scale`. **The builder
+  builds on the `operation` kind.** A fifth kind is the product owner's
+  decision: if the costing says the `operation` kind cannot carry the crop, stop
+  at the costing and put it to them in the pull request.
 * **Build, either way:** the answer on an `estimated` or `uncalibrated` region
   carries the card; the receipt shows the crop (`PageRegionThumbnail`), the
   proposed ratio, its source and how many figures agreed; the person confirms,
@@ -334,17 +412,30 @@ otherwise to state as „not verified because“ in the closing checklist.
 * **Then, if the costing clears it:** the value changed in the card itself. No
   proposal card has an input today; the one precedent for a decider changing what
   is applied is a second button.
-* **Also:** `docs/architecture/proposed-changes.md` names the wrong migrations for
-  the `operation` kind (the kind CHECK is in 0175). Fix it in this change.
+* **Done when:** specs hold that an answer on an `estimated` region carries one
+  proposal and a second call does not open a second; that applying it writes one
+  active calibration as the decider; that a dismissed proposal writes none; that
+  the next turn's decisions block names the outcome; the live-card ratchet has
+  its case.
+* **Also:** `docs/architecture/proposed-changes.md` line 45 puts the `operation`
+  kind in migration 0176 while line 95 says 0175. Read both migrations and make
+  the document say what they do.
 
 ### 7. Proof and counting
 
-* **Build:** the round trip (a storey of an IFC fixture drawn as a vector sheet
-  through `tools_analysis.draw`, measured, compared with the model); eval rows
+* **Build:** the ground-truth set: sheets written by the slice 1 writer at known
+  dimensions, with what real sheets carry (hatching, door swings, furniture,
+  dimension chains, two regions at different scales, a rotated view), each
+  measured and compared with the value it was drawn at. An IFC round trip is
+  not in this build: the one drawing function is `ifc_spatial.tools_analysis.draw`,
+  it writes SVG or PNG, and `packages/ifc-spatial-py` keeps its own lockfile
+  outside the workspace. Then eval rows
   with ground truth; product events for a calibration set and a proposal decided
   (`captureServer`, `ServerEvent`, `docs/observability/posthog-events.md`); the
-  tolerance constants and the verdict floor replaced by what the round trip
-  measured, with the measurement in the pull request.
+  tolerance constants and the verdict floor checked against that set, with the
+  measurement in the pull request. Synthetic sheets measure the engine, not the
+  drafting: the constants stay provisional until the pilot offices' files are
+  measured (see the last section).
 * **Release gate:** on the eval set, no answer states a number whose true value
   lies outside its stated interval.
 * **Needs the product owner:** a Langfuse score is declared in code and published
@@ -355,6 +446,12 @@ otherwise to state as „not verified because“ in the closing checklist.
 * **Build:** annotation shapes `line`, `path` and `polygon` with a points array;
   distance, path and area in the review view, snapping through a route that serves
   the engine's snap points for a page region.
+* **Done when:** a spec holds each shape's schema bounds and that an annotation
+  with a points array round-trips through create, list and delete; the snap
+  route has its operation and exposure entry and refuses a document the reader
+  may not see; a measurement drawn by a person shows the same value, interval
+  and provenance the tool returns for the same points; captures are on the pull
+  request.
 
 ### Not in this build
 
