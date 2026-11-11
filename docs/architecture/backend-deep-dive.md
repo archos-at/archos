@@ -1102,7 +1102,7 @@ in a per-turn `ContextVar` that `ChatAgent.run` opens beside
 looks the block up by that hash and builds `SourceEntry`s by field copy, so a
 passage body cannot supply a header field the producer omitted. `ChatAgent.run`
 is the only caller that opens the capture, so the structured read is what a
-Piloti turn gets for `knowledge_search`, `read_passage` and `ris_lookup`, and
+Piloti turn gets for `knowledge_search`, `read_passage` and `law_lookup`, and
 the deep researcher, the conversation path and the job runner parse the text.
 The text parsers in `citations/text_parsers.py`
 (`_parse_knowledge_layer` and the eleven `_KL_*` regexes) stay for the callers
@@ -1183,7 +1183,7 @@ downstream learns a second shape. That claim was false for one release:
 fell to the non-URL fallback and registered one source whose citation key was
 the string `read_passage`. A citation to a passage the turn OPENED rather than
 searched was then dropped as `citation_key_not_in_registry`. The tool name is
-registered explicitly now, beside `ris_lookup`. Its collection scope, base corpus and file
+registered explicitly now, beside `law_lookup` (and `ris_lookup`, its name in a stored turn). Its collection scope, base corpus and file
 exclusions are read off the `knowledge_search` instance named in its config
 (`knowledge_search: knowledge_search`) rather than restated, so the two cannot
 end up pointed at different corpora. And it is listed under the same
@@ -1432,9 +1432,9 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   re-verification. Austria: the nine state building codes, Wiener
   Garagengesetz, WBTV, Kleingartengesetz, and the federal acts (ASchG, AStV,
   BKAG, ZTG, WGG, DMSG, UVP-G, WRG, ForstG, GewO). Pointer index only: full
-  texts are still fetched live — by `ris_lookup` on the chat surface (it takes
+  texts are still fetched live — by `law_lookup` on the chat surface (it takes
   the pointer, downloads the law and returns the answering §§ as citable
-  passages: `packages/ris-adapter/src/lookup/`), and by `ris_fetch_document` in
+  passages: `packages/agent/src/agent/knowledge/law_lookup/`), and by `ris_fetch_document` in
   deep research, which still drives the three older RIS tools itself.
 - **The OIB corpus is not in the catalog.** The `oib_corpus_files` table and its
   objects → `oib_knowledge` are its own source of truth; what a corpus file *is* (Richtlinie / Leitfaden /
@@ -1470,7 +1470,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   Bundesland lane (other states' law is dropped — `focus_entries` semantics).
   Addresses only, and only where the run's knowledge context lets the RIS
   tools run (`law_gate.law_sources_withheld`); no `binding_note`, no corpus
-  edition, no verdicts (ADR-0175). **Piloti renders none of it**: `ris_lookup`
+  edition, no verdicts (ADR-0175). **Piloti renders none of it**: `law_lookup`
   resolves a catalog pointer out of the question itself (ADR-0060 amendment).
 - **Which law applies** — the turn's knowledge context alone (ADR-0173,
    ADR-0175, `common/knowledge_context.py`). The BFF resolves it on every turn

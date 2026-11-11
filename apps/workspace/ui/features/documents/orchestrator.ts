@@ -29,7 +29,7 @@ import { listSessionDocuments } from '@/adapters/api/session-documents-client'
 import { useDocumentsStore } from './store'
 import { useLayoutStore } from '@/features/layout/store'
 import type { TrackedFile } from './types'
-import { trackedStatusOfJobFile } from './utils'
+import { isEndedJobStatus, trackedStatusOfJobFile } from './utils'
 import { classifyIngestFailure, ingestFailureSentence } from './lib/ingest-failure'
 import { notifyDocumentsChanged } from '@/lib/documents/document-changes'
 import { createDocumentWatch } from './lib/document-watch'
@@ -457,7 +457,7 @@ class UploadOrchestratorImpl {
         store.setFilesFromServer(sessionId, serverFiles)
       }
 
-      if (jobStatus && jobStatus.status !== 'completed' && jobStatus.status !== 'failed') {
+      if (jobStatus && !isEndedJobStatus(jobStatus.status)) {
         const serverFileNames = new Set(serverFiles.map((f) => f.file_name))
         for (const jobFile of jobStatus.file_details) {
           if (!serverFileNames.has(jobFile.file_name)) {
@@ -594,8 +594,7 @@ class UploadOrchestratorImpl {
 
       // `cancelled`: a person stopped the read (tray or document menu). Terminal,
       // and not an error: the stop is what they asked for.
-      const isTerminal =
-        status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled'
+      const isTerminal = isEndedJobStatus(status.status)
       console.debug('[UploadOrchestrator] Job status:', status.status, 'isTerminal:', isTerminal)
 
       if (isTerminal) {

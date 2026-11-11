@@ -1,13 +1,16 @@
 /**
  * The sweep that reads back ingests nobody is waiting on.
  *
- * The backend pushes no result into Postgres: a row leaves `pending` when a read
- * asks the backend (`reconcile-status.ts`). Reads come from an open tab, and the
- * upload sweep covers the 25 newest open upload batches of the last week. A
- * document outside both (filed through a folder or sync, a batch older than the
- * window or behind 25 newer open ones, an office that went home) stayed
- * `pending` until somebody next opened its shelf: 6 hours in one office on
- * 2026-11-02, days in another on 2026-10-28. This is the clock behind them, run
+ * The backend writes no result into Postgres: a row leaves `pending` when the
+ * reconcile asks the backend (`reconcile-status.ts`). It asks on a read, which
+ * comes from an open tab; on the worker's settle push (`settle-push.ts`), which
+ * is best effort; and for the 25 newest open upload batches of the last week,
+ * on the upload sweep. Before the push existed, a document outside the other
+ * two (filed through a folder or sync, a batch older than the window or behind
+ * 25 newer open ones, an office that went home) stayed `pending` until somebody
+ * next opened its shelf: 6 hours in one office on 2026-11-02, days in another
+ * on 2026-10-28; a lost push leaves one there still. This is the clock behind
+ * them, run
  * every minute by the `reconcile-background-work` Hatchet task (`bff/scheduling/sweeps.ts`).
  *
  * Safe from several replicas at once: a status write is guarded by the status it
@@ -21,7 +24,7 @@ import { listStalePendingDocuments } from './repository'
 
 /** A dispatch must be this old before the sweep asks: an open tab's own polling comes first. */
 export const STALE_PENDING_AFTER_MINUTES = 5
-/** Rows one sweep reads back. Bounded: it is housekeeping on a 30 s timer. */
+/** Rows one sweep reads back. Bounded: it is housekeeping on a one-minute cron. */
 export const STALE_PENDING_BATCH = 200
 
 export interface StalePendingSweepResult {
