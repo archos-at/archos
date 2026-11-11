@@ -468,7 +468,7 @@ export const EXPOSURE = {
   'document-look': { external: true, agent: 'native:look', reason: NATIVE_READ },
   'ifc-measure': { external: true, agent: 'native:ifc_measure', reason: NATIVE_READ },
   'dxf-measure': { external: true, agent: 'native:dxf_measure', reason: NATIVE_READ },
-  'law-lookup': { external: true, agent: 'native:ris_lookup_tool', reason: NATIVE_READ },
+  'law-lookup': { external: true, agent: 'native:law_lookup', reason: NATIVE_READ },
 
   // the app-only tools of the door's MCP Apps views (`catalog/app-views.ts`)
   'proposal-card-apply': APP_ONLY,

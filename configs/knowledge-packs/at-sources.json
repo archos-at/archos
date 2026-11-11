@@ -14,6 +14,11 @@
         "www.ris.bka.gv.at",
         "ris.bka.gv.at"
       ],
+      "copyHosts": [
+        "jusline.at",
+        "gesetzefinden.at",
+        "lexfind.at"
+      ],
       "dataFlow": "public_only",
       "identifiers": {
         "ris_gesetzesnummer": {

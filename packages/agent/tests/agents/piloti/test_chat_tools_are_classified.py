@@ -24,7 +24,7 @@ CONFIG = Path(__file__).resolve().parents[5] / "configs" / "config_oib_openroute
 
 #: The tools that render passages a reader cites: a grounding block
 #: (`render_grounding_block`) or a registered source parser. Each must be a data source.
-PASSAGE_TOOLS = {"knowledge_search", "read_passage", "ris_lookup_tool", "project_lookup"}
+PASSAGE_TOOLS = {"knowledge_search", "read_passage", "law_lookup", "project_lookup"}
 
 #: Chat tools that are deliberately NOT data sources, and why. Adding a tool
 #: here says its result is never evidence an answer cites.

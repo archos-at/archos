@@ -965,7 +965,7 @@
         "title": "InputArgsSchema",
         "type": "object"
       },
-      "name": "ris_lookup_tool"
+      "name": "law_lookup"
     }
   ],
   "version": 1

@@ -201,18 +201,6 @@ export type GateState = (typeof GATE_STATES)[number]
 export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
 
 /**
- * The schemes a work's identifiers are read in, so a passage the agent reads
- * live at its source finds its work (ADR-0175). The agent knows no scheme: a
- * source's producer states the identifier its own source record reads off the
- * document (`identifiers` in the source record, e.g. a query parameter), and it
- * is compared whole with the work's (`use_for_source_ref`). Nothing is matched
- * by URL. That this list names schemes of one country is debt: the vocabulary
- * belongs to the source records (`docs/design/citations.md`).
- */
-export const SOURCE_REF_SCHEMES = ['ris_gesetzesnummer', 'eli'] as const
-export type SourceRefScheme = (typeof SOURCE_REF_SCHEMES)[number]
-
-/**
  * Whether an edition applies to the project's buildings, by its scope
  * (`appliesWhen`, ADR-0178): it `applies`; it is to `check`, because a fact the
  * scope reads is open or the case needs a person; or it is `not_applicable`,

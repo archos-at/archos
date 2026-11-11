@@ -258,13 +258,13 @@ describe('callBackendOperation', () => {
     expect(missing).toMatchObject({ status: 400, ok: false })
     expect(fetchMock).not.toHaveBeenCalled()
 
-    backendAnswers(200, { tool: 'ris_lookup_tool', result: 'Par. 1' })
+    backendAnswers(200, { tool: 'law_lookup', result: 'Par. 1' })
     const lookup = await callBackendOperation('law-lookup', { question: 'Par. 1 BO' }, session, {})
     expect(lookup.status).toBe(200)
     expect(requireProjectAccess).not.toHaveBeenCalled()
     expect(resolveTurnContext).toHaveBeenCalledWith(session, { projectId: undefined })
     expect((fetchMock.mock.calls[0] as [string])[0]).toBe(
-      'http://aiq-api:8000/v1/internal/tools/ris_lookup_tool'
+      'http://aiq-api:8000/v1/internal/tools/law_lookup'
     )
   })
 
