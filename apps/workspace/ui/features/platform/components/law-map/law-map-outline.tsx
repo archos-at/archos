@@ -215,7 +215,8 @@ export function branchesOf(map: LawMap, unit: ReviewUnit): string[] {
   }
   if (unit.kind === 'statement') return regionFor(map.statements.find((one) => one.key === unit.key)?.territoryId ?? '')
   if (unit.kind === 'statute') return regionFor(map.statutes.find((statute) => `statute:${statute.workId}` === unit.key)?.territoryId ?? '')
-  if (unit.kind === 'series') return ['works']
+  // A series' own row sits under its work's row: both open, or "next" lands on a row nobody can see.
+  if (unit.kind === 'series') return ['works', `work:${unit.key.slice('series:'.length)}`]
   if (unit.kind === 'edition') return ['works', `work:${map.editions.get(unit.key.slice('edition:'.length))?.workId ?? ''}`]
   if (unit.kind === 'record') return ['others']
   return []
