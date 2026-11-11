@@ -39,7 +39,7 @@ organization memory (Office).
 
 ### The slices
 
-**Built, server and agent (no screen yet).**
+**Built.**
 
 - The personal store. `personal_memory` is a table of its own with row-level
   security on the person (migration 0225), so a colleague's or an
@@ -64,24 +64,53 @@ organization memory (Office).
   Both internal memory routes refuse a write that names a temporary
   conversation with 403 `TEMPORARY_CONVERSATION`. The turn context reports the
   flag, and the agent then skips `remember` and the reflection stage.
+  Accepting a memory proposal made in a temporary conversation is refused
+  with the same 403 and the proposal stays open (`applyMemory`). A research
+  run submitted from a temporary conversation is told so
+  (`temporary_conversation` on its `usage_context`) and skips its reflection.
+- The screens. The person's own notes are at `/app/memory`
+  (`apps/workspace/ui/features/personal-memory/`), with „Alle Notizen
+  entfernen“ (`DELETE /api/user/memory`, operation `personal-memory-clear`).
+  The switch that makes a conversation temporary is `TemporaryChatToggle`
+  (`apps/workspace/ui/features/chat/components/conversation-privacy/`).
+- Every save on the answer, with who reads it and a way to take it back
+  (`MemoryNotedChip`). Two paths feed it:
+  - Project and office notes ride the `memory_reflection` frame, which the
+    browser stores on the answer's message: the notes the `remember` tool
+    created during the answer (`provenance: "agent"`, at most six) and the
+    ones reflection created after it. A note the BFF only refreshed is left
+    off (`created: false` from `POST /api/internal/memory`).
+  - A personal note is never on the message, which everyone in the
+    conversation reads. The agent stores it with the answer's message id
+    (`personal_memory.source_message_id`, migration 0227), and the owner's
+    browser reads its own notes of the conversation
+    (`GET /api/user/memory?sourceConversationId=…`, once per conversation,
+    `ui/features/chat/stores/turn-notes-store.ts`) and shows each under the
+    answer with that id. Row-level security answers nobody else.
+
+  Each row names its audience. A personal or office note is removed on its
+  own item route. A project note offers the action only when
+  `GET /api/projects/{id}/memory` answered `canWrite`
+  (`project:memory:write` or `project:edit`). A note that replaced an older one links to the
+  memory page and offers no removal, because removing it would not bring the
+  old one back.
 
 **Next.**
 
-- The screens: the person's own list of notes, and the switch that makes a
-  conversation temporary. Neither has a control in the UI today.
-- Every save on the answer, with undo. Project saves show under the answer
-  today (`MemoryNotedChip`); a personal save shows nowhere.
-- A per-person channel for background saves to personal memory. The
-  reflection stage's frame is stored on the answer's message, which everyone
-  in the conversation reads, so a personal note never rides it
-  (`stages/memory_reflection.py`). Until a channel reaches only the asker, a
-  note the stage kept after the answer is invisible to them.
-- The gaps ADR-0180 lists under Confirmation: the model's choice between
-  personal and project, a personal finding on a research run, a project write
-  that names no conversation, and erasing a person's notes when they leave
-  (the person can clear their own with „Alle Notizen entfernen“). Closed since:
-  a memory card accepted in a temporary conversation is refused, and a run
-  submitted from a temporary conversation skips its reflection.
+- A save in a turn whose stage did not run. With the office's
+  `memory-reflection` flag off, or no model resolved for the stage, the stage
+  ends as `disabled` before its handler, so a note the `remember` tool wrote
+  in that turn shows on no answer. It is in the memory panel.
+- Running `task be:eval:memory-shelves` against a model. The eval exists and
+  measures how often a note about a person reaches a shelf other people read
+  ([what it measures](../contributing/testing-and-verification.md#the-memory-shelves-eval)).
+  It has no result yet: the provider account in the build environment had no
+  credit on 2026-11-11.
+- The other gaps ADR-0180 lists under Confirmation: a personal finding on a
+  research run, a run whose conversation becomes temporary after its submit,
+  the browser-written memory card and the browser-written frame, a project
+  write that names no conversation, and erasing a person's notes when they
+  leave, which needs a WorkOS webhook route first.
 
 **Later.**
 
@@ -374,10 +403,15 @@ Safety limits (see [memory-reflection-audit.md](./memory-reflection-audit.md)):
   persisted. This is a denylist, not a privacy guarantee — it catches the
   common shapes, not every possible personal fact.
 
-User-informing: both in-turn and reflection writes surface under each answer as a
-"Grid hat sich N gemerkt" chip (a reusable `Chip` primitive + `MemoryNotedChip`,
-fed by `GET /api/projects/{id}/memory?conversationId=…`), labelling in-turn
-(`agent`) vs reflection (`distillation`) provenance.
+User-informing: both in-turn and reflection writes show under the answer of the
+turn that made them, as a chip that counts them (a reusable `Chip` primitive +
+`MemoryNotedChip`). The chip reads the `memory_reflection` frame stored on the
+answer's message, which lists the tool's notes (`provenance: "agent"`) ahead of
+reflection's, and labels the two apart. It no longer polls
+`GET /api/projects/{id}/memory?conversationId=…` for its content; it asks that
+route once, when opened, whether the reader may remove the project's notes
+(`canWrite`). What feeds the chip, and where a personal note comes from, is
+under [the slices](#the-slices).
 
 De-duplication: `createProjectMemoryItem` runs a three-pass write-time check on
 every write (both the tool and this stage) — a normalized-equal active item is

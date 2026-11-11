@@ -149,9 +149,9 @@ What holds the store and its promise:
   reads, updates and deletes as another in the same organization, with
   statements that name no user, and reaches nothing. It also refuses a row
   written for somebody else, and a memory write from a temporary conversation.
-* `scripts/rls-test-db.sh` checks migrations 0225 and 0226 one at a time: the
-  policy names the person, the CHECKs and the unique index refuse, and each
-  down migration reverses and applies again.
+* `scripts/rls-test-db.sh` checks migrations 0225, 0226 and 0227 one at a
+  time: the policy names the person, the CHECKs and the unique index refuse,
+  and each down migration reverses and applies again.
 * `bff/personal-memory/service.spec.ts` holds the bounds of the block (20
   notes, 1,500 characters, the footer that counts what was left out) and the
   dedup. `app/api/user/memory/route.spec.ts` and
@@ -200,12 +200,63 @@ What holds rule 1 on the agent side:
 has no envelope instead of moving it to the project, and drops a `preference`
 with no usable `about`.
 
+What holds that a save shows on its answer, with who reads it and a way to
+take it back:
+
+* `packages/agent/tests/stages/test_memory_reflection_stage.py` holds that the
+  stage's frame lists the project and organization notes the `remember` tool
+  created during the answer beside reflection's, that a turn with such notes
+  gets its frame where reflection itself is declined, that a note the BFF only
+  refreshed is left off, and that a pass which kept only personal or restated
+  notes ends empty and says which (`personal_notes_only`,
+  `restated_notes_only`).
+* `bff/conversations/message-stages.spec.ts` bounds the frame as the server
+  stores it: at most twelve items, closed values for `provenance`, `scope` and
+  `restricted`.
+* `app/api/internal/memory/route.spec.ts` holds that the write answers
+  `created`, and `app/api/user/memory/route.spec.ts` that the owner's list can
+  be narrowed to one conversation (`sourceConversationId`).
+  `bff/personal-memory/personal-memory.integration.spec.ts` stores a note with
+  the answer it was saved under (`source_message_id`, migration 0227) and
+  reads it back as its owner only.
+* `ui/features/chat/lib/turn-memory.spec.ts`,
+  `ui/features/chat/stores/turn-notes-store.spec.tsx` and
+  `ui/features/chat/components/MemoryNotedChip.spec.tsx` hold what the chip
+  shows: each note with its audience, a personal note only under the answer
+  whose id it carries, the remove action on a project note only when
+  `GET /api/projects/{id}/memory` answered `canWrite`, and no remove action on
+  a note that replaced an older one.
+
 Nothing enforces these yet:
 
 * **The model's choice between personal and project.** The tool description
-  and the reflection prompt say which is which; no eval case checks what the
-  model does with them. Review and the person's own eye are the gate. An eval
-  case belongs in the answer suite.
+  and the reflection prompt say which is which. `task be:eval:memory-shelves`
+  (`scripts/memory_shelves_eval/`, 70 labelled exchanges in
+  `tests/fixtures/memory_shelves/cases.yaml`) measures what the model does
+  with them, through the production reflection pass and the production
+  `remember` tool. It has not been run against a model: the provider account
+  in the build environment had no credit on 2026-11-11. It needs a key, so no
+  CI job runs it, and no number exists yet. Until one does, review and the
+  person's own eye are the gate.
+* **A save in a turn whose stage did not run.** The notes of a turn reach its
+  answer on the `memory_reflection` frame. With the office's
+  `memory-reflection` flag off, or no model resolved for the stage, the stage
+  ends as `disabled` before its handler (`_pre_run_outcome` and
+  `_schedule_one` in `packages/agent/src/agent/stages/runner.py`). A note the
+  `remember` tool wrote in that turn is stored and shows on no answer. The same
+  holds for a turn whose socket was closed when the frame was sent. The note
+  is in the project's memory panel either way.
+* **The frame on the message is written by the browser.** The agent host
+  stores the turn's result; the stage's frame is stored by the browser that
+  received it (`PATCH /api/conversations/{id}/messages/{messageId}`), bounded
+  by `sanitizeStages` and not checked against `project_memory`. A collaborator
+  of a conversation can therefore put a note's words on an answer that the
+  turn never wrote. It changes nothing in memory, and removing such a
+  row is decided by the note's own route.
+* **The answer a personal note is shown under.** The agent names it
+  (`sourceMessageId`), and the signed envelope carries the conversation and no
+  turn, so the BFF cannot check it. The id only chooses under which of the
+  owner's own answers their own note appears.
 * **A personal finding on a research run.** `_reflect` in
   `apps/agent-host/src/agent_host/jobs/runner.py` calls the reflection pass
   with no envelope, so a finding about the person is dropped on a research
@@ -230,7 +281,9 @@ Nothing enforces these yet:
   have this gap: it also judges the envelope's conversation.
 * **Erasure of a person's notes when they leave**, as said under
   Consequences. The person can remove their own (`DELETE /api/user/memory`,
-  „Alle Notizen entfernen“); nothing does it for them.
+  „Alle Notizen entfernen“); nothing does it for them. The first step is a
+  WorkOS webhook route that tells the application a membership ended, because
+  the removal happens between the browser and WorkOS.
 
 ## More Information
 

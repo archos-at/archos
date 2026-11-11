@@ -32,6 +32,38 @@ on a message other people read. Project and organization writes keep the whole
 personal-data denylist (`looks_like_personal_data`); personal writes keep its
 secret half (`looks_like_secret`).
 
+**The stage's frame lists the turn's shared notes, and only those.** The
+`memory_reflection` frame carries the project and organization notes the
+`remember` tool created during the answer (`provenance: "agent"`, at most
+`MAX_NOTED_ITEMS`, first) and the ones reflection created after it. An item may
+add `scope: "organization"`, `supersedes` and `restricted: true`; each is absent
+for its default, so build an item with `TurnMemoryNote.frame_item`. A note the
+BFF only refreshed (`created: false`) is left off, because the chip's remove
+action would delete a note this turn did not write. The stage's gate proceeds
+for a turn with in-turn notes even where reflection is declined, and the handler
+then reports them without a model call. The frame reaches the message through
+the browser (`sanitizeStages` in `apps/workspace/bff/conversations/message-stages.ts`
+bounds it), so it is a notice of the write and never the record of it.
+
+**The turn's memory log is where a write becomes a note of the turn.**
+`_record_write` in `knowledge/project_memory.py` reads the BFF's answer:
+`created` decides between `notes` and `refreshed`, and `supersededId` decides
+whether the note counts as a replacement. `turn/registries.py` hands the log's
+notes to the stage as `TurnFacts.noted_this_turn`; reflection writes under a
+log of its own (`_reflected_items`).
+
+**A note is tied to its answer by the answer message id.** That id is
+`turn.response.answer_message_id`, a `uuid5` over the conversation and the user
+message that opened the turn. The chat agent binds it on the memory log, the
+reflection stage derives it again, and the browser holds it as the answer's
+message id. A personal write sends it as `sourceMessageId`
+(`personal_memory.source_message_id`), and the owner's browser reads its own
+notes of the conversation and shows each under the answer with that id. The
+signed envelope names the conversation and no turn, so the BFF cannot check the
+id. It only chooses under which of the owner's own answers their own note shows.
+Off the chat socket (a research run) there is no id and the note belongs to no
+answer.
+
 **A temporary conversation keeps nothing (ADR-0180).** The flag arrives with
 the turn context. The tool reads it off the turn's memory log
 (`turn_is_temporary`) and answers without calling the BFF; the stage's gate
@@ -62,4 +94,7 @@ drops the quote and keeps the finding.
 |---|---|---|
 | Add a reason a finding is dropped | Drop it in `_finding_from_entry`, before the `MAX_NEW_ITEMS` slice | A rejected finding eats a slot, and the pass records fewer than it found |
 | Change what the tool returns to the model | Say plainly whether the item was saved, where, and who can read it; a card shown is not a write | The model tells the reader it remembered something that was never stored |
+| Add a field to a frame item | Add it to `TurnMemoryNote.frame_item`, `MemoryReflectionItem` and `sanitizeMemoryReflectionStage` (`message-stages.ts`), as a closed value that is absent for its default | The BFF drops a key it does not know, so the chip never sees the field and nothing reports it. `packages/agent/tests/stages/test_memory_reflection_stage.py`, `message-stages.spec.ts` |
+| Add a writer of project or organization memory | Write through `insert_memory_item` under a bound memory log, so `_record_write` enters the note | The note is stored and shows under no answer |
+| Change the reflection prompt, the `remember` tool's description or schema, or the personal-data filter | Run `task be:eval:memory-shelves` before and after ([what it measures](../../../../../docs/contributing/testing-and-verification.md#the-memory-shelves-eval)) | Nothing in CI: it needs a provider key. Review |
 | Change the reflection prompt or schema | Run `packages/agent/tests/memory/test_reflection.py`; the prompt and `_ReflectionFinding` must name the same fields | The pass parses nothing and silently records zero findings |

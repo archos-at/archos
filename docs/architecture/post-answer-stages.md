@@ -122,6 +122,20 @@ of them is the reflection stage:
 > — and `MemoryNotedChip.spec.tsx` is where that is now enforced rather than
 > assumed.
 
+> **[as built, 2026-11-11, ADR-0180] The silent in-turn write is on the answer
+> now.** The loss slice 4b accepted is closed, and without a new id on the
+> row. The turn's memory log (`knowledge/project_memory.py`) keeps each
+> project or organization note a `remember` call created, with the id the BFF
+> answered, and the stage puts them on its own frame ahead of reflection's
+> items, marked `provenance: "agent"` (§5.1). The frame already belongs to one
+> turn, so the note does too. The chip's in-turn half is therefore two things:
+> a `memory_proposal` card the reader accepted, and the frame's `agent` items.
+>
+> A personal note takes another road, because the frame is stored on a message
+> other people read. The agent stores it with the answer's message id, and the
+> owner's browser asks for its own notes of the conversation. That road is in
+> §5.1 as well.
+
 So: the *memory feature* has a streamed surface and a polled surface, and the
 **post-answer half is the polled one**. The audit says so in its own words —
 "Reflection-phase writes are surfaced to the user **nowhere** … **Built.** A
@@ -683,6 +697,14 @@ means `FollowUpsCard.tsx` renders either source unchanged, and the migration in
    `_persistTurnProvenance` pattern, fired for the same reason.
 4. On `empty` / `failed`: release any reserved space, persist nothing.
 
+> **A stored frame is client-written.** The agent host persists the turn's
+> result; step 3 means a browser persists the stage's payload. `sanitizeStages`
+> closes the key set and bounds every value, and it checks nothing against the
+> rows the frame names. For `memory_reflection` that makes the stored frame a
+> notice of a write and never the record of one: any collaborator of the
+> conversation can PATCH an item onto an answer. The memory itself is untouched
+> by that, and removing a row from the chip is decided by the note's own route.
+
 ### 4.4 Where the output is stored, and why not a new table
 
 `messages.metadata` jsonb, merged with `mergeMessageMetadata`
@@ -759,6 +781,57 @@ transfer of authority. `app` stays single-writer.
 > make an old tab still polling during a deploy overlap receive the project's
 > ENTIRE memory instead of the conversation's — a dead parameter is cheaper than
 > that.
+
+> **[as built, 2026-11-11, ADR-0180]** The frame lists every note the turn
+> wrote to shared memory, and the chip can take a note back. Six things
+> changed.
+>
+> **The items carry more.** `MemoryReflectionItem` is `{id, kind, content}`
+> plus four optional fields, each absent for its default so a frame stored
+> earlier reads the same: `provenance: "agent"` (the `remember` tool wrote it
+> during the answer; absent means this stage did), `scope: "organization"`
+> (absent means the project), `supersedes` (the earlier note the BFF retired,
+> quoted) and `restricted: true` (restricted memory, ADR-0087). The tool's
+> notes come first, at most six of them (`MAX_NOTED_ITEMS`); the BFF stores at
+> most twelve items (`MAX_MEMORY_ITEMS` in `message-stages.ts`).
+>
+> **The gate proceeds for a turn with in-turn notes.** `_gate` asks the old
+> predicate (`_reflection_gate`) first. Where that declines and the turn has
+> notes from the tool, the stage runs anyway and the handler reports them
+> without a model call. A direct reply or a turn outside a project that saved
+> something still gets its frame.
+>
+> **A refreshed note is left off.** `POST /api/internal/memory` answers
+> `created`, false when the write restated a note and the row was refreshed in
+> place. Such a note is in neither half of the frame, because the chip's
+> remove action would delete a note this turn did not write.
+>
+> **Two new `empty` reasons.** A pass that kept something and has nothing for
+> the frame ends as `StageEmpty("personal_notes_only")` when a note about the
+> person was among it, else `StageEmpty("restated_notes_only")`. The browser
+> reads its personal notes again on any report of the stage, `empty` included.
+>
+> **A personal note is never on the frame.** It is stored with the answer's
+> message id (`personal_memory.source_message_id`, migration 0227;
+> `turn.response.answer_message_id`, which the browser holds as the answer's
+> id). The owner's browser reads
+> `GET /api/user/memory?sourceConversationId=…` once per conversation and
+> shows each note under the answer whose id it carries
+> (`features/chat/stores/turn-notes-store.ts`). Row-level security answers
+> nobody else. The signed envelope names the conversation and no turn, so the
+> BFF cannot check the id; it only chooses under which of the owner's own
+> answers their own note shows.
+>
+> **The `conversationId` filter has a caller again.** The chip asks
+> `GET /api/projects/{id}/memory?conversationId=…` once, when it is opened,
+> for `canWrite` and for which of the conversation's notes are still active.
+> It does not read note text from it.
+>
+> **What "the flag does not move" now costs.** With `memory-reflection` off for
+> the office, or no model resolved for the stage, the runner ends the stage as
+> `disabled` before the handler (§7.8; `_pre_run_outcome`, `_schedule_one`). The tool's writes are not
+> behind that flag, so a note it wrote in such a turn is stored and shows on
+> no answer. ADR-0180 lists this as open.
 
 ### 5.2 `follow_ups` — the new one
 
