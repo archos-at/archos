@@ -12,12 +12,14 @@ import type { JSX } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Globe2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SectionCard } from '@/features/platform/components/section-card'
 import { useLocale, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
+import { lawMapCopy } from '@/i18n/namespaces/law-map'
 import type { ChangeRequestSummary, PlatformKnowledgeOverview } from '@/lib/base-knowledge/platform/wire'
 import type { TextPlacementList } from '@/lib/base-knowledge/platform/text-wire'
 import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
@@ -53,6 +55,7 @@ function useAddressState(): [CountrySection, (section: CountrySection) => void, 
 
 export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
   const t = useTranslations(platformCopy)
+  const tMap = useTranslations(lawMapCopy)
   const { locale } = useLocale()
   const [section, go, request, open] = useAddressState()
   const overview = usePlatformJson<PlatformKnowledgeOverview>(BASE)
@@ -76,10 +79,18 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
   if (overview.load.state === 'error' && overview.load.status === 403) {
     return <EmptyState icon={Globe2} title={t('countryKnowledge.disabledTitle')} description={t('countryKnowledge.disabledBody')} />
   }
+  // The map reads the change requests, not the overview: it stays one click away while the overview loads or fails.
+  const mapLink = (
+    <Button asChild variant="outline" size="sm">
+      <Link href={`/app/platform/countries/${countryId.toLowerCase()}/map`} data-testid="open-law-map">
+        {tMap('open')}
+      </Link>
+    </Button>
+  )
   if (overview.load.state !== 'ready') {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader crumb={crumb} title={name} />
+        <PageHeader crumb={crumb} title={name} action={mapLink} />
         <SectionCard loading={overview.load.state === 'loading'} error={overview.load.state === 'error'} onRetry={overview.reload} />
       </div>
     )
@@ -102,7 +113,17 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
 
   return (
     <div className="flex flex-col gap-6" data-testid="country-page">
-      <PageHeader crumb={crumb} title={name} subtitle={t('countryPages.page.subtitle')} action={<StageBadge stage={countryStage(coverage, value.queue)} />} />
+      <PageHeader
+        crumb={crumb}
+        title={name}
+        subtitle={t('countryPages.page.subtitle')}
+        action={
+          <span className="flex items-center gap-2">
+            <StageBadge stage={countryStage(coverage, value.queue)} />
+            {mapLink}
+          </span>
+        }
+      />
       <Tabs value={section} onValueChange={(next) => (isCountrySection(next) ? go(next) : null)} className="gap-6">
         <TabsList className="w-full overflow-x-auto sm:w-fit" aria-label={t('countryPages.page.sectionsLabel')}>
           {COUNTRY_SECTIONS.map((key) => (
