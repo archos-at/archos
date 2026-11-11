@@ -9,3 +9,9 @@
  */
 
 export { documentParameters, loadPdfjs } from './lib/pdfjs-runtime'
+
+// The receipt of a proposed calibration draws the page clip with the reference
+// span on it (`features/cards/components/CalibrationProposalPreview.tsx`).
+export { PageRegionThumbnail } from './components/page-region-thumbnail'
+export { SpanMark } from './components/span-mark'
+export type { PagePlace } from './lib/page-place'

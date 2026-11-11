@@ -13,7 +13,7 @@
  * tile saying so and nothing of the page.
  */
 
-import { useEffect, useRef, useState, type CSSProperties, type FC } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FC, type ReactNode } from 'react'
 import { FileX2, Lock } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSeenOnce } from '@/hooks/use-seen-once'
@@ -21,7 +21,7 @@ import { useTranslations } from '@/i18n'
 import { knowledgeCopy } from '@/i18n/namespaces/knowledge'
 import { cn } from '@/lib/utils'
 import { drawPlace, type DrawnPlace, type ImageClip } from '../lib/place-drawing'
-import type { PagePlace } from '../lib/page-place'
+import { drawnPoint, placeBox, type PagePlace } from '../lib/page-place'
 import { PageSheet } from './pdf-viewer-atoms'
 import { RegionMarks } from './region-marks'
 import type { PageRegion } from '../lib/page-region'
@@ -59,6 +59,13 @@ export interface PageRegionThumbnailProps {
    * where the drawn part is the page.
    */
   marks?: readonly PageRegion[]
+  /**
+   * Drawn over the picture once it is there, inside the drawn frame: a line
+   * between two points of the page, say. `toDrawn` answers where a point of the
+   * PAGE (shares, origin top left) lies in that frame, whatever part of the
+   * page the clip turned out to be (a small box is widened, `placeClip`).
+   */
+  overlay?: (toDrawn: (point: readonly [number, number]) => [number, number]) => ReactNode
   className?: string
   /** Marker attributes for the outer element, e.g. `data-citation-thumbnail`. */
   [data: `data-${string}`]: string | undefined
@@ -85,6 +92,7 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
   onDrawn,
   onDenied,
   marks,
+  overlay,
   className,
   ...data
 }) => {
@@ -197,6 +205,7 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
           <Skeleton role="status" className="absolute inset-0 rounded-none" aria-label={t('placeThumbnail.loading')} />
         )}
         {shown.length > 0 && <RegionMarks regions={shown} color={color} />}
+        {drawn && overlay?.((point) => drawnPoint(placeBox(place), drawn.mark, point))}
       </PageSheet>
     </div>
   )

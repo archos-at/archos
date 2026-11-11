@@ -27,6 +27,7 @@ import { useCurrentProfile } from '../hooks/use-current-profile'
 import { useServerProposal } from '../hooks/use-server-proposal'
 import { notifyIfAnyApplied, type FileOperationItem, type FileOperationKind } from '../lib/file-operations'
 import { humanizeKey, isNamedInputKey, operationInputRows, previewOf, rowKey, type OperationInputRow } from '../lib/operation-input'
+import { CalibrationProposalPreview } from './CalibrationProposalPreview'
 import { OperationList } from './FileOperationRows'
 import { ProfilePatchTable } from './ProfilePatchTable'
 import { ProposalReceipt } from './ProposalReceipt'
@@ -237,6 +238,8 @@ export function OperationReceipt({
             {t('cards.operationProposal.operation', { operation: shownOperation })}
           </p>
           <OperationTargets targets={targets ?? []} />
+          {/* A calibration is confirmed by eye: the page clip with the reference span. Nothing for any other action. */}
+          <CalibrationProposalPreview operation={shownOperation} input={shownInput} targets={targets} />
           <OperationInput rows={rows} targets={targets ?? []} unfolded={unfolded} onToggle={toggle} />
         </>
       }

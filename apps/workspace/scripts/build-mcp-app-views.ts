@@ -63,13 +63,16 @@ const inlineStyle = (css: string): string => css.replace(/<\/style/gi, '<\\/styl
 /**
  * Modules a view never needs whole, resolved to a small stand-in: the answer's
  * Markdown renderer, which the A2UI catalog imports for its `Text` leaf and
- * which carries mermaid, KaTeX and the chat stores (~7 MB). Why it is safe is
- * in the stand-in's own header. The dictionaries need none: each component
+ * which carries mermaid, KaTeX and the chat stores (~7 MB), and the page clip
+ * of a proposed calibration, which carries pdf.js (~0.5 MB) and needs a session
+ * the frame does not have. Why each is safe is in the stand-in's own header. The dictionaries need none: each component
  * imports the namespace it reads (`i18n/namespace.ts`), so a view bundles
  * the copy it draws and no other.
  */
 const STAND_INS: ReadonlyArray<{ filter: RegExp; path: string }> = [
   { filter: /MarkdownRenderer\/MarkdownRenderer$/, path: 'ui/features/mcp-apps/markdown-stand-in.tsx' },
+  // The page clip of a proposed calibration: no cookie to fetch the page with, and pdf.js would be inlined.
+  { filter: /\/CalibrationProposalPreview$/, path: 'ui/features/mcp-apps/calibration-preview-stand-in.tsx' },
 ]
 
 const standIns: BunPlugin = {

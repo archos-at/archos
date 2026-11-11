@@ -54,6 +54,7 @@ class _Store:
 def store(monkeypatch: pytest.MonkeyPatch) -> _Store:
     sheet_source.clear_cache()
     store = _Store(PDF)
+    store.calibrations = []  # type: ignore[attr-defined]
     looked_up: list[dict[str, Any]] = []
 
     async def resolve(document: str) -> Resolved | str:
@@ -68,7 +69,12 @@ def store(monkeypatch: pytest.MonkeyPatch) -> _Store:
         looked_up.append({"path": path, **kwargs})
         if kwargs["query"]["filename"] == "foreign.pdf":
             raise bff_http.BffRefusedError("refused", status=403, body={})
-        return {"storageKey": f"org/v1/{kwargs['query']['filename']}", "documentId": "doc-1", "versionId": "ver-1"}
+        return {
+            "storageKey": f"org/v1/{kwargs['query']['filename']}",
+            "documentId": "doc-1",
+            "versionId": "ver-1",
+            "calibrations": list(store.calibrations),
+        }
 
     monkeypatch.setattr(sheet_source, "resolve_document", resolve)
     monkeypatch.setattr(sheet_source, "licence_of", no_licence)
@@ -419,3 +425,130 @@ def test_the_schema_names_the_two_points_from_and_to() -> None:
 
     assert {"from", "to", "between", "points", "threshold_min", "threshold_max"} <= set(properties)
     assert "start" not in properties and "end" not in properties
+
+
+# ---- a person's calibration (ADR-0183) ----
+
+
+def _calibration(x0: float, y0: float, x1: float, y1: float, length_m: float, region: list[float]) -> dict[str, Any]:
+    """A stored calibration between two places given in the floor's metres, over ``region`` in page shares."""
+    (ax, ay), (bx, by) = FLOOR.share(x0, y0), FLOOR.share(x1, y1)
+    x, y, w, h = region
+    return {
+        "id": "cal-1",
+        "region": {"x": x, "y": y, "w": w, "h": h},
+        "from": {"x": ax, "y": ay},
+        "to": {"x": bx, "y": by},
+        "lengthM": length_m,
+    }
+
+
+def _around(*places: tuple[float, float], margin: float = 0.02) -> list[float]:
+    shares = [FLOOR.share(*place) for place in places]
+    xs, ys = [s[0] for s in shares], [s[1] for s in shares]
+    return [min(xs) - margin, min(ys) - margin, max(xs) - min(xs) + 2 * margin, max(ys) - min(ys) + 2 * margin]
+
+
+CLEARANCE = {"from": FLOOR.share(5.0, 3.1), "to": FLOOR.share(5.0, 4.1)}
+
+
+async def test_a_calibration_makes_its_region_verified_and_the_lookup_asks_for_the_page(store: _Store) -> None:
+    region = _around((1.0, 1.0), (9.0, 6.0))
+    store.calibrations = [_calibration(1.0, 3.0, 9.0, 3.0, 8.0, region)]  # type: ignore[attr-defined]
+
+    text = await _run(operation="clearance", **CLEARANCE)
+
+    assert "vector_verified" in text and "a person's calibration (8.000 m between two points)" in text
+    assert store.looked_up[-1]["query"]["calibrationsPage"] == 1  # type: ignore[attr-defined]
+
+
+async def test_a_calibration_leaves_the_place_outside_its_region_as_it_was(store: _Store) -> None:
+    before = await _run(operation="clearance", **CLEARANCE)
+    region = _around((1.0, 1.0), (2.0, 2.0))
+    store.calibrations = [_calibration(1.0, 1.5, 2.0, 1.5, 1.0, region)]  # type: ignore[attr-defined]
+
+    after = await _run(operation="clearance", **CLEARANCE)
+
+    assert "vector_estimated" in before and after == before
+
+
+async def test_a_calibration_the_sheet_contradicts_is_reported_and_decides_nothing(store: _Store) -> None:
+    region = _around((1.0, 1.0), (9.0, 6.0))
+    store.calibrations = [_calibration(1.0, 3.0, 9.0, 3.0, 4.0, region)]  # type: ignore[attr-defined]
+
+    text = await _run(operation="clearance", threshold_min=0.9, **CLEARANCE)
+    sheet = await _run(operation="sheet")
+
+    assert "undecidable" in text and "not_met" not in text
+    assert "CONTRADICTED" in sheet
+
+
+async def test_a_calibration_is_read_on_every_call_and_never_cached(store: _Store) -> None:
+    region = _around((1.0, 1.0), (9.0, 6.0))
+    store.calibrations = [_calibration(1.0, 3.0, 9.0, 3.0, 8.0, region)]  # type: ignore[attr-defined]
+    with_one = await _run(operation="clearance", **CLEARANCE)
+    store.calibrations = []  # type: ignore[attr-defined]  # withdrawn a moment ago
+
+    without = await _run(operation="clearance", **CLEARANCE)
+
+    assert "vector_verified" in with_one and "vector_verified" not in without
+    assert store.reads == 1
+
+
+async def test_a_stored_calibration_that_is_none_is_counted_and_not_used(store: _Store) -> None:
+    store.calibrations = [{"id": "x", "region": {"x": 0, "y": 0, "w": 2, "h": 1}}, "nonsense"]  # type: ignore[attr-defined]
+
+    text = await _run(operation="clearance", **CLEARANCE)
+
+    assert "2 stored calibration(s) of this page could not be read and were not used." in text
+    assert "vector_estimated" in text
+
+
+# ---- the calibration put to a person (slice 6) ----
+
+
+async def test_an_estimated_measurement_names_the_one_call_that_asks_a_person(store: _Store) -> None:
+    import json
+
+    text = await _run(operation="clearance", **CLEARANCE)
+    again = await _run(operation="clearance", **CLEARANCE)
+
+    line = next(line for line in text.splitlines() if "drawing-calibration-set" in line)
+    call = json.loads(line[line.index("with input ") + len("with input ") :])
+    assert call["params"] == {"id": "doc-1"} and call["body"]["page"] == 1
+    assert set(call["body"]) == {"page", "region", "from", "to", "lengthM"}
+    assert "no threshold is decided" in text
+    assert again == text  # the same call, so the workspace files one card
+
+
+async def test_a_calibrated_region_asks_for_no_second_calibration(store: _Store) -> None:
+    region = _around((1.0, 1.0), (9.0, 6.0))
+    store.calibrations = [_calibration(1.0, 3.0, 9.0, 3.0, 8.0, region)]  # type: ignore[attr-defined]
+
+    text = await _run(operation="clearance", **CLEARANCE)
+
+    assert "vector_verified" in text and "drawing-calibration-set" not in text
+
+
+async def test_the_proposed_calibration_once_accepted_verifies_the_same_measurement(store: _Store) -> None:
+    import json
+
+    estimated = await _run(operation="clearance", **CLEARANCE)
+    line = next(line for line in estimated.splitlines() if "drawing-calibration-set" in line)
+    body = json.loads(line[line.index("with input ") + len("with input ") :])["body"]
+    store.calibrations = [{"id": "cal-9", **body}]  # type: ignore[attr-defined]  # the person accepted the card
+
+    verified = await _run(operation="clearance", **CLEARANCE)
+
+    assert "vector_verified" in verified and "CONTRADICTED" not in verified
+    assert "1.20" in estimated and "1.20" in verified
+
+
+async def test_a_listing_and_a_sheet_without_a_document_id_propose_nothing(store: _Store, monkeypatch) -> None:
+    assert "drawing-calibration-set" not in await _run(operation="sheet")
+
+    def get_json(path: str, **kwargs: Any) -> dict[str, Any]:
+        return {"storageKey": "org/v1/x.pdf"}
+
+    monkeypatch.setattr(sheet_source.bff_http, "get_json", get_json)
+    assert "drawing-calibration-set" not in await _run(operation="clearance", **CLEARANCE)

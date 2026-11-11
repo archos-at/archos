@@ -246,6 +246,7 @@ Consequences, where a reader looks for them.
 | [0179](0179-lifecycles-are-declared-as-statechart-tables.md) | A record's lifecycle is declared once, as a statechart table | Proposed |
 | [0180](0180-personal-memory-is-its-own-table-keyed-to-the-person.md) | A note has one home that says who reads it: personal memory is its own table, keyed to the person | Proposed |
 | [0182](0182-a-drawing-sheet-is-read-on-demand-in-one-frame.md) | A drawing sheet is read on demand, by one reader, into one frame | Proposed |
+| [0183](0183-a-drawing-scale-is-verified-only-by-a-persons-calibration.md) | A drawing's scale is verified only by a person's calibration, kept as what the person did | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

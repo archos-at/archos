@@ -49,6 +49,7 @@ import {
   ASK,
   CANVAS,
   DECISION,
+  DRAWING_CALIBRATION,
   MEMORY,
   PERSONAL_MEMORY,
   NATIVE_READ,
@@ -255,6 +256,12 @@ export const EXPOSURE = {
   'annotation-reply-update': OFFERED,
   'annotation-update': { external: true, agent: 'native:canvas__update', reason: CANVAS },
   'document-annotations-export': OFFERED,
+  // Dark to outside agents behind the `drawing-measure` entitlement (ADR-0182), as the `drawing-measure` read is:
+  // the door has no per-operation flag yet. The in-product agent is offered them; the routes refuse where the
+  // organization does not hold the entitlement, and its set or withdraw is a proposal the person accepts.
+  'drawing-calibration-list': { external: false, agent: true, reason: DRAWING_CALIBRATION },
+  'drawing-calibration-set': { external: false, agent: true, reason: DRAWING_CALIBRATION },
+  'drawing-calibration-withdraw': { external: false, agent: true, reason: DRAWING_CALIBRATION },
   'document-quarantine-allow': SENSITIVE,
   'document-quarantine-allow-request': OFFERED,
   'document-quarantine-get': OFFERED,

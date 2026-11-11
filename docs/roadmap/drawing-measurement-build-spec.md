@@ -8,8 +8,10 @@ slice. Where the two disagree, this file is newer and wins; the differences are
 under [What changed against the plan](#what-changed-against-the-plan).*
 
 **Slices 1 to 3 are built** (the reader, `look` returning the text in its crop,
-scale and probe as pure functions, and the tool, dark), and of slice 7 the
-ground-truth set, the release gate and the eval rows; the rest is not. Every path named as existing was read on 2026-11-11.
+scale and probe as pure functions, and the tool, dark), and so are slice 4 (a
+person's calibration, headless), slice 5 (the calibrate tool in the review
+view), slice 6 (the card that asks a person to confirm a scale) and, of slice 7,
+the ground-truth set, the release gate and the eval rows; the rest is not. Every path named as existing was read on 2026-11-11.
 Every number under [Measured](#measured) was produced that day; the scripts were
 research and are not committed.
 
@@ -525,8 +527,8 @@ otherwise to state as „not verified because“ in the closing checklist.
 ### 4. A person's calibration, headless
 
 * **Build:** migration and table `drawing_calibrations` (organization, document,
-  version, page, region as shares, `metres_per_point`, the two reference points
-  and their true length, who and when, status) under `secure_table`; the lifecycle
+  version, page, region as shares, the two reference points
+  and their true length, who and when, status; no scale column, see „As built“) under `secure_table`; the lifecycle
   `active`, `superseded`, `withdrawn` declared with `defineLifecycle` and
   registered, with `withdrawn_at` and `withdrawn_by`; a partial unique index for
   one active row per region; withdrawing does not revive what it superseded. Read
@@ -541,6 +543,22 @@ otherwise to state as „not verified because“ in the closing checklist.
   the neighbouring region as it was; a calibration contradicting a stored region
   or the figure check is reported and makes every verdict in its region
   `undecidable`; the list operation pages.
+* **As built** (ADR-0183): the row holds what the person did (region, two
+  points, the true length) and no `metres_per_point`. A scale column would be a
+  number a client computed from a page size it claims; the agent computes the
+  scale from the sheet it read (`agent/drawings/sheet_calibration.py`). The
+  internal read is not a route of its own: `GET /api/internal/document-file`
+  takes `calibrationsPage` and answers the page's active calibrations with the
+  file's key, under one scope check, for the version whose bytes are read. The
+  agent never caches them. With the entitlement off the three operations answer
+  403 `feature_disabled`, as `requireFeature` does. A list on a document that
+  cannot be calibrated (no version, or no PDF) answers empty with
+  `canCalibrate: false`; a set on one is refused. Listing follows the document's
+  own read rule (`getAccessibleDocument`), which is `project:view` for a
+  project's document. The operations are `external: false, agent: true`: the
+  in-product agent's set is a proposal a person accepts, which slice 6 builds
+  on. A verdict still needs a printed figure on the span
+  that agrees, because no crop is attached before slice 6.
 
 ### 5. Calibrating in the review view
 
@@ -554,6 +572,30 @@ otherwise to state as „not verified because“ in the closing checklist.
   once with shares of the page; withdrawing returns the page to its earlier
   state; `parity.config.spec.ts` is green with the new entry. Captures of the
   `/dev/` preview are on the pull request.
+* **As built:** the tool is a `ReviewTool` (`calibrate`, key M), so Escape, the
+  palette and the tool hint treat it as they treat the others; its state is
+  `use-review-calibration.ts`, its page layer and its panel are modules of their
+  own, and `document-review.tsx` paid for its call lines by moving the tools'
+  intro memory to `review-tools-intro.ts`. Three things are open:
+  * **Stored regions do not reach the browser.** They are read by the agent's
+    `sheet` operation only. The hook takes them as `storedRegions` (by page) and
+    honours them (specs cover it), but the review passes none, so every region
+    is drawn. What would serve them: the regions of a page with their scale
+    state, on the calibrations list response or on a read of their own
+    (`GET /api/documents/{id}/sheet?page=N` over the reader's `sheet`).
+  * **The scale state on the file listing is not built.** The listing has no
+    field for it, and a read per row is not a design. It needs a count or a
+    state on the listing's rows.
+  * **The points are set with a pointer.** The keyboard's crosshair
+    (`KeyboardAim`) lives in `review-page-layer.tsx`, which may not grow; the
+    calibrate tool does not use it yet. The length, saving and withdrawing work
+    from the keyboard.
+  The client learns the entitlement from a context the `/app` layout mounts
+  (`drawing-measure-access.tsx`); with it off, or a list that does not answer,
+  nothing new is rendered and no request is made. The page's size in points
+  comes from the viewer's page element. The wire carries `createdBy` as an id:
+  the panel names the person where a mark of theirs is loaded, and says nothing
+  otherwise, until the view carries a name.
 
 ### 6. The card that asks a person to confirm a scale
 
@@ -587,6 +629,39 @@ otherwise to state as „not verified because“ in the closing checklist.
 * **Also:** `docs/architecture/proposed-changes.md` line 45 puts the `operation`
   kind in migration 0176 while line 95 says 0175. Read both migrations and make
   the document say what they do.
+* **The costing, as done** (four answers per route):
+
+  | | The `operation` kind with a richer receipt | A fifth kind `drawing_scale` |
+  |---|---|---|
+  | What exists | `proposeOperation`, the open-call index, the applier, the decisions block, `OperationReceipt`, the MCP App frame: all carry a `drawing-calibration-set` call unchanged once slice 4's operation is offered to the in-product agent | the same machinery, none of it reusable without a branch per kind |
+  | What it costs | one preview module in the receipt (the crop with the reference span, one sentence), one module in the engine that picks the reference, about 400 lines with specs; no migration | a migration for the kind's CHECK, a payload schema, an applier, a receipt body, a card model and its generated schemas, a decisions branch, the MCP App body: every list in `proposed-changes.md`, about 1,500 lines |
+  | What changes or is lost | the receipt shows the reference span and its length, not „1:N from the stored region, 8 of 8 agree“: the ratio, its source and the agreeing count are in the answer's text, not on the card. The value cannot be changed in the card | nothing lost; the card could show the ratio and take another value |
+  | Net | builds on what is there; a person checks one printed dimension by eye | pays 1,100 lines for two display fields and an input no proposal card has |
+
+  **Built on the `operation` kind.** The costing did not call for a fifth
+  kind, so nothing was put to the product owner as a blocker; the two things
+  the card does not show are listed for them in the pull request.
+* **As built:** the engine picks the reference
+  (`agent/drawings/sheet_proposal.py`): the longest agreeing dimension figure
+  inside the region, its two ends and its PRINTED value. A measurement on an
+  `estimated` region ends with the one call that proposes it
+  (`workspace__call`, `drawing-calibration-set`, the input given whole), and
+  the model makes the call: the tool files nothing itself, so the card exists
+  when the model follows the line, not by construction. The same sheet and
+  region give the same call, so a repeat opens no second card. A proposal is
+  offered only for a region the FILE stores: under a printed scale note alone
+  no region has an edge, and a box drawn around the agreeing dimensions could
+  take in a neighbouring view at another scale, which the calibration would
+  then make `verified`. And it is offered only on a CORROBORATED estimate. Where the figures do not corroborate
+  the hint, the unit they are printed in is not settled, and a reference taken
+  from one could be wrong by ten behind a card that looks the same: that
+  region gets no card and is calibrated by hand in the review view. A region
+  with no hint gets none either. Accepting writes one active calibration as
+  the decider, through the route, under their own right.
+* **Not built:** the measured span's own crop on the answer (decision 9's
+  second way to a verdict). A verdict still needs a printed figure on the span
+  that agrees. Changing the value in the card. „Open the sheet with the
+  calibrate tool pre-filled“ from the card.
 
 ### 7. Proof and counting
 
