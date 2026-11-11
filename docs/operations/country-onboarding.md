@@ -133,6 +133,10 @@ a site-keyed source a `privacy_reviewer` approval, besides the domain expert's.
 The request stays `submitted` until each has said yes; a trigger refuses a
 publish without them (migration 0212).
 
+## Known limits
+
+- **A large request cannot be read whole through the door.** Every door result is cut at `MAX_RESULT_CHARS` (40,000 characters, `apps/workspace/bff/agent-api/discovery.ts`), and `platform-knowledge-change-request-get` takes no filter or page. Austria's dev request (408 revisions) answers about 400,000 characters, so an agent sees its first records and none of its relations. The platform view reads it through the route, unaffected. What closes it: a `type` filter or a cursor on `change-request-get`, sharing the route's schema.
+
 ## The measure
 
 `apps/workspace/bff/agent-api/onboarding-door.integration.spec.ts` drives the
