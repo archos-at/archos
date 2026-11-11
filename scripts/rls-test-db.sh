@@ -3930,7 +3930,13 @@ check_in tf_0222 "SELECT knowledge_sources_unchecked('$CR_OLD_OWN')::text" "true
 check_in tf_0222 "SELECT knowledge_source_reviewed('xa-own', 'released', '$RV_SRC', now())::text" "false" "0222: a revision no release published is no released source, whatever the fetch recorded"
 refused_in tf_0222 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source, override_reason) VALUES (gen_random_uuid(), '$CR_UP', 'user_author', 'domain_expert', 'app', 'urgent')" "no reviewer checked" "an approval alone over an uploaded text nobody else checked"
 refused_in tf_0222 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source, override_reason) VALUES (gen_random_uuid(), '$CR_OWN', 'user_author', 'domain_expert', 'app', 'urgent')" "no reviewer checked" "an approval alone over a text fetched through the author's own source"
-refused_in tf_0222 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR_NEW', 'fetched', 'xa-ris', 'https://ris.example/2', repeat('c', 64), 1, now(), 'user_author')" "knowledge_citation_captures_fetched_names_origin" "a capture fetched after 0222 that does not say what it went through"
+# An older build, during a rollout or after a rollback, still writes a fetched capture without an origin: accepted,
+# and held like the ones stored before when a record configures its source.
+sql_in tf_0222 <<SQL
+INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, url, sha256, byte_size, retrieved_at, created_by) VALUES
+  ('a2000000-0000-4000-8000-000000000222', '$CR_NEW', 'fetched', 'xa-own', 'https://attacker.example/2', repeat('c', 64), 1, now(), 'user_author');
+SQL
+check_in tf_0222 "SELECT knowledge_capture_counts_as_fetched(basis, source_id, source_origin, source_revision_id, created_at)::text FROM knowledge_citation_captures WHERE id = 'a2000000-0000-4000-8000-000000000222'" "false" "0222: an older build's capture through a source a record configures does not count"
 refused_in tf_0222 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, source_origin, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR_NEW', 'fetched', 'xa-own', 'draft', 'https://attacker.example/2', repeat('c', 64), 1, now(), 'user_author')" "knowledge_citation_captures_source_revision_named" "a capture through a source record that names no revision"
 refused_in tf_0222 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_origin, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR_NEW', 'operator_supplied', 'built_in', 'https://ris.example/3', repeat('c', 64), 1, now(), 'user_author')" "knowledge_citation_captures_source_origin_known" "a pasted page that claims a source"
 sql_in tf_0222 <<SQL
@@ -3938,7 +3944,7 @@ INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id
   (gen_random_uuid(), '$CR_NEW', 'fetched', 'xa-ris', 'built_in', NULL, 'https://ris.example/4', repeat('d', 64), 1, now(), 'user_author'),
   (gen_random_uuid(), '$CR_NEW', 'fetched', 'xa-own', 'draft', '$RV_SRC', 'https://attacker.example/4', repeat('e', 64), 1, now(), 'user_author');
 SQL
-check_in tf_0222 "SELECT string_agg(source_origin || '=' || knowledge_capture_counts_as_fetched(basis, source_id, source_origin, source_revision_id, created_at)::text, ',' ORDER BY source_origin) FROM knowledge_citation_captures WHERE change_request_id = '$CR_NEW'" "built_in=true,draft=false" "0222: a capture through a built-in source counts, one through a draft's source does not"
+check_in tf_0222 "SELECT string_agg(source_origin || '=' || knowledge_capture_counts_as_fetched(basis, source_id, source_origin, source_revision_id, created_at)::text, ',' ORDER BY source_origin) FROM knowledge_citation_captures WHERE change_request_id = '$CR_NEW' AND source_origin IS NOT NULL" "built_in=true,draft=false" "0222: a capture through a built-in source counts, one through a draft's source does not"
 sql_in tf_0222 <<SQL
 INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked, decision_source)
   VALUES (gen_random_uuid(), '$CR_UP', '$RV_UP', 'corpusFile', 'accepted', 'user_uploader', true, 'app');

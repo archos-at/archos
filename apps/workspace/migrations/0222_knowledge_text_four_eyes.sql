@@ -28,16 +28,18 @@
 -- - `draft`: a source proposed in the same change request, usable to test a
 --   fetch for 24 hours (ADR-0174). Never counted.
 --
--- A capture stored before these columns has none. It counts as fetched only
--- when no platform record ever configured its source, which leaves a built-in
--- one; a fetch through a source record made before this migration is held.
+-- A capture stored before these columns has none, and neither has one an older
+-- build writes during a rollout or after a rollback: no CHECK asks a fetch for
+-- its origin, so that build keeps working. Such a capture counts as fetched
+-- only when no platform record ever configured its source, which leaves a
+-- built-in one; a fetch through a source record without an origin is held.
 --
 -- A fetched text counts only while the revision still names the fetched file
 -- and its bytes (`corpus_file` and `sha256` are the provenance's). The kit and
 -- the indexing job hold the corpus to that hash, so the reviewed bytes are the
 -- published ones.
 --
--- Expand only: two nullable columns, three functions, and
+-- Expand only: two nullable columns that an older build may leave empty, three functions, and
 -- `knowledge_sources_unchecked` keeps its name and signature; every request it
 -- held before it still holds.
 ALTER TABLE "knowledge_citation_captures" ADD COLUMN IF NOT EXISTS "source_origin" text;
@@ -54,12 +56,6 @@ ALTER TABLE "knowledge_citation_captures" DROP CONSTRAINT IF EXISTS knowledge_ci
 --> statement-breakpoint
 ALTER TABLE "knowledge_citation_captures" ADD CONSTRAINT knowledge_citation_captures_source_revision_named
   CHECK (("source_revision_id" IS NOT NULL) = coalesce("source_origin" IN ('released', 'draft'), false));
---> statement-breakpoint
--- Every fetch from now on says what it went through. NOT VALID: the rows stored before the column keep theirs empty.
-ALTER TABLE "knowledge_citation_captures" DROP CONSTRAINT IF EXISTS knowledge_citation_captures_fetched_names_origin;
---> statement-breakpoint
-ALTER TABLE "knowledge_citation_captures" ADD CONSTRAINT knowledge_citation_captures_fetched_names_origin
-  CHECK ("basis" <> 'fetched' OR "source_origin" IS NOT NULL) NOT VALID;
 --> statement-breakpoint
 -- Whether a fetch went through a source two people have seen: a built-in one, or a source record's revision
 -- released before the fetch by a request approved by four eyes or confirmed by its second review.

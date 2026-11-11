@@ -39,7 +39,6 @@ $$;
 DROP FUNCTION IF EXISTS knowledge_text_counts_as_fetched(jsonb, text, text, timestamp with time zone);
 DROP FUNCTION IF EXISTS knowledge_capture_counts_as_fetched(text, text, text, uuid, timestamp with time zone);
 DROP FUNCTION IF EXISTS knowledge_source_reviewed(text, text, text, timestamp with time zone);
-ALTER TABLE "knowledge_citation_captures" DROP CONSTRAINT IF EXISTS knowledge_citation_captures_fetched_names_origin;
 ALTER TABLE "knowledge_citation_captures" DROP CONSTRAINT IF EXISTS knowledge_citation_captures_source_revision_named;
 ALTER TABLE "knowledge_citation_captures" DROP CONSTRAINT IF EXISTS knowledge_citation_captures_source_origin_known;
 ALTER TABLE "knowledge_citation_captures" DROP COLUMN IF EXISTS "source_revision_id";

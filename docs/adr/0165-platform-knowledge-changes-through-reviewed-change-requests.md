@@ -220,8 +220,9 @@ of the first three, and a third review sharpened the fourth and the sixth (see
   `sourceChecked`, and while it is true nobody approves, alone or not. This
   holds for texts and captures alike; captures had the same gap since #1594. A
   fetched text counts only while the revision still names the fetched file and
-  hash, which the rule above holds the corpus to. A capture stored before the
-  columns counts only if no record ever configured its source. The reviewer's
+  hash, which the rule above holds the corpus to. A capture without an origin
+  (stored before the columns, or written by an older build during a rollout)
+  counts only if no record ever configured its source. The reviewer's
   page reads the same answer (`countsAsFetched`), so what it asks a reviewer to
   vouch for is what the database will ask for.
 
@@ -365,8 +366,8 @@ approval until another person's `sourceChecked`; a fetch through a source two
 people released is approved alone; one through a source its author released
 alone is not.
 `scripts/rls-test-db.sh` (migration 0222 and its down: a built-in source
-counts, a draft's does not, a capture stored before the columns, and the three
-CHECK constraints).
+counts, a draft's does not, a capture stored before the columns or written by
+an older build, and the two CHECK constraints).
 `upload-hashes.spec.ts` (a ZIP's members by base name; ZIP or PDF by the first
 bytes; unsafe member names; one normal form).
 `apps/agent-host/tests/test_oib_documents_routes.py` (a name the corpus keeps
