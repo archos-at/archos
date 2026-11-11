@@ -16,6 +16,56 @@ import { LawMapPage } from '@/features/platform/components/law-map/law-map-page'
 import { LAW_MAP_AT_REVISIONS } from '../_fixtures/law-map-at'
 
 const REQUEST_ID = '5907f5cb-8443-43bd-8b82-02f28d563dfd'
+
+const claims = (body: Record<string, unknown>) => Object.entries(body).map(([path, value]) => ({ path, value, decision: null as string | null }))
+const BASE_URL = 'https://www.oib.or.at/sites/default/files/richtlinien/2023'
+
+/** A source and a test question as an operator proposes them, so "everything else" reads in words (addresses illustrative). */
+const OTHERS = [
+  {
+    revisionId: 'rev-source:at-oib',
+    recordId: 'source:at-oib',
+    type: 'source',
+    createdBy: 'user_a',
+    citations: [{ url: 'https://www.oib.or.at/de/oib-richtlinien', quote: 'OIB-Richtlinien 2023' }],
+    claims: claims({
+      title: 'OIB-Richtlinien',
+      territoryId: 'AT',
+      protocol: 'web_document',
+      format: 'pdf_document',
+      hosts: ['www.oib.or.at'],
+      dataFlow: 'public_only',
+      monitorKind: 'none',
+      monitorIntervalHours: 24,
+      licence: 'public_open',
+      config: {
+        id: 'at-oib',
+        title: 'OIB-Richtlinien',
+        hosts: ['www.oib.or.at'],
+        terms: { url: 'https://www.oib.or.at/de/impressum', licence: 'public_open', attribution: '© Österreichisches Institut für Bautechnik', checked: '2026-11-10' },
+        monitor: { kind: 'none', interval_hours: 24 },
+        access: { documents: [1, 2, 3, 4, 5, 6].map((n) => ({ id: `oib-rl-${n}`, url: `${BASE_URL}/oib-rl_${n}_ausgabe_mai_2023.pdf`, title: `OIB-RL ${n}` })) },
+        engine: {},
+        fixtures: [{ name: 'oib-rl-2', operation: 'document', args: { id: 'oib-rl-2' }, responses: { [`${BASE_URL}/oib-rl_2_ausgabe_mai_2023.pdf`]: { capture_id: '7c0d5a1e-3f43-4b8e-9a51-2d1f6e0b9c11' } }, expect: { min_passages: 30 } }],
+      },
+    }),
+  },
+  {
+    revisionId: 'rev-golden_case:at-9-escape-route',
+    recordId: 'golden_case:at-9-escape-route',
+    type: 'golden_case',
+    createdBy: 'user_a',
+    citations: [],
+    claims: claims({
+      question: 'Wie lang darf der Fluchtweg bis zum Treppenhaus in einem Wohnhaus der Gebäudeklasse 4 sein?',
+      language: 'de-AT',
+      context: { territoryId: 'AT-9', facts: { building_class: 'GK4' }, referenceDate: null, note: null },
+      expected: { values: [{ label: 'Fluchtweglänge', anyOf: ['40 m'], grounding: 'text' }], edition: null, citations: [{ designation: 'OIB-RL 2', alsoKnownAs: [], locus: 'Pkt. 5.1.1', grounding: 'text' }] },
+      mustNot: [{ kind: 'source', id: 'web-copy', sourceKinds: ['web'], naming: [] }],
+      tags: [],
+    }),
+  },
+]
 const MODE = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('mode')
 const LOOSE_TEXT = { revisionId: 'r-loose', recordId: 'manifestation:released-guide-2019-text', type: 'manifestation', createdBy: 'user_a', createdAt: '2026-11-10T16:42:01Z', citations: [], claims: [{ path: 'editionId', value: 'edition:released-guide-2019', decision: null }, { path: 'corpusFile', value: null, decision: null }, { path: 'licenceClass', value: 'public_domain', decision: null }] }
 const STATE =
@@ -24,8 +74,8 @@ const STATE =
     : MODE === 'draft'
       ? { status: 'draft', approval: 'four_eyes', secondReview: null, secondReviewRoles: [] }
       : { status: 'submitted', approval: 'four_eyes', secondReview: null, secondReviewRoles: [] }
-const SUMMARY = { id: REQUEST_ID, title: 'Austria: Länder, building laws, OIB-Richtlinien and their adoption per Land', countryId: 'AT', status: STATE.status, createdBy: 'user_a', createdAt: '2026-11-10T16:42:01Z', origin: 'operator', sourceRecordId: null, monitorFinding: null, approval: STATE.approval, secondReview: STATE.secondReview, revisionCount: LAW_MAP_AT_REVISIONS.length }
-const VIEW = { ...SUMMARY, submittedAt: '2026-11-10T17:00:00Z', publishedAt: null, revisions: MODE === 'draft' ? [...LAW_MAP_AT_REVISIONS, LOOSE_TEXT] : LAW_MAP_AT_REVISIONS, texts: [], captures: [], sourcesUnchecked: false, secondReviewRoles: STATE.secondReviewRoles, approvals: [], releases: [] }
+const SUMMARY = { id: REQUEST_ID, title: 'Austria: Länder, building laws, OIB-Richtlinien and their adoption per Land', countryId: 'AT', status: STATE.status, createdBy: 'user_a', createdAt: '2026-11-10T16:42:01Z', origin: 'operator', sourceRecordId: null, monitorFinding: null, approval: STATE.approval, secondReview: STATE.secondReview, revisionCount: LAW_MAP_AT_REVISIONS.length + OTHERS.length }
+const VIEW = { ...SUMMARY, submittedAt: '2026-11-10T17:00:00Z', publishedAt: null, revisions: [...LAW_MAP_AT_REVISIONS, ...OTHERS, ...(MODE === 'draft' ? [LOOSE_TEXT] : [])], texts: [], captures: [], sourcesUnchecked: false, secondReviewRoles: STATE.secondReviewRoles, approvals: [], releases: [] }
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __lawMapShim?: boolean }

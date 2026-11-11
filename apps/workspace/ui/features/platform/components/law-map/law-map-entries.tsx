@@ -100,7 +100,7 @@ function Binding({ revision, map }: { revision: RevisionView; map: LawMap }): JS
 }
 
 /** The unit's sources, each once, however many of its records cite it. */
-function Sources({ revisions, captures }: { revisions: RevisionView[]; captures: ReadonlyMap<string, CaptureView> }): JSX.Element | null {
+export function Sources({ revisions, captures }: { revisions: RevisionView[]; captures: ReadonlyMap<string, CaptureView> }): JSX.Element | null {
   const t = useTranslations(lawMapCopy)
   const seen = new Map<string, { url: string; quote: string | null; note: string | null }>()
   for (const citation of revisions.flatMap((revision) => revision.citations)) {

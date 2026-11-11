@@ -10,7 +10,7 @@ import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useTranslations } from '@/i18n'
+import { useLocale, useTranslations } from '@/i18n'
 import { lawMapCopy } from '@/i18n/namespaces/law-map'
 
 /** One row of the outline: its name on the left, its value said once on the right. */
@@ -121,4 +121,10 @@ export function QuietLinks({ links }: { links: { href: string; label: string }[]
       ))}
     </p>
   )
+}
+
+/** An ISO day as the reader's locale writes it; a dash for none. */
+export function useDate(): (iso: string | null) => string {
+  const { locale } = useLocale()
+  return (iso) => (iso ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`)) : '–')
 }
