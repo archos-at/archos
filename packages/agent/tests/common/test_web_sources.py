@@ -107,8 +107,34 @@ def test_the_copy_hosts_are_read_from_a_source_record_s_file(tmp_path, monkeypat
         web_sources._sources_under.cache_clear()
 
 
+def test_a_released_record_the_turn_carries_names_its_copies(monkeypatch):
+    """A published source's ``copy_hosts`` screen the web as a repository file's did, with no file at all."""
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import LawSource
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    monkeypatch.setenv("PUBLIC_SOURCES_DIR", "/nonexistent/sources")
+    web_sources._sources_under.cache_clear()
+    config = {"title": "Lawbase of Ruritania", "hosts": ["law.example.org"], "copy_hosts": ["mirror.example.net"]}
+    released = LawSource(key="xr-lawbase", revision_id="r1", country="XR", config=config)
+    set_turn_knowledge_context(
+        KnowledgeContext(gate="core", site_country="XR", sources=(released,), retrieval_countries=frozenset({"XR"}))
+    )
+    try:
+        (source,) = web_sources.configured_sources()
+        assert (source.country, source.hosts, source.copy_hosts) == (
+            "XR",
+            ("law.example.org",),
+            ("mirror.example.net",),
+        )
+        assert assess("https://mirror.example.net/bo", "Bauordnung").withheld
+    finally:
+        set_turn_knowledge_context(None)
+        web_sources._sources_under.cache_clear()
+
+
 def test_an_unreadable_record_set_knows_no_copy_and_fails_no_search(monkeypatch):
-    """The source records move to the platform one day: until this reads them there, a missing set is no error."""
+    """An unreadable repository record set is no error: no host of it is known as a copy."""
     monkeypatch.setenv("PUBLIC_SOURCES_DIR", "/nonexistent/sources")
     web_sources._sources_under.cache_clear()
     try:

@@ -137,7 +137,7 @@ const ENTRIES = [
       'Returns the platform’s configured number of excerpts (16 unless raised, at most 50; the header counts them), each with source, citation key, document type, folder and page. ' +
       'A `Folder:` line after them is a folder whose summary matches: a pointer to look inside with files-list or `folder`, never a source. ' +
       'A hit marked as a document ' + PRODUCT_NAME + ' wrote is knowledge the office approved, never a source for a normative value. When you know ' +
-      'which document holds the answer, call passage-read instead; for Austrian law itself call law-lookup. Never invent a ' +
+      'which document holds the answer, call passage-read instead; for the law itself call law-lookup. Never invent a ' +
       'citation or a file name; an empty result says how to retry.',
     needsProject: true,
     projectOptionalForBase: true,
@@ -240,23 +240,23 @@ const ENTRIES = [
   },
   {
     name: 'law-lookup',
-    tool: 'ris_lookup_tool',
+    tool: 'law_lookup',
     domain: 'knowledge',
-    summary: 'Look up Austrian law in RIS and read the provision',
+    summary: 'Look up a law at its official source and read the provision',
     description:
-      'Answer a question about Austrian law from RIS, the federal legal information system, with the actual paragraphs, quotable ' +
-      'and citable. Call it when the question turns on what an Austrian law says: the building codes and other state laws, the ' +
-      'federal acts behind them, and court decisions; OIB guidelines become binding through these laws, so their binding force ' +
-      'belongs here too. For the content of the OIB guidelines or the office’s documents, call knowledge-search. One call reads ' +
-      'the address out of the question, finds the law, downloads at most two documents and cuts out the paragraphs that answer it. ' +
-      '`question`: the legal question as the person means it, in German, the language of the law, not a list of search terms. ' +
-      '`jurisdiction`: the federal state, when the person ' +
-      'named one. `instrument`: an address when you have one (a law’s name or citation such as `§ 63 BO Wien`, a RIS document ' +
-      'number or a ris.bka.gv.at URL); name every section you need in one call, up to six. `application`: only for case law, the ' +
-      'gazettes or drafts; leave it empty for statute law. Returns numbered passages, each with its source, document type, clause, ' +
-      'a citation key to quote verbatim and the paragraph text. A miss says what was searched and one concrete retry.',
+      'Answer a legal question from the official legal database of the site’s country, with the actual provisions, quotable ' +
+      'and citable. Call it when the question turns on what a law says: the building codes and other statutes, the acts ' +
+      'behind them, and court decisions; a technical guideline a law makes binding belongs here for its binding force. For ' +
+      'the content of technical guidelines or the office’s documents, call knowledge-search. One call reads the address out ' +
+      'of the question, finds the law, downloads at most two documents and cuts out the provisions that answer it. ' +
+      '`question`: the legal question as the person means it, in the language of the law, not a list of search terms. ' +
+      '`jurisdiction`: the region (a state or province), when the person named one. `instrument`: an address when you have ' +
+      'one (a law’s name or a citation with its section, a document number of the source, or a URL on its site); name every ' +
+      'section you need in one call, up to six. `application`: only for case law, the gazettes or drafts; leave it empty for ' +
+      'statute law. Returns numbered passages, each with its source, document type, clause, a citation key to quote verbatim ' +
+      'and the provision’s text. A miss says what was searched and one concrete retry.',
     needsProject: false,
-    // Reaches the public RIS, not only the office's own workspace.
+    // Reaches a public legal database, not only the office's own workspace.
     openWorld: true,
   },
 ] as const satisfies readonly Entry[]

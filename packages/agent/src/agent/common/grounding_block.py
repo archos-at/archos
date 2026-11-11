@@ -227,7 +227,7 @@ class GroundingBlock(BaseModel):
     #: ``## Trace-Lanes`` line.
     lanes: tuple[TraceLane, ...]
     #: The basename of the tool that returned this block (``knowledge_search``,
-    #: ``read_passage``, ``ris_lookup``): the ``sources`` step names it.
+    #: ``read_passage``, ``law_lookup``): the ``sources`` step names it.
     tool: str
     #: What is rendered after the lanes and outside the grammar: ``read_passage``
     #: puts its ``## Gliederung`` index here, and the one line that replaces the

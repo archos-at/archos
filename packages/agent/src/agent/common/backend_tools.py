@@ -33,7 +33,7 @@ BACKEND_READ_TOOLS: Final[tuple[str, ...]] = (
     "look",
     "ifc_measure",
     "dxf_measure",
-    "ris_lookup_tool",
+    "law_lookup",
 )
 
 #: MCP ``ToolAnnotations`` of every tool here. They all read, change nothing,

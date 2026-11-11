@@ -28,3 +28,13 @@ def test_a_payload_takes_a_key_no_repository_record_has():
 
     keys = {key for _source, key, _target in _module().PAYLOADS}
     assert keys.isdisjoint(load_sources())
+
+
+def test_a_payload_carries_the_hosts_that_republish_the_source():
+    """``copy_hosts`` screen the web search (``common/web_sources.py``): a released record must keep them."""
+    from public_sources.source import get_source
+
+    module = _module()
+    for source_id, key, _target in module.PAYLOADS:
+        source = get_source(source_id)
+        assert module.door_record(source, key).get("copyHosts", []) == list(source.copy_hosts)

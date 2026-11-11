@@ -47,6 +47,11 @@ FIXTURES = Path(__file__).resolve().parents[5] / "tests" / "fixtures" / "law_loo
 UPSTREAM = FIXTURES / "upstream.json"
 GOLDEN = FIXTURES / "golden.json"
 
+#: The name the lookup is bound under (``configs/config_oib_openrouter.yml``), as its errors state it.
+TOOL_NAME = "law_lookup"
+#: The RIS tool's name, which ``golden.json`` was recorded under; one output (an empty question) states it.
+OLD_TOOL_NAME = "ris_lookup"
+
 
 @dataclass(frozen=True)
 class Plan:
@@ -286,6 +291,8 @@ async def run_ris_lookup(case: Case, upstream: Upstream) -> Result:
         async with ris_lookup(config, MagicMock()) as info:
             fn = LambdaFunction.from_info(config=_probe_config(), info=info)
             output = await fn.ainvoke(case.args, to_type=str)
+    # The RIS tool names itself in its one error; the golden file holds the lookup's name since the rename.
+    output = output.replace(f"Error: {OLD_TOOL_NAME} ", f"Error: {TOOL_NAME} ")
     return Result(output=output, requested=tuple(upstream.requested), records=tuple(records))
 
 
@@ -342,7 +349,7 @@ async def run_law_lookup(
     """The country-neutral lookup (``agent.knowledge.law_lookup``), reading RIS from its record, or the
     ``turn_record`` the turn carries beside ``uses`` (the edition uses its records resolved).
 
-    Bound as the RIS tool is, under its name, so its errors and its sources step say ``ris_lookup``.
+    Bound as the chat binds it, under its own name, so its errors and its sources step say ``law_lookup``.
     """
     from agent.knowledge.law_lookup import LawLookupToolConfig
     from agent.knowledge.law_lookup import law_lookup
@@ -353,7 +360,7 @@ async def run_law_lookup(
     from agent.knowledge.law_lookup.source import law_source
     from nat.builder.function import LambdaFunction  # noqa: TID251
 
-    config = LawLookupToolConfig(source="at-ris", tool_name="ris_lookup", ingest_into_knowledge=False)
+    config = LawLookupToolConfig(source="at-ris", tool_name=TOOL_NAME, ingest_into_knowledge=False)
     planner = picker = None
     if case.plan is not None:
         plan = plan_model(law_source(config.source))(
