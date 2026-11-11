@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from '@/test-utils'
-import { fireEvent, within } from '@testing-library/react'
+import { within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { toast } from 'sonner'
@@ -37,8 +37,6 @@ vi.mock('@/shared/context', () => ({
   }),
 }))
 
-/** A drag from the desktop: `Files` in `types` is what marks it as an upload. */
-const fromDesktop = (files: File[]) => ({ dataTransfer: { types: ['Files'], files, items: [] } })
 
 vi.mock('@/features/knowledge/components/pdf-viewer-dialog', () => ({
   PdfViewerDialog: () => <div data-testid="pdf-viewer" />,
@@ -355,60 +353,6 @@ describe('BaseKnowledge', () => {
     })
   })
 
-  test('a row deletes after confirmation, and the dialog says what is deleted', async () => {
-    const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
-      if (
-        typeof url === 'string' &&
-        url.includes('/api/platform/knowledge/documents/') &&
-        init?.method === 'DELETE'
-      ) {
-        return Promise.resolve(jsonResponse({ success: true, fileName: 'oib-richtlinie-2.pdf' }))
-      }
-      return Promise.resolve(jsonResponse(STATUS))
-    })
-    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    const sheet = await openDetail(user, 'oib-richtlinie-2.pdf')
-
-    // One kind of removal for every row: it deletes.
-    expect(
-      within(sheet).queryByRole('button', { name: 'Remove from corpus' })
-    ).not.toBeInTheDocument()
-    await user.click(within(sheet).getByRole('button', { name: 'Remove' }))
-    const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent('Remove oib-richtlinie-2.pdf?')
-    expect(dialog).toHaveTextContent('This deletes the PDF and all of its indexed content')
-    await user.click(within(dialog).getByRole('button', { name: 'Remove document' }))
-
-    await waitFor(() => {
-      expect(
-        fetchSpy.mock.calls.some(
-          ([url, init]) =>
-            typeof url === 'string' &&
-            url.includes('/api/platform/knowledge/documents/oib-richtlinie-2.pdf') &&
-            (init as RequestInit | undefined)?.method === 'DELETE'
-        )
-      ).toBe(true)
-    })
-  })
-
-  test('an indexed file the corpus no longer lists can be deleted but not viewed', async () => {
-    const orphaned: KnowledgeBaseStatus = {
-      ...STATUS,
-      files: [...STATUS.files, file({ fileName: 'orphan.pdf', state: 'removed', sizeBytes: null })],
-    }
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(orphaned)))
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    const sheet = await openDetail(user, 'orphan.pdf')
-
-    expect(within(sheet).queryByRole('button', { name: 'View PDF' })).not.toBeInTheDocument()
-    expect(within(sheet).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
-  })
-
   test('the detail sheet opens the in-app PDF viewer', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(STATUS)))
     const user = userEvent.setup()
@@ -418,64 +362,6 @@ describe('BaseKnowledge', () => {
 
     await user.click(within(sheet).getByRole('button', { name: 'View PDF' }))
     expect(await screen.findByTestId('pdf-viewer')).toBeInTheDocument()
-  })
-
-  test('the upload input accepts PDF and ZIP', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(STATUS)))
-
-    render(<BaseKnowledge />)
-    await screen.findByText('oib-richtlinie-2.pdf')
-
-    const input = screen.getByTestId('knowledge-upload-input') as HTMLInputElement
-    expect(input.accept).toContain('.pdf')
-    expect(input.accept).toContain('.zip')
-  })
-
-  test('the dropzone is revealed by the "Add documents" action rather than always open', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(STATUS)))
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    await screen.findByText('oib-richtlinie-2.pdf')
-
-    expect(screen.queryByTestId('knowledge-dropzone')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Add documents/ }))
-    expect(screen.getByTestId('knowledge-dropzone')).toBeInTheDocument()
-  })
-
-  test('dropping a PDF on the revealed dropzone uploads it', async () => {
-    const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
-      if (
-        typeof url === 'string' &&
-        url === '/api/platform/knowledge/documents' &&
-        init?.method === 'POST'
-      ) {
-        return Promise.resolve(
-          jsonResponse({ status: 'pending', kind: 'file', fileName: 'dropped.pdf', members: null })
-        )
-      }
-      return Promise.resolve(jsonResponse(STATUS))
-    })
-    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    await screen.findByText('oib-richtlinie-2.pdf')
-    await user.click(screen.getByRole('button', { name: /Add documents/ }))
-
-    const pdf = new File(['%PDF-1.4'], 'dropped.pdf', { type: 'application/pdf' })
-    fireEvent.drop(screen.getByTestId('knowledge-dropzone'), fromDesktop([pdf]))
-
-    await waitFor(() => {
-      expect(
-        fetchSpy.mock.calls.some(
-          ([url, init]) =>
-            typeof url === 'string' &&
-            url === '/api/platform/knowledge/documents' &&
-            (init as RequestInit | undefined)?.method === 'POST'
-        )
-      ).toBe(true)
-    })
   })
 
   test('reads the whole corpus from the platform route, never from the office listing', async () => {
@@ -490,96 +376,6 @@ describe('BaseKnowledge', () => {
     const urls = fetchSpy.mock.calls.map(([url]) => url)
     expect(urls).toContain('/api/platform/knowledge/documents')
     expect(urls.filter((url) => url.startsWith('/api/knowledge-base'))).toEqual([])
-  })
-
-  test('uploading a file posts to the corpus and starts background polling', async () => {
-    const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
-      // The same path lists the corpus (GET) and takes an upload (POST).
-      if (typeof url === 'string' && url.includes('/api/platform/knowledge/documents') && init?.method === 'POST') {
-        return Promise.resolve(
-          jsonResponse({
-            status: 'pending',
-            kind: 'file',
-            fileName: 'new-doc.pdf',
-            docClass: 'other',
-            message: '',
-            accepted: 1,
-            rejected: 0,
-            members: null,
-          })
-        )
-      }
-      return Promise.resolve(jsonResponse(STATUS))
-    })
-    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    await screen.findByText('oib-richtlinie-2.pdf')
-
-    const input = screen.getByTestId('knowledge-upload-input') as HTMLInputElement
-    const pdf = new File(['%PDF-1.4'], 'new-doc.pdf', { type: 'application/pdf' })
-    await user.upload(input, pdf)
-
-    await waitFor(() => {
-      expect(
-        fetchSpy.mock.calls.some(
-          ([url, init]) =>
-            typeof url === 'string' &&
-            url === '/api/platform/knowledge/documents' &&
-            (init as RequestInit | undefined)?.method === 'POST'
-        )
-      ).toBe(true)
-    })
-  })
-
-  test('a ZIP upload shows aggregate + per-file indexing progress', async () => {
-    const zipBody = {
-      status: 'pending',
-      kind: 'zip',
-      fileName: null,
-      docClass: null,
-      message: '',
-      accepted: 2,
-      rejected: 0,
-      members: [
-        { fileName: 'a.pdf', status: 'pending', docClass: 'other', reason: null },
-        { fileName: 'b.pdf', status: 'pending', docClass: 'other', reason: null },
-      ],
-    }
-    // Status snapshot where a.pdf has finished indexing but b.pdf hasn't appeared yet.
-    const statusWithA: KnowledgeBaseStatus = {
-      ...STATUS,
-      files: [...STATUS.files, file({ fileName: 'a.pdf', docClass: 'other' })],
-    }
-    const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
-      if (
-        typeof url === 'string' &&
-        url.includes('/api/platform/knowledge/documents') &&
-        init?.method === 'POST'
-      ) {
-        return Promise.resolve(jsonResponse(zipBody))
-      }
-      return Promise.resolve(jsonResponse(statusWithA))
-    })
-    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    await screen.findByText('oib-richtlinie-2.pdf')
-
-    const input = screen.getByTestId('knowledge-upload-input') as HTMLInputElement
-    const zip = new File(['PK'], 'bulk.zip', { type: 'application/zip' })
-    await user.upload(input, zip)
-
-    // Aggregate progress: a.pdf done, b.pdf still working → "1 of 2".
-    const progress = await screen.findByTestId('knowledge-upload-progress')
-    expect(progress).toHaveTextContent('Indexing 1 of 2')
-    // Per-file rows surface inside the progress card, each with its live state.
-    expect(within(progress).getByText('a.pdf')).toBeInTheDocument()
-    expect(within(progress).getByText('b.pdf')).toBeInTheDocument()
-    expect(within(progress).getByText('Indexed')).toBeInTheDocument()
-    expect(within(progress).getByText('Indexing…')).toBeInTheDocument()
   })
 
   test('syncing the corpus posts to the sync endpoint', async () => {
@@ -726,38 +522,6 @@ describe('BaseKnowledge', () => {
     })
   })
 
-  test('bulk delete confirms once and removes every selected document', async () => {
-    const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
-      if (typeof url === 'string' && init?.method === 'DELETE') {
-        return Promise.resolve(jsonResponse({ success: true }))
-      }
-      return Promise.resolve(jsonResponse(STATUS))
-    })
-    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    await screen.findByText('oib-richtlinie-2.pdf')
-
-    await user.click(screen.getByRole('checkbox', { name: 'Select oib-richtlinie-2.pdf' }))
-    await user.click(screen.getByRole('checkbox', { name: 'Select sonstiges-notiz.pdf' }))
-
-    const selectionBar = await screen.findByTestId('data-toolbar-selection')
-    await user.click(within(selectionBar).getByRole('button', { name: 'Remove' }))
-
-    // A mixed selection gets the bulk wording, not either single-file variant.
-    const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent('Remove 2 documents?')
-    await user.click(within(dialog).getByRole('button', { name: 'Remove 2 documents' }))
-
-    await waitFor(() => {
-      const deleted = fetchSpy.mock.calls.filter(
-        ([, init]) => (init as RequestInit | undefined)?.method === 'DELETE'
-      )
-      expect(deleted).toHaveLength(2)
-    })
-  })
-
   test('pages through a corpus larger than one page', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(MANY)))
     const user = userEvent.setup()
@@ -810,61 +574,10 @@ describe('BaseKnowledge', () => {
     expect(await screen.findByText('oib-richtlinie-2.pdf')).toBeInTheDocument()
   })
 
-  test('an empty corpus invites the first upload instead of showing an empty table', async () => {
-    const empty: KnowledgeBaseStatus = {
-      ...STATUS,
-      summary: { ...STATUS.summary, totalFiles: 0, ingested: 0, totalChunks: 0 },
-      files: [],
-    }
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(empty)))
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-
-    expect(await screen.findByText('No base documents yet')).toBeInTheDocument()
-
-    // The empty state must not lock the owner out of the upload affordance.
-    await user.click(screen.getByRole('button', { name: /Add documents/ }))
-    expect(screen.getByTestId('knowledge-dropzone')).toBeInTheDocument()
-  })
-
   test('the German document-type labels equal the backend vocabulary', () => {
     // The UI reads the dictionary, the parity test pins DOC_CLASS_LABELS to the
     // Python file; this keeps the two German spellings from drifting apart.
     expect(dePlatform.knowledge.docClasses).toEqual(DOC_CLASS_LABELS)
-  })
-
-  test('the delete dialog keeps its targets while the request is in flight', async () => {
-    // Regression: the rows are removed optimistically, and the dialog used to
-    // derive its targets from the live list, so mid-request the title read
-    // " entfernen?" and a bulk delete flipped to the single-file copy.
-    const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
-      if (init?.method === 'DELETE') return new Promise<Response>(() => {})
-      return Promise.resolve(jsonResponse(STATUS))
-    })
-    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    await screen.findByText('oib-richtlinie-2.pdf')
-    await user.click(screen.getByRole('checkbox', { name: 'Select oib-richtlinie-2.pdf' }))
-    await user.click(screen.getByRole('checkbox', { name: 'Select sonstiges-notiz.pdf' }))
-    await user.click(
-      within(await screen.findByTestId('data-toolbar-selection')).getByRole('button', {
-        name: 'Remove',
-      })
-    )
-
-    const dialog = await screen.findByRole('dialog')
-    await user.click(within(dialog).getByRole('button', { name: 'Remove 2 documents' }))
-
-    await waitFor(() => expect(requestsTo(fetchSpy, '/documents/', 'DELETE')).toHaveLength(2))
-    // The rows are gone from the table, the dialog still names what it deletes.
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /Open details for sonstiges/ })).toBeNull()
-    )
-    expect(screen.getByRole('dialog')).toHaveTextContent('Remove 2 documents?')
-    expect(screen.getByRole('dialog')).toHaveTextContent('sonstiges-notiz.pdf')
   })
 
   test('a failed refresh keeps the loaded table and says so in a toast', async () => {
@@ -997,81 +710,6 @@ describe('BaseKnowledge', () => {
     )
   })
 
-  test('the dropzone is a keyboard-reachable button', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(STATUS)))
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    await screen.findByText('oib-richtlinie-2.pdf')
-    await user.click(screen.getByRole('button', { name: /Add documents/ }))
-
-    const zone = screen.getByTestId('knowledge-dropzone')
-    expect(zone.tagName).toBe('BUTTON')
-    expect(zone).toHaveAttribute('type', 'button')
-  })
-
-  test('every PDF and ZIP in a drop is added, one after another, and the rest is named', async () => {
-    const posted: string[] = []
-    let answer: (() => void) | null = null
-    const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
-      if (url === '/api/platform/knowledge/documents' && init?.method === 'POST') {
-        const file = (init.body as FormData).get('file') as File
-        posted.push(file.name)
-        return new Promise<Response>((resolve) => {
-          answer = () =>
-            resolve(jsonResponse({ status: 'pending', kind: 'file', fileName: file.name, members: null }))
-        })
-      }
-      return Promise.resolve(jsonResponse(STATUS))
-    })
-    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    await screen.findByText('oib-richtlinie-2.pdf')
-    await user.click(screen.getByRole('button', { name: /Add documents/ }))
-
-    const files = [
-      new File(['%PDF-1.4'], 'a.pdf', { type: 'application/pdf' }),
-      new File(['x'], 'notes.txt', { type: 'text/plain' }),
-      new File(['PK'], 'b.zip', { type: 'application/zip' }),
-    ]
-    fireEvent.drop(screen.getByTestId('knowledge-dropzone'), fromDesktop(files))
-
-    await waitFor(() => expect(posted).toEqual(['a.pdf']))
-    expect(toast.warning).toHaveBeenCalledWith('1 file was left out: only PDF and ZIP files are added.')
-    answer!()
-    await waitFor(() => expect(posted).toEqual(['a.pdf', 'b.zip']))
-  })
-
-  test('a drop while an upload is running is refused with a reason, not ignored', async () => {
-    const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
-      if (url === '/api/platform/knowledge/documents' && init?.method === 'POST')
-        return new Promise<Response>(() => {})
-      return Promise.resolve(jsonResponse(STATUS))
-    })
-    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
-    const user = userEvent.setup()
-
-    render(<BaseKnowledge />)
-    await screen.findByText('oib-richtlinie-2.pdf')
-    await user.click(screen.getByRole('button', { name: /Add documents/ }))
-
-    const first = new File(['%PDF-1.4'], 'first.pdf', { type: 'application/pdf' })
-    const second = new File(['%PDF-1.4'], 'second.pdf', { type: 'application/pdf' })
-    fireEvent.drop(screen.getByTestId('knowledge-dropzone'), fromDesktop([first]))
-    await waitFor(() =>
-      expect(requestsTo(fetchSpy, '/api/platform/knowledge/documents', 'POST')).toHaveLength(1)
-    )
-
-    // Said while the file is over the zone, where the reader is looking.
-    fireEvent.dragEnter(screen.getByTestId('knowledge-dropzone'), fromDesktop([second]))
-    expect(screen.getByTestId('knowledge-dropzone')).toHaveTextContent('Wait for the current upload or sync to finish.')
-    fireEvent.drop(screen.getByTestId('knowledge-dropzone'), fromDesktop([second]))
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(requestsTo(fetchSpy, '/api/platform/knowledge/documents', 'POST')).toHaveLength(1)
-  })
-
   test('read-only platform staff see the corpus without any write control', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(STATUS)))
     const user = userEvent.setup()
@@ -1093,5 +731,14 @@ describe('BaseKnowledge', () => {
     expect(within(sheet).queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
     expect(within(sheet).queryByRole('textbox')).not.toBeInTheDocument()
     expect(within(sheet).queryByRole('combobox')).not.toBeInTheDocument()
+  })
+
+  test('offers no way to add or delete a text: a text enters the corpus through its country’s change request', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(STATUS)))
+    render(<BaseKnowledge />)
+    await screen.findByTestId('platform-base-knowledge')
+    expect(screen.queryByRole('button', { name: /Add documents/ })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('knowledge-upload-input')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
   })
 })

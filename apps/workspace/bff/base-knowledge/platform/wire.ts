@@ -473,6 +473,7 @@ export const MAX_CHANGE_REQUEST_PAGE = 200
 
 export const listChangeRequestsQuerySchema = z.object({
   status: z.enum(CHANGE_REQUEST_STATUSES).optional(),
+  countryId: countryIdSchema.optional().describe('Only this country’s requests, by its ISO 3166-1 alpha-2 code; every country when absent.'),
   origin: z
     .enum(CHANGE_REQUEST_ORIGINS)
     .optional()
