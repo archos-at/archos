@@ -24,7 +24,7 @@
 import 'server-only'
 import { isCapturedResponse, sourceConfigOf } from '@/lib/base-knowledge/wire/source'
 import { CaptureFetchError, callPublicSources, refusalDetail } from './capture-fetch'
-import { type RecordingCapture, recordingCapturesOf } from './captures'
+import { isCut, isPdf, type RecordingCapture, recordingCapturesOf } from './captures'
 import { recordIdOf } from './records'
 import { platformTransaction } from './store'
 import { kitProblem, type Problem } from './validate'
@@ -120,7 +120,8 @@ function namedCaptureIds(config: Record<string, unknown>): string[] {
   )
 }
 
-const usable = (capture: RecordingCapture): capture is RecordingCapture & { text: string } => capture.basis === 'fetched' && capture.text !== null
+const usable = (capture: RecordingCapture): capture is RecordingCapture & { text: string } =>
+  capture.basis === 'fetched' && capture.text !== null && isPdf(capture.contentType) && !isCut(capture.note)
 
 /**
  * A stored source's configuration with its fixtures' recordings, for `source-test`: the captures its revision names,
@@ -151,6 +152,8 @@ function refusedRecording(record: SourceRecord, url: string, captureId: string, 
   if (capture.sourceId !== record.key) return `names capture ${captureId}, fetched through source ${capture.sourceId}, not through ${record.key}.`
   if (capture.url !== url) return `names capture ${captureId}, which is a capture of ${capture.url}, not of ${url}.`
   if (capture.text === null) return `names capture ${captureId}, which kept no text${capture.note ? ` (${capture.note})` : ''}: nothing in it proves the engine.`
+  if (!isPdf(capture.contentType)) return `names capture ${captureId}, which is ${capture.contentType ?? 'of no known content type'}, not a PDF: a PDF fixture is proven by a capture of the PDF itself.`
+  if (isCut(capture.note)) return `names capture ${captureId}, whose text was cut at a page boundary (${capture.note}): it proves only a prefix of the document.`
   return null
 }
 

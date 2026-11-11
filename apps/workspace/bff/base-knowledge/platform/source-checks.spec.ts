@@ -19,6 +19,8 @@ const stub = vi.hoisted(() => ({
 vi.mock('server-only', () => ({}))
 vi.mock('./store', () => ({ platformTransaction: async <T>(run: (tx: unknown) => Promise<T>) => run({}) }))
 vi.mock('./captures', () => ({
+  isPdf: (contentType: string | null) => (contentType ?? '').split(';')[0].trim().toLowerCase() === 'application/pdf',
+  isCut: (note: string | null) => (note ?? '').includes('read only in part'),
   recordingCapturesOf: async (_tx: unknown, changeRequestId: string | null, ids: readonly string[]) =>
     new Map(
       stub.captures
@@ -105,6 +107,9 @@ describe('a source fixture names the capture the platform took', () => {
     ['a capture of another page', { url: 'https://register.xq.example/other.pdf' }, `not of ${URL}`],
     ['a fetch through another source', { sourceId: 'xq-gazette' }, `not through ${KEY}`],
     ['a scan that kept no text', { text: null, note: 'no text layer on all of its pages' }, 'kept no text (no text layer on all of its pages)'],
+    ['an HTML page', { contentType: 'text/html; charset=utf-8' }, 'not a PDF'],
+    ['a capture with no content type', { contentType: null }, 'not a PDF'],
+    ['a text cut at a page boundary', { note: 'read only in part, up to page 40 of 90: a capture keeps at most 400,000 characters' }, 'cut at a page boundary'],
   ])('refuses %s, and does not hand it to the check', async (_name, overrides, detail) => {
     stub.captures = [capture(overrides)]
 

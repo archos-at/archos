@@ -24,6 +24,7 @@ from public_sources.engines.base import ParsedDocument
 from public_sources.engines.base import Passage
 from public_sources.pdf import MAX_PDF_PAGES
 from public_sources.pdf import PAGE_BREAK
+from public_sources.pdf import PDF_CONTENT_TYPE
 from public_sources.pdf import PdfError
 from public_sources.pdf import PdfText
 from public_sources.pdf import read_pdf
@@ -49,8 +50,16 @@ class PdfDocument(Engine):
             raise EngineError(f"{exc.code}: {exc}") from exc
         return self.document_from(read, url=url)
 
-    def recorded_document(self, text: str, *, url: str = "") -> ParsedDocument:
-        """The passages of a PDF a citation capture read: its text is the reader's, pages joined by a form feed."""
+    def recorded_document(self, text: str, *, url: str = "", content_type: str = "") -> ParsedDocument:
+        """The passages of a PDF a citation capture read: its text is the reader's, pages joined by a form feed.
+
+        A capture of an HTML page has text too, but a person's reading of a page, not a PDF's pages: it is refused.
+        """
+        if (content_type or "").split(";", 1)[0].strip().lower() != PDF_CONTENT_TYPE:
+            raise EngineError(
+                f"the capture is {content_type or 'of no known content type'}, not a PDF: "
+                "a pdf_document fixture is proven by a capture of the PDF itself"
+            )
         pages = tuple(text.split(PAGE_BREAK))
         if len(pages) > self.config.max_pages:
             raise EngineError(f"pdf_too_many_pages: the capture holds {len(pages)} pages, over {self.config.max_pages}")

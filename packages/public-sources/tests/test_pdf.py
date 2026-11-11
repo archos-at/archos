@@ -248,6 +248,22 @@ async def test_a_fixture_whose_capture_was_not_handed_over_awaits_it_and_is_not_
     assert result.awaiting == [PDF_URL] and result.failures == [] and result.requested == []
 
 
+@pytest.mark.parametrize("content_type", ["text/html; charset=utf-8", ""])
+async def test_a_capture_that_is_not_a_pdf_is_no_pdf_fixture(content_type):
+    """An HTML page has text too; only a capture of the PDF itself proves a pdf_document source."""
+    recording = {**_recording(), "content_type": content_type}
+
+    [result] = await run_source(parse_inline_source(_captured_source(recording)))
+
+    assert not result.ok
+    assert any("not a PDF" in failure for failure in result.failures), result.failures
+
+
+def test_a_cut_capture_names_itself_in_the_note_the_bff_refuses_by():
+    """The BFF refuses a capture whose note says it was read only in part (source-checks.ts, CUT_NOTE)."""
+    assert "read only in part" in PdfText(pages=("a",), page_count=2).note
+
+
 async def test_a_capture_over_the_records_page_cap_fails_by_its_code():
     record = _captured_source(_recording())
     record["engine"] = {"title": TITLE, "max_pages": 1}

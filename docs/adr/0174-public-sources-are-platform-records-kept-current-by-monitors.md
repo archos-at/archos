@@ -264,9 +264,12 @@ this record exists to end.
   responses fit.
 - **What the capture must be** (KC-7, at
   `/fixtures/<n>/responses/<url>/captureId`): a `fetched` capture, of the same
-  change request, of that very URL, through that source, that kept text. A
-  pasted text, another request's capture, another page, another source's
-  fetch and a scan are each refused by name.
+  change request, of that very URL, through that source, that kept text,
+  of a PDF (its content type is `application/pdf`; an HTML page has text too),
+  and read whole (a text cut at a page boundary by the text cap proves only a
+  prefix). A pasted text, another request's capture, another page, another
+  source's fetch, a scan, a page that is no PDF and a cut text are each
+  refused by name; `recorded_document` refuses a non-PDF content type again.
 - **The draft is proposed before its capture.** A source's hosts open to its
   request only once the source is proposed (the testing window), and the
   capture is fetched through them. So a proposal whose fixture names no

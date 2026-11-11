@@ -64,7 +64,7 @@ class Engine:
     def document(self, body: bytes, *, url: str = "") -> ParsedDocument:
         raise NotImplementedError
 
-    def recorded_document(self, text: str, *, url: str = "") -> ParsedDocument:
+    def recorded_document(self, text: str, *, url: str = "", content_type: str = "") -> ParsedDocument:
         """The document read from a citation capture's text instead of the body (a fixture's recording).
 
         Only a format whose capture text is what the engine itself reads offers

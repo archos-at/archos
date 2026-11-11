@@ -45,7 +45,7 @@ Two kinds of configured source:
   capture the platform took of the document through the draft's own hosts
   (`{captureId}`; `null` in the first proposal, which opens the hosts, and the
   capture's id in the second). The reviewer finds that capture, with its
-  sha256, size and time, among the request's captures. While it
+  sha256, size and time, among the request's captures. It must be a PDF read whole: an HTML page or a text cut at a page boundary is refused (KC-7). While it
   is a draft, its hosts are `testing`: usable by its own request's
   `source-test` and `citation-capture` for 24 hours, by nothing else. Once
   published they are `active`. A `site_keyed` source (it receives a site

@@ -117,7 +117,7 @@ async def _document(engine, fixture: Fixture, fetched):
     """The engine's document: from the body, or from the capture that stands for the document the fetch ended on."""
     recording = fixture.responses.get(fetched.url)
     if isinstance(recording, CapturedResponse):
-        return engine.recorded_document(recording.text or "", url=fetched.url)
+        return engine.recorded_document(recording.text or "", url=fetched.url, content_type=recording.content_type)
     captured = sorted(url for url, r in fixture.responses.items() if isinstance(r, CapturedResponse))
     if captured:
         raise ValueError(f"a capture stands for the document itself, and the fetch ended on {fetched.url}: {captured}")
