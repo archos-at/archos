@@ -4,7 +4,7 @@
  * `platform-knowledge-schema-get` with no type answers every record type in one
  * tool result. Past the door's cap (`MAX_RESULT_CHARS`) the result is cut and
  * its structured content dropped, so an onboarding agent reads no
- * `recordTypes` at all: an edition's scope (ADR-0177) copied a second decision
+ * `recordTypes` at all: an edition's scope (ADR-0178) copied a second decision
  * table into the set and did exactly that. The table is written once.
  */
 

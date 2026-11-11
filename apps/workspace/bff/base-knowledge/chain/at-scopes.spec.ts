@@ -2,7 +2,7 @@
 /**
  * @vitest-environment node
  *
- * Austria's scopes for OIB-RL 2.1, 2.2 and 2.3 (ADR-0177): a change request of
+ * Austria's scopes for OIB-RL 2.1, 2.2 and 2.3 (ADR-0178): a change request of
  * their own after the Austria pack, each edition again with `appliesWhen`. They
  * are what the OIB texts say, read from each guideline's title and the defined
  * term its Punkt 1 refers to; the rows' quotes were checked against the

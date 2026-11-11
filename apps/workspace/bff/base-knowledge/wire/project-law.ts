@@ -10,7 +10,7 @@ import { z } from 'zod'
 import { APPLICABILITY_VERDICTS, EDITION_ROLES, GATE_STATES, type GateState } from './vocab'
 
 /**
- * Whether a use's edition applies to the project's buildings (ADR-0177), as
+ * Whether a use's edition applies to the project's buildings (ADR-0178), as
  * the knowledge context and the project's law carry it. Null on a use whose
  * edition states no scope: the chain did not narrow it.
  */
@@ -45,7 +45,7 @@ export const projectLawUseSchema = z
     qualifier: z.enum(['uncurated', 'office_maintained']).nullable(),
     designation: z.string().nullable(),
     editionLabel: z.string().nullable(),
-    /** Whether the edition applies to the project's buildings, and why (ADR-0177); null where its edition states no scope. */
+    /** Whether the edition applies to the project's buildings, and why (ADR-0178); null where its edition states no scope. */
     applicability: useApplicabilitySchema.nullable(),
     /** Where a person opens the edition's text: the page its manifestation cites; null when none does. */
     sourceUrl: z.url().max(2000).nullable(),

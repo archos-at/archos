@@ -3,7 +3,7 @@
  * type `records-propose` takes, a citation's, the batch size and the kit's
  * checks. The decision table (`decision_table.v1`, ADR-0166) is written once
  * under `$defs` and referenced wherever a record carries one (a ruleset's body,
- * an edition's `transition` and its scope, `appliesWhen`, ADR-0177), so the
+ * an edition's `transition` and its scope, `appliesWhen`, ADR-0178), so the
  * whole set fits one tool result on the door (`MAX_RESULT_CHARS`). Pure.
  */
 

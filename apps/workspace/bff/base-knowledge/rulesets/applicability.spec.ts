@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * Whether an edition applies to a project's buildings, by its own scope
- * (`appliesWhen`, ADR-0177): a boolean decision table run on the one evaluator
+ * (`appliesWhen`, ADR-0178): a boolean decision table run on the one evaluator
  * per building. The tables here are synthetic, shaped like a guideline written
  * for production buildings and one written above an escape level; a country's
  * real scopes are records, each row citing its edition's scope clause.

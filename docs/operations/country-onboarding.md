@@ -57,7 +57,7 @@ Two kinds of configured source:
 ## Saying which buildings an edition is for
 
 An edition the chain reaches binds every project at the site until its scope
-says otherwise (ADR-0177). Where a text's own scope clause turns on the
+says otherwise (ADR-0178). Where a text's own scope clause turns on the
 building, give its edition record an `appliesWhen`: a `decision_table.v1`
 over facts the country's `fact_definitions` define, with a `boolean` output
 (true: it applies; false: it does not), and a `provision` on each row citing

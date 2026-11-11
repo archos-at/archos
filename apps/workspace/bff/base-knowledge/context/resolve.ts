@@ -55,7 +55,7 @@ export interface ContextInputs {
   procedures: readonly ProcedureContext[]
   /** The newest stable release sequence per pack. */
   packSeqs: Readonly<Record<string, number>>
-  /** The project's buildings, read by each edition's scope (ADR-0177); null or absent narrows nothing. */
+  /** The project's buildings, read by each edition's scope (ADR-0178); null or absent narrows nothing. */
   building?: BuildingScope | null
 }
 

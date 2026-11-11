@@ -32,7 +32,7 @@ import { gateNamesLaw } from '../wire/project-law'
 import { lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
 
-/** A synthetic scope shaped like a guideline for production buildings (ADR-0177); the real one is a record citing its clause. */
+/** A synthetic scope shaped like a guideline for production buildings (ADR-0178); the real one is a record citing its clause. */
 const PRODUCTION_ONLY = {
   inputs: [{ key: 'uses', type: 'codes' }],
   output: { type: 'boolean' },
@@ -106,7 +106,7 @@ describe('projectLawFor', () => {
     )
   })
 
-  it('names an edition for a production hall by its own scope, saying why, and not for flats, on the page as in the turn (ADR-0177)', async () => {
+  it('names an edition for a production hall by its own scope, saying why, and not for flats, on the page as in the turn (ADR-0178)', async () => {
     loadGraph.mockResolvedValue({ graph: graphAt('core'), truncated: false })
     findProjectProfileInOrg.mockResolvedValue(placedWith(['production']))
     const hall = await projectLawFor('org_at', 'project_halle')

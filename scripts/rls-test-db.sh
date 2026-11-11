@@ -182,6 +182,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/db/tenant-isolation.integration.spec.ts \
     bff/bim/query.integration.spec.ts \
     bff/bim/model-shelf.integration.spec.ts \
+    bff/bim/model-kinds-repository.integration.spec.ts \
     bff/projects/memory-service.integration.spec.ts \
     bff/projects/memory-restricted.integration.spec.ts \
     bff/documents/document-versions.integration.spec.ts \
@@ -3848,7 +3849,7 @@ apply_in tp_0219 0219_territory_parents.sql
 check_in tp_0219 "SELECT jsonb_array_length(parents) FROM knowledge_territory_revisions WHERE revision_id = '$RV'" "2" "0219 applies again after its down"
 echo "==> 0219 territory parents and its down migration verified"
 # ---------------------------------------------------------------------------
-# 0217: an edition's scope (ADR-0177) is a JSON object or absent; the down
+# 0217: an edition's scope (ADR-0178) is a JSON object or absent; the down
 # drops the column, and 0217 applies again.
 # ---------------------------------------------------------------------------
 echo "==> verifying 0217 edition scope and its down migration on aw_0217"

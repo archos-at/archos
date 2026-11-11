@@ -1,5 +1,5 @@
 {
-  "$comment": "Which buildings OIB-RL 2.1, 2.2 and 2.3 are written for (ADR-0177): each edition's scope as `appliesWhen`, read from its title and the defined term its Punkt 1 refers to in the OIB-Richtlinien – Begriffsbestimmungen of the same issue, each quote checked against the published PDF. A change request of its own for AT after at.json, which holds these editions without a scope: proposing them here gives each a new revision. A use the scope does not settle (agriculture, technical) is left to a person. Mixed use is per use (OIB-RL 2, Punkt 0), so a garage part brings 2.2.",
+  "$comment": "Which buildings OIB-RL 2.1, 2.2 and 2.3 are written for (ADR-0178): each edition's scope as `appliesWhen`, read from its title and the defined term its Punkt 1 refers to in the OIB-Richtlinien – Begriffsbestimmungen of the same issue, each quote checked against the published PDF. A change request of its own for AT after at.json, which holds these editions without a scope: proposing them here gives each a new revision. A use the scope does not settle (agriculture, technical) is left to a person. Mixed use is per use (OIB-RL 2, Punkt 0), so a garage part brings 2.2.",
   "countryId": "AT",
   "title": "Austria: which buildings OIB-RL 2.1, 2.2 and 2.3 apply to",
   "records": [

@@ -1,5 +1,5 @@
 /**
- * When an edition applies to a project (ADR-0177, design §3.4): its scope, as
+ * When an edition applies to a project (ADR-0178, design §3.4): its scope, as
  * a `decision_table.v1` over the building's facts with a boolean output. True,
  * the building is within the edition's scope; false, it is outside it;
  * undetermined, a fact it waits for is open, or the case needs a person (an

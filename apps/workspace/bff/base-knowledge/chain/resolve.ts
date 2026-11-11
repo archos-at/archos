@@ -359,7 +359,7 @@ const roleRank = (role: EditionRole) => ROLE_ORDER.indexOf(role)
 
 /**
  * Each use with whether its edition applies to the project's buildings, by the
- * edition's own scope (`appliesWhen`, ADR-0177). A use whose edition no
+ * edition's own scope (`appliesWhen`, ADR-0178). A use whose edition no
  * building needs is dropped; one whose edition states no scope is kept as it is.
  */
 function narrowed(graph: KnowledgeGraph, uses: readonly EditionUse[], scope: BuildingScope): EditionUse[] {
@@ -374,7 +374,7 @@ function narrowed(graph: KnowledgeGraph, uses: readonly EditionUse[], scope: Bui
 /**
  * Resolve a site on a date: the chain, and what each edition is to it. With
  * the project's buildings, an edition whose scope excludes every building is
- * not named, and each other scoped use says whether it applies (ADR-0177);
+ * not named, and each other scoped use says whether it applies (ADR-0178);
  * without them, nothing is narrowed. `editionFor` says which edition of a work
  * applies; by default the one in force at `date`, and a reference date per
  * procedure and work plugs in here.

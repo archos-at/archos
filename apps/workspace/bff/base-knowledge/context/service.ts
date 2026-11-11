@@ -70,7 +70,7 @@ export interface ContextDigestInputs {
   procedures: readonly ProcedureContext[]
   /** When the office's own records and the platform's checks last changed (`recordsStamp`); neither moves a pack sequence. */
   recordsStamp?: string
-  /** The project's buildings, read by each edition's scope (ADR-0177): in the digest, so a changed answer re-resolves. */
+  /** The project's buildings, read by each edition's scope (ADR-0178): in the digest, so a changed answer re-resolves. */
   buildings?: BuildingScope
 }
 

@@ -190,7 +190,7 @@ describe('validateProposal', () => {
     ).toEqual(['KC-1', 'KC-5'])
   })
 
-  it('KC-5: runs an edition scope’s own examples, and accepts it when they hold (ADR-0177)', () => {
+  it('KC-5: runs an edition scope’s own examples, and accepts it when they hold (ADR-0178)', () => {
     const scoped = (expected: boolean) => ({
       type: 'edition',
       key: 'oib-rl-2-1-2023',

@@ -20,6 +20,8 @@ const usageEventSchema = z.object({
   completionTokens: z.number().int().min(0).default(0),
   totalTokens: z.number().int().min(0).default(0),
   cachedTokens: z.number().int().min(0).default(0),
+  /** Tokens written to the provider's prompt cache (`prompt_tokens_details.cache_write_tokens`); absent from an older agent. */
+  cacheWriteTokens: z.number().int().min(0).default(0),
   reasoningTokens: z.number().int().min(0).default(0),
   costUsd: z.number().min(0).finite().default(0),
   costSource: z.enum(COST_SOURCES).default('missing'),
@@ -77,6 +79,7 @@ export const POST = internalApiRoute(
         completionTokens: event.completionTokens,
         totalTokens: event.totalTokens,
         cachedTokens: event.cachedTokens,
+        cacheWriteTokens: event.cacheWriteTokens,
         reasoningTokens: event.reasoningTokens,
         costUsd: event.costUsd.toFixed(8),
         costSource: event.costSource,

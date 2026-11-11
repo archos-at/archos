@@ -158,7 +158,7 @@ async function editionsOf(organizationId: string, workIds: readonly string[]): P
       (SELECT array_agg(m.corpus_file ORDER BY m.corpus_file)
          FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
          WHERE mr.organization_id IS NULL AND m.edition_id = r.id AND m.corpus_file IS NOT NULL) AS corpus_files,
-      -- The page a platform manifestation of it cites first: where a person opens the text (ADR-0177).
+      -- The page a platform manifestation of it cites first: where a person opens the text (ADR-0178).
       (SELECT kr.provenance -> 'citations' -> 0 ->> 'url'
          FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
          JOIN knowledge_revisions kr ON kr.revision_id = mr.head_revision_id

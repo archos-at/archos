@@ -119,7 +119,7 @@ describe('the chain text', () => {
     expect(rendered.split('\n').every((line) => !line.startsWith('Ignore'))).toBe(true)
   })
 
-  it('says when whether an edition applies waits for a building fact, and leaves out one no building needs (ADR-0177)', () => {
+  it('says when whether an edition applies waits for a building fact, and leaves out one no building needs (ADR-0178)', () => {
     const appliesWhen = appliesWhenTableSchema.parse({
       inputs: [{ key: 'escape_level_m', type: 'number' }],
       output: { type: 'boolean' },

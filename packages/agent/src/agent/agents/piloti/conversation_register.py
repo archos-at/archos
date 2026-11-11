@@ -25,6 +25,7 @@ from agent.agents.piloti.clarify import build_clarifier
 from agent.agents.piloti.conversation import ConversationGraph
 from agent.agents.piloti.history import warm_token_encoder
 from agent.agents.piloti.models import ConversationState
+from agent.agents.piloti.turn_tools import set_project_models
 from agent.auth.request_identity import skip_clarifier_requested
 from agent.common import AgentGroup
 from agent.common import filter_tools_by_sources
@@ -456,6 +457,7 @@ async def _prepare_turn(
     set_turn_documents(inventory.all_documents or inventory.available_documents)
     set_norm_families(inventory.norm_families)
     set_inventory_drops(inventory.inventory_drops)
+    set_project_models(context.project_models)  # which model files the project holds, for the tools bound
     # Which country, coverage and editions apply (each edition's role, for the citation wire), and what
     # the turn may retrieve (ADR-0173); bound every turn, so a turn never reads the last turn's gate.
     set_turn_knowledge_context(context.knowledge_context)

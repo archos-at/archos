@@ -134,16 +134,16 @@ amendment), because the fetcher became where a third party's PDF is parsed.
 - Bad: offices that had none of the switches see the Steckbrief card change
   from OIB verdicts to the law the records name, and the base knowledge card
   in their settings.
-- Bad, until ADR-0177 lands: the OIB list narrowed by the building
+- Bad, until ADR-0178 lands: the OIB list narrowed by the building
   (OIB-RL 2.1 for a Betriebsbau, 2.2 for a garage, 2.3 for a high-rise by its
   escape level), the reason on each chip, its source link and the door's
   `decidingFact` went with `bff/oib`. They return as data, not code
-  (ADR-0177): each edition's scope (`appliesWhen`) as a decision table over
+  (ADR-0178): each edition's scope (`appliesWhen`) as a decision table over
   the building facts, run by the one evaluator (ADR-0166), so the chain
   narrows by the building as well as by the site. Each chip says why, with
   the provision, and opens the text its manifestation cites, and
   `decidingFact` is `applicability.open` on each use of `project-base-get`'s
-  `law`. Wave 5 is done once ADR-0177 has landed and Austria's scopes are
+  `law`. Wave 5 is done once ADR-0178 has landed and Austria's scopes are
   published.
 
 ### Confirmation

@@ -286,7 +286,7 @@ GESETZ_URL = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzes
     ],
 )
 def test_an_edition_whose_scope_is_open_here_claims_neither_way(applicability, status):
-    """ADR-0177: until a building fact is known or a person has checked the scope, the chain text says the work
+    """ADR-0178: until a building fact is known or a person has checked the scope, the chain text says the work
     neither binds nor does not bind, and so does the chip. A use stating no scope keeps its role's status."""
     _bind(_with(VIENNA, [{**BO_WIEN, "applicability": applicability}]))
     wire = source_entry_to_wire(_ris(GESETZ_URL))

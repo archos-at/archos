@@ -212,7 +212,7 @@ export type SourceRefScheme = (typeof SOURCE_REF_SCHEMES)[number]
 
 /**
  * Whether an edition applies to the project's buildings, by its scope
- * (`appliesWhen`, ADR-0177): it `applies`; it is to `check`, because a fact the
+ * (`appliesWhen`, ADR-0178): it `applies`; it is to `check`, because a fact the
  * scope reads is open or the case needs a person; or it is `not_applicable`,
  * and the chain names it for no building of the project.
  */

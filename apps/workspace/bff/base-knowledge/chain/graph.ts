@@ -58,7 +58,7 @@ export interface GraphEdition {
   corpusFiles: readonly string[]
   /** The platform's newest check of it (0202 `knowledge_checks`), for freshness; absent when nobody read it. */
   lastCheck?: { checkedAt: string; result: string } | null
-  /** Its scope: which buildings it is written for (0217, ADR-0177); absent or null, every building. */
+  /** Its scope: which buildings it is written for (0217, ADR-0178); absent or null, every building. */
   appliesWhen?: AppliesWhenTable | null
   /** Where a person opens its text: the page its platform manifestation cites first; absent when none cites one. */
   sourceUrl?: string | null
@@ -126,7 +126,7 @@ export interface EditionUse {
   displaced: readonly Displacement[]
   /** For a norm that guides here, the edition that binds where one does; for a commentary, the edition it interprets. */
   relatedEditionId: string | null
-  /** Whether the edition applies to the project's buildings (ADR-0177); null where it states no scope or no building scope was given. */
+  /** Whether the edition applies to the project's buildings (ADR-0178); null where it states no scope or no building scope was given. */
   applicability: Applicability | null
 }
 

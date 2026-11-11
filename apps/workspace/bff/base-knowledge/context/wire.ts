@@ -85,7 +85,7 @@ export const contextUseSchema = z
     sourceUrl: z.string().max(2000).nullable(),
     /**
      * Whether the edition applies to the project's buildings, by its scope
-     * (ADR-0177): `applies` with the facts that decided it, or `check` with the
+     * (ADR-0178): `applies` with the facts that decided it, or `check` with the
      * facts it waits for. Null where the edition states no scope. An edition no
      * building needs is not a use at all.
      */

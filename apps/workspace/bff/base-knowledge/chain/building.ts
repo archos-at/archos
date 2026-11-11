@@ -1,5 +1,5 @@
 /**
- * The project's buildings as an edition's scope reads them (ADR-0177): each
+ * The project's buildings as an edition's scope reads them (ADR-0178): each
  * building's answers to the facts its country defines (`fact_definitions`),
  * read off the profile through the intake's own readers, so a scope and the
  * building-class derivation read one building the same way. Pure.

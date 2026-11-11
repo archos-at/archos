@@ -90,7 +90,7 @@ IGNORED_USE_KEYS: dict[str, str] = {
 
 #: EditionUse fields read from a use key on a wire this branch does not carry yet, and where it comes from.
 FORWARD_USE_FIELDS: dict[str, str] = {
-    "scope_unsettled": "applicability (ADR-0177, #1589); absent, the edition states no scope",
+    "scope_unsettled": "applicability (ADR-0178, #1589); absent, the edition states no scope",
 }
 
 

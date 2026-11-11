@@ -102,7 +102,7 @@ function stepWords(graph: KnowledgeGraph, step: RouteStep): string {
 
 /**
  * Whether the line's edition applies to this project's buildings, by its scope
- * (ADR-0177), in fixed words; the facts are the scope's keys, reduced like any
+ * (ADR-0178), in fixed words; the facts are the scope's keys, reduced like any
  * name. While a fact is open the answer may not say the edition binds or does
  * not: it names the fact and asks. An edition no building needs is not here.
  */

@@ -1,5 +1,5 @@
 /**
- * Whether an edition applies to a project's buildings (ADR-0177): the
+ * Whether an edition applies to a project's buildings (ADR-0178): the
  * edition's own scope table (`appliesWhen`, a boolean `decision_table.v1`),
  * run on the one evaluator once per building. Pure.
  *
