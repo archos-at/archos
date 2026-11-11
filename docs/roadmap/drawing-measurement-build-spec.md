@@ -138,7 +138,11 @@ fixtures of slice 1.
    of the region's dimension figures. The 39 of 42 under [Measured](#measured)
    came from a looser match (any crossing pair around the figure); the first
    thing slice 2 does is repeat that measurement with this definition on the
-   slice 1 fixtures and state the result.
+   slice 1 fixtures and state the result. The stricter match has not been run on
+   a real file. If it corroborates a correct scale on fewer fixtures than the
+   looser one did, do not loosen the 80 % or the terminator rule to get green:
+   report the numbers in the pull request, because the thresholds are then the
+   product owner's call.
 6. **Only a verified, uncontradicted scale can decide a threshold.** On
    `estimated` a length is returned with its caveat and the verdict is always
    `undecidable`, with „confirm the scale“ as the remedy. `uncalibrated` returns
