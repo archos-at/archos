@@ -150,6 +150,8 @@ class KnowledgeContext:
     undetermined: tuple[str, ...] = ()
     #: The released sources with a law lookup of the countries the turn reads; empty where it reads none.
     sources: tuple[LawSource, ...] = ()
+    #: Released sources the BFF could not carry this turn (too large, or past the cap): never read silently.
+    sources_dropped: tuple[str, ...] = ()
 
     @property
     def withholds_law(self) -> bool:
@@ -289,6 +291,7 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         updated_since_last_answer=_strings(raw.get("updatedSinceLastAnswer"))[:MAX_PACKS],
         undetermined=_undetermined(raw.get("undetermined")),
         sources=_sources(raw.get("sources")),
+        sources_dropped=_strings(raw.get("sourcesDropped"))[:MAX_SOURCES],
     )
 
 
@@ -307,6 +310,8 @@ def trace_metadata(context: KnowledgeContext) -> dict[str, object]:
         "base_updated_since_last_answer": ",".join(context.updated_since_last_answer),
         "building_law_uses": len(context.uses),
         "undetermined_editions": ";".join(context.undetermined),
+        "law_sources": ",".join(f"{source.key}@{source.revision_id}" for source in context.sources),
+        "law_sources_dropped": ",".join(context.sources_dropped),
     }
 
 

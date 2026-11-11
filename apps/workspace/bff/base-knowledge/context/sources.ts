@@ -32,9 +32,19 @@ export function lookupConfig(config: Record<string, unknown>): Record<string, un
   return JSON.stringify(rest).length <= MAX_SOURCE_CONFIG_CHARS ? rest : null
 }
 
-/** The released sources with a `lookup` block for `countries`, by key; at most {@link MAX_CONTEXT_SOURCES}. */
-export async function lookupSourcesFor(countries: readonly string[]): Promise<ContextSource[]> {
-  if (countries.length === 0) return []
+/** What a turn carries of its sources: those it may read, and the keys of those it could not carry. */
+export interface TurnSources {
+  sources: ContextSource[]
+  /** Released sources left out: a configuration too large to carry, or past {@link MAX_CONTEXT_SOURCES}. */
+  dropped: string[]
+}
+
+/**
+ * The released sources with a `lookup` block for `countries`, by key; at most {@link MAX_CONTEXT_SOURCES}.
+ * One left out is named in `dropped`, so the turn can say which source it could not read (never silently).
+ */
+export async function lookupSourcesFor(countries: readonly string[]): Promise<TurnSources> {
+  if (countries.length === 0) return { sources: [], dropped: [] }
   const rows = await withPlatformAccess('knowledge context: the released sources a turn may look law up in', () =>
     getDb().execute<SourceRow>(sql`
       SELECT r.id AS record_id, b.revision_id, r.country_id, b.config
@@ -44,14 +54,18 @@ export async function lookupSourcesFor(countries: readonly string[]): Promise<Co
       ORDER BY r.id`),
   )
   const sources: ContextSource[] = []
+  const dropped: string[] = []
   for (const row of rows) {
-    const config = lookupConfig(row.config)
+    const key = sourceKeyOf(row.record_id)
+    const config = sources.length < MAX_CONTEXT_SOURCES ? lookupConfig(row.config) : null
     if (!config) {
-      console.error('[knowledge_context_source_dropped=true] a source configuration is larger than a turn carries', { recordId: row.record_id })
+      dropped.push(key)
       continue
     }
-    sources.push({ key: sourceKeyOf(row.record_id), revisionId: row.revision_id, country: row.country_id, config })
-    if (sources.length === MAX_CONTEXT_SOURCES) break
+    sources.push({ key, revisionId: row.revision_id, country: row.country_id, config })
   }
-  return sources
+  if (dropped.length > 0) {
+    console.error('[knowledge_context_source_dropped=true] a released source could not be carried by the turn', { dropped })
+  }
+  return { sources, dropped: dropped.slice(0, MAX_CONTEXT_SOURCES) }
 }

@@ -163,8 +163,12 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
     building: inputs.buildings ?? null,
   })
   // The sources a lookup may read follow what the turn may read: none where it reads no country's law.
-  const sources = await time('knowledge-sources', () => lookupSourcesFor(context.retrieval.countries))
-  return sources.length > 0 ? { ...context, sources } : context
+  const { sources, dropped } = await time('knowledge-sources', () => lookupSourcesFor(context.retrieval.countries))
+  return {
+    ...context,
+    ...(sources.length > 0 ? { sources } : {}),
+    ...(dropped.length > 0 ? { sourcesDropped: dropped } : {}),
+  }
 }
 
 /** The cached resolution for an office and project; throws what a read throws. */

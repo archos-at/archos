@@ -522,6 +522,14 @@
             ],
             "additionalProperties": false
           }
+        },
+        "sourcesDropped": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
         }
       },
       "required": [

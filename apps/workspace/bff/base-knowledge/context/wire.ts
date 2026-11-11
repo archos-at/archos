@@ -168,6 +168,12 @@ export const knowledgeContextSchema = z
      * (`retrieval.countries`). Absent where the turn reads no country's law.
      */
     sources: z.array(contextSourceSchema).max(MAX_CONTEXT_SOURCES).optional(),
+    /**
+     * The keys of released sources the turn could not carry (a configuration over
+     * {@link MAX_SOURCE_CONFIG_CHARS}, or past {@link MAX_CONTEXT_SOURCES}): a lookup
+     * says it could not read them, and the trace names them. Absent when none was left out.
+     */
+    sourcesDropped: z.array(z.string().max(80)).max(MAX_CONTEXT_SOURCES).optional(),
   })
   .strict()
 

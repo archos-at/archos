@@ -78,6 +78,7 @@ READ_KEYS: dict[str, str] = {
     "text": "text",
     "undetermined": "undetermined",
     "sources": "sources",
+    "sourcesDropped": "sources_dropped",
 }
 
 #: The context's properties the agent ignores, and why.

@@ -339,13 +339,14 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
   it('gives a turn in the country its published source to look law up in, with no code naming it', async () => {
     const { lookupSourcesFor } = await import('@/lib/base-knowledge/context/sources')
 
-    const sources = await lookupSourcesFor([COUNTRY])
+    const { sources, dropped } = await lookupSourcesFor([COUNTRY])
 
+    expect(dropped).toEqual([])
     const gazette = sources.find((source) => source.key === SOURCE)
     expect(gazette).toMatchObject({ country: COUNTRY, config: { id: SOURCE, territory: COUNTRY, lookup: { language: 'en' } } })
     // The fixtures proved it before release; a turn carries what a lookup reads.
     expect(gazette?.config).not.toHaveProperty('fixtures')
-    expect(await lookupSourcesFor(['XB'])).toEqual([])
+    expect(await lookupSourcesFor(['XB'])).toEqual({ sources: [], dropped: [] })
   })
 
   it('reads the published source’s state, and takes its key only on the person’s yes, never giving it back', async () => {
