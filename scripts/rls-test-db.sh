@@ -250,6 +250,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/base-knowledge/store/rulesets.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \
+    bff/base-knowledge/platform/texts.integration.spec.ts \
     bff/base-knowledge/platform/organization-countries.integration.spec.ts
 
 # Editions in time: alone, after the platform suite, since both release
@@ -3896,3 +3897,107 @@ SQL
 apply_in dq_0223 0223_deletion_queue_status_known.sql
 check_in dq_0223 "SELECT convalidated::text FROM pg_constraint WHERE conname = 'deletion_queue_status_known'" "false" "0223 applies again after its down, over a row it would refuse"
 echo "==> 0223 deletion queue status and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0224: four eyes on what nobody fetched from a reviewed source (ADR-0165). A
+# manifestation whose text a person uploaded, or that only names a corpus file,
+# holds every approval up until somebody other than its author and its uploader
+# checked it against its source. So does a text or a capture fetched through a
+# source its own draft proposes: only a built-in source, or a source record's
+# revision released by two people, counts (the release itself is exercised in
+# texts.integration.spec.ts, through the service). A capture stored before the
+# column counts only when no record ever configured its source. The down gives
+# 0218's check back, and 0224 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0224 text four eyes and its down migration on tf_0224"
+migrate_before tf_0224 0224_knowledge_text_four_eyes
+CR_UP="c0000000-0000-4000-8000-000000000224"
+CR_URL="c1000000-0000-4000-8000-000000000224"
+CR_OWN="c2000000-0000-4000-8000-000000000224"
+CR_OLD="c3000000-0000-4000-8000-000000000224"
+CR_OLD_OWN="c4000000-0000-4000-8000-000000000224"
+CR_NEW="c5000000-0000-4000-8000-000000000224"
+RV_UP="e0000000-0000-4000-8000-000000000224"
+RV_URL="e1000000-0000-4000-8000-000000000224"
+RV_OWN="e2000000-0000-4000-8000-000000000224"
+RV_SRC="e3000000-0000-4000-8000-000000000224"
+RV_OLD="e4000000-0000-4000-8000-000000000224"
+RV_OLD_OWN="e5000000-0000-4000-8000-000000000224"
+CAP_OLD="a0000000-0000-4000-8000-000000000224"
+CAP_OLD_OWN="a1000000-0000-4000-8000-000000000224"
+sql_in tf_0224 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES
+  ('$CR_UP', 'an uploaded text', 'XA', 'user_author'), ('$CR_URL', 'a text fetched from a built-in source', 'XA', 'user_author'),
+  ('$CR_OWN', 'a text fetched through the draft''s own source', 'XA', 'user_author'),
+  ('$CR_OLD', 'an old capture from a built-in source', 'XA', 'user_author'),
+  ('$CR_OLD_OWN', 'an old capture through a source record', 'XA', 'user_author'), ('$CR_NEW', 'captures after 0224', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES
+  ('edition:xa-1', NULL, 'edition', 'XA', 'user_author'), ('source:xa-own', NULL, 'source', 'XA', 'user_author'),
+  ('work:xa-old', NULL, 'work', 'XA', 'user_author'), ('work:xa-old-own', NULL, 'work', 'XA', 'user_author'),
+  ('manifestation:xa-up', NULL, 'manifestation', 'XA', 'user_author'), ('manifestation:xa-url', NULL, 'manifestation', 'XA', 'user_author'),
+  ('manifestation:xa-own', NULL, 'manifestation', 'XA', 'user_author');
+INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, url, sha256, byte_size, retrieved_at, created_by) VALUES
+  ('$CAP_OLD', '$CR_OLD', 'fetched', 'xa-ris', 'https://ris.example/1', repeat('a', 64), 1, now(), 'user_author'),
+  ('$CAP_OLD_OWN', '$CR_OLD_OWN', 'fetched', 'xa-own', 'https://attacker.example/1', repeat('b', 64), 1, now(), 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id, provenance) VALUES
+  ('$RV_UP', 'manifestation:xa-up', 'manifestation', NULL, 'user_author', '$CR_UP',
+   '{"text": {"origin": "upload", "fileName": "xa-up.pdf", "sha256": "aa", "attachedBy": "user_uploader"}}'),
+  ('$RV_URL', 'manifestation:xa-url', 'manifestation', NULL, 'user_author', '$CR_URL',
+   '{"text": {"origin": "url", "fileName": "xa-url.pdf", "sha256": "bb", "sourceId": "xa-ris", "sourceOrigin": "built_in", "attachedBy": "user_author"}}'),
+  ('$RV_SRC', 'source:xa-own', 'source', NULL, 'user_author', '$CR_OWN', '{}'),
+  ('$RV_OWN', 'manifestation:xa-own', 'manifestation', NULL, 'user_author', '$CR_OWN',
+   '{"text": {"origin": "url", "fileName": "xa-own.pdf", "sha256": "cc", "sourceId": "xa-own", "sourceOrigin": "draft", "sourceRevisionId": "$RV_SRC", "attachedBy": "user_author"}}'),
+  ('$RV_OLD', 'work:xa-old', 'work', NULL, 'user_author', '$CR_OLD', '{"citations": [{"captureId": "$CAP_OLD"}]}'),
+  ('$RV_OLD_OWN', 'work:xa-old-own', 'work', NULL, 'user_author', '$CR_OLD_OWN', '{"citations": [{"captureId": "$CAP_OLD_OWN"}]}');
+INSERT INTO knowledge_manifestation_revisions (revision_id, record_id, organization_id, edition_id, licence_class, corpus_file, sha256) VALUES
+  ('$RV_UP', 'manifestation:xa-up', NULL, 'edition:xa-1', 'public_open', 'xa-up.pdf', 'aa'),
+  ('$RV_URL', 'manifestation:xa-url', NULL, 'edition:xa-1', 'public_open', 'xa-url.pdf', 'bb'),
+  ('$RV_OWN', 'manifestation:xa-own', NULL, 'edition:xa-1', 'public_open', 'xa-own.pdf', 'cc');
+UPDATE knowledge_change_requests SET status = 'submitted' WHERE id IN ('$CR_UP', '$CR_URL', '$CR_OWN', '$CR_OLD', '$CR_OLD_OWN');
+SQL
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "false" "before 0224 an uploaded text holds no approval up"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_OLD_OWN')::text" "false" "before 0224 a capture fetched through any source holds no approval up"
+apply_in tf_0224 0224_knowledge_text_four_eyes.sql
+apply_in tf_0224 0224_knowledge_text_four_eyes.sql   # up twice: idempotent
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "true" "0224: an uploaded text nobody else checked is unchecked"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_URL')::text" "false" "0224: a text fetched from a built-in source counts as fetched"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_OWN')::text" "true" "0224: a text fetched through a source its own draft proposes is unchecked"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_OLD')::text" "false" "0224: a capture stored before it, from a source no record configures, counts as fetched"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_OLD_OWN')::text" "true" "0224: a capture stored before it, through a source a record configures, is unchecked"
+check_in tf_0224 "SELECT knowledge_source_reviewed('xa-own', 'released', '$RV_SRC', now())::text" "false" "0224: a revision no release published is no released source, whatever the fetch recorded"
+refused_in tf_0224 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source, override_reason) VALUES (gen_random_uuid(), '$CR_UP', 'user_author', 'domain_expert', 'app', 'urgent')" "no reviewer checked" "an approval alone over an uploaded text nobody else checked"
+refused_in tf_0224 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source, override_reason) VALUES (gen_random_uuid(), '$CR_OWN', 'user_author', 'domain_expert', 'app', 'urgent')" "no reviewer checked" "an approval alone over a text fetched through the author's own source"
+# An older build, during a rollout or after a rollback, still writes a fetched capture without an origin: accepted,
+# and held like the ones stored before when a record configures its source.
+sql_in tf_0224 <<SQL
+INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, url, sha256, byte_size, retrieved_at, created_by) VALUES
+  ('a2000000-0000-4000-8000-000000000224', '$CR_NEW', 'fetched', 'xa-own', 'https://attacker.example/2', repeat('c', 64), 1, now(), 'user_author');
+SQL
+check_in tf_0224 "SELECT knowledge_capture_counts_as_fetched(basis, source_id, source_origin, source_revision_id, created_at)::text FROM knowledge_citation_captures WHERE id = 'a2000000-0000-4000-8000-000000000224'" "false" "0224: an older build's capture through a source a record configures does not count"
+refused_in tf_0224 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, source_origin, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR_NEW', 'fetched', 'xa-own', 'draft', 'https://attacker.example/2', repeat('c', 64), 1, now(), 'user_author')" "knowledge_citation_captures_source_revision_named" "a capture through a source record that names no revision"
+refused_in tf_0224 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_origin, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR_NEW', 'operator_supplied', 'built_in', 'https://ris.example/3', repeat('c', 64), 1, now(), 'user_author')" "knowledge_citation_captures_source_origin_known" "a pasted page that claims a source"
+sql_in tf_0224 <<SQL
+INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, source_origin, source_revision_id, url, sha256, byte_size, retrieved_at, created_by) VALUES
+  (gen_random_uuid(), '$CR_NEW', 'fetched', 'xa-ris', 'built_in', NULL, 'https://ris.example/4', repeat('d', 64), 1, now(), 'user_author'),
+  (gen_random_uuid(), '$CR_NEW', 'fetched', 'xa-own', 'draft', '$RV_SRC', 'https://attacker.example/4', repeat('e', 64), 1, now(), 'user_author');
+SQL
+check_in tf_0224 "SELECT string_agg(source_origin || '=' || knowledge_capture_counts_as_fetched(basis, source_id, source_origin, source_revision_id, created_at)::text, ',' ORDER BY source_origin) FROM knowledge_citation_captures WHERE change_request_id = '$CR_NEW' AND source_origin IS NOT NULL" "built_in=true,draft=false" "0224: a capture through a built-in source counts, one through a draft's source does not"
+sql_in tf_0224 <<SQL
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked, decision_source)
+  VALUES (gen_random_uuid(), '$CR_UP', '$RV_UP', 'corpusFile', 'accepted', 'user_uploader', true, 'app');
+SQL
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "true" "0224: the uploader's own source check does not count"
+sql_in tf_0224 <<SQL
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked, decision_source)
+  VALUES (gen_random_uuid(), '$CR_UP', '$RV_UP', 'corpusFile', 'accepted', 'user_expert', true, 'app'),
+         (gen_random_uuid(), '$CR_OWN', '$RV_OWN', 'corpusFile', 'accepted', 'user_expert', true, 'app');
+SQL
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "false" "0224: another person's source check clears the uploaded text"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_OWN')::text" "false" "0224: another person's source check clears the text fetched through the draft's source"
+apply_in tf_0224 0224_knowledge_text_four_eyes.down.sql
+check_in tf_0224 "SELECT (pg_get_functiondef('knowledge_sources_unchecked(uuid)'::regprocedure) LIKE '%knowledge_manifestation_revisions%')::text" "false" "0224 down gives 0218's source check back"
+check_in tf_0224 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_citation_captures' AND column_name IN ('source_origin', 'source_revision_id')" "0" "0224 down drops the two columns"
+check_in tf_0224 "SELECT count(*) FROM pg_proc WHERE proname IN ('knowledge_source_reviewed', 'knowledge_capture_counts_as_fetched', 'knowledge_text_counts_as_fetched')" "0" "0224 down drops its three functions"
+apply_in tf_0224 0224_knowledge_text_four_eyes.sql
+check_in tf_0224 "SELECT (pg_get_functiondef('knowledge_sources_unchecked(uuid)'::regprocedure) LIKE '%knowledge_text_counts_as_fetched%')::text" "true" "0224 applies again after its down"
+echo "==> 0224 text four eyes and its down migration verified"

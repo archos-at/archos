@@ -1,12 +1,10 @@
 """OIB admin routes."""
 
 import asyncio
-import io
 import logging
 import os
 import tarfile
 import tempfile
-import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -22,9 +20,16 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from pydantic import Field
 
+from agent.corpus_store import CorpusFileImmutable
 from agent.knowledge.document_classification import canonical_doc_class
 from agent.oib_status import OibKnowledgeStatus
 
+from ..corpus_upload import MAX_OIB_UPLOAD_BYTES
+from ..corpus_upload import SQUATTED_NAME_REASON
+from ..corpus_upload import extract_zip_pdfs
+from ..corpus_upload import is_zip_upload
+from ..corpus_upload import sanitize_pdf_name
+from ..corpus_upload import squats_a_text_name
 from ..jobs.ingest_dispatch import enqueue_only
 from ..models.knowledge_mark import OibReingestRequest
 from ..models.requests import OibDocumentDeleteResponse
@@ -36,13 +41,6 @@ from ..models.requests import OibUploadedMember
 logger = logging.getLogger(__name__)
 
 _ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN")
-
-# Upper bound for a single base-corpus PDF (the largest shipped OIB PDF is ~15 MB).
-# Also the cap applied per member AND to the total extracted payload of a ZIP.
-MAX_OIB_UPLOAD_BYTES = 100 * 1024 * 1024
-
-# Content types / extensions that mark a bulk ZIP upload.
-_ZIP_CONTENT_TYPES = frozenset({"application/zip", "application/x-zip-compressed", "application/x-zip"})
 
 
 def _require_admin_token(x_admin_token: str | None = Header(default=None)):
@@ -121,22 +119,15 @@ def _compute_status():
     return get_status()
 
 
-def _sanitize_pdf_name(raw: str | None) -> str:
-    """Basename-only, PDF-only filename for a corpus upload (400 otherwise)."""
-    name = Path(raw or "").name.strip()
-    if not name or not name.lower().endswith(".pdf"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A .pdf file is required")
-    return name
-
-
 def _store_upload(name: str, content: bytes, doc_class: str | None) -> None:
     """Store an uploaded PDF in the shared corpus and queue its ingestion (``oib_sync.store_and_request``).
 
     Write-then-ingest ordering: the file is durably stored BEFORE the route
     responds, so an upload is never lost even if ingestion is slow to start or the
     process restarts — the next sync cycle queues it if this call could not. A
-    same-named upload replaces the existing file (the admin's way to replace a
-    document). The ingestion is a job on the ingest queue, run by whoever claims
+    name the corpus keeps takes the same bytes as a no-op and any others not at
+    all (``CorpusFileImmutable``, ADR-0165): to change a document, remove it
+    first. The ingestion is a job on the ingest queue, run by whoever claims
     it; nothing is ingested here. A store that refuses the object raises, and
     the route answers with an error rather than a pending job that would never
     find its file; so does a queue that cannot take the job.
@@ -144,78 +135,6 @@ def _store_upload(name: str, content: bytes, doc_class: str | None) -> None:
     from agent import oib_sync
 
     oib_sync.store_and_request(name, content, doc_class, enqueue=enqueue_only)
-
-
-def _is_safe_zip_member(member_name: str, base_dir: Path) -> bool:
-    """Reject zip-slip: absolute paths and members that escape ``base_dir``."""
-    if not member_name or member_name.endswith("/"):
-        return False  # directory entry
-    if Path(member_name).is_absolute() or member_name.startswith(("/", "\\")):
-        return False
-    base_resolved = base_dir.resolve()
-    try:
-        target = (base_dir / member_name).resolve()
-    except OSError, ValueError:
-        return False
-    return target == base_resolved or base_resolved in target.parents
-
-
-def _extract_zip_pdfs(content: bytes) -> tuple[list[tuple[str, bytes]], list[tuple[str, str]]]:
-    """Safely extract member PDFs from a ZIP upload.
-
-    Returns ``(accepted, rejected)`` where ``accepted`` is a list of
-    ``(basename, bytes)`` and ``rejected`` is a list of ``(name, reason)``.
-    Enforces zip-slip safety (absolute/escaping paths rejected), skips
-    directories and non-``.pdf`` members, and caps both each member and the
-    running total at :data:`MAX_OIB_UPLOAD_BYTES`. A ``base_dir`` is only used as
-    the anchor for the resolved-path escape check; nothing is written there.
-    """
-    accepted: list[tuple[str, bytes]] = []
-    rejected: list[tuple[str, str]] = []
-    seen_names: set[str] = set()
-    total_bytes = 0
-    # A stable, non-existent anchor for the zip-slip resolved-path check.
-    base_dir = Path(os.getcwd()) / "__oib_zip_extract__"
-
-    try:
-        archive = zipfile.ZipFile(io.BytesIO(content))
-    except zipfile.BadZipFile as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid ZIP archive: {exc}") from exc
-
-    for member in archive.infolist():
-        member_name = member.filename
-        if member.is_dir() or member_name.endswith("/"):
-            continue
-        display = Path(member_name).name or member_name
-        if not _is_safe_zip_member(member_name, base_dir):
-            rejected.append((display, "unsafe path (absolute or escapes archive root)"))
-            continue
-        if not member_name.lower().endswith(".pdf"):
-            rejected.append((display, "not a .pdf"))
-            continue
-        base_name = Path(member_name).name
-        if base_name in seen_names:
-            rejected.append((base_name, "duplicate member name"))
-            continue
-        if member.file_size == 0:
-            rejected.append((base_name, "empty file"))
-            continue
-        if member.file_size > MAX_OIB_UPLOAD_BYTES:
-            rejected.append((base_name, f"exceeds {MAX_OIB_UPLOAD_BYTES // (1024 * 1024)} MB per-file limit"))
-            continue
-        if total_bytes + member.file_size > MAX_OIB_UPLOAD_BYTES:
-            rejected.append((base_name, f"total extracted size exceeds {MAX_OIB_UPLOAD_BYTES // (1024 * 1024)} MB"))
-            continue
-        try:
-            data = archive.read(member)
-        except Exception as exc:
-            rejected.append((base_name, f"could not read member: {exc}"))
-            continue
-        seen_names.add(base_name)
-        total_bytes += len(data)
-        accepted.append((base_name, data))
-
-    return accepted, rejected
 
 
 def _queue_reingest(names: list[str], marks: dict | None = None) -> tuple[list[str], list[str]]:
@@ -326,12 +245,6 @@ async def get_oib_document(file_name: str) -> FileResponse:
     )
 
 
-def _is_zip_upload(upload: UploadFile) -> bool:
-    content_type = (upload.content_type or "").split(";")[0].strip().lower()
-    name = (upload.filename or "").lower()
-    return content_type in _ZIP_CONTENT_TYPES or name.endswith(".zip")
-
-
 def _resolved_doc_class(doc_class: str | None, name: str) -> str:
     """The Dokumentart a single upload is stored under: the explicit one (400 when off-vocabulary), else guessed."""
     from agent.common.norm_registry import guess_doc_class
@@ -366,9 +279,9 @@ async def upload_oib_document(
     - A single PDF: ``doc_class`` is validated (400 if off-vocabulary) or
       guessed from the filename, and stamped onto the summary row once
       ingestion succeeds.
-    - A ZIP (``application/zip`` or ``*.zip``): member PDFs are extracted
-      safely (zip-slip rejected, non-PDFs skipped, per-member + total size
-      capped), each queued for ingestion with a filename-guessed doc_class
+    - A ZIP (its bytes start as one, and it is named ``*.zip``): member PDFs
+      are extracted safely (zip-slip, NUL and backslash names rejected, non-PDFs
+      skipped, per-member + total size capped), each queued for ingestion with a filename-guessed doc_class
       (bulk onboarding; per-file class is corrected later via PATCH).
     """
     content = await file.read()
@@ -380,15 +293,19 @@ async def upload_oib_document(
             detail=f"File exceeds {MAX_OIB_UPLOAD_BYTES // (1024 * 1024)} MB limit",
         )
 
-    if _is_zip_upload(file):
+    if is_zip_upload(file, content):
         return await _handle_zip_upload(content)
 
     # Single-PDF upload.
-    name = _sanitize_pdf_name(file.filename)
+    name = sanitize_pdf_name(file.filename)
+    if squats_a_text_name(name, content):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Not stored: {SQUATTED_NAME_REASON}")
     resolved_class = _resolved_doc_class(doc_class, name)
 
     try:
         await asyncio.to_thread(_store_upload, name, content, resolved_class)
+    except CorpusFileImmutable as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     except Exception as e:
         logger.exception("Failed to store or queue OIB upload %s", name)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
@@ -405,7 +322,7 @@ async def upload_oib_document(
 async def _handle_zip_upload(content: bytes) -> OibDocumentUploadResponse:
     from agent.common.norm_registry import guess_doc_class
 
-    accepted, rejected = await asyncio.to_thread(_extract_zip_pdfs, content)
+    accepted, rejected = await asyncio.to_thread(extract_zip_pdfs, content)
     if not accepted and not rejected:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -417,6 +334,13 @@ async def _handle_zip_upload(content: bytes) -> OibDocumentUploadResponse:
         member_class = guess_doc_class(base_name)
         try:
             await asyncio.to_thread(_store_upload, base_name, data, member_class)
+        except CorpusFileImmutable:
+            members.append(
+                OibUploadedMember(
+                    file_name=base_name, status="rejected", reason="the corpus keeps other bytes under this name"
+                )
+            )
+            continue
         except Exception:
             logger.exception("Failed to store or queue ZIP member %s", base_name)
             members.append(

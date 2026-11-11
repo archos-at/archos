@@ -1571,6 +1571,13 @@
       "breakpoints": true
     },
     {
+      "idx": 224,
+      "version": "7",
+      "when": 1793900000000,
+      "tag": "0224_knowledge_text_four_eyes",
+      "breakpoints": true
+    },
+    {
       "idx": 225,
       "version": "7",
       "when": 1794000000000,

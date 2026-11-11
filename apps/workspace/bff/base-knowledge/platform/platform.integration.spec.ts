@@ -28,7 +28,7 @@ vi.mock('server-only', () => ({}))
 
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 
-const corpus = { queued: [] as string[], unknown: [] as string[], ingested: [] as string[], marks: {} as Record<string, unknown> }
+const corpus = { held: new Map<string, string>(), queued: [] as string[], unknown: [] as string[], ingested: [] as string[], marks: {} as Record<string, unknown> }
 vi.mock('@/lib/knowledge/service', () => ({
   reingestKnowledgeBaseDocuments: async (names: string[], marks: Record<string, unknown> = {}) => (Object.assign(corpus.marks, marks), {
     status: 'pending',
@@ -36,11 +36,15 @@ vi.mock('@/lib/knowledge/service', () => ({
     unknown: names.filter((name) => corpus.unknown.includes(name)),
     message: '',
   }),
-  getKnowledgeBaseStatus: async () => ({ files: corpus.ingested.map((fileName) => ({ fileName, state: 'ingested' })) }),
+  // The files the corpus holds, each with the sha256 of its bytes; one is `ingested` once its chunks exist.
+  getKnowledgeBaseStatus: async () => ({
+    files: [...corpus.held].map(([fileName, currentSha256]) => ({ fileName, currentSha256, state: corpus.ingested.includes(fileName) ? 'ingested' : 'pending' })),
+  }),
 }))
 
 const url = process.env.TEST_DATABASE_URL
 const RUN = Date.now().toString(36)
+const SHA = 'a'.repeat(64)
 const ORG = `org_pbk_${RUN}`
 const SECOND_ORG = `org_pbk_${RUN}_second`
 const GRAZ = `AT:testgraz:${RUN}`
@@ -64,13 +68,13 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
   const records = (raw: unknown[]) => raw.map((record) => wire.proposedRecordSchema.parse(record))
 
   /** A request through to approval: proposed by the author, every claim accepted and approved by the expert. */
-  async function approved(title: string, raw: unknown[]): Promise<string> {
-    return approvedRequest({ title, countryId: 'AT', records: records(raw) }, { author: AUTHOR, expert: EXPERT })
+  async function approved(title: string, raw: unknown[], pins?: ReadonlyMap<string, string>): Promise<string> {
+    return approvedRequest({ title, countryId: 'AT', records: records(raw), pins }, { author: AUTHOR, expert: EXPERT })
   }
 
 
-  async function published(title: string, raw: unknown[]): Promise<string> {
-    const id = await approved(title, raw)
+  async function published(title: string, raw: unknown[], pins?: ReadonlyMap<string, string>): Promise<string> {
+    const id = await approved(title, raw, pins)
     await release.publishChangeRequest(id, 'preview', ACTOR)
     await release.publishChangeRequest(id, 'stable', ACTOR)
     return id
@@ -254,7 +258,9 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
       { type: 'work', key: key('oib-rl-4'), kind: 'guideline', title: 'Nutzungssicherheit und Barrierefreiheit', designation: 'OIB-RL 4' },
       { type: 'edition', key: key('oib-rl-4-2023'), workKey: key('oib-rl-4'), label: '2023' },
       { type: 'manifestation', key: key('oib-rl-4-2023-de'), editionKey: key('oib-rl-4-2023'), licenceClass: 'public_open', corpusFile: file },
-    ])
+    ], new Map([[`manifestation:${key('oib-rl-4-2023-de')}`, SHA]]))
+    // The corpus holds the bytes the revision names: the job indexes those and no others.
+    corpus.held.set(file, SHA)
     const runs = await withPlatformAccess('pbk spec runs', () =>
       db.execute<{ id: string }>(sql`SELECT id FROM knowledge_index_runs WHERE change_request_id = ${id}`),
     )
@@ -280,7 +286,7 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
       { type: 'work', key: key('missing'), kind: 'guideline', title: 'Fehlt' },
       { type: 'edition', key: key('missing-1'), workKey: key('missing'), label: '1' },
       { type: 'manifestation', key: key('missing-1-de'), editionKey: key('missing-1'), licenceClass: 'public_open', corpusFile: file },
-    ])
+    ], new Map([[`manifestation:${key('missing-1-de')}`, SHA]]))
     const [run] = await withPlatformAccess('pbk spec run', () =>
       db.execute<{ id: string }>(sql`SELECT id FROM knowledge_index_runs WHERE change_request_id = ${id}`),
     )

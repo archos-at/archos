@@ -36,7 +36,7 @@ export interface FetchedPage {
 export class CaptureFetchError extends Error {
   constructor(
     message: string,
-    readonly status: 403 | 404 | 422 | 502 | 503,
+    readonly status: 403 | 404 | 409 | 422 | 502 | 503,
     /** The api tier's problem code, when it named one ({@link CAPTURE_REFUSAL_CODES}). */
     readonly code: string | null = null,
   ) {
@@ -59,6 +59,9 @@ export const CAPTURE_REFUSAL_CODES = [
   'pdf_parse_timeout',
   'pdf_reader_failed',
 ] as const
+
+/** Why the api tier refuses to keep a fetched text in the base corpus, beside a capture's own refusals (`corpus-text`). */
+export const TEXT_REFUSAL_CODES = ['not_a_pdf', 'name_taken'] as const
 
 /**
  * How long the BFF waits for the api tier. The longest call is a monitor's probe: two fetches (the page and
@@ -134,19 +137,52 @@ export function refusalDetail(answer: { status: number; body: unknown }): string
  * refusal, all throw.
  */
 export async function fetchSourcePage(sourceId: string, url: string, configured?: ConfiguredSource): Promise<FetchedPage> {
+  return pageOf(await guardedFetch('/v1/public-sources/capture', { source: sourceId, url, ...(configured ?? {}) }, 'upload the page as operator_supplied'))
+}
+
+/** A PDF the api tier fetched and kept as a base-corpus file (`POST /v1/public-sources/corpus-text`). */
+export interface ImportedText extends Omit<FetchedPage, 'text'> {
+  fileName: string
+  /** Whether the bytes were stored now; false when the base corpus already kept them under this name. */
+  stored: boolean
+}
+
+/**
+ * Fetch the PDF at `url` as the source allows it and keep it in the base
+ * corpus. The fetch and the PDF read are the fetcher's, as for a capture;
+ * nothing is parsed in this tier or in the api tier. The api tier names the
+ * file after `fileStem` and the bytes' hash (`corpus_text_name`), so it never
+ * replaces anything: other bytes are another name. Fails closed like
+ * {@link fetchSourcePage}; a name that holds other bytes is a 409 with `name_taken`.
+ */
+export async function importSourceText(text: { sourceId: string; url: string; fileStem: string }, configured?: ConfiguredSource): Promise<ImportedText> {
+  const body = await guardedFetch(
+    '/v1/public-sources/corpus-text',
+    { source: text.sourceId, url: text.url, fileStem: text.fileStem, ...(configured ?? {}) },
+    'upload the PDF with platform-knowledge-text-upload',
+  )
+  const page = pageOf(body)
+  const { text: _text, ...facts } = page
+  if (!isRecord(body) || typeof body.fileName !== 'string') throw new CaptureFetchError('The public-source reader kept the text without naming its file.', 502)
+  return { ...facts, fileName: body.fileName, stored: body.stored === true }
+}
+
+/** One guarded fetch on the api tier: its answer's body, or a {@link CaptureFetchError}; `otherwise` is what the caller can do instead. */
+async function guardedFetch(path: string, payload: { source: string } & Record<string, unknown>, otherwise: string): Promise<unknown> {
   let answer: { status: number; body: unknown }
   try {
-    answer = await callPublicSources('/v1/public-sources/capture', { source: sourceId, url, ...(configured ?? {}) })
+    answer = await callPublicSources(path, payload)
   } catch (error) {
-    if (error instanceof CaptureFetchError) throw new CaptureFetchError(`${error.message} Or upload the page as operator_supplied.`, error.status)
+    if (error instanceof CaptureFetchError) throw new CaptureFetchError(`${error.message} Or ${otherwise}.`, error.status)
     throw error
   }
-  if (answer.status >= 200 && answer.status < 300) return pageOf(answer.body)
+  if (answer.status >= 200 && answer.status < 300) return answer.body
   const detail = refusalDetail(answer)
-  // A capture the api tier refused by name (a host off the source, a body too large, a PDF behind a password): the code says which.
+  // A fetch the api tier refused by name (a host off the source, a body too large, a PDF behind a password): the code says which.
   const code = isRecord(answer.body) && typeof answer.body.code === 'string' ? answer.body.code : null
+  if (code && answer.status === 409) throw new CaptureFetchError(detail, 409, code)
   if (code && (answer.status === 403 || answer.status === 422)) throw new CaptureFetchError(`The capture was refused: ${detail}`, 422, code)
   if (answer.status === 403 || answer.status === 400 || answer.status === 422) throw new CaptureFetchError(`The fetch was refused: ${detail}`, 403)
-  if (answer.status === 404) throw new CaptureFetchError(`No configured source ${sourceId}: ${detail}`, 404)
-  throw new CaptureFetchError(`The source did not answer: ${detail}. Try again, or upload the page as operator_supplied.`, 502)
+  if (answer.status === 404) throw new CaptureFetchError(`No configured source ${payload.source}: ${detail}`, 404)
+  throw new CaptureFetchError(`The source did not answer: ${detail}. Try again, or ${otherwise}.`, 502)
 }

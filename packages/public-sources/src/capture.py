@@ -23,6 +23,7 @@ import asyncio
 import hashlib
 import re
 from dataclasses import dataclass
+from dataclasses import field
 from datetime import UTC
 from datetime import datetime
 
@@ -119,6 +120,8 @@ class CapturedPage:
     pages: int | None = None
     #: What a reader of ``text`` must know: pages of a PDF with no text layer, or a PDF read only in part.
     note: str = ""
+    #: The bytes as fetched, for a caller that keeps the document itself (a text imported into the base corpus).
+    content: bytes = field(default=b"", repr=False, compare=False)
 
 
 def page_text(content: bytes, content_type: str | None) -> str | None:
@@ -198,6 +201,7 @@ async def capture_page(
         retrieved_at=datetime.now(UTC).isoformat(),
         pages=pages,
         note=note,
+        content=content,
     )
 
 

@@ -5,7 +5,9 @@
  * CountryKnowledge on fixture data: the countries table, the review queue, and
  * (with `?request=1`) a submitted change request opened in its sheet, with an
  * authority, a std-asi listing and claims half reviewed; with `?request=alone`,
- * a published one its author approved alone, its second review due (ADR-0176).
+ * a published one its author approved alone, its second review due (ADR-0176);
+ * with `?request=draft`, a draft with an edition whose text is attached and one
+ * that still waits for its text (ADR-0165, "Texts are attached in the request").
  *
  * A module-scope fetch shim (browser + dev only) serves the overview and the
  * change request. Not linked from anywhere; 404s outside development.
@@ -20,6 +22,7 @@ import { platformCopy } from '@/i18n/namespaces/platform'
 
 const REQUEST_ID = '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e'
 const ALONE_ID = '5d1c0a7e-2b3f-4e8d-9c6a-7f1e2d3c4b5a'
+const DRAFT_ID = '7e2f1b9c-4d3a-4c8e-8b1f-2a6d5c4e3f10'
 const FOUR_EYES = { approval: 'four_eyes', secondReview: null }
 const DUE = { approval: 'single', secondReview: { state: 'due', by: null, at: null } }
 
@@ -57,6 +60,8 @@ const REQUEST = {
       changeRequestId: REQUEST_ID,
       basis: 'operator_supplied',
       sourceId: null,
+      sourceOrigin: null,
+      countsAsFetched: false,
       url: 'https://www.wien.gv.at/kontakte/ma37/',
       finalUrl: null,
       contentType: 'text/plain; charset=utf-8',
@@ -70,6 +75,8 @@ const REQUEST = {
       changeRequestId: REQUEST_ID,
       basis: 'fetched',
       sourceId: 'at-ris',
+      sourceOrigin: 'built_in',
+      countsAsFetched: true,
       url: 'https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006',
       finalUrl: null,
       contentType: 'text/html',
@@ -150,6 +157,49 @@ const ALONE = {
   revisions: REQUEST.revisions.map((revision) => ({ ...revision, claims: revision.claims.map((claim) => ({ ...claim, decision: null })) })),
 }
 
+const manifestation = (revisionId: string, key: string, corpusFile: string | null) => ({
+  revisionId,
+  recordId: `manifestation:${key}`,
+  type: 'manifestation',
+  createdBy: 'user_a',
+  citations: [{ captureId: 'cap-oib', quote: 'Ausgabe April 2019, herausgegeben vom OIB', url: 'https://www.oib.or.at/de/oib-richtlinien/richtlinien/2019' }],
+  claims: [
+    { path: 'editionId', value: `edition:${key.replace(/-text$/, '')}`, decision: null },
+    { path: 'licenceClass', value: 'public_open', decision: null },
+    { path: 'corpusFile', value: corpusFile, decision: null },
+  ],
+})
+
+/** A draft: one edition's text fetched from the publisher, the other still to attach. */
+const DRAFT = {
+  ...REQUEST,
+  id: DRAFT_ID,
+  title: 'OIB-Richtlinien 2019',
+  status: 'draft',
+  submittedAt: null,
+  sourcesUnchecked: false,
+  revisions: [manifestation('d1', 'at-oib-rl-1-2019-text', 'oib-rl-1-2019.pdf'), manifestation('d2', 'at-oib-rl-2-2019-text', null)],
+  texts: [
+    {
+      revisionId: 'd1',
+      recordId: 'manifestation:at-oib-rl-1-2019-text',
+      editionId: 'edition:at-oib-rl-1-2019',
+      corpusFile: 'oib-rl-1-2019.pdf',
+      origin: 'url',
+      sha256: 'c'.repeat(64),
+      bytes: 1_412_338,
+      pages: 12,
+      sourceId: 'at-oib',
+      sourceOrigin: 'released',
+      countsAsFetched: true,
+      url: 'https://www.oib.or.at/sites/default/files/oib-rl-1-2019.pdf',
+      attachedBy: 'user_a',
+      attachedAt: '2026-11-11T09:00:00Z',
+    },
+  ],
+}
+const DRAFTS = { changeRequests: [{ ...OVERVIEW.queue[0], id: DRAFT_ID, title: DRAFT.title, status: 'draft', revisionCount: 2 }], nextCursor: null }
+
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __platformCountriesShim?: boolean }
   if (!w.__platformCountriesShim) {
@@ -158,9 +208,11 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       if (url === '/api/platform/knowledge') return Response.json(OVERVIEW)
+      if (url.startsWith('/api/platform/knowledge/change-requests?status=draft')) return Response.json(DRAFTS)
       if (url.startsWith('/api/platform/knowledge/change-requests/')) {
+        if (init?.method === 'POST' && url.includes('/texts')) return Response.json({ text: DRAFT.texts[0], status: 'written', stored: true })
         if (init?.method === 'POST') return Response.json({ recorded: 1 })
-        return Response.json(url.includes(ALONE_ID) ? ALONE : REQUEST)
+        return Response.json(url.includes(ALONE_ID) || url.endsWith('/alone') ? ALONE : url.includes(DRAFT_ID) || url.endsWith('/draft') ? DRAFT : REQUEST)
       }
       return real(input, init)
     }

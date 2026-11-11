@@ -8,7 +8,8 @@
  * single write control. The fixture carries every lifecycle state worth seeing
  * (indexing, failed, outdated, no longer listed), so the status column and the
  * Issues number are reviewed with real content. A module-scope fetch shim
- * (browser + dev only) serves the corpus status. Pinned to German, the primary
+ * (browser + dev only) serves the corpus status and where each file belongs
+ * (its country, edition and change request; the rest are named by no record). Pinned to German, the primary
  * product language. Not linked from anywhere and 404s outside development.
  */
 
@@ -78,6 +79,28 @@ const STATUS = {
   files: FILES,
 }
 
+/** Where the first files belong: two released Austrian texts, a German one in a draft; the rest no record names. */
+const TEXTS = {
+  nextCursor: null,
+  texts: [
+    ['base-dokument-01.pdf', 'AT', 'OIB-Richtlinie 2 Brandschutz', '2023', true, 'OIB-Richtlinien 2023', 'published'],
+    ['base-dokument-10.pdf', 'AT', 'OIB-Richtlinie 3 Hygiene', '2023', true, 'OIB-Richtlinien 2023', 'published'],
+    ['base-dokument-13.pdf', 'AT', 'NÖ Bautechnikverordnung', '2014', false, 'Niederösterreich: Bautechnik', 'submitted'],
+    ['base-dokument-07.pdf', 'DE', 'Musterbauordnung', '2022', false, 'Deutschland: Musterbauordnung', 'draft'],
+  ].map(([corpusFile, countryId, workTitle, editionLabel, released, changeRequestTitle, changeRequestStatus]) => ({
+    corpusFile,
+    countryId,
+    recordId: `manifestation:${String(corpusFile)}`,
+    editionId: 'edition:preview',
+    editionLabel,
+    workTitle,
+    released,
+    changeRequestId: '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e',
+    changeRequestTitle,
+    changeRequestStatus,
+  })),
+}
+
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __platformKnowledgeShim?: boolean }
   if (!w.__platformKnowledgeShim) {
@@ -89,6 +112,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (url.startsWith('/api/knowledge-base')) {
         return Response.json(STATUS)
       }
+      if (url.startsWith('/api/platform/knowledge/texts')) return Response.json(TEXTS)
       return real(input, init)
     }
   }

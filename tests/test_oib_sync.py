@@ -15,10 +15,14 @@ import hashlib
 import inspect
 import logging
 import threading
+from datetime import UTC
+from datetime import datetime
+from datetime import timedelta
 
 import pytest
 from agent_testing.orchestrator_fake import take_run
 from agent_testing.orchestrator_fake import waiting_runs
+from sqlalchemy import update
 
 from agent import corpus_store
 from agent import oib_sync
@@ -70,6 +74,13 @@ def _row(name: str) -> corpus_store.FileRow:
     row = corpus_store.get_file(name)
     assert row is not None
     return row
+
+
+def _mark_was_set(*, hours_from_now: int) -> None:
+    """Move every mark's time, as if the release had marked the files then."""
+    at = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=hours_from_now)
+    with corpus_store._transaction() as conn:
+        conn.execute(update(corpus_store._marks).values(marked_at=at))
 
 
 def _queued() -> int:
@@ -603,6 +614,27 @@ class TestMarkForReingest:
         oib_sync.mark_for_reingest("a.pdf")
 
         assert _sync().enqueued == 1
+
+    def test_a_job_prepared_before_the_release_marked_its_file_is_done_again_with_the_mark(self, ingestor):
+        """The upload job carries no country: finished after the release marked the file, it does not count."""
+        corpus_store.put("a.pdf", b"a")
+        _sync()  # the upload's job, prepared without a mark, still waiting
+        mark = corpus_store.FileMark(country_id="AT", edition_id="edition:oib-rl-1-2019")
+        assert oib_sync.mark_for_reingest("a.pdf", mark) is True
+        _mark_was_set(hours_from_now=1)  # a release, after the job was prepared
+        (unmarked,) = run_worker()
+        assert "country_id" not in unmarked.config
+
+        result = _sync()
+
+        # Not recorded: its chunks are nobody's. A job that carries the mark is queued in its place.
+        assert (result.ingested_recorded, result.enqueued) == (0, 1)
+        assert _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
+        _mark_was_set(hours_from_now=-1)  # the mark is older than the job the cycle has just prepared
+        (marked,) = run_worker()
+        assert marked.config["country_id"] == "AT"
+        assert _sync().ingested_recorded == 1
+        assert not _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
 
     def test_a_job_that_is_still_waiting_is_left_alone(self, ingestor):
         corpus_store.put("a.pdf", b"a")
