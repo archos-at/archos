@@ -62,6 +62,9 @@ import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock } from './turn-block'
 import { officeAnswerLabel, type OfficeAnswerLabel } from './answer-label'
 import { platformKnowledge } from '../platform'
+import { loadOrganizationDirectory } from '@/lib/sharing/directory'
+import { isStandardsFolder, standardsFolderRows, standardsRoot } from './folders'
+import { byAttention, countEntries, matchesQuery, subtreeOf } from './listing'
 
 
 function requireManage(session: AuthorizedSession): void {
@@ -70,7 +73,12 @@ function requireManage(session: AuthorizedSession): void {
 
 const reader = (session: AuthorizedSession) => shelfReaderFor(session, { scope: 'office_shelf', projectId: null })
 
-function toEntry(stored: StoredEntry, document: EntryDocument, now: Date): BaseKnowledgeEntry {
+/** Display names by user id; empty when the directory cannot be read, which costs names and nothing else. */
+type Names = ReadonlyMap<string, { name: string }>
+const NO_NAMES: Names = new Map()
+
+function toEntry(stored: StoredEntry, document: EntryDocument, now: Date, names: Names = NO_NAMES): BaseKnowledgeEntry {
+  const confirmedBy = stored.confirmed ? (stored.provenance.confirmedBy ?? null) : null
   return {
     id: stored.workId,
     editionId: stored.editionId,
@@ -80,42 +88,48 @@ function toEntry(stored: StoredEntry, document: EntryDocument, now: Date): BaseK
     status: stored.confirmed ? 'confirmed' : 'proposed',
     values: stored.values,
     proposedBy: stored.provenance.proposedBy ?? 'reading',
-    confirmedBy: stored.confirmed ? (stored.provenance.confirmedBy ?? null) : null,
+    confirmedBy,
+    confirmedByName: confirmedBy ? (names.get(confirmedBy)?.name ?? null) : null,
     textUse: textUseOf(stored.values.licenceClass, stored.terms),
     aiProcessingAttestedAt: stored.terms.aiProcessingAttestedAt ?? null,
     freshness: freshnessOf(stored.values.kind, stored.confirmed ? stored.lastCheck : null, now),
+    folderId: document.folderId,
     createdAt: stored.createdAt.toISOString(),
   }
 }
 
-function matches(entry: BaseKnowledgeEntry, query: Partial<ListEntriesQuery>): boolean {
-  if (query.status && entry.status !== query.status) return false
-  if (!query.designation) return true
-  const wanted = query.designation.toLocaleLowerCase('de')
-  return (entry.values.designation ?? entry.values.title).toLocaleLowerCase('de').includes(wanted)
-}
-
-/** The office's entries the session may see, newest first. */
+/**
+ * The office's entries the session may see: in the folder asked for (with its
+ * subfolders), counted before the other filters narrow them, and those the
+ * filters keep in the order a person works through them (`listing.ts`).
+ */
 export async function listBaseKnowledge(
   session: AuthorizedSession,
   query: Partial<ListEntriesQuery> = {}
 ): Promise<BaseKnowledgeList> {
   const canManage = canManageOfficeShelf(session)
   const stored = await readOfficeEntries(session.organizationId)
-  const documents = await visibleOfficeDocuments(
-    session.organizationId,
-    stored.map((entry) => entry.documentId),
-    await reader(session)
-  )
+  const [documents, names, folders] = await Promise.all([
+    visibleOfficeDocuments(session.organizationId, stored.map((entry) => entry.documentId), await reader(session)),
+    loadOrganizationDirectory(session.organizationId),
+    query.folderId ? standardsFolderRows(session) : null,
+  ])
+  const inFolder = folders && query.folderId ? subtreeOf(query.folderId, [...(folders.root ? [folders.root] : []), ...folders.folders]) : null
   const now = new Date()
   const entries = stored.flatMap((entry) => {
     const document = documents.get(entry.documentId)
-    return document ? [toEntry(entry, document, now)] : []
+    if (!document || (inFolder && !(document.folderId && inFolder.has(document.folderId)))) return []
+    return [toEntry(entry, document, now, names)]
   })
-  const matching = entries.filter((entry) => matches(entry, query))
+  const matching = entries.filter((entry) => matchesQuery(entry, query)).sort(byAttention)
   const start = query.cursor ? Number(query.cursor) : 0
   const end = start + (query.limit ?? ENTRY_PAGE)
-  return { canManage, entries: matching.slice(start, end), nextCursor: end < matching.length ? String(end) : null }
+  return {
+    canManage,
+    counts: countEntries(entries),
+    entries: matching.slice(start, end),
+    nextCursor: end < matching.length ? String(end) : null,
+  }
 }
 
 async function findEntry(
@@ -124,10 +138,13 @@ async function findEntry(
 ): Promise<{ stored: StoredEntry; entry: BaseKnowledgeEntry; document: EntryDocument }> {
   const stored = (await readOfficeEntries(session.organizationId)).find((entry) => entry.workId === entryId)
   if (!stored) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
-  const documents = await visibleOfficeDocuments(session.organizationId, [stored.documentId], await reader(session))
+  const [documents, names] = await Promise.all([
+    visibleOfficeDocuments(session.organizationId, [stored.documentId], await reader(session)),
+    loadOrganizationDirectory(session.organizationId),
+  ])
   const document = documents.get(stored.documentId)
   if (!document) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
-  return { stored, entry: toEntry(stored, document, new Date()), document }
+  return { stored, entry: toEntry(stored, document, new Date(), names), document }
 }
 
 export async function getBaseKnowledgeEntry(session: AuthorizedSession, entryId: string): Promise<BaseKnowledgeEntry> {
@@ -196,6 +213,8 @@ async function recordProposal(
  * before the dispatch, so the dispatch finds the copy held and reads nothing:
  * no embedding, no summary, no facets until a person confirms it public or
  * attested. A re-upload of bytes the shelf already holds proposes that document.
+ * It lands in the standards folder asked for, or in the standards root
+ * („Grundlagen des Büros“, created on first use).
  */
 export async function uploadBaseKnowledge(
   session: AuthorizedSession,
@@ -210,9 +229,13 @@ export async function uploadBaseKnowledge(
   if (await shelfNameHasEntry(session.organizationId, documentNameKey(file.name), await reader(session))) {
     throw new ConflictError('A document with this name is already recorded as base knowledge; remove that entry first, or upload the new edition under its own name.')
   }
+  if (folderId && !(await isStandardsFolder(session, folderId))) {
+    throw new UnprocessableError('folderId is not a base-knowledge folder; take one from base-knowledge-folder-list, or omit it.')
+  }
+  const target = folderId ?? (await standardsRoot(session.organizationId)).id
   let workId: string | null = null
   const uploaded = await uploadOfficeShelfDocument(session, file, request, {
-    folderId,
+    folderId: target,
     beforeDispatch: async (documentId) => {
       workId = await recordProposal(session, { ...given, documentId }, file.name, 'person')
     },

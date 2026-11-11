@@ -13,6 +13,8 @@ const ENTRY: BaseKnowledgeEntry = {
   status: 'confirmed',
   proposedBy: 'person',
   confirmedBy: 'user_1',
+  confirmedByName: null,
+  folderId: null,
   textUse: 'used',
   aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
   createdAt: '2026-11-01T00:00:00.000Z',

@@ -104,10 +104,24 @@ export const recordCheckBodySchema = z
   .strict()
 export type RecordCheckBody = z.infer<typeof recordCheckBodySchema>
 
+/** What needs somebody's attention: a proposal to confirm, a check due, a copy whose text is not used. */
+export const ENTRY_ATTENTION = ['proposed', 'check_due', 'metadata_only'] as const
+export type EntryAttention = (typeof ENTRY_ATTENTION)[number]
+
 export const listEntriesQuerySchema = z
   .object({
     status: z.enum(['proposed', 'confirmed']).optional(),
     designation: z.string().trim().min(1).max(120).optional().describe('Part of a designation or title.'),
+    q: z.string().trim().min(1).max(120).optional().describe('Part of a designation, title or file name.'),
+    kind: z.enum(OFFICE_WORK_KINDS).optional(),
+    attention: z
+      .enum(ENTRY_ATTENTION)
+      .optional()
+      .describe('proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used.'),
+    folderId: z
+      .guid()
+      .optional()
+      .describe('A folder from base-knowledge-folder-list: its entries and those of its subfolders.'),
     limit: z.coerce.number().int().min(1).max(MAX_ENTRY_PAGE).default(ENTRY_PAGE).describe(`Default ${ENTRY_PAGE}, max ${MAX_ENTRY_PAGE}.`),
     cursor: z.string().regex(/^\d{1,4}$/).optional().describe('The previous page’s `nextCursor`.'),
   })
@@ -158,12 +172,91 @@ export interface BaseKnowledgeEntry {
   /** The user who confirmed the values in force, or last changed them; null while proposed or for an entry confirmed before this was kept. */
   confirmedBy: string | null
   freshness: Freshness
+  /** The office shelf folder its document is filed in; null at the shelf root. */
+  folderId: string | null
+  /** The display name of `confirmedBy`; null when nobody confirmed or the directory cannot be read. */
+  confirmedByName: string | null
   createdAt: string
+}
+
+/** How many entries, in the folder asked for (all folders without one), need what. */
+export interface EntryCounts {
+  all: number
+  proposed: number
+  checkDue: number
+  metadataOnly: number
 }
 
 export interface BaseKnowledgeList {
   canManage: boolean
+  /** Before `attention`, `kind` and `q` narrow the page, so a filter can show what it would find. */
+  counts: EntryCounts
   entries: BaseKnowledgeEntry[]
   /** Where the next page starts, or null on the last page. */
   nextCursor: string | null
+}
+
+/** A folder of the office's base knowledge: the standards root's subtree on the office shelf. */
+export interface BaseKnowledgeFolder {
+  id: string
+  parentId: string | null
+  name: string
+  /** The folder's path on the office shelf, root first. */
+  path: string
+  description: string | null
+}
+
+export interface BaseKnowledgeFolders {
+  /** The standards root folder; null until the first upload or folder creates it. */
+  rootId: string | null
+  /** The folders below the root on this page, by path. */
+  folders: BaseKnowledgeFolder[]
+  /** Where the next page starts, or null on the last page. */
+  nextCursor: string | null
+}
+
+/** A page of folders: the default and the most one call returns. */
+export const FOLDER_PAGE = 200
+
+export const listFoldersQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(FOLDER_PAGE).default(FOLDER_PAGE).describe(`Default and max ${FOLDER_PAGE}.`),
+    cursor: z.string().regex(/^\d{1,5}$/).optional().describe('The previous page’s `nextCursor`.'),
+  })
+  .strict()
+export type ListFoldersQuery = z.infer<typeof listFoldersQuerySchema>
+
+export const createFolderBodySchema = z
+  .object({
+    name: z.string().trim().min(1).max(255).describe('e.g. a trade, a topic or a standards body.'),
+    parentId: z.guid().optional().describe('A folder from base-knowledge-folder-list; omit for the top level.'),
+    description: z.string().trim().max(500).optional().describe('What belongs in it, in the office’s words.'),
+  })
+  .strict()
+export type CreateFolderBody = z.infer<typeof createFolderBodySchema>
+
+/** The most entries one bulk call changes; the rest is a second call. */
+export const MAX_BULK_ENTRIES = 50
+
+export const bulkEntriesBodySchema = z
+  .object({
+    entryIds: z.array(z.string().min(1).max(120)).min(1).max(MAX_BULK_ENTRIES).describe(`From base-knowledge-list; at most ${MAX_BULK_ENTRIES}.`),
+    action: z.discriminatedUnion('type', [
+      z.object({ type: z.literal('check'), result: recordCheckBodySchema.shape.result, note: recordCheckBodySchema.shape.note }).strict(),
+      z.object({ type: z.literal('move'), folderId: z.guid().describe('From base-knowledge-folder-list.') }).strict(),
+      z.object({ type: z.literal('remove') }).strict(),
+    ]),
+  })
+  .strict()
+export type BulkEntriesBody = z.infer<typeof bulkEntriesBodySchema>
+
+export interface BulkEntryResult {
+  entryId: string
+  ok: boolean
+  /** Why this one was refused; the others still ran. */
+  error: string | null
+}
+
+export interface BulkEntriesResult {
+  results: BulkEntryResult[]
 }

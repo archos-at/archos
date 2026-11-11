@@ -26,6 +26,8 @@ function entry(id: string, values: Partial<BaseKnowledgeEntry['values']>, rest: 
     status: 'confirmed',
     proposedBy: 'person',
     confirmedBy: 'user_1',
+    confirmedByName: null,
+    folderId: null,
     textUse: 'used',
     aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
     createdAt: '2026-11-01T08:00:00.000Z',
@@ -49,6 +51,7 @@ function entry(id: string, values: Partial<BaseKnowledgeEntry['values']>, rest: 
 const LIST: BaseKnowledgeList = {
   canManage: true,
   nextCursor: null,
+  counts: { all: 5, proposed: 1, checkDue: 2, metadataOnly: 1 },
   entries: [
     entry(
       'oenorm-b-1300',
