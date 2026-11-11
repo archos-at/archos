@@ -91,6 +91,10 @@ export interface PublicSourceFetcher {
   pdb: k8s.policy.v1.PodDisruptionBudget;
 }
 
+/**
+ * The sandboxed fetcher of public sources: its Deployment, Service, egress-only NetworkPolicy and PDB.
+ * Every backend role reads public sources, and parses their PDFs, only through it (ADR-0162).
+ */
 export function installPublicSourceFetcher(
   cfg: DeployConfig,
   provider: k8s.Provider,
