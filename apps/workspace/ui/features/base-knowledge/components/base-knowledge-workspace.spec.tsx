@@ -105,6 +105,24 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(navigation.push).toHaveBeenCalledWith('/app/base-knowledge', { scroll: false })
   })
 
+  it('says when a linked standard cannot be read, with a retry and the way back to the list', async () => {
+    navigation.search = 'entry=gone'
+    const list = listOf()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string) => {
+        if (input.startsWith('/api/base-knowledge/folders')) return Response.json(BASE_KNOWLEDGE_FOLDERS)
+        if (input.startsWith('/api/base-knowledge/gone')) return Response.json({ detail: 'No base-knowledge entry with this id' }, { status: 404 })
+        return Response.json(list)
+      }),
+    )
+    renderWorkspace()
+    expect(await screen.findByText(/Diese Grundlage konnte nicht geladen werden/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Erneut versuchen|Nochmal/ })).toBeTruthy()
+    await userEvent.click(screen.getByTestId('base-knowledge-back'))
+    expect(navigation.push).toHaveBeenCalledWith('/app/base-knowledge', { scroll: false })
+  })
+
   it('turns a selection into one bulk call', async () => {
     const calls = stubFetch(listOf())
     renderWorkspace()

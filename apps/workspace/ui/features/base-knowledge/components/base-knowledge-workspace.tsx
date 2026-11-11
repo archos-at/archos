@@ -34,6 +34,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CountPill } from '@/components/ui/count-pill'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadError } from '@/components/ui/load-error'
+import { BackControl } from '@/components/shell/back-link'
 import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SECTION_HEADER_CLASS } from '@/components/shell/project-section-frame'
@@ -246,7 +247,15 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
     if (state.failed && !list) return <LoadError title={t('loadError')} onRetry={() => reload()} />
     if (!list || !folders) return <Skeleton className="h-64 w-full" />
     if (location.entryId) {
-      if (open.failed) return <LoadError title={t('entryLoadError')} onRetry={open.retry} />
+      if (open.failed) {
+        // The page that failed has no path row of its own: the way back to the list sits above the retry.
+        return (
+          <div className="flex flex-col gap-4">
+            <BackControl label={t('detail.back')} onClick={() => location.go({ entryId: null })} className="self-start" testId="base-knowledge-back" />
+            <LoadError title={t('entryLoadError')} onRetry={open.retry} />
+          </div>
+        )
+      }
       if (!openEntry) return <Skeleton className="h-64 w-full" />
       return (
         <EntryPage
