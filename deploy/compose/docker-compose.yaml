@@ -865,7 +865,7 @@ services:
   # One-shot WorkOS authorization rollout, the compose half of the Kubernetes
   # Jobs in deploy/pulumi/src/app/workos-authz-jobs.ts. First the catalog: every
   # permission and role the code checks is created in WorkOS (`provision:authz
-  # --apply`, which only adds). Then the folder-grants carry-over (ADR-0097),
+  # --apply`, which adds, and deletes only a retired permission). Then the folder-grants carry-over (ADR-0097),
   # which is a no-op once it has run. After the frontend is healthy, because
   # the carry-over must not run while the old dialog can still narrow a list.
   # No key, no WorkOS, exit 0, as for audit-schemas. Bundled by the image
