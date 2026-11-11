@@ -24,6 +24,12 @@ from tests.object_corpus_fakes import install
 ENQUEUE = ingest_dispatch.enqueue_only
 
 
+def _job_done(name: str, sha256: str, chunk_format_version: int) -> bool:
+    """A job for ``name`` prepared at the file's current mark and finished: what ``oib_sync`` records."""
+    corpus_store.begin_job(name)
+    return corpus_store.mark_ingested(name, sha256, chunk_format_version)
+
+
 def _sync() -> oib_sync.SyncResult:
     return oib_sync.sync(enqueue=ENQUEUE)
 
@@ -79,7 +85,7 @@ def _stored(name: str, content: bytes, *, ingested: bytes | None = None, format_
         return
     # `mark_ingested` only records bytes the row still holds, so replay the history it would have had.
     corpus_store.put(name, ingested)
-    corpus_store.mark_ingested(name, _sha256(ingested), format_version or oib_sync.CHUNK_FORMAT_VERSION)
+    _job_done(name, _sha256(ingested), format_version or oib_sync.CHUNK_FORMAT_VERSION)
     corpus_store.put(name, content)
 
 

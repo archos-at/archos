@@ -37,6 +37,12 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _job_done(name: str, sha256: str, chunk_format_version: int) -> bool:
+    """A job for ``name`` prepared at the file's current mark and finished: what ``oib_sync`` records."""
+    corpus_store.begin_job(name)
+    return corpus_store.mark_ingested(name, sha256, chunk_format_version)
+
+
 def _stored_elsewhere(name: str, data: bytes, cache: Path) -> None:
     """A file another replica uploaded: object and row exist, this process's cache does not hold it."""
     corpus_store.put(name, data)
@@ -81,7 +87,7 @@ class TestPutAndRemove:
 
     def test_put_again_replaces_the_bytes_and_keeps_what_the_index_was_built_from(self, bucket, cache):
         corpus_store.put("a.pdf", b"v1")
-        assert corpus_store.mark_ingested("a.pdf", _sha(b"v1"), FORMAT)
+        assert _job_done("a.pdf", _sha(b"v1"), FORMAT)
 
         corpus_store.put("a.pdf", b"version two")
 
@@ -93,7 +99,7 @@ class TestPutAndRemove:
 
     def test_putting_the_same_bytes_again_does_not_ask_for_a_new_ingestion(self, bucket):
         corpus_store.put("a.pdf", b"v1")
-        corpus_store.mark_ingested("a.pdf", _sha(b"v1"), FORMAT)
+        _job_done("a.pdf", _sha(b"v1"), FORMAT)
 
         corpus_store.put("a.pdf", b"v1")
 
@@ -252,17 +258,23 @@ class TestIngestionState:
     def test_a_file_the_index_was_built_from_does_not(self, bucket):
         corpus_store.put("a.pdf", b"alpha")
 
-        assert corpus_store.mark_ingested("a.pdf", _sha(b"alpha"), FORMAT) is True
+        assert _job_done("a.pdf", _sha(b"alpha"), FORMAT) is True
 
         row = corpus_store.get_file("a.pdf")
         assert row == corpus_store.FileRow(
-            "a.pdf", "base-corpus/a.pdf", _sha(b"alpha"), 5, ingested_sha256=_sha(b"alpha"), chunk_format_version=FORMAT
+            "a.pdf",
+            "base-corpus/a.pdf",
+            _sha(b"alpha"),
+            5,
+            ingested_sha256=_sha(b"alpha"),
+            chunk_format_version=FORMAT,
+            job_mark_generation=0,
         )
         assert not row.needs_ingestion(FORMAT)
 
     def test_a_new_chunk_format_makes_every_file_need_ingestion_again(self, bucket):
         corpus_store.put("a.pdf", b"alpha")
-        corpus_store.mark_ingested("a.pdf", _sha(b"alpha"), FORMAT)
+        _job_done("a.pdf", _sha(b"alpha"), FORMAT)
 
         row = corpus_store.get_file("a.pdf")
 
@@ -272,18 +284,18 @@ class TestIngestionState:
         corpus_store.put("a.pdf", b"v1")
         corpus_store.put("a.pdf", b"v2")  # replaced while v1 was being ingested
 
-        assert corpus_store.mark_ingested("a.pdf", _sha(b"v1"), FORMAT) is False
+        assert _job_done("a.pdf", _sha(b"v1"), FORMAT) is False
 
         row = corpus_store.get_file("a.pdf")
         assert row is not None and row.ingested_sha256 is None and row.needs_ingestion(FORMAT)
 
     def test_nothing_is_recorded_for_a_file_that_is_gone(self, bucket):
-        assert corpus_store.mark_ingested("ghost.pdf", _sha(b"x"), FORMAT) is False
+        assert _job_done("ghost.pdf", _sha(b"x"), FORMAT) is False
 
     def test_forget_ingested_for_one_file_leaves_the_others(self, bucket):
         for name, data in (("a.pdf", b"a"), ("b.pdf", b"b")):
             corpus_store.put(name, data)
-            corpus_store.mark_ingested(name, _sha(data), FORMAT)
+            _job_done(name, _sha(data), FORMAT)
 
         corpus_store.forget_ingested("a.pdf")
 
@@ -294,7 +306,7 @@ class TestIngestionState:
     def test_forget_ingested_without_a_name_forgets_every_file(self, bucket):
         for name, data in (("a.pdf", b"a"), ("b.pdf", b"b")):
             corpus_store.put(name, data)
-            corpus_store.mark_ingested(name, _sha(data), FORMAT)
+            _job_done(name, _sha(data), FORMAT)
 
         corpus_store.forget_ingested()
 
@@ -401,6 +413,48 @@ class TestWireDetails:
             corpus_store._download_object("base-corpus/a.pdf", io.BytesIO())
 
 
+class TestMarkGeneration:
+    """A job counts as the file's index only if it was prepared at the file's current mark (ADR-0165)."""
+
+    AT = corpus_store.FileMark(country_id="AT")
+
+    def test_each_mark_is_a_new_generation_and_a_job_records_the_one_it_was_prepared_at(self, bucket):
+        corpus_store.put("a.pdf", b"alpha")
+        assert corpus_store.begin_job("a.pdf") is None
+        corpus_store.set_mark("a.pdf", self.AT)
+        row = corpus_store.get_file("a.pdf")
+        assert (row.mark_generation, row.job_mark_generation, row.job_carries_the_mark()) == (1, 0, False)
+
+        assert corpus_store.begin_job("a.pdf") == self.AT
+        assert corpus_store.get_file("a.pdf").job_carries_the_mark()
+
+    def test_a_job_prepared_before_the_mark_is_not_recorded_as_the_index(self, bucket):
+        corpus_store.put("a.pdf", b"alpha")
+        corpus_store.begin_job("a.pdf")
+        corpus_store.set_mark("a.pdf", self.AT)
+
+        assert corpus_store.mark_ingested("a.pdf", _sha(b"alpha"), FORMAT) is False
+        assert corpus_store.get_file("a.pdf").needs_ingestion(FORMAT)
+
+    def test_a_file_no_job_was_prepared_for_here_is_not_recorded(self, bucket):
+        """A job from before the column (a deploy) has no generation: it is done again, never taken on trust."""
+        corpus_store.put("a.pdf", b"alpha")
+
+        assert corpus_store.mark_ingested("a.pdf", _sha(b"alpha"), FORMAT) is False
+
+    def test_a_table_created_before_the_generation_gets_its_columns_on_first_use(self, bucket):
+        corpus_store.put("a.pdf", b"alpha")
+        with corpus_store._transaction() as conn:
+            for column in corpus_store._ADDED_FILE_COLUMNS:
+                conn.exec_driver_sql(f"ALTER TABLE oib_corpus_files DROP COLUMN {column}")
+        corpus_store._initialized.clear()
+
+        row = corpus_store.get_file("a.pdf")
+
+        assert (row.mark_generation, row.job_mark_generation) == (0, None)
+        assert _job_done("a.pdf", _sha(b"alpha"), FORMAT) is True
+
+
 class TestFailure:
     def test_a_job_that_gave_up_is_remembered_against_the_bytes_it_gave_up_on(self, bucket):
         corpus_store.put("a.pdf", b"alpha")
@@ -420,7 +474,7 @@ class TestFailure:
         corpus_store.put("a.pdf", b"alpha")
         corpus_store.mark_failed("a.pdf", _sha(b"alpha"), "oib-1")
 
-        corpus_store.mark_ingested("a.pdf", _sha(b"alpha"), FORMAT)
+        _job_done("a.pdf", _sha(b"alpha"), FORMAT)
 
         assert corpus_store.get_file("a.pdf").failed_job_id is None
 
