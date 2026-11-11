@@ -155,14 +155,35 @@ def _figure(plain: Mapping[str, Any]) -> Figure:
     )
 
 
+#: A label read out of the file (a region's name, a unit, a ratio text) is kept this short.
+MAX_LABEL_CHARS = 60
+_LABEL_UNSAFE = str.maketrans({"<": "(", ">": ")", '"': "'", "`": "'"})
+
+
+def inert(text: str, limit: int = MAX_LABEL_CHARS) -> str:
+    """A string from the file made safe to print in a sentence of ours: one line, no tag, bounded.
+
+    A region's name is written by whoever made the file and ends up inside the
+    scale's label, outside any fence. So it cannot carry a line break, open or
+    close a tag, close a quotation, or run long.
+    """
+    line = " ".join("".join(char for char in text if char.isprintable() or char.isspace()).split())
+    line = line.translate(_LABEL_UNSAFE)
+    return line if len(line) <= limit else line[: limit - 1] + "…"
+
+
+def _formats(pairs: Sequence[tuple[str, float]]) -> tuple[tuple[str, float], ...]:
+    return tuple((inert(unit, 12), float(factor)) for unit, factor in pairs)
+
+
 def _region(plain: Mapping[str, Any]) -> StoredRegion:
     return StoredRegion(
         box=tuple(plain["box"]),
-        name=plain["name"],
-        subtype=plain["subtype"],
-        ratio=plain["ratio"],
-        x=tuple((unit, float(factor)) for unit, factor in plain["x"]),
-        y=None if plain["y"] is None else tuple((unit, float(factor)) for unit, factor in plain["y"]),
+        name=inert(plain["name"]),
+        subtype=inert(plain["subtype"], 12),
+        ratio=inert(plain["ratio"]),
+        x=_formats(plain["x"]),
+        y=None if plain["y"] is None else _formats(plain["y"]),
         cyx=plain["cyx"],
     )
 

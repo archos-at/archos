@@ -53,6 +53,7 @@ from agent.drawings.sheet_types import Figure
 from agent.drawings.sheet_types import Point
 from agent.drawings.sheet_types import Sheet
 from agent.drawings.sheet_types import StoredRegion
+from agent.drawings.sheet_types import inert
 
 State = Literal["verified", "estimated", "uncalibrated"]
 Source = Literal["calibration", "stored_region", "scale_note", "none"]
@@ -62,6 +63,8 @@ METRES_PER_POINT_ON_PAPER = 0.0254 / 72
 #: A figure agrees when the span at the hinted scale is within this share of its value.
 AGREEMENT_TOLERANCE = 0.005
 MIN_AGREEING = 3
+#: The most numeric figures in one region the check looks at. Past it the region is left uncorroborated.
+MAX_FIGURES_CHECKED = 2_000
 MIN_AGREEING_SHARE = 0.8
 #: The relative error a hint states, by where it came from (decision 10). An ``estimated`` reading carries
 #: at least :data:`AGREEMENT_TOLERANCE`: the check that made it an estimate cannot tell scales apart more finely.
@@ -246,7 +249,7 @@ def note_hint(sheet: Sheet) -> Hint | str:
     if not ratios:
         return "the page stores no scale and prints no scale note"
     if len(ratios) > 1:
-        listed = ", ".join(f"1:{ratio}" for ratio in ratios)
+        listed = ", ".join(f"1:{ratio}" for ratio in ratios[:6]) + (", …" if len(ratios) > 6 else "")
         return f"the page prints different scale notes ({listed}) and stores no region that says where each applies"
     return Hint(
         "scale_note",
@@ -433,6 +436,10 @@ def corroborate(sheet: Sheet, hint: Hint) -> Corroboration:
 
 def _corroborate(sheet: Sheet, hint: Hint) -> Corroboration:
     inside = [figure for figure in sheet.figures if contains(hint.box, figure.centre) and is_numeric(figure)]
+    if len(inside) > MAX_FIGURES_CHECKED:
+        # Finding each figure's dimension line costs a look at the linework around it. A region with more
+        # numbers than any drawing dimensions is not checked figure by figure, and so is not corroborated.
+        return Corroboration(hint, UnitConvention("undetermined", f"{len(inside):,} numbers, too many to check"), ())
     # Only a figure on a dimension line says how lengths are printed here, and only such a figure is checked.
     on_lines = [(figure, ends) for figure in inside if (ends := dimension_ends(sheet, figure)) is not None]
     convention = unit_convention(figure for figure, _ in on_lines)
@@ -467,7 +474,7 @@ def why_not_here(found: Corroboration, point: Point) -> str:
     """
     nearest = min(found.checks, key=lambda check: _to_span(point, check.ends))
     if not nearest.agrees:
-        return f"the dimension figure nearest this place ({nearest.figure.text}) does not agree with it"
+        return f"the dimension figure nearest this place ({inert(nearest.figure.text)}) does not agree with it"
     places = [end for check in found.checks if check.agrees for end in check.ends]
     low_x, high_x = min(x for x, _ in places), max(x for x, _ in places)
     low_y, high_y = min(y for _, y in places), max(y for _, y in places)

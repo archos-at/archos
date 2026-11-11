@@ -37,7 +37,7 @@ const { UNAVAILABLE } = vi.hoisted(() => ({
   } as const,
 }))
 vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => structuredClone(UNAVAILABLE)) }))
-vi.mock('@/lib/bim/model-kinds-repository', () => ({ projectModelKinds: vi.fn(async () => ({ ifc: true, dxf: false })) }))
+vi.mock('@/lib/bim/model-kinds-repository', () => ({ projectModelKinds: vi.fn(async () => ({ ifc: true, dxf: false, pdf: true })) }))
 vi.mock('@/lib/db/tenant-context', async (original) => ({
   ...(await original<typeof import('@/lib/db/tenant-context')>()),
   withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
@@ -191,7 +191,8 @@ describe('POST /api/internal/turn-context', () => {
       baseKnowledge: null,
       baseKnowledgeLabels: [],
       knowledgeContext: UNAVAILABLE,
-      projectModels: { ifc: true, dxf: false },
+      // The project holds a PDF, and the session does not hold `drawing-measure`: it is not stated (ADR-0182).
+      projectModels: { ifc: true, dxf: false, pdf: false },
     })
     expect(Buffer.byteLength(data.projectContext)).toBeGreaterThan(6200)
     expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({

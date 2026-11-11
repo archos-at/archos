@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from agent.drawings.sheet_scale import ScaleReading
+from agent.drawings.sheet_types import inert
 
 Provenance = Literal["printed_figure", "vector_verified", "vector_estimated"]
 PROVENANCES: tuple[Provenance, ...] = ("printed_figure", "vector_verified", "vector_estimated")
@@ -166,7 +167,9 @@ def decide(
         reasons.append(f"{measurement.inside} lines cross the span between its ends")
     agreeing = measurement.printed is not None and measurement.printed.agrees is True
     if measurement.printed is not None and measurement.printed.agrees is False:
-        reasons.append(f"the printed figure {measurement.printed.text} on the span disagrees with the measurement")
+        reasons.append(
+            f"the printed figure {inert(measurement.printed.text)} on the span disagrees with the measurement"
+        )
     elif not agreeing and not crop_attached:
         reasons.append("no printed figure on the span agrees and the answer carries no crop for a person to check")
     reasons.extend(_threshold_reasons(measurement.value, measurement.interval, floor, bounds))
@@ -218,7 +221,7 @@ def _measurement_lines(answer: Measurement) -> list[str]:
         lines.append(f"Each point was moved to linework by {moved} pt; {answer.inside} lines cross the span inside.")
     if answer.printed is not None:
         agrees = {True: "agrees", False: "DISAGREES", None: "not compared"}[answer.printed.agrees]
-        lines.append(f"Printed figure on the span: {answer.printed.text} ({agrees}).")
+        lines.append(f"Printed figure on the span: {inert(answer.printed.text)} ({agrees}).")
     if answer.outcome is not None:
         lines.append(f"Verdict: {answer.outcome.verdict}." + "".join(f"\n  - {r}" for r in answer.outcome.reasons))
     lines.extend(answer.notes)
@@ -230,7 +233,7 @@ def _no_number_lines(answer: NoNumber) -> list[str]:
     if answer.scale is not None:
         lines.append(_scale_line(answer.scale))
     if answer.printed is not None:
-        lines.append(f"Printed figure on the span (not measured): {answer.printed.text}.")
+        lines.append(f"Printed figure on the span (not measured): {inert(answer.printed.text)}.")
     for row in answer.crossings:
         style = ", ".join(
             filter(

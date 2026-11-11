@@ -11,7 +11,11 @@ import { IFC_EXTENSIONS } from './types'
 export interface ProjectModelKinds {
   ifc: boolean
   dxf: boolean
+  /** A PDF: what `drawing_measure` reads. Whether a PDF holds a drawing page is not a fact this table has. */
+  pdf: boolean
 }
+
+const PDF_EXTENSIONS = ['.pdf'] as const
 
 /** The file name ends in one of `extensions`, the lists the IFC and DXF pipelines claim (`.ifczip` included). */
 function endsWithAny(extensions: readonly string[]): SQL {
@@ -24,7 +28,9 @@ function endsWithAny(extensions: readonly string[]): SQL {
  * read through). A file in a folder the asker may not open still counts: that
  * binds a tool, which then refuses the read, and tells the model nothing. Read off the documents, not `bim_models`, so an IFC whose extraction
  * has not started yet still counts. The agent binds `ifc_query`, `ifc_measure`
- * and `dxf_measure` only where this says there is one: their schemas are ~9k
+ * and `dxf_measure` only where this says there is one (and `drawing_measure`
+ * where there is a PDF AND the organization holds the entitlement, which the
+ * turn context adds): their schemas are ~9k
  * tokens of every call of a turn (the chat agent's `turn_tools.py`).
  */
 export async function projectModelKinds(
@@ -41,6 +47,7 @@ export async function projectModelKinds(
       .select({
         ifc: sql<boolean>`coalesce(bool_or(${endsWithAny(IFC_EXTENSIONS)}), false)`,
         dxf: sql<boolean>`coalesce(bool_or(${endsWithAny(DRAWING_RENDITION_EXTENSIONS)}), false)`,
+        pdf: sql<boolean>`coalesce(bool_or(${endsWithAny(PDF_EXTENSIONS)}), false)`,
       })
       .from(documents)
       .where(
@@ -52,5 +59,5 @@ export async function projectModelKinds(
       ),
   )
   // A raw `sql<boolean>` is what the driver returns; coerce at the boundary.
-  return { ifc: row?.ifc === true, dxf: row?.dxf === true }
+  return { ifc: row?.ifc === true, dxf: row?.dxf === true, pdf: row?.pdf === true }
 }

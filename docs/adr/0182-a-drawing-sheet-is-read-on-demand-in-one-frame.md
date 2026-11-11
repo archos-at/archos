@@ -64,6 +64,35 @@ stored or migrated before the first slice is useful.
   left out, never cut. A raised final digit stays in its figure.
 * **A page is bounded.** More than 2,000,000 segments is refused with the
   count.
+* **The tool is `drawing_measure`, separate from `dxf_measure`** (added with
+  slice 3). A DXF is a site of parcels; a PDF sheet is a page of regions, each
+  with a scale that is verified, estimated or uncalibrated. Its numbers are
+  computed by the engine in `agent.drawings` from linework the engine tied the
+  caller's points to; a model never works one out. Its answers are records the
+  answer check reads, not sources (as ADR-0153 has it for a DXF).
+* **Sheets are cached per process, bounded by segments**
+  (`tools/drawings/sheet_source.py`): keyed by bucket, object key and page, at
+  most 3,000,000 segments (a figure weighs 8) and 12 sheets held, a file's bytes kept once so a second page costs
+  no second fetch. The cache is tenant data and never a way in: every call
+  asks the BFF's scoped lookup first.
+* **It ships dark at two gates.** The chat binds it only where the turn
+  context states `projectModels.pdf`, which the BFF sets for a project holding
+  a PDF in an organization with the `drawing-measure` entitlement; an unknown
+  answer leaves it unbound. The door operation is `external: false` until the
+  flag is retired, because a backend operation carries no flag.
+* **The tool asks again when it is called.** A run that binds the boot set
+  without a turn's scope (a job's chat agent, the internal tools route) never
+  went through that binding, so `run_drawing_measure` refuses a call the turn
+  stated no `pdf` for (`common/turn_file_kinds.turn_states`), before it
+  resolves a file. Deep research does not list the tool.
+* **A file cannot stall a turn or speak outside the fence.** The engine's work
+  runs off the event loop under a 30 s limit; a region with more than 2,000
+  numeric figures is not checked figure by figure and stays uncorroborated. A
+  string the file wrote that lands in a sentence of ours (a region's name, a
+  unit, a ratio text, the figure on a span) passes `sheet_types.inert`: one
+  line, no tag, at most 60 characters. Listed figures are cut at 120.
+* **A licensed copy is not read.** The tool prints figures as plain text, and
+  a licensed page's text may reach a model only inside a licensed hit.
 
 ### Consequences
 
@@ -90,7 +119,12 @@ form matrices, and that `read_characters` walks no path.
 digit and the four rotations; `test_sheet_crop_text.py` the whole-or-absent
 rule and the bound. `packages/agent/tests/tools/look/test_printed_text.py`
 holds the fence, the licensed path and the card. The import contract
-`agent-knowledge-port` holds the package boundary.
+`agent-knowledge-port` holds the package boundary, with one stated exception
+(`agent.tools.drawings.sheet_source` imports the reader).
+`packages/agent/tests/tools/drawings/test_drawing_measure.py` holds the scoped
+lookup, the cache's bound and that a refused caller is never handed a cached
+sheet; `test_register_decisions.py` that an unknown answer never binds the
+tool; `turn-context/project-models.spec.ts` the entitlement gate.
 
 ## Pros and Cons of the Options
 

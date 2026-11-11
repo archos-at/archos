@@ -802,6 +802,13 @@ functions:
   dxf_measure:
     _type: dxf_measure
 
+  # A page of a PDF drawing read and measured from the file itself (ADR-0182): the printed figures as
+  # text, a width, distance, path or area from the linework, each number with its interval, provenance
+  # and the scale it rests on. Bound only where the organization holds `drawing-measure` and the
+  # project holds a PDF (`turn_tools`).
+  drawing_measure:
+    _type: drawing_measure
+
   # The FUNCTION NAME here is deliberately still `shallow_research_agent` while
   # the `_type` is `research_agent`. NAT puts the function name — not the type —
   # on the wire as `Function Start: <name>`, and the frontend persists that
@@ -856,6 +863,7 @@ functions:
       - ifc_query
       - ifc_measure
       - dxf_measure
+      - drawing_measure
       - ask_user
     verbose: true
     # A CEILING ON ROUNDS, NOT A QUOTA ON CALLS — and the number is the floor of

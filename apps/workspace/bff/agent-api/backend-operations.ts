@@ -224,6 +224,22 @@ const ENTRIES = [
     needsProject: true,
   },
   {
+    name: 'drawing-measure',
+    tool: 'drawing_measure',
+    domain: 'documents',
+    summary: 'Read printed figures and measure widths, distances and areas on a page of a project’s PDF drawing',
+    description:
+      'Read and measure a page of a project’s PDF drawing (a floor plan, a section, a site plan plotted from CAD) from the ' +
+      'file itself: `sheet` (size, each region’s scale and its state), `figures` and `rooms` (what is printed, as text), ' +
+      '`scale_check`, and `clearance`, `distance`, `path`, `area`. Places are shares of the page as shown, 0 to 1, origin top ' +
+      'left; document-look shows where things are. The engine ties each point to linework and returns no number where it ' +
+      'cannot, or where the region’s scale is neither calibrated by a person nor corroborated by the sheet’s own dimension ' +
+      'figures. A scale is verified, estimated or uncalibrated; an estimated one gives a length with a caveat and never a ' +
+      'verdict against `threshold_min` / `threshold_max`. State every number with its interval and provenance; never ' +
+      'recompute, round or convert one, and never work a length out from a printed scale.',
+    needsProject: true,
+  },
+  {
     name: 'dxf-measure',
     tool: 'dxf_measure',
     domain: 'documents',

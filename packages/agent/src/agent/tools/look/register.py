@@ -123,7 +123,7 @@ def _observe(
     )
 
 
-async def _licence_of(resolved: Any) -> Any:
+async def licence_of(resolved: Any) -> Any:
     """The licence of the document a look reads, read off the document itself, whatever shelf it sits on.
 
     The base corpus (the published legal corpus: no collection, no workspace document) holds no office's copy.
@@ -332,7 +332,7 @@ async def _run_look(
                 rendered = await render
             if isinstance(rendered, View):
                 place = place_facts(resolved, page, rendered.region, image_index)
-                licence = await _licence_of(resolved)
+                licence = await licence_of(resolved)
                 refuse_unattested_look(licence)
                 sees = await turn_sees()
                 result, reading, read = await _blocks_for(rendered, question or "", sees, region, place, licence)

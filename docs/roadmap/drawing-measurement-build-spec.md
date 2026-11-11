@@ -7,8 +7,8 @@ says why and what. This says how, in what order, and what done means for each
 slice. Where the two disagree, this file is newer and wins; the differences are
 under [What changed against the plan](#what-changed-against-the-plan).*
 
-**Slices 1 and 2 are built** (the reader, `look` returning the text in its crop,
-and scale and probe as pure functions); the rest is not. Every path named as existing was read on 2026-11-11.
+**Slices 1 to 3 are built** (the reader, `look` returning the text in its crop,
+scale and probe as pure functions, and the tool, dark); the rest is not. Every path named as existing was read on 2026-11-11.
 Every number under [Measured](#measured) was produced that day; the scripts were
 research and are not committed.
 
@@ -331,7 +331,10 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
     is retired: `backend-operations.ts` has no flag on an operation, so
     `external: true` would open it to every outside agent. `withheld` is the
     wrong form: it takes one of six categories (`WITHHELD_CATEGORIES`) and none
-    means „dark behind a flag“.
+    means „dark behind a flag“. As built, a third check sits in the tool: it
+    refuses a call the turn stated no `pdf` for (`turn_file_kinds.turn_states`),
+    because a job's chat agent and `POST /v1/internal/tools/<name>` bind the
+    boot set without the turn's scope. Deep research does not list the tool.
 15. **New code lands in new modules.** `view_image.py`, `use-document-review.ts`,
     `document-review.tsx`, `review-page-layer.tsx` and `bff/annotations/service.ts`
     are over the size limit and may not grow (`ci/size_baseline.json`). They gain
@@ -368,6 +371,8 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
 | `agent/drawings/sheet_measure.py` | The four measuring operations: span or snapped points, the scale they share, the tolerance, the answer. Added in slice 2: the join of probe, scale and answer needed a home that is none of the three. |
 | `agent/tools/drawings/sheet_source.py` | Loading through the scoped lookup, converting the reader's plain values into a `Sheet`, the cache of decision 1. |
 | `agent/tools/drawings/measure_register.py` | The tool, modelled on `register.py` beside it. |
+| `agent/drawings/sheet_listing.py` | The reading operations (`sheet`, `figures`, `rooms`, `scale_check`): what the file holds, with the sheet's own lines kept apart so the tool fences them. Added in slice 3. |
+| `apps/workspace/bff/turn-context/project-models.ts` | The gate: a project's PDF is stated to the agent only where the organization holds `drawing-measure`. |
 
 A measuring answer carries: value and unit; interval; `provenance`, one of
 `printed_figure`, `vector_verified`, `vector_estimated`; the
@@ -474,6 +479,17 @@ otherwise to state as „not verified because“ in the closing checklist.
   `agents/piloti/AGENTS.md`. <!-- brand-history -->
 * **Mind:** the turn-context wire is strict, so a new field needs the BFF and the
   agent to roll in an order the pull request states.
+* **As built:** the roll order does not matter. The strict schema is the BFF's
+  own answer; the agent reads `projectModels` key by key. An older agent
+  ignores `pdf`. A newer agent with an older BFF finds no `pdf` and leaves the
+  tool unbound, and so does an unknown answer (null): for this one kind
+  "unknown" must not bind, or it would hand the tool to an organization without
+  the entitlement. The door operation is `external: false` with a reason, not
+  `withheld`, as decision 14 says (this slice's "Build" line said `withheld`).
+  No verdict other than `undecidable` comes out of this slice: nothing is
+  `verified` until a calibration is read (slice 4), and no crop is attached
+  until the card exists (slice 6). `scale_check` without a region checks every
+  stored region, since the page's middle is often in none.
 * **Done when:** `test_chat_tools_are_classified.py`,
   `test_collection_read_inventory.py`, `test_register_decisions.py`,
   `test_static_prefix_size.py`, `test_context_client.py`,

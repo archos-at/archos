@@ -163,15 +163,25 @@ def _stacked(above: Figure, below: Figure) -> bool:
 
 
 def _blocks(figures: Sequence[Figure]) -> list[list[int]]:
-    """Upright figures grouped into text blocks: each line under the line before it. Indices into ``figures``."""
+    """Upright figures grouped into text blocks: each line under the line before it. Indices into ``figures``.
+
+    Figures are taken top to bottom; only the blocks whose last line is still
+    close above can take the next one, so a sheet of ten thousand figures looks
+    at a handful per figure and not at every block before it.
+    """
     order = sorted(range(len(figures)), key=lambda index: (figures[index].centre[1], figures[index].centre[0]))
     blocks: list[list[int]] = []
+    open_blocks: list[list[int]] = []
     for index in order:
-        home = next((block for block in blocks if _stacked(figures[block[-1]], figures[index])), None)
+        figure = figures[index]
+        reach = _STAMP_LEADING * 2 * figure.height
+        open_blocks = [block for block in open_blocks if figure.centre[1] - figures[block[-1]].centre[1] <= reach]
+        home = next((block for block in open_blocks if _stacked(figures[block[-1]], figure)), None)
         if home is None:
-            blocks.append([index])
-        else:
-            home.append(index)
+            home = []
+            blocks.append(home)
+            open_blocks.append(home)
+        home.append(index)
     return blocks
 
 
