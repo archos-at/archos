@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -151,7 +152,8 @@ def render_ts(register: Register) -> str:
 
 
 def _cell(text: str) -> str:
-    return " ".join(str(text).replace("|", "\\|").split()).replace("{productName}", "the product")
+    text = str(text).replace("the {productName}", "the product").replace("{productName}", "the product")
+    return " ".join(text.replace("|", "\\|").split())
 
 
 def _transfer_basis(row: dict) -> str:
@@ -203,6 +205,51 @@ def _flow_rows(register: Register) -> list[str]:
     return lines
 
 
+#: What `agreement` may hold: the contracting entity and where its DPA is, as the vendor publishes them.
+AGREEMENT_FIELDS = frozenset({"entity", "dpa", "dpa_url", "subprocessors", "note", "checked", "sources"})
+
+
+def agreement_errors(register: Register) -> list[str]:
+    """`agreement` is optional; where present it names the entity, the DPA and the day someone read them."""
+    errors = []
+    for row in register.rows:
+        agreement = row.get("agreement") or {}
+        where = f"{row['id']}.yaml"
+        errors += [f"{where}: unknown `agreement` field {name}" for name in sorted(set(agreement) - AGREEMENT_FIELDS)]
+        if not agreement:
+            continue
+        errors += [f"{where}: `agreement` needs `{name}`" for name in ("entity", "dpa") if not agreement.get(name)]
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(agreement.get("checked", ""))):
+            errors.append(f"{where}: `agreement.checked` is the day it was read, YYYY-MM-DD")
+    return errors
+
+
+def _link(url: str | None) -> str:
+    return f"<{url}>" if url and re.fullmatch(r"https://\S+", url) else _cell(url or "—")
+
+
+def _agreement_rows(register: Register) -> list[str]:
+    """Who the contract is with and where its DPA is, for each listed row that records it."""
+    lines = [
+        "| Recipient | Contracting entity | DPA: how it is concluded | DPA text | Its subprocessors | Note | Checked |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for row in register.rows:
+        agreement = row.get("agreement")
+        if not agreement:
+            continue
+        lines.append(
+            f"| {_cell(row['name'])} | {_cell(agreement['entity'])} | {_cell(agreement['dpa'])} "
+            f"| {_link(agreement.get('dpa_url'))} | {_link(agreement.get('subprocessors'))} "
+            f"| {_cell(agreement.get('note') or '—')} | {agreement['checked']} |"
+        )
+    return lines
+
+
+def _toolchain(register: Register) -> list[str]:
+    return [f"- {_cell(service['copy']['en'])}" for service in register.build]
+
+
 def render_annex(register: Register) -> str:
     """The DPA annex in Markdown."""
     unconfirmed = [_cell(row["name"]) for row in register.rows if row["status"] in LISTED and row["contract"] != "dpa"]
@@ -221,6 +268,11 @@ def render_annex(register: Register) -> str:
         "Where one recipient serves several purposes, each flow with the place it is processed (`per_model`: "
         "the upstream follows the model an office chose).",
         "\n".join(_flow_rows(register)),
+        "## Contracting entities and agreements",
+        "What each vendor publishes about itself, read on the day in the last column: the entity a contract is "
+        "with, how its DPA is concluded and where its own subprocessors are listed. It says what a vendor offers, "
+        "not what we signed: that is the `contract` column above, and stays `to confirm` until a person records it.",
+        "\n".join(_agreement_rows(register)),
         "## Contracts still to confirm",
         "Listed recipients whose contract the register does not record as a signed DPA: "
         + (", ".join(unconfirmed) or "none")
@@ -231,6 +283,9 @@ def render_annex(register: Register) -> str:
         "\n".join(_gaps(register)),
         "## Public sources (not processors)",
         "\n".join(_public_source_line(source) for source in register.public_sources),
+        "## Build, deployment and engineering services (not processors)",
+        "None receives a prompt, a document or account data of an office.",
+        "\n".join(_toolchain(register)),
     ]
     return "\n\n".join(parts) + "\n"
 
@@ -241,7 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         argv
     )
     register = load()
-    errors = register_errors(register)
+    errors = register_errors(register) + agreement_errors(register)
     for error in errors:
         print(f"data-flow register: {error}", file=sys.stderr)
     if errors:

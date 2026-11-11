@@ -24,6 +24,12 @@ env: [OPENAI_API_KEY]
 evidence:
   - packages/agent/src/agent/common/credential_resolution.py
   - apps/agent-host/src/agent_host/routes/dictation.py
+agreement:
+  entity: The key holder's own contract. For customers in the EEA OpenAI names OpenAI Ireland Limited
+  dpa: Between the key holder and OpenAI
+  dpa_url: https://openai.com/policies/data-processing-addendum/
+  subprocessors: https://openai.com/policies/sub-processor-list/
+  checked: '2026-11-11'
 copy:
   name:
     de: OpenAI, Inc. (direkt)

@@ -22,6 +22,14 @@ model_vendors: [elevenlabs]
 evidence:
   - apps/agent-host/src/agent_host/routes/dictation.py
   - docs/architecture/voice-dictation.md
+agreement:
+  entity: Reached through OpenRouter, so no contract of our own. ElevenLabs' EU terms name Eleven Labs Inc., 169 Madison Avenue, New York, USA
+  dpa: None with us; reached only as an upstream of OpenRouter, under OpenRouter's agreement
+  dpa_url: https://elevenlabs.io/dpa
+  subprocessors: https://compliance.elevenlabs.io/subprocessors
+  checked: '2026-11-11'
+  sources:
+    - https://elevenlabs.io/terms-of-use-eu
 copy:
   name:
     de: ElevenLabs (via OpenRouter; Ausweichmodell OpenAI Whisper)

@@ -1,0 +1,54 @@
+id: byok-endpoint
+kind: processor
+status: conditional
+order: 105
+name: An organization's own AI endpoint (Azure OpenAI or a custom gateway)
+entity_country: various
+processing_countries: [various]
+transfer: third_country
+contract: none
+data_classes: [model_io, tenant_content]
+purposes: [service_provision]
+holds_tenant_text: true
+deletion:
+  status: controller_designated
+  de: >-
+    Nur erreicht, wenn eine Organisation in den Modelleinstellungen einen eigenen Schlüssel mit eigener Basis-URL
+    hinterlegt (Azure OpenAI oder ein eigenes Gateway). Der Empfänger ist dann von der Organisation bestimmt; es gelten
+    seine Aufbewahrungsregeln unter dem Vertrag der Organisation.
+  en: >-
+    Reached only when an organization stores its own key with its own base URL in the model settings (Azure OpenAI or a
+    gateway of its own). The organization then names the recipient; its retention applies under the organization's
+    contract.
+hosts: []
+env: []
+# The host is typed by an office's administrator and lives in the database
+# (apps/workspace/bff/llm-credentials/providers.ts: `azure-openai` and `custom`
+# take any public HTTPS base URL), so no file names it.
+no_signal: the base URL is entered per organization and stored in the database; no file names a host or a variable
+evidence:
+  - apps/workspace/bff/llm-credentials/providers.ts
+  - packages/agent/src/agent/common/credential_resolution.py
+agreement:
+  entity: Named by the organization (its Azure tenant or its own gateway); we have no contract with it
+  dpa: Between the organization and its provider. The organization acts as controller for this recipient; the AVV should say so
+  checked: '2026-11-11'
+copy:
+  name:
+    de: Eigener KI-Endpunkt Ihrer Organisation (Azure OpenAI oder eigenes Gateway)
+    en: Your organization's own AI endpoint (Azure OpenAI or a gateway of your own)
+  purpose:
+    de: Nur wenn Ihre Organisation in den Modelleinstellungen einen eigenen Schlüssel mit eigener Adresse hinterlegt (BYOK)
+    en: Only when your organization stores its own key with its own address in the model settings (BYOK)
+  data:
+    de: Gleiche Inhalte wie OpenRouter (siehe oben), statt an OpenRouter an die von Ihnen angegebene Adresse
+    en: The same content OpenRouter receives (see above), sent to the address you name instead of OpenRouter
+  location:
+    de: Von Ihrer Organisation bestimmt
+    en: Chosen by your organization
+  transfer:
+    de: Keine Vereinbarung mit uns; Ihre Organisation wählt den Empfänger und schließt den Vertrag mit ihm
+    en: No agreement with us; your organization chooses the recipient and holds the contract with it
+  required:
+    de: Optional (nur falls konfiguriert)
+    en: Optional (only if configured)
