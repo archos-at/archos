@@ -10,7 +10,9 @@ What this renders is a raster page: 200 dpi, one image per page, wrapped in a PD
 true size (A3 and A1). A drawing that says ``"render": "vector"`` is written by
 ``render_fixture_drawings_vector.py`` instead: text and lines as PDF page objects, which is what a
 CAD export looks like and what lets ``look`` return the printed figures of a crop as text. The raster
-is the harder case, and the first baseline was taken on it alone.
+is the harder case, and the first baseline was taken on it alone. A drawing that says
+``"render": "ground_truth"`` is a sheet of the measuring engine's ground-truth set, written by the same
+module: the one sheet the ``measure`` rows ask about.
 
 The only text an indexer would find is each page's ``index_text``: a caption, as an ingest of a
 scanned sheet leaves it (``fixture_visual.py`` seeds it). A value a question asks for is on the
@@ -183,6 +185,10 @@ def render_pdf(spec: dict[str, Any], drawing: dict[str, Any], dpi: int | None = 
         from render_fixture_drawings_vector import render_vector_pdf
 
         return render_vector_pdf(spec, drawing)
+    if drawing.get("render") == "ground_truth":
+        from render_fixture_drawings_vector import render_ground_truth_pdf
+
+        return render_ground_truth_pdf(drawing)
     dpi = dpi or spec["dpi"]
     pages = [render_page(spec, drawing, page, dpi) for page in drawing["pages"]]
     buffer = io.BytesIO()

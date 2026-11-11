@@ -20,6 +20,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
 
 import files_eval  # noqa: E402
 import fixture_visual  # noqa: E402
+import measure_answers  # noqa: E402
 import render_fixture_drawings as drawings  # noqa: E402
 import suite  # noqa: E402
 import visual_eval  # noqa: E402
@@ -133,7 +134,7 @@ class TestTheRendering:
         from knowledge_layer.sheet.reader import read_sheet
 
         for drawing in SPEC["drawings"]:
-            if drawing.get("render") != "vector":
+            if drawing.get("render") is None:
                 assert read_sheet(rendered[drawing["file_name"]].read_bytes(), 1)["scan"], drawing["file_name"]
 
     def test_nothing_but_the_spec_is_committed(self):
@@ -142,8 +143,8 @@ class TestTheRendering:
 
 
 class TestTheRows:
-    def test_there_are_about_twenty_in_six_categories(self):
-        assert 18 <= len(ROWS) <= 24
+    def test_there_are_about_twenty_five_in_seven_categories(self):
+        assert 18 <= len(ROWS) <= 28
         assert {r["category"] for r in ROWS} == set(visual_eval.CATEGORIES)
         assert len({r["id"] for r in ROWS}) == len(ROWS)
         assert all(r["id"].startswith("pv-") for r in ROWS)
@@ -151,9 +152,13 @@ class TestTheRows:
     @pytest.mark.parametrize("row", ROWS, ids=lambda row: row["id"])
     def test_a_row_expects_a_look_or_none_and_only_known_things(self, row):
         expect = row["expect"]
-        assert set(expect) <= files_eval.CHECK_KEYS
         tools = expect["tools"]
         assert set(tools) <= files_eval.TOOL_KEYS
+        if row["category"] == "measure":
+            assert set(expect) == {"tools", "measure"} and tools == {"must": ["drawing_measure"]}
+            assert not row["gold"]
+            return
+        assert set(expect) <= files_eval.CHECK_KEYS
         assert (tools.get("must") == ["look"]) != (tools.get("must_not") == ["look"])
         assert expect.get("mentions")
         assert (row["category"] == "skip") == bool(tools.get("must_not"))
@@ -181,7 +186,7 @@ class TestTheRows:
     def test_a_row_naming_a_file_names_one_of_the_project(self):
         names = set(fixture_visual.load_project().names)
         for row in ROWS:
-            mentioned = {m for item in row["expect"]["mentions"] for m in item if m.endswith(".pdf")}
+            mentioned = {m for item in row["expect"].get("mentions") or [] for m in item if m.endswith(".pdf")}
             assert mentioned <= names
 
     def test_a_given_box_is_refused_in_the_set_that_does_not_send_one(self, tmp_path):
@@ -203,6 +208,120 @@ class TestTheRows:
         )
         with pytest.raises(ValueError, match="not an element"):
             visual_eval.load_questions(path)
+
+
+MEASURE_ROWS = [row for row in ROWS if row["category"] == "measure"]
+ROOM_WIDTH = {"truth": 4.0, "unit": "m", "within": 0.02, "or_no_number": ["Maßstab", "kalibr"]}
+
+
+class TestAMeasuredAnswer:
+    @pytest.mark.parametrize(
+        ("answer", "held"),
+        [
+            ("Der Raum ist im Lichten 4,00 m breit (Intervall 3,98 bis 4,02 m, geschätzter Maßstab).", True),
+            ("clearance: 4.000 m (interval 3.980 m to 4.020 m)", True),
+            ("Die lichte Breite beträgt 400 cm.", True),
+            ("Die lichte Breite beträgt 8,00 m.", False),
+            ("Der Raum ist 4,12 m breit.", False),
+            ("Ohne bestätigten Maßstab nenne ich keine Zahl: bitte den Maßstab M 1:50 bestätigen.", True),
+            ("Das kann ich dem Grundriss nicht entnehmen.", False),
+            ("", False),
+        ],
+    )
+    def test_a_number_near_the_truth_or_no_number_and_the_remedy(self, answer, held):
+        assert measure_answers.measure_check(ROOM_WIDTH, answer) is held
+
+    def test_without_the_other_form_no_number_fails(self):
+        strict = {key: value for key, value in ROOM_WIDTH.items() if key != "or_no_number"}
+
+        assert measure_answers.measure_check(strict, "Bitte den Maßstab bestätigen.") is False
+
+    def test_a_scale_note_is_no_length_and_a_length_is_no_area(self):
+        assert measure_answers.stated("M 1:50, Raum 4,00 m, Tisch 1,28 m² und 160 cm lang", "m") == [4.0, 1.6]
+        assert measure_answers.stated("M 1:50, Raum 4,00 m, Tisch 1,28 m² (1.28 m2)", "m2") == [1.28, 1.28]
+
+    @pytest.mark.parametrize("measure", ["{truth: 4.0, unit: ft, within: 0.1}", "{truth: 0, unit: m}", "4.0"])
+    def test_a_measure_the_reader_would_misread_is_refused(self, measure, tmp_path):
+        path = tmp_path / "q.yaml"
+        path.write_text(
+            f"questions:\n  - id: pv-x\n    question: q\n    expect: {{measure: {measure}}}\n", encoding="utf-8"
+        )
+        with pytest.raises(ValueError, match="pv-x: measure"):
+            visual_eval.load_questions(path)
+
+    def test_the_check_reaches_the_run(self):
+        row = MEASURE_ROWS[0]
+        calls = [call("drawing_measure", document="EP-04_Grundriss_KG.pdf", operation="clearance")]
+        checks = visual_eval.visual_checks(row["expect"], calls, [], "Die Breite ist 4,00 m.", "", None, [], 1)
+
+        assert checks == {"must:drawing_measure": True, "measure": True}
+
+
+@pytest.fixture(scope="module")
+def built():
+    """The ground-truth drawing of the spec, and its sheet built and read back as the engine reads it."""
+    from agent_testing import ground_truth
+    from agent_testing.sheets import sheet_of
+    from knowledge_layer_testing import ground_truth_sheets
+
+    drawing = next(d for d in SPEC["drawings"] if d.get("render") == "ground_truth")
+    truth = getattr(ground_truth_sheets, drawing["builder"])()
+    return drawing, ground_truth.Drawn(truth, sheet_of(truth.page))
+
+
+class TestTheMeasureRowsAgainstTheGroundTruth:
+    """The rows ask about one sheet of the engine's ground-truth set; their values are that sheet's."""
+
+    def test_there_are_three_to_five_and_each_names_a_probe_of_the_sheet(self, built):
+        drawing, drawn = built
+        names = {probe.name for probe in drawn.truth.truths}
+
+        assert 3 <= len(MEASURE_ROWS) <= 5
+        assert all(row["expect"]["measure"]["probe"] in names for row in MEASURE_ROWS)
+        assert all("EP-04" in row["question"] for row in MEASURE_ROWS) and drawing["file_name"].startswith("EP-04")
+
+    @pytest.mark.parametrize("row", MEASURE_ROWS, ids=lambda row: row["id"])
+    def test_a_row_states_the_drawn_value_and_reaches_no_less_far_than_the_engine_s_interval(self, row, built):
+        from agent_testing import ground_truth
+
+        from agent.drawings.sheet_measure import Request
+
+        _, drawn = built
+        measure = row["expect"]["measure"]
+        probe = next(probe for probe in drawn.truth.truths if probe.name == measure["probe"])
+        answer = ground_truth.ask(drawn.sheet, probe, Request())
+
+        assert measure["truth"] == pytest.approx(probe.value, abs=1e-9)
+        assert measure["unit"] == ("m2" if probe.operation == "area" else "m")
+        low, high = answer.interval
+        assert low <= probe.value <= high and answer.provenance == "vector_estimated"
+        assert (high - low) / 2 <= measure["within"] <= (high - low) + 0.005
+        assert measure_answers.measure_check(measure, f"{answer.value:.3f} {'m²' if measure['unit'] == 'm2' else 'm'}")
+
+    def test_the_gold_boxes_are_where_the_sheet_has_its_view_and_its_scale_note(self, built):
+        drawing, drawn = built
+        boxes = {element["id"]: element["box"] for element in drawing["pages"][0]["elements"]}
+        sheet = drawn.sheet
+
+        assert boxes["plan-area"] == pytest.approx(sheet.share_box(drawn.truth.regions[0].box), abs=1e-3)
+        [note] = [figure for figure in sheet.figures if figure.text == "M 1:50"]
+        x, y, w, h = boxes["title-scale"]
+        cx, cy = sheet.share(note.centre)
+        assert x <= cx <= x + w and y <= cy <= y + h
+
+    def test_the_sheet_is_written_by_the_suite_s_renderer_as_linework(self, tmp_path):
+        from knowledge_layer.sheet.reader import read_sheet
+
+        written = drawings.render_all(tmp_path, SPEC, dpi=50)["EP-04_Grundriss_KG.pdf"]
+        sheet = read_sheet(written.read_bytes(), 1)
+
+        assert not sheet["scan"] and len(sheet["segments"]["width"]) > 50
+
+    def test_a_builder_that_is_not_one_of_the_set_is_refused(self):
+        import render_fixture_drawings_vector as vector
+
+        with pytest.raises(ValueError, match="builder must be one of"):
+            vector.render_ground_truth_pdf({"file_name": "x.pdf", "builder": "os"})
 
 
 class TestTheBoxes:
