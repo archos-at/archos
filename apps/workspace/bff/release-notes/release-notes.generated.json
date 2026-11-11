@@ -985,6 +985,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "When you stop a document that is being read, it now stays stopped: it no longer briefly shows as being read again, and starting it again right away begins a fresh read.",
+            "de": "Wenn Sie das Lesen eines Dokuments anhalten, bleibt es jetzt angehalten: Es wird nicht mehr kurzzeitig wieder als gelesen angezeigt, und wenn Sie es sofort erneut starten, beginnt ein neuer Lesevorgang."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "The text of an e-mail to a project could not be filed when ARCHOS had suggested a folder for it, so it stayed at \"Filing …\" for good. It is now filed into that folder like any other text.",

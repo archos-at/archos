@@ -4988,6 +4988,10 @@
     "de": "Wenn Sie einen Chat teilen, der aus einem eingeschränkten Ordner geschöpft hat, bietet Piloti nur Kolleginnen und Kollegen an, die alle diese Ordner lesen dürfen, und zeigt die anderen ausgegraut mit „Hat keinen Zugriff auf einen Ordner, aus dem dieser Chat stammt“. Den Ordner nennt es nie."
   },
   {
+    "en": "When you stop a document that is being read, it now stays stopped: it no longer briefly shows as being read again, and starting it again right away begins a fresh read.",
+    "de": "Wenn Sie das Lesen eines Dokuments anhalten, bleibt es jetzt angehalten: Es wird nicht mehr kurzzeitig wieder als gelesen angezeigt, und wenn Sie es sofort erneut starten, beginnt ein neuer Lesevorgang."
+  },
+  {
     "en": "When you upload a file that belongs in another folder, Piloti suggests that folder with a small chip on the file, and a bar above the folder moves several files into one folder together. Nothing moves until you confirm, and the suggestion shows the move and the reason first.",
     "de": "Wenn Sie eine Datei hochladen, die in einen anderen Ordner gehört, schlägt Piloti diesen Ordner mit einem kleinen Chip auf der Datei vor. Über eine Leiste oberhalb des Ordners können Sie mehrere Dateien gemeinsam in einen Ordner verschieben. Es wird nichts verschoben, bevor Sie bestätigen. Der Vorschlag zeigt zuerst an, wohin die Dateien verschoben werden und warum."
   },
