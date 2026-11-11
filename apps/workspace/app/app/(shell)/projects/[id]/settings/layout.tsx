@@ -35,7 +35,8 @@ export default async function ProjectSettingsLayout({
     const access = await resolveProjectSettingsAccess(session, id)
 
     return (
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 md:px-8 md:py-8">
+      // The section's content container, as Dateien and the section's header: one left edge for title and page.
+      <div className="listing-container flex flex-col gap-6 px-4 py-6 md:px-8 md:py-8">
         <ProjectSettingsNav projectId={id} sections={visibleSettingsSections(access)} />
         <div className="animate-in fade-in-0 slide-in-from-bottom-1 duration-base ease-entrance min-w-0 motion-reduce:animate-none">
           {children}

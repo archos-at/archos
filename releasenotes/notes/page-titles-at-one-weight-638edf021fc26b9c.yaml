@@ -2,6 +2,6 @@
 # area: general
 improvements:
   - >
-    Page headers are calmer again: every page title has one size and a lighter
-    weight, a line now separates the header from the page, and the office
-    filing keeps its search, filter and buttons in one row under its title.
+    Page headers are calmer and line up with the page: lighter, uniform titles,
+    a line under the header, and the office filing now looks and navigates like
+    a project's files, with the open folder named at the top and a way back up.

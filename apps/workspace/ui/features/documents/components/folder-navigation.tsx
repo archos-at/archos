@@ -284,7 +284,7 @@ export function FolderBreadcrumbRow({
         </BreadcrumbList>
       </Breadcrumb>
       </div>
-      {tabSlot /* a tool row without a header place (the Büroablage): the tools join it; a phone's are in its ⋯ */ ? inRow : !rootToolsElsewhere && <div className="flex shrink-0 items-center gap-3" /* tonal presses 12px apart */>{tools}</div>}
+      {!rootToolsElsewhere /* a phone's are in its ⋯: here they were the same two a second time */ && <div className="flex shrink-0 items-center gap-3" /* tonal presses 12px apart */>{tools}</div>}
     </div>
   )
 }

@@ -33,6 +33,7 @@ import { phoneBackTarget } from './phone-tabs'
 import { SectionNav, type SectionNavItem } from './section-nav'
 import { ShellSearchButton } from './shell-search-button'
 import { SectionToolRow, SectionToolRowScope } from './section-tool-row'
+import { PlaceContext, SectionPlaceUp, type SectionPlace } from './section-place'
 import { CLAUSE_JOIN } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -99,9 +100,13 @@ function subpageOf(pathname: string): Subpage | null {
 // unteren Rand“). It had one until 2026-11-10. The only rule Dateien draws between blocks (`tests/brand-literals.spec.ts`).
 export const SECTION_HEADER_CLASS = 'shrink-0 border-b border-border bg-background px-4 py-4 phone:py-2 md:px-8'
 
+/** A header's children at the content container's width (`listing-container` less its 32px margins), centred with it. */
+export const SECTION_CONTENT_WIDTH = '[&>*]:max-w-[1216px] @min-[90rem]/section:[&>*]:mx-auto'
+
 const ActionsContext = createContext<(node: ReactNode, onTitleLine?: boolean) => void>(() => {})
 
-// The tool row moved to its own module so the Büroablage can draw it too; its readers still import it from here.
+// The tool row and the place moved to their own modules so the Büroablage can draw them too; readers import them here.
+export { ProjectSectionPlace, useSectionPlaceSlot, type SectionPlace } from './section-place'
 export {
   ProjectSectionTabActions,
   SectionLevelTools,
@@ -191,40 +196,6 @@ export function ProjectSectionBack({ href, to }: SectionBack): null {
   return null
 }
 
-/**
- * Where the reader stands inside a place, when it is deeper than the place itself: Alle Dateien's open folder. The
- * title names it („Index C“, not „Alle Dateien“ over a folder's contents), the crumb carries the way there after the
- * project („Projekt › Dateien › Abgabepläne › …“, `trail`, each step a way up), and on a phone, which has no crumb,
- * the title's line starts with the way one level up (`up`). The tab still names the place.
- */
-export interface SectionPlace {
-  title: string
-  /** The crumb after the project's name: the section's own step and the levels between it and `title`. */
-  trail: ReactNode
-  /** A phone's one-line crumb above the title, without the project: „… › Fluchtwegnachweise Tiefgarage“. */
-  phoneTrail?: ReactNode
-  /** One level up, for the phone's ← („Zurück zu Abgabepläne“). */
-  up: { label: string; onSelect: () => void }
-  /** What the level holds, beside the title in muted 13px („240 Elemente“): a folder of hundreds said nothing. */
-  count?: string
-}
-const PlaceContext = createContext<((place: SectionPlace | null) => void) | null>(null)
-
-/** Whether the frame draws {@link ProjectSectionPlace}; outside it (the Büroablage, a preview) the page keeps its own path row. */
-export function useSectionPlaceSlot(): boolean {
-  return useContext(PlaceContext) !== null
-}
-
-/** Hand the frame's title and crumb the level the reader stands in. Renders nothing at the call site. */
-export function ProjectSectionPlace({ title, trail, phoneTrail, up, count }: SectionPlace): null {
-  const setPlace = useContext(PlaceContext)
-  useLayoutEffect(() => {
-    if (!setPlace) return
-    setPlace({ title, trail, phoneTrail, up, count })
-    return () => setPlace(null)
-  }, [title, trail, phoneTrail, up, count, setPlace])
-  return null
-}
 
 
 /**
@@ -372,9 +343,11 @@ export function ProjectSectionFrame({
     <ActionsContext.Provider value={setActions}>
     <SectionToolRowScope enabled={files && !phone}>
       <div className="@container/section flex h-full min-h-0 flex-col">
-        {/* Every Dateien tab's head is the listing's container (1280px, 32px margins), centred with it from a 1440px
-            section: the E-Mail-Eingang's split view sits in the same container, so no tab moves the title. */}
-        <div className={cn(SECTION_HEADER_CLASS, 'phone:pt-3', files && '[&>*]:max-w-[1216px] @min-[90rem]/section:[&>*]:mx-auto')}>
+        {/* Every section's head is the design system's content container (1280px, 32px margins, `listing-container`),
+            centred with it from a 1440px section, and so is every section's page: the title stands on the content's
+            left edge on every page. Only Dateien had it; the Übersicht's title stood at the screen's edge over a page
+            centred at 1152px (review of 2026-11-11). The band and its rule run the section's width. */}
+        <div className={cn(SECTION_HEADER_CLASS, 'phone:pt-3', SECTION_CONTENT_WIDTH)}>
           <PageHeader
             title={title}
             // Two lines at most, then cut at its end, the whole name its tooltip (a folder's name can be a sentence).
@@ -397,20 +370,12 @@ export function ProjectSectionFrame({
             subtitle={sectionSubtitle}
             // One way back, on the title's line and its arrow on the title's edge: a page under the Übersicht goes
             // back to it, an opened mail to its list (`ProjectSectionBack`).
-            titleStartClassName={pageBack || place ? 'hidden phone:flex' : 'md:hidden'}
+            titleStartClassName={place ? undefined : pageBack ? 'hidden phone:flex' : 'md:hidden'}
             titleStart={
               place ? (
-                // A folder's way up, on the phone's title line: the crumb says it at desk width.
-                <button
-                  type="button"
-                  onClick={place.up.onSelect}
-                  aria-label={place.up.label}
-                  title={place.up.label}
-                  data-testid="page-header-up"
-                  className="text-foreground active:bg-desk -ml-3 -mr-2 flex size-11 items-center justify-center rounded-control"
-                >
-                  <ArrowLeft className="size-4" aria-hidden />
-                </button>
+                // A folder's way up, at the start of the title's line at every width: the crumb names the path, the
+                // arrow stands in one place however deep the folder is.
+                <SectionPlaceUp up={place.up} />
               ) : back && (
                 <Link
                   href={back.href}

@@ -870,6 +870,21 @@ describe('OfficeShelfWorkspace — folders', () => {
     expect(screen.queryByText('fassadendetail.pdf')).not.toBeInTheDocument()
   })
 
+  // As in a project's Dateien (review of 2026-11-11): inside a folder the header names it, the crumb is the way there
+  // from the office, and the title's line starts with the way one level up.
+  it('names the open folder in the header, with the office over the way there and the way up', async () => {
+    currentSearch = 'folder=f-2'
+    render(<OfficeShelfWorkspace canManage organizationName="Atelier Nord" />)
+
+    const header = screen.getByTestId('office-shelf-header')
+    expect(await within(header).findByRole('heading', { level: 1, name: /^Statik/ })).toBeInTheDocument()
+    const crumb = within(header).getByTestId('page-header-crumb')
+    expect(crumb).toHaveTextContent('Atelier Nord')
+    expect(within(crumb).getByRole('button', { name: 'Planung' })).toBeInTheDocument()
+    fireEvent.click(within(header).getByTestId('page-header-up'))
+    expect(new URLSearchParams(String(routerPush.mock.calls.at(-1)?.[0]).split('?')[1]).get('folder')).toBe('f-1')
+  })
+
   it('creates a folder on the Archiv route', async () => {
     const user = userEvent.setup()
     const posted: unknown[] = []
