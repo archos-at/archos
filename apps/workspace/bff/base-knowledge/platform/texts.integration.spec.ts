@@ -375,8 +375,28 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       expect(await texts.uploadPlatformText(AUTHOR, id, manifestationKey, pdf(pdfName('renamed'), 'the first text'))).toMatchObject({ status: 'unchanged', stored: false })
 
       await expect(texts.refuseRemovingNamedText(attached.text.corpusFile)).rejects.toMatchObject({ status: 409 })
+      // Under any spelling the removal would trim to that name: a leading or trailing space once passed the check
+      // and then removed the named file.
+      await expect(texts.refuseRemovingNamedText(` ${attached.text.corpusFile}`)).rejects.toMatchObject({ status: 409 })
+      await expect(texts.refuseRemovingNamedText(`${attached.text.corpusFile}\t`)).rejects.toMatchObject({ status: 409 })
       // Positive control: a file no record names is removed freely.
       await expect(texts.refuseRemovingNamedText(pdfName('named-by-nobody'))).resolves.toBeUndefined()
+    })
+
+    it('refuses to name a text over a proposal made while it was being stored, and keeps that proposal', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('edited-meanwhile')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const edited = wire.proposedRecordSchema.parse({ ...manifestation, language: 'de-AT' })
+      // While the fetch is in flight, somebody proposes the manifestation again.
+      fetcherKeeps('the publisher’s PDF', () => service.proposePlatformRecords(AUTHOR, id, { records: [edited], dryRun: false }))
+      await expect(texts.importPlatformText(AUTHOR, id, { manifestationKey, sourceId: 'at-ris', url: PDF_URL })).rejects.toMatchObject({ status: 409 })
+      const view = await service.getPlatformChangeRequest(AUTHOR, id)
+      expect(view.texts).toEqual([])
+      expect(view.revisions.find((revision) => revision.recordId === `manifestation:${manifestationKey}`)?.claims).toContainEqual(expect.objectContaining({ path: 'language', value: 'de-AT' }))
+
+      // Attaching again names the bytes already stored, on the proposal as it now stands.
+      fetcherKeeps('the publisher’s PDF')
+      await expect(texts.importPlatformText(AUTHOR, id, { manifestationKey, sourceId: 'at-ris', url: PDF_URL })).resolves.toMatchObject({ status: 'written', stored: false })
     })
 
     it('reads which country, edition and request a file belongs to, and whether it is released', async () => {
@@ -667,6 +687,21 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       const id = await submittedWithText('named-only-eyes', async () => undefined, name)
       expect((await service.getPlatformChangeRequest(AUTHOR, id)).sourcesUnchecked).toBe(true)
       await expect(service.decidePlatformChangeRequest(AUTHOR, id, alone)).rejects.toMatchObject({ status: 409 })
+    })
+
+    it('takes an uploaded text for fetched once the same bytes are imported from a reviewed source', async () => {
+      const content = 'the publisher’s PDF, uploaded first'
+      const id = await submittedWithText('upload-then-import', async (request, key) => {
+        await texts.uploadPlatformText(AUTHOR, request, key, new File([content], 'mine.pdf', { type: 'application/pdf' }))
+        expect((await service.getPlatformChangeRequest(AUTHOR, request)).texts).toMatchObject([{ origin: 'upload', countsAsFetched: false }])
+        fetcherKeeps(content)
+        // The same bytes and the same proposal, and still a new revision: where the text came from changed.
+        await expect(texts.importPlatformText(AUTHOR, request, { manifestationKey: key, sourceId: 'at-ris', url: PDF_URL })).resolves.toMatchObject({ status: 'written', stored: false })
+        vi.unstubAllGlobals()
+      })
+      const view = await service.getPlatformChangeRequest(AUTHOR, id)
+      expect(view.texts).toMatchObject([{ origin: 'url', sourceOrigin: 'built_in', countsAsFetched: true, sha256: sha256(content) }])
+      expect(view.sourcesUnchecked).toBe(false)
     })
 
     it('counts a text fetched from a configured source as fetched: the author approves alone', async () => {

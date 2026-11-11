@@ -170,6 +170,9 @@ export const platform: typeof en.platform = {
     unreviewedSource: 'über eine ungeprüfte Quelle abgerufen',
     draftsTitle: 'In Arbeit',
     draftsDescription: 'Entwürfe, in die noch Einträge und Texte kommen. Öffnen Sie einen, um einer Ausgabe ihren Text anzuhängen.',
+    draftsLoadError: 'Die Entwürfe konnten nicht geladen werden',
+    draftsMore: 'Weitere Entwürfe anzeigen',
+    draftsLoadingMore: 'Weitere Entwürfe werden geladen …',
     text: {
       label: 'Text',
       uploaded: 'hochgeladen',

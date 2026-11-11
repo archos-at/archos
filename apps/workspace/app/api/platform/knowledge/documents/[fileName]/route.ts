@@ -14,7 +14,9 @@ import { deleteKnowledgeBaseDocument } from '@/lib/knowledge/service'
 
 export const DELETE = platformApiRoute<{ fileName: string }>(
   async ({ params }) => {
-    const { fileName } = params
+    // One name for the check and the removal: the service trims what it is given, so a name checked as it arrived
+    // (a leading space, another normal form) once passed the check and then removed the file a record names.
+    const fileName = params.fileName.trim()
     await refuseRemovingNamedText(fileName)
     await deleteKnowledgeBaseDocument(fileName)
     return NextResponse.json({ success: true, fileName })

@@ -232,8 +232,15 @@ export async function insertProposedRecords(
   for (const record of records) {
     const recordId = recordIdOf(record)
     const current = newest.get(recordId)
-    // The same proposal again changes nothing, unless other bytes were just attached under the same file name.
-    const sameBytes = !context.text || current?.provenance.text?.sha256 === context.text.sha256
+    // The same proposal again changes nothing, unless other bytes were just attached under the same file name, or
+    // the same bytes came another way: an upload attached again from a reviewed source is a fetch from then on.
+    const had = current?.provenance.text
+    const sameBytes =
+      !context.text ||
+      (had?.sha256 === context.text.sha256 &&
+        had.origin === context.text.origin &&
+        had.sourceOrigin === context.text.sourceOrigin &&
+        had.sourceRevisionId === context.text.sourceRevisionId)
     if (current && sameBytes && proposalText(current.provenance.proposal) === proposalText(record)) {
       written.push({ key: proposalKey(record), recordId, revisionId: current.revisionId, status: 'unchanged' })
       continue

@@ -88,6 +88,35 @@ describe('CountryKnowledge', () => {
     expect(within(screen.getByTestId('country-knowledge-queue')).getByText('MA 37')).toBeInTheDocument()
   })
 
+  test('reads the next page of drafts on request, and says so when the drafts cannot be read', async () => {
+    serve()
+    const draft = (id: string, title: string) => ({ ...OVERVIEW.queue[0], id, title, status: 'draft' })
+    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
+    const pages: Record<string, () => Response> = {
+      '/api/platform/knowledge/change-requests?status=draft': () => Response.json({ changeRequests: [draft('cr-d1', 'OIB 2019')], nextCursor: '50' }),
+      '/api/platform/knowledge/change-requests?status=draft&cursor=50': () => Response.json({ changeRequests: [draft('cr-d2', 'OIB 2023')], nextCursor: null }),
+    }
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => pages[url]?.() ?? routed(url, init))
+    const user = userEvent.setup()
+    const first = render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    const list = await screen.findByTestId('country-knowledge-drafts')
+    expect(within(list).queryByText('OIB 2023')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Show more drafts' }))
+    expect(await within(list).findByText('OIB 2023')).toBeInTheDocument()
+    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show more drafts' })).not.toBeInTheDocument()
+    first.unmount()
+
+    // A failed read is not "no drafts": the section says so and reads again on request.
+    pages['/api/platform/knowledge/change-requests?status=draft'] = () => new Response('no', { status: 500 })
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    expect(await screen.findByText('The drafts could not be loaded')).toBeInTheDocument()
+    pages['/api/platform/knowledge/change-requests?status=draft'] = () => Response.json({ changeRequests: [draft('cr-d1', 'OIB 2019')], nextCursor: null })
+    await user.click(screen.getByRole('button', { name: /again/i }))
+    expect(await within(await screen.findByTestId('country-knowledge-drafts')).findByText('OIB 2019')).toBeInTheDocument()
+    expect(screen.queryByText('The drafts could not be loaded')).not.toBeInTheDocument()
+  })
+
   test('lists the drafts, where texts are attached, and opens the one a link names', async () => {
     serve()
     const draft = { ...OVERVIEW.queue[0], id: 'cr-draft', title: 'OIB 2019', status: 'draft' }

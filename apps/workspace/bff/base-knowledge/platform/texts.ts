@@ -35,6 +35,7 @@ import { requirePlatform } from './service-gate'
 import { type FetchedThrough, fetchedThrough, usableSource } from './sources'
 import { insertProposedRecords, lockChangeRequest, platformTransaction } from './store'
 import { checksOutsideKit } from './text-checks'
+import { corpusName } from './upload-hashes'
 import { draftManifestation, otherRecordNaming, pinsOfFiles, type TextPin, textPlacements } from './text-store'
 import { type AttachTextResult, corpusFileNameSchema, type ImportTextBody, type ListTextsQuery, TEXT_PLACEMENT_PAGE, textFileName, type TextPlacementList } from './text-wire'
 import { type ProposedRecord, proposedRecordSchema } from './wire'
@@ -93,6 +94,12 @@ async function nameTheText(
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (request?.status !== 'draft') throw new ConflictError('The change request left draft while the text was stored.')
+    // The fetch or the upload ran outside the lock. A proposal of this manifestation made meanwhile is not written
+    // over with the snapshot taken before it: the attach is refused, and attaching again names the stored bytes.
+    const latest = proposedRecordSchema.safeParse((await draftManifestation(tx, requestId, recordIdOfKey(record.key)))?.proposal)
+    if (!latest.success || JSON.stringify(latest.data) !== JSON.stringify(record)) {
+      throw new ConflictError('The manifestation was proposed again while its text was stored; nothing was named. Attach the text again.')
+    }
     const problems = await runKit(tx, request, [next], checks)
     if (problems.length > 0) {
       throw new UnprocessableError(`The manifestation fails ${problems.length} check(s) with this text; nothing was written.`, { problems })
@@ -244,7 +251,15 @@ export async function refuseReplacingNamedTexts(files: ReadonlyMap<string, strin
  * to a release: its publish, or its next re-index, would find no file.
  */
 export async function refuseRemovingNamedText(fileName: string): Promise<void> {
-  const recordId = await platformTransaction((tx) => otherRecordNaming(tx, fileName, null))
+  // As the caller removes it (trimmed), and as an upload would have stored it (NFC): a record that names either holds it.
+  const names = [...new Set([fileName.trim(), corpusName(fileName)])]
+  const recordId = await platformTransaction(async (tx) => {
+    for (const name of names) {
+      const naming = await otherRecordNaming(tx, name, null)
+      if (naming) return naming
+    }
+    return null
+  })
   if (recordId) {
     throw new ConflictError(
       `${fileName} is the text of ${recordId}; roll back or reject the change request that names it, or attach another text to that manifestation, before removing the file.`,

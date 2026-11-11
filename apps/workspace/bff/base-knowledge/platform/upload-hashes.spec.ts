@@ -71,6 +71,20 @@ describe('the hashes of a plain corpus upload', () => {
     expect((await uploadedPdfHashes(zip({ 'a/F.pdf': 'one', 'b/F.pdf': 'one' }))).get('F.pdf')).toBe(sha('one'))
   })
 
+  it('refuses an upload, or a ZIP whose PDFs would unpack to more than the limit, before anything is inflated', async () => {
+    // 200,000 zeros deflate to a few hundred bytes: the archive is small, what it declares is not.
+    const bomb = new File([zipSync({ 'zeros.pdf': new Uint8Array(200_000), 'ok.pdf': strToU8('one') })], 'texts.zip')
+    expect(bomb.size).toBeLessThan(2_000)
+    await expect(uploadedPdfHashes(bomb, 100_000)).rejects.toMatchObject({ status: 413 })
+    // The sum counts, not only one member; what is no PDF is not unpacked and does not count.
+    const many = zipSync({ 'a.pdf': new Uint8Array(60_000), 'b.pdf': new Uint8Array(60_000), 'notes.txt': new Uint8Array(500_000) })
+    await expect(uploadedPdfHashes(new File([many], 'texts.zip'), 100_000)).rejects.toMatchObject({ status: 413 })
+    await expect(uploadedPdfHashes(new File([new Uint8Array(100_001)], 'big.pdf'), 100_000)).rejects.toMatchObject({ status: 413 })
+    // Positive control: the same archives under a limit that holds them.
+    expect([...(await uploadedPdfHashes(bomb, 300_000)).keys()]).toEqual(['zeros.pdf', 'ok.pdf'])
+    expect([...(await uploadedPdfHashes(new File([many], 'texts.zip'), 120_000)).keys()]).toEqual(['a.pdf', 'b.pdf'])
+  })
+
   it('compares names in one normal form', async () => {
     const decomposed = 'Prüfung.pdf'
     expect([...(await uploadedPdfHashes(new File(['one'], ` ${decomposed} `))).keys()]).toEqual(['Prüfung.pdf'])

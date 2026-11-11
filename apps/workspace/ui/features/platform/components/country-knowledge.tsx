@@ -21,6 +21,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { LoadError } from '@/components/ui/load-error'
+import { LoadMore } from '@/components/ui/load-more'
 import {
   Table,
   TableBody,
@@ -59,6 +61,26 @@ export function CountryKnowledge(): JSX.Element {
   const [overview, setOverview] = useState<Load<PlatformKnowledgeOverview>>({ state: 'loading' })
   const [openId, setOpenId] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<ChangeRequestSummary[]>([])
+  /** The next page of drafts, or null on the last; a failed read keeps what was listed and offers the read again. */
+  const [draftsCursor, setDraftsCursor] = useState<string | null>(null)
+  const [draftsFailed, setDraftsFailed] = useState(false)
+  const [draftsLoading, setDraftsLoading] = useState(false)
+
+  // Drafts are where texts are attached; the queue above holds what waits for review.
+  const loadDrafts = useCallback(async (cursor: string | null) => {
+    setDraftsLoading(true)
+    const open = await fetch(`${BASE}/change-requests?status=draft${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`).catch(() => null)
+    const listed = open?.ok ? ((await open.json().catch(() => null)) as { changeRequests?: ChangeRequestSummary[]; nextCursor?: string | null } | null) : null
+    setDraftsLoading(false)
+    const page = listed?.changeRequests
+    if (!Array.isArray(page)) {
+      setDraftsFailed(true)
+      return
+    }
+    setDraftsFailed(false)
+    setDrafts((listedBefore) => (cursor ? [...listedBefore, ...page] : page))
+    setDraftsCursor(listed?.nextCursor ?? null)
+  }, [])
 
   const load = useCallback(async () => {
     const response = await fetch(BASE).catch(() => null)
@@ -67,11 +89,8 @@ export function CountryKnowledge(): JSX.Element {
       return
     }
     setOverview({ state: 'ready', value: (await response.json()) as PlatformKnowledgeOverview })
-    // Drafts are where texts are attached; the queue above holds what waits for review.
-    const open = await fetch(`${BASE}/change-requests?status=draft`).catch(() => null)
-    const listed = open?.ok ? ((await open.json().catch(() => null)) as { changeRequests?: ChangeRequestSummary[] } | null) : null
-    setDrafts(Array.isArray(listed?.changeRequests) ? listed.changeRequests : [])
-  }, [])
+    await loadDrafts(null)
+  }, [loadDrafts])
 
   // A link from the base corpus opens the request a file belongs to.
   useEffect(() => {
@@ -187,8 +206,11 @@ export function CountryKnowledge(): JSX.Element {
         ) : null}
       </SectionCard>
 
-      {drafts.length > 0 ? (
+      {drafts.length > 0 || draftsFailed ? (
         <SectionCard title={t('countryKnowledge.draftsTitle')} description={t('countryKnowledge.draftsDescription')}>
+          {draftsFailed && drafts.length === 0 ? (
+            <LoadError title={t('countryKnowledge.draftsLoadError')} onRetry={() => loadDrafts(null)} retrying={draftsLoading} />
+          ) : null}
           <Table data-testid="country-knowledge-drafts">
             <TableBody>
               {drafts.map((request) => (
@@ -205,6 +227,16 @@ export function CountryKnowledge(): JSX.Element {
               ))}
             </TableBody>
           </Table>
+          <LoadMore
+            auto={false}
+            hasMore={draftsCursor !== null}
+            loading={draftsLoading && drafts.length > 0}
+            failed={draftsFailed}
+            onLoadMore={() => void loadDrafts(draftsCursor)}
+            loadMoreLabel={t('countryKnowledge.draftsMore')}
+            loadingLabel={t('countryKnowledge.draftsLoadingMore')}
+            failedLabel={t('countryKnowledge.draftsLoadError')}
+          />
         </SectionCard>
       ) : null}
 

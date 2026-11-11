@@ -23,7 +23,7 @@
 import 'server-only'
 import { createHash } from 'node:crypto'
 import { unzipSync } from 'fflate'
-import { BadRequestError } from '@/lib/api/errors'
+import { ApiError, BadRequestError } from '@/lib/api/errors'
 
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex')
 
@@ -45,7 +45,12 @@ export const corpusName = (name: string): string => name.normalize('NFC').trim()
 /** A member name two readers could keep under two names: a NUL, a backslash, a `..` step. */
 const unsafeMember = (path: string): boolean => path.includes('\0') || path.includes('\\') || path.split('/').includes('..')
 
-export async function uploadedPdfHashes(file: File): Promise<Map<string, string>> {
+/** The most one upload holds, and the most a ZIP's PDFs unpack to: the api tier's `MAX_OIB_UPLOAD_BYTES`. */
+export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+
+export async function uploadedPdfHashes(file: File, maxBytes = MAX_UPLOAD_BYTES): Promise<Map<string, string>> {
+  const tooLarge = `The upload is larger than ${Math.floor(maxBytes / (1024 * 1024))} MB, itself or unpacked; upload its PDFs in smaller parts.`
+  if (file.size > maxBytes) throw new ApiError(413, 'PAYLOAD_TOO_LARGE', tooLarge)
   const bytes = new Uint8Array(await file.arrayBuffer())
   const name = corpusName(file.name)
   const isZip = startsAsZip(bytes)
@@ -56,6 +61,9 @@ export async function uploadedPdfHashes(file: File): Promise<Map<string, string>
   let members: Record<string, Uint8Array>
   let unsafe = false
   let twice = false
+  // What the PDFs would unpack to, by the sizes the archive declares: unzipSync allocates each member's declared
+  // size, so a small archive of zeros is refused before anything is inflated.
+  let unpacked = 0
   const paths = new Set<string>()
   try {
     members = unzipSync(bytes, {
@@ -67,7 +75,9 @@ export async function uploadedPdfHashes(file: File): Promise<Map<string, string>
           twice ||= paths.has(path)
           paths.add(path)
         }
-        return member.name.toLowerCase().endsWith('.pdf')
+        if (!member.name.toLowerCase().endsWith('.pdf')) return false
+        unpacked += member.originalSize
+        return unpacked <= maxBytes
       },
     })
   } catch {
@@ -75,6 +85,7 @@ export async function uploadedPdfHashes(file: File): Promise<Map<string, string>
   }
   // One path twice: this reader keeps the last copy and the api tier's the first, so the hash here would not be of
   // the bytes stored there. Refused whole, as the api tier refuses it (`_open_archive`).
+  if (unpacked > maxBytes) throw new ApiError(413, 'PAYLOAD_TOO_LARGE', tooLarge)
   if (twice) throw new BadRequestError('The ZIP holds one member path twice; remove the duplicate.')
   if (unsafe) {
     throw new BadRequestError('The ZIP holds a member whose name has a NUL, a backslash or a ".." step; rename it, or upload its PDFs one by one.')

@@ -172,6 +172,9 @@ export const platform = {
     unreviewedSource: 'fetched through an unreviewed source',
     draftsTitle: 'In progress',
     draftsDescription: 'Drafts that still take records and texts. Open one to attach the text of an edition.',
+    draftsLoadError: 'The drafts could not be loaded',
+    draftsMore: 'Show more drafts',
+    draftsLoadingMore: 'Loading more drafts …',
     text: {
       label: 'Text',
       uploaded: 'uploaded',

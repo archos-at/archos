@@ -137,6 +137,25 @@ describe('platform knowledge routes', () => {
     expect(deleteMock).toHaveBeenCalledWith('norm.pdf')
   })
 
+  it('checks and deletes one name: the name as the deletion would trim it', async () => {
+    isOwner.value = true
+    deleteMock.mockClear()
+    refuseRemoval.mockClear()
+    // The check once saw ' norm.pdf', which no record names, and the service then trimmed it and removed norm.pdf.
+    refuseRemoval.mockImplementation(async (name: string) => {
+      if (name === 'norm.pdf') throw new ConflictError('norm.pdf is the text of manifestation:at-norm-text')
+    })
+
+    const res = await deleteRoute(new Request('https://grid.example', { method: 'DELETE' }), {
+      params: Promise.resolve({ fileName: ' norm.pdf ' }),
+    })
+
+    expect(res.status).toBe(409)
+    expect(refuseRemoval).toHaveBeenCalledWith('norm.pdf')
+    expect(deleteMock).not.toHaveBeenCalled()
+    refuseRemoval.mockReset()
+  })
+
   it('does not delete a file a platform record names as its text', async () => {
     isOwner.value = true
     deleteMock.mockClear()

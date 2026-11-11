@@ -346,15 +346,29 @@ hours before it is released (ADR-0174).
 - No corpus file is replaced by an upload any more, a legacy one included: to
   change one, a person removes it and uploads it again. That is a change for
   whoever maintained the corpus as files by uploading over a name.
-- A file uploaded and published within minutes can still be indexed by the job
-  its upload queued, which carries no country (`oib_sync.mark_for_reingest`
-  leaves a waiting job alone). The file is then read by nobody (`ZZ`) while
-  the index status says `indexed`. A re-ingest from the corpus page repairs
-  it. The cure is for the release's re-ingest to replace that job. It is the
-  next slice and not in this change: a corpus job's id is derived from the
-  file's name, hash and chunk format, so replacing a waiting or running job
-  means cancelling a Hatchet run and starting another under the same id, and
-  that needs a test against the engine, not against a fake.
+- A file uploaded and published within minutes is first indexed by the job its
+  upload queued, which carries no country: `oib_sync.mark_for_reingest` leaves
+  a waiting or running job alone. That job no longer makes the file read as
+  indexed. `oib_sync.settle` compares when the job was prepared with when the
+  file was last marked, drops a job prepared before the mark, and the next
+  sync cycle queues one that carries it; until that one is done the index
+  status says pending. The comparison is to the second and across two clocks
+  (the job's is the api tier's, the mark's the database's), so a mark set
+  within the same second as the job, or inside the clock skew, can still be
+  missed; the file is then read by nobody (`ZZ`), and a re-ingest from the
+  corpus page repairs it. Replacing the waiting job outright would close
+  that too, and needs a test against the engine: a corpus job's id is derived
+  from the file's name, hash and chunk format.
+- An attach that finds its manifestation proposed again while the text was
+  being stored is refused (409) and names nothing; attaching again names the
+  bytes already stored. A file removed from the corpus between an attach's
+  check and its write, or the reverse, is not serialised across the two
+  tiers: KC-1 then refuses the request until the text is attached again.
+- The same bytes attached again from another origin (an upload, then an import
+  from a reviewed source) write a new revision, so the text counts as fetched
+  from then on.
+- The one-shot legacy import (`agent.legacy_corpus_import`) leaves a name the
+  corpus holds alone, with the same bytes or others, under the file's lock.
 - The corpus page reads a file's country from the records. The country a
   legacy file was marked with at the cut-over (`AT`, with no record naming it)
   is not shown: such a file is listed as named by no record.
