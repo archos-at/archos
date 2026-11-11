@@ -1,4 +1,4 @@
--- Reverse 0224: a quarantined row leaves only through a release again, as 0122
+-- Reverse 0225: a quarantined row leaves only through a release again, as 0122
 -- wrote it. No row changes. A row a re-screen already sent on stays where it
 -- is, held by its verdict until its reading ends.
 CREATE OR REPLACE FUNCTION documents_hold_quarantine() RETURNS trigger LANGUAGE plpgsql AS $$

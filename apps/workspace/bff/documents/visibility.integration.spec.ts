@@ -9,7 +9,7 @@
  *     specs drive the services through the in-memory twin, so this is what
  *     makes them evidence about the database.
  *   - a quarantined row leaves quarantine through a release, or through a
- *     re-screen that lifts nothing (migration 0224), and no other write: the
+ *     re-screen that lifts nothing (migration 0225), and no other write: the
  *     repository's status writers skip it, and migration 0122's trigger
  *     refuses any other UPDATE that tries.
  *   - the item read, the sharing probe, document roles, the upload history's
@@ -503,7 +503,7 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
       expect(await statusOf(failed.id)).toBe('uploaded')
     })
 
-    describe('a re-screen of a quarantined file (migration 0224)', () => {
+    describe('a re-screen of a quarantined file (migration 0225)', () => {
       const jobOf = (id: string) => `job-rescreen-${id}`
       const visibleTo = async (id: string, reader: DocumentReader): Promise<boolean> =>
         (await repo.findDocumentInOrg(id, ORG, reader)) !== null

@@ -1571,10 +1571,10 @@
       "breakpoints": true
     },
     {
-      "idx": 224,
+      "idx": 225,
       "version": "7",
-      "when": 1793900000000,
-      "tag": "0224_quarantine_rescreen_exit",
+      "when": 1794000000000,
+      "tag": "0225_quarantine_rescreen_exit",
       "breakpoints": true
     }
   ]

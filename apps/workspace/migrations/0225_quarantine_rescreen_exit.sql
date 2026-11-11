@@ -1,4 +1,4 @@
--- 0224: a quarantined document may be sent through the content gate again
+-- 0225: a quarantined document may be sent through the content gate again
 -- (ADR-0086, „Erneut prüfen").
 --
 -- ## Why

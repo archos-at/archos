@@ -35,7 +35,7 @@
  * The graph is dense because the domain is, not by neglect: a person may
  * read any file again, archive it or replace its bytes at any time. What it
  * does rule out is the part worth a rule: a quarantined row leaves only by a
- * release or a re-screen (the trigger of migrations 0122 and 0224 says the
+ * release or a re-screen (the trigger of migrations 0122 and 0225 says the
  * same in the database), and a verdict (`completed`, `quarantined`,
  * `cancelled`) is only ever a job's.
  *

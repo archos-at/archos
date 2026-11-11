@@ -173,7 +173,7 @@ export async function listFailedDocumentPageInOrg(
  * is lifted, the row stays held from everyone but its uploader and reviewers
  * until the new reading passes, and a match quarantines it again. The hold is
  * the verdict columns and not the status (`passedScreening` in `../visibility`),
- * which is why a quarantined row may take this way out (migration 0224's
+ * which is why a quarantined row may take this way out (migration 0225's
  * trigger allows it only while the outcome still says `quarantined`). Guarded on
  * the row still being held at rest with the bytes the reviewer saw. Returns
  * whether it took; the caller dispatches.
@@ -192,7 +192,7 @@ export async function markForRescreening(
         errorMessage: null,
         // Only a quarantined row carries a verdict (migration 0148's CHECK).
         quarantine: null,
-        // What holds the row once its status says `uploaded` (migration 0224):
+        // What holds the row once its status says `uploaded` (migration 0225):
         // a quarantined row keeps the holding outcome, or takes it when an
         // older writer left another one beside the status. Any other held row
         // keeps what it has.

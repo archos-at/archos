@@ -249,7 +249,7 @@ What those two rounds left open was decided and closed in the change after
 (November 2026). Each fix began by reproducing the defect, and two decisions
 were corrected by the code on the way:
 
-* **Re-screening a quarantined upload** works (migration 0224). The rule first
+* **Re-screening a quarantined upload** works (migration 0225). The rule first
   decided, "the write lifts nothing", was unsafe: no CHECK ties the status to
   the screening outcome, so a quarantined row still carrying an earlier `clean`
   would have been shown to the office. The trigger lets a quarantined row
