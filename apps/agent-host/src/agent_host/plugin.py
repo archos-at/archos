@@ -83,6 +83,7 @@ from .routes.document_search import add_document_search_routes
 from .routes.documents import add_document_routes
 from .routes.drafts import add_draft_routes
 from .routes.drawing_renditions import add_drawing_rendition_routes
+from .routes.drawing_tape import add_drawing_tape_routes
 from .routes.feedback_digest import add_feedback_digest_routes
 from .routes.filing_fit import add_filing_fit_routes
 from .routes.folder_proposals import add_folder_proposals_routes
@@ -333,6 +334,8 @@ API_APP_REGISTRARS = (register_job_routes,)
 #: calls Gotenberg for an office file (ADR-0157).
 _INTERNAL_SERVICE_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
     add_internal_tool_routes,
+    # A person's tape on a PDF drawing, for the review view's measure route (ADR-0182).
+    add_drawing_tape_routes,
     # A file's licence class and knowledge edition onto its chunks (office base knowledge).
     add_knowledge_mark_routes,
     add_mail_archive_routes,

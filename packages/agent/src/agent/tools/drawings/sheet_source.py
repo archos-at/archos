@@ -42,6 +42,7 @@ from agent.knowledge.restricted_use import note_collections_read
 
 from ..canvas.calls import Refused
 from ..look.register import licence_of
+from ..look.resolve import Resolved
 from ..look.resolve import resolve_document
 
 DOCUMENT_FILE_PATH = "/api/internal/document-file"
@@ -103,6 +104,11 @@ async def load_sheet(document: str, page: int) -> LoadedSheet | str:
         return str(refused)
     if isinstance(resolved, str):
         return resolved
+    return await load_resolved_sheet(resolved, page)
+
+
+async def load_resolved_sheet(resolved: Resolved, page: int) -> LoadedSheet | str:
+    """The sheet of a file whose collection is known already: every check ``load_sheet`` makes once it is named."""
     if not resolved.collection:
         return f"'{resolved.file_name}' is a base-corpus document, not a drawing of this project."
     if not resolved.file_name.lower().endswith(".pdf"):
