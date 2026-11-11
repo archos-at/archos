@@ -186,4 +186,16 @@ describe('lawMapOf', () => {
       expect(edition?.text?.file).toBe('a.pdf')
     }
   })
+
+  it('reads a region\'s legal database from the pages its acts cite when they carry no address of their own', () => {
+    // As on dev: an act names only its designation, and its record cites the legal database it was read from.
+    const bare = REVISIONS.map((one) =>
+      one.recordId === 'work:ba-n'
+        ? revision('work', 'work:ba-n', { kind: 'statute', title: 'Building Act Nordland', identifiers: { designation: 'BA-N' }, territoryIds: ['XA-1'] }, { url: 'https://gazette.xa.example/eli/n/1/' })
+        : one,
+    )
+    const map = lawMapOf('XA', bare, CAPTURES)
+    expect(map.statements.find((statement) => statement.key === 'work:to-n|2024-03-01')?.sourceKind).toBe('primary')
+    expect(map.statutes.find((statute) => statute.workId === 'work:ba-n')?.url).toBe('https://gazette.xa.example/eli/n/1/')
+  })
 })
