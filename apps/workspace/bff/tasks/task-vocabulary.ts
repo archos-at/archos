@@ -97,8 +97,11 @@ export type TaskRunStatus = (typeof TASK_RUN_STATUSES)[number]
  * ended as `skipped` or `error` when the fire never reached the agent. The
  * worker's first flush starts a queued run (`markRunStarted`). An ending is
  * written once, from a live state, by compare-and-set (`closeActiveRun`): the
- * worker's report, the reconciler, the kill switch and a failed submission
- * cannot overwrite each other, so the first final word stands.
+ * worker's report, the reconciler and the kill switch cannot overwrite each
+ * other, so the first final word stands. One writer is not held to this yet:
+ * `recordRun` in `./delegation` writes the status it submitted with after the
+ * submit, and can reopen a row the kill switch closed meanwhile; the
+ * reconciler then closes it again from the job store.
  */
 export const TASK_RUN_LIFECYCLE = defineLifecycle<TaskRunStatus, 'start' | 'succeed' | 'fail' | 'interrupt'>({
   id: 'task-run',

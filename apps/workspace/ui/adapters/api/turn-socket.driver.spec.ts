@@ -59,6 +59,41 @@ describe('the driver and its statechart', () => {
     expect(sockets).toHaveLength(1)
   })
 
+  it('sends nothing more once close was called, also from inside the open announcement', async () => {
+    const sent: string[] = []
+    const opened: WebSocketLike[] = []
+    const made = setup()
+    let answer: boolean | null = null
+    let accepted: boolean | null = null
+    const { socket, statuses } = setup({
+      openTurns: () => [{ turnId: 'turn_1', lastSeq: 3 }],
+      createWebSocket: () => {
+        // Born open: `readyState` is read-only on the type, and the hello is what makes it ready.
+        const ws: WebSocketLike = { ...made.createWebSocket(), readyState: 1, send: (frame: string) => void sent.push(frame) }
+        opened.push(ws)
+        return ws
+      },
+      onStatus: (status) => {
+        statuses.push(status)
+        if (status !== 'open') return
+        socket.close()
+        answer = socket.send({ type: 'cancel_turn', conversation_id: 'conv_1', turn_id: 'turn_1' })
+        accepted = socket.accepts('steer')
+      },
+    })
+    await socket.connect()
+    const ws = opened[0]
+    ws.onopen?.({} as Event)
+    ws.onmessage?.({
+      data: JSON.stringify({ v: 2, type: 'CUSTOM', name: 'hello', ts: 1, value: { build: 'abc1234', accepts: ['steer'] } }),
+    } as MessageEvent)
+    expect(statuses).toEqual(['connecting', 'open', 'closed'])
+    expect(answer).toBe(false)
+    expect(accepted).toBe(false)
+    // Neither the caller's frame nor the driver's own attach went out on the closing socket.
+    expect(sent).toEqual([])
+  })
+
   it('takes the ladder when the socket cannot be constructed, and connects once it can', async () => {
     vi.useFakeTimers()
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)

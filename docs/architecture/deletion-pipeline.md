@@ -112,7 +112,7 @@ LIMIT 10;
 
 The hold guard lives in the claim query itself — same database, same transaction — so there is no failure mode where an external check being unavailable lets a held entity get purged.
 
-For each row: set `status='purging'`, run the entity's step list, then set `purged_at`/`status='purged'`. Any step throws → record `last_error`, increment `attempts`, reset `status='pending'` → retried next tick from step 1 (all steps idempotent). After 10 consecutive failures → `status='failed'` + loud log; failed rows are surfaced, not retried forever. Restore (project/org, within grace, and only a row that was never claimed) → `status='restored'`, clear entity `deleted_at`.
+For each row: set `status='purging'`, run the entity's step list, then set `purged_at`/`status='purged'`. Any step throws → record `last_error`, reset `status='pending'` (the attempt was counted when the row was claimed; a release for a legal hold refunds it) → retried next tick from step 1 (all steps idempotent). After 10 consecutive failures → `status='failed'` + loud log; failed rows are surfaced, not retried forever. Restore (project/org, within grace, and only a row that was never claimed) → `status='restored'`, clear entity `deleted_at`.
 
 The status and its moves are declared once (`DELETION_LIFECYCLE` in `apps/workspace/bff/db/schema/deletion-queue.ts`, ADR-0179; migration 0223 adds the CHECK on the five values), and four rules keep a row from saying something untrue:
 

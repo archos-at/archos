@@ -258,6 +258,30 @@ leads held. What they left open, each a decision and not a conversion:
 * **An entity erased over HTTP whose purger transaction then fails on its final
   attempt** still reads `failed`.
 
+Three independent reviews before the merge (turn socket, deletion queue, run
+endings and document failure writes) found nothing blocking. What they left,
+each narrow:
+
+* **A run that finished just before the kill switch or a lost-job close took
+  its row ends `interrupted`, and its report is not filed** and no completed
+  item follows; the report text stays in the thread. This is the first-ending
+  rule applied as its authors' comments describe it; before, the late success
+  flipped the row and filed.
+* **The heal that settles a run's block can miss a run** when the pod's clock
+  lags the database's and the block write failed too (`finished_at` is the
+  pod's time, `reconcile_checked_at` the database's).
+* **An extraction job identifies itself by storage key only**, so a re-read of
+  the same bytes under a new job can still be failed by the old job's last
+  attempt.
+* **A deletion row can read `failed` for erased data** when a request held a
+  claim for more than 15 minutes, the purger took it over and purged, and the
+  request then failed at the attempt cap: the purger's write no longer
+  overwrites it. A claim token would close it.
+* **A connection preparation that hangs** (never resolves or rejects) leaves
+  the socket at `connecting`; the fix here covers one that fails.
+* **Migration 0223 has no Postgres check** in `scripts/rls-test-db.sh`, and
+  nothing compares the schema's generated CHECK text with the SQL.
+
 Still to convert, by what each fixes for a person:
 
 1. **Inbound mail and its parts.** The CHECKs are thorough; the edges exist only

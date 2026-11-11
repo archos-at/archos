@@ -461,6 +461,12 @@ export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
     send,
     accepts: (entry) => ready && accepts.has(entry),
     reconnect: () => actor.send({ type: 'RECONNECT' }),
-    close: () => actor.send({ type: 'CLOSE' }),
+    close: () => {
+      // At once, not at the end of the step: a close called from inside
+      // `onStatus` is queued behind that step's remaining effects, and until
+      // then nothing more may be sent or attached on the socket being closed.
+      ready = false
+      actor.send({ type: 'CLOSE' })
+    },
   }
 }
