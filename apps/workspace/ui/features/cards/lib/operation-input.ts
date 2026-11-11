@@ -5,7 +5,8 @@
  * action changes (the body) comes first.
  *
  * Nothing is left out and nothing is cut for good. Every row carries its whole
- * value: a scalar as it is, anything nested as indented JSON. A value longer
+ * value: a scalar as it is, anything nested as JSON (on one line when it is
+ * short enough to be read whole there, indented otherwise). A value longer
  * than {@link PREVIEW_LENGTH}, or one spread over several lines, is `long`: the
  * card shows its {@link previewOf} until the reader unfolds it, and „Apply“
  * waits until every long row has been unfolded, so a person never accepts text
@@ -35,8 +36,13 @@ export type IdName = (id: string) => string | null | undefined
 /** Longest value shown whole without unfolding. */
 export const PREVIEW_LENGTH = 160
 
+/** A nested value this short is written on one line and shown whole: nothing of it is folded away. */
+export const ONE_LINE_LENGTH = 80
+
 function show(value: unknown): string {
   if (typeof value === 'string') return value
+  const oneLine = JSON.stringify(value)
+  if (oneLine !== undefined && oneLine.length <= ONE_LINE_LENGTH) return oneLine.replace(/([,:])(?=\S)/g, '$1 ')
   return JSON.stringify(value, null, 2) ?? String(value)
 }
 
@@ -135,6 +141,12 @@ export const NAMED_INPUT_KEYS = [
   'visibility',
   'permissions',
   'sortOrder',
+  // A place on a page and a length (a calibration, `drawing-calibration-set`).
+  'page',
+  'region',
+  'from',
+  'to',
+  'lengthM',
 ] as const
 
 export type NamedInputKey = (typeof NAMED_INPUT_KEYS)[number]

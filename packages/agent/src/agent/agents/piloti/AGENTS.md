@@ -25,7 +25,10 @@ it) is the same for every turn of an org — with ONE exception, scope: a turn
 without a project is not sent `ifc_query` / `ifc_measure` (`turn_tools.tools_in_scope`),
 which can only say "no project" there and are ~8k tokens of every call, and a turn
 in a project the BFF says holds no IFC (no DXF) is not sent them (`dxf_measure`)
-either (`projectModels` on the turn context; unknown keeps them). A handful of
+either (`projectModels` on the turn context; unknown keeps them). `drawing_measure` is the
+reverse: it is sent only where `projectModels.pdf` is true, which the BFF states for a project that
+holds a PDF in an organization with the `drawing-measure` entitlement, and unknown leaves it unbound; the tool
+refuses a call on the same fact (`common/turn_file_kinds`), since a job's agent binds without this scope. A handful of
 shards per org, never one per toggle combination. The RIS lookup offers `as_of`
 (ADR-0171) on every turn; the `time-editions` switch that bound a second copy of
 it went with ADR-0175. Anything you add that reads a file, compiles a

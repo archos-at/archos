@@ -16,12 +16,18 @@ import type { JSX } from 'react'
 import { type ReactNode } from 'react'
 import { getUserSession } from '@/lib/auth/session'
 import { runWithTenantSlot } from '@/lib/db/tenant-context'
-import { isInboundMailEnabled, isProjectKnowledgePageEnabled, isSkillsEnabled } from '@/lib/authz/feature-flags'
+import {
+  isDrawingMeasureEnabled,
+  isInboundMailEnabled,
+  isProjectKnowledgePageEnabled,
+  isSkillsEnabled,
+} from '@/lib/authz/feature-flags'
 import { getNavFlags } from '@/lib/authz/nav'
 import { KeyboardShortcuts } from '@/components/shell'
 import { isAuthRequired } from '@/lib/auth/auth-required'
 import { PushLifecycle } from '@/features/notifications/components/push-lifecycle'
 import { InboxPushOffer } from '@/features/notifications/components/inbox-push-offer'
+import { DrawingMeasureAccess } from '@/features/documents/lib/drawing-measure-access'
 import { getPushConfig } from '@/lib/push/service'
 
 
@@ -33,11 +39,14 @@ export default async function AppLayout({ children }: AppLayoutProps): Promise<J
   return runWithTenantSlot(async () => {
     let shortcuts: ReactNode = null
     let notifications: ReactNode = null
+    // The `drawing-measure` entitlement, for the review view's calibrate tool: off unless the session says yes.
+    let drawingMeasure = false
     try {
       const session = await getUserSession()
       // Users without an org (onboarding) have nowhere for the palette to
       // navigate, so they get no shortcuts surface at all.
       if (session?.organizationId) {
+        drawingMeasure = isDrawingMeasureEnabled(session)
         // Same section flags the project rail receives, so ⌘K's current-project
         // commands stay in lock-step with the rail (shared PROJECT_SECTIONS).
         const navFlags = await getNavFlags(session)
@@ -73,11 +82,11 @@ export default async function AppLayout({ children }: AppLayoutProps): Promise<J
     }
 
     return (
-      <>
+      <DrawingMeasureAccess enabled={drawingMeasure}>
         {children}
         {shortcuts}
         {notifications}
-      </>
+      </DrawingMeasureAccess>
     )
   })
 }

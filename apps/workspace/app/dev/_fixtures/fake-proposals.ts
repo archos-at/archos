@@ -70,7 +70,8 @@ const NAMED = {
   person: 'user_anna',
 } as const
 
-const base = {
+/** What every demo proposal starts from: open, proposed by the agent for Mia, hers to decide. */
+export const DEMO_PROPOSAL_BASE = {
   projectId: DEMO_PROJECT_ID,
   status: 'proposed' as const,
   proposedByKind: 'piloti' as const,
@@ -129,9 +130,9 @@ const seed = (): Map<string, ProposedChangeView> =>
   new Map<string, ProposedChangeView>(
     (
       [
-        { ...base, id: DEMO.filesOpen, kind: 'file_operation', payload: { operation: 'move', operations: FILE_ITEMS, note: null } },
+        { ...DEMO_PROPOSAL_BASE, id: DEMO.filesOpen, kind: 'file_operation', payload: { operation: 'move', operations: FILE_ITEMS, note: null } },
         {
-          ...base,
+          ...DEMO_PROPOSAL_BASE,
           ...byAnna('partially_applied', [
             { label: FILE_ITEMS[0].document, ok: true },
             { label: FILE_ITEMS[1].document, ok: true },
@@ -142,44 +143,44 @@ const seed = (): Map<string, ProposedChangeView> =>
           payload: { operation: 'move', operations: FILE_ITEMS, note: null },
         },
         {
-          ...base,
+          ...DEMO_PROPOSAL_BASE,
           canDecide: false,
           id: DEMO.filesReadOnly,
           kind: 'file_operation',
           payload: { operation: 'move', operations: FILE_ITEMS.slice(0, 2), note: null },
         },
-        { ...base, id: DEMO.memoryOpen, kind: 'memory', payload: MEMORY },
+        { ...DEMO_PROPOSAL_BASE, id: DEMO.memoryOpen, kind: 'memory', payload: MEMORY },
         {
-          ...base,
+          ...DEMO_PROPOSAL_BASE,
           id: DEMO.memoryCorrection,
           kind: 'memory',
           payload: { ...MEMORY, supersedes: 'Das Büro setzt bei GK 4 REI 60 an.' },
         },
         {
-          ...base,
+          ...DEMO_PROPOSAL_BASE,
           ...byAnna('applied', [{ label: MEMORY.content, ok: true, itemId: 'memory-1' }]),
           id: DEMO.memoryDecided,
           kind: 'memory',
           payload: MEMORY,
         },
-        { ...base, id: DEMO.profileOpen, kind: 'project_profile', payload: PROFILE },
+        { ...DEMO_PROPOSAL_BASE, id: DEMO.profileOpen, kind: 'project_profile', payload: PROFILE },
         {
-          ...base,
+          ...DEMO_PROPOSAL_BASE,
           ...byAnna('applied', [{ label: PROFILE.title, ok: true }]),
           id: DEMO.profileDecided,
           kind: 'project_profile',
           payload: PROFILE,
         },
-        { ...base, ...byAnna('dismissed', null), id: DEMO.profileDismissed, kind: 'project_profile', payload: PROFILE },
+        { ...DEMO_PROPOSAL_BASE, ...byAnna('dismissed', null), id: DEMO.profileDismissed, kind: 'project_profile', payload: PROFILE },
         {
-          ...base,
+          ...DEMO_PROPOSAL_BASE,
           id: DEMO.operationOpen,
           kind: 'operation',
           payload: OPERATION,
           targets: [{ type: 'project', id: DEMO_PROJECT_ID, name: 'Wohnanlage Lindengasse' }],
         },
         {
-          ...base,
+          ...DEMO_PROPOSAL_BASE,
           id: DEMO.operationIds,
           kind: 'operation',
           payload: {

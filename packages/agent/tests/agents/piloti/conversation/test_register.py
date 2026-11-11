@@ -240,6 +240,7 @@ class TestTheProjectModelsReachTheToolBinding:
         from dataclasses import replace
 
         from agent.agents.piloti import turn_tools
+        from agent.common import turn_file_kinds
         from agent.turn import context as context_mod
 
         real_blocks = context_mod._context_blocks
@@ -251,7 +252,7 @@ class TestTheProjectModelsReachTheToolBinding:
         seen: dict = {}
 
         async def shallow(state):
-            seen["models"] = turn_tools._project_models.get()
+            seen["models"] = turn_file_kinds.stated()
             return await _shallow(state)
 
         turn_tools.set_project_models(None)

@@ -51,6 +51,11 @@ def pdfium_lock() -> Iterator[None]:
         yield
 
 
+#: The lock under the name the package exports. ``knowledge_layer.ingest.pdfium_lock`` is this MODULE once it is
+#: imported, so a caller outside the package cannot import the function by that name from the package's surface.
+pdfium_guard = pdfium_lock
+
+
 def close_bitmap(bitmap: Any) -> None:
     """Close ``bitmap`` once nothing derived from its buffer survives. Call inside :func:`pdfium_lock`.
 

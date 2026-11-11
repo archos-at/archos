@@ -339,10 +339,10 @@ class TestAPageOfALicensedCopy:
 
         from agent.tools.look import register
 
-        licence = await register._licence_of(SimpleNamespace(collection="", file_name="norm.pdf", target=object()))
+        licence = await register.licence_of(SimpleNamespace(collection="", file_name="norm.pdf", target=object()))
         assert licence.licensed and not licence.ai_processing
         base = SimpleNamespace(collection="", file_name="OIB-RL2.pdf", target=None)
-        assert await register._licence_of(base) is None, "the published legal corpus holds no office copy"
+        assert await register.licence_of(base) is None, "the published legal corpus holds no office copy"
 
     async def test_an_office_file_with_no_point_at_all_is_read_as_an_unattested_licensed_copy(
         self, monkeypatch
@@ -364,10 +364,10 @@ class TestAPageOfALicensedCopy:
         office = SimpleNamespace(
             collection=f"{OFFICE_SHELF_COLLECTION_PREFIXES[0]}org_a", file_name="norm.pdf", target=None
         )
-        licence = await register._licence_of(office)
+        licence = await register.licence_of(office)
         assert licence is not None and licence.licensed and not licence.ai_processing
         project = SimpleNamespace(collection="proj_1", file_name="plan.pdf", target=None)
-        assert await register._licence_of(project) is None, "a project file with no point is no office copy"
+        assert await register.licence_of(project) is None, "a project file with no point is no office copy"
 
     async def test_a_turn_that_may_not_read_licensed_text_makes_no_vision_call(self, sees, model, licensed) -> None:
         from agent.common.grounding_block import begin_grounding_capture

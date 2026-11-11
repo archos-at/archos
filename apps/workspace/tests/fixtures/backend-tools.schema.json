@@ -452,7 +452,7 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "Shows you a page of a document as an image; with `region=[x, y, w, h]` only that box, sharper. `document`: the file name from the inventory or from a hit's `Citation:` line, or a document id; empty means the document open on the canvas, then this chat's document. `page` starts at 1. `region` is shares of the page as shown: 0 to 1, origin top left, never pixels. `image_index` shows the embedded image a hit's `Image:` line names, at its own resolution; a hit's `Region:` line gives the numbers for the place it sits. Where something lies on a sheet is read off the image, not off the text. `question` (optional): a second reader, the office's vision model, answers it from the same crop as short lines starting `Gelesen:`, a reading of the drawing and never a measurement; a reading does not cost a look. A look's result carries its `[N]` to cite. A look that finds nothing is reported as absence in the prose, not shown as a card. At most 6 looks per turn, at most 2 of them whole pages; every result says how many are left. Fails open with a sentence saying why.",
+      "description": "Shows you a page of a document as an image; with `region=[x, y, w, h]` only that box, sharper. `document`: the file name from the inventory or from a hit's `Citation:` line, or a document id; empty means the document open on the canvas, then this chat's document. `page` starts at 1. `region` is shares of the page as shown: 0 to 1, origin top left, never pixels. `image_index` shows the embedded image a hit's `Image:` line names, at its own resolution; a hit's `Region:` line gives the numbers for the place it sits. Where something lies on a sheet is read off the image, not off the text. For a PDF page the result also lists the text printed inside the crop, read from the file's text layer, each with its place: quote a printed figure from that list, not from the pixels. `question` (optional): a second reader, the office's vision model, answers it from the same crop as short lines starting `Gelesen:`, a reading of the drawing and never a measurement; a reading does not cost a look. A look's result carries its `[N]` to cite. A look that finds nothing is reported as absence in the prose, not shown as a card. At most 6 looks per turn, at most 2 of them whole pages; every result says how many are left. Fails open with a sentence saying why.",
       "inputSchema": {
         "properties": {
           "document": {
@@ -780,6 +780,203 @@
         "type": "object"
       },
       "name": "ifc_measure"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read and measure a page of a PDF drawing of this project (a floor plan, a section, a site plan plotted from CAD) from the file itself: its printed figures as text, its linework as geometry. Use it for what is printed on a sheet and for a width, a distance, a path or an area on it. Places are shares of the page as shown, 0 to 1, origin top left, as in look's `region`: look first to see where things are, then pass points.\n\noperation:\n  'sheet'       - size, format, whether it is a scan, each region's scale with its state, the unit convention. Start here once per page.\n  'figures'     - printed figures in `region` ([x, y, w, h]), filtered by `query` (a substring) or `kind` (dimension, level_mark, opening_size, scale_note, room_stamp, other).\n  'rooms'       - the room stamps: name, printed area and further lines, as printed.\n  'scale_check' - whether the page's own dimension figures corroborate the scale hinted for `region`.\n  'clearance'   - the clear width between two lines: `from` and `to` ([x, y]) placed NEAR the two faces. The engine moves each to the one line within reach; with two lines in reach it returns the crossings and no number, and you call again with `between`: [i, j].\n  'distance'    - between two points, each moved to the one line end or corner within reach.\n  'path', 'area' - along or inside `points` ([[x, y], ...]), each moved the same way.\n\n`threshold_min` / `threshold_max` (metres, or m² for an area): a value to compare with, which YOU pass from the requirement you looked up; the answer then says met, not_met or undecidable. A scale is verified (a person calibrated it), estimated (the file hints at it and the sheet's own figures agree) or uncalibrated. An estimated scale gives a length with a caveat and never a verdict; an uncalibrated one gives no number. 'No number' and 'undecidable' are answers: report the reason and the remedy as given, and never work a length out yourself from a printed scale. State every number with its interval and provenance; never recompute, round or convert one. `document` is the PDF's file name; empty means the open document.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "What the model passes to ``drawing_measure``.",
+        "properties": {
+          "between": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Two crossing indices a refused 'clearance' returned.",
+            "title": "Between"
+          },
+          "document": {
+            "default": "",
+            "description": "The PDF's file name; empty for the open document or the subject.",
+            "title": "Document",
+            "type": "string"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "[x, y]: the first point.",
+            "title": "From"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dimension",
+                  "level_mark",
+                  "opening_size",
+                  "scale_note",
+                  "room_stamp",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The kind of figure to list, for 'figures'.",
+            "title": "Kind"
+          },
+          "limit": {
+            "default": 50,
+            "description": "Rows at most, for 'figures' and 'rooms'.",
+            "maximum": 200,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "operation": {
+            "description": "What to read or measure; start with 'sheet'.",
+            "enum": [
+              "sheet",
+              "figures",
+              "rooms",
+              "scale_check",
+              "clearance",
+              "distance",
+              "path",
+              "area"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "page": {
+            "default": 1,
+            "description": "The page, starting at 1.",
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "points": {
+            "description": "[[x, y], ...] for 'path' and 'area', in order.",
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "maxItems": 60,
+            "title": "Points",
+            "type": "array"
+          },
+          "query": {
+            "default": "",
+            "description": "Text a figure must contain, for 'figures'.",
+            "maxLength": 120,
+            "title": "Query",
+            "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "[x, y, w, h] in shares of the page, origin top left.",
+            "title": "Region"
+          },
+          "threshold_max": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A maximum to compare with, in m or m².",
+            "title": "Threshold Max"
+          },
+          "threshold_min": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A minimum to compare with, in m or m².",
+            "title": "Threshold Min"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "[x, y]: the second point.",
+            "title": "To"
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "title": "DrawingMeasureInput",
+        "type": "object"
+      },
+      "name": "drawing_measure"
     },
     {
       "annotations": {

@@ -66,6 +66,12 @@ describe('the proposal card document', () => {
     expect(html).not.toContain('mermaid')
   })
 
+  it('draws no page clip of a proposed calibration: pdf.js and the document routes stay out', () => {
+    // `calibration-preview-stand-in.tsx`: the frame has no cookie to fetch a page with.
+    expect(html).not.toContain('pdf.worker')
+    expect(html).not.toContain('/api/documents/')
+  })
+
   it('stays within its size budget', () => {
     expect(Buffer.byteLength(html)).toBeLessThan(BUDGET_BYTES)
   })

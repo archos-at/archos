@@ -125,6 +125,10 @@ bim_measure = "agent.tools.bim.measure_register"
 # Katasterauszug, measured as a site. Its own entry point: it needs ezdxf and
 # shapely, and a deployment without them keeps every other tool.
 drawings = "agent.tools.drawings.register"
+# `drawing_measure` (`tools/drawings/measure_register.py`, ADR-0182): a page of a PDF drawing read and
+# measured from the file. Its own entry point: it needs the sheet reader (pypdfium2, pdfminer) and neither
+# ezdxf nor shapely, so each drawing tool loads without the other's libraries.
+drawing_measure = "agent.tools.drawings.measure_register"
 # The write-side workspace tool, `propose_file_change` (move, rename,
 # create_folder, assign as one `operation` argument).
 files = "agent.tools.files.register"

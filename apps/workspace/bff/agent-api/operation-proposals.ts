@@ -13,6 +13,8 @@ import 'server-only'
 
 import { ForbiddenError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
+import { isFeatureEnabled } from '@/lib/authz/feature-flags'
 import { withTenant } from '@/lib/db/tenant-context'
 import { createProposal } from '@/lib/proposals/service'
 import { MAX_OPERATION_SUMMARY_LENGTH, type OperationPayload } from '@/lib/proposals/types'
@@ -136,6 +138,9 @@ export async function proposeOperation({
   // the agent worded, which is not the confirmation such a change needs, so
   // Piloti files none (ADR-0122).
   if (op.sensitivity) throw new ForbiddenError(sensitiveProposalRefusal(op))
+  // Behind a feature the organization does not hold: refused as the route would refuse the call, before a
+  // proposal exists that could only fail when accepted.
+  if (op.feature && !isFeatureEnabled(principal.session, op.feature)) throw new FeatureDisabledError(op.feature)
   const stored: OperationPayload['input'] = {
     params: input.params,
     query: input.query,

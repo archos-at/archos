@@ -1,7 +1,8 @@
 """The visual eval: does Piloti look at the place a question is about, and does looking change the answer (ADR-0128).
 
 ``suite.py --set visual`` runs ``tests/fixtures/visual/visual_questions.yaml`` through the real agent in
-the fixture project of ``fixture_visual.py``: three drawings rendered from ``drawings.json`` at suite
+the fixture project of ``fixture_visual.py``: the drawings rendered from ``drawings.json`` (three raster
+sheets, one vector, and one sheet of the measuring engine's ground-truth set) at suite
 start, whose figures are on the page and not in the indexed text. It is the office-file set's shape
 (``files_eval.py``, whose tool-call matching, loader and checks this reuses): the checks read the
 MODEL's own tool calls, and a judge is not needed because a value is a string.
@@ -16,6 +17,9 @@ What it scores per run:
 - ``gold_covered``: some look at the gold document and page held the gold box (``coverage`` >= 0.8);
 - the number of looks, and for each gold box the best IoU over those looks. IoU is reported, not a
   check: a crop with a margin has looked in the right place and still has a small IoU;
+- ``measure`` (the ``measure`` rows, ``measure_answers.py``): the answer states a length or an area near the
+  true value, or, where the row accepts it, no number and „confirm the scale“. These rows ask the
+  ``drawing_measure`` tool of a sheet of the measuring engine's ground-truth set;
 - whether every look reached a card item and a step. That needs the look card and step of V3, so until
   they exist (``parity_available``) it is reported ``n/a`` rather than 0.
 
@@ -33,6 +37,8 @@ from typing import Any
 from files_eval import _basename
 from files_eval import files_checks
 from fixture_bff import ROOT
+from measure_answers import measure_check
+from measure_answers import validate as validate_measure
 from render_fixture_drawings import load_spec
 from workspace_eval import Judge
 from workspace_eval import load_questions as load_rows
@@ -43,7 +49,7 @@ LOOK_TOOLS = frozenset({"look", "canvas__look", "view_knowledge_image"})
 #: A look held the gold box when it contained at least this share of it.
 COVERAGE_MIN = 0.8
 BOXES = ("found", "given")
-CATEGORIES = ("dimension", "count", "plankopf", "legend", "fassung", "skip")
+CATEGORIES = ("dimension", "count", "plankopf", "legend", "fassung", "skip", "measure")
 #: Where the look card and step of V3 are declared; until both are, parity is not applicable.
 CARD_MODELS = ROOT / "packages" / "agent" / "src" / "agent" / "cards" / "look_card.py"
 WIRE_MODELS = ROOT / "packages" / "agent" / "src" / "agent" / "common" / "wire_v2.py"
@@ -88,6 +94,8 @@ def load_questions(path: Path = QUESTIONS, spec: dict[str, Any] | None = None) -
                 f"{row['id']}: box: given sends a drawn region on the turn, "
                 "which only the north-star set does (`turn_input.py`)"
             )
+        if (measure := (row.get("expect") or {}).get("measure")) is not None:
+            validate_measure(row["id"], measure)
         rows.append({**row, "set": "visual", "gold": resolve_gold(row, elements)})
     return rows
 
@@ -236,6 +244,8 @@ def visual_checks(
     if not look_on:
         tools["must"] = [item for item in tools.get("must") or [] if item != "look"]
     checks = files_checks({**expect, "tools": tools}, named, answer, question, judge, signals, research_calls)
+    if expect.get("measure"):
+        checks["measure"] = measure_check(expect["measure"], answer)
     if gold and look_on:
         checks["gold_covered"] = all(s["coverage"] >= COVERAGE_MIN for s in gold_scores(looks_of(calls), gold))
     return checks
