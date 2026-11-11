@@ -393,10 +393,10 @@
    "name": "document-ingest-cancel",
    "domain": "documents",
    "summary": "Cancel a document’s running ingestion",
-   "description": "Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.",
+   "description": "Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. `result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` is the status the document holds afterwards, which is not `cancelled` when the read ended first.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"document-ingest-cancel\",\"domain\":\"documents\",\"summary\":\"Cancel a document’s running ingestion\",\"description\":\"Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.\",\"annotations\":{\"title\":\"Cancel a document’s running ingestion\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The document id, from document-list or workspace-search.\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+   "describe": "{\"name\":\"document-ingest-cancel\",\"domain\":\"documents\",\"summary\":\"Cancel a document’s running ingestion\",\"description\":\"Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. `result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` is the status the document holds afterwards, which is not `cancelled` when the read ended first.\",\"annotations\":{\"title\":\"Cancel a document’s running ingestion\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The document id, from document-list or workspace-search.\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
    "name": "document-list",
@@ -1869,19 +1869,19 @@
    "name": "knowledge-base-get",
    "domain": "knowledge",
    "summary": "See what the building-law corpus contains",
-   "description": "The status of the platform-owned base corpus (OIB guidelines and the like): which documents it holds and whether they are indexed. Identical for every organization. To search it use the document search with `shelf: \"base\"` (no project needed); for Austrian law itself the law lookup. This only lists what is there.",
+   "description": "The base corpus as this organization reads it: the documents released in a country the organization is entitled to, and whether each is indexed. An organization entitled to no country gets an empty list. To search it use the document search with `shelf: \"base\"` (no project needed); for the law itself the law lookup. This only lists what is there.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"knowledge-base-get\",\"domain\":\"knowledge\",\"summary\":\"See what the building-law corpus contains\",\"description\":\"The status of the platform-owned base corpus (OIB guidelines and the like): which documents it holds and whether they are indexed. Identical for every organization. To search it use the document search with `shelf: \\\"base\\\"` (no project needed); for Austrian law itself the law lookup. This only lists what is there.\",\"annotations\":{\"title\":\"See what the building-law corpus contains\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
+   "describe": "{\"name\":\"knowledge-base-get\",\"domain\":\"knowledge\",\"summary\":\"See what the building-law corpus contains\",\"description\":\"The base corpus as this organization reads it: the documents released in a country the organization is entitled to, and whether each is indexed. An organization entitled to no country gets an empty list. To search it use the document search with `shelf: \\\"base\\\"` (no project needed); for the law itself the law lookup. This only lists what is there.\",\"annotations\":{\"title\":\"See what the building-law corpus contains\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
   },
   {
    "name": "knowledge-document-get",
    "domain": "knowledge",
    "summary": "Read a base-corpus PDF",
-   "description": "The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Identical for every organization. Use it to quote a source a citation points at.",
+   "description": "The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Only a document released in a country the organization is entitled to; any other name answers 404, whether or not such a file exists. Use it to quote a source a citation points at.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"knowledge-document-get\",\"domain\":\"knowledge\",\"summary\":\"Read a base-corpus PDF\",\"description\":\"The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Identical for every organization. Use it to quote a source a citation points at.\",\"annotations\":{\"title\":\"Read a base-corpus PDF\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"fileName\":{\"type\":\"string\",\"description\":\"The base-corpus file name, exactly as knowledge-base-get lists it.\"}},\"required\":[\"fileName\"]}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+   "describe": "{\"name\":\"knowledge-document-get\",\"domain\":\"knowledge\",\"summary\":\"Read a base-corpus PDF\",\"description\":\"The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Only a document released in a country the organization is entitled to; any other name answers 404, whether or not such a file exists. Use it to quote a source a citation points at.\",\"annotations\":{\"title\":\"Read a base-corpus PDF\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"fileName\":{\"type\":\"string\",\"description\":\"The base-corpus file name, exactly as knowledge-base-get lists it.\"}},\"required\":[\"fileName\"]}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
    "name": "norm-list",
@@ -2303,8 +2303,8 @@
    "document-version-submit",
    "document-review-list",
    "document-version-reviewer-list",
-   "release-note-list",
    "conversation-awaiting-get",
+   "release-note-list",
    "document-quarantine-get",
    "base-knowledge-report"
   ],

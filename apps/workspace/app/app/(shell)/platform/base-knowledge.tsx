@@ -21,15 +21,13 @@
  */
 
 import { SortableHead } from '@/components/ui/sortable-head'
-import type { JSX } from 'react'
+import { Fragment, type JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AlertTriangle,
   BookOpenCheck,
-  CheckCircle2,
   FileText,
-  Layers,
   Lock,
   MoreHorizontal,
   RefreshCw,
@@ -54,7 +52,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
-import { StatCard, StatCardSkeleton } from '@/components/ui/stat-card'
 import {
   Table,
   TableBody,
@@ -68,7 +65,9 @@ import {
   KnowledgeStateBadge,
   useDocClassLabel,
 } from '@/features/platform/components/knowledge-atoms'
+import { CorpusGroupRow, PlacementLine, useCorpusPlacement } from '@/features/platform/components/corpus-placement'
 import { KnowledgeDocumentSheet } from '@/features/platform/components/knowledge-document-sheet'
+import { KnowledgeSummary } from '@/features/platform/components/knowledge-summary'
 import { useIngestWatch } from '@/features/platform/components/knowledge-ingest-watch'
 import { KnowledgeUploadPanel } from '@/features/platform/components/knowledge-upload-panel'
 import { SectionCard } from '@/features/platform/components/section-card'
@@ -130,6 +129,7 @@ export function BaseKnowledge(): JSX.Element {
   const { locale } = useLocale()
   const docClassLabel = useDocClassLabel()
   const canManage = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite) // the corpus routes' permission
+  const placement = useCorpusPlacement() // which country, edition and change request each file belongs to
 
   const [status, setStatus] = useState<KnowledgeBaseStatus | null>(null)
   // Set only when there is nothing on screen to keep; a failed REFRESH keeps
@@ -172,7 +172,7 @@ export function BaseKnowledge(): JSX.Element {
   const loadSeqRef = useRef(0)
 
   const fetchStatus = useCallback(async (): Promise<KnowledgeBaseStatus> => {
-    const res = await fetch('/api/knowledge-base')
+    const res = await fetch('/api/platform/knowledge/documents')
     if (!res.ok) throw new Error(`Failed to load knowledge base (${res.status})`)
     return (await res.json()) as KnowledgeBaseStatus
   }, [])
@@ -567,13 +567,16 @@ export function BaseKnowledge(): JSX.Element {
       }
     }
     return [...matched].sort((a, b) => {
+      // By country first: a file is the text of one country's record, and the table says which.
+      const group = placement.compare(a.fileName, b.fileName)
+      if (group !== 0) return group
       const left = rank(a)
       const right = rank(b)
       if (left < right) return -1 * direction
       if (left > right) return 1 * direction
       return a.fileName.localeCompare(b.fileName)
     })
-  }, [files, query, typeFilter, stateFilter, sortKey, sortDir])
+  }, [files, query, typeFilter, stateFilter, sortKey, sortDir, placement])
 
   // A filter change can strand the viewport past the end of the result set.
   const safeOffset = offset >= filtered.length ? 0 : offset
@@ -895,11 +898,14 @@ export function BaseKnowledge(): JSX.Element {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {page.map((file) => {
+                    {page.map((file, index) => {
                       const isSelected = selected.includes(file.fileName)
+                      const group = placement.groupOf(file.fileName)
+                      const opensGroup = placement.loaded && (index === 0 || placement.groupOf(page[index - 1]!.fileName) !== group)
                       return (
+                        <Fragment key={file.fileName}>
+                        {opensGroup ? <CorpusGroupRow group={group} colSpan={canManage ? 5 : 4} /> : null}
                         <TableRow
-                          key={file.fileName}
                           data-state={isSelected ? 'selected' : undefined}
                           className="cursor-pointer"
                           onClick={() => setDetailName(file.fileName)}
@@ -950,6 +956,7 @@ export function BaseKnowledge(): JSX.Element {
                                 <KnowledgeStateBadge state={file.state} />
                               </span>
                             </button>
+                            <PlacementLine placement={placement.of(file.fileName)} />
                           </TableCell>
                           <TableCell className="max-sm:hidden">
                             <DocClassChip docClass={file.docClass} />
@@ -961,6 +968,7 @@ export function BaseKnowledge(): JSX.Element {
                             {file.chunkCount > 0 ? file.chunkCount.toLocaleString(locale) : '–'}
                           </TableCell>
                         </TableRow>
+                        </Fragment>
                       )
                     })}
                   </TableBody>
@@ -1006,9 +1014,9 @@ export function BaseKnowledge(): JSX.Element {
 
       {viewerFile ? (
         <PdfViewerDialog
-          open
-          onOpenChange={(open) => !open && setViewerFile(null)}
+          open onOpenChange={(open) => !open && setViewerFile(null)}
           fileName={viewerFile}
+          src={`/api/platform/knowledge/documents/${encodeURIComponent(viewerFile)}`}
         />
       ) : null}
 
@@ -1087,70 +1095,6 @@ export function BaseKnowledge(): JSX.Element {
  * same box on the first load; nothing when the load failed (the card below
  * carries the error and the retry).
  */
-function KnowledgeSummary({
-  status,
-  files,
-  loading,
-}: {
-  status: KnowledgeBaseStatus | null
-  files: readonly KnowledgeFile[]
-  loading: boolean
-}): JSX.Element | null {
-  const t = useTranslations(platformCopy)
-  const { locale } = useLocale()
-  if (loading) {
-    return (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-hidden>
-        {Array.from({ length: 4 }, (_, index) => (
-          <StatCardSkeleton key={index} />
-        ))}
-      </div>
-    )
-  }
-  if (!status) return null
-  const { summary } = status
-  const n = (value: number): string => value.toLocaleString(locale)
-  const binding = files.filter((f) => isOibBinding(f.docClass)).length
-  const issues = summary.failed + summary.inconsistent + summary.stale + summary.removed
-  const pct = summary.totalFiles > 0 ? Math.round((summary.ingested / summary.totalFiles) * 100) : 0
-
-  return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="knowledge-summary">
-      <StatCard
-        icon={<FileText aria-hidden />}
-        label={t('knowledgeAdmin.summaryDocuments')}
-        value={n(summary.totalFiles)}
-        hint={t('knowledgeAdmin.summaryDocumentsHint', { count: n(binding) })}
-      />
-      <StatCard
-        icon={<CheckCircle2 aria-hidden />}
-        label={t('knowledgeAdmin.summaryIndexed')}
-        value={n(summary.ingested)}
-        hint={
-          summary.pending > 0
-            ? t('knowledgeAdmin.summaryIndexedPending', { count: n(summary.pending) })
-            : t('knowledgeAdmin.summaryIndexedHint', { pct: n(pct) })
-        }
-      />
-      <StatCard
-        icon={<Layers aria-hidden />}
-        label={t('knowledgeAdmin.summaryChunks')}
-        value={n(summary.totalChunks)}
-        hint={t('knowledgeAdmin.summaryChunksHint')}
-      />
-      <StatCard
-        icon={<AlertTriangle aria-hidden />}
-        label={t('knowledgeAdmin.summaryIssues')}
-        value={n(issues)}
-        hint={
-          issues > 0 ? t('knowledgeAdmin.summaryIssuesHint') : t('knowledgeAdmin.summaryIssuesNone')
-        }
-        data-testid="knowledge-summary-issues"
-      />
-    </div>
-  )
-}
-
 /** The targets of a bulk confirm, by name, capped with "and N more". */
 function NameList({ names }: { names: readonly string[] }): JSX.Element {
   const t = useTranslations(platformCopy)

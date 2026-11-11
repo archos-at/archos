@@ -23,7 +23,7 @@ def _init_command(name: str) -> str:
     return " ".join(service["command"])
 
 
-@pytest.mark.parametrize("name", ["docker-compose.yaml", "docker-compose.coolify.yaml"])
+@pytest.mark.parametrize("name", ["docker-compose.yaml"])
 def test_the_init_waits_for_the_master_to_list_the_filer_before_creating_buckets(name):
     command = _init_command(name)
     wait = command.index("echo 'cluster.ps'")
@@ -31,7 +31,7 @@ def test_the_init_waits_for_the_master_to_list_the_filer_before_creating_buckets
     assert wait < command.index("s3.bucket.create")
 
 
-@pytest.mark.parametrize("name", ["docker-compose.yaml", "docker-compose.coolify.yaml"])
+@pytest.mark.parametrize("name", ["docker-compose.yaml"])
 def test_the_init_checks_the_listing_for_whole_bucket_names(name):
     command = _init_command(name)
     assert "s3.bucket.list" in command

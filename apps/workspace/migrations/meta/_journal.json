@@ -1555,6 +1555,48 @@
       "when": 1793600000000,
       "tag": "0221_edition_applies_when",
       "breakpoints": true
+    },
+    {
+      "idx": 222,
+      "version": "7",
+      "when": 1793700000000,
+      "tag": "0222_bim_model_run",
+      "breakpoints": true
+    },
+    {
+      "idx": 223,
+      "version": "7",
+      "when": 1793800000000,
+      "tag": "0223_deletion_queue_status_known",
+      "breakpoints": true
+    },
+    {
+      "idx": 224,
+      "version": "7",
+      "when": 1793900000000,
+      "tag": "0224_knowledge_text_four_eyes",
+      "breakpoints": true
+    },
+    {
+      "idx": 225,
+      "version": "7",
+      "when": 1794000000000,
+      "tag": "0225_quarantine_rescreen_exit",
+      "breakpoints": true
+    },
+    {
+      "idx": 226,
+      "version": "7",
+      "when": 1794100000000,
+      "tag": "0226_drop_dead_scheduler_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 227,
+      "version": "7",
+      "when": 1794200000000,
+      "tag": "0227_deletion_queue_pending_has_attempts",
+      "breakpoints": true
     }
   ]
 }

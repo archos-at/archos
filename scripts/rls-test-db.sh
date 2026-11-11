@@ -181,6 +181,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
   npx vitest run \
     bff/db/tenant-isolation.integration.spec.ts \
     bff/bim/query.integration.spec.ts \
+    bff/bim/extraction-repository.integration.spec.ts \
     bff/bim/model-shelf.integration.spec.ts \
     bff/bim/model-kinds-repository.integration.spec.ts \
     bff/projects/memory-service.integration.spec.ts \
@@ -189,6 +190,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/documents/list-page.integration.spec.ts \
     bff/documents/quarantine-listing.integration.spec.ts \
     bff/documents/visibility.integration.spec.ts \
+    bff/documents/local-work-ownership.integration.spec.ts \
     bff/upload-batches/upload-batches.integration.spec.ts \
     bff/authz/folder-access.integration.spec.ts \
     bff/projects/collection-placement.integration.spec.ts \
@@ -248,6 +250,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/base-knowledge/store/rulesets.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \
+    bff/base-knowledge/platform/texts.integration.spec.ts \
     bff/base-knowledge/platform/organization-countries.integration.spec.ts
 
 # Editions in time: alone, after the platform suite, since both release
@@ -3860,3 +3863,239 @@ check_in aw_0221 "SELECT count(*) FROM information_schema.columns WHERE table_na
 apply_in aw_0221 0221_edition_applies_when.sql
 check_in aw_0221 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "1" "0221 applies again after its down"
 echo "==> 0221 edition scope and its down migration verified"
+
+# 0223: `deletion_queue.status` holds one of the five values of
+# `DELETION_STATUSES` (ADR-0179), added NOT VALID: a row from before it is not
+# read and not rewritten, every insert and every later update is checked, and
+# the down removes the constraint. `deletion-queue-status-check.spec.ts` holds
+# the list below, the migration's SQL and the schema's CHECK to the tuple.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0223 deletion queue status and its down migration on dq_0223"
+migrate_before dq_0223 0223_deletion_queue_status_known
+DQ_ROW="'folder', 'f-0223', 'Ordner', 'org_0223', 'user_0223', now()"
+sql_in dq_0223 <<SQL
+INSERT INTO deletion_queue (entity_type, entity_id, display_name, organization_id, requested_by, purge_after, status)
+  VALUES ('folder', 'f-0223-old', 'Ordner', 'org_0223', 'user_0223', now(), 'paused');
+SQL
+apply_in dq_0223 0223_deletion_queue_status_known.sql
+check_in dq_0223 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'deletion_queue_status_known'" "CHECK ((status = ANY (ARRAY['pending'::text, 'purging'::text, 'purged'::text, 'restored'::text, 'failed'::text]))) NOT VALID" "0223: the status is one of the five declared values"
+check_in dq_0223 "SELECT status FROM deletion_queue WHERE entity_id = 'f-0223-old'" "paused" "0223 leaves a row from before it as it was"
+refused_in dq_0223 "INSERT INTO deletion_queue (entity_type, entity_id, display_name, organization_id, requested_by, purge_after, status) VALUES ($DQ_ROW, 'paused')" "deletion_queue_status_known" "an unknown status inserted"
+refused_in dq_0223 "UPDATE deletion_queue SET status = 'done' WHERE entity_id = 'f-0223-old'" "deletion_queue_status_known" "an old row moved to another unknown status"
+sql_in dq_0223 <<SQL
+INSERT INTO deletion_queue (entity_type, entity_id, display_name, organization_id, requested_by, purge_after) VALUES ($DQ_ROW);
+UPDATE deletion_queue SET status = 'purging' WHERE entity_id = 'f-0223';
+UPDATE deletion_queue SET status = 'purged' WHERE entity_id = 'f-0223';
+UPDATE deletion_queue SET status = 'pending' WHERE entity_id = 'f-0223-old';
+SQL
+check_in dq_0223 "SELECT string_agg(status, ',' ORDER BY entity_id) FROM deletion_queue" "purged,pending" "0223 takes every declared status, the default included"
+apply_in dq_0223 0223_deletion_queue_status_known.down.sql
+check_in dq_0223 "SELECT count(*) FROM pg_constraint WHERE conname = 'deletion_queue_status_known'" "0" "0223 down removes the constraint"
+sql_in dq_0223 <<SQL
+UPDATE deletion_queue SET status = 'paused' WHERE entity_id = 'f-0223-old';
+SQL
+apply_in dq_0223 0223_deletion_queue_status_known.sql
+check_in dq_0223 "SELECT convalidated::text FROM pg_constraint WHERE conname = 'deletion_queue_status_known'" "false" "0223 applies again after its down, over a row it would refuse"
+echo "==> 0223 deletion queue status and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0224: four eyes on what nobody fetched from a reviewed source (ADR-0165). A
+# manifestation whose text a person uploaded, or that only names a corpus file,
+# holds every approval up until somebody other than its author and its uploader
+# checked it against its source. So does a text or a capture fetched through a
+# source its own draft proposes: only a built-in source, or a source record's
+# revision released by two people, counts (the release itself is exercised in
+# texts.integration.spec.ts, through the service). A capture stored before the
+# column counts only when no record ever configured its source. The down gives
+# 0218's check back, and 0224 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0224 text four eyes and its down migration on tf_0224"
+migrate_before tf_0224 0224_knowledge_text_four_eyes
+CR_UP="c0000000-0000-4000-8000-000000000224"
+CR_URL="c1000000-0000-4000-8000-000000000224"
+CR_OWN="c2000000-0000-4000-8000-000000000224"
+CR_OLD="c3000000-0000-4000-8000-000000000224"
+CR_OLD_OWN="c4000000-0000-4000-8000-000000000224"
+CR_NEW="c5000000-0000-4000-8000-000000000224"
+RV_UP="e0000000-0000-4000-8000-000000000224"
+RV_URL="e1000000-0000-4000-8000-000000000224"
+RV_OWN="e2000000-0000-4000-8000-000000000224"
+RV_SRC="e3000000-0000-4000-8000-000000000224"
+RV_OLD="e4000000-0000-4000-8000-000000000224"
+RV_OLD_OWN="e5000000-0000-4000-8000-000000000224"
+CAP_OLD="a0000000-0000-4000-8000-000000000224"
+CAP_OLD_OWN="a1000000-0000-4000-8000-000000000224"
+sql_in tf_0224 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES
+  ('$CR_UP', 'an uploaded text', 'XA', 'user_author'), ('$CR_URL', 'a text fetched from a built-in source', 'XA', 'user_author'),
+  ('$CR_OWN', 'a text fetched through the draft''s own source', 'XA', 'user_author'),
+  ('$CR_OLD', 'an old capture from a built-in source', 'XA', 'user_author'),
+  ('$CR_OLD_OWN', 'an old capture through a source record', 'XA', 'user_author'), ('$CR_NEW', 'captures after 0224', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES
+  ('edition:xa-1', NULL, 'edition', 'XA', 'user_author'), ('source:xa-own', NULL, 'source', 'XA', 'user_author'),
+  ('work:xa-old', NULL, 'work', 'XA', 'user_author'), ('work:xa-old-own', NULL, 'work', 'XA', 'user_author'),
+  ('manifestation:xa-up', NULL, 'manifestation', 'XA', 'user_author'), ('manifestation:xa-url', NULL, 'manifestation', 'XA', 'user_author'),
+  ('manifestation:xa-own', NULL, 'manifestation', 'XA', 'user_author');
+INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, url, sha256, byte_size, retrieved_at, created_by) VALUES
+  ('$CAP_OLD', '$CR_OLD', 'fetched', 'xa-ris', 'https://ris.example/1', repeat('a', 64), 1, now(), 'user_author'),
+  ('$CAP_OLD_OWN', '$CR_OLD_OWN', 'fetched', 'xa-own', 'https://attacker.example/1', repeat('b', 64), 1, now(), 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id, provenance) VALUES
+  ('$RV_UP', 'manifestation:xa-up', 'manifestation', NULL, 'user_author', '$CR_UP',
+   '{"text": {"origin": "upload", "fileName": "xa-up.pdf", "sha256": "aa", "attachedBy": "user_uploader"}}'),
+  ('$RV_URL', 'manifestation:xa-url', 'manifestation', NULL, 'user_author', '$CR_URL',
+   '{"text": {"origin": "url", "fileName": "xa-url.pdf", "sha256": "bb", "sourceId": "xa-ris", "sourceOrigin": "built_in", "attachedBy": "user_author"}}'),
+  ('$RV_SRC', 'source:xa-own', 'source', NULL, 'user_author', '$CR_OWN', '{}'),
+  ('$RV_OWN', 'manifestation:xa-own', 'manifestation', NULL, 'user_author', '$CR_OWN',
+   '{"text": {"origin": "url", "fileName": "xa-own.pdf", "sha256": "cc", "sourceId": "xa-own", "sourceOrigin": "draft", "sourceRevisionId": "$RV_SRC", "attachedBy": "user_author"}}'),
+  ('$RV_OLD', 'work:xa-old', 'work', NULL, 'user_author', '$CR_OLD', '{"citations": [{"captureId": "$CAP_OLD"}]}'),
+  ('$RV_OLD_OWN', 'work:xa-old-own', 'work', NULL, 'user_author', '$CR_OLD_OWN', '{"citations": [{"captureId": "$CAP_OLD_OWN"}]}');
+INSERT INTO knowledge_manifestation_revisions (revision_id, record_id, organization_id, edition_id, licence_class, corpus_file, sha256) VALUES
+  ('$RV_UP', 'manifestation:xa-up', NULL, 'edition:xa-1', 'public_open', 'xa-up.pdf', 'aa'),
+  ('$RV_URL', 'manifestation:xa-url', NULL, 'edition:xa-1', 'public_open', 'xa-url.pdf', 'bb'),
+  ('$RV_OWN', 'manifestation:xa-own', NULL, 'edition:xa-1', 'public_open', 'xa-own.pdf', 'cc');
+UPDATE knowledge_change_requests SET status = 'submitted' WHERE id IN ('$CR_UP', '$CR_URL', '$CR_OWN', '$CR_OLD', '$CR_OLD_OWN');
+SQL
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "false" "before 0224 an uploaded text holds no approval up"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_OLD_OWN')::text" "false" "before 0224 a capture fetched through any source holds no approval up"
+apply_in tf_0224 0224_knowledge_text_four_eyes.sql
+apply_in tf_0224 0224_knowledge_text_four_eyes.sql   # up twice: idempotent
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "true" "0224: an uploaded text nobody else checked is unchecked"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_URL')::text" "false" "0224: a text fetched from a built-in source counts as fetched"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_OWN')::text" "true" "0224: a text fetched through a source its own draft proposes is unchecked"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_OLD')::text" "false" "0224: a capture stored before it, from a source no record configures, counts as fetched"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_OLD_OWN')::text" "true" "0224: a capture stored before it, through a source a record configures, is unchecked"
+check_in tf_0224 "SELECT knowledge_source_reviewed('xa-own', 'released', '$RV_SRC', now())::text" "false" "0224: a revision no release published is no released source, whatever the fetch recorded"
+refused_in tf_0224 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source, override_reason) VALUES (gen_random_uuid(), '$CR_UP', 'user_author', 'domain_expert', 'app', 'urgent')" "no reviewer checked" "an approval alone over an uploaded text nobody else checked"
+refused_in tf_0224 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source, override_reason) VALUES (gen_random_uuid(), '$CR_OWN', 'user_author', 'domain_expert', 'app', 'urgent')" "no reviewer checked" "an approval alone over a text fetched through the author's own source"
+# An older build, during a rollout or after a rollback, still writes a fetched capture without an origin: accepted,
+# and held like the ones stored before when a record configures its source.
+sql_in tf_0224 <<SQL
+INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, url, sha256, byte_size, retrieved_at, created_by) VALUES
+  ('a2000000-0000-4000-8000-000000000224', '$CR_NEW', 'fetched', 'xa-own', 'https://attacker.example/2', repeat('c', 64), 1, now(), 'user_author');
+SQL
+check_in tf_0224 "SELECT knowledge_capture_counts_as_fetched(basis, source_id, source_origin, source_revision_id, created_at)::text FROM knowledge_citation_captures WHERE id = 'a2000000-0000-4000-8000-000000000224'" "false" "0224: an older build's capture through a source a record configures does not count"
+refused_in tf_0224 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, source_origin, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR_NEW', 'fetched', 'xa-own', 'draft', 'https://attacker.example/2', repeat('c', 64), 1, now(), 'user_author')" "knowledge_citation_captures_source_revision_named" "a capture through a source record that names no revision"
+refused_in tf_0224 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_origin, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR_NEW', 'operator_supplied', 'built_in', 'https://ris.example/3', repeat('c', 64), 1, now(), 'user_author')" "knowledge_citation_captures_source_origin_known" "a pasted page that claims a source"
+sql_in tf_0224 <<SQL
+INSERT INTO knowledge_citation_captures (id, change_request_id, basis, source_id, source_origin, source_revision_id, url, sha256, byte_size, retrieved_at, created_by) VALUES
+  (gen_random_uuid(), '$CR_NEW', 'fetched', 'xa-ris', 'built_in', NULL, 'https://ris.example/4', repeat('d', 64), 1, now(), 'user_author'),
+  (gen_random_uuid(), '$CR_NEW', 'fetched', 'xa-own', 'draft', '$RV_SRC', 'https://attacker.example/4', repeat('e', 64), 1, now(), 'user_author');
+SQL
+check_in tf_0224 "SELECT string_agg(source_origin || '=' || knowledge_capture_counts_as_fetched(basis, source_id, source_origin, source_revision_id, created_at)::text, ',' ORDER BY source_origin) FROM knowledge_citation_captures WHERE change_request_id = '$CR_NEW' AND source_origin IS NOT NULL" "built_in=true,draft=false" "0224: a capture through a built-in source counts, one through a draft's source does not"
+sql_in tf_0224 <<SQL
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked, decision_source)
+  VALUES (gen_random_uuid(), '$CR_UP', '$RV_UP', 'corpusFile', 'accepted', 'user_uploader', true, 'app');
+SQL
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "true" "0224: the uploader's own source check does not count"
+sql_in tf_0224 <<SQL
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked, decision_source)
+  VALUES (gen_random_uuid(), '$CR_UP', '$RV_UP', 'corpusFile', 'accepted', 'user_expert', true, 'app'),
+         (gen_random_uuid(), '$CR_OWN', '$RV_OWN', 'corpusFile', 'accepted', 'user_expert', true, 'app');
+SQL
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "false" "0224: another person's source check clears the uploaded text"
+check_in tf_0224 "SELECT knowledge_sources_unchecked('$CR_OWN')::text" "false" "0224: another person's source check clears the text fetched through the draft's source"
+apply_in tf_0224 0224_knowledge_text_four_eyes.down.sql
+check_in tf_0224 "SELECT (pg_get_functiondef('knowledge_sources_unchecked(uuid)'::regprocedure) LIKE '%knowledge_manifestation_revisions%')::text" "false" "0224 down gives 0218's source check back"
+check_in tf_0224 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_citation_captures' AND column_name IN ('source_origin', 'source_revision_id')" "0" "0224 down drops the two columns"
+check_in tf_0224 "SELECT count(*) FROM pg_proc WHERE proname IN ('knowledge_source_reviewed', 'knowledge_capture_counts_as_fetched', 'knowledge_text_counts_as_fetched')" "0" "0224 down drops its three functions"
+apply_in tf_0224 0224_knowledge_text_four_eyes.sql
+check_in tf_0224 "SELECT (pg_get_functiondef('knowledge_sources_unchecked(uuid)'::regprocedure) LIKE '%knowledge_text_counts_as_fetched%')::text" "true" "0224 applies again after its down"
+echo "==> 0224 text four eyes and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0226: what the scheduler before 0086 left behind is dropped. `jobs`,
+# `job_runs` and `tasks` have no reader since 0086 copied their rows into
+# `task_definitions` and `task_runs` under the same ids. The rows below are a
+# job with its fire and its task, and the definition and run 0086 made of them:
+# 0226 takes the old three and leaves the copies, the conversation's link to
+# the definition included. `bff_job_queue` stays, and so does the lane order
+# of the retired claim (`bff_job_lane_turns`) with its row: production's
+# running release still claims through it. The down gives the three tables back
+# empty, with their policies, checks, foreign keys and the partial due index,
+# and 0226 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0226 dead scheduler schema and its down migration on dead_0226"
+migrate_before dead_0226 0226_drop_dead_scheduler_schema
+TABLES_0226="SELECT count(*) FROM pg_class WHERE relkind = 'r' AND relname IN ('jobs', 'job_runs', 'tasks')"
+LANE_0226="SELECT (SELECT count(*) FROM pg_class WHERE relkind = 'r' AND relname = 'bff_job_lane_turns') || ':' || (SELECT count(*) FROM bff_job_lane_turns WHERE lane = 'org_0226')"
+COPIES_0226="SELECT (SELECT count(*) FROM task_definitions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000226') || ':' || (SELECT count(*) FROM task_runs WHERE id = 'cccccccc-0000-4000-8000-000000000226') || ':' || (SELECT job_id FROM conversations WHERE id = 's_0226')"
+sql_in dead_0226 <<SQL
+INSERT INTO bff_job_lane_turns (lane, last_claimed_at) VALUES ('org_0226', now());
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000226', 'org_0226', 'Dead 0226', 'user_1', 'proj_0226');
+INSERT INTO jobs (id, project_id, organization_id, name, prompt, output, schedule_cron, created_by)
+VALUES ('bbbbbbbb-0000-4000-8000-000000000226', 'aaaaaaaa-0000-4000-8000-000000000226', 'org_0226', 'Montags', 'Was ist offen?', 'chat', '0 8 * * 1', 'user_1');
+INSERT INTO job_runs (id, schedule_id, project_id, organization_id, job_id, trigger, status, skill_snapshot)
+VALUES ('cccccccc-0000-4000-8000-000000000226', 'bbbbbbbb-0000-4000-8000-000000000226', 'aaaaaaaa-0000-4000-8000-000000000226', 'org_0226', 'backend-0226', 'schedule', 'submitted', '{}');
+INSERT INTO tasks (organization_id, project_id, kind, title, plan, requester_user_id, status, job_id, job_run_id, backend_job_id)
+VALUES ('org_0226', 'aaaaaaaa-0000-4000-8000-000000000226', 'chat', 'Montags', '{"prompt": "Was ist offen?"}', 'user_1', 'succeeded',
+  'bbbbbbbb-0000-4000-8000-000000000226', 'cccccccc-0000-4000-8000-000000000226', 'backend-0226');
+INSERT INTO task_definitions (id, organization_id, project_id, kind, title, plan, requester_user_id, trigger, schedule_cron)
+VALUES ('bbbbbbbb-0000-4000-8000-000000000226', 'org_0226', 'aaaaaaaa-0000-4000-8000-000000000226', 'chat', 'Montags', '{"prompt": "Was ist offen?"}', 'user_1', 'schedule', '0 8 * * 1');
+INSERT INTO task_runs (id, organization_id, project_id, definition_id, kind, title, plan, requester_user_id, trigger, status, skill_snapshot, backend_job_id)
+VALUES ('cccccccc-0000-4000-8000-000000000226', 'org_0226', 'aaaaaaaa-0000-4000-8000-000000000226', 'bbbbbbbb-0000-4000-8000-000000000226', 'chat', 'Montags',
+  '{"prompt": "Was ist offen?"}', 'user_1', 'schedule', 'succeeded', '{}', 'backend-0226');
+INSERT INTO conversations (id, organization_id, created_by, project_id, job_id)
+VALUES ('s_0226', 'org_0226', 'user_1', 'aaaaaaaa-0000-4000-8000-000000000226', 'bbbbbbbb-0000-4000-8000-000000000226');
+SQL
+check_in dead_0226 "$TABLES_0226" "3" "before 0226 the three legacy tables exist"
+check_in dead_0226 "SELECT count(*) FROM pg_constraint WHERE confrelid IN ('jobs'::regclass, 'job_runs'::regclass, 'tasks'::regclass) AND conrelid NOT IN ('jobs'::regclass, 'job_runs'::regclass, 'tasks'::regclass)" "0" "no other table references the legacy three"
+apply_in dead_0226 0226_drop_dead_scheduler_schema.sql
+check_in dead_0226 "$TABLES_0226" "0" "0226 drops the three legacy tables"
+check_in dead_0226 "$LANE_0226" "1:1" "0226 leaves the lane order production still claims through, and its row"
+check_in dead_0226 "SELECT count(*) FROM pg_class WHERE relname IN ('idx_jobs_due', 'uniq_tasks_backend_job_id', 'idx_job_runs_backend_job_id')" "0" "0226 takes their indexes with them"
+check_in dead_0226 "SELECT count(*) FROM pg_class WHERE relname IN ('bff_job_queue', 'task_definitions', 'task_runs') AND relkind = 'r'" "3" "0226 leaves bff_job_queue and the task model"
+check_in dead_0226 "$COPIES_0226" "1:1:bbbbbbbb-0000-4000-8000-000000000226" "0226 leaves the definition, its run and the conversation's link"
+apply_in dead_0226 0226_drop_dead_scheduler_schema.down.sql
+check_in dead_0226 "$TABLES_0226" "3" "0226 down gives the three tables back"
+check_in dead_0226 "SELECT (SELECT count(*) FROM jobs) + (SELECT count(*) FROM job_runs) + (SELECT count(*) FROM tasks)" "0" "0226 down gives them back empty"
+check_in dead_0226 "SELECT string_agg(c.relname || '=' || c.relrowsecurity::text || '/' || (SELECT count(*) FROM pg_policies p WHERE p.tablename = c.relname AND p.policyname = 'tenant_isolation'), ',' ORDER BY c.relname) FROM pg_class c WHERE c.relkind = 'r' AND c.relname IN ('jobs', 'job_runs', 'tasks')" "job_runs=true/1,jobs=true/1,tasks=true/1" "0226 down secures all three again"
+check_in dead_0226 "$LANE_0226" "1:1" "0226 down leaves the lane order and its row alone"
+check_in dead_0226 "SELECT string_agg(conrelid::regclass || '.' || conname, ',' ORDER BY conrelid::regclass::text, conname) FROM pg_constraint WHERE conrelid IN ('jobs'::regclass, 'job_runs'::regclass, 'tasks'::regclass) AND contype IN ('c', 'f')" "job_runs.job_runs_conversation_id_organization_id_fkey,job_runs.job_runs_schedule_id_fkey,jobs.jobs_project_id_fkey,jobs.jobs_skill_pair_check,tasks.tasks_filing_status_known,tasks.tasks_job_id_fkey,tasks.tasks_job_run_id_fkey,tasks.tasks_project_id_fkey,tasks.tasks_review_complete,tasks.tasks_review_known,tasks.tasks_status_known" "0226 down gives the checks and foreign keys their names back"
+check_in dead_0226 "SELECT (pg_get_indexdef('idx_jobs_due'::regclass) LIKE '%(next_run_at) WHERE ((schedule_cron IS NOT NULL) AND enabled)')::text" "true" "0226 down gives the due index its predicate back"
+check_in dead_0226 "SELECT count(*) FROM pg_indexes WHERE tablename IN ('jobs', 'job_runs', 'tasks')" "15" "0226 down gives every index back"
+check_in dead_0226 "$COPIES_0226" "1:1:bbbbbbbb-0000-4000-8000-000000000226" "0226 down touches no copy"
+apply_in dead_0226 0226_drop_dead_scheduler_schema.sql
+check_in dead_0226 "$TABLES_0226" "0" "0226 applies again after its down"
+echo "==> 0226 dead scheduler schema and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0227: a `pending` deletion always has an attempt left (ADR-0179). The purger
+# claims a row only below its cap of ten, so a `pending` row at the cap waits
+# for ever; the purger used to repair one on every tick (`reofferExhausted`).
+# The migration repairs the rows from before it once, as that did, and adds the
+# CHECK NOT VALID; a row in any other status keeps its attempts. The down
+# removes the constraint, and 0227 applies again over a row stranded meanwhile.
+# `deletion-queue.spec.ts` holds the definition below to `DELETION_MAX_ATTEMPTS`.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0227 pending deletions keep an attempt and its down migration on dq_0227"
+migrate_before dq_0227 0227_deletion_queue_pending_has_attempts
+DQ_0227="INSERT INTO deletion_queue (entity_type, entity_id, display_name, organization_id, requested_by, purge_after, status, attempts) VALUES ('folder'"
+DQ_0227_REST="'Ordner', 'org_0227', 'user_0227', now()"
+STATE_0227="SELECT string_agg(entity_id || '=' || status || '/' || attempts, ',' ORDER BY entity_id) FROM deletion_queue"
+sql_in dq_0227 <<SQL
+$DQ_0227, 'f-a-stranded', $DQ_0227_REST, 'pending', 11);
+$DQ_0227, 'f-b-waiting', $DQ_0227_REST, 'pending', 3);
+$DQ_0227, 'f-c-failed', $DQ_0227_REST, 'failed', 10);
+$DQ_0227, 'f-d-retried', $DQ_0227_REST, 'purging', 11);
+SQL
+apply_in dq_0227 0227_deletion_queue_pending_has_attempts.sql
+check_in dq_0227 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'deletion_queue_pending_has_attempts'" "CHECK (((status <> 'pending'::text) OR (attempts < 10))) NOT VALID" "0227: a pending row is below the attempt cap"
+check_in dq_0227 "$STATE_0227" "f-a-stranded=pending/9,f-b-waiting=pending/3,f-c-failed=failed/10,f-d-retried=purging/11" "0227 gives a stranded row its last attempt back and touches no other"
+refused_in dq_0227 "$DQ_0227, 'f-e-new', $DQ_0227_REST, 'pending', 10)" "deletion_queue_pending_has_attempts" "a pending row inserted at the cap"
+refused_in dq_0227 "UPDATE deletion_queue SET attempts = attempts + 1 WHERE entity_id = 'f-a-stranded'" "deletion_queue_pending_has_attempts" "a pending row counted up to the cap"
+refused_in dq_0227 "UPDATE deletion_queue SET status = 'pending' WHERE entity_id = 'f-d-retried'" "deletion_queue_pending_has_attempts" "a claim at the cap released as pending"
+sql_in dq_0227 <<SQL
+UPDATE deletion_queue SET status = 'purging', attempts = attempts + 1 WHERE entity_id = 'f-a-stranded';
+UPDATE deletion_queue SET status = 'failed' WHERE entity_id IN ('f-a-stranded', 'f-d-retried');
+UPDATE deletion_queue SET status = 'pending', attempts = 0 WHERE entity_id = 'f-d-retried';
+SQL
+check_in dq_0227 "$STATE_0227" "f-a-stranded=failed/10,f-b-waiting=pending/3,f-c-failed=failed/10,f-d-retried=pending/0" "0227 takes the last claim, its failure, and a hand-over that starts the attempts again"
+apply_in dq_0227 0227_deletion_queue_pending_has_attempts.down.sql
+check_in dq_0227 "SELECT count(*) FROM pg_constraint WHERE conname = 'deletion_queue_pending_has_attempts'" "0" "0227 down removes the constraint"
+sql_in dq_0227 <<SQL
+UPDATE deletion_queue SET status = 'pending', attempts = 12 WHERE entity_id = 'f-c-failed';
+SQL
+apply_in dq_0227 0227_deletion_queue_pending_has_attempts.sql
+check_in dq_0227 "SELECT status || '/' || attempts FROM deletion_queue WHERE entity_id = 'f-c-failed'" "pending/9" "0227 applies again after its down, repairing a row stranded meanwhile"
+echo "==> 0227 pending deletions keep an attempt and its down migration verified"

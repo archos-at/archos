@@ -4,7 +4,10 @@
  * office-shelf workspaces that read it. No `server-only`: the browser parses these.
  *
  * The hint says that the shelf's documents changed, and whether its folders
- * did too, and nothing else. The receiver re-reads the level, the counts and,
+ * did too, and nothing else. Background work that lands on the shelf says it
+ * as well (a read that settled, a model that is ready, a filing suggestion, a
+ * mail import's slice), which is what a waiting surface listens for instead
+ * of polling (`useShelfLive`). The receiver re-reads the level, the counts and,
  * when told, the folder tree through the API, where the reader's own access is
  * worked out (a held upload, a restricted folder). Nothing renders from the
  * hint, so it may reach everyone who may read the shelf.

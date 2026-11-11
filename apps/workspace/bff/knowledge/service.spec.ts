@@ -12,7 +12,7 @@ import { BadRequestError, NotFoundError, UpstreamError } from '@/lib/api/errors'
 import {
   deleteKnowledgeBaseDocument,
   getKnowledgeBaseStatus,
-  streamKnowledgeBaseDocument,
+  getReleasedKnowledgeBaseStatus,
   syncKnowledgeBase,
   uploadKnowledgeBaseDocument,
 } from './service'
@@ -41,6 +41,7 @@ const backendPayload = {
       chunk_count: 42,
       ingested_sha256: 'abc',
       current_sha256: 'abc',
+      country_id: 'AT',
       ingested_at: '2026-06-30T12:00:00Z',
       summary: 'Brandschutz.',
       display_title: 'OIB-Richtlinie 1, Ausgabe Mai 2023',
@@ -95,6 +96,7 @@ describe('getKnowledgeBaseStatus', () => {
       chunkCount: 42,
       ingestedSha256: 'abc',
       currentSha256: 'abc',
+      countryId: 'AT',
       ingestedAt: '2026-06-30T12:00:00Z',
       summary: 'Brandschutz.',
       docClass: null,
@@ -210,6 +212,12 @@ describe('knowledge admin operations', () => {
     expect((init?.headers as Record<string, string>)['X-Admin-Token']).toBe('admin-secret')
   })
 
+  it('answers the api tier’s refusal to put other bytes under a name it keeps as a conflict, not as a broken backend', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ detail: 'the base corpus keeps other bytes as norm.pdf' }), { status: 409 }))
+
+    await expect(uploadKnowledgeBaseDocument(new File([new Uint8Array([1])], 'norm.pdf'))).rejects.toMatchObject({ status: 409, code: 'NAME_TAKEN' })
+  })
+
   it('rejects non-PDF or path-carrying filenames before calling the backend', async () => {
     await expect(uploadKnowledgeBaseDocument(new File([new Uint8Array([1])], 'evil.exe'))).rejects.toBeInstanceOf(
       BadRequestError,
@@ -231,34 +239,62 @@ describe('knowledge admin operations', () => {
 
     await expect(syncKnowledgeBase()).resolves.toEqual({ filesAdded: 3, filesTotal: 42, message: 'ok' })
   })
+})
 
-  it('streams a source PDF inline', async () => {
-    const pdfBody = new Response(new Blob([new Uint8Array([37, 80, 68, 70])]), { status: 200 })
-    fetchMock.mockResolvedValue(pdfBody)
+describe('getReleasedKnowledgeBaseStatus', () => {
+  // One file per class the corpus holds. The countries are invented: the rule
+  // compares a file's mark with the reader's countries and knows no country.
+  const file = (file_name: string, country_id: string | null, state = 'ingested', chunk_count = 5) => ({ file_name, country_id, state, chunk_count })
+  const corpus = {
+    collection_name: 'base',
+    collection_exists: true,
+    summary: { total_files: 5, ingested: 4, pending: 1, total_chunks: 25 },
+    files: [
+      file('released-here.pdf', 'QA'),
+      file('released-here-pending.pdf', 'QA', 'pending', 0),
+      file('released-elsewhere.pdf', 'QB'),
+      file('rolled-back.pdf', 'ZZ'),
+      file('draft-upload.pdf', null),
+    ],
+  }
 
-    const res = await streamKnowledgeBaseDocument('oib-rl_1_ausgabe_mai_2023.pdf')
-
-    expect(res.headers.get('Content-Type')).toBe('application/pdf')
-    expect(res.headers.get('Content-Disposition')).toContain('inline')
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify(corpus), { status: 200 }))
   })
 
-  it('allows same-origin framing so the in-app PDF viewer can display it', async () => {
-    // The global next.config rule stamps X-Frame-Options: DENY on every route,
-    // which would make the browser refuse to render the same-origin preview
-    // iframe. The streamed Response overrides that for this route (defense in
-    // depth alongside the route-scoped next.config override).
-    const pdfBody = new Response(new Blob([new Uint8Array([37, 80, 68, 70])]), { status: 200 })
-    fetchMock.mockResolvedValue(pdfBody)
-
-    const res = await streamKnowledgeBaseDocument('oib-rl_1_ausgabe_mai_2023.pdf')
-
-    expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN')
-    expect(res.headers.get('Content-Security-Policy')).toBe("frame-ancestors 'self'")
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
-  it('maps a missing source PDF to NotFoundError', async () => {
-    fetchMock.mockResolvedValue(new Response('nope', { status: 404 }))
+  it('lists the files released in the reader’s countries, and no draft, rolled-back or other country’s file', async () => {
+    const status = await getReleasedKnowledgeBaseStatus(['QA'])
 
-    await expect(streamKnowledgeBaseDocument('gone.pdf')).rejects.toBeInstanceOf(NotFoundError)
+    expect(status.files.map((entry) => entry.fileName)).toEqual(['released-here.pdf', 'released-here-pending.pdf'])
+  })
+
+  it('counts over the listed files alone, so a count cannot tell what else the corpus holds', async () => {
+    const status = await getReleasedKnowledgeBaseStatus(['QA'])
+
+    expect(status.summary).toEqual({ totalFiles: 2, ingested: 1, stale: 0, pending: 1, failed: 0, removed: 0, inconsistent: 0, totalChunks: 5 })
+  })
+
+  it('lists a second country’s files for a reader of both', async () => {
+    const status = await getReleasedKnowledgeBaseStatus(['QA', 'QB'])
+
+    expect(status.files.map((entry) => entry.fileName)).toContain('released-elsewhere.pdf')
+  })
+
+  it('lists nothing for a reader of no country', async () => {
+    const status = await getReleasedKnowledgeBaseStatus([])
+
+    expect(status.files).toEqual([])
+    expect(status.summary.totalFiles).toBe(0)
+    expect(status.summary.totalChunks).toBe(0)
+  })
+
+  it('keeps the whole corpus for the platform’s own reader', async () => {
+    expect((await getKnowledgeBaseStatus()).files).toHaveLength(5)
   })
 })

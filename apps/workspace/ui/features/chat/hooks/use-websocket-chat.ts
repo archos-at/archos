@@ -62,6 +62,7 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import { useAuth } from '@/adapters/auth'
 import { createTurnSocket, type OpenTurn } from '@/adapters/api/turn-socket'
 import { browserPageLifecycle, isActive, sleptThrough } from '@/adapters/api/page-lifecycle'
+import { watchRestoring } from '../connection-restoring'
 import type { ClientMessage, ShownAnswer, WireEvent } from '@/adapters/api/wire-v2'
 import { checkBackendHealthCached, invalidateHealthCache } from '@/shared/hooks/use-backend-health'
 import { useThreadSharing } from '@/shared/collaboration/thread-sharing'
@@ -569,13 +570,13 @@ const createTurnDriver = (conversationId: string, projectId: string | undefined,
     refreshAuth: hooks.refreshAuth,
     onEvent: (event) => receive(event),
     onSilent: silent,
-    onStatus: (status) => {
+    onStatus: watchRestoring(conversationId, (status) => {
       socketOpen = status === 'open'
       hooks.onConnected(socketOpen, socketOpen && socket.accepts('steer'))
       if (status === 'open') opened()
       else if (status === 'offline') hooks.onOffline()
       else if (status === 'failed' || status === 'incompatible' || status === 'outdated') gaveUp(status)
-    },
+    }),
   })
 
   const deliver = (message: ClientMessage): void => {

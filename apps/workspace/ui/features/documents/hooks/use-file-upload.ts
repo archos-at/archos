@@ -19,7 +19,6 @@ import { formatBytes } from '@/lib/format'
 import { useDocumentsStore } from '../store'
 import { useAuth } from '@/adapters/auth'
 import { useAppConfig } from '@/shared/context'
-import { useLayoutStore } from '@/features/layout/store'
 import { mayRetryUpload, type TrackedFile, type UploadIntent } from '../types'
 import { mapUploadResponseStatus } from '../utils'
 import { shouldEmitProgress } from '../lib/upload-progress'
@@ -28,6 +27,7 @@ import { runWithConcurrency, sendWaitingOutRateLimit, UPLOAD_CONCURRENCY } from 
 import { validateFileUpload, type ValidationContext } from '../validation'
 import { summarizeValidation } from '../lib/validation-messages'
 import { UploadOrchestrator } from '../orchestrator'
+import { useUploadOrchestrator } from './use-upload-orchestrator'
 import type { PendingJob } from '../orchestrator'
 import { markSessionHasCollection } from '../persistence'
 import { notifyDocumentsChanged } from '@/lib/documents/document-changes'
@@ -41,7 +41,7 @@ import { captureUploadBatch } from './upload-batch-event'
 import { fileExtensionLabel } from '../document-kind'
 import { failedWhileReading } from '../lib/ingest-failure'
 import { requestReingest } from '../lib/reingest-request'
-import { requestCancelIngest } from '../lib/cancel-request'
+import { stopReadingRow } from '../lib/stop-reading'
 import { mayRetryRefusal, uploadRefusalOf } from '../lib/upload-refusal'
 import { uploadFailureSentence, UploadFailureSentence, type UploadFailureCopy } from '../lib/upload-failure'
 import { toast } from 'sonner'
@@ -214,7 +214,6 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
   )
   const { fileUpload: fileUploadConfig } = useAppConfig()
   const clientRef = useRef(createDocumentsClient({ authToken: idToken }))
-  const previousSessionIdRef = useRef<string | undefined>(undefined)
   /**
    * One abort handle per in-flight request, keyed by tracked-file id. Per-file
    * rather than one for the batch: a 150 MB model that the user changed their
@@ -261,34 +260,8 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
     UploadOrchestrator.setAuthToken(idToken)
   }, [idToken])
 
-  // One subscription per mount: several surfaces use this hook at once, and
-  // each must hear about the uploads it is showing.
-  useEffect(() => UploadOrchestrator.subscribe({ onComplete, onError }), [onComplete, onError])
-
-  useEffect(() => {
-    const previousSessionId = previousSessionIdRef.current
-
-    if (collectionName !== previousSessionId) {
-      UploadOrchestrator.handleSessionChange(collectionName, shelf === 'session' ? 'session' : 'corpus')
-      previousSessionIdRef.current = collectionName
-    }
-  }, [collectionName, shelf])
-
-  // Retry file loading when knowledgeLayerAvailable becomes true.
-  // On browser refresh, the initial loadFilesForSession call may fire before
-  // fetchDataSources completes, causing it to skip because
-  // knowledgeLayerAvailable is still false. This effect ensures we retry
-  // once the knowledge layer is confirmed available.
-  const knowledgeLayerAvailable = useLayoutStore((state) => state.knowledgeLayerAvailable)
-  useEffect(() => {
-    if (collectionName) {
-      UploadOrchestrator.loadFilesForSession(collectionName)
-    }
-  }, [knowledgeLayerAvailable, collectionName])
-
-  // Note: We intentionally don't cleanup the orchestrator on unmount.
-  // The orchestrator is a singleton that manages polling across component lifecycles.
-  // Cleanup happens via session changes (handleSessionChange) when user switches sessions.
+  // Completion, the collection on screen and the shelf's live hints (`useUploadOrchestrator`).
+  useUploadOrchestrator({ collectionName, projectId, officeShelf, onComplete, onError })
 
   const ensureCollectionExists = useCallback(
     async (collectionName: string): Promise<void> => {
@@ -747,16 +720,16 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
    * bytes are stored and an ingest job is working on them. There the stop is a
    * request to the backend (`stopReading`), and the row settles the same way —
    * `canceled` — because nothing was indexed and the file can be read again.
+   * `stopReadingRow` writes that, and only when the stop took effect.
    */
   const stopReading = useCallback(
     async (fileId: string, documentId: string): Promise<void> => {
-      const outcome = await requestCancelIngest(documentId)
-      if (outcome.kind === 'cancelled') {
-        updateTrackedFile(fileId, { status: 'canceled' })
+      const outcome = await stopReadingRow(fileId, documentId)
+      if (outcome === 'cancelled') {
         notifyDocumentsChanged()
         return
       }
-      if (outcome.kind === 'finished') {
+      if (outcome === 'finished') {
         // The job had already run to an end, so the row is not stuck: let the
         // orchestrator read where it actually landed rather than say stopped.
         toast.info(t('actions.cancelFinished'))
@@ -766,13 +739,13 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       // Not a failure to retry: the work runs somewhere a queue cannot reach
       // (queue off, or a conversion inside the BFF), and the row is honest as
       // it stands.
-      if (outcome.kind === 'unavailable') {
+      if (outcome === 'unavailable') {
         toast.info(t('actions.cancelUnavailable'))
         return
       }
       toast.error(t('actions.cancelError'))
     },
-    [updateTrackedFile, t]
+    [t]
   )
 
   const cancelFile = useCallback(

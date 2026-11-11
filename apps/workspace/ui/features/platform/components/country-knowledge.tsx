@@ -21,6 +21,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { LoadError } from '@/components/ui/load-error'
+import { LoadMore } from '@/components/ui/load-more'
 import {
   Table,
   TableBody,
@@ -38,7 +40,7 @@ import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
-import type { PlatformKnowledgeOverview } from '@/lib/base-knowledge/platform/wire'
+import type { ChangeRequestSummary, PlatformKnowledgeOverview } from '@/lib/base-knowledge/platform/wire'
 
 type Load<T> =
   { state: 'loading' } | { state: 'error'; status: number } | { state: 'ready'; value: T }
@@ -58,6 +60,28 @@ export function CountryKnowledge(): JSX.Element {
   const { locale } = useLocale()
   const [overview, setOverview] = useState<Load<PlatformKnowledgeOverview>>({ state: 'loading' })
   const [openId, setOpenId] = useState<string | null>(null)
+  const [drafts, setDrafts] = useState<ChangeRequestSummary[]>([])
+  /** The next page of drafts, or null on the last; a failed read keeps what was listed and offers the read again. */
+  const [draftsCursor, setDraftsCursor] = useState<string | null>(null)
+  /** The read that failed, by the cursor it asked with (null: the first page), so asking again repeats that read. */
+  const [draftsFailure, setDraftsFailure] = useState<{ cursor: string | null } | null>(null)
+  const [draftsLoading, setDraftsLoading] = useState(false)
+
+  // Drafts are where texts are attached; the queue above holds what waits for review.
+  const loadDrafts = useCallback(async (cursor: string | null) => {
+    setDraftsLoading(true)
+    const open = await fetch(`${BASE}/change-requests?status=draft${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`).catch(() => null)
+    const listed = open?.ok ? ((await open.json().catch(() => null)) as { changeRequests?: ChangeRequestSummary[]; nextCursor?: string | null } | null) : null
+    setDraftsLoading(false)
+    const page = listed?.changeRequests
+    if (!Array.isArray(page)) {
+      setDraftsFailure({ cursor })
+      return
+    }
+    setDraftsFailure(null)
+    setDrafts((listedBefore) => (cursor ? [...listedBefore, ...page] : page))
+    setDraftsCursor(listed?.nextCursor ?? null)
+  }, [])
 
   const load = useCallback(async () => {
     const response = await fetch(BASE).catch(() => null)
@@ -66,6 +90,13 @@ export function CountryKnowledge(): JSX.Element {
       return
     }
     setOverview({ state: 'ready', value: (await response.json()) as PlatformKnowledgeOverview })
+    await loadDrafts(null)
+  }, [loadDrafts])
+
+  // A link from the base corpus opens the request a file belongs to.
+  useEffect(() => {
+    const linked = new URLSearchParams(window.location.search).get('request')
+    if (linked) setOpenId(linked)
   }, [])
 
   useEffect(() => {
@@ -83,6 +114,8 @@ export function CountryKnowledge(): JSX.Element {
   }
 
   const ready = overview.state === 'ready' ? overview.value : null
+  // The first page failed: the next page waits until the list it would extend is read again.
+  const refreshFailed = draftsFailure !== null && draftsFailure.cursor === null
   return (
     <div className="flex flex-col gap-6">
       <SectionCard
@@ -175,6 +208,41 @@ export function CountryKnowledge(): JSX.Element {
           </Table>
         ) : null}
       </SectionCard>
+
+      {drafts.length > 0 || draftsFailure ? (
+        <SectionCard title={t('countryKnowledge.draftsTitle')} description={t('countryKnowledge.draftsDescription')}>
+          {/* A failed first page, with drafts listed or not: what is listed may be out of date, and the retry reads the first page again. */}
+          {refreshFailed ? (
+            <LoadError title={t('countryKnowledge.draftsLoadError')} onRetry={() => loadDrafts(null)} retrying={draftsLoading} />
+          ) : null}
+          <Table data-testid="country-knowledge-drafts">
+            <TableBody>
+              {drafts.map((request) => (
+                <TableRow key={request.id}>
+                  <TableCell className="font-medium">{request.title}</TableCell>
+                  <TableCell>{countryName(request.countryId, locale)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{request.revisionCount}</TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="outline" onClick={() => setOpenId(request.id)}>
+                      {t('countryKnowledge.open')}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <LoadMore
+            auto={false}
+            hasMore={draftsCursor !== null && !refreshFailed}
+            loading={draftsLoading && drafts.length > 0 && !refreshFailed}
+            failed={draftsFailure !== null}
+            onLoadMore={() => void loadDrafts(draftsFailure ? draftsFailure.cursor : draftsCursor)}
+            loadMoreLabel={t('countryKnowledge.draftsMore')}
+            loadingLabel={t('countryKnowledge.draftsLoadingMore')}
+            failedLabel={t('countryKnowledge.draftsLoadError')}
+          />
+        </SectionCard>
+      ) : null}
 
       <Dialog open={openId !== null} onOpenChange={(open) => (open ? null : setOpenId(null))}>
         <DialogContent

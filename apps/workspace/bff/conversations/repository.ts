@@ -21,7 +21,7 @@ import { conversationReads, type ConversationRead } from '@/lib/db/schema/conver
 import { conversationRestrictedFolders } from '@/lib/db/schema/conversation-restricted-folders'
 import { conversationSourceProjects } from '@/lib/db/schema/conversation-source-projects'
 import { conversations, type Conversation } from '@/lib/db/schema/conversations'
-import { deletionQueue } from '@/lib/db/schema/deletion-queue'
+import { DELETION_LIFECYCLE, deletionQueue } from '@/lib/db/schema/deletion-queue'
 import { messages, type Message, type NewMessage } from '@/lib/db/schema/messages'
 import { projects } from '@/lib/db/schema/projects'
 import { resourceShares, type ShareableResourceType, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
@@ -523,7 +523,7 @@ export async function recordConversationErased(
         eq(deletionQueue.entityType, 'conversation'),
         eq(deletionQueue.entityId, conversationId),
         eq(deletionQueue.organizationId, organizationId),
-        inArray(deletionQueue.status, ['pending', 'failed']),
+        inArray(deletionQueue.status, DELETION_LIFECYCLE.sourcesOf('close')),
       ),
     )
     .returning({ id: deletionQueue.id })

@@ -7,7 +7,7 @@ entity_country: US
 processing_countries: [global]
 transfer: third_country
 contract: unknown
-data_classes: [mail_transit]
+data_classes: [mail_transit, telemetry]
 purposes: [service_provision]
 holds_tenant_text: false
 deletion:
@@ -24,6 +24,15 @@ evidence:
   - docs/adr/0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md
   - deploy/pulumi/src/platform/inbound-mail-worker.js
   - docs/compliance/inbound-mail-review-2026-10.md
+  - deploy/pulumi/src/platform/dns.ts
+agreement:
+  entity: Cloudflare, Inc., 101 Townsend Street, San Francisco, CA 94107, USA
+  dpa: Customer DPA with standard contractual clauses (modules 2 and 3); takes effect when the customer signs or the parties otherwise agree to it, so confirm it is part of our plan's terms
+  dpa_url: https://www.cloudflare.com/cloudflare-customer-dpa/
+  subprocessors: https://www.cloudflare.com/gdpr/subprocessors/
+  checked: '2026-11-11'
+  sources:
+    - https://www.cloudflare.com/cloudflare-customer-dpa/
 copy:
   name:
     de: Cloudflare, Inc.

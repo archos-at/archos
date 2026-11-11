@@ -1,7 +1,6 @@
 # Infrastructure: `deploy/`
 
-Three deployment paths off one image set: Docker Compose (`compose/`, plus a
-Coolify variant), Helm charts (`helm/`), and the Pulumi TypeScript program
+Three deployment paths off one image set: Docker Compose (`compose/`), Helm charts (`helm/`), and the Pulumi TypeScript program
 (`pulumi/`) that is the Kubernetes source of truth.
 
 `pulumi/` and `pulumi/policy/` are two Node programs with separate lockfiles.

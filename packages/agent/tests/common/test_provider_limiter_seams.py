@@ -346,7 +346,7 @@ def test_a_dispatched_ingest_job_runs_in_the_class_of_its_priority():
             seen.append(pl.current_class())
 
         def get_job_status(self, job_id):
-            return None
+            return object()  # any status: this seam is the priority class, not the outcome
 
     def job(config: dict) -> PreparedIngestJob:
         return PreparedIngestJob(job_id="j", status=None, file_paths=[], collection_name="c", config=config)

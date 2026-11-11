@@ -194,6 +194,113 @@ async def test_a_pdf_document_fixture_fails_on_a_scan():
     assert not result.ok
 
 
+CAPTURE_ID = "7d3c1f0a-4b7e-4c58-9a51-0c2f6a1b9e11"
+
+
+def _captured_source(response: dict, **expect) -> dict:
+    """The gazette's PDF source, its fixture's response a capture the platform took instead of pasted bytes."""
+    record = _pdf_source(**expect)
+    record["fixtures"][0]["responses"] = {PDF_URL: response}
+    return record
+
+
+def _recording() -> dict:
+    """What the BFF hands over for a check: the capture's id, content type and the text the reader read."""
+    return {"capture_id": CAPTURE_ID, "content_type": "application/pdf", "text": read_pdf(statute_pdf()).text}
+
+
+async def test_a_pdf_document_fixture_is_read_from_the_capture_the_platform_took(monkeypatch):
+    """No PDF bytes in the record: the request is proven, and the engine reads the capture's pages."""
+    monkeypatch.setattr(pdf_module, "read_pdf", lambda *_a, **_k: pytest.fail("a capture is read, not parsed again"))
+
+    [result] = await run_source(parse_inline_source(_captured_source(_recording())))
+
+    assert result.ok, result.failures
+    assert result.requested == [PDF_URL] and result.awaiting == []
+
+
+async def test_a_capture_fixture_fails_when_the_capture_does_not_hold_what_the_record_expects():
+    """The control of the test above: the capture's text decides, so other text fails the same fixture."""
+    other = {**_recording(), "text": "Another document" + PAGE_BREAK + "with two pages"}
+
+    [result] = await run_source(parse_inline_source(_captured_source(other)))
+
+    assert not result.ok and result.awaiting == []
+    assert any(PAGE_TWO in failure for failure in result.failures)
+
+
+async def test_a_capture_fixture_on_another_url_than_the_one_requested_fails():
+    record = _captured_source(_recording())
+    record["fixtures"][0]["responses"] = {"https://gazette.xa.example/other.pdf": _recording()}
+
+    [result] = await run_source(parse_inline_source(record))
+
+    assert not result.ok
+    assert any("HTTP 404" in failure for failure in result.failures), result.failures
+
+
+@pytest.mark.parametrize("response", [{"capture_id": None}, {"capture_id": CAPTURE_ID}])
+async def test_a_fixture_whose_capture_was_not_handed_over_awaits_it_and_is_not_run(response):
+    """Not taken yet, or kept by id in the record: neither is a pass, and neither is a failure of the record."""
+    [result] = await run_source(parse_inline_source(_captured_source(response)))
+
+    assert not result.ok
+    assert result.awaiting == [PDF_URL] and result.failures == [] and result.requested == []
+
+
+@pytest.mark.parametrize("content_type", ["text/html; charset=utf-8", ""])
+async def test_a_capture_that_is_not_a_pdf_is_no_pdf_fixture(content_type):
+    """An HTML page has text too; only a capture of the PDF itself proves a pdf_document source."""
+    recording = {**_recording(), "content_type": content_type}
+
+    [result] = await run_source(parse_inline_source(_captured_source(recording)))
+
+    assert not result.ok
+    assert any("not a PDF" in failure for failure in result.failures), result.failures
+
+
+def test_a_cut_capture_names_itself_in_the_note_the_bff_refuses_by():
+    """The BFF refuses a capture whose note says it was read only in part (source-checks.ts, CUT_NOTE)."""
+    assert "read only in part" in PdfText(pages=("a",), page_count=2).note
+
+
+async def test_a_capture_over_the_records_page_cap_fails_by_its_code():
+    record = _captured_source(_recording())
+    record["engine"] = {"title": TITLE, "max_pages": 1}
+
+    [result] = await run_source(parse_inline_source(record))
+
+    assert any("pdf_too_many_pages" in failure for failure in result.failures)
+
+
+async def test_a_format_that_reads_markup_cannot_take_a_capture_as_its_fixture():
+    """A capture keeps a page's text, not its body: an HTML statute's fixture stays inline."""
+    record = synthetic_source()
+    url = next(iter(record["fixtures"][0]["responses"]))
+    record["fixtures"][0]["responses"] = {url: {"capture_id": CAPTURE_ID, "content_type": "text/html", "text": "x"}}
+
+    [result] = await run_source(parse_inline_source(record))
+
+    assert any("record the response inline" in failure for failure in result.failures)
+
+
+def test_a_response_that_is_neither_inline_nor_a_capture_is_refused():
+    for response in ({}, {"capture_id": "not-a-capture-id"}, {"capture_id": CAPTURE_ID, "sha256": "ab"}):
+        with pytest.raises(SourceError):
+            parse_inline_source(_captured_source(response))
+
+
+def test_a_repository_record_cannot_name_a_capture(tmp_path):
+    from public_sources import load_sources
+    from public_sources_testing import write_source
+
+    record = _captured_source({"capture_id": CAPTURE_ID})
+    write_source(tmp_path, record)
+
+    with pytest.raises(SourceError, match="name files"):
+        load_sources(tmp_path)
+
+
 def test_a_base64_body_that_does_not_decode_is_refused():
     record = _pdf_source()
     record["fixtures"][0]["responses"][PDF_URL]["text"] = "not base64!"

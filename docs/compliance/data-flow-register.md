@@ -17,6 +17,9 @@ from the rows and never edited by hand:
 
 [`external-dependencies.md`](external-dependencies.md) is the July 2026 audit
 that preceded the register; where the two disagree, the register is right.
+[`vendor-audit-2026-11.md`](vendor-audit-2026-11.md) is the last full check of
+the register against code, deployment and each vendor's own terms, with what
+is still open before the annex can be signed.
 
 ## The ratchet
 
@@ -108,6 +111,7 @@ cannot ship unlisted.
 | `flows` | optional, one per purpose a recipient serves: `id`, `what` (de/en), `data_classes` and `purposes` from the row's, and `processing_location` (ISO 3166 codes, or `per_model`). The annex lists it |
 | `endpoints` | optional, one per host of the row's `hosts` that the model seam may call: `host` and `processing_location` (ISO 3166 codes, `EU` for the Union; never `per_model`). Residency enforcement reads it (`agent.common.residency`, ADR-0167): a model call to a host no row places has location `unknown`, which no zone allows, and every generation records the location and the row's `id` as its `subprocessor` |
 | `copy` | `name`, `purpose`, `data`, `location`, `required`, each `de` and `en`: the page's cells. `{productName}` is filled in. `transfer` overrides the safeguard cell, and a listed third-country row without a contract must have it: SCCs are a contract |
+| `agreement` | optional: `entity` (who the contract is with, and its address), `dpa` (how the vendor's DPA is concluded), `dpa_url`, `subprocessors` (where the vendor lists its own), `note`, `sources`, and `checked`, the day someone read them on the vendor's site. The annex prints it as "Contracting entities and agreements". It records what the vendor offers; what we signed is `contract` |
 | `evidence` | files that show the flow; each must exist |
 
 Legal copy is customer-facing: a change to `copy`, `transfer` or a new `active`
@@ -133,4 +137,12 @@ person's review, with a release note.
   like the logs are: an exception message that names a document reaches PostHog
   and, as an issue title, the error-tracking alert in Slack (`slack.yaml`).
 - `contract` is `unknown` for every processor we have a contract with: the
-  register does not yet record which DPAs are signed.
+  register does not yet record which DPAs are signed. `agreement` says what
+  each vendor offers and how to conclude it; setting `contract` to `dpa` or
+  `terms` is a person's statement that it was done.
+- The scan reads files. A recipient that exists only as data is invisible to
+  it: an office's own AI endpoint is a base URL in the database
+  (`byok-endpoint.yaml`, listed by hand with `no_signal`), and a tool the
+  company uses outside the product (its mailbox, CRM, accounting) is in no
+  file at all. [`vendor-audit-2026-11.md`](vendor-audit-2026-11.md) lists
+  those.

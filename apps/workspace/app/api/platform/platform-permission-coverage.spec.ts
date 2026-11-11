@@ -47,6 +47,8 @@ const EXPECTED: Record<string, string> = {
   'knowledge/documents/[fileName]/display-title/route.ts PATCH': 'knowledgeWrite',
   'knowledge/documents/[fileName]/doc-class/route.ts PATCH': 'knowledgeWrite',
   'knowledge/documents/[fileName]/route.ts DELETE': 'knowledgeWrite',
+  'knowledge/documents/[fileName]/route.ts GET': 'settingsView',
+  'knowledge/documents/route.ts GET': 'settingsView',
   'knowledge/documents/route.ts POST': 'knowledgeWrite',
   // The platform's base knowledge (ADR-0165): read on settings:view; drafting on knowledge:write, review and release on knowledge:review.
   'knowledge/route.ts GET': 'settingsView',
@@ -56,6 +58,10 @@ const EXPECTED: Record<string, string> = {
   'knowledge/change-requests/[changeRequestId]/records/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/territories/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/captures/route.ts POST': 'knowledgeWrite',
+  'knowledge/change-requests/[changeRequestId]/texts/[manifestationKey]/route.ts GET': 'settingsView',
+  'knowledge/change-requests/[changeRequestId]/texts/route.ts POST': 'knowledgeWrite',
+  'knowledge/change-requests/[changeRequestId]/texts/upload/route.ts POST': 'knowledgeWrite',
+  'knowledge/texts/route.ts GET': 'settingsView',
   'knowledge/sources/route.ts GET': 'settingsView',
   // A POST that can fetch live: the operator's permission, as the change requests' writes.
   'knowledge/sources/[sourceKey]/test/route.ts POST': 'knowledgeWrite',

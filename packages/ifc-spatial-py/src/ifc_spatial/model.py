@@ -53,6 +53,7 @@ from .crash_probe import PARSER_CRASH_REASON
 from .crash_probe import crashes_the_parser
 from .envelope import ElementRef
 from .parser_refusal import parser_refusal
+from .project_units import project_unit_scale
 
 # ── kinds ───────────────────────────────────────────────────────────────────
 #
@@ -392,7 +393,7 @@ class SpatialModel:
             self.file = ifcopenshell.open(path)
             self.open_seconds = time.perf_counter() - t0
             # In here because a unit the file cannot state is a broken file too.
-            self.unit_scale = uu.calculate_unit_scale(self.file)
+            self.unit_scale = project_unit_scale(self.file, path)
         except ModelUnreadableError, MemoryError, OSError:  # no memory or a failed read: no refusal of the file
             raise
         except BaseException as error:  # noqa: BLE001 — every parser failure, one refusal

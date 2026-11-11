@@ -29,7 +29,7 @@ import 'server-only'
 import { GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { s3Client } from '@/lib/s3'
 import { resolveDocumentBucket } from '@/lib/storage/bucket'
-import { completeBimModel, failBimModel, startBimModel } from './repository'
+import { completeBimModel, failBimModel, startBimModel } from './extraction-repository'
 // Statically importable despite what it wraps: the module reads the zip
 // directory with a DataView and nothing else, and reaches for the parser (and
 // therefore jszip) behind a dynamic import inside the one function that needs
@@ -166,7 +166,12 @@ export interface BimExtractionInput {
 
 export interface BimExtractionOutcome {
   modelId: string
-  status: 'ready' | 'failed'
+  /**
+   * `superseded`: another extraction of the same document started while this
+   * one worked, so the row is that one's and this one wrote nothing to it. Not
+   * a failure: the model's outcome is the newer run's to report.
+   */
+  status: 'ready' | 'failed' | 'superseded'
   elementCount: number
   error?: string
 }
@@ -220,11 +225,12 @@ class IfcTooLargeError extends Error {
  */
 export async function runBimExtraction(input: BimExtractionInput): Promise<BimExtractionOutcome> {
   const bucket = resolveDocumentBucket(input.storageBucket)
-  const modelId = await startBimModel({
+  const run = await startBimModel({
     organizationId: input.organizationId,
     projectId: input.projectId,
     documentId: input.documentId,
   })
+  const { modelId } = run
 
   // Loaded here, not at module scope: `./extract` pulls in `@ifc-lite/parser`
   // and its bundled IFC2X3/4/4X3 schema tables — several megabytes that every
@@ -300,14 +306,17 @@ export async function runBimExtraction(input: BimExtractionInput): Promise<BimEx
       digestKey = keys.digestKey
     }
 
-    await completeBimModel({
-      modelId,
+    const landed = await completeBimModel({
+      run,
       organizationId: input.organizationId,
       summary,
       elements,
       indexStorageKey: indexKey,
       indexStorageBucket: input.storageBucket,
     })
+    // The newer run dispatches its own digest; ours describes bytes the row
+    // no longer stands for.
+    if (!landed) return { modelId, status: 'superseded', elementCount: 0 }
 
     if (digestKey) {
       // Ingestion is best-effort and deliberately last: the model is already
@@ -334,7 +343,10 @@ export async function runBimExtraction(input: BimExtractionInput): Promise<BimEx
             ? 'Die Datei ist keine gültige IFC-Datei (STEP/ISO-10303-21).'
             : `Das IFC-Modell konnte nicht gelesen werden: ${error.message}`
           : 'Das IFC-Modell konnte nicht verarbeitet werden.'
-    await failBimModel(modelId, input.organizationId, reason).catch(() => undefined)
+    const landed = await failBimModel(run, input.organizationId, reason).catch(() => undefined)
+    // Only a definite "not yours" is superseded; a write that threw is still
+    // reported as the failure it was.
+    if (landed === false) return { modelId, status: 'superseded', elementCount: 0 }
     return { modelId, status: 'failed', elementCount: 0, error: reason }
   }
 }

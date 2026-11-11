@@ -49,6 +49,7 @@ NOT_REQUESTED: dict[str, str] = {
 #: object-store URL, and no SSRF: the gate is the source's host list, checked before anything is sent.
 GATED_BY_SOURCE: dict[str, str] = {
     "CaptureRequest.url": "a public source's page, fetched only through public_sources source_transport (ADR-0170)",
+    "CorpusTextRequest.url": "a public source's PDF, fetched by the same capture through source_transport (ADR-0165)",
 }
 
 #: Fields the walk must reach, or it is walking the wrong thing.

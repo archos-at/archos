@@ -1500,6 +1500,54 @@ describe('useFileUpload — chat attachments', () => {
     expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith('mock-uuid', { status: 'canceled' })
   })
 
+  describe('stopping a read', () => {
+    const reading = { id: 'row-1', fileName: 'a.pdf', collectionName: CHAT, fileSize: 1, status: 'ingesting', serverFileId: 'doc-1' }
+    const answer = (body: unknown) => ({ ok: true, status: 200, json: async () => body })
+    const canceledWrite = ['row-1', { status: 'canceled' }] as const
+
+    /**
+     * The stop answers `cancelled` and the status the document then holds;
+     * `meanwhile` runs while the request is out. Any other request fails the
+     * test: the answer is all the row is decided from.
+     */
+    function stubStop(documentStatus: string, meanwhile: () => void = () => {}) {
+      fetchMock.mockImplementation(async (url: string) => {
+        if (!url.endsWith('/cancel')) throw new Error(`unexpected request after the stop: ${url}`)
+        meanwhile()
+        return answer({ id: 'doc-1', result: 'cancelled', status: documentStatus })
+      })
+    }
+
+    async function stop() {
+      mockDocumentsStoreState.trackedFiles = [reading] as unknown[]
+      const { result } = renderChat()
+      await act(async () => {
+        result.current.cancelFile('row-1')
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+    }
+
+    test('a row still being read when the stop is confirmed says cancelled', async () => {
+      stubStop('cancelled')
+      await stop()
+      expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith(...canceledWrite)
+    })
+
+    test('a row that finished reading while the stop was out keeps what it says', async () => {
+      stubStop('completed', () => mockDocumentsStoreState.updateTrackedFile('row-1', { status: 'success' }))
+      await stop()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(mockDocumentsStoreState.updateTrackedFile).not.toHaveBeenCalledWith(...canceledWrite)
+      expect((mockDocumentsStoreState.trackedFiles[0] as { status: string }).status).toBe('success')
+    })
+
+    test('a row a stale report settled says cancelled once the document itself does', async () => {
+      stubStop('cancelled', () => mockDocumentsStoreState.updateTrackedFile('row-1', { status: 'success' }))
+      await stop()
+      expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith(...canceledWrite)
+    })
+  })
+
   test('deletes an attachment through the session document route, by document id', async () => {
     mockDocumentsStoreState.trackedFiles = [
       { id: 'row-1', fileName: 'plan.pdf', collectionName: CHAT, fileSize: 1000, serverFileId: 'doc-1' },

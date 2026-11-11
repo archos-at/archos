@@ -67,6 +67,9 @@ vi.mock('./entitlements', () => ({
 const { enqueueDeindex } = vi.hoisted(() => ({ enqueueDeindex: vi.fn(async () => 0) }))
 vi.mock('./indexing', () => ({ enqueueIndexRuns: async () => ({ enqueued: 0, failed: 0 }), enqueueDeindex, readIndexStatus: vi.fn() }))
 vi.mock('./overview', () => ({ readOverview: vi.fn() }))
+// KC-1 on the request's texts, which an approval runs (ADR-0165): the corpus is the api tier's, so it stands in.
+const texts = vi.hoisted(() => ({ problems: vi.fn(async (..._args: unknown[]): Promise<unknown[]> => []) }))
+vi.mock('./onboarding', async (importOriginal) => ({ ...(await importOriginal<typeof import('./onboarding')>()), requestTextProblems: texts.problems }))
 
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
 import { runAsActingSession, type ActingDecisionSource } from '@/lib/agent-api/acting-session'
@@ -184,6 +187,28 @@ describe("an approval's role", () => {
       secondReviewDue: [],
     })
     expect(writes.status).not.toHaveBeenCalled()
+  })
+})
+
+describe('an approval is given for the bytes the revisions name (ADR-0165)', () => {
+  const approver = { userId: 'user_expert', organizationId: 'org_platform' } as unknown as UserSession
+
+  it('refuses to approve, alone or not, while a text of the request is not the one that was proposed', async () => {
+    held.permissions = new Set(Object.values(PLATFORM_PERMISSIONS))
+    writes.approval.mockClear()
+    texts.problems.mockResolvedValueOnce([{ code: 'KC-1', pointer: '/corpusFile' }])
+    await expect(service.decidePlatformChangeRequest(approver, 'cr-1', { decision: 'approve' })).rejects.toMatchObject({
+      status: 409,
+      details: { problems: [{ code: 'KC-1', pointer: '/corpusFile' }] },
+    })
+    expect(writes.approval).not.toHaveBeenCalled()
+  })
+
+  it('does not ask the corpus for a reject', async () => {
+    held.permissions = new Set(Object.values(PLATFORM_PERMISSIONS))
+    texts.problems.mockClear()
+    await service.decidePlatformChangeRequest(approver, 'cr-1', { decision: 'reject' })
+    expect(texts.problems).not.toHaveBeenCalled()
   })
 })
 

@@ -157,3 +157,28 @@ class TestFairShareBetweenLanes:
             (member,) = redis.zrange("pool", 0, -1)
             assert member.decode().startswith("office-a|")
         assert redis.zcard("pool") == 0
+
+
+def test_a_body_that_outlasts_its_lease_keeps_its_slot(monkeypatch):
+    """A retried vision call lasts longer than one lease; unrenewed, its slot aged out and a second call took it."""
+    import threading
+
+    fake = FakeStore()
+    renewed = threading.Event()
+
+    def eval_script(script, keys, args):
+        if script == lease_slots.RENEW_LUA:
+            now, _lease, member = args
+            pool = fake.pools[keys[0]]
+            if member not in pool:
+                return 0
+            pool[member] = now
+            renewed.set()
+            return 1
+        return fake.eval_script(script, keys, args)
+
+    monkeypatch.setattr(lease_slots.cache, "eval_script", eval_script)
+    with lease_slots.hold("pool", 1, lease_seconds=0.03, max_wait_seconds=1):
+        assert renewed.wait(5), "the held slot was never renewed"
+        assert len(fake.pools["pool"]) == 1
+    assert fake.pools["pool"] == {}

@@ -48,9 +48,11 @@
  *
  * ## Piloti notices it
  *
- * A Fassung under another name, claimed here, also queues Piloti's notice of
- * it (`lib/revision-notice`, ADR-0130): a comparison with the older one whose
- * changes are proposed as marks. Only where the office switched it on.
+ * A Fassung under another name also queues Piloti's notice of it
+ * (`lib/revision-notice`, ADR-0130): a comparison with the older one whose
+ * changes are proposed as marks. Only where the office switched it on. The
+ * job row is stored in the transaction that takes the claim, so there is never
+ * a claim without its job; the dispatch sweep starts the run.
  *
  * ## It never fails its caller
  *
@@ -60,11 +62,13 @@
 
 import 'server-only'
 import { markParticipants } from '@/lib/annotations/attention'
-import { queueRevisionNotice } from '@/lib/revision-notice/queue'
+import { insertRevisionNotice, planRevisionNotice, type RevisionNoticeJob } from '@/lib/revision-notice/queue'
 import { documentCheckMaxBatch } from '@/lib/document-check/check'
 import { queueDocumentCheck } from '@/lib/document-check/queue'
 import { listDocumentAnnotations, type AnnotationRecord } from '@/lib/annotations/repository'
 import { listAssignmentsForResources } from '@/lib/assignments/repository'
+import { getDb } from '@/lib/db'
+import { withTenant } from '@/lib/db/tenant-context'
 import type { Document } from '@/lib/db/schema/documents'
 import { DEFAULT_UPLOAD_BATCH_EFFECTS, type UploadBatchRevisionNotice } from '@/lib/db/schema/upload-batches'
 import { findBatchSettleEffects, type BatchSettleEffects } from '@/lib/upload-batches/repository'
@@ -74,7 +78,7 @@ import { emitInboxItems } from '@/lib/inbox/service'
 import { collectionFileRef } from './collection-file-ref'
 import { SCREENED_ONLY } from './document-reader'
 import { documentDisplayName, splitDocumentName, type NamedDocument } from './display-name'
-import { claimRevisionAnnouncement, releaseRevisionAnnouncement } from './revision-announcement-repository'
+import { claimRevisionAnnouncement, releaseRevisionAnnouncement, type RevisionAnnouncementKey } from './revision-announcement-repository'
 import type { RevisionLinkNames } from './revision-links'
 import { mayOpenDocument } from './may-open'
 import { documentNameKey } from './name-match'
@@ -236,18 +240,30 @@ export async function notifyNewRevision(announcement: NewRevisionAnnouncement): 
   if (newer.lifecycle !== 'active' || newer.scope === 'session' || follow.scope === 'session') return 0
 
   const claim = { organizationId, documentId: newer.id, anchorId: announcement.versionId ?? follow.id }
-  if (!(await claimRevisionAnnouncement(claim))) return 0
   // Piloti checks a Fassung under another name against the one it replaces
-  // (ADR-0130), where the office switched it on. Once per claim, detached, never failing this.
-  if (!sameDocument) {
-    void queueRevisionNotice({ organizationId, actorUserId: announcement.actorUserId, newerId: newer.id, olderId: follow.id })
-  }
+  // (ADR-0130), where the office switched it on. The job row commits with the
+  // claim: a failed enqueue leaves no claim, so the next settle tries again.
+  const notice = sameDocument
+    ? null
+    : await planRevisionNotice({ organizationId, actorUserId: announcement.actorUserId, newerId: newer.id, olderId: follow.id })
+  if (!(await claimWithNotice(claim, notice))) return 0
   try {
     return await writeRevisionItems(announcement, newer, follow, claim.anchorId)
   } catch (error) {
     await releaseRevisionAnnouncement(claim).catch(() => undefined)
     throw error
   }
+}
+
+/** Take the claim and store the notice job in one transaction. Whether this call took the claim. */
+function claimWithNotice(claim: RevisionAnnouncementKey, notice: RevisionNoticeJob | null): Promise<boolean> {
+  return withTenant({ organizationId: claim.organizationId }, () =>
+    getDb().transaction(async (tx) => {
+      if (!(await claimRevisionAnnouncement(claim, tx))) return false
+      if (notice) await insertRevisionNotice(notice, tx)
+      return true
+    }),
+  )
 }
 
 /** The items of one claimed announcement: who may open both documents, and has not been told. */

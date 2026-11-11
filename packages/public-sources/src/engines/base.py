@@ -64,6 +64,19 @@ class Engine:
     def document(self, body: bytes, *, url: str = "") -> ParsedDocument:
         raise NotImplementedError
 
+    def recorded_document(self, text: str, *, url: str = "", content_type: str = "") -> ParsedDocument:
+        """The document read from a citation capture's text instead of the body (a fixture's recording).
+
+        Only a format whose capture text is what the engine itself reads offers
+        it (``pdf_document``: one PDF pipeline). Any other format's fixture
+        carries its response inline, since a capture keeps a page's text and
+        not its markup.
+        """
+        raise EngineError(
+            f"a {self.name} fixture cannot be read from a capture, which keeps the page's text and not its body; "
+            "record the response inline"
+        )
+
 
 def collapse(text: str) -> str:
     """Whitespace runs to one space, per line; blank-line runs to one blank line."""

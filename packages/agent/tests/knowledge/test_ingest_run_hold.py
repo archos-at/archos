@@ -94,6 +94,26 @@ def test_a_hold_without_a_run_keeps_the_run_it_knew(db):
     assert ingest_run_hold.run_id_of("unknown") is None
 
 
+def test_a_hold_outlasts_one_failed_write(db, monkeypatch):
+    """Written once, a database blip left a queued job reading interrupted two minutes after it was accepted."""
+    ingest_status_store.put(_status())
+    real = DocumentMetadataStore._get_or_create_sync_engine
+    calls = []
+
+    def flaky(url):
+        calls.append(url)
+        if len(calls) == 1:
+            raise ConnectionError("the database blinked")
+        return real(url)
+
+    with monkeypatch.context() as patched:
+        patched.setattr(DocumentMetadataStore, "_get_or_create_sync_engine", flaky)
+        patched.setattr(ingest_run_hold.time, "sleep", lambda _seconds: None)
+        assert ingest_run_hold.hold("job-1", "run-1", 3600) is True
+    _age(db)
+    assert ingest_status_store.get("job-1").status == JobState.PENDING
+
+
 def test_without_a_database_nothing_is_held(monkeypatch):
     monkeypatch.delenv("SUMMARY_DB", raising=False)
     monkeypatch.delenv("NAT_JOB_STORE_DB_URL", raising=False)

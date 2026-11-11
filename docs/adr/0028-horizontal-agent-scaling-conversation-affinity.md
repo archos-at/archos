@@ -82,7 +82,7 @@ publishing.
 the intended architecture. It activates whenever `REDIS_URL` is set; with no
 `REDIS_URL` it uses an in-process transport (single-process, byte-identical to
 the pre-bus path). Every Redis operation **fails open** to local socket delivery,
-so a single node — e.g. the Coolify docker-compose deployment — behaves exactly
+so a single node — e.g. the Coolify docker-compose deployment (retired 2026-11-11, ADR-0150) — behaves exactly
 as before even with the bus on; on a single node it is also naturally correct
 (owner==relay: the local write displays frames, HITL resolves locally, and the
 Redis publishes are filtered by own-origin). Set `GRID_CONVERSATION_BUS=0` to opt

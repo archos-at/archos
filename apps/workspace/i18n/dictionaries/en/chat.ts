@@ -138,6 +138,7 @@ export const chat = {
   dictation: {
     start: 'Dictate',
     startHint: 'Speak, and {productName} writes it into your message. Stops after {seconds} seconds.',
+    starting: 'Waiting for the microphone. Press again to cancel.',
     stop: 'Stop and insert',
     recording: 'Recording, {elapsed}',
     transcribing: 'Transcribing …',
@@ -150,10 +151,12 @@ export const chat = {
     errors: {
       noMicrophone: 'No microphone was found.',
       denied: 'Microphone access was not allowed.',
+      noAnswer: 'The microphone did not answer. Is the browser still waiting for your permission? Try again.',
       rateLimited: 'Too many recordings in a short time. Try again in a minute.',
       tooLarge: 'The recording is too large to transcribe.',
       notConfigured: 'Voice input is not available right now.',
       failed: 'The recording could not be transcribed. Your message is unchanged.',
+      notSaved: 'The recording could not be saved. Please dictate it again.',
     },
   },
   // Source-preset shortcut chips under the composer (empty thread).
@@ -1851,6 +1854,13 @@ export const chat = {
       },
       branchesTab: 'Next steps',
     },
+  },
+  // The quiet line above the composer while the page restores the chat's
+  // connection on its own and an answer or an open question waits on it. Its
+  // neighbours ("Connection lost", "Reconnected") are under
+  // `research.chatArea.connection`.
+  connection: {
+    restoring: 'Restoring the connection …',
   },
   error: {
     showDetails: 'Show details',

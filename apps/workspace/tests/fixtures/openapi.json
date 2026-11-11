@@ -5007,7 +5007,7 @@
       "post": {
         "operationId": "document-ingest-cancel",
         "summary": "Cancel a document’s running ingestion",
-        "description": "Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.",
+        "description": "Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. `result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` is the status the document holds afterwards, which is not `cancelled` when the read ended first.",
         "tags": [
           "documents"
         ],
@@ -22484,7 +22484,7 @@
       "get": {
         "operationId": "knowledge-base-get",
         "summary": "See what the building-law corpus contains",
-        "description": "The status of the platform-owned base corpus (OIB guidelines and the like): which documents it holds and whether they are indexed. Identical for every organization. To search it use the document search with `shelf: \"base\"` (no project needed); for Austrian law itself the law lookup. This only lists what is there.",
+        "description": "The base corpus as this organization reads it: the documents released in a country the organization is entitled to, and whether each is indexed. An organization entitled to no country gets an empty list. To search it use the document search with `shelf: \"base\"` (no project needed); for the law itself the law lookup. This only lists what is there.",
         "tags": [
           "knowledge"
         ],
@@ -22526,7 +22526,7 @@
       "get": {
         "operationId": "knowledge-document-get",
         "summary": "Read a base-corpus PDF",
-        "description": "The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Identical for every organization. Use it to quote a source a citation points at.",
+        "description": "The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Only a document released in a country the organization is entitled to; any other name answers 404, whether or not such a file exists. Use it to quote a source a citation points at.",
         "tags": [
           "knowledge"
         ],
@@ -28761,6 +28761,113 @@
         }
       }
     },
+    "/api/platform/knowledge/documents": {
+      "get": {
+        "operationId": "platform-knowledge-base-get",
+        "summary": "See the whole base corpus, released or not",
+        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.",
+        "tags": [
+          "platform"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "See the whole base corpus, released or not",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "post": {
+        "operationId": "platform-knowledge-document-upload",
+        "summary": "Upload a PDF or ZIP to the base corpus",
+        "description": "Adds a PDF, or a ZIP of PDFs, to the base corpus store. Up to 32 MiB per call through the agent door. Send `body.files[0]` as { name, mimeType, contentBase64 }; `body.fields.doc_class` presets the document type of a single PDF. Ingestion runs in the background: the answer is `pending`, follow it with the corpus status operations. No country reads a file added here; attach an edition’s text in its change request with platform-knowledge-text-import or -text-upload instead. Other bytes under a file a platform record names are refused with NAME_TAKEN: a named text changes only in a change request. Platform owners only.",
+        "tags": [
+          "platform"
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "doc_class": {
+                    "description": "The document type for a single PDF; omit to let ingestion decide.",
+                    "type": "string",
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Upload a PDF or ZIP to the base corpus",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/change-requests": {
       "post": {
         "operationId": "platform-knowledge-change-request-create",
@@ -29099,7 +29206,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-review",
         "summary": "Record verdicts on the claims of a change request under review",
-        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone stays reviewable until its second review is given.",
+        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture, or the manifestation’s text, against its source, which an operator-supplied capture and a text nobody fetched (uploaded, or only named) need before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone stays reviewable until its second review is given.",
         "tags": [
           "platform"
         ],
@@ -29154,7 +29261,7 @@
                         },
                         "sourceChecked": {
                           "default": false,
-                          "description": "You checked the cited capture against its source; required before approving a record that cites an operator-supplied capture.",
+                          "description": "You checked the cited capture, or the manifestation’s text, against its source; required before approving a record that cites an operator-supplied capture or names a text nobody fetched (uploaded, or only named in the base corpus).",
                           "type": "boolean"
                         }
                       },
@@ -29266,7 +29373,7 @@
       "post": {
         "operationId": "platform-knowledge-citation-capture",
         "summary": "Capture a page that platform records will cite",
-        "description": "Into a draft change request. `basis: fetched` fetches the URL now through the public-source fetcher, on a host of the configured source `sourceId` (e.g. at-ris), and stores its sha256 and text; `basis: operator_supplied` stores the text you copied from a page that cannot be fetched, which the reviewer must check against its source. Returns `captureId`: cite it with a quote copied exactly from the page; the kit checks every quote (KC-6).",
+        "description": "Into a draft change request. `basis: fetched` fetches the URL now through the public-source fetcher, on a host of the configured source `sourceId` (e.g. at-ris), and stores its sha256 and text; `basis: operator_supplied` stores the text you copied from a page that cannot be fetched, which the reviewer must check against its source. The answer says `countsAsFetched`: true only through a built-in source or a released source another person approved. A fetch through a source proposed in this draft works for testing, and is checked by the reviewer like a pasted page. Returns `captureId`: cite it with a quote copied exactly from the page; the kit checks every quote (KC-6). A fetched capture of a PDF is also what proves a `pdf_document` source: name its `captureId` as the response of the source’s fixture for that URL, in place of the PDF’s bytes.",
         "tags": [
           "platform"
         ],
@@ -29512,47 +29619,41 @@
           "idempotentHint": true,
           "openWorldHint": false
         }
-      }
-    },
-    "/api/platform/knowledge/documents": {
-      "post": {
-        "operationId": "platform-knowledge-document-upload",
-        "summary": "Upload a PDF or ZIP to the base corpus",
-        "description": "Adds a PDF, or a ZIP of PDFs, to the shared building-law corpus every organization reads. Up to 32 MiB per call through the agent door. Send `body.files[0]` as { name, mimeType, contentBase64 }; `body.fields.doc_class` presets the document type of a single PDF. Ingestion runs in the background: the answer is `pending`, follow it with the corpus status operations. Platform owners only.",
+      },
+      "get": {
+        "operationId": "platform-knowledge-document-get",
+        "summary": "Read any base-corpus PDF, released or not",
+        "description": "The PDF of one document of the base corpus store, returned as an attached resource up to 5 MiB; a larger file is not sent. It serves documents no organization reads too. The file name comes from platform-knowledge-base-get.",
         "tags": [
           "platform"
         ],
-        "requestBody": {
-          "required": true,
-          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  },
-                  "doc_class": {
-                    "description": "The document type for a single PDF; omit to let ingestion decide.",
-                    "type": "string",
-                    "maxLength": 100
-                  }
-                },
-                "required": [
-                  "file"
-                ]
-              }
-            }
+        "parameters": [
+          {
+            "name": "fileName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The base-corpus file name, exactly as platform-knowledge-base-get lists it."
+            },
+            "description": "The base-corpus file name, exactly as platform-knowledge-base-get lists it."
           }
-        },
+        ],
         "responses": {
           "200": {
-            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "description": "Success. The body is a file; the media type depends on the request (a text format such as Markdown or CSV is returned as text). Over MCP it arrives as an embedded resource up to 5 MiB and is described, not sent, above that. A redirect to a time-limited link is handed on as a resource link and never followed.",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -29573,10 +29674,10 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Upload a PDF or ZIP to the base corpus",
-          "readOnlyHint": false,
+          "title": "Read any base-corpus PDF, released or not",
+          "readOnlyHint": true,
           "destructiveHint": false,
-          "idempotentHint": false,
+          "idempotentHint": true,
           "openWorldHint": false
         }
       }
@@ -29760,7 +29861,7 @@
       "post": {
         "operationId": "platform-knowledge-records-propose",
         "summary": "Propose up to 200 cited records into a draft change request",
-        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation, relation, ruleset, source; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate.",
+        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation, relation, ruleset, source; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate. A source whose fixture names no capture yet (`captureId: null`) is written with `awaiting` on its result: capture the URL through it, then propose it again with the capture’s id.",
         "tags": [
           "platform"
         ],
@@ -30635,7 +30736,7 @@
                             },
                             "corpusFile": {
                               "default": null,
-                              "description": "The text, as a file uploaded to the base corpus; null for a listing without text.",
+                              "description": "The text’s file in the base corpus; propose null and attach the PDF with platform-knowledge-text-import or -text-upload, which set it to a name of the text’s own. A file another record names is refused, and the revision keeps the hash of the bytes named.",
                               "anyOf": [
                                 {
                                   "type": "string",
@@ -32360,36 +32461,61 @@
                                       "format": "uri"
                                     },
                                     "additionalProperties": {
-                                      "type": "object",
-                                      "properties": {
-                                        "contentType": {
-                                          "type": "string",
-                                          "minLength": 1,
-                                          "maxLength": 120,
-                                          "description": "e.g. text/html; charset=utf-8, application/geo+json or application/pdf."
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "contentType": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 120,
+                                              "description": "e.g. text/html; charset=utf-8, application/geo+json or application/pdf."
+                                            },
+                                            "body": {
+                                              "type": "string",
+                                              "maxLength": 500000,
+                                              "description": "The body as the source served it: the text itself, or base64 for a binary body."
+                                            },
+                                            "encoding": {
+                                              "default": "utf-8",
+                                              "description": "utf-8 for a text body as it came; base64 for a binary one (a PDF), within the same length.",
+                                              "type": "string",
+                                              "enum": [
+                                                "utf-8",
+                                                "base64"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "contentType",
+                                            "body"
+                                          ],
+                                          "additionalProperties": false
                                         },
-                                        "body": {
-                                          "type": "string",
-                                          "maxLength": 500000,
-                                          "description": "The body as the source served it: the text itself, or base64 for a binary body."
-                                        },
-                                        "encoding": {
-                                          "default": "utf-8",
-                                          "description": "utf-8 for a text body as it came; base64 for a binary one (a PDF), within the same length.",
-                                          "type": "string",
-                                          "enum": [
-                                            "utf-8",
-                                            "base64"
-                                          ]
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "captureId": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "format": "uuid"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ],
+                                              "description": "The id of a fetched capture of this URL, in this change request, through this source. null while it is not taken: the draft is written so its hosts can be fetched, and validate fails until the record names the capture."
+                                            }
+                                          },
+                                          "required": [
+                                            "captureId"
+                                          ],
+                                          "additionalProperties": false
                                         }
-                                      },
-                                      "required": [
-                                        "contentType",
-                                        "body"
-                                      ],
-                                      "additionalProperties": false
+                                      ]
                                     },
-                                    "description": "Every URL the operation requests, with the response recorded for it."
+                                    "description": "Every URL the operation requests, with the response recorded for it: `{contentType, body, encoding}` for a small text or JSON response you copied, or `{captureId}` for a document the platform captured (a PDF: format pdf_document reads the capture’s pages)."
                                   },
                                   "expect": {
                                     "type": "object",
@@ -32850,7 +32976,7 @@
       "post": {
         "operationId": "platform-knowledge-source-test",
         "summary": "Test a public source: its recorded fixtures, and one live probe if asked",
-        "description": "Runs the source record’s recorded fixtures through its access type and engine with no live call (what KC-7 checks), and with `live: true` fetches its monitor probe once through the fetcher. Pass `changeRequestId` to test the source as that open request proposes it: its hosts are usable by that request alone, for 24 hours from the proposal. Without it, the published source. Nothing is stored. 404 for a key nothing registers.",
+        "description": "Runs the source record’s recorded fixtures through its access type and engine with no live call (what KC-7 checks), and with `live: true` fetches its monitor probe once through the fetcher. Pass `changeRequestId` to test the source as that open request proposes it: its hosts are usable by that request alone, for 24 hours from the proposal. Without it, the published source. Nothing is stored. 404 for a key nothing registers. A fixture whose response names a capture is read from that capture; one that names none yet (`captureId: null`) is not run: `awaiting` lists the URLs to capture, and it is not `ok`.",
         "tags": [
           "platform"
         ],
@@ -32966,6 +33092,326 @@
         }
       }
     },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/texts/{manifestationKey}": {
+      "get": {
+        "operationId": "platform-knowledge-text-get",
+        "summary": "Read the text of a manifestation of a change request",
+        "description": "The PDF a manifestation of the change request names as its text, returned as an attached resource up to 5 MiB: what a reviewer compares with its source before `sourceChecked`. Served only while the base corpus keeps the bytes the manifestation’s revision names (`sha256` on platform-knowledge-change-request-get); other bytes under the file name are refused with TEXT_CHANGED and no text.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          },
+          {
+            "name": "manifestationKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The manifestation’s key, as it was proposed."
+            },
+            "description": "The manifestation’s key, as it was proposed."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is a file; the media type depends on the request (a text format such as Markdown or CSV is returned as text). Over MCP it arrives as an embedded resource up to 5 MiB and is described, not sent, above that. A redirect to a time-limited link is handed on as a resource link and never followed.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read the text of a manifestation of a change request",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/texts": {
+      "post": {
+        "operationId": "platform-knowledge-text-import",
+        "summary": "Attach a text to a manifestation from a URL",
+        "description": "Into a draft change request: the PDF at `url`, on a host of the configured source `sourceId`, becomes the text of the manifestation `manifestationKey` (proposed before with platform-knowledge-records-propose, corpusFile null). Fetched and read by the public-source fetcher, kept in the base corpus where nobody reads it until the request is published as \"<manifestationKey>-<12 hex of its sha256>.pdf\", and set as the manifestation’s `corpusFile`. Returns the text with its `sha256`; the same PDF again changes nothing, and another PDF is another file: nothing is replaced. A URL that answers no PDF is refused with NOT_A_PDF and a PDF the fetcher cannot read with its PDF code. A text fetched through a built-in source or a released source another person approved needs no source check (`countsAsFetched`); one fetched through a source proposed in this draft is checked by another person like an upload. Then platform-knowledge-validate.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "manifestationKey": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+                    "description": "The manifestation the text belongs to, proposed in this draft with platform-knowledge-records-propose."
+                  },
+                  "sourceId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2}-[a-z0-9-]{1,60}$",
+                    "description": "The configured public source whose hosts the PDF is on, e.g. \"at-oib\"."
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "format": "uri",
+                    "description": "The PDF; fetched and read by the public-source fetcher, GET only."
+                  }
+                },
+                "required": [
+                  "manifestationKey",
+                  "sourceId",
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Attach a text to a manifestation from a URL",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/texts": {
+      "get": {
+        "operationId": "platform-knowledge-text-list",
+        "summary": "List where each base-corpus file belongs: its country, edition and change request",
+        "description": "One entry per base-corpus file a platform record names as its text: `countryId`, the manifestation (`recordId`), its edition and work, the change request that named it and its status, and `released` (the country’s entitled organizations read it). A file no record names is absent. Sorted by file name; `nextCursor` pages on.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "countryId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the files of this country’s records.",
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            },
+            "description": "Only the files of this country’s records."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "nextCursor of the previous page.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 260
+            },
+            "description": "nextCursor of the previous page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List where each base-corpus file belongs: its country, edition and change request",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/texts/upload": {
+      "post": {
+        "operationId": "platform-knowledge-text-upload",
+        "summary": "Attach an uploaded PDF to a manifestation as its text",
+        "description": "Into a draft change request, when no configured source serves the PDF; otherwise use platform-knowledge-text-import, which sends no bytes through the tool call. Send `body.files[0]` as { name, mimeType, contentBase64 } (one PDF, up to 32 MiB) and `body.fields.manifestationKey`. The file is kept in the base corpus as \"<manifestationKey>-<12 hex of its sha256>.pdf\", whatever the upload was called, where nobody reads it until the request is published, and set as the manifestation’s `corpusFile`. Returns the text with its `sha256`; the same file again changes nothing, and another file is another name: nothing is replaced. Nobody fetched an uploaded text, so another person checks it against its source (`sourceChecked`) before anyone approves, alone or not.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "manifestationKey": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+                    "description": "The manifestation the text belongs to, proposed in this draft with platform-knowledge-records-propose."
+                  }
+                },
+                "required": [
+                  "file",
+                  "manifestationKey"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Attach an uploaded PDF to a manifestation as its text",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/documents/{fileName}/display-title": {
       "patch": {
         "operationId": "platform-knowledge-title-update",
@@ -33043,7 +33489,7 @@
       "get": {
         "operationId": "platform-knowledge-validate",
         "summary": "Run the validation kit on a whole change request",
-        "description": "The newest proposal of every record in the request, checked as submit checks it: `valid`, and each problem with its record, code (KC-1 references, KC-3 intervals, KC-6 captured quotes), JSON Pointer and hint. Writes nothing. Repair with platform-knowledge-records-propose, then submit once it is valid.",
+        "description": "The newest proposal of every record in the request, checked as submit checks it: `valid`, and each problem with its record, code (KC-1 references and attached texts, KC-3 intervals, KC-6 captured quotes), JSON Pointer and hint. Writes nothing. Repair with platform-knowledge-records-propose, then submit once it is valid.",
         "tags": [
           "platform"
         ],

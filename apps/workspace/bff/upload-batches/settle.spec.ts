@@ -328,6 +328,16 @@ describe('onDocumentsSettled', () => {
     expect(announceSettledVersions).toHaveBeenCalledWith('org-1', ['doc-1', 'doc-2'])
   })
 
+  it('announces no Fassung and queues no check for a correction, but still settles its batch', async () => {
+    vi.mocked(batchIdsOfDocuments).mockResolvedValue(['batch-1'])
+    await onDocumentsSettled('org-1', [
+      { id: 'doc-1', status: 'completed' },
+      { id: 'doc-healed', status: 'completed', correction: true },
+    ])
+    expect(announceSettledVersions).toHaveBeenCalledWith('org-1', ['doc-1'])
+    expect(batchIdsOfDocuments).toHaveBeenCalledWith('org-1', ['doc-1', 'doc-healed'])
+  })
+
   it('does not fail the read when the announcement rejects', async () => {
     vi.mocked(announceSettledVersions).mockRejectedValueOnce(new Error('directory down'))
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)

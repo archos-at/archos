@@ -583,7 +583,7 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // marked failed (retryable); .xlsx/.xlsm index without preview.
     ...(w.gotenbergUrl ? [{ name: "GOTENBERG_URL", value: w.gotenbergUrl }] : []),
     // Address search for the project dialog (ADR-0151), behind `/api/geocode`:
-    // komoot's public Photon unless the stack names another. Empty ⇒ the route
+    // off unless the stack sets `geocoderUrl` (ADR-0159). Empty ⇒ the route
     // answers `enabled: false` and the address stays a plain text field.
     ...(cfg.geocoderUrl ? [{ name: "GEOCODER_URL", value: cfg.geocoderUrl }] : []),
     // The malware scanner (ADR-0157): the in-cluster clamd, never anything

@@ -18,6 +18,7 @@ import {
   knowledgeRecords,
   knowledgeRevisions,
   type KnowledgeProvenance,
+  type KnowledgeTextProvenance,
 } from '@/lib/db/schema/knowledge-records'
 import {
   knowledgeApprovals,
@@ -38,6 +39,7 @@ import type {
 } from '@/lib/base-knowledge/wire/vocab'
 import { appendRevision, BODY_TABLES, type Tx } from '../store/repository'
 import { captureViews } from './captures'
+import { attachedTexts } from './text-store'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
 import type { DatedPlatformEdition, KnownRecord } from './validate'
 import type { ChangeRequestSummary, ChangeRequestView, ProposedRecord, RevisionView, SecondReviewRoleView } from './wire'
@@ -203,7 +205,15 @@ export async function insertProposedRecords(
   tx: Tx,
   request: ChangeRequestRow,
   records: readonly ProposedRecord[],
-  context: { createdBy: string; proposedBy: KnowledgeProvenance['proposedBy']; viaClient?: string },
+  context: {
+    createdBy: string
+    proposedBy: KnowledgeProvenance['proposedBy']
+    viaClient?: string
+    /** The text just attached to the one manifestation proposed here (`./texts.ts`). */
+    text?: KnowledgeTextProvenance
+    /** The sha256 of the corpus file each manifestation names, by record id, as the kit just checked it (`text-checks.ts`). */
+    pins?: ReadonlyMap<string, string>
+  },
 ): Promise<ProposedRevision[]> {
   await tx
     .insert(knowledgeRecords)
@@ -222,10 +232,22 @@ export async function insertProposedRecords(
   for (const record of records) {
     const recordId = recordIdOf(record)
     const current = newest.get(recordId)
-    if (current && proposalText(current.provenance.proposal) === proposalText(record)) {
+    // The same proposal again changes nothing, unless other bytes were just attached under the same file name, or
+    // the same bytes came another way: an upload attached again from a reviewed source is a fetch from then on.
+    const had = current?.provenance.text
+    const sameBytes =
+      !context.text ||
+      (had?.sha256 === context.text.sha256 &&
+        had.origin === context.text.origin &&
+        had.sourceOrigin === context.text.sourceOrigin &&
+        had.sourceRevisionId === context.text.sourceRevisionId)
+    if (current && sameBytes && proposalText(current.provenance.proposal) === proposalText(record)) {
       written.push({ key: proposalKey(record), recordId, revisionId: current.revisionId, status: 'unchanged' })
       continue
     }
+    // A re-proposal that still names the attached file keeps where that file came from.
+    const kept = current?.provenance.text
+    const text = context.text ?? (record.type === 'manifestation' && kept && kept.fileName === record.corpusFile ? kept : undefined)
     const revisionId = await appendRevision(
       tx,
       {
@@ -238,14 +260,23 @@ export async function insertProposedRecords(
           citations: record.citations,
           proposal: record as unknown as Record<string, unknown>,
           ...(context.viaClient ? { viaClient: context.viaClient } : {}),
+          ...(text ? { text } : {}),
         },
         changeRequestId: request.id,
       },
-      bodyOf(record),
+      // The bytes the revision names: the attached text's, else the hash the corpus held when the kit checked the name.
+      { ...bodyOf(record), ...(namedBytes(record, text, context.pins?.get(recordId)) ?? {}) },
     )
     written.push({ key: proposalKey(record), recordId, revisionId, status: 'written' })
   }
   return written
+}
+
+/** The `sha256` a manifestation revision keeps: of the file it names, never of one it no longer names. */
+function namedBytes(record: ProposedRecord, text: KnowledgeTextProvenance | undefined, pin: string | undefined): { sha256: string } | null {
+  if (record.type !== 'manifestation' || record.corpusFile === null) return null
+  const sha256 = text?.fileName === record.corpusFile ? text.sha256 : pin
+  return sha256 ? { sha256 } : null
 }
 
 /** Each revision's body columns, by revision id. */
@@ -329,8 +360,9 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
   return platformTransaction(async (tx) => {
     const [request] = await tx.select().from(knowledgeChangeRequests).where(eq(knowledgeChangeRequests.id, id))
     if (!request) return null
-    const [revisions, approvals, releases, captures, secondReviewRolesOf, unchecked] = await Promise.all([
+    const [revisions, texts, approvals, releases, captures, secondReviewRolesOf, unchecked] = await Promise.all([
       reviewedRevisions(tx, id),
+      attachedTexts(tx, id),
       tx.select().from(knowledgeApprovals).where(eq(knowledgeApprovals.changeRequestId, id)).orderBy(knowledgeApprovals.decidedAt),
       tx
         .select()
@@ -347,6 +379,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
       submittedAt: request.submittedAt?.toISOString() ?? null,
       publishedAt: request.publishedAt?.toISOString() ?? null,
       revisions,
+      texts,
       captures,
       sourcesUnchecked: unchecked[0]?.unchecked === true,
       secondReviewRoles: secondReviewRolesOf,
@@ -419,11 +452,12 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
 }
 
 /**
- * Why an approval waits on a pasted page (0209, 0218), and the two ways out: a second person's source check,
- * or, to approve alone, a fetched capture in its place (ADR-0170, ADR-0176).
+ * Why an approval waits on a page or a text nobody fetched from a reviewed source (0209, 0218, 0224), and the two
+ * ways out: a second person's source check, or, to approve alone, a fetch through a built-in source or a released
+ * one two people have seen (ADR-0170, ADR-0176).
  */
 const SOURCE_UNCHECKED =
-  'A record cites an operator-supplied capture that nobody but its author has checked against its source. Another person checks it (sourceChecked on platform-knowledge-change-request-review); to approve alone, cite a fetched capture from a configured source instead.'
+  'A record cites an operator-supplied capture, or a capture or a text nobody fetched from a reviewed source (uploaded, only named in the base corpus, or fetched through a source that is still in a draft or that one person released alone), and nobody but its author has checked it against its source. Another person checks it (sourceChecked on platform-knowledge-change-request-review); to approve alone, cite a fetched capture and attach the text with platform-knowledge-text-import, both through a built-in source or a released source another person approved.'
 
 export async function insertApproval(
   tx: Tx,

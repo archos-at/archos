@@ -164,7 +164,7 @@ are tested on Postgres by `task be:test:postgres`, in CI's Backend job.**
 `tests/knowledge_layer_tests/test_ingest_queue.py` run every scenario on
 SQLite, which ranks in Python, and on Postgres, which runs production's claim
 SQL. The folder card builder's suites (`packages/agent/tests/knowledge/folder_cards/`:
-dirty queue, budget, manifests, worker) run on both too, through the
+dirty set, budget, manifests, the build over a collection) run on both too, through the
 `database_url` and `agent_db` fixtures in their `conftest.py`, and so does the
 metadata store's mail records (`packages/agent/tests/knowledge/test_mail_facts.py`: the
 add-column path on a table from before the columns, and the read-back). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
