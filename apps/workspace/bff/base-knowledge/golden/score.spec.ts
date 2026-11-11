@@ -128,7 +128,7 @@ describe('scoreGoldenCase', () => {
   })
 
   it('reports a case nothing decides as unverified, never as passed', () => {
-    const golden: GoldenCase = { ...base, expected: { values: [{ label: 'distance', anyOf: ['40 m'], grounding: 'unconfirmed' }], citations: [] }, mustNot: [] }
+    const golden: GoldenCase = { ...base, expected: { values: [{ label: 'distance', anyOf: ['40 m'], grounding: 'unconfirmed' }], edition: null, citations: [] }, mustNot: [] }
     const scored = scoreGoldenCase(golden, good)
     expect(scored.unverified).toBe(true)
     expect(scored.passed).toBe(false)
