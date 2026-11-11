@@ -697,33 +697,51 @@ The collection file list is fetched at most once per collection per request.
 A read in progress can be stopped from the file's own menu, or from the upload
 list while the row is being read. Both send one request,
 `POST /api/documents/{id}/cancel` (`cancelDocumentIngest` in
-`lib/documents/reingest.ts`), which reads the row's `metadata.ingestJobId` and
+`bff/documents/reingest.ts`), which reads the row's `metadata.ingestJobId` and
 forwards `POST /v1/documents/{job_id}/cancel` to the backend.
 
-The stop is expressed through the ingest claim, not a second control channel:
-`cancel` (`packages/agent/src/agent/common/claim_queue.py`) marks the job's queue row
-`cancelled` — a terminal status that is never claimed again and is not counted
-by KEDA — and blanks its payload. A worker reading the file then finds its
-heartbeat refused (the lease renews only while the row is `claimed`) and stops
-at its next `_assert_still_owner`, before it reads the next page or writes the
-next chunk, so no half-indexed document is left behind. A job still `queued` is
-settled immediately.
+The backend's `cancel` (`apps/agent-host/src/agent_host/jobs/ingest_dispatch.py`)
+does three things in order: it marks the stored run id as stopped by a person
+(`ingest_run_hold.mark_stopped_by_person`), cancels the job's Hatchet run by
+that id, and settles the job's status row `cancelled`
+(`ingest_status_store.settle_cancelled`), which also clears the row's `owner`
+and its hold (`held_until`). A run still waiting never starts. A running one
+finds its claim guard false at its next `_assert_still_owner`, before it reads
+the next file and again before it writes a file's chunks, so no half-indexed
+document is left behind; its last word (`ingest_workflow._stopped`) settles the
+row `cancelled` once more if it finds it live.
+
+**A run that has been told to stop writes no live or failed status again.**
+Between the stop and its next check the worker is still inside a long step, and
+its heartbeat sees a row it no longer owns. For any other row that means
+another replica settled it wrongly, and the owner writes it back
+(`ingest_status_store`: the owner, while it lives, is right about its job). For
+a stopped run the adapter's `_persist` drops that write and every progress or
+failure write after it, so the row stays `cancelled` and a re-ingest in that
+window starts a new job instead of joining the dying one. One write still goes
+through: `completed`. A single-file job past its last check has its chunks
+indexed, and the row must say so.
 
 The answer is one of three: `cancelled` (a live job was stopped), `finished`
-(the durable queue held no live job — the row the reader clicked was stale), or
-`unavailable` (the durable ingest queue is off, or the work runs inside the BFF,
-so no queue can reach it). Only `cancelled` changes the row: to the terminal
-`cancelled` status (migration 0153). Nothing was indexed, the bytes stay, and a
-re-ingest reads them again. `cancelled` is neutral in the UI („Abgebrochen“),
-never a failure. Because a stop can land between the worker's last ownership
-check and its write, a `cancelled` row is re-checked for thirty minutes like an
-`interrupted` one (`resolveCancelledRow`, `reconcile-status.ts`): a job that did
-finalize heals the row to `completed`.
+(no live job was left: the row the reader clicked was stale, or the job
+completed or failed while its run was being cancelled), or `unavailable` (the
+job has no Hatchet run, because it runs in an API pod's own pool or inside the
+BFF, or Hatchet could not be reached). Only `cancelled` changes the document
+row: to the terminal `cancelled` status (migration 0153). The files the job had
+not finished were not indexed, the bytes stay, and a re-ingest reads them
+again. `cancelled` is neutral in the UI („Abgebrochen“), never a failure.
+Because a stop can land between the worker's last ownership check and its
+write, a `cancelled` row is re-checked for thirty minutes like an `interrupted`
+one (`resolveCancelledRow`, `reconcile-status.ts`): a job that did finalize
+heals the row to `completed`.
 
-The queue row is kept as a tombstone — not deleted — so the status store can
-settle the job terminal `cancelled` (`settle_cancelled`,
-`ingest_status_store.py`), and is purged on the same clock as a dead row
-(`purge_retired`, `claim_queue.py`).
+What stays open is narrow: a status write that lands after the cancel settled
+the row and before the cancel reached the worker makes the row `processing`
+again until the run's last word. If the worker dies hard in that gap, nobody
+settles it, but the row is no longer held: it reads `interrupted` (retryable)
+once its heartbeat is 120 s old. Before, the hold kept it `processing` for the
+rest of the run's schedule, up to 30 h 45 min from the dispatch with the
+defaults (`ingest_workflow.hold_seconds`).
 
 ### Which failures are read again
 
