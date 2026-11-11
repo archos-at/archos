@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    A document no longer shows as failed, and stays that way, when it was read
+    again or replaced while an earlier attempt to start reading it was still
+    waiting.
