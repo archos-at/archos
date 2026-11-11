@@ -4416,6 +4416,10 @@
     "de": "Die wichtigste Einladung auf der Website lautet jetzt, Piloti mit einer echten Planungsfrage aus einem laufenden Projekt auszuprobieren. Die vorbereitete E-Mail bittet um die Frage, den Standort und den Gebäudetyp."
   },
   {
+    "en": "The what-if card for a U-value, a stair, an escape route or daylight no longer passes or fails a value where another edition of the guideline applies at your project's site, or where which edition applies is not yet settled. It shows the value against the limit as a hint instead, and says why, such as \"am Standort gilt Ausgabe September 2025\".",
+    "de": "Die What-if-Karte für einen U-Wert, eine Treppe, einen Fluchtweg oder Tageslicht stuft einen Wert nicht mehr als eingehalten oder nicht eingehalten ein, wenn am Projektstandort eine andere Ausgabe der Richtlinie gilt oder noch unklar ist, welche Ausgabe gilt. Stattdessen zeigt sie den Wert im Verhältnis zum Grenzwert als Hinweis an und nennt den Grund, zum Beispiel „am Standort gilt Ausgabe September 2025“."
+  },
+  {
     "en": "The words for memory are the same everywhere now: \"Projektgedächtnis\" for a project's notes, and one name for each kind of note.",
     "de": "Die Bezeichnungen für das Gedächtnis sind jetzt überall einheitlich: „Projektgedächtnis“ für die Notizen eines Projekts und jeweils eine Bezeichnung pro Notizart."
   },
