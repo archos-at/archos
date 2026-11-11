@@ -26,7 +26,6 @@ import type { InteractionSlice } from './stores/interaction-store'
 
 import type { Shelf, SourceKind } from '@/lib/source-kinds'
 import type { CitationLineWire } from '@/shared/citation-line'
-import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import type { ChatEffort } from '@/lib/reasoning-settings/catalog'
 
 export type { ComposerPrefill, ComposerSubject } from './composer-types'

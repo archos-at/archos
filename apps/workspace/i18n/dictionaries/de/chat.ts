@@ -2117,7 +2117,7 @@ export const chat: typeof en.chat = {
   },
   // Wer den Chat liest: die Zeile unter dem Eingabefeld.
   privacy: {
-    onlyYou: 'Privater Chat. Sie haben ihn mit niemandem geteilt.',
+    onlyYou: 'Nur Sie sehen diesen Chat, bis Sie ihn teilen.',
   },
   confidence: {
     label: 'Einschätzung: {level}',

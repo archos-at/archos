@@ -2092,7 +2092,7 @@ export const chat = {
   },
   // Who reads the chat: the line under the composer.
   privacy: {
-    onlyYou: 'Private chat. You have not shared it with anyone.',
+    onlyYou: 'Only you see this chat until you share it.',
   },
   confidence: {
     label: 'Confidence: {level}',
