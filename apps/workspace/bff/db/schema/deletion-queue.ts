@@ -30,6 +30,13 @@ export const DELETION_MAX_ATTEMPTS = 10
  * erases in the request and closes its own row without claiming it, and closes
  * a `failed` one when a repeated delete worked.
  *
+ * A claim is a token: every claim writes a fresh `claimed_at`, and a holder's
+ * closing write (finish, release, fail) matches the one it took, so a holder
+ * whose stale claim was taken over changes nothing. `failed` is also closed
+ * `purged` where the erasure is proven: by the holder whose purge finished
+ * after the reap had failed its row, and for a folder the BFF marked purged
+ * with no traces owed (`closeErased`, `purger/db.js`).
+ *
  * Attempts are not a state: a `pending` row always has attempts left, and the
  * one that has none is `failed`.
  */

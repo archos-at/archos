@@ -158,7 +158,7 @@ async function runHeld(
   const stopBeating = keepAlive(jobId, holder, env, context.signal)
   let result
   try {
-    result = await runHandler({ kind: row.kind, organizationId: row.lane, payload: row.payload, attempts: row.attempts, signal: context.signal })
+    result = await runHandler({ jobId, kind: row.kind, organizationId: row.lane, payload: row.payload, attempts: row.attempts, signal: context.signal })
   } catch (error) {
     return await failed(input, holder, row.attempts, error, env)
   } finally {

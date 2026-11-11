@@ -520,8 +520,8 @@ window in which a file nobody had screened was everybody's.
   A round opened before the file was held (a re-upload over a document in review)
   keeps its rows; they name a file their reviewers already knew and open nothing
   while it is held.
-* **A quarantined row leaves quarantine through a release and nothing else.** A
-  re-screen is a new verdict after a release, never a reset to `pending`.
+* **A quarantined row leaves quarantine through a release, or to be read again while it stays held** (the second exit added 2026-11-11 with migration 0224: the row returns to `uploaded` with its outcome still `quarantined` and its hashes unchanged, so the gate holds it until the new reading passes).
+  Neither exit is a reset to `pending`.
 * **A file the gate never judged can be released too.** A held file at rest
   (`isHeldAtRest`: not in flight, no passing verdict for its bytes), such as an IFC
   over the size limit, one that would not parse, a reading that failed, or a legacy

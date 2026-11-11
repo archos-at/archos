@@ -97,7 +97,7 @@ export interface RecordOutcomeOptions {
 type CompletedRun = { run: TaskRun; filed: { documentId: string; filename: string } | null }
 
 function closingPatch(outcome: TaskOutcome) {
-  return { status: OUTCOME_TO_STATUS[outcome.status], error: outcome.error ?? null, finishedAt: new Date() }
+  return { status: OUTCOME_TO_STATUS[outcome.status], error: outcome.error ?? null }
 }
 
 /**

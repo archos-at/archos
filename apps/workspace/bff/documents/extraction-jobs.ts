@@ -11,6 +11,7 @@ import { findDocumentInOrg, markDocumentIngestFailed } from './repository'
 import { runBimExtraction } from '@/lib/bim/service'
 import type { BimExtractPayload, JobAttempt, OfficeRenditionPayload } from '@/lib/jobs-queue/types'
 import { internalRead } from './document-reader'
+import { localWorkOwnsRow, type LocalWorkOwnership } from './local-work-ownership'
 import { documentTypeOf } from './tag-vocabulary'
 import { mailOriginIngestFactsSchema, mailThreadIngestFactsSchema } from '@/lib/mail-thread/ingest-facts'
 import { RenditionFailedError, ensureRendition, extractsFromRendition } from './rendition'
@@ -40,7 +41,7 @@ export async function runBimExtractJob(
   attempt: JobAttempt
 ): Promise<void> {
   const input = dispatchInputOf(organizationId, payload)
-  if (!(await jobStillOwnsRow(input))) return
+  if (!(await jobStillOwnsRow(input, attempt))) return
 
   await failRowOnLastAttempt(input, attempt, 'IFC extraction failed', async () => {
     const outcome = await runBimExtraction({
@@ -69,9 +70,8 @@ export async function runBimExtractJob(
         ),
     })
     if (outcome.status === 'failed') {
-      await markDocumentIngestFailed(input.documentId, organizationId, outcome.error ?? 'IFC extraction failed', {
-        storageKey: input.storageKey,
-      })
+      const reason = outcome.error ?? 'IFC extraction failed'
+      await markDocumentIngestFailed(input.documentId, organizationId, reason, ownershipOf(input, attempt))
     }
   })
 }
@@ -103,11 +103,24 @@ function dispatchInputOf(organizationId: string, payload: BimExtractPayload): Di
  * document is held to the publish rule again, because it may have been
  * superseded while it waited.
  */
-async function jobStillOwnsRow(input: DispatchDocumentInput): Promise<boolean> {
+async function jobStillOwnsRow(input: DispatchDocumentInput, attempt: JobAttempt): Promise<boolean> {
   const row = await findDocumentInOrg(input.documentId, input.organizationId, internalRead('ingest'))
   if (!row) return false
-  if (row.storageKey !== input.storageKey || row.status !== 'processing') return false
+  if (!localWorkOwnsRow(row, ownershipOf(input, attempt))) return false
   return mayBeIndexed(row, input.versionId ?? null)
+}
+
+/**
+ * How a job knows the row is still its own: the bytes it was queued for AND
+ * the job it is (`metadata.bffJobId`, which `setDocumentBackgroundJob` writes).
+ * The bytes alone are not enough. The same file read again runs under a new
+ * job, and the earlier job's failure on its last attempt would then fail the
+ * row, after which the new job finds a row that is no longer `processing` and
+ * leaves without reading it. One value, for the check before the work and for
+ * the write after it.
+ */
+function ownershipOf(input: DispatchDocumentInput, attempt: JobAttempt): LocalWorkOwnership {
+  return { storageKey: input.storageKey, backgroundJobId: attempt.jobId ?? null, unnamedCounts: true }
 }
 
 /**
@@ -128,9 +141,9 @@ async function failRowOnLastAttempt(
       // Only while the job still owns the row, as it did when it started
       // (`jobStillOwnsRow`): the work may have dispatched the read before it
       // threw, and a person may have archived or replaced the file meanwhile.
-      await markDocumentIngestFailed(input.documentId, input.organizationId, message, {
-        storageKey: input.storageKey,
-      }).catch(() => undefined)
+      await markDocumentIngestFailed(input.documentId, input.organizationId, message, ownershipOf(input, attempt)).catch(
+        () => undefined
+      )
     }
     throw error
   }
@@ -161,10 +174,10 @@ export async function runOfficeRenditionJob(
     mailThread: mailThreadIngestFactsSchema.safeParse(payload.mailThread).data ?? null,
     mailOrigin: mailOriginIngestFactsSchema.safeParse(payload.mailOrigin).data ?? null,
   }
-  if (!(await jobStillOwnsRow(input))) return
+  if (!(await jobStillOwnsRow(input, attempt))) return
 
   await failRowOnLastAttempt(input, attempt, INGEST_DISPATCH_FAILED_MESSAGE, () =>
-    ingestThroughRendition(input, payload.fileName)
+    ingestThroughRendition(input, payload.fileName, attempt)
   )
 }
 
@@ -176,12 +189,16 @@ export async function runOfficeRenditionJob(
  * existing retry re-runs the conversion. A spreadsheet only loses its
  * thumbnail and is ingested from the original as before.
  */
-async function ingestThroughRendition(input: DispatchDocumentInput, fileName: string): Promise<void> {
+async function ingestThroughRendition(
+  input: DispatchDocumentInput,
+  fileName: string,
+  attempt: JobAttempt
+): Promise<void> {
   const { ref: renditionRef, refusedFile } = await signedRenditionRef(input, fileName)
   const indexesRendition = extractsFromRendition(fileName)
   if (indexesRendition && !renditionRef) {
     const message = refusedFile ? DRAWING_UNREADABLE_MESSAGE : RENDITION_REQUIRED_MESSAGE
-    await markDocumentIngestFailed(input.documentId, input.organizationId, message, { storageKey: input.storageKey })
+    await markDocumentIngestFailed(input.documentId, input.organizationId, message, ownershipOf(input, attempt))
     return
   }
   await dispatchIngest(

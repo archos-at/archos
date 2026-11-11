@@ -10,6 +10,7 @@ import { publishShelfChanged } from '../shelf-live'
 import { bffJobQueue } from '@/lib/db/schema/bff-job-queue'
 import { documents, type Document } from '@/lib/db/schema/documents'
 import { statusAccepts } from './mutations'
+import { BACKGROUND_JOB_METADATA_FIELD, type LocalWorkOwnership } from '../local-work-ownership'
 
 /**
  * The in-flight documents dispatched as the ingest jobs `jobIds`, in every
@@ -100,26 +101,21 @@ export async function listStuckProcessingDocuments(
   }))
 }
 
-/**
- * What local work knows of the row it was started for: the bytes it reads, the
- * queue job it is. Either, or both.
- */
-export interface LocalWorkOwnership {
-  storageKey?: string
-  backgroundJobId?: string | null
-}
+export type { LocalWorkOwnership } from '../local-work-ownership'
 
 /**
- * The row is still that work's: at `processing` (every other writer moves it
- * off, and a new round of local work renames the job and, for new bytes, the
- * key). The predicate `jobStillOwnsRow` asks before the work, as the write's
- * own WHERE after it.
+ * `localWorkOwnsRow` (`../local-work-ownership`) as SQL: the predicate
+ * `jobStillOwnsRow` asks before the work, as the write's own WHERE after it.
+ * `local-work-ownership.integration.spec.ts` holds the two to the same answer.
  */
-function stillOwnedBy(owned: LocalWorkOwnership): SQL | undefined {
+export function stillOwnedBy(owned: LocalWorkOwnership): SQL | undefined {
+  const named = sql`${documents.metadata} ->> ${BACKGROUND_JOB_METADATA_FIELD}::text`
+  const jobId = owned.backgroundJobId
   return and(
     eq(documents.status, 'processing'),
     ...(owned.storageKey ? [eq(documents.storageKey, owned.storageKey)] : []),
-    ...(owned.backgroundJobId ? [sql`${documents.metadata} ->> 'bffJobId' = ${owned.backgroundJobId}`] : []),
+    // Without `unnamedCounts` a row that names no job compares NULL, which is no match.
+    ...(jobId ? [owned.unnamedCounts ? sql`coalesce(${named}, ${jobId}) = ${jobId}` : sql`${named} = ${jobId}`] : []),
   )
 }
 

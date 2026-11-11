@@ -12,6 +12,7 @@ import type {
 import type { DraftMention } from '@/lib/mentions/mention-text'
 import type { ShownAnswer, WireEvent } from '@/adapters/api/wire-v2'
 import { deferChatStorageWrites } from './chat-storage'
+import { withErrorMessage } from './connection-errors'
 import type { CardDecision, CardInteractions } from '@/features/cards/card-decision'
 import { errorConcernsTheThread, getErrorMeta } from '../lib/error-registry'
 import { foldTurnEvents, initialTurnView, stopTurnView, type TurnView } from '../lib/turn-fold'
@@ -900,7 +901,7 @@ export const createMessagesSlice: StateCreator<
 
       const updatedConversation: Conversation = {
         ...currentConversation,
-        messages: [...currentConversation.messages, errorMessage],
+        messages: withErrorMessage(currentConversation.messages, errorMessage),
         updatedAt: new Date(),
       }
 

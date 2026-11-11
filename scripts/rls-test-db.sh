@@ -190,6 +190,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/documents/list-page.integration.spec.ts \
     bff/documents/quarantine-listing.integration.spec.ts \
     bff/documents/visibility.integration.spec.ts \
+    bff/documents/local-work-ownership.integration.spec.ts \
     bff/upload-batches/upload-batches.integration.spec.ts \
     bff/authz/folder-access.integration.spec.ts \
     bff/projects/collection-placement.integration.spec.ts \
@@ -3861,3 +3862,37 @@ check_in aw_0221 "SELECT count(*) FROM information_schema.columns WHERE table_na
 apply_in aw_0221 0221_edition_applies_when.sql
 check_in aw_0221 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "1" "0221 applies again after its down"
 echo "==> 0221 edition scope and its down migration verified"
+
+# 0223: `deletion_queue.status` holds one of the five values of
+# `DELETION_STATUSES` (ADR-0179), added NOT VALID: a row from before it is not
+# read and not rewritten, every insert and every later update is checked, and
+# the down removes the constraint. `deletion-queue-status-check.spec.ts` holds
+# the list below, the migration's SQL and the schema's CHECK to the tuple.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0223 deletion queue status and its down migration on dq_0223"
+migrate_before dq_0223 0223_deletion_queue_status_known
+DQ_ROW="'folder', 'f-0223', 'Ordner', 'org_0223', 'user_0223', now()"
+sql_in dq_0223 <<SQL
+INSERT INTO deletion_queue (entity_type, entity_id, display_name, organization_id, requested_by, purge_after, status)
+  VALUES ('folder', 'f-0223-old', 'Ordner', 'org_0223', 'user_0223', now(), 'paused');
+SQL
+apply_in dq_0223 0223_deletion_queue_status_known.sql
+check_in dq_0223 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'deletion_queue_status_known'" "CHECK ((status = ANY (ARRAY['pending'::text, 'purging'::text, 'purged'::text, 'restored'::text, 'failed'::text]))) NOT VALID" "0223: the status is one of the five declared values"
+check_in dq_0223 "SELECT status FROM deletion_queue WHERE entity_id = 'f-0223-old'" "paused" "0223 leaves a row from before it as it was"
+refused_in dq_0223 "INSERT INTO deletion_queue (entity_type, entity_id, display_name, organization_id, requested_by, purge_after, status) VALUES ($DQ_ROW, 'paused')" "deletion_queue_status_known" "an unknown status inserted"
+refused_in dq_0223 "UPDATE deletion_queue SET status = 'done' WHERE entity_id = 'f-0223-old'" "deletion_queue_status_known" "an old row moved to another unknown status"
+sql_in dq_0223 <<SQL
+INSERT INTO deletion_queue (entity_type, entity_id, display_name, organization_id, requested_by, purge_after) VALUES ($DQ_ROW);
+UPDATE deletion_queue SET status = 'purging' WHERE entity_id = 'f-0223';
+UPDATE deletion_queue SET status = 'purged' WHERE entity_id = 'f-0223';
+UPDATE deletion_queue SET status = 'pending' WHERE entity_id = 'f-0223-old';
+SQL
+check_in dq_0223 "SELECT string_agg(status, ',' ORDER BY entity_id) FROM deletion_queue" "purged,pending" "0223 takes every declared status, the default included"
+apply_in dq_0223 0223_deletion_queue_status_known.down.sql
+check_in dq_0223 "SELECT count(*) FROM pg_constraint WHERE conname = 'deletion_queue_status_known'" "0" "0223 down removes the constraint"
+sql_in dq_0223 <<SQL
+UPDATE deletion_queue SET status = 'paused' WHERE entity_id = 'f-0223-old';
+SQL
+apply_in dq_0223 0223_deletion_queue_status_known.sql
+check_in dq_0223 "SELECT convalidated::text FROM pg_constraint WHERE conname = 'deletion_queue_status_known'" "false" "0223 applies again after its down, over a row it would refuse"
+echo "==> 0223 deletion queue status and its down migration verified"

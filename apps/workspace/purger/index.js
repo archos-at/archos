@@ -23,6 +23,7 @@
 const { WorkOS } = require('@workos-inc/node')
 const {
   claimNext,
+  closeErased,
   markFailed,
   markFailedPermanent,
   markPurged,
@@ -102,7 +103,7 @@ function createPurger({ sql, deps, streak }) {
     if (!purge) {
       const reason = `no purger registered for entity_type '${claimed.entity_type}'`
       console.error(`[purger] ${reason} (queue row ${claimed.id}) — marking failed, no retry`)
-      await markFailedPermanent(sql, claimed.id, reason).catch((e) => logQueueWriteFailure('record error', e))
+      await markFailedPermanent(sql, claimed, reason).catch((e) => logQueueWriteFailure('record error', e))
       return true
     }
 
@@ -111,7 +112,7 @@ function createPurger({ sql, deps, streak }) {
       // is `purged`, and one that did not is not.
       await withPlatformScope(sql, async (tx) => {
         await purge(tx, claimed, deps)
-        await markPurged(tx, claimed.id)
+        await markPurged(tx, claimed)
       })
       console.log(`[purger] purged ${claimed.entity_type} ${claimed.entity_id} ("${claimed.display_name}")`)
       return true
@@ -125,14 +126,14 @@ function createPurger({ sql, deps, streak }) {
         console.warn(
           `[purger] legal hold blocked purge of ${claimed.entity_type} ${claimed.entity_id} — releasing back to pending`,
         )
-        await releaseHeld(sql, claimed.id).catch((e) => logQueueWriteFailure('release held row', e))
+        await releaseHeld(sql, claimed).catch((e) => logQueueWriteFailure('release held row', e))
         return true
       }
       if (failure?.code === PERMANENT_FAILURE_CODE) {
         // A refusal no retry can change (a chat erasure queued for a live chat):
         // fail it now instead of spending MAX_ATTEMPTS on the same answer.
         console.error(`[purger] ${failure.message} (queue row ${claimed.id}) — marking failed, no retry`)
-        await markFailedPermanent(sql, claimed.id, failure.message).catch((e) =>
+        await markFailedPermanent(sql, claimed, failure.message).catch((e) =>
           logQueueWriteFailure('record error', e),
         )
         return true
@@ -142,7 +143,7 @@ function createPurger({ sql, deps, streak }) {
       // connection to any of them looks the same on `cause`. The row's
       // attempts and backoff are the retry.
       console.error('[purger] purge failed:', error)
-      await markFailed(sql, claimed.id, failure?.message ?? error).catch((e) => logQueueWriteFailure('record error', e))
+      await markFailed(sql, claimed, failure?.message ?? error).catch((e) => logQueueWriteFailure('record error', e))
       return false
     }
   }
@@ -154,11 +155,19 @@ function createPurger({ sql, deps, streak }) {
     /** @type {Failure | undefined} */
     let outage
     try {
+      // A folder the BFF provably purged, whose row was never closed, is
+      // `purged`: before the reap, which would fail it.
+      const closed = await closeErased(sql).catch((e) => {
+        outage = databaseOutage(e)
+        if (!outage) console.error('[purger] failed to close the rows of erased folders:', e)
+        return 0
+      })
+      if (closed > 0) console.warn(`[purger] closed ${closed} row(s) of folders already purged → 'purged'`)
       // Reap rows a crashed purger stranded in 'purging' on their final attempt
       // (claimNext can't re-pick them, and they'd never surface to an admin).
       const reaped = await reapStranded(sql).catch((e) => {
-        outage = databaseOutage(e)
-        if (!outage) console.error('[purger] failed to reap stranded rows:', e)
+        outage = outage ?? databaseOutage(e)
+        if (!databaseOutage(e)) console.error('[purger] failed to reap stranded rows:', e)
         return 0
       })
       if (reaped > 0) {

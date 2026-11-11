@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   claimNext,
+  closeErased,
   hasActiveHold,
   markFailed,
   markFailedPermanent,
@@ -41,6 +42,9 @@ function makeSql(returnRows = []) {
   return { fn, executed }
 }
 
+/** A claim as `claimNext` hands it to every closing write: the row, and the token the claim wrote. */
+const CLAIM = { id: 'e1', claim_token: '2026-11-11 10:00:00.123456+00' }
+
 /** Statements a helper ran, excluding the `SET LOCAL ROLE` step-up. */
 function queries(executed) {
   return executed.filter((q) => !q.text.startsWith('SET LOCAL ROLE'))
@@ -48,11 +52,11 @@ function queries(executed) {
 
 describe('claimNext', () => {
   it('selects a due row with backoff, stale-reclaim, hold and attempt guards, then claims it', async () => {
-    const { fn, executed } = makeSql([{ id: 'e1', entity_type: 'project' }])
+    const { fn, executed } = makeSql([{ id: 'e1', entity_type: 'project', claim_token: CLAIM.claim_token }])
 
     const entry = await claimNext(fn)
 
-    expect(entry).toEqual({ id: 'e1', entity_type: 'project' })
+    expect(entry).toEqual({ id: 'e1', entity_type: 'project', claim_token: CLAIM.claim_token })
     expect(queries(executed)).toHaveLength(2)
 
     const select = queries(executed)[0]
@@ -80,6 +84,9 @@ describe('claimNext', () => {
       "SET status = 'purging', claimed_at = now(), attempts = attempts + 1",
     )
     expect(claim.values).toEqual(['e1'])
+    // The token every closing write matches: the claim's own `claimed_at`, as
+    // text, so its microseconds survive the driver.
+    expect(claim.text).toMatch(/RETURNING claimed_at::text AS claim_token$/)
   })
 
   it('returns null and issues no claim UPDATE when nothing is due', async () => {
@@ -142,13 +149,13 @@ describe('releaseHeld', () => {
   it("returns the row to 'pending' and refunds one attempt (never below 0)", async () => {
     const { fn, executed } = makeSql()
 
-    await releaseHeld(fn, 'e9')
+    await releaseHeld(fn, { ...CLAIM, id: 'e9' })
 
     const q = queries(executed)[0]
     expect(q.text).toContain("SET status = 'pending'")
     expect(q.text).toContain('attempts = GREATEST(attempts - 1, 0)')
     expect(q.text).toContain('last_error =')
-    expect(q.values).toEqual(['e9'])
+    expect(q.values).toEqual(['e9', CLAIM.claim_token])
   })
 })
 
@@ -171,14 +178,44 @@ describe('a late answer never moves a row that is no longer claimed', () => {
   // old, and „Endgültig löschen" claims in a request. Whoever answers second
   // must not pull a `purged` row back to `pending` or `failed`.
   it.each([
-    ['releaseHeld', (sql) => releaseHeld(sql, 'e1')],
-    ['markPurged', (sql) => markPurged(sql, 'e1')],
-    ['markFailed', (sql) => markFailed(sql, 'e1', 'boom')],
-    ['markFailedPermanent', (sql) => markFailedPermanent(sql, 'e1', 'boom')],
-  ])('%s writes only a row still purging', async (_name, run) => {
+    ['releaseHeld', (sql) => releaseHeld(sql, CLAIM)],
+    ['markFailed', (sql) => markFailed(sql, CLAIM, 'boom')],
+    ['markFailedPermanent', (sql) => markFailedPermanent(sql, CLAIM, 'boom')],
+  ])('%s writes only a row still purging, and only under the claim it took', async (_name, run) => {
     const { fn, executed } = makeSql()
     await run(fn)
-    expect(queries(executed)[0].text).toMatch(/WHERE id = \$ AND status = 'purging'$/)
+    const q = queries(executed)[0]
+    // A claim taken over carries another `claimed_at`: the status alone could
+    // not tell this holder's `purging` from the next one's.
+    expect(q.text).toMatch(/WHERE id = \$ AND status = 'purging' AND claimed_at = \$::text::timestamptz$/)
+    expect(q.values.slice(-2)).toEqual([CLAIM.id, CLAIM.claim_token])
+  })
+
+  it('markPurged closes only the row under its own claim, also one the reap failed while the purge still ran', async () => {
+    const { fn, executed } = makeSql()
+    await markPurged(fn, CLAIM)
+    const q = queries(executed)[0]
+    expect(q.text).toMatch(
+      /WHERE id = \$ AND \(status = 'purging' OR status = 'failed'\) AND claimed_at = \$::text::timestamptz$/,
+    )
+    expect(q.values).toEqual([CLAIM.id, CLAIM.claim_token])
+  })
+})
+
+describe('closeErased', () => {
+  it('closes as purged only a folder row whose folder is purged and whose removal owes no traces', async () => {
+    const { fn, executed } = makeSql([{ id: 'e1' }, { id: 'e2' }])
+
+    expect(await closeErased(fn)).toBe(2)
+
+    const q = queries(executed)[0]
+    expect(q.text).toContain("SET status = 'purged', purged_at = now(), last_error = NULL")
+    expect(q.text).toContain("q.entity_type = 'folder'")
+    // A row recorded as failed, or one the reap is about to fail; never a live claim.
+    expect(q.text).toContain("q.status = 'failed' OR ( q.status = 'purging' AND q.attempts >= $ AND q.claimed_at < now() - make_interval(mins => $) )")
+    expect(q.text).toContain("(q.payload #> '{derivedRemoval,conversationIds,0}') IS NULL")
+    expect(q.text).toContain('f.purged_at IS NOT NULL')
+    expect(q.values).toEqual([MAX_ATTEMPTS, 15])
   })
 })
 
@@ -186,11 +223,11 @@ describe('markPurged', () => {
   it("marks 'purged', stamps purged_at, clears last_error", async () => {
     const { fn, executed } = makeSql()
 
-    await markPurged(fn, 'e1')
+    await markPurged(fn, CLAIM)
 
     const q = queries(executed)[0]
     expect(q.text).toContain("SET status = 'purged', purged_at = now(), last_error = NULL")
-    expect(q.values).toEqual(['e1'])
+    expect(q.values).toEqual([CLAIM.id, CLAIM.claim_token])
   })
 
   it('runs in the transaction it is given, the purge’s, and opens none of its own', async () => {
@@ -201,7 +238,7 @@ describe('markPurged', () => {
       throw new Error('markPurged opened a transaction of its own')
     }
 
-    await markPurged(fn, 'e1')
+    await markPurged(fn, CLAIM)
 
     expect(executed).toHaveLength(1)
   })
@@ -211,20 +248,20 @@ describe('markFailed', () => {
   it("only reaches terminal 'failed' at MAX_ATTEMPTS, otherwise returns to 'pending' for retry", async () => {
     const { fn, executed } = makeSql()
 
-    await markFailed(fn, 'e1', 'boom')
+    await markFailed(fn, CLAIM, 'boom')
 
     const q = queries(executed)[0]
     expect(q.text).toContain(
       "SET status = CASE WHEN attempts >= $ THEN 'failed' ELSE 'pending' END",
     )
-    // bindings: MAX_ATTEMPTS, message, id
-    expect(q.values).toEqual([MAX_ATTEMPTS, 'boom', 'e1'])
+    // bindings: MAX_ATTEMPTS, message, id, the claim's token
+    expect(q.values).toEqual([MAX_ATTEMPTS, 'boom', CLAIM.id, CLAIM.claim_token])
   })
 
   it('truncates an oversized error message to 2000 chars', async () => {
     const { fn, executed } = makeSql()
 
-    await markFailed(fn, 'e1', 'x'.repeat(5000))
+    await markFailed(fn, CLAIM, 'x'.repeat(5000))
 
     expect(queries(executed)[0].values[1]).toHaveLength(2000)
   })
@@ -234,12 +271,12 @@ describe('markFailedPermanent', () => {
   it("marks 'failed' unconditionally (no attempt-count CASE)", async () => {
     const { fn, executed } = makeSql()
 
-    await markFailedPermanent(fn, 'e1', 'no purger registered')
+    await markFailedPermanent(fn, CLAIM, 'no purger registered')
 
     const q = queries(executed)[0]
     expect(q.text).toContain("SET status = 'failed'")
     expect(q.text).not.toContain('CASE')
-    expect(q.values).toEqual(['no purger registered', 'e1'])
+    expect(q.values).toEqual(['no purger registered', CLAIM.id, CLAIM.claim_token])
   })
 })
 
@@ -251,9 +288,10 @@ describe('markFailedPermanent', () => {
 describe('platform scope', () => {
   it('steps up to the BYPASSRLS role before every statement', async () => {
     for (const run of [
-      (sql) => releaseHeld(sql, 'e1'),
-      (sql) => markFailed(sql, 'e1', 'boom'),
-      (sql) => markFailedPermanent(sql, 'e1', 'boom'),
+      (sql) => releaseHeld(sql, CLAIM),
+      (sql) => markFailed(sql, CLAIM, 'boom'),
+      (sql) => markFailedPermanent(sql, CLAIM, 'boom'),
+      (sql) => closeErased(sql),
       (sql) => reapStranded(sql),
       (sql) => reofferExhausted(sql),
     ]) {

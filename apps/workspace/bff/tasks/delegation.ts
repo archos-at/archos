@@ -58,6 +58,7 @@ import {
 } from '@/lib/conversations/restricted-egress'
 import type { Locale } from '@/i18n/config'
 import * as repository from './repository'
+import { recordSubmission } from './run-moves'
 import { submittedRunStatus } from './task-vocabulary'
 import { TASK_GOAL_MAX_CHARS } from './wire'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -413,7 +414,7 @@ export async function delegateTask(
   if (source.refusal) {
     return {
       definition,
-      run: await recordRun(run, { status: 'failed', error: source.refusal, finishedAt: new Date() }),
+      run: await recordFailedRun(run, source.refusal),
     }
   }
   return { definition, run: await dispatchRun(definition, run, input.conversationId ?? null) }
@@ -664,7 +665,7 @@ async function submitQueuedRun(run: TaskRun, target: DispatchTarget): Promise<Ta
           ? error.message
           : 'Unexpected error while preparing the run'
     console.error('[runs] could not submit run', run.id, error)
-    return recordRun(run, { status: 'failed', error: detail.slice(0, 2000), finishedAt: new Date() })
+    return recordFailedRun(run, detail.slice(0, 2000))
   }
   // From here the job exists on the backend. A failure to record that is not
   // a failed run (#723): marking it `failed` told the reader the work had not
@@ -672,30 +673,30 @@ async function submitQueuedRun(run: TaskRun, target: DispatchTarget): Promise<Ta
   // threw as well. The worker's run ledger addresses the run by its id, so the
   // row catches up when the database is back.
   const { backendJobId, conversationId, runMessageId } = submitted
-  const status = submittedRunStatus(submitted)
-  return recordRun(run, {
-    status,
-    backendJobId,
-    conversationId,
-    runMessageId,
-    // A queued run has not started: the worker's first flush stamps it (`applyRunLedgerOp`).
-    startedAt: status === 'running' ? new Date() : null,
-  })
+  const submission = { status: submittedRunStatus(submitted), backendJobId, conversationId, runMessageId }
+  try {
+    return (await recordSubmission(run.id, run.organizationId, submission)) ?? run
+  } catch (error) {
+    console.error('[runs] could not record run', run.id, submission.status, backendJobId, error)
+    return { ...run, ...submission, startedAt: submission.status === 'running' ? new Date() : null }
+  }
 }
 
 /**
- * Store what happened to a run, and return the row as it now is.
+ * End a run that never reached the worker as `failed`, and return the row as
+ * it now is: an ending, so it is written by the lifecycle's one close and an
+ * ending that already stands (the kill switch's) is kept and returned.
  *
  * Never throws: when the write fails, the run as this process knows it is
- * returned with the patch applied, and the failure is logged with the run's
- * id beside what could not be written.
+ * returned as failed, and the failure is logged with the run's id.
  */
-async function recordRun(run: TaskRun, patch: Partial<TaskRun>): Promise<TaskRun> {
+async function recordFailedRun(run: TaskRun, error: string): Promise<TaskRun> {
   try {
-    return (await repository.updateRun(run.id, run.organizationId, patch)) ?? run
-  } catch (error) {
-    console.error('[runs] could not record run', run.id, patch.status, patch.backendJobId ?? '', error)
-    return { ...run, ...patch }
+    const closed = await repository.closeActiveRun(run.id, run.organizationId, { status: 'failed', error })
+    return closed ?? (await repository.findRunById(run.id)) ?? run
+  } catch (cause) {
+    console.error('[runs] could not record run', run.id, 'failed', cause)
+    return { ...run, status: 'failed', error, finishedAt: new Date() }
   }
 }
 

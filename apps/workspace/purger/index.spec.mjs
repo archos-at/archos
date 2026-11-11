@@ -75,6 +75,7 @@ describe('purger tick during a database outage', () => {
     await purgerOver(sql, createFailureStreak({ label: '[purger] queue', escalateAfter: ESCALATE_AFTER })).tick()
 
     expect(error.mock.calls.map(([line]) => line)).toEqual([
+      '[purger] failed to close the rows of erased folders:',
       '[purger] failed to reap stranded rows:',
       '[purger] failed to re-offer exhausted rows:',
       '[purger] tick failed, retrying on the next poll:',

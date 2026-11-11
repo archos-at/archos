@@ -8,8 +8,9 @@
  *     same for every status, verdict, author, uploader and reader. The unit
  *     specs drive the services through the in-memory twin, so this is what
  *     makes them evidence about the database.
- *   - a quarantined row leaves quarantine through a release and no other write:
- *     the repository's status writers skip it, and migration 0122's trigger
+ *   - a quarantined row leaves quarantine through a release, or through a
+ *     re-screen that lifts nothing (migration 0224), and no other write: the
+ *     repository's status writers skip it, and migration 0122's trigger
  *     refuses any other UPDATE that tries.
  *   - the item read, the sharing probe, document roles, the upload history's
  *     counts and the IFC model header each see a held row only as its reader may.
@@ -464,7 +465,7 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
     })
 
     it('refuses any other write that tries, at the database (migration 0122)', async () => {
-      const refusal = { cause: { code: 'GQH01', message: expect.stringMatching(/only a release takes it out of quarantine/) } }
+      const refusal = { cause: { code: 'GQH01', message: expect.stringMatching(/takes it out of quarantine/) } }
       await expect(
         inTenant(() => db.execute(sql`UPDATE documents SET status = 'pending' WHERE id = ${quarantinedId}::uuid`))
       ).rejects.toMatchObject(refusal)
@@ -502,25 +503,127 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
       expect(await statusOf(failed.id)).toBe('uploaded')
     })
 
-    // A known defect, stated as what should hold: „Erneut prüfen" on a
-    // QUARANTINED file is refused by the trigger above (GQH01), because
-    // `markForRescreening` writes `uploaded` without a release. The fix is a
-    // rule in the database, not in the repository: let a quarantined row go to
-    // `uploaded` when the write lifts nothing (the verdict columns
-    // `screening_outcome`, `screened_hash` and `screening_released_hash` are
-    // unchanged), so the row stays held until the new reading passes. When
-    // that migration lands this test passes: drop `.fails`, and declare
-    // `rescreen` from `quarantined` in `./reading-lifecycle`.
-    it.fails('re-screens a quarantined file', async () => {
-      const held = await insert({ scope: 'project', status: 'quarantined', outcome: 'quarantined', authoredBy: 'user', createdBy: OTHER })
-      await expect(repo.markForRescreening(held.id, ORG, held.contentHash!)).resolves.toBe(true)
-      expect(await statusOf(held.id)).toBe('uploaded')
+    describe('a re-screen of a quarantined file (migration 0224)', () => {
+      const jobOf = (id: string) => `job-rescreen-${id}`
+      const visibleTo = async (id: string, reader: DocumentReader): Promise<boolean> =>
+        (await repo.findDocumentInOrg(id, ORG, reader)) !== null
+      const expectHeld = async (id: string, at: string): Promise<void> => {
+        expect(await statusOf(id), at).toBe(at)
+        // A colleague who neither uploaded nor reviews it, and a model.
+        expect(await visibleTo(id, memberReader(UPLOADER)), `${at}: colleague`).toBe(false)
+        expect(await visibleTo(id, SCREENED_ONLY), `${at}: model`).toBe(false)
+        expect(await visibleTo(id, memberReader(OTHER)), `${at}: uploader`).toBe(true)
+        expect(await visibleTo(id, REVIEWER_READER), `${at}: reviewer`).toBe(true)
+      }
+      const quarantined = (outcome: (typeof OUTCOMES)[number] = 'quarantined') =>
+        insert({ scope: 'project', status: 'quarantined', outcome, authoredBy: 'user', createdBy: OTHER })
+
+      it('re-screens a quarantined file', async () => {
+        const held = await quarantined()
+        await expect(repo.markForRescreening(held.id, ORG, held.contentHash!)).resolves.toBe(true)
+        expect(await statusOf(held.id)).toBe('uploaded')
+      })
+
+      it('keeps the file from a colleague at every step until the new screening passes', async () => {
+        const held = await quarantined()
+        await expectHeld(held.id, 'quarantined')
+        await repo.markForRescreening(held.id, ORG, held.contentHash!)
+        await expectHeld(held.id, 'uploaded')
+        await expect(repo.setDocumentIngestJob(held.id, ORG, jobOf(held.id))).resolves.toBe(true)
+        await expectHeld(held.id, 'pending')
+        const passed = await repo.setDocumentReconciledStatus(
+          held.id,
+          ORG,
+          { status: 'completed', errorMessage: null, screeningOutcome: 'clean' },
+          { status: 'pending', jobId: jobOf(held.id) },
+        )
+        expect(passed).toBe(true)
+        expect(await visibleTo(held.id, memberReader(UPLOADER))).toBe(true)
+        expect(await visibleTo(held.id, SCREENED_ONLY)).toBe(true)
+      })
+
+      it('is held again by a second verdict of quarantine', async () => {
+        const held = await quarantined()
+        await repo.markForRescreening(held.id, ORG, held.contentHash!)
+        await repo.setDocumentIngestJob(held.id, ORG, jobOf(held.id))
+        const again = await repo.setDocumentReconciledStatus(
+          held.id,
+          ORG,
+          {
+            status: 'quarantined',
+            errorMessage: null,
+            screeningOutcome: 'quarantined',
+            quarantine: { checked: 'full', reasons: [] },
+          },
+          { status: 'pending', jobId: jobOf(held.id) },
+        )
+        expect(again).toBe(true)
+        await expectHeld(held.id, 'quarantined')
+      })
+
+      it('stays held when the new reading ends without a verdict (screening off, or a failure)', async () => {
+        const unscreened = await quarantined()
+        await repo.markForRescreening(unscreened.id, ORG, unscreened.contentHash!)
+        await repo.setDocumentIngestJob(unscreened.id, ORG, jobOf(unscreened.id))
+        await repo.setDocumentReconciledStatus(
+          unscreened.id,
+          ORG,
+          { status: 'completed', errorMessage: null },
+          { status: 'pending', jobId: jobOf(unscreened.id) },
+        )
+        await expectHeld(unscreened.id, 'completed')
+
+        const failed = await quarantined()
+        await repo.markForRescreening(failed.id, ORG, failed.contentHash!)
+        await repo.markDocumentIngestFailed(failed.id, ORG, 'boom')
+        await expectHeld(failed.id, 'failed')
+      })
+
+      // No CHECK ties the status to the outcome. A quarantined row with a
+      // passing outcome about its own bytes would be shown the moment its
+      // status changed, so the writer puts the holding outcome on it.
+      it.each(['clean', 'released', null] as const)(
+        'holds a quarantined row whose outcome column says %s',
+        async (outcome) => {
+          const held = await quarantined(outcome)
+          await expect(repo.markForRescreening(held.id, ORG, held.contentHash!)).resolves.toBe(true)
+          await expectHeld(held.id, 'uploaded')
+        },
+      )
+
+      it('is refused at the database when the write would lift the hold', async () => {
+        const refusal = { cause: { code: 'GQH01' } }
+        const attempt = (set: ReturnType<typeof sql>, id: string) =>
+          inTenant(() => db.execute(sql`UPDATE documents SET status = 'uploaded', ${set} WHERE id = ${id}::uuid`))
+        const passing = await quarantined('clean')
+        // Nothing changed but the status: the outcome on the row passes.
+        await expect(attempt(sql`updated_at = now()`, passing.id)).rejects.toMatchObject(refusal)
+        const held = await quarantined()
+        await expect(attempt(sql`screening_outcome = 'clean'`, held.id)).rejects.toMatchObject(refusal)
+        await expect(attempt(sql`screening_outcome = NULL`, held.id)).rejects.toMatchObject(refusal)
+        await expect(attempt(sql`content_hash = 'sha256:swapped'`, held.id)).rejects.toMatchObject(refusal)
+        await expect(attempt(sql`screened_hash = 'sha256:swapped'`, held.id)).rejects.toMatchObject(refusal)
+        await expect(attempt(sql`screening_released_hash = content_hash`, held.id)).rejects.toMatchObject(refusal)
+        expect(await statusOf(held.id)).toBe('quarantined')
+        expect(await statusOf(passing.id)).toBe('quarantined')
+      })
     })
 
     it('still dispatches a row that is not quarantined', async () => {
       const uploaded = await insert({ scope: 'project', status: 'uploaded', outcome: null, authoredBy: 'user', createdBy: OTHER })
       await expect(repo.setDocumentIngestJob(uploaded.id, ORG, 'job-first')).resolves.toBe(true)
       expect(await statusOf(uploaded.id)).toBe('pending')
+    })
+  })
+
+  describe('the ingest pipeline asking whether its document is still there', () => {
+    it('is told an archived document is gone, so a job that outlived the archive keeps no chunks', async () => {
+      const doc = await insert({ scope: 'project', status: 'pending', outcome: null, authoredBy: 'user', createdBy: OTHER })
+      await expect(repo.documentExistsInCollection(doc.id, COLLECTION, ORG)).resolves.toBe(true)
+      await inTenant(() => db.execute(sql`UPDATE documents SET lifecycle = 'archived' WHERE id = ${doc.id}::uuid`))
+      await expect(repo.documentExistsInCollection(doc.id, COLLECTION, ORG)).resolves.toBe(false)
+      await inTenant(() => db.execute(sql`UPDATE documents SET lifecycle = 'active' WHERE id = ${doc.id}::uuid`))
+      await expect(repo.documentExistsInCollection(doc.id, COLLECTION, ORG)).resolves.toBe(true)
     })
   })
 
