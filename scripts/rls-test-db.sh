@@ -139,6 +139,18 @@ restore_rls_role_names() {
   OWNER=grid_app_owner
 }
 
+# The release transfer suite (rollover-to-prod, step 2) moves a country's release
+# from one deployment to another: two fresh copies of the migrated database,
+# taken before any suite writes to it, one per deployment.
+RELEASE_DATABASES="grid_app_release_source grid_app_release_target"
+release_databases() {
+  local name
+  for name in $RELEASE_DATABASES; do
+    $PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE $name TEMPLATE grid_app OWNER $OWNER;"
+  done
+}
+RELEASE_URLS="TEST_RELEASE_SOURCE_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_source TEST_RELEASE_TARGET_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_target"
+
 # `--only <spec…>`: the migrated cluster and the restricted role, for the specs
 # named and nothing else. For one suite while you work on it, and for the
 # measurements that are not part of the gate (`task workspace:search:latency`). The
@@ -147,7 +159,9 @@ restore_rls_role_names() {
 if [ "${1:-}" = "--only" ]; then
   shift
   rename_rls_roles
+  release_databases
   echo "==> running $* as app_rw"
+  env $RELEASE_URLS \
   TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
     npx vitest run "$@"
@@ -169,6 +183,7 @@ fi
 # name, so a suite cannot arrive here unrun.
 echo "==> renaming the row-level-security roles as the deploy does, after the migrations"
 rename_rls_roles
+release_databases
 # Site resolution: alone and first. It asserts that no territory record holds a
 # Gemeinde yet (no_territory), and the platform suite in the batch below releases
 # that territory; in one batch whichever ran first decided the outcome (seen
@@ -286,6 +301,11 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 echo "==> running the PDF source suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run bff/agent-api/pdf-source-door.integration.spec.ts
+
+# A country's release, exported from one deployment's database and imported as a
+# draft into another's (rollover-to-prod, step 2). Its own two databases.
+echo "==> running the release transfer suite as app_rw"
+env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/release-transfer.integration.spec.ts
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
