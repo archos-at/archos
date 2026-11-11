@@ -1,0 +1,162 @@
+{
+  "$comment": "The synthetic test country XA's citation style (docs/design/citations.md: tests of code use an invented country). Two languages, each with its own words, locus and page labels, date form and quote marks, so the citation-line fixture proves the formatter reads every part of the form from the record.",
+  "countryId": "XA",
+  "title": "Xanadu: how a citation line is written",
+  "records": [
+    {
+      "type": "ruleset",
+      "key": "xa-citation-style",
+      "values": {
+        "purpose": "citation_style",
+        "territoryIds": [
+          "XA"
+        ],
+        "validFrom": "2026-01-01",
+        "body": {
+          "kind": "citation_style",
+          "payloadSchema": "citation_style.v1",
+          "payload": {
+            "styles": [
+              {
+                "language": "en",
+                "kinds": [
+                  {
+                    "match": {
+                      "authorities": [],
+                      "tints": [],
+                      "lanePrefixes": [
+                        "external_standard"
+                      ],
+                      "origins": []
+                    },
+                    "type": "standard",
+                    "publisher": "Xanadu Standards Board",
+                    "place": "Xanadu City"
+                  },
+                  {
+                    "match": {
+                      "authorities": [],
+                      "tints": [],
+                      "lanePrefixes": [
+                        "building_law"
+                      ],
+                      "origins": []
+                    },
+                    "type": "legislation",
+                    "container": "Xanadu Law Gazette"
+                  }
+                ],
+                "edition": {
+                  "word": "Edition",
+                  "label": [
+                    "{year} edition"
+                  ],
+                  "months": {}
+                },
+                "date": "{year}-{month}-{day}",
+                "bareLocus": "s. {locus}",
+                "page": "p. {page}",
+                "lines": {
+                  "standard": [
+                    "{title}",
+                    ", {edition}",
+                    ", {locus}",
+                    ", {page}",
+                    ". {publisher}",
+                    ", {place}",
+                    ". Retrieved {accessed} from {url}"
+                  ],
+                  "legislation": [
+                    "{title}",
+                    ", {locus}",
+                    " ({container})",
+                    ". Retrieved {accessed} from {url}"
+                  ],
+                  "webpage": [
+                    "{title}",
+                    " ({container})",
+                    ". Retrieved {accessed} from {url}"
+                  ],
+                  "report": [
+                    "{title}",
+                    ", {locus}",
+                    ", {page}",
+                    " (file {note})"
+                  ]
+                },
+                "quote": [
+                  "\"{quote}\" ({title}",
+                  ", {page}",
+                  ")"
+                ]
+              },
+              {
+                "language": "fr",
+                "kinds": [
+                  {
+                    "match": {
+                      "authorities": [],
+                      "tints": [],
+                      "lanePrefixes": [
+                        "external_standard"
+                      ],
+                      "origins": []
+                    },
+                    "type": "standard",
+                    "publisher": "Xanadu Standards Board",
+                    "place": "Xanadu City"
+                  },
+                  {
+                    "match": {
+                      "authorities": [],
+                      "tints": [],
+                      "lanePrefixes": [
+                        "building_law"
+                      ],
+                      "origins": []
+                    },
+                    "type": "legislation",
+                    "container": "Xanadu Law Gazette"
+                  }
+                ],
+                "date": "{day}/{month}/{year}",
+                "bareLocus": "ch. {locus}",
+                "page": "p. {page}",
+                "lines": {
+                  "standard": [
+                    "{title}",
+                    ", {locus}",
+                    ", {page}",
+                    " ({publisher})",
+                    ", consulté le {accessed} : {url}"
+                  ],
+                  "legislation": [
+                    "{title}",
+                    ", {locus}",
+                    ", {container}",
+                    ", consulté le {accessed} : {url}"
+                  ],
+                  "webpage": [
+                    "{title}",
+                    ", {container}",
+                    ", consulté le {accessed} : {url}"
+                  ],
+                  "report": [
+                    "{title}",
+                    ", {locus}",
+                    ", {page}"
+                  ]
+                },
+                "quote": [
+                  "« {quote} » — {title}",
+                  ", {page}"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "citations": []
+    }
+  ]
+}

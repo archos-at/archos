@@ -1,6 +1,6 @@
 # Citations an architect can rely on
 
-Status: designed 2026-11-11; slice 1 is built, the others follow in the order below.
+Status: designed 2026-11-11; slice 1 is built, slice 2's record and interpreter are built (the line's form is a style record), the others follow in the order below.
 The gap table was measured at `develop` `ac5936621` (2026-11-11); its file and line references are of that commit.
 Marks: **V** verified by reading the code, **L** observed in a live answer on dev (test office, read-only), **I** inferred, not verified.
 
@@ -303,6 +303,42 @@ an import-graph spec that fails a second formatter. `answer-text.spec.ts`: no fi
 door text. i18n key coverage.
 **Langfuse.** None of its own; `edition-named` from slice 1 is its measure. Release note, captures of chip,
 peek and the Word page.
+
+**Built (the record and its interpreter).** The form is a ruleset of purpose `citation_style`
+(`citation_style.v1`, migration 0234): a ruleset rather than a record type, because a ruleset already carries
+territories, validity, review and release and needs no body table of its own. Per language it holds which
+sources are a standard or a law (`kinds`, matched by authority, tint, lane prefix or origin), who publishes a
+standard and where a law is read, one template per kind of line, the bare-locus and page labels, the quote
+form, the edition phrase and the date form. `bff/base-knowledge/wire/citation-style.ts` is its schema and
+`apps/workspace/shared/citation-style.ts` the interpreter, which names no country; `ui/features/chat/lib/source-citation.ts` only maps the citation model onto
+it. Austria's form is its record, `configs/knowledge-packs/at-citation-styles.json`, a change request of its
+own. Readers: the chip's copy and the document dialog's quote (`useCitationStyles`, from
+`GET /api/citations/style`, the operation `citation-style-get`), the copy-all export (Fachtext, quotes,
+CSL-JSON and the APA, BibTeX and RIS it feeds), and an outside agent's ask evidence (`AskSource.citation`).
+The gate is `shared/citation-lines.fixture.spec.ts` over `apps/workspace/tests/fixtures/citation-lines/`:
+the same citations, Austria in German from its record (byte for byte the lines the code wrote before), and
+the synthetic country XA in English and French, on all three surfaces.
+
+*Buy, not build.* citation-js was already the CSL renderer here (APA, BibTeX, RIS on the BFF). A CSL style
+does not fit the line: the chip formats in the browser, synchronously, and citation-js cannot be bundled for
+the browser at all (`bff/citations/render.ts`); CSL has no variable for a country's locus grammar or edition
+phrase, which only the CSL-M extensions of Juris-M add (**I**, from knowledge; citeproc-js was not measured).
+The interpreter fills templates, each a list of segments printed only when all their fields have a value; CSL-JSON stays its output. The formatter went from 193 lines of code to 164, the record's schema (`bff/base-knowledge/wire/citation-style.ts`) beside it.
+
+*Fallback, delete after rollover.* Until a style is released on an environment, lines are written in
+`shared/citation-style.fallback.json`, which a spec holds equal to a pack's record. Delete it, with
+`FALLBACK_CITATION_STYLES` (`wire/citation-style.ts`) and the `null` answer of `bff/citations/style.ts`, once Austria's record is
+published on prod.
+
+*Not yet, and why.* The Word export (`bff/answer-export/citations.ts`), the copy-answer Markdown
+(`lib/answer-markdown.ts`) and the peek still label a source from i18n ("S. {page}") rather than the line:
+moving them changes what they print today, so each is its own change against this fixture. The style chosen
+is the office's home country's, not the source's: an EU or a foreign source is written in the office's form
+until a citation carries its work's country. "Abs." with dots (decision 1) and the law's Fundstelle with
+"idF" are revisions of Austria's record, not code, once a law's locus arrives as units rather than text (the
+RIS adapter writes "Abs 1"); the locus vocabulary and the "ohne Fundstelle" mark (decision 2) join the
+record with slice 3, which is their first reader. Terminology and the answer register did not fall out of
+this record: they are the prompt's, and stay the next slice of plan row 6.
 
 ### Slice 3. What the sentence says is what opens
 

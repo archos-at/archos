@@ -1,157 +1,31 @@
 /**
- * Citations an architect can actually paste somewhere.
+ * Citations an architect can paste somewhere: the line in the profession's form,
+ * the quoted passages, and CSL-JSON for Zotero, Word and pandoc.
  *
- * The provenance block knows exactly what a source IS (OIB-Richtlinie with an
- * edition, a RIS legal norm, a project upload, a web page) — so it can hand the
- * user a real citation instead of a link they have to retype into their Befund,
- * their Word bibliography or their reference manager.
+ * The form is not here. It is the style record of the source's country
+ * (`citation_style`, read by `useCitationStyles`) interpreted by
+ * `@/shared/citation-style`; this module only hands the interpreter what the citation
+ * model knows of a reference. Rendering CSL-JSON into APA, BibTeX or RIS is
+ * `citation-export.ts`'s job.
  *
- * This module builds **CSL-JSON**, the interchange format every serious tool
- * speaks (Zotero, Mendeley, EndNote, Word, pandoc, citation-js). Rendering it
- * into APA/BibTeX/RIS is `citation-export.ts`'s job — deliberately split, so
- * the mapping below stays pure, synchronous and testable, and the heavy
- * citation-js bundle only loads when someone actually copies something.
- *
- * NOTHING is invented: every field comes from data the answer already carries.
- * An unknown edition, page or date is simply absent from the output rather than
- * guessed — a fabricated Fundstelle in a building-law citation is worse than a
- * short one.
+ * Nothing is invented: an unknown edition, page or date is absent from the output
+ * rather than guessed. A fabricated Fundstelle is worse than a short one.
  */
 
-import {
-  refHost,
-  refNumber,
-  refPage,
-  type CitationRef,
-} from './citations'
+import { FALLBACK_CITATION_STYLES, type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import { citationLine, quoteLine, styleFor, toCslItem as styledCslItem, type CitedSource, type CslItem } from '@/shared/citation-style'
+import { refHost, refNumber, refPage, type CitationRef } from './citations'
 
-/** The publisher of the OIB-Richtlinien — a fact about the document class. */
-const OIB_PUBLISHER = 'Österreichisches Institut für Bautechnik'
-const OIB_PLACE = 'Wien'
-/** The Austrian legal information system a RIS source is retrieved from. */
-const RIS_CONTAINER = 'Rechtsinformationssystem des Bundes (RIS)'
-
-/** CSL-JSON date shape (`{"date-parts": [[year, month]]}`). */
-export interface CslDate {
-  'date-parts': number[][]
-}
-
-/**
- * A CSL-JSON item. Deliberately a narrow subset of the spec — only the fields
- * we can fill from real data.
- */
-export interface CslItem {
-  id: string
-  /** CSL type: `standard` (OIB/ÖNORM), `legislation`, `webpage`, `report`. */
-  type: string
-  title: string
-  authority?: string
-  publisher?: string
-  'publisher-place'?: string
-  'container-title'?: string
-  edition?: string
-  page?: string
-  /**
-   * CSL `section` — the Punkt, which is how Austrian building law is cited.
-   *
-   * „OIB-Richtlinie 2, Pkt. 3.5.2" is what an architect writes into a Befund; a
-   * page is where that Punkt happens to be printed in one edition's PDF. The
-   * chunker establishes the Punkt, the knowledge layer states it, the wire
-   * carries it and the model holds it — and every export dropped it, so the
-   * copied citation named the page and not the requirement.
-   */
-  section?: string
-  number?: string
-  issued?: CslDate
-  accessed?: CslDate
-  URL?: string
-  note?: string
-}
-
-const GERMAN_MONTHS: Record<string, number> = {
-  jänner: 1,
-  januar: 1,
-  februar: 2,
-  märz: 3,
-  maerz: 3,
-  april: 4,
-  mai: 5,
-  juni: 6,
-  juli: 7,
-  august: 8,
-  september: 9,
-  oktober: 10,
-  november: 11,
-  dezember: 12,
-}
-
-/** "Ausgabe Mai 2023" / "Ausgabe: Mai 2023" — the OIB edition convention. */
-const EDITION_RE = /ausgabe:?\s*([a-zäöü]+)?\s*(\d{4})/i
-/** A bare year, used only when no edition phrase exists. */
-const YEAR_RE = /\b(19|20)\d{2}\b/
-
-const cslDate = (year: number, month?: number): CslDate => ({
-  'date-parts': [month ? [year, month] : [year]],
-})
-
-/** Today, as a CSL `accessed` date. */
-export const accessedDate = (now: Date): CslDate =>
-  cslDate(now.getFullYear(), now.getMonth() + 1)
-
-/** The edition ("Ausgabe Mai 2023") and its date, if the title/filename states one. */
-const parseEdition = (text: string): { edition?: string; issued?: CslDate } => {
-  const match = EDITION_RE.exec(text)
-  if (match) {
-    const month = match[1] ? GERMAN_MONTHS[match[1].toLowerCase()] : undefined
-    const year = Number(match[2])
-    const label = match[1]
-      ? `Ausgabe ${match[1][0].toUpperCase()}${match[1].slice(1).toLowerCase()} ${year}`
-      : `Ausgabe ${year}`
-    return { edition: label, issued: cslDate(year, month) }
-  }
-  const year = YEAR_RE.exec(text)
-  return year ? { issued: cslDate(Number(year[0])) } : {}
-}
-
-/**
- * The document's own name. The model already resolved it (stored display title
- * → OIB derivation → humanized filename), so there is nothing left to choose
- * between here — which is the point: a citation pasted into a Befund and the
- * chip it came from now say the same words.
- */
-const displayTitle = (ref: CitationRef): string => ref.document.title.trim()
-
-const isOib = (ref: CitationRef): boolean =>
-  ref.document.authority === 'OIB' ||
-  ref.document.tint === 'oib' ||
-  (ref.document.lane ?? '').toLowerCase().startsWith('building_law_oib')
-
-const isNorm = (ref: CitationRef): boolean => ref.document.authority === 'ÖNORM'
-
-const isLaw = (ref: CitationRef): boolean =>
-  (ref.document.lane ?? '').toLowerCase().startsWith('building_law') ||
-  ref.document.origin === 'ris'
+export type { CslItem } from '@/shared/citation-style'
 
 /** Characters a CSL `id` may carry — citation-js writes it as the BibTeX key. */
 const UNSAFE_ID_CHARS = /[^A-Za-z0-9._-]+/g
 
 /**
- * The identifier of ONE reference.
- *
- * Unique per REFERENCE, not per document: a bibliography lists one row per
- * locus, and CSL consumers key on `id` — two unnumbered pages of the same
- * document would otherwise export as one entry and the importer would drop the
- * other.
- *
- * The parts it is built from are storage identities, not identifiers: a locus
- * key can be `k:Plan.pdf, p.3` and a document id `doc:proj_1:plan.pdf`. Left raw
- * that comma ends the BibTeX key mid-entry and the record no longer parses, so
- * the id is reduced to characters a key may carry.
- *
- * That reduction is lossy — `p:3` and `p/3` both read as `p-3` — and collapsing
- * two references onto one id is the very failure the per-locus id exists to
- * prevent, so a reference whose identity did not survive sanitizing carries a
- * fingerprint of the identity it really has.
+ * The identifier of ONE reference, unique per locus: a bibliography lists one row
+ * per locus and CSL consumers key on `id`. It is reduced to the characters a BibTeX
+ * key may carry; when that loses the identity (`p:3` and `p/3`), a fingerprint of
+ * the real identity keeps two references apart.
  */
 const cslId = (ref: CitationRef): string => {
   const base = refNumber(ref) ?? ref.document.id
@@ -161,13 +35,7 @@ const cslId = (ref: CitationRef): string => {
   return safe === identity ? safe : `${safe}-${fingerprint(identity)}`
 }
 
-/**
- * A short, stable digest of a reference identity.
- *
- * FNV-1a, 32 bits: no dependency, deterministic across runs and processes (an
- * exported bibliography must not change id between two exports of the same
- * answer), and only needed to tell sanitized near-collisions apart.
- */
+/** FNV-1a, 32 bits: deterministic across runs, so an export keeps its ids. */
 const fingerprint = (text: string): string => {
   let hash = 0x811c9dc5
   for (let index = 0; index < text.length; index += 1) {
@@ -177,162 +45,59 @@ const fingerprint = (text: string): string => {
   return (hash >>> 0).toString(36)
 }
 
-/**
- * Map one source row onto a CSL-JSON item.
- *
- * `now` is passed in (never read from the clock here) so the mapping stays pure
- * and the `accessed` date is testable.
- */
-export const toCslItem = (ref: CitationRef, now: Date): CslItem => {
-  const title = displayTitle(ref)
-  const fileName = ref.document.fileName ?? ''
-  const { edition, issued } = parseEdition(`${title} ${fileName}`)
-  // The page of THIS reference: the locus's when the citation names one,
-  // otherwise only a page the whole document unambiguously sits at.
-  const pageNumber = refPage(ref)
-  const page = pageNumber != null ? String(pageNumber) : undefined
-  // The Punkt of THIS reference. Document-level references have none: a Punkt
-  // is a place inside a document, and claiming one the citation does not name
-  // would be the same overstatement `refPage` refuses for pages.
-  const section = ref.locus?.clause?.trim() || undefined
-  const url = ref.document.url
-  const id = cslId(ref)
-
-  if (isOib(ref) || isNorm(ref)) {
-    // A technical guideline / standard — CSL `standard` is exactly this type.
-    return {
-      id,
-      type: 'standard',
-      title,
-      ...(isOib(ref)
-        ? { publisher: OIB_PUBLISHER, 'publisher-place': OIB_PLACE, authority: OIB_PUBLISHER }
-        : {}),
-      ...(edition ? { edition } : {}),
-      ...(issued ? { issued } : {}),
-      ...(section ? { section } : {}),
-      ...(page ? { page } : {}),
-      ...(url ? { URL: url, accessed: accessedDate(now) } : {}),
-    }
-  }
-
-  if (isLaw(ref)) {
-    return {
-      id,
-      type: 'legislation',
-      title,
-      ...(ref.document.laneLabel ? { authority: ref.document.laneLabel } : {}),
-      'container-title': RIS_CONTAINER,
-      ...(issued ? { issued } : {}),
-      ...(section ? { section } : {}),
-      ...(page ? { page } : {}),
-      ...(url ? { URL: url, accessed: accessedDate(now) } : {}),
-    }
-  }
-
-  if (ref.document.kind === 'web') {
-    const host = refHost(ref)
-    return {
-      id,
-      type: 'webpage',
-      title,
-      ...(host ? { 'container-title': host } : {}),
-      ...(issued ? { issued } : {}),
-      ...(url ? { URL: url, accessed: accessedDate(now) } : {}),
-    }
-  }
-
-  // A project / office document: a real artifact, not a publication.
+/** What the interpreter reads of a reference: the model's own fields, nothing derived. */
+export const citedSource = (ref: CitationRef): CitedSource => {
+  const { document } = ref
   return {
-    id,
-    type: 'report',
-    title,
-    ...(fileName && fileName !== title ? { note: fileName } : {}),
-    ...(issued ? { issued } : {}),
-    ...(section ? { section } : {}),
-    ...(page ? { page } : {}),
+    id: cslId(ref),
+    // The model already resolved the name (stored title, then the derived one,
+    // then the file name), so the copied line and the chip say the same words.
+    title: document.title.trim(),
+    fileName: document.fileName,
+    kind: document.kind,
+    lane: document.lane,
+    laneLabel: document.laneLabel,
+    authority: document.authority,
+    tint: document.tint,
+    origin: document.origin,
+    url: document.url,
+    host: refHost(ref),
+    // The locus of THIS reference; a document-level reference names none.
+    locus: ref.locus?.clause,
+    page: refPage(ref),
   }
 }
 
-/** `28.07.2026` — the date format an Austrian document uses. */
-const formatAustrianDate = (now: Date): string =>
-  `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`
+const styleOf = (ref: CitationRef, styles: CitationStylePayload) => styleFor(styles, ref.document.line?.language)
+
+/** One reference as a CSL-JSON item. `now` is passed in so `accessed` is testable. */
+export const toCslItem = (ref: CitationRef, now: Date, styles = FALLBACK_CITATION_STYLES): CslItem =>
+  styledCslItem(citedSource(ref), now, styleOf(ref, styles))
+
+/** The reference line, in the form of the source's country and language. */
+export const toTechnicalText = (ref: CitationRef, now: Date, styles = FALLBACK_CITATION_STYLES): string =>
+  citationLine(toCslItem(ref, now, styles), now, styleOf(ref, styles))
+
+/** The numbered bibliography for a whole answer. */
+export const toTechnicalTextList = (refs: CitationRef[], now: Date, styles = FALLBACK_CITATION_STYLES): string =>
+  refs.map((ref, index) => `[${refNumber(ref) ?? index + 1}] ${toTechnicalText(ref, now, styles)}`).join('\n')
 
 /**
- * The German Fachtext citation — the one an Austrian architect actually pastes
- * into a Befund, a Gutachten or an Einreichung, following the conventions those
- * documents use: the OIB's own "OIB-Richtlinie N, Ausgabe …, S. x" form, and a
- * legal source cited with its Fundstelle plus the RIS retrieval note.
+ * The quoted passages the answer leaned on. A reference with no passage is
+ * skipped; with none at all, the bibliography is the honest fallback.
  */
-export const toTechnicalText = (ref: CitationRef, now: Date): string => {
-  const csl = toCslItem(ref, now)
-  const parts: string[] = [csl.title]
-
-  // The edition is often already part of the title ("OIB-Richtlinie 2 – Brand-
-  // schutz, Ausgabe Mai 2023") — never state it twice.
-  if (csl.edition && !csl.title.toLowerCase().includes(csl.edition.toLowerCase())) {
-    parts.push(csl.edition)
-  }
-  // Punkt before page. „OIB-Richtlinie 2, Pkt. 3.5.2, S. 12" is the order the
-  // profession writes: the requirement identifies itself, the page only says
-  // where this edition prints it. The Punkt was dropped entirely, so the copied
-  // citation named a page in a document architects cite by Punkt.
-  // A RIS locus already names its unit („§ 63 Abs 1"); only an OIB/ÖNORM
-  // Punkt needs the „Pkt." that the profession writes before a bare number.
-  // So does any other locus that is not a bare number: a project document's
-  // section is addressed as „§ 4", „Tabelle 3", „Geschoße" or „Zeilen 2-41",
-  // and „Pkt. Zeilen 2-41" names nothing.
-  if (csl.section) parts.push(/^\d/.test(csl.section) ? `Pkt. ${csl.section}` : csl.section)
-  if (csl.page) parts.push(`S. ${csl.page}`)
-
-  let text = parts.join(', ')
-
-  if (csl.type === 'standard' && csl.publisher) {
-    text += ` (${csl.publisher}, ${csl['publisher-place'] ?? ''})`.replace(', )', ')')
-  } else if (csl.type === 'legislation') {
-    text += `, in: ${RIS_CONTAINER}`
-  } else if (csl.type === 'webpage' && csl['container-title']) {
-    text += `, ${csl['container-title']}`
-  } else if (csl.type === 'report' && csl.note) {
-    text += ` [${csl.note}]`
-  }
-
-  if (csl.URL) text += `, abgerufen am ${formatAustrianDate(now)}: ${csl.URL}`
-
-  return `${text}.`
-}
-
-/** The numbered Fachtext bibliography for a whole answer. */
-export const toTechnicalTextList = (refs: CitationRef[], now: Date): string =>
-  refs
-    .map((ref, index) => `[${refNumber(ref) ?? index + 1}] ${toTechnicalText(ref, now)}`)
-    .join('\n')
-
-/**
- * The quoted passages the answer actually leaned on — what an architect means
- * by "Zitiertext". Bibliographic formats (APA, filename-only titles) are not
- * this; this is the list of Fundstellen.
- *
- * A locus with no snippet is skipped rather than padded with a title, so the
- * list is only real quotes. If none of the refs carry a passage, the Fachtext
- * bibliography is the honest fallback.
- */
-export const toQuoteList = (refs: CitationRef[], now: Date): string => {
+export const toQuoteList = (refs: CitationRef[], now: Date, styles = FALLBACK_CITATION_STYLES): string => {
   const lines = refs.flatMap((ref) => {
     const snippet = ref.locus?.snippet?.trim()
-    if (!snippet) return []
-    const page = refPage(ref)
-    const source = [displayTitle(ref), page != null ? `S. ${page}` : null]
-      .filter((part): part is string => Boolean(part))
-      .join(', ')
-    return [`„${snippet}“ — ${source}`]
+    return snippet ? [quoteLine(snippet, citedSource(ref), styleOf(ref, styles))] : []
   })
-  return lines.length > 0 ? lines.join('\n\n') : toTechnicalTextList(refs, now)
+  return lines.length > 0 ? lines.join('\n\n') : toTechnicalTextList(refs, now, styles)
 }
 
 /** CSL-JSON for a whole answer, ready for Zotero / Word / pandoc import. */
-export const toCslJson = (refs: CitationRef[], now: Date): string =>
+export const toCslJson = (refs: CitationRef[], now: Date, styles = FALLBACK_CITATION_STYLES): string =>
   JSON.stringify(
-    refs.map((ref) => toCslItem(ref, now)),
+    refs.map((ref) => toCslItem(ref, now, styles)),
     null,
     2
   )

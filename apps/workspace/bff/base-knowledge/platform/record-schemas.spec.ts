@@ -37,6 +37,12 @@ describe('recordSchemas', () => {
   it('carries no table for a type that has none', () => {
     const work = recordSchemas(['work'])
     expect(Object.keys(work.recordTypes)).toEqual(['work'])
-    expect(work).not.toHaveProperty('$defs')
+    expect(work.$defs).not.toHaveProperty('decision_table.v1')
+  })
+
+  it('writes an ISO date once, and every date references it', () => {
+    expect(all.$defs?.date).toMatchObject({ type: 'string', format: 'date' })
+    expect(JSON.stringify(all.recordTypes)).not.toContain('"format":"date"')
+    expect(recordSchemas(['authority'])).not.toHaveProperty('$defs')
   })
 })

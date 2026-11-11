@@ -59,6 +59,7 @@ import { projectFactResolver } from '@/lib/project-profile/answer-bindings'
 import { findProjectProfile } from '@/lib/projects/repository'
 import { projectKeysIn, type ProjectKey } from '@/lib/text/answer-directives'
 import { answerEvidence } from './answer-evidence'
+import { citationStylesFor } from '@/lib/citations/style'
 import { answerTextForAgent } from './answer-text'
 import {
   ASK_WAIT_SECONDS,
@@ -286,6 +287,7 @@ async function viewOf(session: AuthorizedSession, row: AgentAskRow): Promise<Ask
         conversationId: row.conversationId,
         projectId: conversation?.projectId ?? null,
         origin: configuredAppOrigin(),
+        styles: (await citationStylesFor(row.organizationId)) ?? undefined,
       })
       const projectValue = await projectValuesFor(message.content, conversation?.projectId ?? null, row.organizationId)
       answer = { messageId, text: answerTextForAgent(message.content, { projectValue }), ...evidence }

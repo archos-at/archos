@@ -284,6 +284,7 @@ export const EXPOSURE = {
   'answer-feedback-retract': OFFERED,
   'answer-feedback-submit': OFFERED,
   'citation-format': withheld('model-compute', 'formats the sources it is sent as APA, BibTeX or RIS; any agent can do that itself'),
+  'citation-style-get': OFFERED,
   'conversation-create': OFFERED,
   'conversation-delete': OFFERED,
   'conversation-draft-file': OFFERED,

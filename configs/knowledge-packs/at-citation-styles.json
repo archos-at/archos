@@ -1,0 +1,148 @@
+{
+  "$comment": "Austria's citation style (country-as-data plan row 6, docs/design/citations.md slice 2): how a line names a source in German, as the product wrote it before the form became a record, so publishing it changes no line. A change request of its own for AT, proposed through records-propose once at.json is published; never seeded. The formatter (apps/workspace/shared/citation-style.ts) interprets it and knows no country. Its forms follow the OIB's own title pages (\"OIB-Richtlinie 2, Ausgabe Mai 2023\"), the Punkt as the locus of a technical rule, and RIS as where a law is read; the reviewer confirms each against the cited captures. Decisions still to take into this record in a later revision (citations.md section 3 and decision 1): \"Abs.\" with dots and the law's Fundstelle with \"idF\".",
+  "countryId": "AT",
+  "title": "Austria: how a citation line is written",
+  "records": [
+    {
+      "type": "ruleset",
+      "key": "at-citation-style",
+      "values": {
+        "purpose": "citation_style",
+        "territoryIds": [
+          "AT"
+        ],
+        "validFrom": "2026-01-01",
+        "body": {
+          "kind": "citation_style",
+          "payloadSchema": "citation_style.v1",
+          "payload": {
+            "styles": [
+              {
+                "language": "de",
+                "kinds": [
+                  {
+                    "match": {
+                      "authorities": [
+                        "OIB"
+                      ],
+                      "tints": [
+                        "oib"
+                      ],
+                      "lanePrefixes": [
+                        "building_law_oib"
+                      ],
+                      "origins": []
+                    },
+                    "type": "standard",
+                    "publisher": "Österreichisches Institut für Bautechnik",
+                    "place": "Wien"
+                  },
+                  {
+                    "match": {
+                      "authorities": [
+                        "ÖNORM"
+                      ],
+                      "tints": [],
+                      "lanePrefixes": [],
+                      "origins": []
+                    },
+                    "type": "standard"
+                  },
+                  {
+                    "match": {
+                      "authorities": [],
+                      "tints": [],
+                      "lanePrefixes": [
+                        "building_law"
+                      ],
+                      "origins": [
+                        "ris"
+                      ]
+                    },
+                    "type": "legislation",
+                    "container": "Rechtsinformationssystem des Bundes (RIS)"
+                  }
+                ],
+                "edition": {
+                  "word": "Ausgabe",
+                  "label": [
+                    "Ausgabe",
+                    " {month}",
+                    " {year}"
+                  ],
+                  "months": {
+                    "jänner": 1,
+                    "januar": 1,
+                    "februar": 2,
+                    "märz": 3,
+                    "maerz": 3,
+                    "april": 4,
+                    "mai": 5,
+                    "juni": 6,
+                    "juli": 7,
+                    "august": 8,
+                    "september": 9,
+                    "oktober": 10,
+                    "november": 11,
+                    "dezember": 12
+                  }
+                },
+                "date": "{day}.{month}.{year}",
+                "bareLocus": "Pkt. {locus}",
+                "page": "S. {page}",
+                "lines": {
+                  "standard": [
+                    "{title}",
+                    ", {edition}",
+                    ", {locus}",
+                    ", {page}",
+                    " ({publisher}, {place})",
+                    ", abgerufen am {accessed}: {url}",
+                    "."
+                  ],
+                  "legislation": [
+                    "{title}",
+                    ", {locus}",
+                    ", {page}",
+                    ", in: {container}",
+                    ", abgerufen am {accessed}: {url}",
+                    "."
+                  ],
+                  "webpage": [
+                    "{title}",
+                    ", {container}",
+                    ", abgerufen am {accessed}: {url}",
+                    "."
+                  ],
+                  "report": [
+                    "{title}",
+                    ", {locus}",
+                    ", {page}",
+                    " [{note}]",
+                    "."
+                  ]
+                },
+                "quote": [
+                  "„{quote}“ — {title}",
+                  ", {page}"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "quote": "OIB-Richtlinie 2",
+          "note": "the OIB names its guidelines and their issues this way; the line names the edition as \"Ausgabe <Monat> <Jahr>\""
+        },
+        {
+          "url": "https://www.ris.bka.gv.at/",
+          "quote": "Rechtsinformationssystem des Bundes",
+          "note": "where a law is read, named as the line's container"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+---
+# area: agents
+features:
+  - >
+    When your own agent asks a question in the workspace, each source of the answer now
+    comes with its reference line, written the way your country cites it, so
+    your agent can paste it as you would.
+operators:
+  - >
+    How a country cites its sources is now a citation style that its change
+    request carries and the platform reviews and publishes; Austria's is in
+    the knowledge packs. Until it is published, lines are written as before.

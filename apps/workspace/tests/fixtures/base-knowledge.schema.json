@@ -82,7 +82,8 @@
         "fact_definitions",
         "fact_sources",
         "advice_policy",
-        "terminology"
+        "terminology",
+        "citation_style"
       ]
     },
     "knowledge_ruleset_revisions.payload_schema": {
@@ -92,7 +93,8 @@
         "fact_definitions.v1",
         "fact_sources.v1",
         "advice_policy.v1",
-        "terminology.v1"
+        "terminology.v1",
+        "citation_style.v1"
       ]
     },
     "knowledge_territory_revisions.kind": {
