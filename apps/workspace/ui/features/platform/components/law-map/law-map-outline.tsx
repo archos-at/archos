@@ -9,7 +9,7 @@
  */
 
 import type { JSX, ReactNode } from 'react'
-import { editionOrder, nextChange, summaryOf, summaryOn, type LawMap, type LawMapEdition, type LawMapStatement } from '@/lib/base-knowledge/platform/law-map'
+import { editionOrder, nextChange, summaryOf, summaryOn, type LawMap, type LawMapEdition, type LawMapStatement, type LawMapTopic } from '@/lib/base-knowledge/platform/law-map'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { lawMapCopy } from '@/i18n/namespaces/law-map'
@@ -20,6 +20,7 @@ import { AddActForm, AddEditionForm } from './law-map-add-forms'
 import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
 import type { AttachedTextView } from '@/lib/base-knowledge/platform/text-wire'
 import { ManifestationText } from './manifestation-text'
+import { Entries } from './law-map-entries'
 
 function useDate(): (iso: string | null) => string {
   const { locale } = useLocale()
@@ -64,7 +65,12 @@ const marks = (unit: ReviewUnit | undefined) => ({ attention: unit?.review === '
 
 function Decide({ o, unitKey, yes }: { o: Outline; unitKey: string; yes: string }): JSX.Element | null {
   const unit = o.units.get(unitKey)
-  return unit ? <ConfirmBar unit={unit} context={o.confirm} yes={yes} /> : null
+  return unit ? (
+    <>
+      <Entries unit={unit} map={o.map} captures={o.confirm.captures} />
+      <ConfirmBar unit={unit} context={o.confirm} yes={yes} />
+    </>
+  ) : null
 }
 
 function StatementBody({ o, statement }: { o: Outline; statement: LawMapStatement }): JSX.Element {
@@ -115,16 +121,6 @@ function EditionBody({ o, edition }: { o: Outline; edition: LawMapEdition }): JS
             onAttached={o.texts.onAttached}
           />
         ))
-      ) : edition.text ? (
-        <p>
-          {edition.text.url ? (
-            <a href={edition.text.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-              {edition.text.file ?? edition.text.url}
-            </a>
-          ) : (
-            edition.text.file
-          )}
-        </p>
       ) : (
         <p className="text-muted-foreground">{t('noText')}</p>
       )}
@@ -236,8 +232,43 @@ export function branchesOf(map: LawMap, unit: ReviewUnit): string[] {
   if (unit.kind === 'statute') return regionFor(map.statutes.find((statute) => `statute:${statute.workId}` === unit.key)?.territoryId ?? '')
   if (unit.kind === 'series') return ['works']
   if (unit.kind === 'edition') return ['works', `work:${map.editions.get(unit.key.slice('edition:'.length))?.workId ?? ''}`]
+  if (unit.kind === 'text') return ['texts']
   if (unit.kind === 'record') return ['others']
   return []
+}
+
+/** One work in the works branch: its series row, its editions each with their texts, and "+ Add an edition". */
+function WorkRows({ o, topic, add, expanded, toggle }: { o: Outline; topic: LawMapTopic; add: AddContext | null; expanded: ReadonlySet<string>; toggle: (id: string) => void }): JSX.Element {
+  const { map, units, t } = o
+  const editions = [...map.editions.values()].filter((edition) => edition.workId === topic.workId).sort((a, b) => editionOrder(a).localeCompare(editionOrder(b)))
+  const key = `work:${topic.workId}`
+  const series = units.get(`series:${topic.workId}`)
+  return (
+    <div>
+      <OutlineRow size="sm" name={topic.designation} meta={topic.title} value={t('editions', { count: editions.length })} attention={[series, ...editions.map((edition) => units.get(`edition:${edition.id}`))].some((unit) => unit?.review === 'open')} expanded={expanded.has(key)} onClick={() => toggle(key)} />
+      {expanded.has(key) ? (
+        <Branch>
+          {series ? (
+            <Openable o={o} id={series.key} row={(isOpen, onClick) => <OutlineRow size="sm" muted name={t('theSeries', { designation: topic.designation })} meta={topic.title} {...marks(series)} expanded={isOpen} onClick={onClick} />}>
+              <Unfold>
+                <Decide o={o} unitKey={series.key} yes={t('yesSeries')} />
+              </Unfold>
+            </Openable>
+          ) : null}
+          {editions.map((edition) => (
+            <Openable key={edition.id} o={o} id={`edition:${edition.id}`} row={(isOpen, onClick) => <OutlineRow size="sm" name={edition.label} meta={edition.text?.file ?? undefined} {...marks(units.get(`edition:${edition.id}`))} expanded={isOpen} onClick={onClick} />}>
+              <EditionBody o={o} edition={edition} />
+            </Openable>
+          ))}
+          {add ? (
+            <AddRow o={o} id={`add-edition-${topic.workId}`} label={t('addEditionOf', { designation: topic.designation })}>
+              {(close) => <AddEditionForm workId={topic.workId} designation={topic.designation} countryId={add.countryId} onAdded={add.onAdded} onCancel={close} />}
+            </AddRow>
+          ) : null}
+        </Branch>
+      ) : null}
+    </div>
+  )
 }
 
 /** What "+ Add" needs: the country, its sources (a page on their hosts is fetched), and where to go once added. */
@@ -335,42 +366,31 @@ export function LawMapOutline({ map, units, confirm, texts, add, today, rootName
             ) : null}
           </div>
         ) : null}
-        {map.topics.length > 0 ? (
+        {map.topics.length + map.otherWorks.length > 0 ? (
           <div className="mt-5">
-            <OutlineRow name={t('works')} meta={t('worksMeta')} value={t('series', { count: map.topics.length })} attention={[...units.values()].some((unit) => (unit.kind === 'series' || unit.kind === 'edition') && unit.review === 'open')} expanded={expanded.has('works')} onClick={() => toggle('works')} testId="works" />
+            <OutlineRow name={t('works')} meta={t('worksMeta')} value={t('series', { count: map.topics.length + map.otherWorks.length })} attention={[...units.values()].some((unit) => (unit.kind === 'series' || unit.kind === 'edition') && unit.review === 'open')} expanded={expanded.has('works')} onClick={() => toggle('works')} testId="works" />
             {expanded.has('works') ? (
               <Branch>
-                {map.topics.map((topic) => {
-                  const editions = [...map.editions.values()].filter((edition) => edition.workId === topic.workId).sort((a, b) => editionOrder(a).localeCompare(editionOrder(b)))
-                  const key = `work:${topic.workId}`
-                  const series = units.get(`series:${topic.workId}`)
-                  return (
-                    <div key={topic.workId}>
-                      <OutlineRow size="sm" name={topic.designation} meta={topic.title} value={t('editions', { count: editions.length })} attention={[series, ...editions.map((edition) => units.get(`edition:${edition.id}`))].some((unit) => unit?.review === 'open')} expanded={expanded.has(key)} onClick={() => toggle(key)} />
-                      {expanded.has(key) ? (
-                        <Branch>
-                          {series ? (
-                            <Openable o={o} id={series.key} row={(isOpen, onClick) => <OutlineRow size="sm" muted name={t('theSeries', { designation: topic.designation })} meta={topic.title} {...marks(series)} expanded={isOpen} onClick={onClick} />}>
-                              <Unfold>
-                                <Decide o={o} unitKey={series.key} yes={t('yesSeries')} />
-                              </Unfold>
-                            </Openable>
-                          ) : null}
-                          {editions.map((edition) => (
-                            <Openable key={edition.id} o={o} id={`edition:${edition.id}`} row={(isOpen, onClick) => <OutlineRow size="sm" name={edition.label} meta={edition.text?.file ?? undefined} {...marks(units.get(`edition:${edition.id}`))} expanded={isOpen} onClick={onClick} />}>
-                              <EditionBody o={o} edition={edition} />
-                            </Openable>
-                          ))}
-                          {add ? (
-                            <AddRow o={o} id={`add-edition-${topic.workId}`} label={t('addEditionOf', { designation: topic.designation })}>
-                              {(close) => <AddEditionForm workId={topic.workId} designation={topic.designation} countryId={add.countryId} onAdded={add.onAdded} onCancel={close} />}
-                            </AddRow>
-                          ) : null}
-                        </Branch>
-                      ) : null}
-                    </div>
-                  )
-                })}
+                {[...map.topics, ...map.otherWorks].map((topic) => (
+                  <WorkRows key={topic.workId} o={o} topic={topic} add={add} expanded={expanded} toggle={toggle} />
+                ))}
+              </Branch>
+            ) : null}
+          </div>
+        ) : null}
+        {map.looseTexts.length > 0 ? (
+          <div className="mt-5">
+            <OutlineRow name={t('looseTexts')} meta={t('looseTextsMeta')} value={t('texts', { count: map.looseTexts.length })} attention={map.looseTexts.some((loose) => units.get(`text:${loose.recordId}`)?.review === 'open')} expanded={expanded.has('texts')} onClick={() => toggle('texts')} testId="loose-texts" />
+            {expanded.has('texts') ? (
+              <Branch>
+                {map.looseTexts.map((loose) => (
+                  <Openable key={loose.recordId} o={o} id={`text:${loose.recordId}`} row={(isOpen, onClick) => <OutlineRow size="sm" name={loose.file ?? loose.recordId} meta={loose.editionId} {...marks(units.get(`text:${loose.recordId}`))} expanded={isOpen} onClick={onClick} />}>
+                    <Unfold>
+                      <ManifestationText requestId={o.texts.requestId} countryId={o.texts.countryId} recordId={loose.recordId} text={o.texts.byRecord.get(loose.recordId)} canAttach={o.texts.canAttach} onAttached={o.texts.onAttached} />
+                      <Decide o={o} unitKey={`text:${loose.recordId}`} yes={t('yesText')} />
+                    </Unfold>
+                  </Openable>
+                ))}
               </Branch>
             ) : null}
           </div>
@@ -383,14 +403,6 @@ export function LawMapOutline({ map, units, confirm, texts, add, today, rootName
                 {others.map((unit) => (
                   <Openable key={unit.key} o={o} id={unit.key} row={(isOpen, onClick) => <OutlineRow size="sm" name={unit.label} meta={t(`recordType.${unit.revisions[0]?.type ?? 'work'}`)} {...marks(unit)} expanded={isOpen} onClick={onClick} />}>
                     <Unfold>
-                      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
-                        {(unit.revisions[0]?.claims ?? []).map((claim) => (
-                          <div key={claim.path} className="contents">
-                            <dt className="text-muted-foreground">{claim.path}</dt>
-                            <dd className="break-words">{typeof claim.value === 'string' ? claim.value : JSON.stringify(claim.value)}</dd>
-                          </div>
-                        ))}
-                      </dl>
                       <Decide o={o} unitKey={unit.key} yes={t('yesRecord')} />
                     </Unfold>
                   </Openable>

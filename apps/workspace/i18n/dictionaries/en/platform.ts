@@ -23,6 +23,22 @@ export const platform = {
   countryKnowledge: {
     disabledTitle: 'No access to platform knowledge',
     disabledBody: 'Countries, their records and the review queue are shown to members of the platform organization who may read platform knowledge.',
+    approval: {
+      single: 'Approved without a second review',
+    },
+    secondReview: {
+      due: 'Second review due',
+      confirmed: 'Second review confirmed',
+      disputed: 'Second review disputed',
+      void: 'No second review owed',
+    },
+    secondReviewDueIn: 'Second review due as: {roles}',
+    noDueRole: 'The second review is due as {roles}; you hold none of these roles, so another person gives it.',
+    roles: {
+      domain_expert: 'domain expert',
+      counsel: 'counsel',
+      privacy_reviewer: 'privacy reviewer',
+    },
     aloneReason: 'Why can nobody else approve it?',
     aloneReasonHint: 'At least 20 characters. The reason is kept on the request and in the audit trail.',
     close: 'Close',

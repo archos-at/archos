@@ -11,9 +11,9 @@
  */
 
 import type { JSX } from 'react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Map as MapIcon } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
@@ -24,6 +24,7 @@ import { useAuth } from '@/adapters/auth/use-auth'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { useLocale, useTranslations } from '@/i18n'
 import { lawMapCopy } from '@/i18n/namespaces/law-map'
+import { platformCopy } from '@/i18n/namespaces/platform'
 import { lawMapOf } from '@/lib/base-knowledge/platform/law-map'
 import { reviewUnitsOf } from '@/lib/base-knowledge/platform/law-map-review'
 import type { ChangeRequestSummary, ChangeRequestView } from '@/lib/base-knowledge/platform/wire'
@@ -31,7 +32,8 @@ import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-serv
 import { countryName } from '../country-name'
 import { usePlatformJson } from '../countries/use-platform-json'
 import { QuietLinks } from './law-map-atoms'
-import { REVIEWED_AFTER_APPROVAL, ReleaseBar } from '../change-request-release'
+import { ApprovalState, claimCounts, REVIEWED_AFTER_APPROVAL, ReleaseBar } from '../change-request-release'
+import { isRequestId, lawMapHref } from './request-link'
 import { branchesOf, LawMapOutline } from './law-map-outline'
 
 const BASE = '/api/platform/knowledge/change-requests'
@@ -48,7 +50,7 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   const params = useSearchParams()
   // Only a request id goes into the path; anything else reads as no request named.
   const asked = params.get('request')
-  const named = asked && /^[0-9a-f-]{36}$/i.test(asked) ? asked : null
+  const named = isRequestId(asked) ? asked : null
   const list = usePlatformJson<{ changeRequests: ChangeRequestSummary[] }>(`${BASE}?countryId=${countryId}&limit=200`)
   const canWrite = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite)
   const sources = usePlatformJson<{ sources: SourceStatusView[] }>(canWrite ? '/api/platform/knowledge/sources' : null)
@@ -58,6 +60,13 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   const units = useMemo(() => (map && request.load.state === 'ready' ? reviewUnitsOf(map, request.load.value) : []), [map, request.load])
   const canReview = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeReview)
   const { user } = useAuth()
+  const tPlatform = useTranslations(platformCopy)
+  const router = useRouter()
+  // A request is drawn on its own country's map: a link that names another country's lands there.
+  const elsewhere = request.load.state === 'ready' && request.load.value.countryId !== countryId ? request.load.value : null
+  useEffect(() => {
+    if (elsewhere) router.replace(lawMapHref(elsewhere.countryId, elsewhere.id))
+  }, [elsewhere, router])
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
   const [open, setOpen] = useState<string | null>(null)
   const toggle = (id: string) => setExpanded((now) => (now.has(id) ? new Set([...now].filter((one) => one !== id)) : new Set([...now, id])))
@@ -97,14 +106,16 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
     setOpen(key)
     window.setTimeout(() => document.getElementById(`row-${key}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50)
   }
+  const counts = claimCounts(view)
   // As the server decides it (0208, 0218): an author of any revision in the request.
   const authored = Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id)
   const confirm = {
     requestId: view.id,
-    // A second review is never its author's: the review dialog hides its verdicts from them too.
+    // A second review is never its author's: the server refuses their verdicts on it too.
     open: reviewable && !(view.status !== 'submitted' && authored),
     canReview,
     authored,
+    captures: new Map(view.captures.map((capture) => [capture.captureId, capture])),
     onDone: (advance: boolean) => {
       request.reload()
       if (!advance) return
@@ -115,12 +126,18 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   }
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4" data-testid="law-map">
-      {header(t('request', { title: view.title }))}
+      {header(`${t('request', { title: view.title })} · ${tPlatform(`countryKnowledge.status.${view.status}`)}`)}
+      {asked && !named ? <p className="text-warning text-sm">{t('badRequestLink')}</p> : null}
+      <p className="text-muted-foreground text-sm tabular-nums" data-testid="law-map-progress">
+        {t('progress', { checked: counts.checked, total: counts.total })}
+        {counts.wrong > 0 ? ` · ${t('wrongEntries', { count: counts.wrong })}` : ''}
+      </p>
+      <ApprovalState view={view} />
       {list.load.state === 'ready' ? (
         <QuietLinks
           links={list.load.value.changeRequests
             .filter((one) => one.id !== view.id && ['draft', 'submitted', 'approved'].includes(one.status))
-            .map((one) => ({ href: `${countryHref}/map?request=${one.id}`, label: t('otherRequest', { title: one.title }) }))}
+            .map((one) => ({ href: lawMapHref(countryId, one.id), label: t('otherRequest', { title: one.title }) }))}
         />
       ) : null}
       {reviewable && canReview && waiting.length > 0 ? (
@@ -133,7 +150,7 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
       {reviewable && canReview && waiting.length === 0 ? (
         <p className="text-sm">{view.sourcesUnchecked ? t('sourcesUnchecked') : view.status === 'submitted' ? t('allConfirmed') : t('allConfirmedSecond')}</p>
       ) : null}
-      {/* What comes after the verdicts: approve, publish, roll back, the second review, the same bar the review dialog ends with. */}
+      {/* What comes after the verdicts: approve, publish, roll back, the second review. */}
       <ReleaseBar view={view} canManage={canReview} onChanged={request.reload} className="justify-start" />
       {units.length === 0 ? (
         <EmptyState icon={MapIcon} title={t('title')} description={t('empty')} />
@@ -164,9 +181,6 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
               : null
           } today={today} rootName={name} expanded={expanded} toggle={toggle} open={open} setOpen={setOpen} />
       )}
-      <Link href={`${countryHref}?section=review&request=${view.id}`} className="text-muted-foreground text-sm underline underline-offset-2">
-        {t('openRequest')}
-      </Link>
     </div>
   )
 }

@@ -99,7 +99,11 @@ export interface LawMap {
   /** The country itself, or the topmost regions the request holds when it holds no country record. */
   rootIds: string[]
   topics: LawMapTopic[]
+  /** Works with an edition in the request that no act here makes binding (a statute's edition, a guideline on its own). */
+  otherWorks: LawMapTopic[]
   editions: ReadonlyMap<string, LawMapEdition>
+  /** Texts for an edition the request does not hold (one already released), by manifestation record id. */
+  looseTexts: { recordId: string; editionId: string; file: string | null }[]
   statutes: LawMapStatute[]
   statements: LawMapStatement[]
 }
@@ -177,12 +181,14 @@ interface Indexed {
   works: Map<string, { revision: RevisionView; body: Body }>
   editions: Map<string, LawMapEdition>
   editionRevisions: Map<string, RevisionView>
+  looseTexts: LawMap['looseTexts']
 }
 
 function indexWorksAndEditions(revisions: readonly RevisionView[]): Indexed {
   const works = new Map<string, { revision: RevisionView; body: Body }>()
   const editions = new Map<string, LawMapEdition>()
   const editionRevisions = new Map<string, RevisionView>()
+  const looseTexts: LawMap['looseTexts'] = []
   for (const revision of revisions) {
     if (revision.type === 'work') works.set(revision.recordId, { revision, body: bodyOfRevision(revision) })
     if (revision.type === 'edition') {
@@ -194,14 +200,17 @@ function indexWorksAndEditions(revisions: readonly RevisionView[]): Indexed {
   for (const revision of revisions.filter((one) => one.type === 'manifestation')) {
     const body = bodyOfRevision(revision)
     const edition = editions.get(text(body.editionId) ?? '')
-    if (!edition) continue
+    if (!edition) {
+      looseTexts.push({ recordId: revision.recordId, editionId: text(body.editionId) ?? '', file: text(body.corpusFile) })
+      continue
+    }
     const url = revision.citations.find((citation) => citation.url)?.url ?? null
     edition.text = { file: text(body.corpusFile), url }
     edition.manifestationIds.push(revision.recordId)
     const own = editionRevisions.get(edition.id)
     edition.review = reviewOf(own ? [own, revision] : [revision])
   }
-  return { works, editions, editionRevisions }
+  return { works, editions, editionRevisions, looseTexts }
 }
 
 const designationOf = (body: Body, fallback: string): string => {
@@ -304,7 +313,14 @@ export function lawMapOf(countryId: string, revisions: readonly RevisionView[], 
       })),
     )
   const rootIds = territories.has(countryId) ? [countryId] : [...territories.values()].filter((territory) => !territory.parentId || !territories.has(territory.parentId)).map((territory) => territory.id)
-  return { countryId, territories, rootIds, topics, editions: indexed.editions, statutes, statements }
+  const otherWorks = [...new Set([...indexed.editions.values()].map((edition) => edition.workId))]
+    .filter((workId) => workId && !topicIds.has(workId))
+    .map((workId) => {
+      const work = indexed.works.get(workId)
+      return { workId, designation: work ? designationOf(work.body, workId) : workId, title: work ? text(work.body.title) ?? '' : '' }
+    })
+    .sort(byDesignation)
+  return { countryId, territories, rootIds, topics, otherWorks, editions: indexed.editions, looseTexts: indexed.looseTexts, statutes, statements }
 }
 
 /** The cell that binds for a topic in a region on a day, with its statement; half-open intervals. */

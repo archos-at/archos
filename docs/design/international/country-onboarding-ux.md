@@ -154,6 +154,8 @@ An `adoption` statement is keyed by the act's structured identifier (its gazette
 
 A **pointer** is not a source. The OIB's page of adoption dates, a Wikipedia article, a commentary: the agent may read them to find the act, and the record may keep them as `seeAlso`, but a statement whose only citation is a pointer shows as "needs the act" and cannot be confirmed. This is the rule the owner asked for ("the source of binds is that adoption act"), made checkable: the confirm action is disabled until the statement cites a capture from a host of a source whose role is `gazette` or `legal_database`.
 
+**A verdict covers a unit, not a field.** In the law map one yes or no covers a whole unit: a statement with its act, an edition with its texts, a statute, a series, the regions. It is sent as the existing per-claim verdicts (`law-map-review.ts`, `verdictCalls`). Before the reviewer answers, the unit unfolds to every record it holds, each field in words and each source with its quote (`law-map-entries.tsx`), so the yes covers nothing the reviewer could not read. A no comes with one note, and it marks every claim of the unit wrong: the proposer corrects the unit and proposes it again, which is how they would fix one field of a statement anyway. A confirmed unit can be sent back until the request is decided. This is on purpose: per-field verdicts are what made Austria 1,150 decisions.
+
 ### C3. What the machine checks, and what a person checks
 
 The machine already checks more than the review shows. The division becomes explicit:

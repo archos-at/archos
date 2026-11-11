@@ -2,7 +2,10 @@
 
 /**
  * Dev preview for the law map: the REAL `LawMapPage` on Austria's pack served
- * as one submitted change request (`_fixtures/law-map-at.ts`). A
+ * as one submitted change request (`_fixtures/law-map-at.ts`); `?mode=alone`
+ * serves it published by its author alone with a second review due as counsel
+ * (ADR-0176), `?mode=draft` as a draft holding a text for an edition already
+ * released, to attach in place. A
  * module-scope fetch shim (browser + dev only) serves the request; 404s
  * outside development (`app/dev/layout.tsx`).
  */
@@ -13,8 +16,16 @@ import { LawMapPage } from '@/features/platform/components/law-map/law-map-page'
 import { LAW_MAP_AT_REVISIONS } from '../_fixtures/law-map-at'
 
 const REQUEST_ID = '5907f5cb-8443-43bd-8b82-02f28d563dfd'
-const SUMMARY = { id: REQUEST_ID, title: 'Austria: Länder, building laws, OIB-Richtlinien and their adoption per Land', countryId: 'AT', status: 'submitted', createdBy: 'user_a', createdAt: '2026-11-10T16:42:01Z', origin: 'operator', sourceRecordId: null, monitorFinding: null, approval: 'four_eyes', secondReview: null, revisionCount: LAW_MAP_AT_REVISIONS.length }
-const VIEW = { ...SUMMARY, submittedAt: '2026-11-10T17:00:00Z', publishedAt: null, revisions: LAW_MAP_AT_REVISIONS, texts: [], captures: [], sourcesUnchecked: false, secondReviewRoles: [], approvals: [], releases: [] }
+const MODE = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('mode')
+const LOOSE_TEXT = { revisionId: 'r-loose', recordId: 'manifestation:released-guide-2019-text', type: 'manifestation', createdBy: 'user_a', createdAt: '2026-11-10T16:42:01Z', citations: [], claims: [{ path: 'editionId', value: 'edition:released-guide-2019', decision: null }, { path: 'corpusFile', value: null, decision: null }, { path: 'licenceClass', value: 'public_domain', decision: null }] }
+const STATE =
+  MODE === 'alone'
+    ? { status: 'published', approval: 'single', secondReview: { state: 'due', by: null, at: null }, secondReviewRoles: [{ role: 'counsel', state: 'due', by: null, at: null }] }
+    : MODE === 'draft'
+      ? { status: 'draft', approval: 'four_eyes', secondReview: null, secondReviewRoles: [] }
+      : { status: 'submitted', approval: 'four_eyes', secondReview: null, secondReviewRoles: [] }
+const SUMMARY = { id: REQUEST_ID, title: 'Austria: Länder, building laws, OIB-Richtlinien and their adoption per Land', countryId: 'AT', status: STATE.status, createdBy: 'user_a', createdAt: '2026-11-10T16:42:01Z', origin: 'operator', sourceRecordId: null, monitorFinding: null, approval: STATE.approval, secondReview: STATE.secondReview, revisionCount: LAW_MAP_AT_REVISIONS.length }
+const VIEW = { ...SUMMARY, submittedAt: '2026-11-10T17:00:00Z', publishedAt: null, revisions: MODE === 'draft' ? [...LAW_MAP_AT_REVISIONS, LOOSE_TEXT] : LAW_MAP_AT_REVISIONS, texts: [], captures: [], sourcesUnchecked: false, secondReviewRoles: STATE.secondReviewRoles, approvals: [], releases: [] }
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __lawMapShim?: boolean }

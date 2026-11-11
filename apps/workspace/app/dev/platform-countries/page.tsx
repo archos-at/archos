@@ -4,12 +4,8 @@
  * Dev preview for Platform → Länder (ADR-0165). Renders the REAL
  * CountryKnowledge (the list) on fixture data, or with `?country=AT` the REAL
  * CountryPage (`&section=works|sources|rules|review|quality`, `&empty=1` for a
- * country with nothing yet); with `?country=AT&section=review&request=1` a
- * submitted change request opened in its sheet, with an
- * authority, a std-asi listing and claims half reviewed; with `?request=alone`,
- * a published one its author approved alone, its second review due (ADR-0176);
- * with `?request=draft`, a draft with an edition whose text is attached and one
- * that still waits for its text (ADR-0165, "Texts are attached in the request").
+ * country with nothing yet). A change request opens on its law map, previewed at
+ * `/dev/law-map` (`?mode=alone`, `?mode=draft`).
  *
  * A module-scope fetch shim (browser + dev only) serves the overview and the
  * change request. Not linked from anywhere; 404s outside development.
@@ -268,25 +264,6 @@ function Preview(): JSX.Element {
   // `?country=AT` renders that country's page (with `&section=` for a section, `&empty=1` for its empty states).
   const [country, setCountry] = useState<string | null>(null)
   useEffect(() => setCountry(new URLSearchParams(window.location.search).get('country')), [])
-  // `?request=1` opens the first request in the queue, `?request=alone` the one approved alone, through the real button.
-  useEffect(() => {
-    const which = new URLSearchParams(window.location.search).get('request')
-    if (which !== '1' && which !== 'alone') return
-    let cancelled = false
-    const open = (): void => {
-      if (cancelled) return
-      const buttons = document.querySelectorAll<HTMLButtonElement>('[data-testid="country-review-waiting"] button')
-      const button = which === 'alone' ? buttons[buttons.length - 1] : buttons[0]
-      if (button) button.click()
-      else window.setTimeout(open, 100)
-    }
-    const handle = window.setTimeout(open, 300)
-    return () => {
-      cancelled = true
-      window.clearTimeout(handle)
-    }
-  }, [])
-
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 md:px-8" data-testid="platform-countries-preview">
       {country ? (

@@ -62,6 +62,18 @@ describe('reviewUnitsOf', () => {
     expect(units.at(-1)?.label).toBe('How long may an escape route be?')
   })
 
+  it('makes a row for every edition and every text, so none falls through to the raw records', () => {
+    const more = [
+      ...REVISIONS,
+      revision('edition', 'edition:ba-n-2022', { workId: 'work:ba-n', label: 'Consolidated 2022' }),
+      revision('manifestation', 'manifestation:mc-2-2015-text', { editionId: 'edition:mc-2-2015', corpusFile: 'mc-2-2015.pdf' }),
+    ]
+    const keys = reviewUnitsOf(lawMapOf('XA', more, []), { revisions: more, captures: [], texts: [] }).map((one) => one.key)
+    expect(keys).toContain('edition:edition:ba-n-2022')
+    expect(keys).toContain('text:manifestation:mc-2-2015-text')
+    expect(keys.filter((key) => key.startsWith('record:'))).toEqual(['record:golden_case:fire-1'])
+  })
+
   it('knows who wrote a unit and which of its records needs a person’s source check', () => {
     expect(units[0]?.authors).toEqual(['user_b', 'user_a'])
     expect(units[0]?.uncheckedRevisionIds).toEqual([REVISIONS[7]?.revisionId])

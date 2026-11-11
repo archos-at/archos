@@ -18,6 +18,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import type { TextPlacementList, TextPlacementView } from '@/lib/base-knowledge/platform/text-wire'
 import { countryName } from './country-name'
+import { lawMapHref } from './law-map/request-link'
 
 const TEXTS = '/api/platform/knowledge/texts'
 /** The pages one load follows: 20 × 500 files, far above a corpus of tens of files per country. */
@@ -102,7 +103,7 @@ export function PlacementLine({ placement }: { placement: TextPlacementView | un
       {edition ? <span className="truncate">{edition}</span> : null}
       {placement.changeRequestId ? (
         <Link
-          href={`/app/platform/countries?request=${placement.changeRequestId}`}
+          href={lawMapHref(placement.countryId, placement.changeRequestId)}
           className="text-foreground underline underline-offset-2"
           onClick={keep}
         >

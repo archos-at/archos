@@ -5,8 +5,8 @@
  * ADR-0176): approve, approve alone, give or dispute a due second review,
  * publish to preview, then to stable, roll back. Each asks first, and each is
  * the person's own decision on the existing decide, publish and rollback
- * routes; four eyes stays the server's. The review dialog and the law map's
- * outline both end with it, so a request is released the same way from either.
+ * routes; four eyes stays the server's. The law map ends with it, and says
+ * with `ApprovalState` how the request was approved and what it still owes.
  */
 
 import type { JSX } from 'react'
@@ -38,13 +38,24 @@ export async function refusal(response: Response): Promise<string> {
   return body?.error ?? body?.detail ?? String(response.status)
 }
 
-/** Where the request stands, as the rail's step and the sentence under it. */
-export function stageOf(view: ChangeRequestView, open: number, wrong: number): { index: number; say: string } {
-  const previewed = view.releases.some((move) => move.channel === 'preview' && move.action === 'publish')
-  if (view.status === 'submitted') return { index: open > 0 || wrong > 0 ? 0 : 1, say: wrong > 0 ? 'wrong' : open > 0 ? 'check' : 'approve' }
-  if (view.status === 'approved') return { index: previewed ? 3 : 2, say: previewed ? 'stable' : 'preview' }
-  if (view.status === 'published') return { index: 4, say: 'published' }
-  return { index: -1, say: view.status }
+/** An approved request's next publish: to preview first, then to stable. */
+const previewed = (view: ChangeRequestView): boolean => view.releases.some((move) => move.channel === 'preview' && move.action === 'publish')
+
+/** How the request was approved and what its second review owes (ADR-0176), in one line; nothing for a plain four-eyes request. */
+export function ApprovalState({ view }: { view: ChangeRequestView }): JSX.Element | null {
+  const t = useTranslations(platformCopy)
+  const due = (view.secondReviewRoles ?? []).filter((role) => role.state === 'due').map((role) => t(`countryKnowledge.roles.${role.role}`))
+  const parts = [
+    view.approval === 'single' ? t('countryKnowledge.approval.single') : null,
+    view.secondReview ? t(`countryKnowledge.secondReview.${view.secondReview.state}`) : null,
+    due.length > 0 ? t('countryKnowledge.secondReviewDueIn', { roles: due.join(', ') }) : null,
+  ].filter((part): part is string => part !== null)
+  if (parts.length === 0) return null
+  return (
+    <p className="text-warning text-sm" data-testid="approval-state">
+      {parts.join(' · ')}
+    </p>
+  )
 }
 
 /** Open, accepted and wrong claims of the request: what decides whether it may be approved. */
@@ -70,7 +81,6 @@ export function ReleaseBar({ view, canManage, onChanged, className }: { view: Ch
   }
 
   const { open, wrong } = claimCounts(view)
-  const stage = stageOf(view, open, wrong)
   // Keyed off status as the server is: only an approved request (or later) takes its second review.
   const secondReviewDue = view.secondReview?.state === 'due' && REVIEWED_AFTER_APPROVAL.includes(view.status)
   const disputed = view.secondReview?.state === 'disputed'
@@ -104,7 +114,7 @@ export function ReleaseBar({ view, canManage, onChanged, className }: { view: Ch
         : view.status === 'approved' && disputed
           ? { step: 'reject', enabled: true }
           : view.status === 'approved'
-            ? { step: stage.index === 3 ? 'stable' : 'preview', enabled: true }
+            ? { step: previewed(view) ? 'stable' : 'preview', enabled: true }
             : view.status === 'published'
               ? { step: 'rollback', enabled: true }
               : null
@@ -135,11 +145,14 @@ export function ReleaseBar({ view, canManage, onChanged, className }: { view: Ch
     return post('publish', { channel: step }, t(`countryKnowledge.done.${step}`))
   }
 
-  if (!primary && !canReview) return null
+  // A reviewer who holds none of the due roles is told why there is nothing to give, not shown an empty bar.
+  const noRole = canManage && secondReviewDue && !authored && reviewRole === null ? t('countryKnowledge.noDueRole', { roles: dueRoles.map((role) => t(`countryKnowledge.roles.${role}`)).join(', ') }) : null
+  if (!primary && !canReview && !noRole) return null
   return (
     <>
       <div className={cn('flex flex-wrap items-center justify-end gap-3', className)} data-testid="release-bar">
         {primary?.why ? <p className="text-muted-foreground mr-auto text-sm">{primary.why}</p> : null}
+        {noRole ? <p className="text-muted-foreground mr-auto text-sm">{noRole}</p> : null}
         {canReview ? (
           <>
             <Button variant="outline" disabled={busy} onClick={() => setConfirming('dispute')} data-testid="second-review-dispute">

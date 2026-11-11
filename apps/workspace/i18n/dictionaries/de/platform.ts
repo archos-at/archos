@@ -20,6 +20,22 @@ export const platform: typeof en.platform = {
   countryKnowledge: {
     disabledTitle: 'Kein Zugriff auf das Plattformwissen',
     disabledBody: 'Länder, ihre Einträge und die Prüfliste sehen Mitglieder der Plattform-Organisation mit der Berechtigung, Plattformwissen zu lesen.',
+    approval: {
+      single: 'Ohne Zweitprüfung freigegeben',
+    },
+    secondReview: {
+      due: 'Zweitprüfung offen',
+      confirmed: 'Zweitprüfung bestätigt',
+      disputed: 'Zweitprüfung beanstandet',
+      void: 'Zweitprüfung entfällt',
+    },
+    secondReviewDueIn: 'Zweitprüfung offen als: {roles}',
+    noDueRole: 'Die Zweitprüfung ist offen als {roles}; Sie haben keine dieser Rollen, daher gibt sie eine andere Person ab.',
+    roles: {
+      domain_expert: 'Fachprüfung',
+      counsel: 'Rechtsprüfung',
+      privacy_reviewer: 'Datenschutzprüfung',
+    },
     aloneReason: 'Warum gibt niemand sonst frei?',
     aloneReasonHint: 'Mindestens 20 Zeichen. Der Grund steht im Antrag und im Prüfprotokoll.',
     close: 'Schließen',

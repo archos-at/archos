@@ -11,7 +11,7 @@
 import { reviewOf, type LawMap, type ReviewState } from './law-map'
 import type { ChangeRequestView, ReviewDecisionBody, RevisionView } from './wire'
 
-export type ReviewUnitKind = 'regions' | 'statement' | 'statute' | 'series' | 'edition' | 'record'
+export type ReviewUnitKind = 'regions' | 'statement' | 'statute' | 'series' | 'edition' | 'text' | 'record'
 
 export interface ReviewUnit {
   key: string
@@ -82,13 +82,15 @@ export function reviewUnitsOf(map: LawMap, view: View): ReviewUnit[] {
   for (const statement of map.statements) add(statement.key, 'statement', [...statement.recordIds, statement.actWorkId])
   for (const statute of map.statutes) add(`statute:${statute.workId}`, 'statute', [statute.workId])
   const manifestations = view.revisions.filter((revision) => revision.type === 'manifestation')
-  for (const topic of map.topics) {
+  // A work's record is the statute's when it is one (taken above), else its series row's; every edition gets its own row.
+  for (const topic of [...map.topics, ...map.otherWorks]) {
     add(`series:${topic.workId}`, 'series', [topic.workId])
     for (const edition of [...map.editions.values()].filter((one) => one.workId === topic.workId)) {
       const texts = manifestations.filter((revision) => revision.claims.some((claim) => claim.path === 'editionId' && claim.value === edition.id)).map((revision) => revision.recordId)
       add(`edition:${edition.id}`, 'edition', [edition.id, ...texts])
     }
   }
+  for (const loose of map.looseTexts) add(`text:${loose.recordId}`, 'text', [loose.recordId])
   add('regions', 'regions', [...map.territories.keys()])
   for (const revision of view.revisions) if (!taken.has(revision.recordId)) add(`record:${revision.recordId}`, 'record', [revision.recordId], nameOf(revision))
   return units
