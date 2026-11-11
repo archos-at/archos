@@ -936,6 +936,10 @@
     "de": "Wenn Sie eine Antwort als nicht hilfreich markieren, stellt „Antwort erneut, ausführlicher“ dieselbe Frage noch einmal, und Piloti denkt bei dieser einen Antwort länger nach. Die Einstellung für die Denkzeit Ihres Chats bleibt unverändert."
   },
   {
+    "en": "After you upload a corrected IFC file under the same name, the Prüfbuch now judges the new file as soon as it has been read. It could keep showing the previous file's results for up to an hour longer.",
+    "de": "Wenn Sie eine korrigierte IFC-Datei unter demselben Namen hochladen, bewertet das Prüfbuch die neue Datei jetzt, sobald sie eingelesen ist. Bisher konnte es die Ergebnisse der vorherigen Datei noch bis zu einer Stunde länger anzeigen."
+  },
+  {
     "en": "After you work through annotations in the review, the count beside the document in Files shows what is still open, and closing a review you opened from the inbox or from open points takes you back there with your filter, in a single Back step.",
     "de": "Wenn Sie die Anmerkungen im Review bearbeiten, zeigt die Zahl neben dem Dokument unter „Dateien“ an, was noch offen ist. Schließen Sie ein Review, das Sie über den Posteingang oder die offenen Punkte geöffnet haben, gelangen Sie mit Ihrem Filter in einem einzigen Schritt zurück."
   },
@@ -3596,6 +3600,10 @@
     "de": "Auf der Seite „Subprocessors“ werden jetzt Cloudflare, das Anfragen zu den ARCHOS-Webadressen beantwortet, und die Suchsoftware genannt, die ARCHOS tatsächlich auf eigenen Servern betreibt."
   },
   {
+    "en": "The U-value and sound insulation checks no longer treat a wall or slab without a readable IsExternal value as internal. The Prüfbuch now shows it as not decidable, and Was dem Modell fehlt lists the missing value.",
+    "de": "Die Prüfung von U-Wert und Schalldämmung behandelt eine Wand oder Decke ohne auswertbaren IsExternal-Wert nicht mehr als innenliegend. Im Prüfbuch erscheint sie jetzt als nicht entscheidbar, und „Was dem Modell fehlt“ nennt den fehlenden Wert."
+  },
+  {
     "en": "The address field in the new project dialog suggests Austrian addresses as you type and fills in the Bundesland.",
     "de": "Das Adressfeld im Dialog für ein neues Projekt schlägt während der Eingabe österreichische Adressen vor und füllt das Bundesland automatisch aus."
   },
@@ -4548,6 +4556,10 @@
     "de": "Bricht die Antwort von Piloti nach dem Antworttext ab, zeigt der Chat jetzt die Antwort statt eines Blocks roher Daten."
   },
   {
+    "en": "When a building model is too large to measure or the file cannot be read, the assistant now says so and gives the reason, instead of claiming a temporary outage. You can split the model or export it again rather than wait for an outage that was never there.",
+    "de": "Wenn ein Gebäudemodell zu groß zum Messen ist oder die Datei nicht gelesen werden kann, weist der Assistent jetzt darauf hin und nennt den Grund, statt eine vorübergehende Störung zu melden. Sie können das Modell aufteilen oder erneut exportieren, anstatt auf eine Störung zu warten, die es gar nicht gibt."
+  },
+  {
     "en": "When a colleague answers or closes many of your Anmerkungen at once, your devices get one notification that counts them, such as „15 Neuigkeiten zu Anmerkungen“, instead of one per Anmerkung. The Postfach still lists each.",
     "de": "Wenn jemand aus Ihrem Team viele Ihrer Anmerkungen auf einmal beantwortet oder schließt, erhalten Ihre Geräte eine zusammenfassende Benachrichtigung, etwa „15 Neuigkeiten zu Anmerkungen“, statt einer Benachrichtigung pro Anmerkung. Im Postfach werden weiterhin alle einzeln angezeigt."
   },
@@ -4762,6 +4774,10 @@
   {
     "en": "When you ask how something was solved before, Piloti now starts with the past projects that fit your question, not only those most like your building, and puts the passages that show a solution first.",
     "de": "Wenn Sie fragen, wie etwas früher gelöst wurde, zeigt Piloti jetzt zuerst frühere Projekte, die zu Ihrer Frage passen – nicht nur jene, die Ihrem Gebäude am ähnlichsten sind – und stellt Passagen, die eine Lösung zeigen, an den Anfang."
+  },
+  {
+    "en": "When you ask to see a model, a room or a storey, the 3D view now stays in the answer instead of disappearing as the answer finishes. Asking to open a model now keeps the tiles to choose from.",
+    "de": "Wenn Sie sich ein Modell, einen Raum oder ein Geschoss anzeigen lassen, bleibt die 3D-Ansicht jetzt in der Antwort, statt mit deren Abschluss zu verschwinden. Wenn Sie darum bitten, ein Modell zu öffnen, bleiben die Kacheln zur Auswahl sichtbar."
   },
   {
     "en": "When you ask whether something appears in your own documents, Piloti can now search only the project or only the office shelf, and the answer says how many documents it searched and how many matched on each shelf. A pattern search also lists each distinct match with its count and pages, and folder overviews name the files of small folders.",

@@ -77,8 +77,8 @@ respect it rather than pretend.
 | Lichte Durchgangsbreite Türen (OIB 4) | `Qto_DoorBaseQuantities.ClearWidth` — `Width` is the nominal leaf width and settles a failure only |
 | Raumhöhe Aufenthaltsräume (OIB 3) | `Qto_SpaceBaseQuantities.FinishCeilingHeight` — `Height` is the GROSS height and settles a failure only |
 | Feuerwiderstand tragender Bauteile (OIB 2) | `Pset_*Common.FireRating` vs the Gebäudeklasse minimum |
-| U-Werte Hüllbauteile (OIB 6) | `Pset_*Common.ThermalTransmittance` |
-| Schalldämmung Trennbauteile (OIB 5) | `Pset_*Common.AcousticRating` |
+| U-Werte Hüllbauteile (OIB 6) | `Pset_*Common.ThermalTransmittance` on walls with `IsExternal` true (no readable flag is undecidable, not internal); windows are judged without the flag |
+| Schalldämmung Trennbauteile (OIB 5) | `Pset_*Common.AcousticRating` on elements with `IsExternal` false — no readable flag is undecidable, not internal |
 
 That list is deliberately unglamorous. It is also exactly the material a
 Verbesserungsauftrag is made of.
