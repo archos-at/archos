@@ -119,4 +119,12 @@ describe('contextDigest', () => {
     expect(contextDigest(stamped)).not.toBe(contextDigest({ ...stamped, recordsStamp: '2026-12-14T10:00:00.000Z/2026-12-01T00:00:00.000Z' }))
     expect(contextDigest(stamped)).not.toBe(contextDigest({ ...stamped, recordsStamp: '2026-12-14T09:00:00.000Z/2026-12-14T08:00:00.000Z' }))
   })
+
+  it('changes with the project’s buildings, so a new use is read by each edition’s scope on the next turn (ADR-0178)', () => {
+    const house = { buildingId: 'bldg1', inputs: { uses: ['residential'] } }
+    const withGarage = { buildingId: 'bldg1', inputs: { uses: ['residential', 'garage'] } }
+    expect(contextDigest({ ...inputs, buildings: { buildings: [house] } })).toBe(contextDigest({ ...inputs, buildings: { buildings: [{ ...house }] } }))
+    expect(contextDigest({ ...inputs, buildings: { buildings: [house] } })).not.toBe(contextDigest({ ...inputs, buildings: { buildings: [withGarage] } }))
+    expect(contextDigest(inputs)).not.toBe(contextDigest({ ...inputs, buildings: { buildings: [house] } }))
+  })
 })

@@ -110,7 +110,7 @@ export const SUGGESTION_TYPE = suggestion('building_type@bldg1', 'Art des Bauwer
   evidence: [fromDocument(BUILDING_DESCRIPTION, 1, 'Gegenstand des Verfahrens ist ein Wohngebäude in geschlossener Bauweise.')],
 })
 
-export const SUGGESTION_POSITION = suggestion('building_position@bldg1', 'Gebäudestellung', 'attached', 'attached', {
+export const SUGGESTION_POSITION = suggestion('building_position@bldg1', 'Gebäudestellung', 'attached', 'angebaut', {
   evidence: [fromDocument(BUILDING_DESCRIPTION, 2, 'Das Haus ist beidseitig an die Nachbargebäude angebaut.')],
 })
 
@@ -238,8 +238,8 @@ export const QUESTION_USE: Need = {
   label: 'Gebäudestellung',
   type: 'single_select',
   options: [
-    { token: 'freestanding', label: 'freestanding' },
-    { token: 'attached', label: 'attached' },
+    { token: 'freestanding', label: 'freistehend' },
+    { token: 'attached', label: 'angebaut' },
     { token: 'terraced', label: 'Reihenhaus' },
   ],
   why: 'Die Stellung zu den Nachbargebäuden trennt die Gebäudeklassen 1 und 2.',
