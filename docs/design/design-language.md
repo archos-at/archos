@@ -264,6 +264,8 @@ made. **Do not reintroduce a general accent token.** If a future surface needs
 
 ## Type ramp (Tailwind classes — use verbatim)
 
+**A replacement is proposed** (2026-11-11): one ramp of ten roles for this section, the „Type“ line of „Hard numbers“ and „One type ramp, one scale“, which disagree with each other. Until it is accepted the numbers here hold. [`typography.md`](typography.md).
+
 The ramp targets the dummy's 9.5–24px scale: **20px page titles at 500** (`text-page-title`), **23px hero greeting** (the one larger moment, chat empty state only), and the **12px eyebrow/label convention** (sentence case, medium weight, muted ink; it was 10.5px until 2026-11, when the Dateien review found every section label reading as fine print beside 13px names, below the 11–12pt floor Apple's HIG sets for a label). Nothing but the wordmark is set in capitals: a label in capitals shouts, and the wide tracking it needs to stay legible reads as a rendering fault once the label is in sentence case. Acronyms, file-format codes (PDF, DWG) and keycaps keep their own spelling. **Tracking is never tighter than 0** (the design system 3.0, `packages/brand/README.md`, „Typography“): only the wordmark sets tighter. The ramp's `tracking-tight` on every title was the previous design language's and went app-wide on 2026-11-06; `tests/brand-literals.spec.ts` („tracking“) fails a new one. The few files that may set `uppercase` (the wordmark, format chips, authority tags, initials) are listed in `apps/workspace/tests/brand-literals.spec.ts`; a new one needs an entry there with its reason.
 
 | Role | Classes |
