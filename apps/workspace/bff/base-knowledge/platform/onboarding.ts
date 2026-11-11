@@ -133,7 +133,7 @@ export async function requestSourceChecks(requestId: string): Promise<Map<string
     ...(await storedProposals(tx, requestId)),
     pinned: await pinnedTexts(tx, requestId),
   }))
-  return (await checksOutsideKit(records, pinned)).checks
+  return (await checksOutsideKit(records, pinned, false, requestId)).checks
 }
 
 /**
