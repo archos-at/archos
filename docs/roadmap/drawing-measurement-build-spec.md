@@ -597,6 +597,48 @@ otherwise to state as „not verified because“ in the closing checklist.
   may not see; a measurement drawn by a person shows the same value, interval
   and provenance the tool returns for the same points; captures are on the pull
   request.
+* **As built (2026-11-11), and what the brief left open:**
+  * *One route, four operations.* `POST /api/documents/{id}/measure` takes
+    `distance`, `path`, `area` and `snap` (operation `document-measure`,
+    `external: false` like `drawing-measure`). It asks the backend's
+    `POST /v1/internal/drawing-tape`, which answers as data from the same
+    `measure()` call the tool renders as text (`tools/drawings/tape.py`); the
+    tool's schema and text are untouched.
+  * *The engine's gate holds for the person's call.* The tool refuses a call
+    nobody stated a `pdf` for (decision 14). The BFF checks the entitlement
+    for the session and states the kind in the body of the tape call
+    (`stated_kinds`), over the channel the turn context states it on; the
+    route binds it for that one call (`turn_file_kinds.stating`). The generic
+    tools route still states nothing, so the door's `drawing-measure` stays
+    refused.
+  * *The BFF names the file.* It holds the document row, so it sends the file
+    name and collection, and the engine skips naming the document; the bytes
+    are still found through the scoped lookup under the person's envelope, so
+    the current version's object is read. A document in a restricted folder
+    is refused by that lookup (no conversation to admit it): the tape answers
+    no number with the engine's sentence.
+  * *The kept number is the server's.* A create with shape `line`, `path` or
+    `polygon` carries points and no number: the service measures those points
+    itself and stores the answer (`bff/drawing-tape/kept-reading.ts`), and
+    refuses with the engine's reason where there is none. A browser or an
+    outside agent through `annotation-create` cannot store a number the engine
+    did not give.
+  * *The reading is one JSON column,* `document_annotations.measurement`
+    (value, unit, low, high, provenance, scale state), beside `points`
+    (migration 0237). It is written once and read whole, never filtered by a
+    field; a CHECK holds its shape, that its interval holds its value and
+    that an area is in m². A mark's `x`/`y` is its first point, so every
+    reader that knows only a pin keeps working.
+  * *A measurement is not carried.* It is true of one version's linework:
+    „Gilt weiter“ is not offered for it and a carry is refused (422,
+    `reason: measurement`), on the same document and onto a replacing one.
+  * *The agent's canvas tools still set a point or a region only;* they read
+    a measurement in their list, its place as the box around its points.
+  * *Not built:* the engine's reason and remedy are shown in its own English
+    words in a German interface; no hint line at the top of the canvas while
+    a tape tool is in hand (the tooltip says what to click); no keyboard
+    crosshair for the tape; the measured shape in hand is not shown to the
+    others in the room.
 
 ### Not in this build
 
