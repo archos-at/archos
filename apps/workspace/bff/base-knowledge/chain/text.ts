@@ -79,6 +79,9 @@ const PREAMBLE =
   'where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, ' +
   'which add no requirement. Information from an authority shows its practice, not a norm.'
 
+/** After the date when it is a filing day: the turn reads no reviewed reference-date rule, so the date is assumed. */
+const FILING_DAY = ", the filing day taken as the reference date (an assumption; transitional law not checked: say so)"
+
 function workName(graph: KnowledgeGraph, workId: string): string {
   const work = graph.works.get(workId)
   if (!work) return nameOf(workId)
@@ -185,8 +188,9 @@ function section(header: string, lines: readonly string[]): string[] {
  * The chain text for a resolved site; `place` is the leaf's name as the
  * project states it. `notes` are the knowledge context's corrections by
  * `keyOfUse`; without them every use reads as the chain resolved it.
+ * `onFilingDay`: the date is the project's filing day, not today.
  */
-export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, place: string, notes?: ReadonlyMap<string, UseNotes>): string {
+export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, place: string, notes?: ReadonlyMap<string, UseNotes>, onFilingDay = false): string {
   const leaf = resolved.chain[0]
   const leafName = nameOf(graph.territories.get(leaf)?.name ?? place) || leaf
   const noteOf = (use: EditionUse) => notes?.get(keyOfUse(use))
@@ -197,7 +201,7 @@ export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, 
   const uncurated = resolved.uses.some((use) => noteOf(use)?.qualifier === 'uncurated')
   const source = uncurated ? "from the platform's records, some read from an uncurated official source (marked)" : "from the platform's reviewed records"
   const lines = [
-    `Building law at this site, ${leafName} (${resolved.chain.join(', ')}), on ${resolved.date}, ${source}. ${PREAMBLE}`,
+    `Building law at this site, ${leafName} (${resolved.chain.join(', ')}), on ${resolved.date}${onFilingDay ? FILING_DAY : ''}, ${source}. ${PREAMBLE}`,
     ...section('Binding here:', by('binding').flatMap((use) => bindingLine(graph, use, resolved.chain, noteOf(use)))),
     ...section('Authority practice here:', by('authority_practice').map((use) => practiceLine(graph, use))),
     ...section(

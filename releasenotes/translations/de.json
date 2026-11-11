@@ -628,6 +628,10 @@
     "de": "Ein Projekt, dessen Anlegen auf halbem Weg scheiterte, bleibt für die Person, die es angelegt hat, nicht mehr unerreichbar."
   },
   {
+    "en": "A project with a filing date of today or earlier now gets its building-law answers, and the law named on its project page, on the editions in force that day, not today's. The answer says it took the filing date as the reference date and did not check transitional provisions.",
+    "de": "Ein Projekt mit einem Einreichdatum von heute oder früher erhält seine baurechtlichen Antworten und das auf seiner Projektseite angeführte Gesetz nun in der an diesem Tag geltenden Fassung statt in der heutigen. Die Antwort gibt an, dass sie das Einreichdatum als Stichtag herangezogen und Übergangsbestimmungen nicht geprüft hat."
+  },
+  {
     "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",
     "de": "Bei den Dateien eines Projekts wird die Anzahl wartender E-Mails nicht mehr in einer Zeile oberhalb der Dateien angezeigt, sondern im Inbox-Tab."
   },
