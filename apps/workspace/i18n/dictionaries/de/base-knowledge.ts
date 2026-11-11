@@ -13,6 +13,7 @@ export const baseKnowledge = {
   fromShelf: 'Aus der Büroablage übernehmen',
   loadError: 'Die Grundlagen konnten nicht geladen werden.',
   entryLoadError: 'Diese Grundlage konnte nicht geladen werden. Sie wurde vielleicht entfernt, oder die Verbindung ist unterbrochen.',
+  loadMoreError: 'Weitere Grundlagen konnten nicht geladen werden. Versuchen Sie es noch einmal.',
   saveError: 'Das konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
   saved: 'Gespeichert',
   loadMore: 'Weitere laden',

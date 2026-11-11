@@ -124,6 +124,12 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
   const open = useOpenEntry(location.entryId, entries)
   const openEntry = open.entry
 
+  // A further page that did not load: the entries on screen stay, and the person is told.
+  const hasList = list !== null
+  useEffect(() => {
+    if (state.failed && hasList) toast.error(t('loadMoreError'))
+  }, [state.failed, hasList, t])
+
   // The URL leads; the filters follow a back or forward step.
   useEffect(() => {
     if (location.folderId !== filters.folderId) setFilters({ folderId: location.folderId })

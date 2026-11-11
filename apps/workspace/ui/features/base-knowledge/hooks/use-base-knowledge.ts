@@ -95,11 +95,14 @@ export function useBaseKnowledge(initial: Partial<BaseKnowledgeFilters> = {}): B
     listBaseKnowledge(query(cursor))
       .then((page) => {
         if (mine !== sequence.current) return
+        setFailed(false)
         setList((current) =>
           current ? { ...page, entries: [...current.entries, ...page.entries] } : page
         )
       })
-      .catch(() => setFailed(true))
+      .catch(() => {
+        if (mine === sequence.current) setFailed(true)
+      })
       .finally(() => setLoadingMore(false))
   }, [list?.nextCursor, loadingMore, query])
 

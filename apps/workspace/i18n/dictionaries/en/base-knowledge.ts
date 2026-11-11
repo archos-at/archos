@@ -13,6 +13,7 @@ export const baseKnowledge = {
   fromShelf: 'Take from Office filing',
   loadError: 'The office standards could not be loaded.',
   entryLoadError: 'This standard could not be loaded. It may have been removed, or the connection dropped.',
+  loadMoreError: 'More standards could not be loaded. Please try again.',
   saveError: 'That could not be saved. Please try again.',
   saved: 'Saved',
   loadMore: 'Load more',
