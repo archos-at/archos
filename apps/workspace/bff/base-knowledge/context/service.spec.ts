@@ -140,8 +140,9 @@ const AUSTRIA_PACKS = graphFromProposals(proposedRecordSchema.array().parse([...
 /** Golden case A8: the edition of OIB-RL 2 binding in Wien for a filing on 2023-06-01. */
 const A8 = records('at-golden-cases.json').find((record) => record.key === 'at-a8-edition-on-filing-day-with-interval') as {
   context: { territoryId: string; referenceDate: string }
+  expected: { edition: { editionKey: string; role: string }; citations: { alsoKnownAs: string[] }[] }
 }
-const FILING_NOTE = "the project's filing day taken as the reference date (an assumption; transitional law not checked: say so)"
+const FILING_NOTE = 'the filing day taken as the reference date (an assumption; transitional law not checked: say so)'
 
 describe('referenceDateOf', () => {
   it('takes a filing day that has come, today included, and leaves one still to come undetermined', () => {
@@ -180,9 +181,11 @@ describe('a filed project’s context resolves on its filing day (country-as-dat
   it('answers golden case A8 the same way through the stated site a golden run reads', async () => {
     const context = await knowledgeContextForStatedSite('org_a', { territoryId: A8.context.territoryId, filedOn: A8.context.referenceDate })
     expect(context.date).toBe(A8.context.referenceDate)
-    const editions = oibRl2(context)
-    expect(editions['edition:oib-rl-2-2019']).toMatchObject({ role: 'binding', roleSince: '2020-02-01', route: { designation: 'WBTV' } })
-    expect(editions['edition:oib-rl-2-2023']?.role).not.toBe('binding')
+    // The expectation is the golden case's own, so the spec follows the record if a reviewer rewrites it.
+    const { edition, citations } = A8.expected
+    const use = context.uses.find((candidate) => candidate.editionId === `edition:${edition.editionKey}`)
+    expect(use).toMatchObject({ role: edition.role })
+    expect(citations[0]?.alsoKnownAs).toContain(use?.route?.designation)
     expect(context.text).toContain(FILING_NOTE)
   })
 

@@ -118,6 +118,9 @@ describe('projectLawFor', () => {
     })
     // The fact is named in the country's own terms, from its fact definitions.
     expect(hall.factLabels).toEqual({ uses: 'Nutzungen' })
+    // A project filed before its country's fact definitions resolves on that day; the labels are still read today.
+    const filed = await knowledgeContextForTurn('org_at', 'project_halle')
+    expect(lawOf({ ...filed, date: '2020-01-01' }).factLabels).toEqual({ uses: 'Nutzungen' })
     const turn = await knowledgeContextForTurn('org_at', 'project_halle')
     expect(turn.uses.map((use) => use.workId)).toContain('work:oib-rl-2-1')
     expect(turn.text).toContain("applies to this project by its building's uses")

@@ -80,7 +80,7 @@ const PREAMBLE =
   'which add no requirement. Information from an authority shows its practice, not a norm.'
 
 /** After the date when it is a filing day: the turn reads no reviewed reference-date rule, so the date is assumed. */
-const FILING_DAY = ", the project's filing day taken as the reference date (an assumption; transitional law not checked: say so)"
+const FILING_DAY = ", the filing day taken as the reference date (an assumption; transitional law not checked: say so)"
 
 function workName(graph: KnowledgeGraph, workId: string): string {
   const work = graph.works.get(workId)

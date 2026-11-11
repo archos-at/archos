@@ -2,7 +2,7 @@
 # area: building-law
 features:
   - >
-    A project with a filing date that has passed now gets its building-law
-    answers on the editions in force that day, not today's. The answer says it
-    took the filing date as the reference date and did not check transitional
-    provisions.
+    A project with a filing date of today or earlier now gets its building-law
+    answers, and the law named on its project page, on the editions in force
+    that day, not today's. The answer says it took the filing date as the
+    reference date and did not check transitional provisions.

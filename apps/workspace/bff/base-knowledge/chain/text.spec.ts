@@ -85,7 +85,7 @@ describe('the chain text', () => {
   it('says a filing day is the reference date only as an assumption, and nothing of it on today', () => {
     const filed = renderChainText(graph, resolveChain(graph, 'AT-9', '2023-06-01'), 'AT-9', undefined, true)
     expect(filed.split('\n')[0]).toContain(
-      "on 2023-06-01, the project's filing day taken as the reference date (an assumption; transitional law not checked: say so), from the platform's",
+      "on 2023-06-01, the filing day taken as the reference date (an assumption; transitional law not checked: say so), from the platform's",
     )
     expect(text('AT-9')).not.toContain('filing day')
   })
