@@ -86,14 +86,6 @@ export async function pinnedTexts(tx: Tx, requestId: string): Promise<Map<string
   return new Map((await newestManifestations(tx, requestId)).filter(named).map((row) => [row.record_id, { corpusFile: row.corpus_file, sha256: row.sha256 }]))
 }
 
-/** The file and hash one manifestation revision names; null when it names none or is no platform revision. */
-export async function pinOfRevision(tx: Tx, revisionId: string): Promise<TextPin | null> {
-  const [row] = await tx.execute<{ corpus_file: string | null; sha256: string | null }>(sql`
-    SELECT m.corpus_file, m.sha256 FROM knowledge_manifestation_revisions m
-    WHERE m.revision_id = ${revisionId}::uuid AND m.organization_id IS NULL`)
-  return row?.corpus_file ? { corpusFile: row.corpus_file, sha256: row.sha256 } : null
-}
-
 /** The manifestation revisions that name a file, with their record and request. */
 const NAMING = sql`
   FROM knowledge_manifestation_revisions m
