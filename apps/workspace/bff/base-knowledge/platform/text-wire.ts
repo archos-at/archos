@@ -54,6 +54,14 @@ export interface AttachedTextView {
   bytes: number | null
   pages: number | null
   sourceId: string | null
+  /** What a fetch went through: a built-in source, a source record's released revision, or one still in this draft. */
+  sourceOrigin: 'built_in' | 'released' | 'draft' | null
+  /**
+   * Whether the product fetched it through a reviewed source and the revision still names those bytes. False for an
+   * upload, a file the record only names, and a fetch through a source proposed in a draft or released by one person
+   * alone: another person compares those with the publisher's text (`sourceChecked`) before any approval.
+   */
+  countsAsFetched: boolean
   url: string | null
   attachedBy: string | null
   attachedAt: string | null

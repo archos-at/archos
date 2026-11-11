@@ -137,7 +137,9 @@ function Source({ citation, capture }: { citation: RevisionView['citations'][num
         <span className="text-foreground">{citation.note}</span>
       )}
       {citation.quote ? <q className="text-foreground">{citation.quote}</q> : null}
-      {capture?.basis === 'operator_supplied' ? <Badge variant="outline">{t('countryKnowledge.operatorSupplied')}</Badge> : null}
+      {capture && !capture.countsAsFetched ? (
+        <Badge variant="outline">{t(capture.basis === 'operator_supplied' ? 'countryKnowledge.operatorSupplied' : 'countryKnowledge.unreviewedSource')}</Badge>
+      ) : null}
     </span>
   )
 }
@@ -149,9 +151,10 @@ function RecordCard({ revision, captures, canDecide, busy, onDecide, unfetchedTe
   const claims = byReadingOrder(revision.claims)
   const open = claims.filter((claim) => claim.decision !== 'accepted')
   const sources = revision.citations.filter((citation) => citation.url || citation.note || citation.captureId)
-  // A page nobody fetched: accepting the record says the reviewer compared it with its source.
-  const pastedPage = revision.citations.some((citation) => citation.captureId && captures.get(citation.captureId)?.basis === 'operator_supplied')
-  // The same holds for a text a person uploaded: the verdict vouches for it (migration 0222).
+  // A page nobody fetched from a reviewed source (pasted, or fetched through a source still in a draft): accepting the
+  // record says the reviewer compared it with its source.
+  const pastedPage = revision.citations.some((citation) => citation.captureId && captures.get(citation.captureId)?.countsAsFetched === false)
+  // The same holds for a text a person uploaded or fetched that way: the verdict vouches for it (migration 0222).
   const pasted = pastedPage || unfetchedText
   return (
     <section className="flex flex-col gap-3 border-b pb-6 last:border-b-0" data-testid="change-request-record">
@@ -414,7 +417,7 @@ export function ChangeRequestReview({
             canDecide={canDecide}
             busy={busy}
             onDecide={decide(revision.revisionId)}
-            unfetchedText={revision.type === 'manifestation' && texts.has(revision.recordId) && texts.get(revision.recordId)?.origin !== 'url'}
+            unfetchedText={revision.type === 'manifestation' && texts.get(revision.recordId)?.countsAsFetched === false}
           >
             {revision.type === 'manifestation' ? (
               <ManifestationText

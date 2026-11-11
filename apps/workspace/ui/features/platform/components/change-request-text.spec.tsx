@@ -28,6 +28,8 @@ const TEXT = {
   bytes: 1_400_000,
   pages: 12,
   sourceId: 'at-oib',
+  sourceOrigin: 'released',
+  countsAsFetched: true,
   url: 'https://www.oib.or.at/files/oib-rl-1-2019.pdf',
   attachedBy: 'u',
   attachedAt: '2026-11-11T09:00:00Z',

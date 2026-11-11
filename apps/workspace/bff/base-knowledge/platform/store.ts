@@ -445,11 +445,12 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
 }
 
 /**
- * Why an approval waits on a pasted page (0209, 0218), and the two ways out: a second person's source check,
- * or, to approve alone, a fetched capture in its place (ADR-0170, ADR-0176).
+ * Why an approval waits on a page or a text nobody fetched from a reviewed source (0209, 0218, 0222), and the two
+ * ways out: a second person's source check, or, to approve alone, a fetch through a built-in source or a released
+ * one two people have seen (ADR-0170, ADR-0176).
  */
 const SOURCE_UNCHECKED =
-  'A record cites an operator-supplied capture, or names a text nobody fetched (uploaded, or only named in the base corpus), that nobody but its author has checked against its source. Another person checks it (sourceChecked on platform-knowledge-change-request-review); to approve alone, cite a fetched capture and attach the text with platform-knowledge-text-import from a configured source instead.'
+  'A record cites an operator-supplied capture, or a capture or a text nobody fetched from a reviewed source (uploaded, only named in the base corpus, or fetched through a source that is still in a draft or that one person released alone), and nobody but its author has checked it against its source. Another person checks it (sourceChecked on platform-knowledge-change-request-review); to approve alone, cite a fetched capture and attach the text with platform-knowledge-text-import, both through a built-in source or a released source another person approved.'
 
 export async function insertApproval(
   tx: Tx,

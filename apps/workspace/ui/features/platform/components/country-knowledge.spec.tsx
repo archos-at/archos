@@ -167,7 +167,7 @@ describe('CountryKnowledge', () => {
   test('shows the quote taken from a pasted page, and accepting it records that the source was checked', async () => {
     const pasted = {
       ...REQUEST,
-      captures: [{ captureId: 'cap-1', changeRequestId: 'cr-1', basis: 'operator_supplied', sourceId: null, url: 'https://www.wien.gv.at/ma37', finalUrl: null, contentType: 'text/plain', sha256: 'a'.repeat(64), bytes: 9, textChars: 9, retrievedAt: '2026-11-10T00:00:00Z' }],
+      captures: [{ captureId: 'cap-1', changeRequestId: 'cr-1', basis: 'operator_supplied', sourceId: null, sourceOrigin: null, countsAsFetched: false, url: 'https://www.wien.gv.at/ma37', finalUrl: null, contentType: 'text/plain', sha256: 'a'.repeat(64), bytes: 9, textChars: 9, retrievedAt: '2026-11-10T00:00:00Z' }],
       revisions: [{ ...REQUEST.revisions[0], citations: [{ captureId: 'cap-1', quote: 'Magistratsabteilung 37' }] }],
     }
     serve(200, pasted as unknown as typeof REQUEST)
@@ -188,12 +188,32 @@ describe('CountryKnowledge', () => {
     )
   })
 
-  test('accepting a manifestation whose text was uploaded records that the text was checked; a fetched one does not', async () => {
+  test('a page fetched through a source nobody else reviewed is checked like a pasted one', async () => {
+    const capture = { captureId: 'cap-1', changeRequestId: 'cr-1', basis: 'fetched', sourceId: 'xa-own', sourceOrigin: 'draft', countsAsFetched: false, url: 'https://attacker.example/law', finalUrl: null, contentType: 'text/html', sha256: 'a'.repeat(64), bytes: 9, textChars: 9, retrievedAt: '2026-11-10T00:00:00Z' }
+    const fetched = { ...REQUEST, captures: [capture], revisions: [{ ...REQUEST.revisions[0], citations: [{ captureId: 'cap-1', quote: 'Magistratsabteilung 37' }] }] }
+    serve(200, fetched as unknown as typeof REQUEST)
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const record = await screen.findByTestId('change-request-record')
+    expect(within(record).getByText('fetched through an unreviewed source')).toBeInTheDocument()
+    await user.click(within(record).getByRole('button', { name: 'Checked against the source, all correct' }))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/platform/knowledge/change-requests/cr-1/review',
+        expect.objectContaining({
+          body: JSON.stringify({ decisions: [{ revisionId: 'r1', claimPath: 'competenceTerritoryIds', decision: 'accepted', sourceChecked: true }] }),
+        }),
+      ),
+    )
+  })
+
+  test('accepting a manifestation whose text was uploaded, or fetched through an unreviewed source, records that the text was checked; a fetched one does not', async () => {
     const text = { revisionId: 'r1', recordId: 'manifestation:oib-rl-1-2019-text', editionId: 'edition:oib-rl-1-2019', corpusFile: 'oib-rl-1-2019.pdf', sha256: 'a'.repeat(64), bytes: 9, pages: null, sourceId: null, url: null, attachedBy: 'u', attachedAt: '2026-11-10T00:00:00Z' }
-    const withText = (origin: 'upload' | 'url') => ({
+    const withText = (origin: 'upload' | 'url', countsAsFetched = origin === 'url') => ({
       ...REQUEST,
       revisions: [{ ...REQUEST.revisions[0], recordId: text.recordId, type: 'manifestation', claims: [{ path: 'corpusFile', value: text.corpusFile, decision: null }] }],
-      texts: [{ ...text, origin, url: origin === 'url' ? 'https://www.oib.or.at/rl1.pdf' : null }],
+      texts: [{ ...text, origin, countsAsFetched, sourceOrigin: origin === 'upload' ? null : countsAsFetched ? 'released' : 'draft', url: origin === 'url' ? 'https://www.oib.or.at/rl1.pdf' : null }],
     })
     const sent = (sourceChecked: boolean) =>
       expect.objectContaining({ body: JSON.stringify({ decisions: [{ revisionId: 'r1', claimPath: 'corpusFile', decision: 'accepted', sourceChecked }] }) })
@@ -203,10 +223,21 @@ describe('CountryKnowledge', () => {
     const first = render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     const uploaded = await screen.findByTestId('change-request-record')
-    expect(within(uploaded).getByText(/uploaded, not fetched from a source/)).toBeInTheDocument()
+    expect(within(uploaded).getByText(/uploaded, or fetched through a source nobody else has reviewed/)).toBeInTheDocument()
     await user.click(within(uploaded).getByRole('button', { name: 'Checked against the source, all correct' }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/platform/knowledge/change-requests/cr-1/review', sent(true)))
     first.unmount()
+
+    // A text fetched through a source its own request proposed is held the same way (migration 0222).
+    fetchMock.mockClear()
+    serve(200, withText('url', false) as unknown as typeof REQUEST)
+    const second = render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const unreviewed = await screen.findByTestId('change-request-record')
+    expect(within(unreviewed).getByText('fetched through an unreviewed source')).toBeInTheDocument()
+    await user.click(within(unreviewed).getByRole('button', { name: 'Checked against the source, all correct' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/platform/knowledge/change-requests/cr-1/review', sent(true)))
+    second.unmount()
 
     // Positive control: a text the product fetched from a configured source asks for no such check.
     fetchMock.mockClear()

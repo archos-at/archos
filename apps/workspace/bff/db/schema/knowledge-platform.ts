@@ -32,6 +32,7 @@ import type {
   SecondReviewState,
   TerritoryKind,
 } from '@/lib/base-knowledge/wire/vocab'
+import type { FetchSourceOrigin } from './knowledge-records'
 
 /** A territory's parent (migration 0219, design §3.2): `AT` lies in `EU` from 1995-01-01. Half-open; an absent date is open. */
 export interface TerritoryParent {
@@ -139,6 +140,10 @@ export const knowledgeCitationCaptures = pgTable('knowledge_citation_captures', 
   changeRequestId: uuid('change_request_id').notNull(),
   basis: text('basis').$type<'fetched' | 'operator_supplied'>().notNull(),
   sourceId: text('source_id'),
+  /** What the fetch went through, recorded at fetch time (0222): only a built-in or a reviewed released source counts as fetched. */
+  sourceOrigin: text('source_origin').$type<FetchSourceOrigin>(),
+  /** The source record's revision the fetch used: its released head, or the draft under test. */
+  sourceRevisionId: uuid('source_revision_id'),
   url: text('url').notNull(),
   finalUrl: text('final_url'),
   contentType: text('content_type'),

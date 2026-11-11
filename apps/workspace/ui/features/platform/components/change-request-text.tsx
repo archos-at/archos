@@ -13,6 +13,7 @@ import type { JSX } from 'react'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { ExternalLink, FileText, Link2, Upload } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useLocale, useTranslations } from '@/i18n'
@@ -110,6 +111,7 @@ export function ManifestationText({ requestId, countryId, recordId, text, canAtt
             ) : (
               <span className="text-muted-foreground">{t(text.origin === 'upload' ? 'countryKnowledge.text.uploaded' : 'countryKnowledge.text.named')}</span>
             )}
+            {text.origin === 'url' && !text.countsAsFetched ? <Badge variant="outline">{t('countryKnowledge.unreviewedSource')}</Badge> : null}
             {text.pages ? <span className="text-muted-foreground tabular-nums">{t('countryKnowledge.text.pages', { count: text.pages })}</span> : null}
           </>
         ) : (

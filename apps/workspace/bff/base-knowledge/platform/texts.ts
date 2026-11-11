@@ -32,7 +32,7 @@ import { getKnowledgeBaseStatus, streamKnowledgeBaseDocument, uploadKnowledgeBas
 import { CaptureFetchError, type ConfiguredSource, importSourceText } from './capture-fetch'
 import { configuredSource, runKit } from './onboarding'
 import { requirePlatform } from './service-gate'
-import { usableSource } from './sources'
+import { type FetchedThrough, fetchedThrough, usableSource } from './sources'
 import { insertProposedRecords, lockChangeRequest, platformTransaction } from './store'
 import { checksOutsideKit } from './text-checks'
 import { draftManifestation, otherRecordNaming, pinsOfFiles, type TextPin, textPlacements } from './text-store'
@@ -59,7 +59,7 @@ async function manifestationInDraft(
   requestId: string,
   manifestationKey: string,
   sourceId?: string,
-): Promise<{ record: Manifestation; configured: ConfiguredSource | undefined }> {
+): Promise<{ record: Manifestation; configured: ConfiguredSource | undefined; through: FetchedThrough }> {
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
@@ -73,7 +73,8 @@ async function manifestationInDraft(
     }
     // A configured source (ADR-0174): its testing revision in this request, else its released one, as for a capture.
     const source = sourceId ? await usableSource(tx, sourceId, requestId) : null
-    return { record: parsed.data, configured: source ? await configuredSource(tx, source) : undefined }
+    // Which of them it was is kept on the text: only a built-in or a reviewed released source counts as fetched.
+    return { record: parsed.data, configured: source ? await configuredSource(tx, source) : undefined, through: fetchedThrough(source) }
   })
 }
 
@@ -128,7 +129,7 @@ export async function importPlatformText(
   proposedBy: ProposedBy = 'person',
 ): Promise<AttachTextResult> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
-  const { record, configured } = await manifestationInDraft(requestId, body.manifestationKey, body.sourceId)
+  const { record, configured, through } = await manifestationInDraft(requestId, body.manifestationKey, body.sourceId)
   // Fetched outside any transaction: a slow source must not hold the request's lock. The api tier names the file
   // after the key and the bytes' hash, so a fetch that outlives the draft leaves a file no record names, not other
   // bytes under one that a record does.
@@ -146,6 +147,8 @@ export async function importPlatformText(
     bytes: imported.bytes,
     pages: imported.pages,
     sourceId: body.sourceId,
+    sourceOrigin: through.sourceOrigin,
+    ...(through.sourceRevisionId ? { sourceRevisionId: through.sourceRevisionId } : {}),
     url: imported.finalUrl,
     attachedBy: person.userId,
     attachedAt: imported.retrievedAt,

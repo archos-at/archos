@@ -77,6 +77,13 @@ export interface KnowledgeProvenance {
   text?: KnowledgeTextProvenance
 }
 
+/**
+ * What a fetch went through, recorded at fetch time (migration 0222): a source the repository configures
+ * (`built_in`), a source record's released revision (`released`), or one proposed in the same change request and
+ * still under test (`draft`). Only the first two can count as fetched; `knowledge_source_reviewed` decides.
+ */
+export type FetchSourceOrigin = 'built_in' | 'released' | 'draft'
+
 /** A text attached to a manifestation in a change request: the bytes kept in the base corpus, and their origin. */
 export interface KnowledgeTextProvenance {
   origin: 'upload' | 'url'
@@ -87,6 +94,9 @@ export interface KnowledgeTextProvenance {
   pages: number | null
   /** The configured source and the URL of a fetched text. */
   sourceId?: string
+  /** What the fetch went through, and the source record's revision it used (absent for a built-in source). */
+  sourceOrigin?: FetchSourceOrigin
+  sourceRevisionId?: string
   url?: string
   attachedBy: string
   attachedAt: string

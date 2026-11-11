@@ -21,7 +21,7 @@
 import 'server-only'
 import { randomUUID } from 'node:crypto'
 import { and, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
-import { knowledgeRecords, knowledgeRevisions } from '@/lib/db/schema/knowledge-records'
+import { type FetchSourceOrigin, knowledgeRecords, knowledgeRevisions } from '@/lib/db/schema/knowledge-records'
 import { knowledgeChangeRequests } from '@/lib/db/schema/knowledge-platform'
 import { knowledgeSourceCredentials, knowledgeSourceMonitorStates, knowledgeSourceRevisions } from '@/lib/db/schema/knowledge-sources'
 import { revealSecret, storeSecret } from '@/lib/llm-credentials/secret-store'
@@ -114,6 +114,23 @@ export async function testingSource(tx: Tx, key: string, requestId: string, now 
 export async function usableSource(tx: Tx, key: string, requestId: string | null, now = new Date()): Promise<RegisteredSource | null> {
   const testing = requestId ? await testingSource(tx, key, requestId, now) : null
   return testing ?? (await activeSource(tx, key))
+}
+
+/** What a fetch went through, as the capture or the text records it (migration 0222). */
+export interface FetchedThrough {
+  sourceOrigin: FetchSourceOrigin
+  sourceRevisionId: string | null
+}
+
+/**
+ * What a fetch through `source` records: a source record's released revision, the draft revision under test, or,
+ * when no record configures the key ({@link usableSource} answered null), the repository's own source, which the
+ * api tier answers for by its id. A draft source opens its hosts to its own request's test fetch (ADR-0174), and
+ * nothing fetched through it counts as fetched: its author chose the host.
+ */
+export function fetchedThrough(source: RegisteredSource | null): FetchedThrough {
+  if (!source) return { sourceOrigin: 'built_in', sourceRevisionId: null }
+  return { sourceOrigin: source.state === 'active' ? 'released' : 'draft', sourceRevisionId: source.revisionId }
 }
 
 /** Every released source, for the monitor and the status. */

@@ -9,6 +9,7 @@ import 'server-only'
 import { createHash, randomUUID } from 'node:crypto'
 import { and, eq, getTableColumns, inArray, sql } from 'drizzle-orm'
 import { knowledgeCitationCaptures } from '@/lib/db/schema/knowledge-platform'
+import type { FetchSourceOrigin } from '@/lib/db/schema/knowledge-records'
 import type { Tx } from '../store/repository'
 import type { KnownCapture } from './validate'
 import type { CaptureView } from './wire'
@@ -25,6 +26,9 @@ export interface NewCapture {
   changeRequestId: string
   basis: 'fetched' | 'operator_supplied'
   sourceId: string | null
+  /** What a fetch went through (`fetchedThrough`); both null for an operator's text. */
+  sourceOrigin: FetchSourceOrigin | null
+  sourceRevisionId: string | null
   url: string
   finalUrl: string | null
   contentType: string | null
@@ -49,12 +53,17 @@ export function pagesOf(contentType: string | null, text: string | null): number
   return isPdf(contentType) && text !== null ? text.split(PAGE_BREAK).length : null
 }
 
-export function captureView(row: Omit<CaptureRow, 'text'> & { textChars: number; pages: number | null }): CaptureView {
+/** Whether the capture counts as fetched (migration 0222), asked of the database: the one place that decides. */
+const COUNTS_AS_FETCHED = sql<boolean>`knowledge_capture_counts_as_fetched(${knowledgeCitationCaptures.basis}, ${knowledgeCitationCaptures.sourceId}, ${knowledgeCitationCaptures.sourceOrigin}, ${knowledgeCitationCaptures.sourceRevisionId}, ${knowledgeCitationCaptures.createdAt})`
+
+export function captureView(row: Omit<CaptureRow, 'text'> & { textChars: number; pages: number | null; countsAsFetched: boolean }): CaptureView {
   return {
     captureId: row.id,
     changeRequestId: row.changeRequestId,
     basis: row.basis,
     sourceId: row.sourceId,
+    sourceOrigin: row.sourceOrigin,
+    countsAsFetched: row.countsAsFetched === true,
     url: row.url,
     finalUrl: row.finalUrl,
     contentType: row.contentType,
@@ -75,6 +84,8 @@ export async function insertCapture(tx: Tx, capture: NewCapture): Promise<Captur
       changeRequestId: capture.changeRequestId,
       basis: capture.basis,
       sourceId: capture.sourceId,
+      sourceOrigin: capture.sourceOrigin,
+      sourceRevisionId: capture.sourceRevisionId,
       url: capture.url,
       finalUrl: capture.finalUrl,
       contentType: capture.contentType,
@@ -88,7 +99,13 @@ export async function insertCapture(tx: Tx, capture: NewCapture): Promise<Captur
     })
     .returning()
   const stored = row as CaptureRow
-  return captureView({ ...stored, textChars: stored.text?.length ?? 0, pages: pagesOf(stored.contentType, stored.text) })
+  const [counted] = await tx.select({ countsAsFetched: COUNTS_AS_FETCHED }).from(knowledgeCitationCaptures).where(eq(knowledgeCitationCaptures.id, stored.id))
+  return captureView({
+    ...stored,
+    textChars: stored.text?.length ?? 0,
+    pages: pagesOf(stored.contentType, stored.text),
+    countsAsFetched: counted?.countsAsFetched === true,
+  })
 }
 
 /** The captures of a request that `ids` name, by id, as KC-6 reads them; an id of no capture of it is absent. */
@@ -108,6 +125,7 @@ export async function captureViews(tx: Tx, changeRequestId: string): Promise<Cap
   const rows = await tx
     .select({
       ...columns,
+      countsAsFetched: COUNTS_AS_FETCHED,
       textChars: sql<number>`coalesce(char_length(${knowledgeCitationCaptures.text}), 0)`,
       // Form feeds plus one, as pagesOf counts them; chr(12) is the form feed.
       pageBreaks: sql<number | null>`char_length(${knowledgeCitationCaptures.text}) - char_length(replace(${knowledgeCitationCaptures.text}, chr(12), ''))`,

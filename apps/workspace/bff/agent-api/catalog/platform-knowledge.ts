@@ -125,6 +125,8 @@ export const platformKnowledgeOperations = [
       'Into a draft change request. `basis: fetched` fetches the URL now through the public-source fetcher, on a host ' +
       'of the configured source `sourceId` (e.g. at-ris), and stores its sha256 and text; `basis: operator_supplied` ' +
       'stores the text you copied from a page that cannot be fetched, which the reviewer must check against its source. ' +
+      'The answer says `countsAsFetched`: true only through a built-in source or a released source another person approved. ' +
+      'A fetch through a source proposed in this draft works for testing, and is checked by the reviewer like a pasted page. ' +
       'Returns `captureId`: cite it with a quote copied exactly from the page; the kit checks every quote (KC-6).',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/captures',
@@ -148,8 +150,9 @@ export const platformKnowledgeOperations = [
       'Fetched and read by the public-source fetcher, kept in the base corpus where nobody reads it until the request is ' +
       'published as "<manifestationKey>-<12 hex of its sha256>.pdf", and set as the manifestation’s `corpusFile`. Returns the ' +
       'text with its `sha256`; the same PDF again changes nothing, and another PDF is another file: nothing is replaced. A URL ' +
-      'that answers no PDF is refused with NOT_A_PDF and a PDF the fetcher cannot read with its PDF code. A fetched text ' +
-      'needs no source check. Then platform-knowledge-validate.',
+      'that answers no PDF is refused with NOT_A_PDF and a PDF the fetcher cannot read with its PDF code. A text fetched ' +
+      'through a built-in source or a released source another person approved needs no source check (`countsAsFetched`); one ' +
+      'fetched through a source proposed in this draft is checked by another person like an upload. Then platform-knowledge-validate.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts',
     params: requestParams,

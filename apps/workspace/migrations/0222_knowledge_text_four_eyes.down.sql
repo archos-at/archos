@@ -1,8 +1,13 @@
--- Reverse 0222. ORDER: roll the frontend back first; the newer build tells a
--- reviewer that an uploaded text needs another person's source check.
+-- Reverse 0222. ORDER: roll the frontend back first; the newer build writes
+-- `source_origin` on every fetched capture and tells a reviewer that an
+-- uploaded text, or anything fetched through an unreviewed source, needs
+-- another person's source check.
 --
--- Not lossy: no row is written or removed. 0218's source check comes back: an
--- uploaded or merely named text holds no approval up.
+-- LOSSY: `source_origin` and `source_revision_id` of the captures fetched
+-- since are dropped, so applying 0222 again holds those captures like the
+-- ones stored before it (fetched only if their source is a built-in one).
+-- 0218's source check comes back: only an operator-supplied capture holds an
+-- approval up.
 CREATE OR REPLACE FUNCTION knowledge_sources_unchecked(request uuid) RETURNS boolean
   LANGUAGE sql STABLE AS $$
   WITH released AS (
@@ -31,3 +36,11 @@ BEGIN
   RETURN NEW;
 END
 $$;
+DROP FUNCTION IF EXISTS knowledge_text_counts_as_fetched(jsonb, text, text, timestamp with time zone);
+DROP FUNCTION IF EXISTS knowledge_capture_counts_as_fetched(text, text, text, uuid, timestamp with time zone);
+DROP FUNCTION IF EXISTS knowledge_source_reviewed(text, text, text, timestamp with time zone);
+ALTER TABLE "knowledge_citation_captures" DROP CONSTRAINT IF EXISTS knowledge_citation_captures_fetched_names_origin;
+ALTER TABLE "knowledge_citation_captures" DROP CONSTRAINT IF EXISTS knowledge_citation_captures_source_revision_named;
+ALTER TABLE "knowledge_citation_captures" DROP CONSTRAINT IF EXISTS knowledge_citation_captures_source_origin_known;
+ALTER TABLE "knowledge_citation_captures" DROP COLUMN IF EXISTS "source_revision_id";
+ALTER TABLE "knowledge_citation_captures" DROP COLUMN IF EXISTS "source_origin";

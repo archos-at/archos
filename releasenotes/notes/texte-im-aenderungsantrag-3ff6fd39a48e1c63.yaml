@@ -7,3 +7,8 @@ operators:
     published one: each text is stored under a name of its own and never replaced.
     A second person compares an uploaded text with its source before anyone
     approves, also when approving alone.
+  - >
+    A text or a cited page fetched through a source that is still in a draft, or
+    that one person released alone, is now checked by a second person like an
+    uploaded one. Uploading a file under a name the base corpus already holds no
+    longer replaces it: remove the file first.

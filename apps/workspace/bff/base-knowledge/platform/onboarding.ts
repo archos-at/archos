@@ -20,7 +20,7 @@ import { actingClientId } from '@/lib/agent-api/acting-session'
 import { CAPTURE_REFUSAL_CODES, CaptureFetchError, type ConfiguredSource, fetchSourcePage } from './capture-fetch'
 import { checksOutsideKit, textChecksOf } from './text-checks'
 import { otherRecordNaming, pinnedTexts } from './text-store'
-import { activeSource, revealedCredential, type RegisteredSource, usableSource } from './sources'
+import { activeSource, fetchedThrough, revealedCredential, type RegisteredSource, usableSource } from './sources'
 import { capturesOf, citedCaptureIds, insertCapture, sha256Of } from './captures'
 import { referencesOf } from './records'
 import { recordSchemas } from './record-schemas'
@@ -248,12 +248,14 @@ export async function configuredSource(tx: Tx, source: RegisteredSource): Promis
 /** Capture a page into a draft request: what records then cite, and KC-6 checks quotes against. */
 export async function capturePlatformCitation(session: UserSession | null, requestId: string, body: CaptureBody): Promise<CaptureView> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
-  const { draft, configured } = await platformTransaction(async (tx) => {
+  const { draft, configured, through } = await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     // A configured source (ADR-0174): its testing revision in this request, else its released one. A repository
     // record is not one, and the api tier answers for it by its id; a key nothing registers is refused there.
     const source = body.basis === 'fetched' && request ? await usableSource(tx, body.sourceId, requestId) : null
-    return { draft: request, configured: source ? await configuredSource(tx, source) : undefined }
+    // Which of the three it was is kept on the capture: only a built-in or a reviewed released source counts as fetched.
+    const through = body.basis === 'fetched' ? fetchedThrough(source) : { sourceOrigin: null, sourceRevisionId: null }
+    return { draft: request, configured: source ? await configuredSource(tx, source) : undefined, through }
   })
   if (!draft) throw new NotFoundError('No change request with this id; list them first.')
   if (draft.status !== 'draft') throw new ConflictError(`The change request is ${draft.status}; captures go into a draft.`)
@@ -266,6 +268,7 @@ export async function capturePlatformCitation(session: UserSession | null, reque
       changeRequestId: requestId,
       basis: body.basis,
       ...page,
+      ...through,
       createdBy: person.userId,
       viaClient: actingClientId() ?? null,
     })

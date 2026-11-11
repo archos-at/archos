@@ -142,7 +142,8 @@ change request; a file no record names is in a group that says so.
 
 **The decision.** The storage and the country filter stay as they are, and no
 table is added. Six rules do the work; the last three came out of two reviews
-of the first three (see "What the reviews found" below):
+of the first three, and a third review sharpened the fourth and the sixth (see
+"What the reviews found" below):
 
 - **Attach stores the file and names it in one step.** `text-import` and
   `text-upload` put the bytes in the base corpus (where they are ingested for
@@ -168,12 +169,22 @@ of the first three (see "What the reviews found" below):
   file, so nothing is replaced: the upload and the fetch have no `replace`, the
   api tier names a fetched text itself (`corpus_text_name`) and refuses a name
   that holds other bytes, and the BFF names nothing the api tier kept under
-  another name. Once any revision names a file, released, superseded or
-  rejected, the plain corpus upload (a ZIP's members included) passes for it
-  only as a no-op: the bytes the corpus keeps, or, for a file the corpus lost,
-  the bytes a revision names. So a fetch that finishes after its draft was
-  submitted leaves a file no record names, never other bytes under one that a
-  record does, and what was released cannot be changed by a draft.
+  another name. **The rule is enforced where the file is written.** The api
+  tier's `oib_sync.store_and_request`, the one function a plain upload, a ZIP
+  member and a fetched text all go through, takes the same bytes under a name
+  it keeps as a no-op and any others not at all (`CorpusFileImmutable`, 409),
+  inside the file's lock. To change a file's bytes it is removed first, and
+  the BFF refuses to remove one a record names. The BFF's own guard
+  (`refuseReplacingNamedTexts`) stays as the early refusal with the better
+  message, and for a name the corpus lost: once any revision names a file,
+  released, superseded or rejected, the plain upload passes for it only as the
+  bytes the corpus keeps or, for a lost file, the bytes a revision names. Both
+  tiers read one upload as the same thing: ZIP or PDF by the first bytes
+  (never the part's content type), the name has to agree, a member is kept
+  under its base name in NFC, and a member whose name has a NUL, a backslash
+  or a `..` step is kept under no name. So a fetch that finishes after its
+  draft was submitted leaves a file no record names, never other bytes under
+  one that a record does, and what was released cannot be changed by a draft.
 - **The reviewed bytes are the published bytes.** A manifestation revision
   keeps the `sha256` of the file it names: the attached text's, or, for a
   record that only names a file, the hash the corpus held when it was first
@@ -187,16 +198,32 @@ of the first three (see "What the reviews found" below):
   compares once more before it marks the file with a country; on other bytes
   its run fails and nothing is indexed. The rule above keeps the product from
   changing a named file; this one holds when something else did.
-- **A text nobody fetched is held to four eyes.** A text from a URL was fetched
-  by the product from a configured source. An uploaded one, and a file a record
-  only names, came from a person, who could upload their own PDF as "OIB-RL 6
-  2015", approve alone and publish. Such a text is held like an
-  operator-supplied capture (ADR-0170, migration 0218): `knowledge_sources_unchecked`
-  (migration 0222) is true until somebody other than the revision's author and
-  the uploader marked a verdict on it `sourceChecked`, and while it is true
-  nobody approves, alone or not. A fetched text counts as fetched only while
-  the revision still names the fetched file and hash, which the rule above
-  holds the corpus to.
+- **What nobody fetched from a reviewed source is held to four eyes.** An
+  uploaded text, and a file a record only names, came from a person, who could
+  upload their own PDF as "OIB-RL 6 2015", approve alone and publish. So does
+  anything fetched through a source that person configured: a `source` record
+  proposed in a draft opens its hosts to that draft's own test fetch
+  (ADR-0174), and its host can be the author's. Each fetch therefore records
+  what it went through, at fetch time: `built_in` (a source the repository
+  configures, reviewed as code: at-ris, ch-fedlex), `released` with the source
+  record's released revision id, or `draft` with the draft revision's. A
+  capture keeps it in `source_origin` and `source_revision_id`, a text on
+  `provenance.text` (`sourceOrigin`, `sourceRevisionId`). The database decides
+  what counts (`knowledge_source_reviewed`, migration 0222): a built-in
+  source, or a revision a stable release published before the fetch, from a
+  request approved by four eyes or approved alone and since confirmed by its
+  second review. A draft's source never counts, and neither does one its author
+  released alone: two single approvals do not add up to one person's publish.
+  Everything else is held like an operator-supplied capture (ADR-0170,
+  migration 0218): `knowledge_sources_unchecked` is true until somebody other
+  than the revision's author (and a text's uploader) marked a verdict on it
+  `sourceChecked`, and while it is true nobody approves, alone or not. This
+  holds for texts and captures alike; captures had the same gap since #1594. A
+  fetched text counts only while the revision still names the fetched file and
+  hash, which the rule above holds the corpus to. A capture stored before the
+  columns counts only if no record ever configured its source. The reviewer's
+  page reads the same answer (`countsAsFetched`), so what it asks a reviewer to
+  vouch for is what the database will ask for.
 
 A URL is fetched and read by the public-source fetcher, never in the api pod or
 here (ADR-0162, #1592): the BFF calls `POST /v1/public-sources/corpus-text`,
@@ -247,6 +274,20 @@ and the reviewer, the approval and the index each read the pinned bytes or
 nothing. That scenario is a test (`texts.integration.spec.ts`, "the reviewed
 race").
 
+The third review found two ways left. First, the two tiers disagreed on what a
+ZIP is: the BFF decided by the file's name, the api tier also by the part's
+content type. A ZIP sent as `innocent.pdf` with `Content-Type: application/zip`
+was hashed as one file no record names, passed the guard, and was extracted by
+the api tier over the named text, whose country mark survives a change of
+bytes. A member named `x.pdf\0y.pdf` did the same: one ZIP reader keeps the
+NUL, the other cuts the name there. The root cause was that the rule "a named
+file's bytes never change" was enforced by a tier that does not write the
+file, on its own reading of the upload. It is now enforced by the store, and
+the two readings are one. Second, "fetched" trusted any `origin: url`, and a
+capture any source: one author could propose a source whose host is theirs,
+fetch through it in the same draft, approve alone and publish. The sixth rule
+now says what a fetch went through and lets only a reviewed source count.
+
 **Operations.** `platform-knowledge-text-import` (a URL),
 `platform-knowledge-text-upload` (multipart), `platform-knowledge-text-get`
 (the text a manifestation names, or `TEXT_CHANGED`) and
@@ -267,13 +308,19 @@ hours before it is released (ADR-0174).
 
 - The corpus is keyed by file name across all countries. `NAME_TAKEN` keeps two
   records from sharing a name; it does not give a country its own namespace.
-- The plain upload's guard reads the revisions first and stores second, in two
-  tiers. An upload under a name racing the first revision that names it can
-  pass. The file then holds other bytes than its pin for good: the reviewer is
+- A name the corpus does not hold yet takes any bytes, once. A plain upload
+  under a name racing the first revision that names it can therefore be first.
+  The file then holds other bytes than its pin for good: the reviewer is
   shown nothing, KC-1 refuses the submit and the approval, and the way out is a
   new proposal of the manifestation, since the same text would take the same
   name. Nothing re-checks a released file's bytes after its indexing; no path
   of the product changes them.
+- `built_in` is the BFF's word: it is recorded when no source record, released
+  or in this draft, configures the key, and the api tier then answers for the
+  key from the repository or not at all. The database cannot see the
+  repository, so it takes that word; a `released` origin it checks itself.
+- A source revision that was released and later rolled back still counts for
+  the fetches made while it was released.
 - A text's name carries twelve hex digits of its hash, 48 bits. Two texts of
   one manifestation that collide are refused (`NAME_TAKEN`), never merged.
 - A file a record only names (proposed with `corpusFile` set by hand) keeps the
@@ -282,9 +329,9 @@ hours before it is released (ADR-0174).
 - A manifestation revision written before revisions kept a hash names a file
   with no `sha256`. In a draft it fails KC-1 until its text is attached again;
   published without one, its indexing run fails with that reason.
-- A legacy file marked `AT` at the cut-over that no revision ever named is
-  still replaced by the plain upload: that is how the corpus is maintained as
-  files. An attach never replaces it.
+- No corpus file is replaced by an upload any more, a legacy one included: to
+  change one, a person removes it and uploads it again. That is a change for
+  whoever maintained the corpus as files by uploading over a name.
 - A file uploaded and published within minutes can still be indexed by the job
   its upload queued, which carries no country (`oib_sync.mark_for_reingest`
   leaves a waiting job alone). The file is then read by nobody (`ZZ`) while
@@ -311,8 +358,19 @@ reviewed race, step by step; the reviewer is served the pinned bytes or
 approval and are never indexed; an uploaded or merely named text refuses every
 approval until another person's `sourceChecked`, and a fetched one is approved
 alone).
-`scripts/rls-test-db.sh` (migration 0222 and its down).
-`upload-hashes.spec.ts` (a ZIP's members by base name).
+The same suite holds the third review's cases: a ZIP sent as a PDF, or with
+a NUL in a member's name, is refused before the corpus is asked; a text and a
+capture fetched through a source their own draft proposes refuse every
+approval until another person's `sourceChecked`; a fetch through a source two
+people released is approved alone; one through a source its author released
+alone is not.
+`scripts/rls-test-db.sh` (migration 0222 and its down: a built-in source
+counts, a draft's does not, a capture stored before the columns, and the three
+CHECK constraints).
+`upload-hashes.spec.ts` (a ZIP's members by base name; ZIP or PDF by the first
+bytes; unsafe member names; one normal form).
+`apps/agent-host/tests/test_oib_documents_routes.py` (a name the corpus keeps
+takes the same bytes and no others; both reported uploads replace nothing).
 `apps/agent-host/tests/test_public_source_capture_route.py` (the
 bytes and their read both come from the fetcher, without a fetcher nothing
 is fetched, parsed or kept, and a text is kept under the name of its bytes

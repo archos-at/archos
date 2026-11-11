@@ -24,13 +24,15 @@ interface ManifestationRow extends Record<string, unknown> {
   corpus_file: string | null
   sha256: string | null
   provenance: KnowledgeProvenance
+  counts_as_fetched: boolean
 }
 
 /** The newest revision of each manifestation in a request, oldest record first. */
 async function newestManifestations(tx: Tx, requestId: string, recordId?: string): Promise<ManifestationRow[]> {
   return [
     ...(await tx.execute<ManifestationRow>(sql`
-      SELECT DISTINCT ON (v.record_id) v.revision_id, v.record_id, m.edition_id, m.corpus_file, m.sha256, v.provenance
+      SELECT DISTINCT ON (v.record_id) v.revision_id, v.record_id, m.edition_id, m.corpus_file, m.sha256, v.provenance,
+        knowledge_text_counts_as_fetched(v.provenance, m.corpus_file, m.sha256, v.created_at) AS counts_as_fetched
       FROM knowledge_revisions v JOIN knowledge_manifestation_revisions m ON m.revision_id = v.revision_id
       WHERE v.change_request_id = ${requestId}::uuid AND v.organization_id IS NULL
         ${recordId ? sql`AND v.record_id = ${recordId}` : sql``}
@@ -51,6 +53,8 @@ function textView(row: ManifestationRow & { corpus_file: string }): AttachedText
     bytes: text?.bytes ?? null,
     pages: text?.pages ?? null,
     sourceId: text?.sourceId ?? null,
+    sourceOrigin: text?.sourceOrigin ?? null,
+    countsAsFetched: row.counts_as_fetched === true,
     url: text?.url ?? null,
     attachedBy: text?.attachedBy ?? null,
     attachedAt: text?.attachedAt ?? null,

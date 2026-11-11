@@ -157,16 +157,19 @@ export const platform = {
     wrongCount: 'not correct: {count}',
     why: {
       own: 'You wrote in this request, so another person approves it.',
-      ownUnchecked: 'You wrote in this request, so another person approves it. A page pasted or a text uploaded, rather than fetched, is checked against its source by another person before you may approve alone.',
+      ownUnchecked:
+        'You wrote in this request, so another person approves it. A page or a text that was pasted, uploaded, or fetched through a source nobody else has reviewed is checked against its source by another person before you may approve alone.',
       open: 'Entries still to check: {count}',
       alone: 'You wrote in this request: a second person approves it, or you approve it alone with a reason.',
       wrong: 'Entries not correct: {count}. A request with a wrong entry cannot be approved.',
     },
     acceptAll: 'All correct',
     acceptChecked: 'Checked against the source, all correct',
-    pastedHint: 'This page was pasted, not fetched. Open the source and compare: “correct” here also says the text matches the source.',
-    unfetchedTextHint: 'This text was uploaded, not fetched from a source. Open it and compare it with the publisher’s: “correct” here also says it is that text.',
+    pastedHint: 'This page was pasted, or fetched through a source nobody else has reviewed. Open the source and compare: “correct” here also says the text matches the source.',
+    unfetchedTextHint:
+      'This text was uploaded, or fetched through a source nobody else has reviewed. Open it and compare it with the publisher’s: “correct” here also says it is that text.',
     operatorSupplied: 'pasted, not fetched',
+    unreviewedSource: 'fetched through an unreviewed source',
     draftsTitle: 'In progress',
     draftsDescription: 'Drafts that still take records and texts. Open one to attach the text of an edition.',
     text: {

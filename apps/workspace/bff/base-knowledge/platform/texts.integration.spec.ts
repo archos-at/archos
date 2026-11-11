@@ -649,7 +649,7 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
     it('refuses to approve alone, or at all, over an uploaded text nobody else checked against its source', async () => {
       const id = await submittedWithText('own-pdf', (request, key) => texts.uploadPlatformText(AUTHOR, request, key, pdf(pdfName('own-pdf'), 'my own OIB-RL 6')))
       expect((await service.getPlatformChangeRequest(AUTHOR, id)).sourcesUnchecked).toBe(true)
-      await expect(service.decidePlatformChangeRequest(AUTHOR, id, alone)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('text nobody fetched') })
+      await expect(service.decidePlatformChangeRequest(AUTHOR, id, alone)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('text nobody fetched from a reviewed source') })
       // Verdicts that do not vouch for the source change nothing, for the expert's own approval either.
       await acceptAll(id, false)
       await expect(service.decidePlatformChangeRequest(EXPERT, id, approve)).rejects.toMatchObject({ status: 409 })
@@ -679,6 +679,172 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       expect(view.texts).toMatchObject([{ origin: 'url', sha256: sha256('the publisher’s PDF, fetched') }])
       expect(view.sourcesUnchecked).toBe(false)
       await expect(service.decidePlatformChangeRequest(AUTHOR, id, alone)).resolves.toMatchObject({ status: 'approved' })
+    })
+  })
+
+  describe('a fetch counts only through a source somebody else has seen (migration 0222)', () => {
+    const alone = { ...approve, override: { reason: 'Only platform owner on call this week; counsel is back on Monday.' } }
+    const OWN_HOST = 'attacker.example'
+    const OWN_TERRITORY = 'AT-TXS'
+    const OWN_URL = `https://${OWN_HOST}/oib-rl-6.pdf`
+    const OWN_PAGE = 'OIB-Richtlinie 6 Energieeinsparung und Wärmeschutz, as its author wrote it on a host of their own'
+
+    /** A source record whose one host is its author's own. */
+    const ownSource = (sourceKey: string, captureId: string) =>
+      wire.proposedRecordSchema.parse({
+        type: 'source',
+        key: sourceKey,
+        title: 'A host of the author’s own',
+        territoryId: OWN_TERRITORY,
+        protocol: 'web_document',
+        format: 'pdf_document',
+        hosts: [OWN_HOST],
+        terms: { url: `https://${OWN_HOST}/terms`, licence: 'public_open', checked: '2026-11-01' },
+        monitor: { kind: 'none' },
+        access: { documents: [{ id: 'rl-6', url: OWN_URL, title: 'OIB-Richtlinie 6' }] },
+        engine: { title: 'OIB-Richtlinie 6' },
+        fixtures: [
+          {
+            name: 'rl-6',
+            operation: 'document',
+            args: { id: 'rl-6' },
+            responses: { [OWN_URL]: { contentType: 'application/pdf', encoding: 'base64', body: Buffer.from('%PDF-1.7 rl-6').toString('base64') } },
+            expect: { contains: ['OIB-Richtlinie 6'] },
+          },
+        ],
+        citations: [{ captureId, quote: 'herausgegeben vom OIB' }],
+      })
+
+    /**
+     * The api tier, for the three routes a fetch through a source asks: KC-7's check passes, a capture answers
+     * `OWN_PAGE`, a text is kept as the fetcher's stand-in keeps it. `asked` is every body it was sent. It stays up
+     * until the case ends: a submit runs KC-7 on the request's sources again.
+     */
+    function apiTier(content: string) {
+      const asked: { path: string; body: Record<string, unknown> }[] = []
+      vi.stubGlobal('fetch', async (input: string | URL, init?: RequestInit) => {
+        const path = new URL(String(input)).pathname
+        const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
+        asked.push({ path, body })
+        if (path === '/v1/public-sources/check') return Response.json({ valid: true, problems: [], fixtures: [] })
+        const facts = { url: body.url, finalUrl: body.url, note: null, retrievedAt: '2026-11-11T09:00:00.000Z' }
+        if (path === '/v1/public-sources/capture') {
+          return Response.json({ ...facts, contentType: 'text/html', sha256: sha256(OWN_PAGE), bytes: OWN_PAGE.length, text: OWN_PAGE, pages: null })
+        }
+        const hash = sha256(content)
+        const name = nameOf(String(body.fileStem), hash)
+        corpus.bytes.set(name, Buffer.from(content))
+        corpus.files.set(name, hash)
+        return Response.json({ ...facts, fileName: name, stored: true, contentType: 'application/pdf', sha256: hash, bytes: content.length, pages: 12 })
+      })
+      return asked
+    }
+
+    /** A draft with the usual records (their masthead fetched from the built-in at-ris) and a source of the author's own. */
+    async function draftWithOwnSource(name: string) {
+      const drafted = await draft(name, null, true)
+      const sourceKey = `at-own-${name}-${RUN}`
+      const [capture] = (await service.getPlatformChangeRequest(AUTHOR, drafted.id)).captures
+      apiTier('')
+      // A source lies in a territory (KC-1): a code of this suite's own, so no other suite's territory is touched.
+      const territory = wire.proposedRecordSchema.parse({
+        type: 'territory',
+        id: OWN_TERRITORY,
+        kind: 'state',
+        name: 'Standsicherheit',
+        citations: [{ captureId: capture!.captureId, quote: 'Mechanische Festigkeit und Standsicherheit' }],
+      })
+      await service.proposePlatformRecords(AUTHOR, drafted.id, {
+        records: [...drafted.records, drafted.manifestation, territory, ownSource(sourceKey, capture!.captureId)],
+        dryRun: false,
+      })
+      return { ...drafted, sourceKey }
+    }
+
+    it('holds a text fetched through a source its own draft proposes: the author does not approve it alone', async () => {
+      const { id, manifestationKey, sourceKey } = await draftWithOwnSource('own-host-text')
+      const asked = apiTier('my own OIB-RL 6, served from my own host')
+      await texts.importPlatformText(AUTHOR, id, { manifestationKey, sourceId: sourceKey, url: OWN_URL })
+      // The draft's source is usable for the test fetch (ADR-0174): the api tier was handed its configuration.
+      expect(asked.find((call) => call.path === '/v1/public-sources/corpus-text')?.body).toMatchObject({ source: sourceKey, config: expect.objectContaining({ hosts: [OWN_HOST] }) })
+      await service.submitPlatformChangeRequest(AUTHOR, id)
+
+      const view = await service.getPlatformChangeRequest(AUTHOR, id)
+      expect(view.texts).toMatchObject([{ origin: 'url', sourceId: sourceKey, sourceOrigin: 'draft', countsAsFetched: false }])
+      expect(view.sourcesUnchecked).toBe(true)
+      await expect(service.decidePlatformChangeRequest(AUTHOR, id, alone)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('reviewed source') })
+      await acceptAll(id, false)
+      await expect(service.decidePlatformChangeRequest(EXPERT, id, approve)).rejects.toMatchObject({ status: 409 })
+      expect((await service.getPlatformChangeRequest(AUTHOR, id)).status).toBe('submitted')
+
+      // Positive control: another person compared the text with the publisher's, and approves.
+      await acceptAll(id, true)
+      expect((await service.getPlatformChangeRequest(AUTHOR, id)).sourcesUnchecked).toBe(false)
+      await expect(service.decidePlatformChangeRequest(EXPERT, id, approve)).resolves.toMatchObject({ status: 'approved' })
+    })
+
+    it('holds a page captured through a source its own draft proposes, as it holds a pasted one', async () => {
+      const { id, sourceKey } = await draftWithOwnSource('own-host-page')
+      apiTier('')
+      const capture = await onboarding.capturePlatformCitation(AUTHOR, id, { basis: 'fetched', sourceId: sourceKey, url: `https://${OWN_HOST}/law` })
+      expect(capture).toMatchObject({ basis: 'fetched', sourceId: sourceKey, sourceOrigin: 'draft', countsAsFetched: false })
+      const cited = wire.proposedRecordSchema.parse({
+        type: 'work',
+        key: key('own-host-page-rl-6'),
+        kind: 'guideline',
+        title: 'Energieeinsparung und Wärmeschutz',
+        designation: 'OIB-Richtlinie 6',
+        citations: [{ captureId: capture.captureId, quote: 'OIB-Richtlinie 6 Energieeinsparung und Wärmeschutz' }],
+      })
+      await service.proposePlatformRecords(AUTHOR, id, { records: [cited], dryRun: false })
+      await service.submitPlatformChangeRequest(AUTHOR, id)
+
+      const view = await service.getPlatformChangeRequest(AUTHOR, id)
+      // Positive control inside the same request: the masthead, fetched from the built-in at-ris, counts.
+      expect(view.captures.map((entry) => [entry.sourceOrigin, entry.countsAsFetched])).toEqual([
+        ['built_in', true],
+        ['draft', false],
+      ])
+      expect(view.sourcesUnchecked).toBe(true)
+      await expect(service.decidePlatformChangeRequest(AUTHOR, id, alone)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('reviewed source') })
+
+      await acceptAll(id, true)
+      expect((await service.getPlatformChangeRequest(AUTHOR, id)).sourcesUnchecked).toBe(false)
+      await expect(service.decidePlatformChangeRequest(EXPERT, id, approve)).resolves.toMatchObject({ status: 'approved' })
+    })
+
+    it('counts a fetch through a source record once two people released it, and not while one person released it alone', async () => {
+      // Released by four eyes: the author proposed it, the expert approved and published.
+      const reviewed = await draftWithOwnSource('reviewed-source')
+      await publish(reviewed.id)
+
+      const next = await draft('through-reviewed', null, true)
+      await service.proposePlatformRecords(AUTHOR, next.id, { records: [...next.records, next.manifestation], dryRun: false })
+      apiTier('the publisher’s PDF, fetched through a released source')
+      await texts.importPlatformText(AUTHOR, next.id, { manifestationKey: next.manifestationKey, sourceId: reviewed.sourceKey, url: OWN_URL })
+      const page = await onboarding.capturePlatformCitation(AUTHOR, next.id, { basis: 'fetched', sourceId: reviewed.sourceKey, url: `https://${OWN_HOST}/law` })
+      expect(page).toMatchObject({ sourceOrigin: 'released', countsAsFetched: true })
+      await service.submitPlatformChangeRequest(AUTHOR, next.id)
+      const view = await service.getPlatformChangeRequest(AUTHOR, next.id)
+      expect(view.texts).toMatchObject([{ origin: 'url', sourceOrigin: 'released', countsAsFetched: true }])
+      expect(view.sourcesUnchecked).toBe(false)
+      await expect(service.decidePlatformChangeRequest(AUTHOR, next.id, alone)).resolves.toMatchObject({ status: 'approved' })
+
+      // Released by its author alone, its second review still owed: the two steps do not add up to one person's publish.
+      const lone = await draftWithOwnSource('lone-source')
+      await service.submitPlatformChangeRequest(AUTHOR, lone.id)
+      await service.decidePlatformChangeRequest(AUTHOR, lone.id, alone)
+      const actor = { by: AUTHOR.userId, decisionSource: 'app' as const }
+      await release.publishChangeRequest(lone.id, 'preview', actor)
+      await release.publishChangeRequest(lone.id, 'stable', actor)
+
+      const after = await draft('through-lone', null, true)
+      await service.proposePlatformRecords(AUTHOR, after.id, { records: [...after.records, after.manifestation], dryRun: false })
+      apiTier('my own text again, through the source I released alone')
+      await texts.importPlatformText(AUTHOR, after.id, { manifestationKey: after.manifestationKey, sourceId: lone.sourceKey, url: OWN_URL })
+      await service.submitPlatformChangeRequest(AUTHOR, after.id)
+      expect((await service.getPlatformChangeRequest(AUTHOR, after.id)).texts).toMatchObject([{ sourceOrigin: 'released', countsAsFetched: false }])
+      await expect(service.decidePlatformChangeRequest(AUTHOR, after.id, alone)).rejects.toMatchObject({ status: 409 })
     })
   })
 })
