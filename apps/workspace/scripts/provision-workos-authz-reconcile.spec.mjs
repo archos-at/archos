@@ -140,6 +140,20 @@ describe('reconcileAuthzCatalog', () => {
     expect(await reconcile(client, true)).toEqual({ drift: [], applied: [] })
   })
 
+  it('refuses to delete a permission the catalog still declares, even when the retired list names it', async () => {
+    const { client, calls, permissionSlugs } = fakeWorkos()
+    const declared = 'org:skills:manage'
+    const result = await reconcileAuthzCatalog(client, {
+      apply: true,
+      platformOrgExternalId: PLATFORM_ORG.externalId,
+      retired: [{ slug: declared, retiredBy: 'a mistake' }],
+    })
+    expect(calls).toEqual([])
+    expect(permissionSlugs()).toContain(declared)
+    expect(result.drift).toEqual([`retired permission is still declared in the catalog, not retired: ${declared}`])
+    expect(exitCodeFor(result)).toBe(1)
+  })
+
   it('apply resets a catalog role before the delete, so the permission leaves it too', async () => {
     const fake = fakeWorkos({ extraPermissions: [RETIRED] })
     const owner = ROLES.find((spec) => spec.slug === 'org-platform-owner')

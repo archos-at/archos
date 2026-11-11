@@ -367,6 +367,15 @@ async function retireOne(run: Run, slug: string, holders: readonly Holder[]): Pr
  */
 async function retirePermissions(run: Run): Promise<void> {
   const { client, drift, note } = run
+  // A slug the catalog still declares is never deleted, whatever the retired list says: the list is
+  // checked by a spec, but this runs against production on every deploy, so it refuses here too.
+  const declared = new Set(ALL_PERMISSION_SPECS.map((permission) => permission.slug))
+  const contradictions = run.retired.filter((permission) => declared.has(permission.slug))
+  for (const permission of contradictions) {
+    drift.push(`retired permission is still declared in the catalog, not retired: ${permission.slug}`)
+    note(`  REFUSED  ${permission.slug} — declared and retired at once; nothing deleted`)
+  }
+  if (contradictions.length > 0) return
   const existing = new Set(
     (await listAll((after) => client.authorization.listPermissions({ after, limit: 100 }))).map(
       (permission) => permission.slug
