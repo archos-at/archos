@@ -14,6 +14,7 @@ from fastapi import File
 from fastapi import Form
 from fastapi import Header
 from fastapi import HTTPException
+from fastapi import Query
 from fastapi import UploadFile
 from fastapi import status
 from fastapi.responses import FileResponse
@@ -37,6 +38,7 @@ from ..models.requests import OibDocumentUploadResponse
 from ..models.requests import OibReingestResponse
 from ..models.requests import OibSyncResponse
 from ..models.requests import OibUploadedMember
+from .internal_auth import _require_internal_token
 
 logger = logging.getLogger(__name__)
 
@@ -222,12 +224,11 @@ async def get_oib_status() -> OibKnowledgeStatus:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
-async def get_oib_document(file_name: str) -> FileResponse:
-    """Serves the original PDF so the UI can show cited sources in a
-    viewer. Read-only and unprivileged, like /v1/oib/status. 404s when the
-    corpus does not list the file, 503 when it lists it but the object
-    store cannot serve it right now.
-    """
+_NOT_AVAILABLE = "Source PDF not available"
+
+
+async def _serve_corpus_pdf(file_name: str) -> FileResponse:
+    """The PDF inline; 404 when the corpus does not list it, 503 when it lists it and the store cannot serve it."""
     from agent.corpus_store import CorpusStoreError
 
     try:
@@ -236,13 +237,45 @@ async def get_oib_document(file_name: str) -> FileResponse:
         logger.exception("Could not fetch %s for the PDF viewer", file_name)
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)) from e
     if path is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source PDF not available")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_AVAILABLE)
     return FileResponse(
         path,
         media_type="application/pdf",
         filename=path.name,
         content_disposition_type="inline",
     )
+
+
+def _released_to(file_name: str, countries: list[str]) -> bool:
+    from agent import corpus_store
+
+    return corpus_store.released_to(file_name, countries)
+
+
+async def get_corpus_document(
+    file_name: str,
+    country: list[str] = Query(default_factory=list),
+    _: None = Depends(_require_internal_token),
+) -> FileResponse:
+    """The original PDF of a file released in one of the caller's countries, for the viewer of a cited source.
+
+    ``country`` is the office's entitled countries, which the BFF decided (this tier decides no access);
+    the file's mark is what a release wrote (``corpus_store.released_to``, the rule the chunk reads pass).
+    A file the countries do not read answers exactly as a name the corpus does not list, so the answer
+    cannot tell whether it exists: an unmarked draft, a rolled-back text, another country's file, and a
+    read that names no country. Internal-token only: the caller states whose countries these are.
+    """
+    if not await asyncio.to_thread(_released_to, file_name, country):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_AVAILABLE)
+    return await _serve_corpus_pdf(file_name)
+
+
+async def get_corpus_document_as_platform(
+    file_name: str,
+    _: None = Depends(_require_admin_token),
+) -> FileResponse:
+    """The original PDF of any file the corpus lists, released or not: the platform operator's read."""
+    return await _serve_corpus_pdf(file_name)
 
 
 def _resolved_doc_class(doc_class: str | None, name: str) -> str:
@@ -538,10 +571,15 @@ def add_oib_routes(router: APIRouter) -> None:
         summary="Report exactly which OIB documents the knowledge base has indexed",
     )(get_oib_status)
     router.get(
-        "/v1/oib/documents/{file_name}",
-        tags=["oib"],
-        summary="Stream a source PDF of the OIB base corpus",
-    )(get_oib_document)
+        "/v1/corpus/documents/{file_name}",
+        tags=["corpus"],
+        summary="Stream a source PDF of the base corpus to a reader of the countries it is released in",
+    )(get_corpus_document)
+    router.get(
+        "/v1/admin/corpus/documents/{file_name}",
+        tags=["corpus"],
+        summary="Stream any source PDF of the base corpus, released or not",
+    )(get_corpus_document_as_platform)
     router.post(
         "/v1/admin/oib/documents",
         response_model=OibDocumentUploadResponse,

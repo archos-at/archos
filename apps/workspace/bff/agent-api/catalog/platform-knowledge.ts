@@ -127,7 +127,9 @@ export const platformKnowledgeOperations = [
       'stores the text you copied from a page that cannot be fetched, which the reviewer must check against its source. ' +
       'The answer says `countsAsFetched`: true only through a built-in source or a released source another person approved. ' +
       'A fetch through a source proposed in this draft works for testing, and is checked by the reviewer like a pasted page. ' +
-      'Returns `captureId`: cite it with a quote copied exactly from the page; the kit checks every quote (KC-6).',
+      'Returns `captureId`: cite it with a quote copied exactly from the page; the kit checks every quote (KC-6). ' +
+      'A fetched capture of a PDF is also what proves a `pdf_document` source: name its `captureId` as the response of the ' +
+      'source’s fixture for that URL, in place of the PDF’s bytes.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/captures',
     params: requestParams,
@@ -187,6 +189,30 @@ export const platformKnowledgeOperations = [
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/texts/upload/route'),
   },
   {
+    name: 'platform-knowledge-base-get',
+    domain: 'platform',
+    summary: 'See the whole base corpus, released or not',
+    description:
+      'The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. ' +
+      'It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.',
+    method: 'GET',
+    path: '/api/platform/knowledge/documents',
+    load: () => import('@/app/api/platform/knowledge/documents/route'),
+  },
+  {
+    name: 'platform-knowledge-document-get',
+    domain: 'platform',
+    summary: 'Read any base-corpus PDF, released or not',
+    description:
+      'The PDF of one document of the base corpus store, returned as an attached resource up to 5 MiB; a larger file is not sent. ' +
+      'It serves documents no organization reads too. The file name comes from platform-knowledge-base-get.',
+    method: 'GET',
+    path: '/api/platform/knowledge/documents/[fileName]',
+    params: z.object({ fileName: z.string().describe('The base-corpus file name, exactly as platform-knowledge-base-get lists it.') }),
+    binaryResponse: ['application/pdf'],
+    load: () => import('@/app/api/platform/knowledge/documents/[fileName]/route'),
+  },
+  {
     name: 'platform-knowledge-text-get',
     domain: 'platform',
     summary: 'Read the text of a manifestation of a change request',
@@ -223,7 +249,9 @@ export const platformKnowledgeOperations = [
       'from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every ' +
       'record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a ' +
       'problem is refused whole (422). The same key again adds a revision to the same record; the same proposal ' +
-      'again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate.',
+      'again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate. ' +
+      'A source whose fixture names no capture yet (`captureId: null`) is written with `awaiting` on its result: capture ' +
+      'the URL through it, then propose it again with the capture’s id.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/records',
     params: requestParams,

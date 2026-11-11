@@ -1,0 +1,15 @@
+---
+# area: building-law
+security:
+  - >
+    The source viewer and the list of base knowledge now show an office only
+    the texts released in a country it is entitled to. Before, any signed-in
+    person who knew or guessed a file name could open a text attached to a
+    draft, a text a rollback had withdrawn, or another country's text.
+    A name that is not released to the office now answers as one that does
+    not exist.
+operators:
+  - >
+    The base knowledge page reads the whole store, released or not, through
+    its own two reads, which need platform:settings:view. The office-facing
+    reads no longer return unreleased files to anyone, platform staff included.

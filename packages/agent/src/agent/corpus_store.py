@@ -54,6 +54,7 @@ import logging
 import os
 import tempfile
 import threading
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
@@ -343,6 +344,13 @@ def get_mark(name: str) -> FileMark | None:
     with _transaction() as conn:
         record = conn.execute(select(_marks).where(_marks.c.file_name == name)).first()
     return FileMark(country_id=record.country_id, edition_id=record.edition_id) if record is not None else None
+
+
+def released_to(name: str, countries: Iterable[str]) -> bool:
+    """Whether a reader of ``countries`` reads ``name``: its release mark names one of them; unmarked, nobody's."""
+    # The file-level form of ``vector_store.scope.corpus_country_condition`` (ADR-0173).
+    mark = get_mark(name)
+    return mark is not None and mark.country_id is not None and mark.country_id in set(countries)
 
 
 def list_marks() -> dict[str, FileMark]:

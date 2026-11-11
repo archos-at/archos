@@ -641,6 +641,14 @@
         },
         {
           "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "An upload to a project or the office shelf now shows as read the moment reading finishes, instead of up to five seconds later. The same holds for a filing suggestion on a fresh upload, an IFC model becoming ready in a project, and the progress of a mail import while its dialog is open.",
+            "de": "Ein Upload in ein Projekt oder in die Büroablage wird jetzt direkt nach Abschluss des Einlesens als gelesen angezeigt, statt erst bis zu fünf Sekunden später. Dasselbe gilt für einen Ablagevorschlag bei einem neuen Upload, ein IFC-Modell, sobald es in einem Projekt bereitsteht, und den Fortschritt eines Mail-Imports, solange der Dialog geöffnet ist."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "general",
           "text": {
             "en": "Neuerungen is easier to read: each week shows its dates, its summary and how many changes it holds, and opens on demand. Inside a week the changes are grouped by area, and a single fix now reads \"1 fix\".",
@@ -793,6 +801,54 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Notifications in the inbox are now removed once they are older than the longest keeping period of any notification type. This clean-up was planned from the start but had never run.",
+            "de": "Benachrichtigungen im Posteingang werden jetzt entfernt, sobald sie älter sind als die längste Aufbewahrungsfrist aller Benachrichtigungstypen. Diese Bereinigung war von Anfang an geplant, wurde aber bisher nie ausgeführt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A notice that a document has a new version under another name can no longer be lost when it could not be prepared at that moment.",
+            "de": "Ein Hinweis auf eine neue Version eines Dokuments unter anderem Namen geht nicht mehr verloren, wenn er in diesem Moment nicht erstellt werden kann."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A mail sent to a project address whose original could not be read or scanned now waits visibly for a decision, instead of being tried again in the background every two weeks without anyone seeing it.",
+            "de": "Eine E-Mail an eine Projektadresse, deren Originaldatei nicht gelesen oder gescannt werden konnte, wartet nun sichtbar auf eine Entscheidung, statt alle zwei Wochen im Hintergrund erneut verarbeitet zu werden, ohne dass jemand davon etwas mitbekommt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The reminder for marks whose deadline is near is sent at 06:45 Vienna time all year, also across the change to and from summer time.",
+            "de": "Die Erinnerung an Markierungen mit nahender Frist wird das ganze Jahr über um 06:45 Uhr Wiener Zeit versendet, auch bei der Umstellung auf die Sommerzeit und zurück."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A document whose reading was interrupted and then finished after all is now shown as read, instead of staying marked as failed with a retry offered.",
+            "de": "Ein Dokument, dessen Lesen unterbrochen und später doch abgeschlossen wurde, wird jetzt als gelesen angezeigt, statt weiterhin als fehlgeschlagen markiert zu sein und einen erneuten Versuch anzubieten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A document whose reading has failed for good now shows as failed right away, with the option to read it again, instead of still looking as if it were being read for about a quarter of an hour.",
+            "de": "Ein Dokument, bei dem das Einlesen endgültig fehlgeschlagen ist, wird jetzt sofort als fehlgeschlagen angezeigt und kann erneut eingelesen werden, statt etwa eine Viertelstunde lang so auszusehen, als würde es noch eingelesen."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "building-law",
           "text": {
             "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",
@@ -837,6 +893,46 @@
           "text": {
             "en": "When a building model is too large to measure or the file cannot be read, the assistant now says so and gives the reason, instead of claiming a temporary outage. You can split the model or export it again rather than wait for an outage that was never there.",
             "de": "Wenn ein Gebäudemodell zu groß zum Messen ist oder die Datei nicht gelesen werden kann, weist der Assistent jetzt darauf hin und nennt den Grund, statt eine vorübergehende Störung zu melden. Sie können das Modell aufteilen oder erneut exportieren, anstatt auf eine Störung zu warten, die es gar nicht gibt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Checking a held upload again now works: it is read anew and stays hidden from colleagues until that reading passes.",
+            "de": "Ein zurückgehaltener Upload kann jetzt erneut geprüft werden: Er wird neu eingelesen und bleibt für Kollegen verborgen, bis die Prüfung erfolgreich ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Archiving a document that is still being read stops the reading, so the archived document no longer turns up in answers afterwards.",
+            "de": "Wenn Sie ein Dokument archivieren, das gerade gelesen wird, wird der Lesevorgang beendet, sodass das archivierte Dokument danach nicht mehr in Antworten auftaucht."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A research run that had already finished when all runs were stopped now ends as completed with its report filed, instead of as interrupted.",
+            "de": "Ein Recherchelauf, der bereits abgeschlossen war, als alle Läufe gestoppt wurden, wird nun als abgeschlossen mit abgelegtem Bericht statt als unterbrochen geführt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A connection that hangs while it is being set up is retried after a few seconds, and the chat says it is restoring the connection also when you return to a tab mid-answer.",
+            "de": "Eine Verbindung, deren Aufbau hängen bleibt, wird nach einigen Sekunden erneut hergestellt. Der Chat meldet auch „Verbindung wird wiederhergestellt“, wenn Sie während einer Antwort zu einem Tab zurückkehren."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "If a dictation could not be saved although you spoke, the chat now says so instead of ending silently.",
+            "de": "Wenn ein Diktat trotz Ihrer Spracheingabe nicht gespeichert werden konnte, weist der Chat jetzt darauf hin, statt kommentarlos zu enden."
           }
         },
         {
