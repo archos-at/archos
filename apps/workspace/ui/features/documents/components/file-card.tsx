@@ -23,6 +23,7 @@ import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revis
 import { revisionCount } from '../lib/revision-chain'
 import { documentBadgeState } from '../lib/document-lifecycle'
 import { DocumentStatusBadge, isCitableStatus, isSettlingStatus } from './document-status'
+import { BaseKnowledgeChip } from './base-knowledge-chip'
 import { SemanticMatch } from './semantic-match'
 import { useIngestFailureText } from './ingest-failure-notice'
 import { FileTileBody, FileTileFooter, FileTileMedia, TileShell } from './file-tile'
@@ -451,6 +452,7 @@ export const FileCard = memo(function FileCard({
                 `Unvergeben` live and that slot answers a different question:
                 who is responsible for it. */}
             <AuthorshipLine authoredBy={file.authoredBy} className="mt-0.5" />
+            <BaseKnowledgeChip file={file} className="mt-1" />
             {file.sourceDeletedAt && <SourceDeletedNote at={file.sourceDeletedAt} className="mt-0.5" />}
             {/* The editorial state, on the same side as the byline and nowhere
                 near the footer, for exactly that reason: „freigegeben" is a

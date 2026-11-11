@@ -415,6 +415,27 @@ export async function documentsWithEntries(organizationId: string, documentIds: 
   return rows.flatMap((row) => (row.documentId ? [row.documentId] : []))
 }
 
+/**
+ * The entry (its work's id) each of `documentIds` is recorded as: one query for
+ * a listing page, so the Büroablage can mark its standards (ADR-0163).
+ */
+export async function entryIdsForDocuments(organizationId: string, documentIds: readonly string[]): Promise<Map<string, string>> {
+  if (documentIds.length === 0) return new Map()
+  const rows = await withTenant({ organizationId }, () =>
+    getDb()
+      .select({ id: knowledgeRecords.id, documentId: knowledgeRecords.documentId })
+      .from(knowledgeRecords)
+      .where(
+        and(
+          eq(knowledgeRecords.organizationId, organizationId),
+          eq(knowledgeRecords.type, 'work'),
+          inArray(knowledgeRecords.documentId, [...documentIds])
+        )
+      )
+  )
+  return new Map(rows.flatMap((row) => (row.documentId ? [[row.documentId, row.id] as const] : [])))
+}
+
 /** The copy a document is, as its newest revision states it (a confirmed head, or a proposal). */
 export interface DocumentCopy {
   licenceClass: LicenceClass

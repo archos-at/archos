@@ -28,7 +28,7 @@ export const GET = apiRoute(
       shelf.kind === 'project'
         ? await listDocumentsPage(session, shelf.projectId, options)
         : await listOfficeShelf(session, options)
-    return { ...page, documents: await toDocumentWireRows(session.organizationId, documents) }
+    return { ...page, documents: await toDocumentWireRows(session.organizationId, documents, { officeShelf: shelf.kind !== 'project' }) }
   },
   {
     authz: {
