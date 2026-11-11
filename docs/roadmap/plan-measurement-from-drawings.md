@@ -7,7 +7,8 @@ an IFC model exists. This one is about the case where it does not, which is ever
 pilot office today. Backlog: tickets 33 „Maßstab kalibrieren: Pläne maßhaltig
 machen“ and 34 „Im Plan und im IFC-Modell messen“.*
 
-**This is a plan. Nothing in it is built.** What exists today is listed under
+**This is a plan.** Of it, the sheet reader and the printed text `look` returns are built (ADR-0182); no
+measuring tool is. What existed before that is listed under
 [Where we are](#where-we-are).
 
 How it is built, in which order and what done means for each slice:

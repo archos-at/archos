@@ -292,3 +292,19 @@ def test_a_characters_advance_is_the_glyphs_own_at_any_angle(angle):
     # and with no other text on the page to learn the height from the advance is within a tenth of the size.
     assert character[10] == pytest.approx(5.56, abs=0.8 if angle % 90 == 45 else 0.05)
     assert character[9] == pytest.approx(10.0)
+
+
+def test_a_text_layer_past_the_bound_is_refused_whole(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each character is copied under the process-wide PDFium lock: no bound, and one page holds every render up."""
+    from knowledge_layer.sheet import crop_text
+
+    page = SheetPage()
+    page.text(50, 400, "12345", size=9)
+    pdf = build_sheet_pdf([page])
+    monkeypatch.setattr(reader, "MAX_CHARACTERS_PER_PAGE", 4)
+
+    with pytest.raises(reader.TextTooLarge):
+        reader.read_characters(pdf, 1)
+    with pytest.raises(reader.TextTooLarge):
+        reader.read_sheet(pdf, 1)
+    assert crop_text.read_crop_text(pdf, 1) is None  # a look shows its image and no partial text
