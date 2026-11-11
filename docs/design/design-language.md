@@ -774,16 +774,34 @@ shortfall. Measured at 390px, the History subtitle rendered 44px wide across
 eight lines, one word per line. Never reintroduce a bare `shrink-0` here;
 `page-header.spec.ts` fails it.
 
-**Project section chrome** — every project section except **Chat**
-opens with the same block: a muted `{project} / {section}` breadcrumb
-trail, then the `PageHeader` title + one-line subtitle, then optional actions
-on the right. The two shapes are an action button (Files' view toggle,
-Automation's "New job"/"New skill") and title-only (Settings, Knowledge). The
-intake wizard is a content page too — `PageHeader` plus a `SectionLabel`
-eyebrow, never a second `text-2xl` title. Projects home (above a project) uses
-the same `PageHeader`.
+**Headers: two kinds, one anatomy each** (review of 2026-11-11; before it, each page's header was its own).
+
+*A workspace header* heads a place a person works in while its content scrolls under it: every project section
+except **Chat** (`ProjectSectionFrame`) and the Büroablage. It is a band that stays put, in this order, each line
+only where the page has it:
+
+1. **the crumb**, 12px muted: the project (the office, over the Büroablage), and inside a folder the way there, each
+   step a way up;
+2. **the title**, 20/28/500, with ← one level up at its start inside a folder, what the level holds beside it, and at
+   most one tool at its end (the E-Mail-Eingang's address, the Automatisierung's „Neue Aufgabe“);
+3. **the section's places as tabs** on the desk track, 24px under the title: Dateien's four, the Übersicht's pages,
+   the Automatisierung's Aufgaben and Skills. A page hands its own through `ProjectSectionTabs`; they were a strip
+   inside the page, each in its own style, the Automatisierung's with a second rule;
+4. **the tool row**, where the place has tools (Dateien's Ordner tab, the Büroablage);
+5. **one rule**, and the page starts 24px under it.
+
+No standing sentence under a title whose tabs name the places. The band's children and the page under it share the
+content container (1280px, `SECTION_CONTENT_WIDTH`, `listing-container`), so every title stands on its content's
+left edge and on the same line from one section to the next; a reading column (a task list) starts on that edge and
+ends at its measure (`SECTION_READING_COLUMN`, `components/shell/section-layout.ts`), never centred under the title.
+
+*A document header* heads a page that is read top to bottom and scrolls as one: the projects list, Organisation,
+Plattform, Profil, „Was ist neu“, the Suche. It is `PageHeader` at the top of the page's own column, title 20/28/500
+and one muted sentence, as wide as the column and with no rule: a rule under something that scrolls away with the
+page separates nothing. The intake wizard is a document page too, with a `SectionLabel` eyebrow.
+
 Chat is the documented exception: it is a full-bleed conversation surface with
-its own toolbar, not a content page. Evidence: `/dev/project-chrome`.
+its own toolbar, not a content page. Evidence: `/dev/project-chrome`, and the real pages in the real frame at `/dev/files-page`, `/dev/settings`, `/dev/automation` and `/dev/office-shelf-library`.
 
 **Section** — eyebrow label + content, no heavy chrome:
 ```tsx

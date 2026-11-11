@@ -19,6 +19,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ArrowLeft, ChevronRight, FolderOpen, ListTodo, Mail, Trash2 } from 'lucide-react'
@@ -32,6 +33,7 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 import { phoneBackTarget } from './phone-tabs'
 import { SectionNav, type SectionNavItem } from './section-nav'
 import { ShellSearchButton } from './shell-search-button'
+import { SECTION_CONTENT_WIDTH } from './section-layout'
 import { SectionToolRow, SectionToolRowScope } from './section-tool-row'
 import { PlaceContext, SectionPlaceUp, type SectionPlace } from './section-place'
 import { CLAUSE_JOIN } from '@/lib/format'
@@ -56,14 +58,10 @@ const PROJECT_SECTION_KEY_SET: ReadonlySet<string> = new Set(PROJECT_SECTION_KEY
 
 const FILL_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['files', 'automation'])
 
-// Not Dateien: its header names the open place under a crumb, and each place's list says what it holds.
-const SUBTITLE_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set([
-  'automation',
-  'knowledge',
-  'settings',
-  'intake',
-  'setup',
-])
+// Only a section without places. Where tabs name the places (Dateien, the Übersicht, the Automatisierung) a standing
+// sentence under the title was a fourth line saying what the tabs say; every project page has one head now: the
+// project as its crumb, the title, the places as tabs, a rule (review of 2026-11-11).
+const SUBTITLE_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['knowledge', 'intake', 'setup'])
 
 /** Sections that draw their own chrome edge to edge. */
 const BARE_SECTIONS: ReadonlySet<string> = new Set(['setup'])
@@ -100,10 +98,24 @@ function subpageOf(pathname: string): Subpage | null {
 // unteren Rand“). It had one until 2026-11-10. The only rule Dateien draws between blocks (`tests/brand-literals.spec.ts`).
 export const SECTION_HEADER_CLASS = 'shrink-0 border-b border-border bg-background px-4 py-4 phone:py-2 md:px-8'
 
-/** A header's children at the content container's width (`listing-container` less its 32px margins), centred with it. */
-export const SECTION_CONTENT_WIDTH = '[&>*]:max-w-[1216px] @min-[90rem]/section:[&>*]:mx-auto'
+export { SECTION_CONTENT_WIDTH, SECTION_READING_COLUMN } from './section-layout'
 
 const ActionsContext = createContext<(node: ReactNode, onTitleLine?: boolean) => void>(() => {})
+
+/** Where a section's own tabs go in the header: the element under the title, or null outside the frame. */
+const TabsSlotContext = createContext<HTMLElement | null | undefined>(undefined)
+
+/**
+ * A section's places as tabs in the frame's header, under the title, where Dateien's stand: the Übersicht's pages, the
+ * Automatisierung's Aufgaben and Skills. A portal, so the tabs keep their own context (a Radix `TabsList` stays in its
+ * `Tabs`). Outside the frame (a spec, a preview) the tabs render where they are written. Each drew its tabs in the
+ * page under the header, in its own style, the Automatisierung with a second rule (review of 2026-11-11).
+ */
+export function ProjectSectionTabs({ children }: { children: ReactNode }): ReactNode {
+  const slot = useContext(TabsSlotContext)
+  if (slot === undefined) return children
+  return slot ? createPortal(children, slot) : null
+}
 
 // The tool row and the place moved to their own modules so the Büroablage can draw them too; readers import them here.
 export { ProjectSectionPlace, useSectionPlaceSlot, type SectionPlace } from './section-place'
@@ -295,6 +307,7 @@ export function ProjectSectionFrame({
   const [{ node: actions, onTitleLine: actionsOnTitle }, setActionsState] = useState<{ node: ReactNode; onTitleLine: boolean }>({ node: null, onTitleLine: false })
   const setActions = useCallback((node: ReactNode, onTitleLine = false) => setActionsState({ node, onTitleLine }), [])
   const [pageBack, setPageBack] = useState<SectionBack | null>(null)
+  const [tabsSlot, setTabsSlot] = useState<HTMLElement | null>(null)
   const [placeState, setPlace] = useState<SectionPlace | null>(null)
   const phone = useMediaQuery(PHONE_QUERY)
 
@@ -341,6 +354,7 @@ export function ProjectSectionFrame({
     <BackContext.Provider value={setPageBack}>
     <PlaceContext.Provider value={allFiles ? setPlace : null}>
     <ActionsContext.Provider value={setActions}>
+    <TabsSlotContext.Provider value={tabsSlot}>
     <SectionToolRowScope enabled={files && !phone}>
       <div className="@container/section flex h-full min-h-0 flex-col">
         {/* Every section's head is the design system's content container (1280px, 32px margins, `listing-container`),
@@ -363,6 +377,10 @@ export function ProjectSectionFrame({
                 </>
               ) : files && place?.phoneTrail ? (
                 place.phoneTrail
+              ) : known && !phone ? (
+                // Every section names its project over its title, as Dateien does: the title keeps its line from one
+                // section to the next (it stood 16px higher on the Übersicht than on Dateien).
+                projectStep
               ) : undefined
             }
             // At desk width only, but for a phone's way inside a folder: below `md` the page starts with its title.
@@ -406,6 +424,8 @@ export function ProjectSectionFrame({
               <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
             </div>
           )}
+          {/* Another section's own places (`ProjectSectionTabs`), where Dateien's stand; nothing where it has none. */}
+          {!files && <div ref={setTabsSlot} className="-mb-2 mt-6 min-w-0 empty:hidden phone:mt-4" data-testid="section-tabs-slot" />}
           {/* The tab's tools, on the title's left edge, one row that never wraps (`useSectionToolTier`). */}
           {toolRow && (
             <SectionToolRow className="mt-4">{actions}</SectionToolRow>
@@ -414,6 +434,7 @@ export function ProjectSectionFrame({
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden pt-px' : 'overflow-y-auto')}>{children}</div>
       </div>
     </SectionToolRowScope>
+    </TabsSlotContext.Provider>
     </ActionsContext.Provider>
     </PlaceContext.Provider>
     </BackContext.Provider>
