@@ -28,9 +28,8 @@ describe('branchesOf', () => {
   const map = lawMapOf('XA', REVISIONS, [])
   const units = new Map(reviewUnitsOf(map, { revisions: REVISIONS, captures: [], texts: [] }).map((unit) => [unit.key, unit]))
 
-  it('opens a series under its work, as an edition is, and a statement under its region', () => {
-    expect(branchesOf(map, units.get('series:work:mc-2')!)).toEqual(['works', 'work:work:mc-2'])
-    expect(branchesOf(map, units.get('edition:edition:mc-2-2023')!)).toEqual(['works', 'work:work:mc-2'])
+  it('opens a series’ year under the works, and a statement under its region', () => {
+    expect(branchesOf(map, units.get('batch:MC 2023')!)).toEqual(['works'])
     expect(branchesOf(map, units.get('work:to-n|2024-03-01')!)).toEqual(['XA-1'])
   })
 })

@@ -1,22 +1,24 @@
 /**
- * What one confirmation in the law map covers (country-onboarding-ux.md, C2):
- * an adoption statement with the act it names, an edition with its text, a
- * region's building act, a series, the imported regions, or any other record
- * of the request. A confirmation is the existing review verdict on each of
+ * What one confirmation in the law map covers (country-onboarding-ux.md, C2),
+ * grouped by what a person decides rather than by record: an adoption
+ * statement with the act it names, a region's building act, the imported
+ * regions in one, a guideline series' editions of one year with their works
+ * and texts in one ("OIB-RL 2023: 9 editions, 9 texts"), and every other kind
+ * of record in one per kind (the sources, the rules, the test questions). A confirmation is the existing review verdict on each of
  * those records' claims, sent through the review route in batches; approval,
  * four eyes and the source check stay where they are (`decide.ts`, the
  * migrations' triggers). Pure.
  */
 
-import { reviewOf, type LawMap, type ReviewState } from './law-map'
+import { editionOrder, reviewOf, type LawMap, type ReviewState } from './law-map'
 import type { ChangeRequestView, ReviewDecisionBody, RevisionView } from './wire'
 
-export type ReviewUnitKind = 'regions' | 'statement' | 'statute' | 'series' | 'edition' | 'record'
+export type ReviewUnitKind = 'regions' | 'statement' | 'statute' | 'batch' | 'kind'
 
 export interface ReviewUnit {
   key: string
   kind: ReviewUnitKind
-  /** The record a `record` unit is, for its row; empty for the others, whose rows name them. */
+  /** A batch's name ("OIB-RL 2023") or a kind unit's record type; empty for the others, whose rows name them. */
   label: string
   revisions: RevisionView[]
   review: ReviewState
@@ -63,6 +65,25 @@ function unit(key: string, kind: ReviewUnitKind, revisions: RevisionView[], view
   }
 }
 
+const claimOf = (revision: RevisionView, path: string): unknown => revision.claims.find((claim) => claim.path === path)?.value
+
+/** A work's short name: its designation, else its title. */
+function designationOf(revision: RevisionView | undefined): string {
+  if (!revision) return ''
+  const identifiers = claimOf(revision, 'identifiers')
+  const designation = identifiers && typeof identifiers === 'object' ? (identifiers as Record<string, unknown>).designation : null
+  return typeof designation === 'string' && designation ? designation : nameOf(revision)
+}
+
+/** The series a designation belongs to: "OIB-RL 2.1" and "OIB-RL 6" are both "OIB-RL". */
+export const seriesOf = (designation: string): string => designation.replace(/[\s-]*\d[\d.]*[a-z]?\s*$/i, '').trim() || designation
+
+/** An edition's year, from its issue day or its label; the label when it names none. */
+const yearOf = (revision: RevisionView): string => {
+  const order = editionOrder({ issuedOn: typeof claimOf(revision, 'issuedOn') === 'string' ? (claimOf(revision, 'issuedOn') as string) : null, label: String(claimOf(revision, 'label') ?? '') } as Parameters<typeof editionOrder>[0])
+  return /^\d{4}/.test(order) ? order.slice(0, 4) : order
+}
+
 /** Every unit of the request, each record in exactly one, in the order the outline shows them. */
 export function reviewUnitsOf(map: LawMap, view: View): ReviewUnit[] {
   const byRecord = new Map(view.revisions.map((revision) => [revision.recordId, revision]))
@@ -81,17 +102,33 @@ export function reviewUnitsOf(map: LawMap, view: View): ReviewUnit[] {
   }
   for (const statement of map.statements) add(statement.key, 'statement', [...statement.recordIds, statement.actWorkId])
   for (const statute of map.statutes) add(`statute:${statute.workId}`, 'statute', [statute.workId])
-  const manifestations = view.revisions.filter((revision) => revision.type === 'manifestation')
-  for (const topic of map.topics) {
-    add(`series:${topic.workId}`, 'series', [topic.workId])
-    for (const edition of [...map.editions.values()].filter((one) => one.workId === topic.workId)) {
-      const texts = manifestations.filter((revision) => revision.claims.some((claim) => claim.path === 'editionId' && claim.value === edition.id)).map((revision) => revision.recordId)
-      add(`edition:${edition.id}`, 'edition', [edition.id, ...texts])
-    }
-  }
   add('regions', 'regions', [...map.territories.keys()])
-  for (const revision of view.revisions) if (!taken.has(revision.recordId)) add(`record:${revision.recordId}`, 'record', [revision.recordId], nameOf(revision))
+  for (const batch of batchesOf(view.revisions, taken)) add(`batch:${batch.label}`, 'batch', batch.ids, batch.label)
+  const kinds = [...new Set(view.revisions.filter((revision) => !taken.has(revision.recordId)).map((revision) => revision.type))]
+  for (const type of kinds) add(`kind:${type}`, 'kind', view.revisions.filter((revision) => revision.type === type).map((revision) => revision.recordId), type)
   return units
+}
+
+/**
+ * The editions not yet in a unit, by series and year, each with its texts and
+ * the works whose newest edition it holds: one decision ("these are the 2023
+ * guidelines, and these files are their texts") for what a publisher issued together.
+ */
+function batchesOf(revisions: readonly RevisionView[], taken: ReadonlySet<string>): { label: string; ids: string[] }[] {
+  const byRecord = new Map(revisions.map((revision) => [revision.recordId, revision]))
+  const editions = revisions.filter((revision) => revision.type === 'edition' && !taken.has(revision.recordId))
+  const batches = new Map<string, string[]>()
+  const newest = new Map<string, { year: string; label: string }>()
+  for (const edition of editions) {
+    const workId = String(claimOf(edition, 'workId') ?? '')
+    const year = yearOf(edition)
+    const label = `${seriesOf(designationOf(byRecord.get(workId)) || workId)} ${year}`.trim()
+    const texts = revisions.filter((revision) => revision.type === 'manifestation' && claimOf(revision, 'editionId') === edition.recordId).map((revision) => revision.recordId)
+    batches.set(label, [...(batches.get(label) ?? []), edition.recordId, ...texts])
+    if (!newest.has(workId) || (newest.get(workId)?.year ?? '') < year) newest.set(workId, { year, label })
+  }
+  for (const [workId, { label }] of newest) if (byRecord.has(workId) && !taken.has(workId)) batches.get(label)?.unshift(workId)
+  return [...batches.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, ids]) => ({ label, ids }))
 }
 
 /** The review calls that give one verdict on every claim of a unit not yet carrying it, at most `VERDICTS_PER_CALL` each. */

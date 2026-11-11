@@ -162,7 +162,15 @@ Seven kinds, each with its one question:
 | `golden_case` | Is this the answer a right reply must give? | Its grounding, as today (`records`, `text`, `unconfirmed`) | The question, the expected values, the last run |
 | `source` | May the platform fetch this publisher's documents, on these terms? | Its terms page (licence, attribution) and a recorded test of one document | In words: the hosts it fetches from, the licence with the attribution quoted, monitoring on or off, the documents it may fetch as linked titles, and its test as one line ("OIB-RL 2 reads with ≥ 30 passages") |
 
-In the law map, a record with no branch of its own (a source, a test question, a rule, an authority) opens under "Everything else" in words (`law-map-record.tsx`), and its stored fields sit behind "Technical details", never first. A source reads its documents from `config.access.documents` and its test from `config.fixtures[].expect`. Not yet built: a rule's examples as a table and a test question's last run; a rule shows what it is for, where and when it applies, and its table behind the details. `citation_style` is no record type of a change request yet (`KNOWLEDGE_RECORD_TYPES`), so the map never shows one.
+**What one confirmation covers** (`law-map-review.ts`, `reviewUnitsOf`), grouped by what a person decides, so Austria is about 35 confirmations rather than one per record (the owner stopped at 144):
+
+- each adoption statement, with the act it names (17 for Austria);
+- each region's building act (9);
+- the imported territories, in one per country. They stay one explicit unit rather than none: on a deployment run by one operator alone, approval requires every claim accepted (`decide.ts`), so "none" would mean the approve button writing verdicts nobody saw;
+- a guideline series' editions of one year, with their texts and the works whose newest edition they hold: "OIB-Richtlinie 2023: 9 editions, 9 texts, from www.oib.or.at". The series is the designation without its number (`seriesOf`), the year the edition's issue day or label. A document added outside any statement joins its series' year the same way;
+- every other record, in one unit per kind: the sources, the rules, the test questions, the authorities.
+
+Verdicts stay per claim, so what was confirmed before the grouping stays confirmed and the counter shows only what remains. One confirm sends every claim of the unit through the same review route, in calls of at most 500, and the source tick is asked once per unit. A kind's records open in words (`law-map-record.tsx`), each with its stored fields behind "Technical details", never first. A source reads its documents from `config.access.documents` and its test from `config.fixtures[].expect`. Not yet built: a rule's examples as a table and a test question's last run. `citation_style` is no record type of a change request yet (`KNOWLEDGE_RECORD_TYPES`), so the map never shows one.
 
 An `adoption` statement is keyed by the act's structured identifier (its gazette number or ELI) and its in-force date, never by parsing a provision's text. A replacement act (TBV 2026, K-BTV 2024) is a new statement; Kundmachung and Inkrafttreten are separate dates, and the map uses Inkrafttreten.
 

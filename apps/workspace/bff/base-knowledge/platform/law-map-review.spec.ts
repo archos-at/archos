@@ -49,17 +49,39 @@ describe('reviewUnitsOf', () => {
   const map = lawMapOf('XA', REVISIONS, [capture('pasted', false)])
   const units = reviewUnitsOf(map, { revisions: REVISIONS, captures: [capture('pasted', false)], texts: [] })
 
-  it('puts every record in exactly one unit, in the outline’s order', () => {
+  it('puts every record in exactly one unit, grouped by what a person decides', () => {
     expect(units.map((one) => [one.key, one.revisions.map((revision) => revision.recordId)])).toEqual([
       ['work:to-n|2024-03-01', ['relation:n-2-23', 'work:to-n']],
       ['statute:work:ba-n', ['work:ba-n']],
-      ['series:work:mc-2', ['work:mc-2']],
-      ['edition:edition:mc-2-2023', ['edition:mc-2-2023', 'manifestation:mc-2-2023-text']],
       ['regions', ['XA', 'XA-1']],
-      ['record:golden_case:fire-1', ['golden_case:fire-1']],
+      // A series' edition of a year comes with its work and its text, confirmed in one.
+      ['batch:MC 2023', ['work:mc-2', 'edition:mc-2-2023', 'manifestation:mc-2-2023-text']],
+      ['kind:golden_case', ['golden_case:fire-1']],
     ])
     expect(units.flatMap((one) => one.revisions).length).toBe(REVISIONS.length)
-    expect(units.at(-1)?.label).toBe('How long may an escape route be?')
+    expect(units.at(-1)?.label).toBe('golden_case')
+  })
+
+  it('confirms a country the size of Austria in a few dozen units, not one per record', () => {
+    // Nine guidelines in two editions each, a text each, a document added outside any statement, and two of each other kind.
+    const many: RevisionView[] = [
+      ...[1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap((n) => [
+        revision('work', `work:mc-${n}`, { kind: 'model_code', title: `Guideline ${n}`, identifiers: { designation: `MC ${n}` }, territoryIds: ['XA'] }),
+        ...['2019', '2023'].flatMap((year) => [
+          revision('edition', `edition:mc-${n}-${year}`, { workId: `work:mc-${n}`, label: `Edition ${year}`, issuedOn: `${year}-05-01` }),
+          revision('manifestation', `manifestation:mc-${n}-${year}`, { editionId: `edition:mc-${n}-${year}`, corpusFile: `mc-${n}-${year}.pdf` }),
+        ]),
+      ]),
+      ...['source:xa-gazette', 'source:xa-guidelines'].map((id) => revision('source', id, { title: id })),
+      ...['golden_case:a', 'golden_case:b'].map((id) => revision('golden_case', id, { question: id })),
+      ...['ruleset:a', 'ruleset:b'].map((id) => revision('ruleset', id, { purpose: id })),
+    ]
+    const grouped = reviewUnitsOf(lawMapOf('XA', many, []), { revisions: many, captures: [], texts: [] })
+    expect(grouped.map((one) => one.key)).toEqual(['batch:MC 2019', 'batch:MC 2023', 'kind:source', 'kind:golden_case', 'kind:ruleset'])
+    // Each work rides with its newest edition; the older year holds only editions and texts.
+    expect(grouped[1]?.revisions.filter((one) => one.type === 'work')).toHaveLength(9)
+    expect(grouped[0]?.revisions).toHaveLength(18)
+    expect(grouped.flatMap((one) => one.revisions)).toHaveLength(many.length)
   })
 
   it('knows who wrote a unit and which of its records needs a person’s source check', () => {

@@ -2,8 +2,7 @@
 # area: building-law
 operators:
   - >
-    The law map now says a source, a test question, a rule and an authority in
-    words: where a source fetches from, its licence and attribution, whether it
-    is watched, the documents it may fetch and what its test proves. The stored
-    record is under "Technical details". The source check's explanation now
-    sits right under its tick.
+    Confirming a country in the law map takes far fewer steps: a guideline
+    series' editions of one year are confirmed together with their texts, and
+    the sources, rules and test questions one kind at a time. These records are
+    now said in words, with the stored record under "Technical details".
