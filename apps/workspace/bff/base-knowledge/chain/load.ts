@@ -285,10 +285,11 @@ interface Walked {
 
 /** Read `workRows` and their editions into `into`; the ids new to it, which the walk steps from next. */
 async function admit(organizationId: string, workRows: readonly WorkRow[], into: Walked): Promise<string[]> {
+  into.truncated ||= workRows.length >= MAX_ROWS
   const fresh = workRows.filter((row) => !into.works.has(row.id))
   if (fresh.length === 0) return []
   const editionRows = await editionsOf(organizationId, fresh.map((row) => row.id))
-  into.truncated ||= workRows.length >= MAX_ROWS || editionRows.length >= MAX_ROWS
+  into.truncated ||= editionRows.length >= MAX_ROWS
   for (const row of fresh) into.works.set(row.id, row)
   for (const row of editionRows) into.editions.set(row.id, row)
   return [...fresh.map((row) => row.id), ...editionRows.map((row) => row.id)]
@@ -303,11 +304,16 @@ async function admit(organizationId: string, workRows: readonly WorkRow[], into:
 async function walk(organizationId: string, chain: readonly string[]): Promise<Walked> {
   const walked: Walked = { relations: new Map(), works: new Map(), editions: new Map(), truncated: false }
   let frontier = await admit(organizationId, await worksFor(organizationId, chain, []), walked)
+  // A frontier left at the last step is past any route the resolver follows (`MAX_ROUTE_DEPTH`): not read, by design.
   for (let depth = 0; depth < MAX_WALK_DEPTH && frontier.length > 0; depth++) {
-    const relationRows = (await relationsTouching(organizationId, frontier)).filter((row) => !walked.relations.has(row.id))
-    walked.truncated ||= relationRows.length >= MAX_ROWS
+    // A read that hit the bound is partial whatever of it was read before: counted before the known rows go.
+    const read = await relationsTouching(organizationId, frontier)
+    walked.truncated ||= read.length >= MAX_ROWS
+    const relationRows = read.filter((row) => !walked.relations.has(row.id))
     for (const row of relationRows) walked.relations.set(row.id, row)
-    const named = [...new Set(relationRows.flatMap((row) => [row.from_id, row.to_id]))]
+    const named = [...new Set(relationRows.flatMap((row) => [row.from_id, row.to_id]))].filter(
+      (id) => !walked.works.has(id) && !walked.editions.has(id),
+    )
     frontier = named.length > 0 ? await admit(organizationId, await worksFor(organizationId, [], named), walked) : []
   }
   return walked
