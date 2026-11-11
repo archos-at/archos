@@ -5,7 +5,7 @@ import { conversations, type Conversation } from '@/lib/db/schema/conversations'
 
 /**
  * The SQL of a conversation's `temporary` flag (ADR-0180 rule 2, migration
- * 0229). Beside `repository.ts` rather than in it: that file is held at its
+ * 0230). Beside `repository.ts` rather than in it: that file is held at its
  * size by the ratchet.
  */
 

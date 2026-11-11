@@ -812,7 +812,7 @@ transfer of authority. `app` stays single-writer.
 > reads its personal notes again on any report of the stage, `empty` included.
 >
 > **A personal note is never on the frame.** It is stored with the answer's
-> message id (`personal_memory.source_message_id`, migration 0230;
+> message id (`personal_memory.source_message_id`, migration 0231;
 > `turn.response.answer_message_id`, which the browser holds as the answer's
 > id). The owner's browser reads
 > `GET /api/user/memory?sourceConversationId=…` once per conversation and

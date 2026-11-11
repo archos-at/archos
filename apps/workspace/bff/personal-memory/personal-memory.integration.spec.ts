@@ -12,7 +12,7 @@
  * colleague's query with the filter forgotten) and reads nothing, updates
  * nothing and deletes nothing; so does anyone in another organization. The
  * note is still A's afterwards. The same cluster shows the unique index on the
- * content key (0231), and that a temporary conversation (migration 0229) refuses
+ * content key (0232), and that a temporary conversation (migration 0230) refuses
  * a memory write while one that is not, or not created yet, does not.
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -161,7 +161,7 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
     expect(await visibleTo(A)).toEqual(['Wants answers in short paragraphs.'])
   })
 
-  it('answers a conversation’s notes, each with its answer, to their owner and to nobody else (migration 0230)', async () => {
+  it('answers a conversation’s notes, each with its answer, to their owner and to nobody else (migration 0231)', async () => {
     // The answer's chip asks for the notes saved from the conversation it is
     // in. A colleague reading the SAME shared conversation asks the same
     // question with the same conversation id and is answered nothing.
@@ -292,7 +292,7 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
     expect(await visibleTo(B)).toEqual(['Wants answers in short paragraphs.'])
   })
 
-  it('refuses a memory write from a temporary conversation, and from no other (migration 0229)', async () => {
+  it('refuses a memory write from a temporary conversation, and from no other (migration 0230)', async () => {
     const TEMPORARY = `s_temporary_${STAMP}`
     const KEPT = `s_kept_${STAMP}`
     await as(A, () =>
@@ -313,8 +313,8 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
     expect(await as(ELSEWHERE, () => temporary.isTemporaryConversation(TEMPORARY, OTHER_ORG))).toBe(false)
   })
 
-  it('keeps notes with no ASCII letter as notes of their own (migration 0231)', async () => {
-    // Under 0228's `[^a-z0-9]+` index all three folded to '' and answered the first one's id.
+  it('keeps notes with no ASCII letter as notes of their own (migration 0232)', async () => {
+    // Under 0229's `[^a-z0-9]+` index all three folded to '' and answered the first one's id.
     const C = { organizationId: ORG, userId: PERSON_C }
     const keep = (content: string) =>
       as(C, () => service.createPersonalMemoryItem(C, { kind: 'preference', content, provenanceType: 'user' }))

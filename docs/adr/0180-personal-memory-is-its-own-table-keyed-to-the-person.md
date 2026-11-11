@@ -149,7 +149,7 @@ What holds the store and its promise:
   reads, updates and deletes as another in the same organization, with
   statements that name no user, and reaches nothing. It also refuses a row
   written for somebody else, and a memory write from a temporary conversation.
-* `scripts/rls-test-db.sh` checks migrations 0228, 0229 and 0230 one at a
+* `scripts/rls-test-db.sh` checks migrations 0229, 0230 and 0231 one at a
   time: the policy names the person, the CHECKs and the unique index refuse,
   and each down migration reverses and applies again.
 * `bff/personal-memory/service.spec.ts` holds the bounds of the block (20
@@ -217,7 +217,7 @@ take it back:
   `created`, and `app/api/user/memory/route.spec.ts` that the owner's list can
   be narrowed to one conversation (`sourceConversationId`).
   `bff/personal-memory/personal-memory.integration.spec.ts` stores a note with
-  the answer it was saved under (`source_message_id`, migration 0230) and
+  the answer it was saved under (`source_message_id`, migration 0231) and
   reads it back as its owner only.
 * `ui/features/chat/lib/turn-memory.spec.ts`,
   `ui/features/chat/stores/turn-notes-store.spec.tsx` and

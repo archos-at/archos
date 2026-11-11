@@ -1,7 +1,7 @@
--- Reverse 0231. ORDER: roll the frontend back first; the newer build writes
+-- Reverse 0232. ORDER: roll the frontend back first; the newer build writes
 -- `personal_memory.content_key` and finds a duplicate by it.
 --
--- LOSSY: the 0228 index folds every note with no ASCII letter or digit to the
+-- LOSSY: the 0229 index folds every note with no ASCII letter or digit to the
 -- same text, so of the notes that collide under it only the most recently
 -- updated one per person is kept; the others are deleted before the index can
 -- be built again.

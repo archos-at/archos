@@ -1,4 +1,4 @@
--- Reverse 0230. ORDER: roll the frontend and the agent back first; the newer
+-- Reverse 0231. ORDER: roll the frontend and the agent back first; the newer
 -- builds write and filter on `personal_memory.source_message_id`.
 --
 -- LOSSY: which answer a personal note was saved under is forgotten, so the

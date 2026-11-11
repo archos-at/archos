@@ -254,7 +254,7 @@ const BOUNDARY_MIGRATIONS = [
   '0226_drop_dead_scheduler_schema.sql',
   // Adds personal_memory (ADR-0180), keyed to the person as user_preferences
   // is: `organization_id = current_org() AND user_id = current_user_id()`.
-  '0228_personal_memory.sql',
+  '0229_personal_memory.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

@@ -1,7 +1,7 @@
 -- Personal notes are told apart by a stored key, not by an index expression
 -- (ADR-0180).
 --
--- 0228 made a note unique per person by
+-- 0229 made a note unique per person by
 -- `btrim(regexp_replace(lower(content), '[^a-z0-9]+', ' ', 'g'))`, the twin of
 -- `normalizeContent` in TypeScript. That fold keeps ASCII letters only: a note
 -- with none („Привет“, „ÄÖÜ“) folded to '' and was the same note as every
@@ -11,7 +11,7 @@
 -- case, every run that is no letter and no digit in any script to one space,
 -- trimmed), stored with the note, and the unique index is on that column.
 --
--- The table is unreleased (0228 and 0230 shipped in the same unreleased
+-- The table is unreleased (0229 and 0231 shipped in the same unreleased
 -- build), so the backfill below only has to be close: Postgres has no
 -- `\p{L}`, and `[[:alnum:]]` follows the database's ctype (Unicode under a
 -- UTF-8 locale, ASCII under C). A row whose key comes out empty is keyed by

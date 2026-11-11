@@ -100,7 +100,7 @@ export const conversations = pgTable(
     subjectResourceType: text('subject_resource_type').$type<ShareableResourceType>(),
     subjectResourceId: text('subject_resource_id'),
     /**
-     * A temporary conversation keeps nothing (ADR-0180 rule 2, migration 0229):
+     * A temporary conversation keeps nothing (ADR-0180 rule 2, migration 0230):
      * no project, organization or personal memory is written from it. The
      * memory writers refuse (`lib/conversations/temporary.ts`), and the turn
      * context tells the agent so it skips them. Reading is untouched: the turn

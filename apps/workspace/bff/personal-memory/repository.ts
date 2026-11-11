@@ -49,7 +49,7 @@ export async function selectPersonalMemory(
     .offset(offset)
 }
 
-/** The person's note with this `content_key` (`personalContentKey`), the column of the unique index (0231). */
+/** The person's note with this `content_key` (`personalContentKey`), the column of the unique index (0232). */
 export async function findPersonalMemoryByContentKey(
   owner: PersonalMemoryOwner,
   contentKey: string

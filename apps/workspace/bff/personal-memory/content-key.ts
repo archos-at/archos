@@ -1,6 +1,6 @@
 /**
  * The key two personal notes are the same note by (ADR-0180): the stored
- * column `personal_memory.content_key` (migration 0231) and its unique index.
+ * column `personal_memory.content_key` (migration 0232) and its unique index.
  *
  * Computed here and nowhere else. The project store keeps its normaliser twice,
  * as `normalizeContent` in TypeScript and as an index expression in SQL

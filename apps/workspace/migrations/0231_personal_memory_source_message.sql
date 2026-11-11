@@ -6,7 +6,7 @@
 -- carries the answer's id instead, and the owner's browser asks for their own
 -- notes of the conversation (`GET /api/user/memory?sourceConversationId=…`)
 -- and shows each under its answer. Row-level security already answers that
--- query with the owner's rows only (0228).
+-- query with the owner's rows only (0229).
 --
 -- The id is the answer message's, which the agent derives per turn
 -- (`answer_message_id`: uuid5 of conversation and turn) and the browser holds
