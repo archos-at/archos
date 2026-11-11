@@ -38,6 +38,7 @@ vi.mock('@/adapters/api/session-documents-client', () => ({
 const mockDocumentsStore = {
   clearFilesForCollection: vi.fn(),
   setFilesFromServer: vi.fn(),
+  addTrackedFile: vi.fn(),
   setCurrentCollection: vi.fn(),
   setCollectionInfo: vi.fn(),
   setPolling: vi.fn(),
@@ -398,6 +399,73 @@ describe('UploadOrchestrator', () => {
 
       // Should not unmark on network errors (backend may be temporarily unavailable)
       expect(mockUnmarkSessionCollection).not.toHaveBeenCalled()
+    })
+  })
+
+  /**
+   * A reload finds a job in localStorage and asks the backend how it stands. A
+   * job still running gets its rows back in the tray; a job that has ended does
+   * not, because the listing is the truth about it. `cancelled` was missing from
+   * "ended" here while the poll had it: a file a person had stopped came back
+   * as a red, failed row (the backend records a stopped file `failed`, with the
+   * stop as its message), until the first poll's re-list dropped it, and for
+   * good where no listing followed.
+   */
+  describe('resuming a persisted job after a reload', () => {
+    const persistedRow = {
+      id: 'row-1',
+      fileName: 'Einreichplan.pdf',
+      fileSize: 1,
+      status: 'ingesting' as const,
+      progress: 40,
+      collectionName: 'project-1',
+      jobId: 'job-1',
+    }
+    const jobWith = (status: string, fileStatus: string, errorMessage: string | null = null) => ({
+      job_id: 'job-1',
+      collection_name: 'project-1',
+      status,
+      file_details: [
+        {
+          file_id: 'file-1',
+          file_name: 'Einreichplan.pdf',
+          status: fileStatus,
+          progress_percent: 40,
+          error_message: errorMessage,
+        },
+      ],
+    })
+
+    beforeEach(() => {
+      mockGetPersistedJobForCollection.mockReturnValue({
+        jobId: 'job-1',
+        collectionName: 'project-1',
+        files: [persistedRow],
+        startedAt: Date.now(),
+      })
+      mockClient.listFiles.mockResolvedValue([])
+    })
+
+    test('a job still running gets its rows back', async () => {
+      mockClient.getJobStatus.mockResolvedValue(jobWith('processing', 'ingesting'))
+
+      await UploadOrchestrator.handleSessionChange('project-1')
+
+      expect(mockDocumentsStore.addTrackedFile).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'row-1', status: 'ingesting', serverFileId: 'file-1' })
+      )
+    })
+
+    test.each([
+      ['completed', 'success', null],
+      ['failed', 'failed', 'original_download_failed: gone'],
+      ['cancelled', 'failed', 'cancelled: ingestion was stopped; start it again to index this file'],
+    ])('a %s job does not get its rows back', async (status, fileStatus, errorMessage) => {
+      mockClient.getJobStatus.mockResolvedValue(jobWith(status, fileStatus, errorMessage))
+
+      await UploadOrchestrator.handleSessionChange('project-1')
+
+      expect(mockDocumentsStore.addTrackedFile).not.toHaveBeenCalled()
     })
   })
 
