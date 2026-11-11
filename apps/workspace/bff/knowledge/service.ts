@@ -23,6 +23,8 @@ export interface KnowledgeFile {
   chunkCount: number
   ingestedSha256: string | null
   currentSha256: string | null
+  /** The country a release marked the file with (ADR-0173); null when none did, `ZZ` when a rollback left it unreleased. */
+  countryId: string | null
   ingestedAt: string | null
   summary: string | null
   docClass: string | null
@@ -63,6 +65,7 @@ interface BackendFileEntry {
   chunk_count?: unknown
   ingested_sha256?: unknown
   current_sha256?: unknown
+  country_id?: unknown
   ingested_at?: unknown
   summary?: unknown
   doc_class?: unknown
@@ -91,6 +94,7 @@ function mapFile(entry: BackendFileEntry): KnowledgeFile {
     chunkCount: asCount(entry.chunk_count),
     ingestedSha256: asString(entry.ingested_sha256),
     currentSha256: asString(entry.current_sha256),
+    countryId: asString(entry.country_id),
     ingestedAt: asString(entry.ingested_at),
     summary: asString(entry.summary),
     docClass: asString(entry.doc_class),

@@ -141,7 +141,8 @@ page groups its files by country and names, per file, the edition and the
 change request; a file no record names is in a group that says so.
 
 **The decision.** The storage and the country filter stay as they are, and no
-table is added. Three rules do the work:
+table is added. Six rules do the work; the last three came out of the review of
+the first three (see "What the review found" below):
 
 - **Attach stores the file and names it in one step.** `text-import` and
   `text-upload` put the bytes in the base corpus (where they are ingested for
@@ -158,6 +159,39 @@ table is added. Three rules do the work:
 - **A file is one record's text.** A name another record uses, released or on
   its way, is not replaced under it (`NAME_TAKEN`) and not removed (409 on the
   corpus's delete). So a file that was there at submit is there at publish.
+  A plain proposal that names a file another record names, released, on its way
+  or in the same batch, fails the kit too (KC-1, `NAME_TAKEN` in its detail):
+  the second record's publish would mark the file with its own country. A
+  fetched text is kept as `<manifestationKey>.pdf` unless a `fileName` is given,
+  so two publishers' `richtlinie-1.pdf` do not meet.
+- **The reviewed bytes are the published bytes.** A manifestation revision
+  keeps the `sha256` of the file it names: the attached text's, or, for a
+  record that only names a file, the hash the corpus held when it was first
+  named. KC-1 compares the corpus's current file with it on propose, validate
+  and submit, and fails closed on other bytes, on a corpus that gives no hash
+  and on a stored revision that keeps none. The indexing job compares once
+  more before it marks the file with a country; on other bytes its run fails
+  and nothing is indexed. The plain corpus upload refuses other bytes under a
+  file a record names (409 `NAME_TAKEN`), a ZIP's members included.
+- **A draft replaces nothing that is released.** Other bytes go under a name
+  only while nothing but the draft's own revision of that manifestation names
+  it: not a release (the same record's included), not another request's
+  revision, and not while a release marked the file with a country. The corpus
+  keeps a file's country mark when its bytes change, so replaced bytes would be
+  read by that country's offices before any review. A text that replaces a
+  released one takes a new file name. The api tier refuses a marked file
+  whatever the BFF says (`_keep_corpus_text`); `ZZ`, a rollback's mark, is read
+  by nobody and does not count.
+- **A text nobody fetched is held to four eyes.** A text from a URL was fetched
+  by the product from a configured source. An uploaded one, and a file a record
+  only names, came from a person, who could upload their own PDF as "OIB-RL 6
+  2015", approve alone and publish. Such a text is held like an
+  operator-supplied capture (ADR-0170, migration 0218): `knowledge_sources_unchecked`
+  (migration 0222) is true until somebody other than the revision's author and
+  the uploader marked a verdict on it `sourceChecked`, and while it is true
+  nobody approves, alone or not. A fetched text counts as fetched only while
+  the revision still names the fetched file and hash, which the rule above
+  holds the corpus to.
 
 A URL is fetched and read by the public-source fetcher, never in the api pod or
 here (ADR-0162, #1592): the BFF calls `POST /v1/public-sources/corpus-text`,
@@ -175,6 +209,22 @@ before anything is kept.
   a second store would be a second ingest path and a move at publish.
 - *Checking the file only at publish.* By then four eyes were spent on a
   request that cannot be released; the check belongs before the first write.
+- *Refusing the publish itself on other bytes.* An approved request can be
+  rejected only once its second review disputed it, so a publish gate would
+  leave it approved and stuck. The indexing job fails instead: the records are
+  released, the text is read by nobody, and a new request attaches it again.
+- *A content-addressed corpus (the hash as the key).* It would make a swap
+  impossible by construction, and it is the right end state. It changes the
+  corpus's key, its object keys and every chunk's `filename`, which is a
+  migration of the store; the hash on the revision gets the guarantee now.
+
+**What the review found.** The first version of this amendment compared names
+only. Three things followed, each reproduced: the bytes under an attached file
+could be swapped by the plain upload, and validation stayed green and the
+publish indexed them; a draft could replace the bytes of a released file, which
+went live under its country mark before any review; and one person could upload
+a PDF, approve alone and publish. Rules four to six close them, each with a test
+that fails when its rule is reverted.
 
 **Operations.** `platform-knowledge-text-import` (a URL),
 `platform-knowledge-text-upload` (multipart) and `platform-knowledge-text-list`
@@ -195,10 +245,25 @@ hours before it is released (ADR-0174).
 
 - The corpus is keyed by file name across all countries. `NAME_TAKEN` keeps two
   records from sharing a name; it does not give a country its own namespace.
+- The guards on a named file's bytes read first and store second, in two tiers.
+  Two writers racing on one name can both pass the read. The hash on the
+  revision catches the loser at validate, submit and index time for a file not
+  yet released; nothing re-checks a released file's bytes after its indexing.
+- A manifestation revision written before revisions kept a hash names a file
+  with no `sha256`. In a draft it fails KC-1 until its text is attached again;
+  published without one, its indexing run fails with that reason.
+- A legacy file marked `AT` at the cut-over that no record names is still
+  replaced by the plain upload: that is how the corpus is maintained as files.
+  An attach never replaces it.
 - A file uploaded and published within minutes can still be indexed by the job
   its upload queued, which carries no country (`oib_sync.mark_for_reingest`
-  leaves a waiting job alone). A re-ingest from the corpus page repairs it. The
-  cure is for the publish to wait for, or replace, that job.
+  leaves a waiting job alone). The file is then read by nobody (`ZZ`) while
+  the index status says `indexed`. A re-ingest from the corpus page repairs
+  it. The cure is for the release's re-ingest to replace that job. It is the
+  next slice and not in this change: a corpus job's id is derived from the
+  file's name, hash and chunk format, so replacing a waiting or running job
+  means cancelling a Hatchet run and starting another under the same id, and
+  that needs a test against the engine, not against a fake.
 - The corpus page reads a file's country from the records. The country a
   legacy file was marked with at the cut-over (`AT`, with no record naming it)
   is not shown: such a file is listed as named by no record.
@@ -208,6 +273,13 @@ without a database) and `texts.integration.spec.ts` under `task db:test:rls`
 (a file nobody uploaded is never written; an attached text is published with
 an indexing run the corpus accepts, marked with the request's country; a URL
 goes to `corpus-text` and nowhere else; a name is one record's; the corpus
-page's read). `apps/agent-host/tests/test_public_source_capture_route.py` (the
-bytes and their read both come from the fetcher, and without a fetcher nothing
-is fetched, parsed or kept).
+page's read; other bytes under a named file fail validate and submit, are
+refused by the plain upload and are never indexed; a released file, a file a
+country reads and a file under review elsewhere are not replaced; an uploaded
+or merely named text refuses every approval until another person's
+`sourceChecked`, and a fetched one is approved alone).
+`scripts/rls-test-db.sh` (migration 0222 and its down).
+`upload-hashes.spec.ts` (a ZIP's members by base name).
+`apps/agent-host/tests/test_public_source_capture_route.py` (the
+bytes and their read both come from the fetcher, without a fetcher nothing
+is fetched, parsed or kept, and a file a release marked is never replaced).

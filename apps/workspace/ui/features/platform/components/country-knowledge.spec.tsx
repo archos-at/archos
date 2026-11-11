@@ -188,6 +188,37 @@ describe('CountryKnowledge', () => {
     )
   })
 
+  test('accepting a manifestation whose text was uploaded records that the text was checked; a fetched one does not', async () => {
+    const text = { revisionId: 'r1', recordId: 'manifestation:oib-rl-1-2019-text', editionId: 'edition:oib-rl-1-2019', corpusFile: 'oib-rl-1-2019.pdf', sha256: 'a'.repeat(64), bytes: 9, pages: null, sourceId: null, url: null, attachedBy: 'u', attachedAt: '2026-11-10T00:00:00Z' }
+    const withText = (origin: 'upload' | 'url') => ({
+      ...REQUEST,
+      revisions: [{ ...REQUEST.revisions[0], recordId: text.recordId, type: 'manifestation', claims: [{ path: 'corpusFile', value: text.corpusFile, decision: null }] }],
+      texts: [{ ...text, origin, url: origin === 'url' ? 'https://www.oib.or.at/rl1.pdf' : null }],
+    })
+    const sent = (sourceChecked: boolean) =>
+      expect.objectContaining({ body: JSON.stringify({ decisions: [{ revisionId: 'r1', claimPath: 'corpusFile', decision: 'accepted', sourceChecked }] }) })
+    const user = userEvent.setup()
+
+    serve(200, withText('upload') as unknown as typeof REQUEST)
+    const first = render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const uploaded = await screen.findByTestId('change-request-record')
+    expect(within(uploaded).getByText(/uploaded, not fetched from a source/)).toBeInTheDocument()
+    await user.click(within(uploaded).getByRole('button', { name: 'Checked against the source, all correct' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/platform/knowledge/change-requests/cr-1/review', sent(true)))
+    first.unmount()
+
+    // Positive control: a text the product fetched from a configured source asks for no such check.
+    fetchMock.mockClear()
+    serve(200, withText('url') as unknown as typeof REQUEST)
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const fetched = await screen.findByTestId('change-request-record')
+    expect(within(fetched).queryByText(/uploaded, not fetched from a source/)).not.toBeInTheDocument()
+    await user.click(within(fetched).getByRole('button', { name: 'All correct' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/platform/knowledge/change-requests/cr-1/review', sent(false)))
+  })
+
   test('offers the author an approval alone only with the permission, and asks for a reason first (ADR-0176)', async () => {
     viewer.id = 'u'
     serve()

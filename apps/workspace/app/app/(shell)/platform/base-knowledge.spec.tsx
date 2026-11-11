@@ -54,6 +54,7 @@ function file(
     chunkCount: 4,
     ingestedSha256: null,
     currentSha256: null,
+    countryId: null,
     ingestedAt: null,
     summary: null,
     docClass: 'other',

@@ -6,6 +6,11 @@
  * `failed` with the corpus's reason otherwise; `indexed` is read from the
  * corpus's own status, never assumed. The index status joins the two.
  *
+ * The job indexes the bytes that were reviewed, or nothing: before it marks a
+ * file with a country it compares the corpus's current sha256 with the one the
+ * released revision keeps. Other bytes, or a revision that keeps no hash, fail
+ * the run, and the file stays read by nobody.
+ *
  * Re-ingest keeps the binding: the manifestation names its corpus file, so a
  * re-ingest of that file (the platform's knowledge page, `reingestKnowledgeBaseDocuments`)
  * rebuilds the chunks the published text is found by without a new revision.
@@ -63,16 +68,29 @@ export async function enqueueIndexRuns(
   return { enqueued: runIds.length - failed, failed }
 }
 
-/** The country and edition of the copy a run indexes: the manifestation revision's edition and its record's country. */
-async function corpusMarkOf(revisionId: string): Promise<CorpusFileMark | null> {
+/** What a run indexes: the country and edition of the copy (its revision's edition, its record's country) and the bytes the revision names. */
+async function releasedTextOf(revisionId: string): Promise<{ mark: CorpusFileMark; sha256: string | null } | null> {
   const rows = await withPlatformAccess(REASON, () =>
-    getDb().execute<{ edition_id: string | null; country_id: string | null }>(sql`
-      SELECT m.edition_id, r.country_id
+    getDb().execute<{ edition_id: string | null; country_id: string | null; sha256: string | null }>(sql`
+      SELECT m.edition_id, r.country_id, m.sha256
       FROM knowledge_manifestation_revisions m JOIN knowledge_records r ON r.id = m.record_id
       WHERE m.revision_id = ${revisionId} AND r.organization_id IS NULL`),
   )
   const row = rows[0]
-  return row ? { countryId: row.country_id, editionId: row.edition_id } : null
+  return row ? { mark: { countryId: row.country_id, editionId: row.edition_id }, sha256: row.sha256 } : null
+}
+
+const REATTACH = 'attach the text again in a new change request for this manifestation, under a new file name'
+
+/** Why the corpus's file is not the one the released revision names; null when it is. Throws when the corpus does not answer. */
+async function otherBytes(corpusFile: string, reviewed: string | null | undefined): Promise<string | null> {
+  if (!reviewed) return `the released revision keeps no hash of ${corpusFile}, so the reviewed bytes cannot be told from others; ${REATTACH}`
+  const held = (await getKnowledgeBaseStatus()).files.find((file) => file.fileName === corpusFile && file.state !== 'removed')
+  if (!held) return `the base corpus no longer holds ${corpusFile}; ${REATTACH}`
+  if (held.currentSha256 !== reviewed) {
+    return `the base corpus keeps other bytes as ${corpusFile} than the ones that were reviewed (sha256 ${reviewed.slice(0, 12)}…); nothing was indexed; ${REATTACH}`
+  }
+  return null
 }
 
 /** The job's step: hand the file to the corpus and record what it answered. Throws to be retried. */
@@ -87,10 +105,16 @@ export async function runPlatformTextIndex(
   if (!run || run.state !== 'requested') return
   try {
     // The country and edition the text belongs to ride on every chunk (ADR-0173): the turn's gate filters by them.
-    const mark = await corpusMarkOf(run.revisionId)
-    const result = await reingestKnowledgeBaseDocuments([run.corpusFile], mark ? { [run.corpusFile]: mark } : {})
+    const released = await releasedTextOf(run.revisionId)
+    // The reviewed bytes are the published bytes: other bytes are never marked with the country.
+    const refusal = await otherBytes(run.corpusFile, released?.sha256)
+    if (refusal) {
+      await markRun(run.id, 'failed', refusal)
+      return
+    }
+    const result = await reingestKnowledgeBaseDocuments([run.corpusFile], released ? { [run.corpusFile]: released.mark } : {})
     if (result.unknown.includes(run.corpusFile) || !result.queued.includes(run.corpusFile)) {
-      await markRun(run.id, 'failed', `the base corpus no longer holds ${run.corpusFile}; attach the text again in a new change request for this manifestation`)
+      await markRun(run.id, 'failed', `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
       return
     }
     await markRun(run.id, 'queued', null)

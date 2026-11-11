@@ -113,6 +113,21 @@ def test_status_classifies_ingested_stale_and_pending():
     assert status.summary.total_chunks == 12
 
 
+def test_status_says_which_country_a_release_marked_a_file_with():
+    """The BFF reads this to refuse other bytes under a file a country's offices read (ADR-0165)."""
+    _stored("released.pdf", b"v1", ingested=b"v1")
+    _stored("draft.pdf", b"v2")
+    corpus_store.set_mark("released.pdf", corpus_store.FileMark(country_id="AT", edition_id="edition:oib-rl-1-2019"))
+
+    status = oib_status.get_status(
+        ingestor=FakeIngestor(_collection(chunk_count=8), files=[_file_info("released.pdf", 8)])
+    )
+
+    by_name = {f.file_name: f for f in status.files}
+    assert by_name["released.pdf"].country_id == "AT"
+    assert by_name["draft.pdf"].country_id is None
+
+
 def test_a_file_ingested_by_an_older_chunk_format_is_stale():
     _stored("old-format.pdf", b"x", ingested=b"x", format_version=oib_sync.CHUNK_FORMAT_VERSION - 1)
     ingestor = FakeIngestor(_collection(), files=[_file_info("old-format.pdf", 5)])

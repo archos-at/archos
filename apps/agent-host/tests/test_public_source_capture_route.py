@@ -167,7 +167,7 @@ def kept(monkeypatch):
     from agent import corpus_store
     from agent import oib_sync
 
-    calls: dict = {"stored": [], "existing": {}}
+    calls: dict = {"stored": [], "existing": {}, "marks": {}}
 
     def get_file(name: str):
         sha = calls["existing"].get(name)
@@ -178,6 +178,11 @@ def kept(monkeypatch):
         return True
 
     monkeypatch.setattr(corpus_store, "get_file", get_file)
+    monkeypatch.setattr(
+        corpus_store,
+        "get_mark",
+        lambda name: corpus_store.FileMark(country_id=calls["marks"][name]) if name in calls["marks"] else None,
+    )
     monkeypatch.setattr(oib_sync, "store_and_request", store_and_request)
     return calls
 
@@ -294,3 +299,22 @@ async def test_a_name_the_corpus_keeps_for_other_bytes_is_refused_unless_it_may_
     assert again.status_code == 200
     assert again.json()["stored"] is False
     assert len(kept["stored"]) == 1
+
+
+async def test_a_file_a_release_marked_with_a_country_is_never_replaced(client, kept, fetcher, monkeypatch):
+    """A released file keeps its country mark, so other bytes under its name would be read before any review."""
+    monkeypatch.setenv("PUBLIC_SOURCE_FETCHER_URL", FETCHER)
+    body = {"source": "at-ris", "url": PDF_URL, "fileName": "richtlinie_1.pdf", "replace": True}
+    kept["existing"]["richtlinie_1.pdf"] = "b" * 64
+    kept["marks"]["richtlinie_1.pdf"] = "AT"
+
+    live = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json=body)
+    assert live.status_code == 409
+    assert live.json()["code"] == "name_taken"
+    assert kept["stored"] == []
+
+    # Positive control: a file a rollback left unreleased (ZZ) is read by nobody, and its draft may replace it.
+    kept["marks"]["richtlinie_1.pdf"] = "ZZ"
+    unreleased = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json=body)
+    assert unreleased.status_code == 200
+    assert kept["stored"] == [("richtlinie_1.pdf", PDF_BYTES)]

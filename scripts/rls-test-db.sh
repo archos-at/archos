@@ -3861,3 +3861,52 @@ check_in aw_0221 "SELECT count(*) FROM information_schema.columns WHERE table_na
 apply_in aw_0221 0221_edition_applies_when.sql
 check_in aw_0221 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "1" "0221 applies again after its down"
 echo "==> 0221 edition scope and its down migration verified"
+# ---------------------------------------------------------------------------
+# 0222: four eyes on a text nobody fetched (ADR-0165). A manifestation whose
+# text a person uploaded, or that only names a corpus file, holds every
+# approval up until somebody other than its author and its uploader checked it
+# against its source; a text fetched from a configured source does not, while
+# the revision still names the fetched bytes. The down gives 0218's check back,
+# and 0222 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0222 text four eyes and its down migration on tf_0222"
+migrate_before tf_0222 0222_knowledge_text_four_eyes
+CR_UP="c0000000-0000-4000-8000-000000000222"
+CR_URL="c1000000-0000-4000-8000-000000000222"
+RV_UP="e0000000-0000-4000-8000-000000000222"
+RV_URL="e1000000-0000-4000-8000-000000000222"
+sql_in tf_0222 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR_UP', 'an uploaded text', 'XA', 'user_author'), ('$CR_URL', 'a fetched text', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES
+  ('manifestation:xa-up', NULL, 'manifestation', 'XA', 'user_author'), ('manifestation:xa-url', NULL, 'manifestation', 'XA', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id, provenance) VALUES
+  ('$RV_UP', 'manifestation:xa-up', 'manifestation', NULL, 'user_author', '$CR_UP',
+   '{"text": {"origin": "upload", "fileName": "xa-up.pdf", "sha256": "aa", "attachedBy": "user_uploader"}}'),
+  ('$RV_URL', 'manifestation:xa-url', 'manifestation', NULL, 'user_author', '$CR_URL',
+   '{"text": {"origin": "url", "fileName": "xa-url.pdf", "sha256": "bb", "attachedBy": "user_author"}}');
+INSERT INTO knowledge_manifestation_revisions (revision_id, record_id, organization_id, edition_id, licence_class, corpus_file, sha256) VALUES
+  ('$RV_UP', 'manifestation:xa-up', NULL, 'edition:xa-1', 'public_open', 'xa-up.pdf', 'aa'),
+  ('$RV_URL', 'manifestation:xa-url', NULL, 'edition:xa-1', 'public_open', 'xa-url.pdf', 'bb');
+UPDATE knowledge_change_requests SET status = 'submitted' WHERE id IN ('$CR_UP', '$CR_URL');
+SQL
+check_in tf_0222 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "false" "before 0222 an uploaded text holds no approval up"
+apply_in tf_0222 0222_knowledge_text_four_eyes.sql
+apply_in tf_0222 0222_knowledge_text_four_eyes.sql   # up twice: idempotent
+check_in tf_0222 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "true" "0222: an uploaded text nobody else checked is unchecked"
+check_in tf_0222 "SELECT knowledge_sources_unchecked('$CR_URL')::text" "false" "0222: a text fetched from a configured source counts as fetched"
+refused_in tf_0222 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source, override_reason) VALUES (gen_random_uuid(), '$CR_UP', 'user_author', 'domain_expert', 'app', 'urgent')" "no reviewer checked" "an approval alone over an uploaded text nobody else checked"
+sql_in tf_0222 <<SQL
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked, decision_source)
+  VALUES (gen_random_uuid(), '$CR_UP', '$RV_UP', 'corpusFile', 'accepted', 'user_uploader', true, 'app');
+SQL
+check_in tf_0222 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "true" "0222: the uploader's own source check does not count"
+sql_in tf_0222 <<SQL
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked, decision_source)
+  VALUES (gen_random_uuid(), '$CR_UP', '$RV_UP', 'corpusFile', 'accepted', 'user_expert', true, 'app');
+SQL
+check_in tf_0222 "SELECT knowledge_sources_unchecked('$CR_UP')::text" "false" "0222: another person's source check clears the uploaded text"
+apply_in tf_0222 0222_knowledge_text_four_eyes.down.sql
+check_in tf_0222 "SELECT (pg_get_functiondef('knowledge_sources_unchecked(uuid)'::regprocedure) LIKE '%knowledge_manifestation_revisions%')::text" "false" "0222 down gives 0218's source check back"
+apply_in tf_0222 0222_knowledge_text_four_eyes.sql
+check_in tf_0222 "SELECT (pg_get_functiondef('knowledge_sources_unchecked(uuid)'::regprocedure) LIKE '%knowledge_manifestation_revisions%')::text" "true" "0222 applies again after its down"
+echo "==> 0222 text four eyes and its down migration verified"

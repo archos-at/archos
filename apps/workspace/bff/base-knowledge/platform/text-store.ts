@@ -75,27 +75,80 @@ export async function draftManifestation(
   return { proposal: row.provenance.proposal, text: named(row) ? textView(row) : null }
 }
 
+/** The file a manifestation revision names, and the hash of the bytes it was proposed with. */
+export interface TextPin {
+  corpusFile: string
+  sha256: string | null
+}
+
+/** What each manifestation of a request names at its newest revision, by record id: the bytes a review of it reads. */
+export async function pinnedTexts(tx: Tx, requestId: string): Promise<Map<string, TextPin>> {
+  return new Map((await newestManifestations(tx, requestId)).filter(named).map((row) => [row.record_id, { corpusFile: row.corpus_file, sha256: row.sha256 }]))
+}
+
+/** The file and hash one manifestation revision names; null when it names none or is no platform revision. */
+export async function pinOfRevision(tx: Tx, revisionId: string): Promise<TextPin | null> {
+  const [row] = await tx.execute<{ corpus_file: string | null; sha256: string | null }>(sql`
+    SELECT m.corpus_file, m.sha256 FROM knowledge_manifestation_revisions m
+    WHERE m.revision_id = ${revisionId}::uuid AND m.organization_id IS NULL`)
+  return row?.corpus_file ? { corpusFile: row.corpus_file, sha256: row.sha256 } : null
+}
+
+/** The manifestation revisions that name a file, with their record and request. */
+const NAMING = sql`
+  FROM knowledge_manifestation_revisions m
+  JOIN knowledge_records r ON r.id = m.record_id
+  JOIN knowledge_revisions v ON v.revision_id = m.revision_id
+  LEFT JOIN knowledge_change_requests c ON c.id = v.change_request_id
+  WHERE m.organization_id IS NULL`
+
+/** The revision is its record's head: a release names the file. */
+const RELEASED = sql`r.head_revision_id = m.revision_id`
+
+/** The revision is the newest of its record in a request still open: a release may come to name the file. */
+const ON_ITS_WAY = sql`(c.status IN ${OPEN_STATUSES} AND NOT EXISTS (
+  SELECT 1 FROM knowledge_revisions n
+  WHERE n.record_id = v.record_id AND n.change_request_id = v.change_request_id
+    AND (n.created_at, n.revision_id) > (v.created_at, v.revision_id)))`
+
 /**
  * Another record that names `fileName`: released, or the newest revision of a
- * request still open. A file is one record's text, so nobody replaces or
- * removes it under that record.
+ * request still open. A file is one record's text, so no second record names
+ * it and nobody removes it under that record.
  */
 export async function otherRecordNaming(tx: Tx, fileName: string, exceptRecordId: string | null): Promise<string | null> {
   const [row] = await tx.execute<{ record_id: string }>(sql`
-    SELECT m.record_id
-    FROM knowledge_manifestation_revisions m
-    JOIN knowledge_records r ON r.id = m.record_id
-    JOIN knowledge_revisions v ON v.revision_id = m.revision_id
-    LEFT JOIN knowledge_change_requests c ON c.id = v.change_request_id
-    WHERE m.organization_id IS NULL AND m.corpus_file = ${fileName}
+    SELECT m.record_id ${NAMING} AND m.corpus_file = ${fileName}
       ${exceptRecordId ? sql`AND m.record_id <> ${exceptRecordId}` : sql``}
-      AND (r.head_revision_id = m.revision_id
-        OR (c.status IN ${OPEN_STATUSES} AND NOT EXISTS (
-          SELECT 1 FROM knowledge_revisions n
-          WHERE n.record_id = v.record_id AND n.change_request_id = v.change_request_id
-            AND (n.created_at, n.revision_id) > (v.created_at, v.revision_id))))
+      AND (${RELEASED} OR ${ON_ITS_WAY})
     LIMIT 1`)
   return row?.record_id ?? null
+}
+
+/**
+ * A record that names `fileName` anywhere but in this draft's own revision of
+ * `recordId`: a release (this record's own included), or a revision on its way
+ * in another request. Only when there is none may the draft put other bytes
+ * under the name: what was released, or reviewed elsewhere, keeps its bytes.
+ */
+export async function namedOutsideDraft(tx: Tx, fileName: string, draft: { recordId: string; requestId: string }): Promise<string | null> {
+  const [row] = await tx.execute<{ record_id: string }>(sql`
+    SELECT m.record_id ${NAMING} AND m.corpus_file = ${fileName}
+      AND (${RELEASED}
+        OR (${ON_ITS_WAY} AND NOT (m.record_id = ${draft.recordId} AND v.change_request_id = ${draft.requestId}::uuid)))
+    LIMIT 1`)
+  return row?.record_id ?? null
+}
+
+/** Which of `fileNames` a record names, released or on its way, each with the hash it was proposed with. */
+export async function pinsOfFiles(tx: Tx, fileNames: readonly string[]): Promise<(TextPin & { recordId: string })[]> {
+  if (fileNames.length === 0) return []
+  const rows = await tx.execute<{ record_id: string; corpus_file: string; sha256: string | null }>(sql`
+    SELECT m.record_id, m.corpus_file, m.sha256 ${NAMING}
+      AND m.corpus_file IN (SELECT jsonb_array_elements_text(${JSON.stringify(fileNames)}::text::jsonb))
+      AND (${RELEASED} OR ${ON_ITS_WAY})
+    LIMIT 5000`)
+  return rows.map((row) => ({ recordId: row.record_id, corpusFile: row.corpus_file, sha256: row.sha256 }))
 }
 
 interface PlacementRow extends Record<string, unknown> {

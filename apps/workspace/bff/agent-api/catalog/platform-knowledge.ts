@@ -147,8 +147,9 @@ export const platformKnowledgeOperations = [
       'the manifestation `manifestationKey` (proposed before with platform-knowledge-records-propose, corpusFile null). ' +
       'Fetched and read by the public-source fetcher, kept in the base corpus where nobody reads it until the request is ' +
       'published, and set as the manifestation’s `corpusFile`. Returns the text with its `sha256`; the same PDF again ' +
-      'changes nothing. A URL that answers no PDF is refused with NOT_A_PDF, a file name another record uses with NAME_TAKEN ' +
-      '(pass another `fileName`), and a PDF the fetcher cannot read with its PDF code. Then platform-knowledge-validate.',
+      'changes nothing. A URL that answers no PDF is refused with NOT_A_PDF, a file name a record names outside this draft, or ' +
+      'one already released, with NAME_TAKEN (pass another `fileName`; the default is "<manifestationKey>.pdf"), and a PDF the ' +
+      'fetcher cannot read with its PDF code. A fetched text needs no source check. Then platform-knowledge-validate.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts',
     params: requestParams,
@@ -171,7 +172,9 @@ export const platformKnowledgeOperations = [
       `which sends no bytes through the tool call. Send \`body.files[0]\` as { name, mimeType, contentBase64 } (one PDF, up to ${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB) ` +
       'and `body.fields.manifestationKey`. The file is kept in the base corpus under its name, where nobody reads it until the ' +
       'request is published, and set as the manifestation’s `corpusFile`. Returns the text with its `sha256`; the same file ' +
-      'again changes nothing. A name another record uses is refused with NAME_TAKEN: rename the file.',
+      'again changes nothing. A name a record names outside this draft, or one already released, is refused with NAME_TAKEN: ' +
+      'rename the file. Nobody fetched an uploaded text, so another person checks it against its source (`sourceChecked`) ' +
+      'before anyone approves, alone or not.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts/upload',
     params: requestParams,
@@ -273,8 +276,9 @@ export const platformKnowledgeOperations = [
     summary: 'Record verdicts on the claims of a change request under review',
     description:
       'One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or ' +
-      'rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied ' +
-      'capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is ' +
+      'rejected; `sourceChecked` when you checked the cited capture, or the manifestation’s text, against its source, which ' +
+      'an operator-supplied capture and a text nobody fetched (uploaded, or only named) need before approval; a verdict ' +
+      'that sets it is the person’s own and is asked of them. A verdict is ' +
       'not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the ' +
       'request; a verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone ' +
       'stays reviewable until its second review is given.',

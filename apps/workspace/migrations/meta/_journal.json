@@ -1555,6 +1555,13 @@
       "when": 1793600000000,
       "tag": "0221_edition_applies_when",
       "breakpoints": true
+    },
+    {
+      "idx": 222,
+      "version": "7",
+      "when": 1793700000000,
+      "tag": "0222_knowledge_text_four_eyes",
+      "breakpoints": true
     }
   ]
 }

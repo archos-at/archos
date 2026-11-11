@@ -116,6 +116,8 @@ interface RecordProps {
   busy: boolean
   /** `sourceChecked`: the reviewer compared a pasted (operator-supplied) page with its source. */
   onDecide: (claims: { path: string; decision: Verdict }[], sourceChecked?: boolean) => void
+  /** The manifestation's text was uploaded or only named, not fetched from a source: accepting says it was compared too. */
+  unfetchedText?: boolean
   /** A manifestation's text, shown beside its sources (`ManifestationText`). */
   children?: ReactNode
 }
@@ -140,7 +142,7 @@ function Source({ citation, capture }: { citation: RevisionView['citations'][num
   )
 }
 
-function RecordCard({ revision, captures, canDecide, busy, onDecide, children }: RecordProps): JSX.Element {
+function RecordCard({ revision, captures, canDecide, busy, onDecide, unfetchedText = false, children }: RecordProps): JSX.Element {
   const t = useTranslations(platformCopy)
   const { locale } = useLocale()
   const wording = useMemo(() => wordingFor(t, locale), [t, locale])
@@ -148,7 +150,9 @@ function RecordCard({ revision, captures, canDecide, busy, onDecide, children }:
   const open = claims.filter((claim) => claim.decision !== 'accepted')
   const sources = revision.citations.filter((citation) => citation.url || citation.note || citation.captureId)
   // A page nobody fetched: accepting the record says the reviewer compared it with its source.
-  const pasted = revision.citations.some((citation) => citation.captureId && captures.get(citation.captureId)?.basis === 'operator_supplied')
+  const pastedPage = revision.citations.some((citation) => citation.captureId && captures.get(citation.captureId)?.basis === 'operator_supplied')
+  // The same holds for a text a person uploaded: the verdict vouches for it (migration 0222).
+  const pasted = pastedPage || unfetchedText
   return (
     <section className="flex flex-col gap-3 border-b pb-6 last:border-b-0" data-testid="change-request-record">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -178,7 +182,8 @@ function RecordCard({ revision, captures, canDecide, busy, onDecide, children }:
       ) : (
         <p className="text-muted-foreground text-sm">{t('countryKnowledge.noSource')}</p>
       )}
-      {pasted && canDecide ? <p className="text-muted-foreground text-sm">{t('countryKnowledge.pastedHint')}</p> : null}
+      {pastedPage && canDecide ? <p className="text-muted-foreground text-sm">{t('countryKnowledge.pastedHint')}</p> : null}
+      {unfetchedText && canDecide ? <p className="text-muted-foreground text-sm">{t('countryKnowledge.unfetchedTextHint')}</p> : null}
       {children}
       <dl className="flex flex-col">
         {claims.map((claim) => (
@@ -409,6 +414,7 @@ export function ChangeRequestReview({
             canDecide={canDecide}
             busy={busy}
             onDecide={decide(revision.revisionId)}
+            unfetchedText={revision.type === 'manifestation' && texts.has(revision.recordId) && texts.get(revision.recordId)?.origin !== 'url'}
           >
             {revision.type === 'manifestation' ? (
               <ManifestationText

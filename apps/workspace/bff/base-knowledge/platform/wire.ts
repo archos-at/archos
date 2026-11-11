@@ -160,7 +160,9 @@ const manifestationRecord = z.object({
     .regex(/^[^/\\]{1,200}\.pdf$/, 'a PDF file name in the base corpus')
     .nullable()
     .default(null)
-    .describe('The text’s file in the base corpus; propose null and attach the PDF with platform-knowledge-text-import or -text-upload, which set it.'),
+    .describe(
+      'The text’s file in the base corpus; propose null and attach the PDF with platform-knowledge-text-import or -text-upload, which set it. A file another record names is refused, and the revision keeps the hash of the bytes named.',
+    ),
   ...common,
 })
 
@@ -403,7 +405,9 @@ export const reviewBodySchema = z.object({
         sourceChecked: z
           .boolean()
           .default(false)
-          .describe('You checked the cited capture against its source; required before approving a record that cites an operator-supplied capture.'),
+          .describe(
+            'You checked the cited capture, or the manifestation’s text, against its source; required before approving a record that cites an operator-supplied capture or names a text nobody fetched (uploaded, or only named in the base corpus).',
+          ),
       }),
     )
     .min(1)
@@ -498,7 +502,7 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   texts: import('./text-wire').AttachedTextView[]
   /** The pages the records cite, as captured (ADR-0170); their text stays on the server. */
   captures: CaptureView[]
-  /** A record cites an operator-supplied capture nobody but its author checked against its source: nobody approves until another person does, alone or not. */
+  /** A record cites an operator-supplied capture, or names a text nobody fetched, that nobody but its author checked against its source: nobody approves until another person does, alone or not. */
   sourcesUnchecked: boolean
   /** Each role approved alone and its second review (ADR-0176); empty on a four-eyes request. */
   secondReviewRoles: SecondReviewRoleView[]

@@ -6,10 +6,15 @@
  * the corpus holds that file, and a corpus that cannot answer is a problem
  * too. So no request is submitted, approved and published before its text is
  * there, which is what used to fail the indexing run after the publish.
+ *
+ * And the reviewed bytes are the published bytes: a revision keeps the sha256
+ * of the file it names, and other bytes under that name are a problem.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const corpus = vi.hoisted(() => ({ files: [] as { fileName: string; state: string }[], answers: true }))
+const corpus = vi.hoisted(() => ({ files: [] as { fileName: string; state: string; currentSha256?: string | null }[], answers: true }))
+const SHA = 'a'.repeat(64)
+const OTHER = 'b'.repeat(64)
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/knowledge/service', () => ({
@@ -41,12 +46,15 @@ const manifestation = (corpusFile: string | null) =>
 /** The kit as the service runs it: the outside checks first, then the pure proposal check. */
 async function kit(corpusFile: string | null) {
   const records = [manifestation(corpusFile)]
-  return validateProposal(records, 'AT', KNOWN, CAPTURES, [], await checksOutsideKit(records))
+  return validateProposal(records, 'AT', KNOWN, CAPTURES, [], (await checksOutsideKit(records, new Map(), true)).checks)
 }
+
+const ID = 'manifestation:oib-rl-1-2019-text'
+const pinnedTo = (sha256: string | null, corpusFile = 'oib-rl-1-2019.pdf') => new Map([[ID, { corpusFile, sha256 }]])
 
 describe('a manifestation’s text is in the base corpus before the record is written', () => {
   beforeEach(() => {
-    corpus.files = [{ fileName: 'oib-rl-1-2019.pdf', state: 'ingested' }]
+    corpus.files = [{ fileName: 'oib-rl-1-2019.pdf', state: 'ingested', currentSha256: SHA }]
     corpus.answers = true
   })
 
@@ -68,7 +76,7 @@ describe('a manifestation’s text is in the base corpus before the record is wr
   })
 
   it('does not count a file whose bytes are gone', async () => {
-    corpus.files = [{ fileName: 'oib-rl-1-2019.pdf', state: 'removed' }]
+    corpus.files = [{ fileName: 'oib-rl-1-2019.pdf', state: 'removed', currentSha256: SHA }]
     expect(await kit('oib-rl-1-2019.pdf')).toMatchObject([{ code: 'KC-1', pointer: '/corpusFile' }])
   })
 
@@ -87,6 +95,47 @@ describe('a manifestation’s text is in the base corpus before the record is wr
 
   it('asks the corpus only when a record names a file', async () => {
     corpus.answers = false
-    expect(await textChecksOf([manifestation(null)])).toEqual(new Map())
+    expect((await textChecksOf([manifestation(null)])).checks).toEqual(new Map())
+  })
+})
+
+describe('the reviewed bytes are the published bytes', () => {
+  const text = [manifestation('oib-rl-1-2019.pdf')]
+
+  beforeEach(() => {
+    corpus.files = [{ fileName: 'oib-rl-1-2019.pdf', state: 'ingested', currentSha256: SHA }]
+    corpus.answers = true
+  })
+
+  it('pins a file named for the first time to the bytes the corpus holds, for the revision to keep', async () => {
+    const { checks, pins } = await textChecksOf(text, new Map(), true)
+    expect(checks.get(ID)).toEqual([])
+    expect(pins.get(ID)).toBe(SHA)
+  })
+
+  it('passes a stored revision whose hash is the corpus’s (positive control)', async () => {
+    expect((await textChecksOf(text, pinnedTo(SHA))).checks.get(ID)).toEqual([])
+  })
+
+  it('refuses other bytes under the name, on a proposal and on a stored request', async () => {
+    corpus.files = [{ fileName: 'oib-rl-1-2019.pdf', state: 'ingested', currentSha256: OTHER }]
+    for (const pinNew of [true, false]) {
+      expect((await textChecksOf(text, pinnedTo(SHA), pinNew)).checks.get(ID)).toMatchObject([
+        { code: 'KC-1', pointer: '/corpusFile', detail: expect.stringContaining('other bytes'), hint: expect.stringContaining('new file name') },
+      ])
+    }
+  })
+
+  it('fails closed on a stored revision that keeps no hash, and on a corpus that gives none', async () => {
+    expect((await textChecksOf(text, pinnedTo(null))).checks.get(ID)).toMatchObject([{ code: 'KC-1', detail: expect.stringContaining('without the hash') }])
+    expect((await textChecksOf(text, new Map())).checks.get(ID)).toMatchObject([{ code: 'KC-1', detail: expect.stringContaining('without the hash') }])
+    corpus.files = [{ fileName: 'oib-rl-1-2019.pdf', state: 'ingested', currentSha256: null }]
+    expect((await textChecksOf(text, pinnedTo(SHA))).checks.get(ID)).toMatchObject([{ code: 'KC-1', detail: expect.stringContaining('could not be checked') }])
+  })
+
+  it('does not take another file’s hash for this one', async () => {
+    // The draft's revision named another file; this proposal names a new one, which is pinned afresh.
+    const { pins } = await textChecksOf(text, pinnedTo(OTHER, 'earlier.pdf'), true)
+    expect(pins.get(ID)).toBe(SHA)
   })
 })

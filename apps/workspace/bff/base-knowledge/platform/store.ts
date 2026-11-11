@@ -211,6 +211,8 @@ export async function insertProposedRecords(
     viaClient?: string
     /** The text just attached to the one manifestation proposed here (`./texts.ts`). */
     text?: KnowledgeTextProvenance
+    /** The sha256 of the corpus file each manifestation names, by record id, as the kit just checked it (`text-checks.ts`). */
+    pins?: ReadonlyMap<string, string>
   },
 ): Promise<ProposedRevision[]> {
   await tx
@@ -255,11 +257,19 @@ export async function insertProposedRecords(
         },
         changeRequestId: request.id,
       },
-      { ...bodyOf(record), ...(text ? { sha256: text.sha256 } : {}) },
+      // The bytes the revision names: the attached text's, else the hash the corpus held when the kit checked the name.
+      { ...bodyOf(record), ...(namedBytes(record, text, context.pins?.get(recordId)) ?? {}) },
     )
     written.push({ key: proposalKey(record), recordId, revisionId, status: 'written' })
   }
   return written
+}
+
+/** The `sha256` a manifestation revision keeps: of the file it names, never of one it no longer names. */
+function namedBytes(record: ProposedRecord, text: KnowledgeTextProvenance | undefined, pin: string | undefined): { sha256: string } | null {
+  if (record.type !== 'manifestation' || record.corpusFile === null) return null
+  const sha256 = text?.fileName === record.corpusFile ? text.sha256 : pin
+  return sha256 ? { sha256 } : null
 }
 
 /** Each revision's body columns, by revision id. */
@@ -439,7 +449,7 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
  * or, to approve alone, a fetched capture in its place (ADR-0170, ADR-0176).
  */
 const SOURCE_UNCHECKED =
-  'A record cites an operator-supplied capture that nobody but its author has checked against its source. Another person checks it (sourceChecked on platform-knowledge-change-request-review); to approve alone, cite a fetched capture from a configured source instead.'
+  'A record cites an operator-supplied capture, or names a text nobody fetched (uploaded, or only named in the base corpus), that nobody but its author has checked against its source. Another person checks it (sourceChecked on platform-knowledge-change-request-review); to approve alone, cite a fetched capture and attach the text with platform-knowledge-text-import from a configured source instead.'
 
 export async function insertApproval(
   tx: Tx,

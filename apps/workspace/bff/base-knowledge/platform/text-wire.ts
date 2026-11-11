@@ -29,7 +29,7 @@ export const importTextBodySchema = z.object({
   url: z.url().max(2000).describe('The PDF; fetched and read by the public-source fetcher, GET only.'),
   fileName: corpusFileNameSchema
     .optional()
-    .describe('The name the base corpus keeps it under; by default the last segment of the URL when it ends in .pdf, else "<manifestationKey>.pdf".'),
+    .describe('The name the base corpus keeps it under; by default "<manifestationKey>.pdf". A text that replaces a released one takes a new name.'),
 })
 export type ImportTextBody = z.infer<typeof importTextBodySchema>
 

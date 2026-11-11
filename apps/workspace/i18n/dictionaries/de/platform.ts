@@ -154,7 +154,7 @@ export const platform: typeof en.platform = {
     wrongCount: 'nicht richtig: {count}',
     why: {
       own: 'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei.',
-      ownUnchecked: 'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei. Eine eingefügte, nicht abgerufene Seite prüft eine andere Person gegen ihre Quelle, bevor Sie ohne Zweitprüfung freigeben können.',
+      ownUnchecked: 'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei. Eine eingefügte Seite oder einen hochgeladenen Text, die nicht abgerufen wurden, prüft eine andere Person gegen die Quelle, bevor Sie ohne Zweitprüfung freigeben können.',
       open: 'Noch zu prüfen: {count}',
       alone: 'Sie haben in diesem Antrag geschrieben: eine zweite Person gibt ihn frei, oder Sie geben ihn mit Grund ohne Zweitprüfung frei.',
       wrong: 'Nicht richtig: {count}. Ein Antrag mit falschem Eintrag kann nicht freigegeben werden.',
@@ -162,6 +162,7 @@ export const platform: typeof en.platform = {
     acceptAll: 'Alle richtig',
     acceptChecked: 'Mit der Quelle verglichen, alles richtig',
     pastedHint: 'Diese Seite wurde eingefügt, nicht abgerufen. Öffnen Sie die Quelle und vergleichen Sie: „richtig“ heißt hier auch, dass der Text mit der Quelle übereinstimmt.',
+    unfetchedTextHint: 'Dieser Text wurde hochgeladen, nicht von einer Quelle abgerufen. Öffnen Sie ihn und vergleichen Sie ihn mit dem des Herausgebers: „richtig“ heißt hier auch, dass es dieser Text ist.',
     operatorSupplied: 'eingefügt, nicht abgerufen',
     draftsTitle: 'In Arbeit',
     draftsDescription: 'Entwürfe, in die noch Einträge und Texte kommen. Öffnen Sie einen, um einer Ausgabe ihren Text anzuhängen.',

@@ -331,6 +331,15 @@ def get_mark(name: str) -> FileMark | None:
     return FileMark(country_id=record.country_id, edition_id=record.edition_id) if record is not None else None
 
 
+def list_marks() -> dict[str, FileMark]:
+    """Every file's mark, by file name: what the status reads to say which files a country reads."""
+    with _transaction() as conn:
+        return {
+            record.file_name: FileMark(country_id=record.country_id, edition_id=record.edition_id)
+            for record in conn.execute(select(_marks))
+        }
+
+
 def mark_ingested(name: str, sha256: str, chunk_format_version: int) -> bool:
     """Record that the index was built from ``sha256`` by pipeline ``chunk_format_version``.
 

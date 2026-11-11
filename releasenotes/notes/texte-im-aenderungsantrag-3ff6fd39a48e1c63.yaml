@@ -2,7 +2,8 @@
 # area: administration
 operators:
   - >
-    The text of an edition is now attached inside its change request, by upload or from
-    a URL on a configured source, and reviewers open it there. A request that names a
-    file the base corpus does not hold can no longer be submitted, and the base
-    knowledge page groups its files by country with their edition and request.
+    An edition's text is now attached inside its change request, by upload or from a
+    configured source's URL, and reviewers open it there. The reviewed file is the
+    published one: a file a record names cannot be replaced, and a new text for a
+    released edition takes a new name. A second person compares an uploaded text
+    with its source before anyone approves, also when approving alone.

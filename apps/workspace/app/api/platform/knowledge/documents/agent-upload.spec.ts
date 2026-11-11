@@ -15,6 +15,8 @@ vi.mock('@/lib/authz/platform', () => {
   return { PlatformAccessDeniedError, requirePlatformPermission: vi.fn().mockResolvedValue(undefined) }
 })
 vi.mock('@/lib/knowledge/service', () => ({ uploadKnowledgeBaseDocument: vi.fn() }))
+// No record names the uploaded file here; the guard on a named text's bytes has its own specs.
+vi.mock('@/lib/base-knowledge/platform/texts', () => ({ refuseReplacingNamedTexts: vi.fn().mockResolvedValue(undefined) }))
 
 import { uploadKnowledgeBaseDocument } from '@/lib/knowledge/service'
 

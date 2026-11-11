@@ -18,7 +18,12 @@
  *   else and never the URL itself;
  * - a file is one record's text: another record cannot replace it, nobody
  *   removes it while a record names it, and the corpus page reads which
- *   country, edition and request it belongs to.
+ *   country, edition and request it belongs to;
+ * - the reviewed bytes are the published bytes: other bytes under a named
+ *   file fail the kit, are refused by the plain upload, and are never indexed;
+ * - a draft replaces nothing that is released or that a country reads;
+ * - an uploaded text needs another person's source check before any approval,
+ *   alone included (migration 0222), and a fetched one does not.
  *
  * The corpus itself is the backend's and stands in here, as in
  * `platform.integration.spec.ts`.
@@ -31,7 +36,13 @@ import type { UserSession } from '@/lib/auth/types'
 
 const fixed = vi.hoisted(() => ({ platformOrg: `org_platform_texts_${Date.now().toString(36)}` }))
 /** The base corpus: file name to the sha256 of its bytes, and what a re-ingest was told about each file. */
-const corpus = vi.hoisted(() => ({ files: new Map<string, string>(), marks: {} as Record<string, unknown>, answers: true }))
+/** `countries` is the mark a release left on a file: its country's offices read it. */
+const corpus = vi.hoisted(() => ({
+  files: new Map<string, string>(),
+  marks: {} as Record<string, unknown>,
+  countries: new Map<string, string>(),
+  answers: true,
+}))
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
@@ -49,7 +60,7 @@ vi.mock('@/lib/authz/platform', async (importOriginal) => {
 vi.mock('@/lib/knowledge/service', () => ({
   getKnowledgeBaseStatus: async () => {
     if (!corpus.answers) throw new Error('Knowledge backend unreachable')
-    return { files: [...corpus.files].map(([fileName, currentSha256]) => ({ fileName, state: 'pending', currentSha256 })) }
+    return { files: [...corpus.files].map(([fileName, currentSha256]) => ({ fileName, state: 'pending', currentSha256, countryId: corpus.countries.get(fileName) ?? null })) }
   },
   uploadKnowledgeBaseDocument: async (file: File) => {
     corpus.files.set(file.name, createHash('sha256').update(Buffer.from(await file.arrayBuffer())).digest('hex'))
@@ -57,6 +68,7 @@ vi.mock('@/lib/knowledge/service', () => ({
   },
   reingestKnowledgeBaseDocuments: async (names: string[], marks: Record<string, unknown> = {}) => {
     Object.assign(corpus.marks, marks)
+    for (const [name, mark] of Object.entries(marks)) corpus.countries.set(name, String((mark as { countryId?: string }).countryId))
     return { status: 'pending', queued: names.filter((name) => corpus.files.has(name)), unknown: names.filter((name) => !corpus.files.has(name)), message: '' }
   },
   markCorpusFileCountry: async () => undefined,
@@ -68,8 +80,14 @@ const BACKEND = 'http://localhost:8000'
 const PDF_URL = 'https://www.ris.bka.gv.at/Dokumente/guideline-1.pdf'
 const MASTHEAD = 'OIB-Richtlinie 1 Mechanische Festigkeit und Standsicherheit, Ausgabe April 2019, herausgegeben vom OIB'
 
-const person = (userId: string) =>
-  ({ userId, email: `${userId}@example.com`, organizationId: fixed.platformOrg, permissions: ['platform:settings:view', 'platform:knowledge:write', 'platform:knowledge:review'] }) as unknown as UserSession
+const PERMISSIONS = [
+  'platform:settings:view',
+  'platform:knowledge:write',
+  'platform:knowledge:review',
+  'platform:knowledge:approve_as_domain_expert',
+  'platform:knowledge:approve_alone',
+]
+const person = (userId: string) => ({ userId, email: `${userId}@example.com`, organizationId: fixed.platformOrg, permissions: PERMISSIONS }) as unknown as UserSession
 const AUTHOR = person(`user_texts_author_${RUN}`)
 const EXPERT = person(`user_texts_expert_${RUN}`)
 
@@ -97,10 +115,22 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
   const key = (name: string) => `${name}-${RUN}`
   const pdfName = (name: string) => `${name}-${RUN}.pdf`
 
+  /** The masthead as a capture of `id`: pasted by the operator, or fetched from a configured source (the api tier stands in). */
+  async function masthead(id: string, fetched: boolean) {
+    if (!fetched) return onboarding.capturePlatformCitation(AUTHOR, id, { basis: 'operator_supplied', url: 'https://www.oib.or.at/', text: MASTHEAD })
+    const page = { url: PDF_URL, finalUrl: PDF_URL, contentType: 'text/html', sha256: 'e'.repeat(64), bytes: MASTHEAD.length, text: MASTHEAD, pages: null, note: null, retrievedAt: '2026-11-11T09:00:00.000Z' }
+    vi.stubGlobal('fetch', async () => Response.json(page))
+    try {
+      return await onboarding.capturePlatformCitation(AUTHOR, id, { basis: 'fetched', sourceId: 'at-ris', url: PDF_URL })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  }
+
   /** A draft with a captured masthead, and a work, an edition and a manifestation citing it; the manifestation names `corpusFile`. */
-  async function draft(name: string, corpusFile: string | null = null) {
+  async function draft(name: string, corpusFile: string | null = null, fetched = false) {
     const { id } = await service.createPlatformChangeRequest(AUTHOR, { title: `Texts ${name}`, countryId: 'AT' })
-    const capture = await onboarding.capturePlatformCitation(AUTHOR, id, { basis: 'operator_supplied', url: 'https://www.oib.or.at/', text: MASTHEAD })
+    const capture = await masthead(id, fetched)
     const cite = (quote: string) => [{ captureId: capture.captureId, quote }]
     const records = [
       { type: 'work', key: key(`${name}-rl-1`), kind: 'guideline', title: 'Mechanische Festigkeit und Standsicherheit', designation: 'OIB-Richtlinie 1', citations: cite('OIB-Richtlinie 1 Mechanische Festigkeit') },
@@ -115,6 +145,17 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       citations: cite('herausgegeben vom OIB'),
     })
     return { id, records, manifestation, manifestationKey: key(`${name}-rl-1-2019-text`) }
+  }
+
+  /** A new draft that proposes the records of `first` again, citing its own capture of the masthead. */
+  async function redraft(first: Awaited<ReturnType<typeof draft>>) {
+    const { id } = await service.createPlatformChangeRequest(AUTHOR, { title: 'Texts, proposed again', countryId: 'AT' })
+    const capture = await masthead(id, false)
+    const records = [...first.records, first.manifestation].map((record) =>
+      wire.proposedRecordSchema.parse({ ...record, citations: record.citations.map((citation) => ({ ...citation, captureId: capture.captureId })) }),
+    )
+    await service.proposePlatformRecords(AUTHOR, id, { records, dryRun: false })
+    return id
   }
 
   /** Submitted, every claim accepted and approved by the expert, then published to preview and stable. */
@@ -301,6 +342,231 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       await publish(id)
       expect(await placed()).toMatchObject({ released: true, changeRequestId: id, changeRequestStatus: 'published' })
       expect((await texts.listPlatformTexts(EXPERT, { countryId: 'DE' })).texts.some((text) => text.corpusFile === name)).toBe(false)
+    })
+  })
+
+  /** A stand-in for the api tier's `corpus-text`: it keeps `sha256` as `fileName` unless the name is held and may not be replaced. */
+  function fetcherKeeps(sha256: string) {
+    const requested: Record<string, unknown>[] = []
+    vi.stubGlobal('fetch', async (_input: string | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
+      requested.push(body)
+      const name = String(body.fileName)
+      const held = corpus.files.get(name)
+      if (held && held !== sha256 && (!body.replace || corpus.countries.has(name))) {
+        return Response.json({ detail: `the base corpus keeps a different file as ${name}`, code: 'name_taken' }, { status: 409 })
+      }
+      corpus.files.set(name, sha256)
+      return Response.json({ fileName: name, stored: held !== sha256, url: body.url, finalUrl: body.url, contentType: 'application/pdf', sha256, bytes: 1_000, pages: 3, note: null, retrievedAt: '2026-11-11T09:00:00.000Z' })
+    })
+    return requested
+  }
+
+  describe('the reviewed bytes are the published bytes', () => {
+    it('fails the kit and refuses the submit once other bytes sit under the attached file', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('swapped')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const attached = await texts.uploadPlatformText(AUTHOR, id, manifestationKey, pdf(pdfName('swapped'), 'the reviewed text'))
+      expect((await onboarding.validatePlatformChangeRequest(AUTHOR, id)).valid).toBe(true)
+
+      // The bytes are swapped under the name, behind the request's back.
+      corpus.files.set(attached.text.corpusFile, 'f'.repeat(64))
+      const validation = await onboarding.validatePlatformChangeRequest(AUTHOR, id)
+      expect(validation.valid).toBe(false)
+      expect(validation.problems).toMatchObject([{ code: 'KC-1', pointer: '/corpusFile', detail: expect.stringContaining('other bytes') }])
+      await expect(service.submitPlatformChangeRequest(AUTHOR, id)).rejects.toMatchObject({ status: 422 })
+
+      // Positive control: with the reviewed bytes back, the request validates and submits.
+      corpus.files.set(attached.text.corpusFile, attached.text.sha256 as string)
+      await expect(service.submitPlatformChangeRequest(AUTHOR, id)).resolves.toEqual({ status: 'submitted' })
+    })
+
+    it('indexes nothing and marks no country when the bytes changed between approval and publish', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('late-swap')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const name = pdfName('late-swap')
+      await texts.uploadPlatformText(AUTHOR, id, manifestationKey, pdf(name, 'the reviewed text'))
+      const outcome = await publish(id)
+
+      corpus.files.set(name, 'f'.repeat(64))
+      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId: outcome.indexRuns[0] as string }, { last: true })
+      expect((await indexing.readIndexStatus(id)).texts).toMatchObject([{ corpusFile: name, state: 'failed', failure: expect.stringContaining('other bytes') }])
+      expect(corpus.marks[name]).toBeUndefined()
+      expect(corpus.countries.has(name)).toBe(false)
+    })
+
+    it('pins a file a record only names to the bytes the corpus held, and holds it to them', async () => {
+      const name = pdfName('only-named')
+      corpus.files.set(name, 'a'.repeat(64))
+      const { id, records, manifestation } = await draft('only-named', name)
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      expect((await service.getPlatformChangeRequest(AUTHOR, id)).texts).toMatchObject([{ corpusFile: name, origin: null, sha256: 'a'.repeat(64) }])
+
+      corpus.files.set(name, 'f'.repeat(64))
+      expect((await onboarding.validatePlatformChangeRequest(AUTHOR, id)).problems).toMatchObject([{ code: 'KC-1', detail: expect.stringContaining('other bytes') }])
+      // Proposing it again does not quietly take the new bytes for the reviewed ones.
+      const again = wire.proposedRecordSchema.parse({ ...manifestation, language: 'de-AT' })
+      await expect(service.proposePlatformRecords(AUTHOR, id, { records: [again], dryRun: false })).rejects.toMatchObject({ status: 422 })
+    })
+
+    it('refuses a plain corpus upload of other bytes under a file a record names', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('plain-upload')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const file = pdf(pdfName('plain-upload'), 'the reviewed text')
+      await texts.uploadPlatformText(AUTHOR, id, manifestationKey, file)
+
+      await expect(texts.refuseReplacingNamedTexts(new Map([[file.name, 'f'.repeat(64)]]))).rejects.toMatchObject({ status: 409, code: 'NAME_TAKEN' })
+      // In a ZIP too: one named file with other bytes refuses the whole upload.
+      await expect(texts.refuseReplacingNamedTexts(new Map([[pdfName('unnamed'), 'e'.repeat(64)], [file.name, 'f'.repeat(64)]]))).rejects.toMatchObject({ status: 409 })
+      // Positive controls: the same bytes again, and a file no record names.
+      await expect(texts.refuseReplacingNamedTexts(new Map([[file.name, await sha(file)]]))).resolves.toBeUndefined()
+      await expect(texts.refuseReplacingNamedTexts(new Map([[pdfName('unnamed'), 'e'.repeat(64)]]))).resolves.toBeUndefined()
+    })
+  })
+
+  describe('a draft replaces nothing that is released', () => {
+    it('refuses other bytes under a released file, from an upload and from a URL, also for the record that names it', async () => {
+      const first = await draft('released')
+      await service.proposePlatformRecords(AUTHOR, first.id, { records: [...first.records, first.manifestation], dryRun: false })
+      const name = pdfName('released')
+      await texts.uploadPlatformText(AUTHOR, first.id, first.manifestationKey, pdf(name, 'the released text'))
+      const outcome = await publish(first.id)
+      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId: outcome.indexRuns[0] as string }, { last: true })
+      const live = corpus.files.get(name)
+      expect(corpus.countries.get(name)).toBe('AT')
+
+      // A new draft of the same country proposes the same manifestation again and tries to put a new text under its file.
+      const next = { id: await redraft(first) }
+      await expect(texts.uploadPlatformText(AUTHOR, next.id, first.manifestationKey, pdf(name, 'an unreviewed text'))).rejects.toMatchObject({ status: 409, code: 'NAME_TAKEN' })
+      const requested = fetcherKeeps('d'.repeat(64))
+      await expect(texts.importPlatformText(AUTHOR, next.id, { manifestationKey: first.manifestationKey, sourceId: 'at-ris', url: PDF_URL, fileName: name })).rejects.toMatchObject({ status: 409, code: 'NAME_TAKEN' })
+      // This tier already said the name may not be replaced: a release names it.
+      expect(requested[0]).toMatchObject({ fileName: name, replace: false })
+      expect(corpus.files.get(name)).toBe(live)
+
+      // Positive control: the new text under a new name is attached, and the released file is untouched.
+      const renamed = pdf(pdfName('released-2026'), 'an unreviewed text')
+      await expect(texts.uploadPlatformText(AUTHOR, next.id, first.manifestationKey, renamed)).resolves.toMatchObject({ status: 'written', stored: true })
+      expect(corpus.files.get(name)).toBe(live)
+    })
+
+    it('refuses other bytes under a file a country reads although no record names it', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('legacy')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const name = pdfName('legacy-oib')
+      corpus.files.set(name, 'a'.repeat(64))
+      corpus.countries.set(name, 'AT')
+      await expect(texts.uploadPlatformText(AUTHOR, id, manifestationKey, pdf(name, 'an unreviewed text'))).rejects.toMatchObject({ status: 409, code: 'NAME_TAKEN' })
+      expect(corpus.files.get(name)).toBe('a'.repeat(64))
+
+      // Positive control: a file a rollback left unreleased (ZZ) is read by nobody, and a draft may take its name.
+      corpus.countries.set(name, 'ZZ')
+      await expect(texts.uploadPlatformText(AUTHOR, id, manifestationKey, pdf(name, 'an unreviewed text'))).resolves.toMatchObject({ stored: true })
+    })
+
+    it('refuses other bytes under a file a submitted request of the same record still names', async () => {
+      const first = await draft('in-review')
+      await service.proposePlatformRecords(AUTHOR, first.id, { records: [...first.records, first.manifestation], dryRun: false })
+      const name = pdfName('in-review')
+      await texts.uploadPlatformText(AUTHOR, first.id, first.manifestationKey, pdf(name, 'the text under review'))
+      await service.submitPlatformChangeRequest(AUTHOR, first.id)
+      const reviewed = corpus.files.get(name)
+
+      const second = { id: await redraft(first) }
+      await expect(texts.uploadPlatformText(AUTHOR, second.id, first.manifestationKey, pdf(name, 'another text'))).rejects.toMatchObject({ status: 409, code: 'NAME_TAKEN' })
+      expect(corpus.files.get(name)).toBe(reviewed)
+    })
+  })
+
+  describe('an upload does not get around four eyes (migration 0222)', () => {
+    const alone = { decision: 'approve' as const, role: 'domain_expert' as const, override: { reason: 'Only platform owner on call this week; counsel is back on Monday.' } }
+
+    /** A submitted request whose records cite a fetched page only, so nothing but the manifestation's text can be unchecked. */
+    async function submittedWithText(name: string, attach: (id: string, manifestationKey: string) => Promise<unknown>, corpusFile: string | null = null) {
+      const { id, records, manifestation, manifestationKey } = await draft(name, corpusFile, true)
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      await attach(id, manifestationKey)
+      await service.submitPlatformChangeRequest(AUTHOR, id)
+      return id
+    }
+    /** The expert accepts every claim of the request, vouching for the sources or not. */
+    const acceptAll = async (id: string, sourceChecked: boolean) => {
+      const view = await service.getPlatformChangeRequest(EXPERT, id)
+      await service.reviewPlatformChangeRequest(
+        EXPERT,
+        id,
+        view.revisions.flatMap((revision) => revision.claims.map((claim) => ({ revisionId: revision.revisionId, claimPath: claim.path, decision: 'accepted' as const, sourceChecked }))),
+      )
+    }
+
+    it('refuses to approve alone, or at all, over an uploaded text nobody else checked against its source', async () => {
+      const id = await submittedWithText('own-pdf', (request, key) => texts.uploadPlatformText(AUTHOR, request, key, pdf(pdfName('own-pdf'), 'my own OIB-RL 6')))
+      expect((await service.getPlatformChangeRequest(AUTHOR, id)).sourcesUnchecked).toBe(true)
+      await expect(service.decidePlatformChangeRequest(AUTHOR, id, alone)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('text nobody fetched') })
+      // Verdicts that do not vouch for the source change nothing, for the expert's own approval either.
+      await acceptAll(id, false)
+      await expect(service.decidePlatformChangeRequest(EXPERT, id, { decision: 'approve', role: 'domain_expert' })).rejects.toMatchObject({ status: 409 })
+      expect((await service.getPlatformChangeRequest(AUTHOR, id)).status).toBe('submitted')
+
+      // Positive control: once another person checked the text against its source, the request is approved.
+      await acceptAll(id, true)
+      expect((await service.getPlatformChangeRequest(AUTHOR, id)).sourcesUnchecked).toBe(false)
+      await expect(service.decidePlatformChangeRequest(EXPERT, id, { decision: 'approve', role: 'domain_expert' })).resolves.toMatchObject({ status: 'approved' })
+    })
+
+    it('holds a text a record only names in the corpus like an uploaded one', async () => {
+      const name = pdfName('named-only-eyes')
+      corpus.files.set(name, 'a'.repeat(64))
+      const id = await submittedWithText('named-only-eyes', async () => undefined, name)
+      expect((await service.getPlatformChangeRequest(AUTHOR, id)).sourcesUnchecked).toBe(true)
+      await expect(service.decidePlatformChangeRequest(AUTHOR, id, alone)).rejects.toMatchObject({ status: 409 })
+    })
+
+    it('counts a text fetched from a configured source as fetched: the author approves alone', async () => {
+      const id = await submittedWithText('fetched', async (request, key) => {
+        fetcherKeeps('c'.repeat(64))
+        await texts.importPlatformText(AUTHOR, request, { manifestationKey: key, sourceId: 'at-ris', url: PDF_URL })
+        vi.unstubAllGlobals()
+      })
+      const view = await service.getPlatformChangeRequest(AUTHOR, id)
+      expect(view.texts).toMatchObject([{ origin: 'url', sha256: 'c'.repeat(64) }])
+      expect(view.sourcesUnchecked).toBe(false)
+      await expect(service.decidePlatformChangeRequest(AUTHOR, id, alone)).resolves.toMatchObject({ status: 'approved' })
+    })
+  })
+
+  describe('a file name is one record’s', () => {
+    it('refuses a plain proposal that names another record’s file, in a batch and across requests', async () => {
+      const first = await draft('named-first')
+      await service.proposePlatformRecords(AUTHOR, first.id, { records: [...first.records, first.manifestation], dryRun: false })
+      const name = pdfName('named-first')
+      await texts.uploadPlatformText(AUTHOR, first.id, first.manifestationKey, pdf(name))
+
+      // Another request names the same file: its publish would mark the file for its own record and country.
+      const second = await draft('named-second', name)
+      const dry = await service.proposePlatformRecords(AUTHOR, second.id, { records: [...second.records, second.manifestation], dryRun: true })
+      expect(dry.valid).toBe(false)
+      expect(dry.results[2]?.problems).toMatchObject([{ code: 'KC-1', pointer: '/corpusFile', detail: expect.stringContaining('NAME_TAKEN') }])
+      await expect(service.proposePlatformRecords(AUTHOR, second.id, { records: [...second.records, second.manifestation], dryRun: false })).rejects.toMatchObject({ status: 422 })
+
+      // Two records of one batch on one file: the second is the problem.
+      const free = pdfName('named-in-batch')
+      corpus.files.set(free, 'a'.repeat(64))
+      const batch = await draft('named-batch', free)
+      const twin = wire.proposedRecordSchema.parse({ ...batch.manifestation, key: `${batch.manifestationKey}-twin` })
+      const twins = await service.proposePlatformRecords(AUTHOR, batch.id, { records: [...batch.records, batch.manifestation, twin], dryRun: true })
+      expect(twins.results[2]?.problems).toEqual([])
+      expect(twins.results[3]?.problems).toMatchObject([{ code: 'KC-1', detail: expect.stringContaining('NAME_TAKEN') }])
+    })
+
+    it('keeps a fetched text as <manifestationKey>.pdf by default, whatever the URL’s last segment is', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('default-name')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const requested = fetcherKeeps('c'.repeat(64))
+      // A malformed percent escape in the path is no error of this tier: the name never comes from the URL.
+      const attached = await texts.importPlatformText(AUTHOR, id, { manifestationKey, sourceId: 'at-ris', url: 'https://www.ris.bka.gv.at/Dokumente/100%zz/richtlinie-1.pdf' })
+      expect(requested[0]).toMatchObject({ fileName: `${manifestationKey}.pdf`, replace: true })
+      expect(attached.text.corpusFile).toBe(`${manifestationKey}.pdf`)
     })
   })
 })

@@ -39,9 +39,10 @@ vi.mock('@/lib/knowledge/service', () => ({
 }))
 
 const refuseRemoval = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/base-knowledge/platform/texts', () => ({ refuseRemovingNamedText: refuseRemoval }))
+const refuseReplacing = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/base-knowledge/platform/texts', () => ({ refuseRemovingNamedText: refuseRemoval, refuseReplacingNamedTexts: refuseReplacing }))
 
-import { ConflictError } from '@/lib/api/errors'
+import { ApiError, ConflictError } from '@/lib/api/errors'
 import { POST as uploadRoute } from './documents/route'
 import { DELETE as deleteRoute } from './documents/[fileName]/route'
 import { POST as syncRoute } from './sync/route'
@@ -65,6 +66,7 @@ describe('platform knowledge routes', () => {
   beforeEach(() => {
     isOwner.value = false
     uploadMock.mockReset()
+    refuseReplacing.mockReset()
     deleteMock.mockReset()
     syncMock.mockReset()
   })
@@ -102,6 +104,19 @@ describe('platform knowledge routes', () => {
     uploadMock.mockResolvedValue({ status: 'failed', fileName: 'norm.pdf', message: 'boom' })
 
     expect((await uploadRoute(uploadRequest())).status).toBe(502)
+  })
+
+  it('refuses other bytes under a file a record names, and stores nothing (ADR-0165)', async () => {
+    isOwner.value = true
+    refuseReplacing.mockRejectedValue(new ApiError(409, 'NAME_TAKEN', 'norm.pdf is the text of manifestation:norm'))
+    const res = await uploadRoute(uploadRequest())
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('NAME_TAKEN')
+    expect(uploadMock).not.toHaveBeenCalled()
+    // What was asked: the upload's file by name, with the sha256 of its bytes.
+    expect([...(refuseReplacing.mock.calls[0]?.[0] as Map<string, string>)]).toEqual([
+      ['norm.pdf', '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81'],
+    ])
   })
 
   it('rejects an upload without a file', async () => {

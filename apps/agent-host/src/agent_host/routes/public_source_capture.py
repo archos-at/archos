@@ -127,7 +127,8 @@ class CorpusTextRequest(CaptureRequest):
     """A PDF of a configured source to keep as a base-corpus file (ADR-0165, "Texts are attached in the request")."""
 
     fileName: str = Field(..., pattern=r"^[^/\\]{1,200}\.pdf$", description="The name the base corpus keeps it under.")
-    #: Whether a different file kept under this name may be replaced; the BFF says so when no other record names it.
+    #: Whether a different file kept under this name may be replaced; the BFF says so when nothing but the draft
+    #: asking names it. A file a release marked with a country is never replaced, whatever this says.
     replace: bool = False
 
 
@@ -135,6 +136,7 @@ def _keep_corpus_text(name: str, content: bytes, sha256: str, replace: bool) -> 
     """Store the bytes under ``name`` and queue their ingestion: ``stored``, ``unchanged`` or ``name_taken``."""
     from agent import corpus_store
     from agent import oib_sync
+    from agent.common.knowledge_context import UNRELEASED_COUNTRY
     from agent.common.norm_registry import guess_doc_class
 
     from ..jobs.ingest_dispatch import enqueue_only
@@ -143,6 +145,11 @@ def _keep_corpus_text(name: str, content: bytes, sha256: str, replace: bool) -> 
     if row is not None and row.sha256 == sha256:
         return "unchanged"
     if row is not None and not replace:
+        return "name_taken"
+    # A file a release marked with a country is read by that country's offices: other bytes under its name would
+    # go live before any review, whatever the caller says (a replaced file keeps its mark). A new text is a new name.
+    mark = corpus_store.get_mark(name) if row is not None else None
+    if mark is not None and mark.country_id not in (None, UNRELEASED_COUNTRY):
         return "name_taken"
     oib_sync.store_and_request(name, content, guess_doc_class(name), enqueue=enqueue_only)
     return "stored"

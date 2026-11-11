@@ -19,6 +19,7 @@ import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { actingClientId } from '@/lib/agent-api/acting-session'
 import { CAPTURE_REFUSAL_CODES, CaptureFetchError, type ConfiguredSource, fetchSourcePage } from './capture-fetch'
 import { checksOutsideKit } from './text-checks'
+import { otherRecordNaming, pinnedTexts } from './text-store'
 import { activeSource, revealedCredential, type RegisteredSource, usableSource } from './sources'
 import { capturesOf, citedCaptureIds, insertCapture, sha256Of } from './captures'
 import { referencesOf } from './records'
@@ -35,7 +36,7 @@ import {
   requestRevisions,
 } from './store'
 import type { Tx } from '../store/repository'
-import { KIT_CHECKS, KIT_PROBLEM_TYPE_BASE, namedTerritories, type Problem, validateProposal } from './validate'
+import { KIT_CHECKS, KIT_PROBLEM_TYPE_BASE, kitProblem, namedTerritories, type Problem, validateProposal } from './validate'
 import {
   type CaptureBody,
   type CaptureView,
@@ -57,12 +58,42 @@ export async function runKit(
 ): Promise<Problem[]> {
   const named = (record: ProposedRecord) => [...referencesOf(record).map((reference) => reference.id), ...namedTerritories(record)]
   const workIds = [...new Set(records.flatMap((record) => (record.type === 'edition' ? [`work:${record.workKey}`] : [])))]
-  const [known, captures, existing] = await Promise.all([
+  const [known, captures, existing, taken] = await Promise.all([
     knownPlatformRecords(tx, idsOfBatch(records, named)),
     capturesOf(tx, request.id, citedCaptureIds(records)),
     platformEditionsOf(tx, workIds),
+    takenNames(tx, records),
   ])
-  return validateProposal(records, request.countryId, known, captures, existing, sourceChecks)
+  return [...validateProposal(records, request.countryId, known, captures, existing, sourceChecks), ...taken]
+}
+
+/**
+ * A file is one record's text (`NAME_TAKEN`): a manifestation that names a file
+ * another record names, released, on its way or in the same batch, is a
+ * problem. Two records on one file would let the second one's publish mark the
+ * file with its own country under the first.
+ */
+async function takenNames(tx: Tx, records: readonly ProposedRecord[]): Promise<Problem[]> {
+  const problems: Problem[] = []
+  const inBatch = new Map<string, string>()
+  for (const [index, record] of records.entries()) {
+    if (record.type !== 'manifestation' || record.corpusFile === null) continue
+    const id = `manifestation:${record.key}`
+    const other = inBatch.get(record.corpusFile) ?? (await otherRecordNaming(tx, record.corpusFile, id))
+    inBatch.set(record.corpusFile, inBatch.get(record.corpusFile) ?? id)
+    if (!other || other === id) continue
+    problems.push({
+      ...kitProblem(
+        'KC-1',
+        record,
+        '/corpusFile',
+        `names ${record.corpusFile}, which is the text of ${other} (NAME_TAKEN): a file is one record's text.`,
+        'Attach this manifestation its own text under another file name with platform-knowledge-text-import (fileName) or platform-knowledge-text-upload.',
+      ),
+      index,
+    })
+  }
+  return problems
 }
 
 /**
@@ -93,12 +124,16 @@ async function storedProposals(tx: Tx, requestId: string): Promise<{ records: Pr
 }
 
 /**
- * The api tier's checks on the records a request holds (KC-7 on its sources, the base corpus on its texts' files),
- * read in a short transaction of its own: what {@link validateRequest} takes.
+ * The api tier's checks on the records a request holds (KC-7 on its sources, the base corpus on its texts' files
+ * and their bytes), read in a short transaction of its own: what {@link validateRequest} takes. Each text is held
+ * to the hash its stored revision keeps: other bytes in the corpus, or no hash, is a problem.
  */
 export async function requestSourceChecks(requestId: string): Promise<Map<string, Problem[]>> {
-  const { records } = await platformTransaction((tx) => storedProposals(tx, requestId))
-  return checksOutsideKit(records)
+  const { records, pinned } = await platformTransaction(async (tx) => ({
+    ...(await storedProposals(tx, requestId)),
+    pinned: await pinnedTexts(tx, requestId),
+  }))
+  return (await checksOutsideKit(records, pinned)).checks
 }
 
 /** The kit on everything a request holds: what submit runs, and what an agent runs before it. */
