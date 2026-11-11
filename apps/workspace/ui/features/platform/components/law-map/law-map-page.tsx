@@ -27,8 +27,10 @@ import { lawMapCopy } from '@/i18n/namespaces/law-map'
 import { lawMapOf } from '@/lib/base-knowledge/platform/law-map'
 import { reviewUnitsOf } from '@/lib/base-knowledge/platform/law-map-review'
 import type { ChangeRequestSummary, ChangeRequestView } from '@/lib/base-knowledge/platform/wire'
+import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
 import { countryName } from '../change-request-format'
 import { usePlatformJson } from '../countries/use-platform-json'
+import { QuietLinks } from './law-map-atoms'
 import { branchesOf, LawMapOutline } from './law-map-outline'
 
 const BASE = '/api/platform/knowledge/change-requests'
@@ -46,7 +48,9 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   // Only a request id goes into the path; anything else reads as no request named.
   const asked = params.get('request')
   const named = asked && /^[0-9a-f-]{36}$/i.test(asked) ? asked : null
-  const list = usePlatformJson<{ changeRequests: ChangeRequestSummary[] }>(named ? null : `${BASE}?countryId=${countryId}&limit=200`)
+  const list = usePlatformJson<{ changeRequests: ChangeRequestSummary[] }>(`${BASE}?countryId=${countryId}&limit=200`)
+  const canWrite = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite)
+  const sources = usePlatformJson<{ sources: SourceStatusView[] }>(canWrite ? '/api/platform/knowledge/sources' : null)
   const requestId = named ?? (list.load.state === 'ready' ? openRequestOf(list.load.value.changeRequests)?.id ?? null : null)
   const request = usePlatformJson<ChangeRequestView>(requestId ? `${BASE}/${requestId}` : null)
   // Only the request asked for, of this country: a previous one stays loaded while the next arrives.
@@ -117,6 +121,13 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4" data-testid="law-map">
       {header(t('request', { title: view.title }))}
+      {list.load.state === 'ready' ? (
+        <QuietLinks
+          links={list.load.value.changeRequests
+            .filter((one) => one.id !== view.id && ['draft', 'submitted', 'approved'].includes(one.status))
+            .map((one) => ({ href: `${countryHref}/map?request=${one.id}`, label: t('otherRequest', { title: one.title }) }))}
+        />
+      ) : null}
       {reviewable && canReview ? (
         <div className="flex flex-wrap items-center gap-3 text-sm">
           {waiting.length > 0 ? (
@@ -136,7 +147,24 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
       {units.length === 0 ? (
         <EmptyState icon={MapIcon} title={t('title')} description={t('empty')} />
       ) : (
-        <LawMapOutline map={map} units={new Map(units.map((unit) => [unit.key, unit]))} confirm={confirm} today={today} rootName={name} expanded={expanded} toggle={toggle} open={open} setOpen={setOpen} />
+        <LawMapOutline
+          map={map}
+          units={new Map(units.map((unit) => [unit.key, unit]))}
+          confirm={confirm}
+          add={
+            canWrite && sources.load.state === 'ready'
+              ? {
+                  countryId,
+                  sources: sources.load.value.sources.filter((source) => source.countryId === countryId),
+                  // Stay here: the draft's link appears above, and this request is read again in case it was the draft.
+                  onAdded: () => {
+                    setOpen(null)
+                    list.reload()
+                    request.reload()
+                  },
+                }
+              : null
+          } today={today} rootName={name} expanded={expanded} toggle={toggle} open={open} setOpen={setOpen} />
       )}
       <Link href={`${countryHref}?section=review&request=${view.id}`} className="text-muted-foreground text-sm underline underline-offset-2">
         {t('openRequest')}

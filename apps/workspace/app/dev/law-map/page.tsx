@@ -24,6 +24,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       if (url.startsWith('/api/platform/knowledge/change-requests?countryId=')) return Response.json({ changeRequests: [SUMMARY], nextCursor: null })
+      if (url === '/api/platform/knowledge/sources') return Response.json({ sources: [{ sourceKey: 'at-ris', origin: 'built_in', countryId: 'AT', hosts: [{ host: 'www.ris.bka.gv.at', state: 'active', usableUntil: null }] }], builtInUnavailable: null })
       // A verdict lands on the fixture's claims, so the outline shows it after its reload.
       if (url === `/api/platform/knowledge/change-requests/${REQUEST_ID}/review` && init?.method === 'POST') {
         const body = JSON.parse(String(init.body)) as { decisions: { revisionId: string; claimPath: string; decision: string }[] }
