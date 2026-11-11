@@ -49,6 +49,19 @@ On prod Jana opens Release, reads that sentence, opens the gazette link because 
 
 ## B. Information architecture
 
+### Navigation: the country is a folder
+
+The owner found a sidebar of jobs and tabs hard to navigate, so the navigation is a tree, as in a file browser. There is one column, with no sidebar and no tabs. A path bar at the top (`Countries / Österreich / Steiermark / StBTV-Novelle 2027`) says where you are.
+
+- **Countries** holds one folder per country.
+- **A country** holds one folder per law-making region, then the shelves: the publisher's texts (`OIB-Richtlinien / OIB-RL 2 / Ausgabe Mai 2023`), the rules, the test questions, the imported regions and municipalities, and the watched sources.
+- **A region's folder** opens on a timeline: one bar per guideline, one segment per edition, and a line for today. Below it are its building law and the acts that adopt guidelines, one item per act.
+- **An item** (an act, a text, a rule, a question) is the decision itself, on one page: what it says, the source, and "Yes, confirm".
+
+Status rolls up the tree the way unread counts do in a mail client. A folder says "2 need you" or "3 with the agent", so the operator follows the numbers and never has to know the order. The country's row of Länder shows each Land's fingerprint: one small square per guideline, with the edition year in force today. That replaces the grid as the at-a-glance view. One button in the path bar, **Next for you**, walks to the next item that needs this person, and confirming an item opens the next one. A change that is not yet released shows as a banner on the country folder, with the release page behind it.
+
+The six jobs below are still the content. They are now places in the tree, not tabs.
+
 A country has six jobs and a release. The navigation is those jobs in the order a person does them; each screen opens with one sentence saying what to do there. The prototype implements every screen below.
 
 | Screen | What you do here (the sentence on the screen) | The unit you decide | Who proposes / who decides |
