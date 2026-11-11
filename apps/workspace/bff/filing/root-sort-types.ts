@@ -161,7 +161,8 @@ export type RootSortRunStatus = (typeof ROOT_SORT_RUN_STATUSES)[number]
  * `grouping`, `applying` and `undoing` and moves it on when a step is finished
  * (`advance`); a person reviews a `ready` run and applies or cancels it, and
  * may undo what an applied run moved, also after it failed part of the way.
- * `withdraw` takes a step back whose job could not be queued. `applied` and
+ * `withdraw` takes a step back whose job could not be queued: an undo that
+ * started from `failed` goes back there, which is the `fail` edge. `applied` and
  * `failed` are not final, because both can still be undone.
  */
 export const ROOT_SORT_LIFECYCLE = defineLifecycle<

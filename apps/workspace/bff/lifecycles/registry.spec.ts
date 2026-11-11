@@ -94,11 +94,14 @@ describe('the declared lifecycles', () => {
   })
 
   it('are all in the registry', () => {
-    const declaring = sourceFiles(join(ROOT, 'bff'))
-      .filter((file) => /\bdefineLifecycle\s*[<(]/.test(readFileSync(file, 'utf8')))
-      .map((file) => relative(ROOT, file))
+    // By declaration, not by file: a second lifecycle added to a file that already holds one counts too.
+    const declared = sourceFiles(join(ROOT, 'bff'))
+      .flatMap((file) => {
+        const calls = readFileSync(file, 'utf8').match(/\bdefineLifecycle\s*[<(]/g) ?? []
+        return calls.map(() => relative(ROOT, file))
+      })
       .sort()
-    expect(declaring).toEqual([...new Set(LIFECYCLES.map((entry) => entry.where))].sort())
+    expect(declared).toEqual(LIFECYCLES.map((entry) => entry.where).sort())
   })
 
   it('are drawn in the reference as the code declares them', () => {

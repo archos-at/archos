@@ -229,8 +229,8 @@ change: the previous release still claims from those tables.
   production runs.
 * **Scaling.** `deploy/pulumi/src/app/keda-scaling.spec.ts` holds the backlog
   query to Hatchet's tables and each pool's workflow.
-* **One client.** `agent.common.hatchet_client` is the only place a Python
-  process builds the SDK client; `test_hatchet_client.py` holds that tests
+* **One client.** `agent.common.orchestrator_client` is the only place a Python
+  process builds the SDK client; `test_orchestrator_client.py` holds that tests
   replace it there.
 * **Before the production cutover**, on staging, recorded in the PR or the
   release that does it:

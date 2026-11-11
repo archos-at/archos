@@ -183,7 +183,7 @@ Two findings follow from that split and are not acted on here:
 * `shared/lifecycle/define-lifecycle.spec.ts`: the helper agrees with XState on
   every state and event, and refuses a malformed config.
 * `bff/lifecycles/registry.spec.ts`: every registered lifecycle agrees with
-  XState; every `defineLifecycle` call under `bff/` is registered; the generated
+  XState; every `defineLifecycle` call under `bff/` is registered, counted by call and not by file; the generated
   reference equals what the code declares.
 * Each converted module's existing specs, unchanged, still pass.
 * Nothing yet forces a *new* status column to come with a declaration. Review is
