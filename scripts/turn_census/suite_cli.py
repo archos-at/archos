@@ -10,6 +10,10 @@ import argparse
 import time
 from pathlib import Path
 
+CASES_HELP = (
+    "--set golden: the golden cases, a file in the records format (configs/knowledge-packs/*-golden-cases.json)"
+)
+
 
 def build_parser(description: str | None) -> argparse.ArgumentParser:
     """The suite's flags."""
@@ -34,10 +38,11 @@ def build_parser(description: str | None) -> argparse.ArgumentParser:
     parser.add_argument("--override", nargs=2, action="append", metavar=("KEY", "VALUE"))
     parser.add_argument(
         "--set",
-        choices=("loop", "editions", "precedent", "workspace", "files", "visual", "north-star"),
+        choices=("loop", "editions", "golden", "precedent", "workspace", "files", "visual", "north-star"),
         default="loop",
         help=(
             "loop: the norm questions; editions: which OIB-RL edition binds per Land and day (edition_eval.py); "
+            "golden: a country's golden cases, from --cases (golden_eval.py); "
             "precedent: questions in a fixture office's project (fixture_bff.py); "
             "workspace: office work through the MCP door (fixture_workspace.py); "
             "files: questions about a fixture project's own files (files_eval.py); "
@@ -45,6 +50,7 @@ def build_parser(description: str | None) -> argparse.ArgumentParser:
             "north-star: the exemplars of docs/architecture/north-star-answers.md (north_star_eval.py)"
         ),
     )
+    parser.add_argument("--cases", type=Path, help=CASES_HELP)
     parser.add_argument(
         "--look",
         choices=("on", "off"),
@@ -79,6 +85,15 @@ def parse_args(argv: list[str] | None, *, description: str | None) -> argparse.N
         parser.error("--corpus is what --ingest reads; give both")
     if args.arm != "hybrid" and args.set != "files":
         parser.error("--arm is for --set files")
+    if (args.cases is not None) != (args.set == "golden"):
+        parser.error("--set golden reads its cases from --cases; give both")
+    if args.cases is not None and not args.cases.exists():
+        parser.error(f"--cases {args.cases} does not exist")
+    if args.cases is not None:
+        import golden_eval
+
+        # Before any question is loaded, a --report's among them: the set reads its rows from this file.
+        golden_eval.CASES_FILE = args.cases.resolve()
     if args.look != "on" and args.set != "visual":
         parser.error("--look is for --set visual")
     if args.baseline is not None and not args.baseline.exists():

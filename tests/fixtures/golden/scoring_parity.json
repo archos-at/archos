@@ -1,0 +1,306 @@
+{
+  "$comment": "Recorded answers of the before-baseline (2026-11-10, the old path, a test office on the development stack; docs/design/international/quality-and-cost.md), as the golden scorer reads them, each against its golden case in configs/knowledge-packs/at-golden-cases.json. `expect` is what both scorers must say: apps/workspace/bff/base-knowledge/golden/score.spec.ts (UPDATE_FIXTURES=1 rewrites it) and tests/test_golden_eval.py. The old scorecard recorded B1, B9, B10 and B11 as high confidence and nothing else; here each fails its case. Sources keep their name and kind; a law source keeps the id that carries its locus, a web source its address.",
+  "answers": [
+    {
+      "baseline": "B1",
+      "case": "at-b01-escape-route-vienna",
+      "seconds": 36.3,
+      "answer": {
+        "text": "Bis zu einem geeigneten Treppenhaus sind **höchstens 40 m Gehweglänge** zulässig. Das Treppenhaus muss einen Ausgang zu einem sicheren Ort im Freien haben und die Anforderungen der betreffenden Tabellenvariante erfüllen [1].\n\nGemessen wird von jeder Stelle des Raumes; bei Wohnungen über höchstens zwei Geschoße wird für den Weg zum Treppenhaus ab der Wohnungseingangstüre gemessen [1]. Je nach Treppenhausvariante sind zusätzlich ein Rettungsweg oder ein unabhängiger Fluchtweg erforderlich [1].\n\nFür die Notschlafstelle und das betreute Wohnen ist die nutzungsbezogene Einstufung im Brandschutzkonzept zu klären. Das Konzept ist noch in Ausarbeitung; eine Prüfung der tatsächlichen Gehweglängen liegt damit hier nicht vor [2]. Bei Umbau und Aufstockung sind auch die Bestands- und Übergangsbestimmungen zu prüfen. Die Wiener Bautechnikverordnung verweist auf die OIB-Richtlinien in ihren Anlagen [3].\n\n## Quellen\n- [1] [KB] oib-rl_2_ausgabe_mai_2023.pdf, p.13\n- [2] [KB] Projektbeschreibung_Haus_Josef.pdf, p.4\n- [3] [RIS] Wiener Bautechnikverordnung 2023, § 1",
+        "confidence": {
+          "level": "high",
+          "reason": "Richtlinienwert belegt; Nutzungseinstufung und tatsächliche Gehweglänge sind offen"
+        },
+        "sources": [
+          {
+            "name": "OIB-Richtlinie 2, Ausgabe Mai 2023",
+            "kind": "building_law",
+            "documentId": "doc:oib_knowledge:oib-rl_2_ausgabe_mai_2023.pdf"
+          },
+          {
+            "name": "Projektbeschreibung_Haus_Josef.pdf",
+            "kind": "project"
+          },
+          {
+            "name": "Wiener Bautechnikverordnung 2023",
+            "kind": "building_law",
+            "documentId": "doc:ris/lrkons/wien:wiener bautechnikverordnung 2023, § 1"
+          }
+        ],
+        "recordsReleased": false
+      },
+      "expect": {
+        "passed": false,
+        "failed": [
+          "citation:OIB-Richtlinie 2",
+          "must_not:confident-despite-open-point"
+        ],
+        "scores": {
+          "golden-case-passed": false,
+          "golden-must-not-violations": 1,
+          "golden-expected-values": 1,
+          "edition-named": true,
+          "claim-citation-resolves": false,
+          "law-cited-from-web": false
+        },
+        "unconfirmed": 0
+      }
+    },
+    {
+      "baseline": "B2",
+      "case": "at-b02-binding-edition-vienna",
+      "seconds": 44.1,
+      "answer": {
+        "text": "In Wien ist die OIB-Richtlinie 2 „Brandschutz“ in der **Ausgabe Mai 2023** heranzuziehen [1][2].\n\nDie Wiener Bautechnikverordnung 2023 verweist auf die OIB-Richtlinien in ihren Anlagen. Von diesen kann abgewichen werden, wenn der Bauwerber das gleiche Schutzniveau nachweist [3][4].\n\nFür Verfahren, die beim Inkrafttreten der Verordnung am **23. Februar 2024** bereits anhängig waren, gilt die bisherige Rechtslage [5][2]. Für Haus Josef ist daher der Verfahrensstand zu prüfen.\n\nDie Anlage der Wiener Bautechnikverordnung selbst war nicht separat abrufbar; die Zuordnung der Ausgabe 2023 ist hier durch die Wiener Baupolizei belegt [2].\n\n## Quellen\n- [1] [KB] oib-rl_2_ausgabe_mai_2023.pdf, p.4\n- [2] [Web] Stadt Wien, MA 37: Errichtung von Fotovoltaikanlagen – https://www.wien.gv.at/pdf/ma37/rl-pv-anlagen-2024.pdf\n- [3] [RIS] Wiener Bautechnikverordnung 2023, § 1\n- [4] [RIS] Wiener Bautechnikverordnung 2023, § 2\n- [5] [RIS] Wiener Bautechnikverordnung 2023, § 5",
+        "confidence": {
+          "level": "medium",
+          "reason": "Verordnung und Ausgabe durch RIS und MA 37 belegt; die Verordnungsanlage war nicht separat abrufbar"
+        },
+        "sources": [
+          {
+            "name": "OIB-Richtlinie 2, Ausgabe Mai 2023",
+            "kind": "building_law",
+            "documentId": "doc:oib_knowledge:oib-rl_2_ausgabe_mai_2023.pdf"
+          },
+          {
+            "name": "Errichtung von Fotovoltaikanlagen (PV-Anlagen)",
+            "kind": "web",
+            "url": "https://www.wien.gv.at/pdf/ma37/rl-pv-anlagen-2024.pdf"
+          },
+          {
+            "name": "Wiener Bautechnikverordnung 2023",
+            "kind": "building_law",
+            "documentId": "doc:ris/lrkons/wien:wiener bautechnikverordnung 2023, § 1"
+          },
+          {
+            "name": "Wiener Bautechnikverordnung 2023",
+            "kind": "building_law",
+            "documentId": "doc:ris/lrkons/wien:wiener bautechnikverordnung 2023, § 2"
+          },
+          {
+            "name": "Wiener Bautechnikverordnung 2023",
+            "kind": "building_law",
+            "documentId": "doc:ris/lrkons/wien:wiener bautechnikverordnung 2023, § 5"
+          }
+        ],
+        "recordsReleased": false
+      },
+      "expect": {
+        "passed": false,
+        "failed": [
+          "must_not:law-from-web"
+        ],
+        "scores": {
+          "golden-case-passed": false,
+          "golden-must-not-violations": 1,
+          "golden-expected-values": 1,
+          "edition-named": true,
+          "claim-citation-resolves": true,
+          "law-cited-from-web": true
+        },
+        "unconfirmed": 0
+      }
+    },
+    {
+      "baseline": "B5",
+      "case": "at-b05-garage-act-section-50",
+      "seconds": 12.7,
+      "answer": {
+        "text": "§ 50 Wiener Garagengesetz 2008 regelt, **wie der Umfang der Stellplatzverpflichtung ermittelt wird**. Maßgeblich ist zunächst die Nutzungsart des Gebäudes [1].\n\n| Nutzung | Berechnungsgrundlage nach § 50 Abs. 1 | Fundstelle |\n|---|---|---|\n| Wohngebäude | 1 Stellplatz je 100 m² Wohnnutzfläche | [1] |\n| Beherbergungsstätten | 1 Stellplatz je 5 Zimmer- oder Wohneinheiten oder 1 Busstellplatz je 30 Zimmer- oder Wohneinheiten | [1] |\n| Heime mit Wohneinheiten | 1 Stellplatz je 10 Wohneinheiten | [1] |\n| Heime ohne Wohneinheiten | 1 Stellplatz je 300 m² Aufenthaltsraum | [1] |\n| Industrie, Betriebe, Büros, Bildung, Betreuung, Geschäfte und weitere in Z 5 genannte Nutzungen | 1 Stellplatz je 100 m² Aufenthaltsraum; überwiegend für Unterricht oder Betreuung von Kindern und Jugendlichen genutzte Räume werden in Bildungs- und Betreuungsbauten nicht eingerechnet | [1] |\n| Veranstaltungen, Versammlungsräume und Sportanlagen | 1 Stellplatz je 50 Personen; maßgeblich ist die behördlich zugelassene Besucherzahl | [1] |\n| Bäder | 1 Stellplatz je 10 Kabinen oder 30 Kästchen sowie für jede Wechselkabine oder jedes Wechselkästchen | [1] |\n\nEin Stellplatz ist jeweils **nur für die volle Verhältniszahl** zu berechnen. Für Kleinhäuser mit nur einer Wohneinheit, Kleingartenwohnhäuser und Kleingartenhäuser sowie unmittelbar kultische oder der Bestattung dienende Anlagen oder Räume besteht keine Stellplatzverpflichtung nach § 50 Abs. 4 [1].\n\nBei Zu- oder Umbauten und Änderungen der Raumwidmung oder Raumeinteilung ist die zusätzliche Verpflichtung durch Gegenüberstellung zu ermitteln. Für rechtmäßig bestehende Wohnungen setzt Abs. 1 Z 1 dabei je Wohnung 100 m² Wohnnutzfläche an. Innerhalb eines einheitlichen Bauvorhabens dürfen eine zusätzliche Verpflichtung und ein rechnerisches Stellplatzguthaben unter den Voraussetzungen von Abs. 6 gegeneinander aufgerechnet werden [1].\n\nAbs. 2 enthält eigene Regeln für neu geschaffene Kleingärten: Bei ganzjähriger Wohnwidmung ist ein Stellplatz je Kleingarten, sonst einer je fünf Kleingärten zu berechnen; bei bestimmten bereits überwiegend bebauten Anlagen kann die Verpflichtung mangels verfügbarer Grundflächen gestundet sein [1].\n\n## Quellen\n- [1] [RIS] Wiener Garagengesetz 2008, § 50",
+        "confidence": {
+          "level": "high",
+          "reason": "Der vollständige § 50 liegt in der konsolidierten RIS-Fassung vor."
+        },
+        "sources": [
+          {
+            "name": "Wiener Garagengesetz 2008",
+            "kind": "building_law",
+            "documentId": "doc:ris/lrkons/wien:wiener garagengesetz 2008, § 50"
+          }
+        ],
+        "recordsReleased": false
+      },
+      "expect": {
+        "passed": true,
+        "failed": [],
+        "scores": {
+          "golden-case-passed": true,
+          "golden-must-not-violations": 0,
+          "golden-expected-values": 1,
+          "claim-citation-resolves": true,
+          "law-cited-from-web": false
+        },
+        "unconfirmed": 3
+      }
+    },
+    {
+      "baseline": "B9",
+      "case": "at-b09-required-parking-spaces",
+      "seconds": 34.6,
+      "answer": {
+        "text": "Für die 12 Einheiten ergibt sich in Wien **ein Stellplatz als Ausgangswert**, wenn sie als Wohneinheiten eines Heims nach § 50 Abs. 1 Z 3 WGarG zu beurteilen sind: Ein Stellplatz wird für je zehn Wohneinheiten und nur für die volle Verhältniszahl berechnet [1]. Das ist **noch nicht die endgültige Stellplatzpflicht** für das Vorhaben.\n\nDie Projektbeschreibung führt die zwölf Einheiten als Typ A; insgesamt nennt sie 18 Wohnungen sowie weitere Nutzungen [2]. Für die Einreichung sind daher die rechtliche Nutzungseinstufung und die zusätzlichen Nutzungen zu prüfen. Bei Umbau und Aufstockung ist außerdem der rechtmäßige Bestand dem Vorhaben gegenüberzustellen [1].\n\nDie Zonenregelung und ein allfälliges Stellplatzregulativ können den Umfang verändern; ein Regulativ im Bebauungsplan geht der Zonenregelung vor [3]. Der Bebauungsplan liegt im Projektwissen nicht vor. Die Objektplanung muss die Einstufung, den Bestand und die Festsetzungen mit der Behörde klären.\n\n## Quellen\n- [1] [RIS] Wiener Garagengesetz 2008, § 50\n- [2] [KB] Projektbeschreibung_Haus_Josef.pdf, p.3\n- [3] [RIS] Wiener Garagengesetz 2008, § 50a",
+        "confidence": {
+          "level": "high",
+          "reason": "Heimeinstufung, Bestand und standortbezogene Festsetzungen sind nicht abschließend geklärt"
+        },
+        "sources": [
+          {
+            "name": "Wiener Garagengesetz 2008",
+            "kind": "building_law",
+            "documentId": "doc:ris/lrkons/wien:wiener garagengesetz 2008, § 50"
+          },
+          {
+            "name": "Projektbeschreibung_Haus_Josef.pdf",
+            "kind": "project"
+          },
+          {
+            "name": "Wiener Garagengesetz 2008",
+            "kind": "building_law",
+            "documentId": "doc:ris/lrkons/wien:wiener garagengesetz 2008, § 50a"
+          }
+        ],
+        "recordsReleased": false
+      },
+      "expect": {
+        "passed": false,
+        "failed": [
+          "value:the ratio for dwellings",
+          "must_not:confident-despite-open-point"
+        ],
+        "scores": {
+          "golden-case-passed": false,
+          "golden-must-not-violations": 1,
+          "golden-expected-values": 0,
+          "claim-citation-resolves": true,
+          "law-cited-from-web": false
+        },
+        "unconfirmed": 2
+      }
+    },
+    {
+      "baseline": "B10",
+      "case": "at-b10-fire-resistance-load-bearing-gk4",
+      "seconds": 43.6,
+      "answer": {
+        "text": "In Wien beträgt die Anforderung nach OIB-Richtlinie 2 für tragende Wände der GK 4 in den sonstigen oberirdischen Geschoßen **R 60** [1].\n\n| Lage der tragenden Wand | Anforderung | Fundstelle |\n|---|---|---|\n| Oberstes Geschoß | R 30 | [1] |\n| Sonstige oberirdische Geschoße | R 60 | [1] |\n| Unterirdische Geschoße | R 90 und A2 | [1] |\n\nDas sind die Anforderungen an die Tragfähigkeit. Hat die Wand zusätzlich eine Trenn- oder Brandabschnittsfunktion, gelten dafür eigene Anforderungen; eine tragende Trennwand braucht oberirdisch beispielsweise REI 60 [1].\n\nFür **Holzbau Wien** ist im Projektprofil jedoch GK 5 bestätigt; die Tabelle oben ist daher keine projektbezogene Festlegung. Ob die gelesene Ausgabe in Wien maßgeblich ist und ob Wiener Abweichungen gelten, ist anhand der Anlagen zur Wiener Bautechnikverordnung noch zu prüfen.\n\n## Quellen\n- [1] [KB] oib-rl_2_ausgabe_mai_2023.pdf, p.26",
+        "confidence": {
+          "level": "high",
+          "reason": "Die OIB-Tabelle ist belegt; die maßgebliche Wiener Fassung und Abweichungen sind nicht abschließend geprüft"
+        },
+        "sources": [
+          {
+            "name": "OIB-Richtlinie 2, Ausgabe Mai 2023",
+            "kind": "building_law",
+            "documentId": "doc:oib_knowledge:oib-rl_2_ausgabe_mai_2023.pdf"
+          }
+        ],
+        "recordsReleased": false
+      },
+      "expect": {
+        "passed": false,
+        "failed": [
+          "citation:OIB-Richtlinie 2",
+          "must_not:confident-despite-open-point"
+        ],
+        "scores": {
+          "golden-case-passed": false,
+          "golden-must-not-violations": 1,
+          "golden-expected-values": 1,
+          "edition-named": true,
+          "claim-citation-resolves": false,
+          "law-cited-from-web": false
+        },
+        "unconfirmed": 0
+      }
+    },
+    {
+      "baseline": "B11",
+      "case": "at-b11-lift-required-from-storeys",
+      "seconds": 33.9,
+      "answer": {
+        "text": "In Wien ist beim **Neubau mit mehr als zwei Hauptgeschoßen** ein Personenaufzug vorgeschrieben – also ab dem dritten Hauptgeschoß. Ausnahmen gelten etwa für Wohngebäude mit nur einer Wohnung und für Reihenhäuser [1].\n\nFür den Umbau der Kaiserstraße 43 ist entscheidend, **wie viele Hauptgeschoße umgebaut werden**: § 111 nennt Umbauten von mehr als zwei Hauptgeschoßen. Drei vorhandene oberirdische Geschoße allein belegen die Aufzugspflicht daher noch nicht [1].\n\n> „Umbauten von mehr als zwei Hauptgeschoßen.“ [1]\n\nUnabhängig davon sind die Anforderungen an die Barrierefreiheit bei Zu- und Umbauten zu prüfen [2]. Bei rechtmäßig bestehenden Gebäuden sieht § 68 unter anderem bei unverhältnismäßigem Aufwand eine Abwägung vor [3]. Für die Beurteilung im Projekt sind der Umfang des Umbaus und die Hauptgeschoße anhand der Bestands- und Umbauunterlagen zu klären.\n\n## Quellen\n- [1] [RIS] Bauordnung für Wien, § 111\n- [2] [RIS] Bauordnung für Wien, § 115\n- [3] [RIS] Bauordnung für Wien, § 68",
+        "confidence": {
+          "level": "high",
+          "reason": "Die Wiener Schwelle ist gesetzlich belegt; der Umfang des Projektumbaus ist noch offen"
+        },
+        "sources": [
+          {
+            "name": "Bauordnung für Wien",
+            "kind": "building_law",
+            "documentId": "doc:ris/lrkons/wien:bauordnung für wien, § 111"
+          },
+          {
+            "name": "Bauordnung für Wien",
+            "kind": "building_law",
+            "documentId": "doc:ris/lrkons/wien:bauordnung für wien, § 115"
+          },
+          {
+            "name": "Bauordnung für Wien",
+            "kind": "building_law",
+            "documentId": "doc:ris/lrkons/wien:bauordnung für wien, § 68"
+          }
+        ],
+        "recordsReleased": false
+      },
+      "expect": {
+        "passed": false,
+        "failed": [
+          "must_not:confident-despite-open-point"
+        ],
+        "scores": {
+          "golden-case-passed": false,
+          "golden-must-not-violations": 1,
+          "golden-expected-values": 1,
+          "claim-citation-resolves": true,
+          "law-cited-from-web": false
+        },
+        "unconfirmed": 2
+      }
+    },
+    {
+      "baseline": "B14",
+      "case": "at-b14-binding-edition-salzburg",
+      "seconds": 83.7,
+      "answer": {
+        "text": "In Salzburg gelten seit **1. September 2026** für die OIB-Richtlinien **1 bis 5 die Ausgabe Mai 2023**; für die **OIB-Richtlinie 6 gilt weiterhin die Ausgabe März 2015**. Dabei sind die Salzburger Sonderregelungen zu berücksichtigen. [1][2]\n\nDie Ausgabe 2015 der Richtlinie 6 war bereits in der früheren Salzburger Bautechnikverordnung vorgesehen. [3]\n\nFür baurechtliche Verfahren, die am 1. September 2026 bereits anhängig waren, gelten die bis dahin maßgeblichen Bestimmungen weiter. [2]\n\nDie Verordnung konnte über eine Gesetzesdatenbank, aber nicht im authentischen Landesgesetzblatt geprüft werden. Für die Einreichung sollte die Baubehörde insbesondere die Anwendbarkeit der Übergangsregel auf das konkrete Verfahren bestätigen.\n\n## Quellen\n- [1] [Web] Salzburger Bautechnikverordnung 2025, § 1 – https://gesetzefinden.at/landesrecht/verordnungen/sbtv-2025/para-1\n- [2] [Web] Salzburger Bautechnikverordnung 2025, § 9 – https://gesetzefinden.at/landesrecht/verordnungen/sbtv-2025/para-9\n- [3] [Web] Salzburger Bautechnikverordnung 2016 – https://www.jusline.at/gesetz/sbg_btv/gesamt",
+        "confidence": {
+          "level": "low",
+          "reason": "Verordnungstext in einer Gesetzesdatenbank abgerufen, authentisches Landesgesetzblatt nicht geprüft"
+        },
+        "sources": [
+          {
+            "name": "§ 1 OIB-Richtlinien und Sonderregelungen — S.BTV 2025",
+            "kind": "web",
+            "url": "https://gesetzefinden.at/landesrecht/verordnungen/sbtv-2025/para-1"
+          },
+          {
+            "name": "§ 9 In- und Außerkrafttreten — S.BTV 2025",
+            "kind": "web",
+            "url": "https://gesetzefinden.at/landesrecht/verordnungen/sbtv-2025/para-9"
+          },
+          {
+            "name": "Salzburger Bautechnikverordnung (Sbg. BTV) - Gesamt - JUSLINE Österreich",
+            "kind": "web",
+            "url": "https://www.jusline.at/gesetz/sbg_btv/gesamt"
+          }
+        ],
+        "recordsReleased": false
+      },
+      "expect": {
+        "passed": false,
+        "failed": [
+          "must_not:law-from-web"
+        ],
+        "scores": {
+          "golden-case-passed": false,
+          "golden-must-not-violations": 1,
+          "golden-expected-values": 1,
+          "edition-named": true,
+          "claim-citation-resolves": true,
+          "law-cited-from-web": true
+        },
+        "unconfirmed": 0
+      }
+    }
+  ]
+}
