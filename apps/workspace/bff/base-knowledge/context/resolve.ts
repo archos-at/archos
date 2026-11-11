@@ -49,7 +49,7 @@ export interface ContextInputs {
   sites: readonly SiteLeaf[]
   /** The graph read for the first leaf; null when it could not be read. */
   graph: KnowledgeGraph | null
-  /** The graph hit its bound: what was left out reads as nothing, so the turn uses none of it. */
+  /** A read hit its safety bound: what was left out reads as nothing, so the turn uses none of it. */
   truncated: boolean
   /** The day in the office's zone the turn resolves at. */
   date: string
@@ -276,14 +276,11 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
   // `none` holds territories only: "Für <Land> sind keine Grundlagen hinterlegt".
   if (coverage === 'none') return base
   const resolved = resolveChain(graph, first.territoryId, inputs.date, inputs.building ?? null)
-  if (resolved.truncated) return refusal('knowledge_unavailable', inputs, [leaf], [])
-  const uses = resolved.uses
-    .map((use) => contextUse(graph, use, coverage, inputs))
-    .filter((use): use is ContextUse => use !== null)
-    .slice(0, MAX_CONTEXT_USES)
+  const uses = resolved.uses.map((use) => contextUse(graph, use, coverage, inputs)).filter((use): use is ContextUse => use !== null)
+  // The text words every use; the wire carries the first, binding and shortest route first.
   return {
     ...base,
-    uses,
+    uses: uses.slice(0, MAX_CONTEXT_USES),
     undetermined: resolved.undetermined.slice(0, MAX_CONTEXT_USES).map(({ workId, reason }) => ({ workId, reason })),
     text: textOf(graph, resolved, uses, first.territoryId),
   }

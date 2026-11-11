@@ -122,6 +122,64 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(graph.editions.get('edition:oib-rl-2-2023')?.corpusFiles).toEqual(['oib-rl_2_ausgabe_mai_2023.pdf'])
   })
 
+  // Before any spec below publishes more Austrian records: the walk must answer what the packs alone answer.
+  it('walks from the chain to the same context the whole pack graph gives, in every Land', async () => {
+    const { graphFromProposals } = await import('./from-proposals')
+    const { resolveKnowledgeContext } = await import('../context/resolve')
+    const whole = graphFromProposals([...pack('eu.json').records, ...pack('at.json').records].map((record) => wire.proposedRecordSchema.parse(record)))
+    const contextOf = (graph: typeof whole, land: string) =>
+      resolveKnowledgeContext({
+        homeCountry: 'AT',
+        entitled: new Set(['AT']),
+        sites: [{ territoryId: land, certainty: 'verified' }],
+        graph,
+        truncated: false,
+        date: '2026-11-10',
+        now: new Date('2026-11-10T12:00:00Z'),
+        procedures: [],
+        packSeqs: {},
+      })
+    for (const land of ['AT-1', 'AT-2', 'AT-3', 'AT-4', 'AT-5', 'AT-6', 'AT-7', 'AT-8', 'AT-9']) {
+      const walked = await load.loadGraph(AUSTRIAN, land)
+      expect(walked.truncated, land).toBe(false)
+      const context = contextOf(walked.graph, land)
+      expect(context.uses.length, land).toBeGreaterThan(0)
+      expect(context, land).toEqual(contextOf(whole, land))
+    }
+  })
+
+  it('reads nothing of another Land’s chain: a relation that touches only XS-2 stays out of XS-1’s graph', async () => {
+    const SYNTHETIC = `org_chain_${RUN}_xs`
+    await withTenant({ organizationId: SYNTHETIC }, () =>
+      db.execute(sql`INSERT INTO organizations (workos_organization_id, home_country) VALUES (${SYNTHETIC}, 'XS')`),
+    )
+    const binds = (key: string, from: string, to: string) => ({ type: 'relation', key, relationType: 'makes_binding', mode: 'dynamic_reference', from: { type: 'work', key: from }, to: { type: 'work', key: to } })
+    await published('XS', `Synthetic country ${RUN}`, [
+      { type: 'territory', id: 'XS', kind: 'country', name: 'Synthetic', coverageLevel: 'core' },
+      { type: 'territory', id: 'XS-1', kind: 'state', name: 'XS-1', parents: [{ id: 'XS' }] },
+      { type: 'territory', id: 'XS-2', kind: 'state', name: 'XS-2', parents: [{ id: 'XS' }] },
+      { type: 'work', key: `code-xs-1-${RUN}`, kind: 'statute', title: 'Code XS-1', territoryIds: ['XS-1'] },
+      { type: 'work', key: `code-xs-2-${RUN}`, kind: 'statute', title: 'Code XS-2', territoryIds: ['XS-2'] },
+      { type: 'work', key: `shared-${RUN}`, kind: 'technical_standard', title: 'Shared standard' },
+      { type: 'edition', key: `shared-${RUN}-2021`, workKey: `shared-${RUN}`, label: '2021', issuedOn: '2021-01-01' },
+      { type: 'work', key: `own-${RUN}`, kind: 'technical_standard', title: 'XS-2 only' },
+      { type: 'edition', key: `own-${RUN}-2021`, workKey: `own-${RUN}`, label: '2021', issuedOn: '2021-01-01' },
+      binds(`xs-1-shared-${RUN}`, `code-xs-1-${RUN}`, `shared-${RUN}`),
+      binds(`xs-2-shared-${RUN}`, `code-xs-2-${RUN}`, `shared-${RUN}`),
+      binds(`xs-2-own-${RUN}`, `code-xs-2-${RUN}`, `own-${RUN}`),
+    ])
+    try {
+      const { graph, truncated } = await load.loadGraph(SYNTHETIC, 'XS-1')
+      expect(truncated).toBe(false)
+      expect(graph.relations.map((relation) => relation.id)).toEqual([`relation:xs-1-shared-${RUN}`])
+      expect([...graph.works.keys()].sort()).toEqual([`work:code-xs-1-${RUN}`, `work:shared-${RUN}`])
+      // Positive control: XS-2's own chain reads both of its relations.
+      expect((await load.loadGraph(SYNTHETIC, 'XS-2')).graph.relations.map((relation) => relation.id).sort()).toEqual([`relation:xs-2-own-${RUN}`, `relation:xs-2-shared-${RUN}`])
+    } finally {
+      await withPlatformAccess('chain spec cleanup', () => db.execute(sql`DELETE FROM organizations WHERE workos_organization_id = ${SYNTHETIC}`))
+    }
+  })
+
   it('reads a work’s identifiers at its source as its sourceRefs, by scheme, and nothing else of them', async () => {
     await published('AT', 'A Viennese statute read live at RIS', [
       {

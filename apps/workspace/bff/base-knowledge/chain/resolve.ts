@@ -53,9 +53,6 @@ import type {
 /** How deep a route is followed (design §3.6). */
 export const MAX_ROUTE_DEPTH = 8
 
-/** Most uses one resolution returns (design §5.5, `works ≤ 40`). */
-export const MAX_USES = 40
-
 const LAW_KINDS: ReadonlySet<KnowledgeWorkKind> = new Set(['statute', 'ordinance'])
 
 /** What a `makes_binding` can make binding. A directive, a commentary and an authority directive never bind a project. */
@@ -84,8 +81,16 @@ export function chainAt(leafId: string, date: string, graph: KnowledgeGraph): st
 
 const editionDate = (edition: GraphEdition): string => edition.inForceFrom ?? edition.issuedOn ?? ''
 
-function editionsOf(graph: KnowledgeGraph, workId: string): GraphEdition[] {
-  return [...graph.editions.values()].filter((edition) => edition.workId === workId)
+/** Each graph's editions by work, built once: a lookup per work, never a scan of every edition. */
+const editionsByWork = new WeakMap<KnowledgeGraph, Map<string, GraphEdition[]>>()
+
+function editionsOf(graph: KnowledgeGraph, workId: string): readonly GraphEdition[] {
+  let index = editionsByWork.get(graph)
+  if (!index) {
+    index = Map.groupBy(graph.editions.values(), (edition) => edition.workId)
+    editionsByWork.set(graph, index)
+  }
+  return index.get(workId) ?? []
 }
 
 /**
@@ -220,13 +225,16 @@ const bindingKey = (workId: string, editionId: string | null) => `${workId}|${ed
 /** Every binding instrument: law on the chain, then what its routes reach, breadth first. */
 function followRoutes(graph: KnowledgeGraph, seeds: readonly Binding[], relations: readonly GraphRelation[], editionFor: EditionFor): Binding[] {
   const found = new Map<string, Binding>(seeds.map((seed) => [bindingKey(seed.workId, seed.editionId), seed]))
+  const routes = relations.filter((relation) => relation.relationType === 'makes_binding')
+  const byFrom = Map.groupBy(routes, (relation) => relation.fromId)
+  const position = new Map(routes.map((relation, index) => [relation, index]))
   let frontier = [...seeds]
   for (let depth = 0; depth < MAX_ROUTE_DEPTH && frontier.length > 0; depth++) {
     const next: Binding[] = []
     for (const from of frontier) {
-      for (const relation of relations) {
-        if (relation.relationType !== 'makes_binding') continue
-        if (relation.fromId !== from.workId && relation.fromId !== from.editionId) continue
+      // In the relations' own order, as a scan of them would meet them: the first route to a binding is its route.
+      const outgoing = [...(byFrom.get(from.workId) ?? []), ...(from.editionId ? (byFrom.get(from.editionId) ?? []) : [])]
+      for (const relation of outgoing.sort((a, b) => (position.get(a) ?? 0) - (position.get(b) ?? 0))) {
         const edition = targetEdition(graph, relation, editionFor)
         const work = edition ? graph.works.get(edition.workId) : undefined
         if (!edition || !work || !BINDABLE_KINDS.has(work.kind)) continue
@@ -414,5 +422,5 @@ export function resolveChain(
       (titles.get(a.workId) ?? '').localeCompare(titles.get(b.workId) ?? '', 'de') ||
       (a.editionId ?? '').localeCompare(b.editionId ?? ''),
   )
-  return { date, chain, uses: named.slice(0, MAX_USES), truncated: named.length > MAX_USES, undetermined }
+  return { date, chain, uses: named, undetermined }
 }

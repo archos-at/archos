@@ -68,7 +68,7 @@ def gate_policy(state: str) -> GatePolicy:
 #: Most leaves, packs and uses kept; the BFF's own bounds.
 MAX_LEAVES = 8
 MAX_PACKS = 16
-MAX_USES = 40
+MAX_USES = 500
 
 #: Longest chain text kept: the BFF's own bound (``MAX_CONTEXT_TEXT_CHARS``), which cuts at a line and says so.
 MAX_TEXT_CHARS = 16_000
