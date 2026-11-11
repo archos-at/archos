@@ -147,16 +147,28 @@ export async function closeBinEntryRestored(tx: DbExecutor, organizationId: stri
 }
 
 /**
+ * A claim on a bin entry: the `claimed_at` the claim wrote, as text so its
+ * microseconds survive. Every claim writes a fresh one, the purger's takeover
+ * of a stale claim included (`claimNext`, `purger/db.js`), so it names one
+ * holder. Every closing write below matches it.
+ */
+export type BinEntryClaim = string
+
+/** The row this holder claimed: still claimed by it, whatever else has happened since. */
+const heldBy = (claim: BinEntryClaim) => sql`${deletionQueue.claimedAt} = ${claim}::text::timestamptz`
+
+/**
  * Claim a bin entry for a purge run in the request („Endgültig löschen"):
  * `pending` to `purging`, as the purger's claim does, or a `failed` one a
- * person tries again. Null when the purger holds it, or it is gone.
+ * person tries again. Null when the purger holds it, or it is gone. The
+ * database's clock, like the purger's claim, so a takeover is always later.
  */
-export async function claimBinEntryNow(organizationId: string, folderId: string): Promise<FolderQueueRow | null> {
+export async function claimBinEntryNow(organizationId: string, folderId: string): Promise<BinEntryClaim | null> {
   const db = getDb()
   const [row] = await withTenant({ organizationId }, () =>
     db
       .update(deletionQueue)
-      .set({ status: 'purging', claimedAt: new Date(), attempts: sql`${deletionQueue.attempts} + 1` })
+      .set({ status: 'purging', claimedAt: sql`now()`, attempts: sql`${deletionQueue.attempts} + 1` })
       .where(
         and(
           eq(deletionQueue.entityType, 'folder'),
@@ -165,18 +177,25 @@ export async function claimBinEntryNow(organizationId: string, folderId: string)
           inArray(deletionQueue.status, DELETION_LIFECYCLE.statesThatMayBecome('purging'))
         )
       )
-      .returning()
+      .returning({ claim: sql<string>`${deletionQueue.claimedAt}::text` })
   )
-  return row ?? null
+  return row?.claim ?? null
 }
 
 /** What a failed attempt leaves a claimed row as: the purger's own rule (`markFailed`, `purger/db.js`). */
 const RELEASED_STATUS = sql<DeletionStatus>`CASE WHEN ${deletionQueue.attempts} >= ${DELETION_MAX_ATTEMPTS} THEN 'failed' ELSE 'pending' END`
 
-/** Finish a claimed bin entry: `purged`, with what was removed merged into its payload. */
+/**
+ * Finish a claimed bin entry: `purged`, with what was removed merged into its
+ * payload. Only the row this request claimed: when the purger took a stale
+ * claim over, the row is the purger's to close. A row that reads `failed`
+ * under this same claim is closed too: the purger's reap fails a final attempt
+ * that ran past the stale window, and this one then finished.
+ */
 export async function closeBinEntryPurged(
   organizationId: string,
   folderId: string,
+  claim: BinEntryClaim,
   payload: Partial<FolderBinPayload>
 ): Promise<void> {
   const db = getDb()
@@ -194,7 +213,8 @@ export async function closeBinEntryPurged(
           eq(deletionQueue.entityType, 'folder'),
           eq(deletionQueue.entityId, folderId),
           eq(deletionQueue.organizationId, organizationId),
-          eq(deletionQueue.status, 'purging')
+          inArray(deletionQueue.status, ['purging', 'failed']),
+          heldBy(claim)
         )
       )
   )
@@ -204,9 +224,16 @@ export async function closeBinEntryPurged(
  * Put a claimed bin entry back after a purge in the request failed: `pending`,
  * for the purger to retry, while it has attempts left, else `failed`. The
  * purger never claims a row at the cap, so a `pending` one there would wait
- * for ever while reading as waiting.
+ * for ever while reading as waiting. Only the row this request claimed: after
+ * a takeover the purger may have purged the folder, and this request's failure
+ * says nothing about that.
  */
-export async function releaseBinEntry(organizationId: string, folderId: string, error: string): Promise<void> {
+export async function releaseBinEntry(
+  organizationId: string,
+  folderId: string,
+  claim: BinEntryClaim,
+  error: string
+): Promise<void> {
   const db = getDb()
   await withTenant({ organizationId }, () =>
     db
@@ -217,7 +244,8 @@ export async function releaseBinEntry(organizationId: string, folderId: string, 
           eq(deletionQueue.entityType, 'folder'),
           eq(deletionQueue.entityId, folderId),
           eq(deletionQueue.organizationId, organizationId),
-          eq(deletionQueue.status, 'purging')
+          eq(deletionQueue.status, 'purging'),
+          heldBy(claim)
         )
       )
   )
@@ -236,6 +264,7 @@ export async function releaseBinEntry(organizationId: string, folderId: string, 
 export async function handBinEntryToPurger(
   organizationId: string,
   folderId: string,
+  claim: BinEntryClaim,
   payload: Partial<FolderBinPayload>
 ): Promise<void> {
   const db = getDb()
@@ -255,7 +284,8 @@ export async function handBinEntryToPurger(
           eq(deletionQueue.entityType, 'folder'),
           eq(deletionQueue.entityId, folderId),
           eq(deletionQueue.organizationId, organizationId),
-          eq(deletionQueue.status, 'purging')
+          eq(deletionQueue.status, 'purging'),
+          heldBy(claim)
         )
       )
   )

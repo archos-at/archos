@@ -164,7 +164,7 @@ are tested on Postgres by `task be:test:postgres`, in CI's Backend job.**
 `tests/knowledge_layer_tests/test_ingest_queue.py` run every scenario on
 SQLite, which ranks in Python, and on Postgres, which runs production's claim
 SQL. The folder card builder's suites (`packages/agent/tests/knowledge/folder_cards/`:
-dirty queue, budget, manifests, worker) run on both too, through the
+dirty set, budget, manifests, the build over a collection) run on both too, through the
 `database_url` and `agent_db` fixtures in their `conftest.py`, and so does the
 metadata store's mail records (`packages/agent/tests/knowledge/test_mail_facts.py`: the
 add-column path on a table from before the columns, and the read-back). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
@@ -662,6 +662,28 @@ A judged check with no judge is a recorded failure (`judge_unavailable:<kind>`).
 Every expected value is read off the relation records in
 `configs/knowledge-packs/at.json`; `tests/test_edition_eval.py` holds every row to
 the pack, so a pack change fails CI until the set follows.
+
+**The golden set** (`-- --set golden --cases <file>`) runs a country's golden
+cases: platform records of type `golden_case` (ADR-0165, amendment "golden
+cases are records"), each a question with the site and facts it needs, the
+values, edition and citation a right answer gives, and what it must not do.
+`--cases` is a file in the records format, the pack an operator proposes from
+(`configs/knowledge-packs/at-golden-cases.json`). The suite runs with no stack
+and reads no store, so released cases reach it as such a file; an export of a
+release from the door is not built yet. Each case is a row; its checks are its own
+(`value:<label>`, `edition:<key>`, `citation:<designation>`,
+`must_not:<id>`), scored by `scripts/turn_census/golden_eval.py`, which mirrors
+the scorer of the door's `platform-knowledge-golden-run`
+(`apps/workspace/bff/base-knowledge/golden/score.ts`).
+`tests/fixtures/golden/scoring_parity.json` holds both to one set of verdicts on
+recorded answers of the before-baseline: change one scorer and the other's test
+fails until it follows (`UPDATE_FIXTURES=1 bunx vitest run
+bff/base-knowledge/golden/score.spec.ts` rewrites the verdicts; read the diff).
+A run carries the law of the case's `territoryId` from the same fixture the
+other norm sets read; a case with no site, or a site that fixture does not
+hold, runs with none. A suite run has no citation objects, so the source rules
+read the answer's own source list, and it records no confidence, so a rule on
+the confidence reason is checked by the door's run only.
 
 **The precedent set** (`-- --set precedent`) asks whether the agent uses the
 office's other projects well (docs/roadmap/office-experience.md, step A). Each

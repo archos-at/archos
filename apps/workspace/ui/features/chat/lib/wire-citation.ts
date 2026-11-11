@@ -7,6 +7,7 @@ import type { CitationProject, CitationSource, WireCitationSource } from '../typ
 import { asShelf, asSourceKind, modernizeLane } from '@/lib/source-kinds'
 import { parsePageRegions } from '@/features/knowledge/lib/page-region'
 import { toProjectStatus } from '@/lib/projects/project-status'
+import { citationLineOf, hasCitationLine, type CitationLineWire } from '@/shared/citation-line'
 
 const trimmed = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined
@@ -96,7 +97,14 @@ export const citationFromWire = (
     bindingStatus: bindingStatusOrUndefined(wire.binding_status),
     regions: parsePageRegions(wire.regions),
     project: projectFromWire(wire.project),
+    line: lineOrUndefined(wire),
   }
+}
+
+/** The line fields a source carries, each validated on its own; undefined when it carries none. */
+const lineOrUndefined = (wire: WireCitationSource): CitationLineWire | undefined => {
+  const line = citationLineOf(wire)
+  return hasCitationLine(line) ? line : undefined
 }
 
 /**

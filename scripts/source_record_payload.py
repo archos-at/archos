@@ -64,6 +64,11 @@ def door_record(source: Source, key: str) -> dict[str, object]:
         "format": source.format,
         "hosts": list(source.hosts),
         "dataFlow": source.data_flow,
+        **(
+            {"identifiers": {scheme: rule.model_dump() for scheme, rule in source.identifiers.items()}}
+            if source.identifiers
+            else {}
+        ),
         "terms": {
             "url": source.terms.url,
             "licence": source.terms.licence,

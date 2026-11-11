@@ -224,6 +224,42 @@ export async function readContextInputs(organizationId: string, projectId: strin
   }
 }
 
+/** A site a caller states instead of a project's: a golden case's territory and the day its question is about. */
+export interface StatedSite {
+  territoryId: string | null
+  /** A filing day the question is about; the context still resolves on today (the turn reads no reference-date rule yet). */
+  filedOn: string | null
+}
+
+/**
+ * The context an office's turn carries at a stated site with no project (a
+ * golden run, ADR-0165 amendment): the office's own entitlements and the
+ * released records, as {@link knowledgeContextForTurn} resolves them, with the
+ * site and the filing day stated by the caller. Never cached: a run asks each
+ * case once. Fails closed like the turn's.
+ */
+export async function knowledgeContextForStatedSite(organizationId: string, stated: StatedSite): Promise<KnowledgeContext> {
+  try {
+    const inputs = await readContextInputs(organizationId, null)
+    const sites: SiteLeaf[] = stated.territoryId ? [{ territoryId: stated.territoryId, certainty: 'verified' }] : []
+    const procedures: ProcedureContext[] = stated.filedOn
+      ? [
+          {
+            id: PROCEDURE_IDS[0],
+            procedureType: null,
+            filedOn: stated.filedOn,
+            decidedOn: null,
+            referenceDates: Object.fromEntries(sites.map((leaf) => [leaf.territoryId, { date: null, basis: 'undetermined' as const }])),
+          },
+        ]
+      : []
+    return await resolveFor(organizationId, { ...inputs, sites, procedures }, untimed)
+  } catch (error) {
+    console.error('[knowledge_context_page_read=false] the knowledge context could not be read for a stated site', { organizationId, error })
+    return unavailableContext(calendarDayIn('UTC'))
+  }
+}
+
 /**
  * Who reads a context: a chat turn; an operation (`project-base-get`, `-confirm`)
  * a person or an agent called; or a background run, which carries its own.

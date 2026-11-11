@@ -210,9 +210,27 @@ class Upstream:
 class Result:
     output: str
     requested: tuple[str, ...]
+    #: What each hit states beside its text (citation key, public address, revision, work, edition): the record
+    #: fields a citation's role, address and date come from, which the text never shows.
+    records: tuple[tuple, ...] = ()
 
     def as_json(self) -> dict[str, Any]:
         return {"requested": list(self.requested), "output": self.output}
+
+
+@contextlib.contextmanager
+def _capturing_hits(module: str):
+    """Record the hits ``module`` hands the grounding renderer, as the citation layer receives them."""
+    from agent.common import grounding_block
+
+    seen: list[tuple] = []
+
+    def _render(block):
+        seen.extend((hit.citation_key, hit.public_url, hit.revision, hit.work_id, hit.edition_id) for hit in block.hits)
+        return grounding_block.render_grounding_block(block)
+
+    with patch(f"{module}.render_grounding_block", _render):
+        yield seen
 
 
 def _reset_shared_cache() -> None:
@@ -263,11 +281,12 @@ async def run_ris_lookup(case: Case, upstream: Upstream) -> Result:
     with contextlib.ExitStack() as stack:
         stack.enter_context(patch("ris_adapter.lookup.tool.RisClient", _client))
         stack.enter_context(patch("ris_adapter.lookup.tool._resolve_llms", _resolve))
+        records = stack.enter_context(_capturing_hits("ris_adapter.lookup.render"))
         config = RisLookupToolConfig(ingest_into_knowledge=False)
         async with ris_lookup(config, MagicMock()) as info:
             fn = LambdaFunction.from_info(config=_probe_config(), info=info)
             output = await fn.ainvoke(case.args, to_type=str)
-    return Result(output=output, requested=tuple(upstream.requested))
+    return Result(output=output, requested=tuple(upstream.requested), records=tuple(records))
 
 
 #: The key a released record of the repository's RIS source takes (``scripts/source_record_payload.py``).
@@ -360,10 +379,11 @@ async def run_law_lookup(case: Case, upstream: Upstream, turn_record: dict[str, 
         stack.enter_context(patch("agent.knowledge.law_lookup.tool.SourceClient", _client))
         stack.enter_context(patch("agent.knowledge.law_lookup.tool._resolve_llms", _resolve))
         stack.enter_context(_turn_carrying(turn_record))
+        records = stack.enter_context(_capturing_hits("agent.knowledge.law_lookup.render"))
         async with law_lookup(config, MagicMock()) as info:
             fn = LambdaFunction.from_info(config=_probe_config(), info=info)
             output = await fn.ainvoke(case.args, to_type=str)
-    return Result(output=output, requested=tuple(upstream.requested))
+    return Result(output=output, requested=tuple(upstream.requested), records=tuple(records))
 
 
 def _probe_config():

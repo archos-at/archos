@@ -41,6 +41,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": "2013-07-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -56,6 +58,8 @@
           "editionLabel": "Verordnung (EU) Nr. 305/2011",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -64,6 +68,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -76,6 +82,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -84,6 +92,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -105,6 +115,8 @@
             }
           ],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -113,6 +125,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:bgld-bauvo",
+            "designation": "Bgld. BauVO 2008",
+            "editionLabel": null,
+            "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021"
+          },
+          "roleSince": "2021-04-10",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -130,6 +149,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -138,6 +159,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:bgld-bauvo",
+            "designation": "Bgld. BauVO 2008",
+            "editionLabel": null,
+            "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021"
+          },
+          "roleSince": "2021-04-10",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -155,6 +183,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -163,6 +193,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:bgld-bauvo",
+            "designation": "Bgld. BauVO 2008",
+            "editionLabel": null,
+            "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021"
+          },
+          "roleSince": "2021-04-10",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -180,6 +217,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -188,6 +227,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:bgld-bauvo",
+            "designation": "Bgld. BauVO 2008",
+            "editionLabel": null,
+            "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021"
+          },
+          "roleSince": "2021-04-10",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -205,6 +251,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -213,6 +261,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:bgld-bauvo",
+            "designation": "Bgld. BauVO 2008",
+            "editionLabel": null,
+            "provision": "Bgld. BauVO 2008 idF LGBl. 75/2026"
+          },
+          "roleSince": "2026-11-05",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -230,6 +285,8 @@
           "editionLabel": "Ausgabe September 2025",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2025/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -238,6 +295,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:bgld-bauvo",
+            "designation": "Bgld. BauVO 2008",
+            "editionLabel": null,
+            "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021"
+          },
+          "roleSince": "2021-04-10",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -255,6 +319,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -263,6 +329,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:bgld-bauvo",
+            "designation": "Bgld. BauVO 2008",
+            "editionLabel": null,
+            "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021"
+          },
+          "roleSince": "2021-04-10",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -280,6 +353,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -288,6 +363,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:bgld-bauvo",
+            "designation": "Bgld. BauVO 2008",
+            "editionLabel": null,
+            "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021"
+          },
+          "roleSince": "2021-04-10",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -305,6 +387,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-4",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -313,6 +397,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:bgld-bauvo",
+            "designation": "Bgld. BauVO 2008",
+            "editionLabel": null,
+            "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021"
+          },
+          "roleSince": "2021-04-10",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -330,6 +421,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-5",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -338,6 +431,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -355,6 +450,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -363,6 +460,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -380,6 +479,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -388,6 +489,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -405,6 +508,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -413,6 +518,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -430,6 +537,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -438,6 +547,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -455,6 +566,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -463,6 +576,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -480,6 +595,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -488,6 +605,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -505,6 +624,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -513,6 +634,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -530,6 +653,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -538,6 +663,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -555,6 +682,8 @@
           "editionLabel": "Ausgabe März 2015",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2015/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -563,6 +692,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -580,6 +711,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -588,6 +721,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -605,6 +740,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -613,6 +750,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -628,6 +767,8 @@
           "editionLabel": "Richtlinie (EU) 2024/1275",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         }
       ],
@@ -683,6 +824,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": "2013-07-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -698,6 +841,8 @@
           "editionLabel": "Verordnung (EU) Nr. 305/2011",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -706,6 +851,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -727,6 +874,8 @@
             }
           ],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -735,6 +884,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -747,6 +898,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -755,6 +908,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ktn-btv",
+            "designation": "K-BTV",
+            "editionLabel": null,
+            "provision": "K-BTV 2024, LGBl. 105/2024"
+          },
+          "roleSince": "2024-12-31",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -772,6 +932,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -780,6 +942,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ktn-btv",
+            "designation": "K-BTV",
+            "editionLabel": null,
+            "provision": "K-BTV 2024, LGBl. 105/2024"
+          },
+          "roleSince": "2024-12-31",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -797,6 +966,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -805,6 +976,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ktn-btv",
+            "designation": "K-BTV",
+            "editionLabel": null,
+            "provision": "K-BTV 2024, LGBl. 105/2024"
+          },
+          "roleSince": "2024-12-31",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -822,6 +1000,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -830,6 +1010,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ktn-btv",
+            "designation": "K-BTV",
+            "editionLabel": null,
+            "provision": "K-BTV 2024, LGBl. 105/2024"
+          },
+          "roleSince": "2024-12-31",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -847,6 +1034,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -855,6 +1044,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ktn-btv",
+            "designation": "K-BTV",
+            "editionLabel": null,
+            "provision": "K-BTV 2024, LGBl. 105/2024"
+          },
+          "roleSince": "2024-12-31",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -872,6 +1068,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -880,6 +1078,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ktn-btv",
+            "designation": "K-BTV",
+            "editionLabel": null,
+            "provision": "K-BTV 2024, LGBl. 105/2024"
+          },
+          "roleSince": "2024-12-31",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -897,6 +1102,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -905,6 +1112,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ktn-btv",
+            "designation": "K-BTV",
+            "editionLabel": null,
+            "provision": "K-BTV 2024, LGBl. 105/2024"
+          },
+          "roleSince": "2024-12-31",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -922,6 +1136,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -930,6 +1146,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ktn-btv",
+            "designation": "K-BTV",
+            "editionLabel": null,
+            "provision": "K-BTV 2024, LGBl. 105/2024"
+          },
+          "roleSince": "2024-12-31",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -947,6 +1170,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -955,6 +1180,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ktn-btv",
+            "designation": "K-BTV",
+            "editionLabel": null,
+            "provision": "K-BTV 2024, LGBl. 105/2024"
+          },
+          "roleSince": "2024-12-31",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -972,6 +1204,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -980,6 +1214,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -997,6 +1233,8 @@
           "editionLabel": "Ausgabe September 2025",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2025/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1005,6 +1243,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1022,6 +1262,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1030,6 +1272,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1047,6 +1291,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1055,6 +1301,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1072,6 +1320,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1080,6 +1330,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1097,6 +1349,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1105,6 +1359,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1122,6 +1378,8 @@
           "editionLabel": "Ausgabe März 2015",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2015/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1130,6 +1388,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1147,6 +1407,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1155,6 +1417,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1172,6 +1436,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1180,6 +1446,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1197,6 +1465,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1205,6 +1475,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1222,6 +1494,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-4",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1230,6 +1504,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1245,6 +1521,8 @@
           "editionLabel": "Richtlinie (EU) 2024/1275",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -1253,6 +1531,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1270,6 +1550,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-5",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         }
       ],
@@ -1325,6 +1607,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": "2013-07-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1340,6 +1624,8 @@
           "editionLabel": "Verordnung (EU) Nr. 305/2011",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -1348,6 +1634,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -1369,6 +1657,8 @@
             }
           ],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -1377,6 +1667,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -1389,6 +1681,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -1397,6 +1691,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:noe-btv",
+            "designation": "NÖ BTV 2014",
+            "editionLabel": null,
+            "provision": "NÖ BTV 2014 idF LGBl. 41/2025"
+          },
+          "roleSince": "2025-03-20",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1414,6 +1715,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1422,6 +1725,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:noe-btv",
+            "designation": "NÖ BTV 2014",
+            "editionLabel": null,
+            "provision": "NÖ BTV 2014 idF LGBl. 41/2025"
+          },
+          "roleSince": "2025-03-20",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1439,6 +1749,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1447,6 +1759,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:noe-btv",
+            "designation": "NÖ BTV 2014",
+            "editionLabel": null,
+            "provision": "NÖ BTV 2014 idF LGBl. 41/2025"
+          },
+          "roleSince": "2025-03-20",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1464,6 +1783,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1472,6 +1793,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:noe-btv",
+            "designation": "NÖ BTV 2014",
+            "editionLabel": null,
+            "provision": "NÖ BTV 2014 idF LGBl. 41/2025"
+          },
+          "roleSince": "2025-03-20",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1489,6 +1817,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1497,6 +1827,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:noe-btv",
+            "designation": "NÖ BTV 2014",
+            "editionLabel": null,
+            "provision": "NÖ BTV 2014 idF LGBl. 41/2025"
+          },
+          "roleSince": "2025-03-20",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1514,6 +1851,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1522,6 +1861,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:noe-btv",
+            "designation": "NÖ BTV 2014",
+            "editionLabel": null,
+            "provision": "NÖ BTV 2014 idF LGBl. 41/2025"
+          },
+          "roleSince": "2025-03-20",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1539,6 +1885,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1547,6 +1895,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:noe-btv",
+            "designation": "NÖ BTV 2014",
+            "editionLabel": null,
+            "provision": "NÖ BTV 2014 idF LGBl. 41/2025"
+          },
+          "roleSince": "2025-03-20",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1564,6 +1919,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1572,6 +1929,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:noe-btv",
+            "designation": "NÖ BTV 2014",
+            "editionLabel": null,
+            "provision": "NÖ BTV 2014 idF LGBl. 41/2025"
+          },
+          "roleSince": "2025-03-20",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1589,6 +1953,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1597,6 +1963,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:noe-btv",
+            "designation": "NÖ BTV 2014",
+            "editionLabel": null,
+            "provision": "NÖ BTV 2014 idF LGBl. 41/2025"
+          },
+          "roleSince": "2025-03-20",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1614,6 +1987,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1622,6 +1997,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1639,6 +2016,8 @@
           "editionLabel": "Ausgabe September 2025",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2025/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1647,6 +2026,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1664,6 +2045,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1672,6 +2055,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1689,6 +2074,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1697,6 +2084,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1714,6 +2103,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1722,6 +2113,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1739,6 +2132,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1747,6 +2142,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1764,6 +2161,8 @@
           "editionLabel": "Ausgabe März 2015",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2015/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1772,6 +2171,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1789,6 +2190,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1797,6 +2200,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1814,6 +2219,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1822,6 +2229,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1839,6 +2248,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1847,6 +2258,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1864,6 +2277,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-4",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -1872,6 +2287,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1887,6 +2304,8 @@
           "editionLabel": "Richtlinie (EU) 2024/1275",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -1895,6 +2314,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1912,6 +2333,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-5",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         }
       ],
@@ -1967,6 +2390,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": "2013-07-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -1982,6 +2407,8 @@
           "editionLabel": "Verordnung (EU) Nr. 305/2011",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -1990,6 +2417,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -2011,6 +2440,8 @@
             }
           ],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -2019,6 +2450,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -2031,6 +2464,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -2039,6 +2474,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ooe-bautv",
+            "designation": "Oö. BauTV",
+            "editionLabel": null,
+            "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025"
+          },
+          "roleSince": "2025-10-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2056,6 +2498,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2064,6 +2508,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ooe-bautv",
+            "designation": "Oö. BauTV",
+            "editionLabel": null,
+            "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025"
+          },
+          "roleSince": "2025-10-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2081,6 +2532,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2089,6 +2542,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ooe-bautv",
+            "designation": "Oö. BauTV",
+            "editionLabel": null,
+            "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025"
+          },
+          "roleSince": "2025-10-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2106,6 +2566,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2114,6 +2576,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ooe-bautv",
+            "designation": "Oö. BauTV",
+            "editionLabel": null,
+            "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025"
+          },
+          "roleSince": "2025-10-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2131,6 +2600,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2139,6 +2610,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ooe-bautv",
+            "designation": "Oö. BauTV",
+            "editionLabel": null,
+            "provision": null
+          },
+          "roleSince": "2020-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2156,6 +2634,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2164,6 +2644,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ooe-bautv",
+            "designation": "Oö. BauTV",
+            "editionLabel": null,
+            "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025"
+          },
+          "roleSince": "2025-10-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2181,6 +2668,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2189,6 +2678,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ooe-bautv",
+            "designation": "Oö. BauTV",
+            "editionLabel": null,
+            "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025"
+          },
+          "roleSince": "2025-10-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2206,6 +2702,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2214,6 +2712,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ooe-bautv",
+            "designation": "Oö. BauTV",
+            "editionLabel": null,
+            "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025"
+          },
+          "roleSince": "2025-10-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2231,6 +2736,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2239,6 +2746,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:ooe-bautv",
+            "designation": "Oö. BauTV",
+            "editionLabel": null,
+            "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025"
+          },
+          "roleSince": "2025-10-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2256,6 +2770,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2264,6 +2780,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2281,6 +2799,8 @@
           "editionLabel": "Ausgabe September 2025",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2025/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2289,6 +2809,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2306,6 +2828,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2314,6 +2838,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2331,6 +2857,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2339,6 +2867,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2356,6 +2886,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2364,6 +2896,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2381,6 +2915,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2389,6 +2925,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2406,6 +2944,8 @@
           "editionLabel": "Ausgabe März 2015",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2015/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2414,6 +2954,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2431,6 +2973,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2439,6 +2983,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2456,6 +3002,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2464,6 +3012,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2481,6 +3031,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2489,6 +3041,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2506,6 +3060,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-4",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2514,6 +3070,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2529,6 +3087,8 @@
           "editionLabel": "Richtlinie (EU) 2024/1275",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -2537,6 +3097,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2554,6 +3116,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-5",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         }
       ],
@@ -2609,6 +3173,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": "2013-07-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2624,6 +3190,8 @@
           "editionLabel": "Verordnung (EU) Nr. 305/2011",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -2632,6 +3200,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -2644,6 +3214,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -2652,6 +3224,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -2673,6 +3247,8 @@
             }
           ],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -2681,6 +3257,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:sbg-btv",
+            "designation": "Sbg. BTV",
+            "editionLabel": null,
+            "provision": "Sbg. BTV, LGBl. 83/2026"
+          },
+          "roleSince": "2026-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2698,6 +3281,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2706,6 +3291,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:sbg-btv",
+            "designation": "Sbg. BTV",
+            "editionLabel": null,
+            "provision": "Sbg. BTV, LGBl. 83/2026"
+          },
+          "roleSince": "2026-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2723,6 +3315,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2731,6 +3325,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:sbg-btv",
+            "designation": "Sbg. BTV",
+            "editionLabel": null,
+            "provision": "Sbg. BTV, LGBl. 83/2026"
+          },
+          "roleSince": "2026-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2748,6 +3349,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2756,6 +3359,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:sbg-btv",
+            "designation": "Sbg. BTV",
+            "editionLabel": null,
+            "provision": "Sbg. BTV, LGBl. 83/2026"
+          },
+          "roleSince": "2026-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2773,6 +3383,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2781,6 +3393,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:sbg-btv",
+            "designation": "Sbg. BTV",
+            "editionLabel": null,
+            "provision": "Sbg. BTV, LGBl. 83/2026, § 1"
+          },
+          "roleSince": "2026-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2798,6 +3417,8 @@
           "editionLabel": "Ausgabe März 2015",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2015/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2806,6 +3427,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:sbg-btv",
+            "designation": "Sbg. BTV",
+            "editionLabel": null,
+            "provision": "Sbg. BTV, LGBl. 83/2026"
+          },
+          "roleSince": "2026-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2823,6 +3451,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2831,6 +3461,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:sbg-btv",
+            "designation": "Sbg. BTV",
+            "editionLabel": null,
+            "provision": "Sbg. BTV, LGBl. 83/2026"
+          },
+          "roleSince": "2026-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2848,6 +3485,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2856,6 +3495,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:sbg-btv",
+            "designation": "Sbg. BTV",
+            "editionLabel": null,
+            "provision": "Sbg. BTV, LGBl. 83/2026"
+          },
+          "roleSince": "2026-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2873,6 +3519,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2881,6 +3529,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:sbg-btv",
+            "designation": "Sbg. BTV",
+            "editionLabel": null,
+            "provision": "Sbg. BTV, LGBl. 83/2026"
+          },
+          "roleSince": "2026-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2898,6 +3553,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2906,6 +3563,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2923,6 +3582,8 @@
           "editionLabel": "Ausgabe September 2025",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2025/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2931,6 +3592,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2948,6 +3611,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2956,6 +3621,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2973,6 +3640,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -2981,6 +3650,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -2998,6 +3669,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3006,6 +3679,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3023,6 +3698,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3031,6 +3708,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3048,6 +3727,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3056,6 +3737,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3073,6 +3756,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3081,6 +3766,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3098,6 +3785,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3106,6 +3795,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3123,6 +3814,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3131,6 +3824,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3148,6 +3843,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-4",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3156,6 +3853,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3171,6 +3870,8 @@
           "editionLabel": "Richtlinie (EU) 2024/1275",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -3179,6 +3880,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3196,6 +3899,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-5",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         }
       ],
@@ -3251,6 +3956,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": "2013-07-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3266,6 +3973,8 @@
           "editionLabel": "Verordnung (EU) Nr. 305/2011",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -3274,6 +3983,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -3286,6 +3997,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -3294,6 +4007,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -3315,6 +4030,8 @@
             }
           ],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -3323,6 +4040,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:stmk-btv",
+            "designation": "StBTV",
+            "editionLabel": null,
+            "provision": "StBTV 2020"
+          },
+          "roleSince": "2020-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3340,6 +4064,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3348,6 +4074,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:stmk-btv",
+            "designation": "StBTV",
+            "editionLabel": null,
+            "provision": "StBTV 2020"
+          },
+          "roleSince": "2020-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3365,6 +4098,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3373,6 +4108,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:stmk-btv",
+            "designation": "StBTV",
+            "editionLabel": null,
+            "provision": "StBTV 2020"
+          },
+          "roleSince": "2020-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3390,6 +4132,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3398,6 +4142,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:stmk-btv",
+            "designation": "StBTV",
+            "editionLabel": null,
+            "provision": "StBTV 2020"
+          },
+          "roleSince": "2020-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3415,6 +4166,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3423,6 +4176,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:stmk-btv",
+            "designation": "StBTV",
+            "editionLabel": null,
+            "provision": "StBTV 2020"
+          },
+          "roleSince": "2020-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3440,6 +4200,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3448,6 +4210,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:stmk-btv",
+            "designation": "StBTV",
+            "editionLabel": null,
+            "provision": "StBTV 2020"
+          },
+          "roleSince": "2020-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3465,6 +4234,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3473,6 +4244,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:stmk-btv",
+            "designation": "StBTV",
+            "editionLabel": null,
+            "provision": "StBTV 2020"
+          },
+          "roleSince": "2020-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3490,6 +4268,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3498,6 +4278,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:stmk-btv",
+            "designation": "StBTV",
+            "editionLabel": null,
+            "provision": "StBTV 2020"
+          },
+          "roleSince": "2020-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3515,6 +4302,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-4",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3523,6 +4312,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:stmk-btv",
+            "designation": "StBTV",
+            "editionLabel": null,
+            "provision": "StBTV 2020"
+          },
+          "roleSince": "2020-09-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3540,6 +4336,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-5",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3548,6 +4346,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3565,6 +4365,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3573,6 +4375,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3590,6 +4394,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3598,6 +4404,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3615,6 +4423,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3623,6 +4433,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3640,6 +4452,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3648,6 +4462,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3665,6 +4481,8 @@
           "editionLabel": "Ausgabe September 2025",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2025/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3673,6 +4491,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3690,6 +4510,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3698,6 +4520,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3715,6 +4539,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3723,6 +4549,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3740,6 +4568,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3748,6 +4578,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3765,6 +4597,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3773,6 +4607,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3790,6 +4626,8 @@
           "editionLabel": "Ausgabe März 2015",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2015/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3798,6 +4636,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3815,6 +4655,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3823,6 +4665,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3838,6 +4682,8 @@
           "editionLabel": "Richtlinie (EU) 2024/1275",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         }
       ],
@@ -3893,6 +4739,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": "2013-07-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3908,6 +4756,8 @@
           "editionLabel": "Verordnung (EU) Nr. 305/2011",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -3916,6 +4766,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -3928,6 +4780,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -3936,6 +4790,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -3957,6 +4813,8 @@
             }
           ],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -3965,6 +4823,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:tirol-tbv",
+            "designation": "TBV",
+            "editionLabel": null,
+            "provision": "§ 43 TBV 2026, LGBl. 59/2026"
+          },
+          "roleSince": "2026-07-16",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -3982,6 +4847,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -3990,6 +4857,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:tirol-tbv",
+            "designation": "TBV",
+            "editionLabel": null,
+            "provision": "§ 43 TBV 2026, LGBl. 59/2026"
+          },
+          "roleSince": "2026-07-16",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4007,6 +4881,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4015,6 +4891,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:tirol-tbv",
+            "designation": "TBV",
+            "editionLabel": null,
+            "provision": "§ 43 TBV 2026, LGBl. 59/2026"
+          },
+          "roleSince": "2026-07-16",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4032,6 +4915,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4040,6 +4925,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:tirol-tbv",
+            "designation": "TBV",
+            "editionLabel": null,
+            "provision": "§ 43 TBV 2026, LGBl. 59/2026"
+          },
+          "roleSince": "2026-07-16",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4057,6 +4949,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4065,6 +4959,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:tirol-tbv",
+            "designation": "TBV",
+            "editionLabel": null,
+            "provision": "§ 43 TBV 2026, LGBl. 59/2026"
+          },
+          "roleSince": "2026-07-16",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4082,6 +4983,8 @@
           "editionLabel": "Ausgabe September 2025",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2025/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4090,6 +4993,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:tirol-tbv",
+            "designation": "TBV",
+            "editionLabel": null,
+            "provision": "§ 43 TBV 2026, LGBl. 59/2026"
+          },
+          "roleSince": "2026-07-16",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4107,6 +5017,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4115,6 +5027,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:tirol-tbv",
+            "designation": "TBV",
+            "editionLabel": null,
+            "provision": "§ 43 TBV 2026, LGBl. 59/2026"
+          },
+          "roleSince": "2026-07-16",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4132,6 +5051,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4140,6 +5061,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:tirol-tbv",
+            "designation": "TBV",
+            "editionLabel": null,
+            "provision": "§ 43 TBV 2026, LGBl. 59/2026"
+          },
+          "roleSince": "2026-07-16",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4157,6 +5085,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4165,6 +5095,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:tirol-tbv",
+            "designation": "TBV",
+            "editionLabel": null,
+            "provision": "§ 43 TBV 2026, LGBl. 59/2026"
+          },
+          "roleSince": "2026-07-16",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4182,6 +5119,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4190,6 +5129,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4207,6 +5148,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4215,6 +5158,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4232,6 +5177,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4240,6 +5187,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4257,6 +5206,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4265,6 +5216,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4282,6 +5235,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4290,6 +5245,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4307,6 +5264,8 @@
           "editionLabel": "Ausgabe März 2015",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2015/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4315,6 +5274,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4332,6 +5293,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4340,6 +5303,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4357,6 +5322,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4365,6 +5332,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4382,6 +5351,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4390,6 +5361,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4407,6 +5380,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4415,6 +5390,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4432,6 +5409,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-4",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4440,6 +5419,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4455,6 +5436,8 @@
           "editionLabel": "Richtlinie (EU) 2024/1275",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -4463,6 +5446,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4480,6 +5465,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-5",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         }
       ],
@@ -4535,6 +5522,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -4556,6 +5545,8 @@
             }
           ],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -4564,6 +5555,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": "2013-07-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4579,6 +5572,8 @@
           "editionLabel": "Verordnung (EU) Nr. 305/2011",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -4587,6 +5582,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -4599,6 +5596,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -4607,6 +5606,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:vbg-btv",
+            "designation": "Vbg. BTV",
+            "editionLabel": null,
+            "provision": "Vbg. BTV idF LGBl. 67/2021"
+          },
+          "roleSince": "2022-01-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4624,6 +5630,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4632,6 +5640,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:vbg-btv",
+            "designation": "Vbg. BTV",
+            "editionLabel": null,
+            "provision": "Vbg. BTV idF LGBl. 67/2021"
+          },
+          "roleSince": "2022-01-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4649,6 +5664,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4657,6 +5674,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:vbg-btv",
+            "designation": "Vbg. BTV",
+            "editionLabel": null,
+            "provision": "Vbg. BTV idF LGBl. 67/2021"
+          },
+          "roleSince": "2022-01-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4674,6 +5698,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4682,6 +5708,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:vbg-btv",
+            "designation": "Vbg. BTV",
+            "editionLabel": null,
+            "provision": "Vbg. BTV idF LGBl. 67/2021"
+          },
+          "roleSince": "2022-01-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4699,6 +5732,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4707,6 +5742,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:vbg-btv",
+            "designation": "Vbg. BTV",
+            "editionLabel": null,
+            "provision": "Vbg. BTV idF LGBl. 67/2021"
+          },
+          "roleSince": "2022-01-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4724,6 +5766,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4732,6 +5776,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:vbg-btv",
+            "designation": "Vbg. BTV",
+            "editionLabel": null,
+            "provision": "Vbg. BTV idF LGBl. 67/2021"
+          },
+          "roleSince": "2022-01-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4749,6 +5800,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4757,6 +5810,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:vbg-btv",
+            "designation": "Vbg. BTV",
+            "editionLabel": null,
+            "provision": "Vbg. BTV idF LGBl. 67/2021"
+          },
+          "roleSince": "2022-01-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4774,6 +5834,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4782,6 +5844,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:vbg-btv",
+            "designation": "Vbg. BTV",
+            "editionLabel": null,
+            "provision": "Vbg. BTV idF LGBl. 67/2021"
+          },
+          "roleSince": "2022-01-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4799,6 +5868,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-4",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4807,6 +5878,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:vbg-btv",
+            "designation": "Vbg. BTV",
+            "editionLabel": null,
+            "provision": "Vbg. BTV idF LGBl. 67/2021"
+          },
+          "roleSince": "2022-01-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4824,6 +5902,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-5",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4832,6 +5912,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4849,6 +5931,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4857,6 +5941,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4874,6 +5960,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4882,6 +5970,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4899,6 +5989,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4907,6 +5999,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4924,6 +6018,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4932,6 +6028,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4949,6 +6047,8 @@
           "editionLabel": "Ausgabe September 2025",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2025/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4957,6 +6057,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4974,6 +6076,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -4982,6 +6086,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -4999,6 +6105,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5007,6 +6115,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5024,6 +6134,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5032,6 +6144,8 @@
           "role": "guidance",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5049,6 +6163,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5057,6 +6173,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5074,6 +6192,8 @@
           "editionLabel": "Ausgabe März 2015",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2015/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5082,6 +6202,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5099,6 +6221,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5107,6 +6231,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5122,6 +6248,8 @@
           "editionLabel": "Richtlinie (EU) 2024/1275",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         }
       ],
@@ -5177,6 +6305,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -5198,6 +6328,8 @@
             }
           ],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -5206,6 +6338,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": "2013-07-01",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5221,6 +6355,8 @@
           "editionLabel": "Verordnung (EU) Nr. 305/2011",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -5229,6 +6365,8 @@
           "role": "binding",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -5241,6 +6379,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -5249,6 +6389,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:wbtv",
+            "designation": "WBTV",
+            "editionLabel": null,
+            "provision": "WBTV 2023, LGBl. 14/2024"
+          },
+          "roleSince": "2024-02-23",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5266,6 +6413,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5274,6 +6423,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:wbtv",
+            "designation": "WBTV",
+            "editionLabel": null,
+            "provision": "WBTV 2023, LGBl. 14/2024"
+          },
+          "roleSince": "2024-02-23",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5291,6 +6447,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5299,6 +6457,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:wbtv",
+            "designation": "WBTV",
+            "editionLabel": null,
+            "provision": "WBTV 2023, LGBl. 14/2024"
+          },
+          "roleSince": "2024-02-23",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5316,6 +6481,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5324,6 +6491,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:wbtv",
+            "designation": "WBTV",
+            "editionLabel": null,
+            "provision": "WBTV 2023, LGBl. 14/2024"
+          },
+          "roleSince": "2024-02-23",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5341,6 +6515,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5349,6 +6525,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:wbtv",
+            "designation": "WBTV",
+            "editionLabel": null,
+            "provision": "LGBl. 26/2026"
+          },
+          "roleSince": "2026-07-15",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5366,6 +6549,8 @@
           "editionLabel": "Ausgabe September 2025",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2025/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5374,6 +6559,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:wbtv",
+            "designation": "WBTV",
+            "editionLabel": null,
+            "provision": "WBTV 2023, LGBl. 14/2024"
+          },
+          "roleSince": "2024-02-23",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5391,6 +6583,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5399,6 +6593,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:wbtv",
+            "designation": "WBTV",
+            "editionLabel": null,
+            "provision": "WBTV 2023, LGBl. 14/2024"
+          },
+          "roleSince": "2024-02-23",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5416,6 +6617,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5424,6 +6627,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:wbtv",
+            "designation": "WBTV",
+            "editionLabel": null,
+            "provision": "WBTV 2023, LGBl. 14/2024"
+          },
+          "roleSince": "2024-02-23",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5441,6 +6651,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5449,6 +6661,13 @@
           "role": "binding",
           "qualifier": null,
           "via": "relation",
+          "route": {
+            "workId": "work:wbtv",
+            "designation": "WBTV",
+            "editionLabel": null,
+            "provision": "WBTV 2023, LGBl. 14/2024"
+          },
+          "roleSince": "2024-02-23",
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5466,6 +6685,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5474,6 +6695,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5491,6 +6714,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5499,6 +6724,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5516,6 +6743,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5524,6 +6753,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5541,6 +6772,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-2",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5549,6 +6782,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5566,6 +6801,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5574,6 +6811,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5591,6 +6830,8 @@
           "editionLabel": "Ausgabe März 2015",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2015/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5599,6 +6840,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5616,6 +6859,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-6",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5624,6 +6869,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5641,6 +6888,8 @@
           "editionLabel": "Ausgabe Mai 2023",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5649,6 +6898,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5666,6 +6917,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-3",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5674,6 +6927,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5691,6 +6946,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-1",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5699,6 +6956,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5716,6 +6975,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-4",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         },
         {
@@ -5724,6 +6985,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5739,6 +7002,8 @@
           "editionLabel": "Richtlinie (EU) 2024/1275",
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -5747,6 +7012,8 @@
           "role": "information",
           "qualifier": null,
           "via": "none",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "check_due",
           "lastCheckedAt": null,
@@ -5764,6 +7031,8 @@
           "editionLabel": "Ausgabe April 2019",
           "sourceRefs": [],
           "sourceUrl": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-5",
+          "language": "de",
+          "textStatus": "authentic",
           "applicability": null
         }
       ],
@@ -5819,6 +7088,8 @@
           "role": "binding",
           "qualifier": "uncurated",
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -5833,6 +7104,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         },
         {
@@ -5841,6 +7114,8 @@
           "role": "information",
           "qualifier": null,
           "via": "territory",
+          "route": null,
+          "roleSince": null,
           "date": "2026-11-10",
           "freshness": "current",
           "lastCheckedAt": null,
@@ -5856,6 +7131,8 @@
           "editionLabel": null,
           "sourceRefs": [],
           "sourceUrl": null,
+          "language": null,
+          "textStatus": null,
           "applicability": null
         }
       ],

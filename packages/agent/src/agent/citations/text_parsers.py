@@ -10,6 +10,8 @@ from agent.citations.entries import SourceEntry
 from agent.citations.entries import is_look_tool
 from agent.citations.grounding_text import parse_knowledge_layer
 from agent.citations.grounding_text import parse_look
+from agent.citations.web_results import is_web_search_tool
+from agent.citations.web_results import parse_web_results
 
 SourceParser = Callable[[str, str], list[SourceEntry]]
 
@@ -41,9 +43,14 @@ def parser_for(tool_name: str) -> SourceParser | None:
 
 # --- The built-in parsers, in the order they are tried ------------------------
 
-# Register knowledge layer as the only special-case parser.
-# All other tools (Tavily, paper search, etc.) use the generic URL fallback.
+# The knowledge layer's grounding grammar. A tool with no parser here (paper search, the older RIS
+# tools) falls to the generic URL extractor.
 register_source_parser(lambda name: "knowledge" in name, parse_knowledge_layer)
+
+
+# A web search states its hits as records, and only a record names a source: the generic extractor
+# registered every address in the text, a page's outbound links and the provider's summary included.
+register_source_parser(is_web_search_tool, parse_web_results)
 
 
 # ``ris_lookup`` emits the SAME grounding grammar (``ris_adapter.lookup``), so

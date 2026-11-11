@@ -538,10 +538,13 @@ Requires `viewer`.
   sends `attach{turn_id, after_seq}` on the new one and the agent tier replays that
   turn (chat wire v2 §d).
 
-### `POST /api/internal/collaboration/prune`
+### Inbox retention (no route)
 
-Token-guarded (`internalApiRoute`) retention prune for inbox items (spec IB-15).
-Housekeeping invoked by a scheduler, not a person. Idempotent and bounded — each
-call deletes at most one batch, so a backlog is worked off over several ticks
-rather than taking a long lock on a table that serves every page render. Returns
-`{ pruned, cutoff }`.
+The retention prune for inbox items (spec IB-15) and the sweep for collaboration
+rows whose target is gone are the `collaboration-retention` Hatchet cron task of
+the `bff-jobs` worker, hourly (`sweepCollaborationRetention`,
+`apps/workspace/bff/scheduling/sweeps.ts`, ADR-0150). Bounded: a round deletes
+at most one batch per table, and a run takes at most 20 rounds, so a backlog
+never takes a long lock on a table that serves every page render. The route
+`POST /api/internal/collaboration/prune` that used to expose it had no caller
+and is removed.

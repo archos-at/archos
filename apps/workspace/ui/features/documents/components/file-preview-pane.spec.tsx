@@ -1678,6 +1678,47 @@ describe('FilePreviewPane', () => {
 
     expect(screen.getByAltText('b.png').getAttribute('src')).toBe('https://example.test/b.png')
   })
+
+  /**
+   * The preview belongs to one file. With image A shown, a next file whose
+   * preview request fails kept A's URL in state: A's picture under B's name,
+   * and neither the caption nor the way on that the failure has.
+   */
+  describe('a next file whose preview fails', () => {
+    const image = { ...mockFile, filename: 'a.png', contentType: 'image/png' }
+    const next = { ...image, id: 'doc-2', filename: 'b.png' }
+    const serve = (second: Partial<Response>) =>
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) =>
+        String(input) === '/api/documents/doc-1/preview'
+          ? ({ ok: true, status: 200, json: async () => ({ url: 'https://example.test/a.png' }) } as Response)
+          : (second as Response)
+      )
+
+    it('shows no picture of the previous file, and offers the retry', async () => {
+      serve({ ok: false, status: 500 })
+      const { rerender } = render(<FilePreviewPane file={image} projectId="proj-1" />)
+      await screen.findByAltText('a.png')
+
+      rerender(<FilePreviewPane file={next} projectId="proj-1" />)
+
+      expect(await screen.findByText(/preview couldn't be loaded/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument()
+      expect(screen.queryByRole('img', { name: 'b.png' })).toBeNull()
+      expect(document.querySelector('img[src="https://example.test/a.png"]')).toBeNull()
+    })
+
+    it('says a next file that is gone is gone', async () => {
+      serve({ ok: false, status: 404 })
+      const { rerender } = render(<FilePreviewPane file={image} projectId="proj-1" />)
+      await screen.findByAltText('a.png')
+
+      rerender(<FilePreviewPane file={next} projectId="proj-1" />)
+
+      expect(await screen.findByText(/no longer available/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /stop asking about it/i })).toBeInTheDocument()
+      expect(document.querySelector('img[src="https://example.test/a.png"]')).toBeNull()
+    })
+  })
 })
 
 describe('FilePreviewPane — a report Piloti wrote', () => {

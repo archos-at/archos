@@ -12,6 +12,7 @@ vi.mock('@/lib/documents/shelf-authz', () => ({ requireShelfWrite: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({ requireFolderWrite: vi.fn() }))
 vi.mock('@/lib/documents/folder-path', () => ({ resolveShelfFolderPath: vi.fn(async () => 'E-Mail-Import/Büro 2019') }))
 vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn() }))
+vi.mock('@/lib/documents/shelf-live', () => ({ publishShelfChanged: vi.fn() }))
 vi.mock('@/lib/jobs-queue/repository', () => ({ findOpenJobId: vi.fn() }))
 vi.mock('@/lib/jobs-queue/enqueue', () => ({ enqueueJob: vi.fn(async () => ({ jobId: 'job_next' })) }))
 vi.mock('@/lib/auth/pinned-session', () => ({
@@ -85,6 +86,7 @@ vi.mock('@/lib/mail-thread/thread-locale', () => ({ newThreadLocaleFor: vi.fn(as
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { MailImport } from '@/lib/db/schema/mail-imports'
 import { emitInboxItems } from '@/lib/inbox/service'
+import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { requireFolderWrite } from '@/lib/authz/folder-access'
 import { folderReadOnlyError } from '@/lib/authz/folder-access-rule'
@@ -209,6 +211,22 @@ describe('runMailImportSlice', () => {
     expect(repository.updateMailImport).toHaveBeenCalledWith('org_1', payload.importId, ['queued', 'importing'], expect.objectContaining({ status: 'completed' }))
     expect(discardStaging).toHaveBeenCalledOnce()
     expect(emitInboxItems).toHaveBeenCalledWith([expect.objectContaining({ type: 'mail_import.completed', anchorId: 'folder_archive' })])
+  })
+
+  it('tells the project’s shelf that the import moved and ended, after the status is written, naming nothing but the shelf', async () => {
+    vi.mocked(repository.findMailImport).mockResolvedValueOnce(row())
+    vi.mocked(readArchivePage).mockResolvedValueOnce(page([mail], null))
+
+    await runMailImportSlice(session, payload, 'org_1')
+
+    expect(publishShelfChanged).toHaveBeenCalled()
+    for (const call of vi.mocked(publishShelfChanged).mock.calls) {
+      expect(call).toEqual(['org_1', { kind: 'project', projectId: row().projectId }, { folders: true }])
+    }
+    const completed = vi.mocked(repository.updateMailImport).mock.calls.findIndex(([, , , patch]) => patch.status === 'completed')
+    expect(vi.mocked(publishShelfChanged).mock.invocationCallOrder.at(-1)).toBeGreaterThan(
+      vi.mocked(repository.updateMailImport).mock.invocationCallOrder[completed] ?? Infinity
+    )
   })
 
   it('stops quietly when another slice already moved the cursor', async () => {

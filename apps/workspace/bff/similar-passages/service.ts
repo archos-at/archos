@@ -58,6 +58,7 @@ import { revisionTag } from '@/lib/documents/revision-timeline'
 import { listChatProjects } from '@/lib/projects/service'
 import { toProjectStatus } from '@/lib/projects/project-status'
 import { buildRequestContextWireHeaders } from '@/lib/request-context'
+import { signedScopeEntries } from '@/lib/retrieval-scope/base-entry'
 import type {
   SimilarDocument,
   SimilarGroup,
@@ -145,7 +146,7 @@ async function fetchSimilarFromBackend(
   collections: readonly string[]
 ): Promise<BackendSimilarResponse> {
   const scope = [...new Set([source.collection, ...collections])]
-  const headers = buildRequestContextWireHeaders({ collectionScope: scope, organizationId }, process.env.INTERNAL_API_TOKEN)
+  const headers = buildRequestContextWireHeaders({ collectionScope: await signedScopeEntries(scope, organizationId), organizationId }, process.env.INTERNAL_API_TOKEN)
   let res: Response
   try {
     res = await fetch(`${getBackendUrl()}/v1/collections/similar`, {

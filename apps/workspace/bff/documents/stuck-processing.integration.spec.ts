@@ -24,6 +24,8 @@ import { emptySkillSnapshot } from '@/lib/jobs/types'
 import { internalRead } from '@/lib/documents/document-reader'
 
 vi.mock('server-only', () => ({}))
+// The runs at the end of this file are scripted: what a dead job does to its documents is the queue's, not a kind's.
+vi.mock('@/lib/jobs-queue/handlers', async () => ({ JOB_HANDLERS: (await import('@/test-utils/scripted-job-handlers')).SCRIPTED_HANDLERS }))
 
 const url = process.env.TEST_DATABASE_URL
 const STAMP = Date.now()
@@ -444,5 +446,46 @@ describe.skipIf(!url)('background-work sweeps against live Postgres', () => {
     )
 
     await expect(bad).rejects.toThrow()
+  })
+  describe('a job that goes dead fails its documents in the same run', () => {
+    const ONE_ATTEMPT = { BFF_JOBS_MAX_ATTEMPTS: '1' }
+    const inOrg = <T,>(work: () => Promise<T>) => context.withTenant({ organizationId: ORG }, work)
+    const rowOf = (name: string) => inOrg(() => documents.findDocumentInOrg(docs[name], ORG, internalRead('ingest')))
+    const failingJob = () =>
+      inOrg(() => queue.insertJob({ kind: 'office_rendition', organizationId: ORG, priority: 0, payload: { id: 'dies', mode: 'fail-always' } }))
+    async function run(jobId: string, env: Record<string, string>) {
+      const { runBffJobTask } = await import('@/lib/jobs-queue/task-run')
+      const input = { job_id: jobId, kind: 'office_rendition', organization_id: ORG, priority: 'interactive' as const, generation: 0 }
+      return runBffJobTask(input, { run: `run-${jobId}`, retryCount: 0, workerId: 'w-1' }, { trigger: async () => undefined }, env)
+    }
+
+    it('fails a document it still owns at once, with the reason the sweep writes, and no other', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const dying = await failingJob()
+      const next = await seedJob(ORG, 'queued')
+      // Two minutes old: far inside the sweep's quarter of an hour.
+      await seedDocument('dies-with-job', { ageMinutes: 2, jobId: dying })
+      await seedDocument('reread-under-next-job', { ageMinutes: 2, jobId: next })
+      await seedDocument('read-meanwhile', { ageMinutes: 2, jobId: dying, status: 'completed' })
+
+      await expect(run(dying, ONE_ATTEMPT)).rejects.toMatchObject({ name: 'PermanentJobError' })
+
+      const { INGEST_DISPATCH_FAILED_MESSAGE } = await import('./ingest-dispatch')
+      expect(await rowOf('dies-with-job')).toMatchObject({ status: 'failed', errorMessage: INGEST_DISPATCH_FAILED_MESSAGE })
+      expect((await rowOf('reread-under-next-job'))?.status).toBe('processing')
+      expect((await rowOf('read-meanwhile'))?.status).toBe('completed')
+      expect((await rowOf('no-job'))?.status).not.toBe('failed')
+    })
+
+    it('changes nothing while the job has attempts left', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const retrying = await failingJob()
+      await seedDocument('job-retries', { ageMinutes: 2, jobId: retrying })
+
+      await expect(run(retrying, { BFF_JOBS_MAX_ATTEMPTS: '2' })).rejects.toMatchObject({ name: 'RetryLaterError' })
+
+      expect((await rowOf('job-retries'))?.status).toBe('processing')
+    })
   })
 })

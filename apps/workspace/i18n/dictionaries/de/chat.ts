@@ -154,6 +154,7 @@ export const chat: typeof en.chat = {
       tooLarge: 'Die Aufnahme ist zu groß zum Verschriftlichen.',
       notConfigured: 'Spracheingabe ist gerade nicht verfügbar.',
       failed: 'Die Aufnahme konnte nicht verschriftlicht werden. Ihre Nachricht ist unverändert.',
+      notSaved: 'Die Aufnahme konnte nicht gespeichert werden. Bitte sprechen Sie es noch einmal ein.',
     },
   },
   // Der Reiter einer Quellenkarte in der Herleitung: die grobe Ebene, wenn der

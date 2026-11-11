@@ -17,11 +17,13 @@ from knowledge_layer.search import trace_lanes_for_chunks as _trace_lanes_for_ch
 from agent.common.grounding_block import TRUNCATION_MARKER
 from agent.common.grounding_block import GroundingBlock
 from agent.common.grounding_block import GroundingHit
+from agent.common.grounding_block import SourceRevision
 from agent.common.grounding_block import render_grounding_block
 from agent.common.source_kinds import Shelf
 from agent.common.wire_v2 import TraceLane
 from agent.knowledge.law_lookup.address import Address
 from agent.knowledge.law_lookup.address import territory_sentence
+from agent.knowledge.law_lookup.as_of import parse_day
 from agent.knowledge.law_lookup.passages import DOC_CLASS
 from agent.knowledge.law_lookup.passages import Passage
 from agent.knowledge.law_lookup.source import LawSource
@@ -41,7 +43,7 @@ def format_passages(
         GroundingBlock(
             preamble="\n".join(_preamble_lines(passages, ingested_name, address, law)),
             degraded_banner="",
-            hits=tuple(_hit(passage) for passage in passages),
+            hits=tuple(_hit(passage, law) for passage in passages),
             lanes=_trace_lanes(passages),
             tool=tool,
         )
@@ -88,7 +90,7 @@ def _runs(numbers: tuple[str, ...]) -> list[list[str]]:
     return runs
 
 
-def _hit(passage: Passage) -> GroundingHit:
+def _hit(passage: Passage, law: LawSource) -> GroundingHit:
     """One passage as a record.
 
     ``file_name`` is the citation rather than a filename because the source
@@ -96,10 +98,18 @@ def _hit(passage: Passage) -> GroundingHit:
     shelf is stated (``base``) because a law source is the base corpus of law,
     and the doc_class puts the hit in the statute lane.
 
-    No URL is stated. The one the source has is the WHOLE law, the same for
+    No URL is PRINTED. The one the source has is the WHOLE law, the same for
     every provision, and printed beside the citation it was what the answer
-    copied, naming no provision the lookup returned.
+    copied, naming no provision the lookup returned. The address still travels
+    as the record's ``public_url`` (and the day the text is in force from as
+    ``revision``): fields the renderer prints nowhere, for a reader to open.
+
+    The passage also states the knowledge record it is a text of (``work_id``,
+    ``edition_id``): the work whose record carries the identifier this source's
+    record reads off the document's address (:func:`_record_of`). A citation's
+    role is resolved by that id.
     """
+    work_id, edition_id = _record_of(passage.url, law)
     body, truncated = _cut_body(passage.body)
     return GroundingHit(
         citation_key=passage.citation,
@@ -120,7 +130,36 @@ def _hit(passage: Passage) -> GroundingHit:
         status_note=passage.status_note or None,
         body=body,
         body_truncated=truncated,
+        public_url=passage.url or None,
+        revision=_revision(passage.version_date),
+        work_id=work_id,
+        edition_id=edition_id,
     )
+
+
+def _record_of(url: str, law: LawSource) -> tuple[str | None, str | None]:
+    """The work (and held edition, if any) the document at ``url`` is a text of, by the turn's records.
+
+    The source's own record says how a document's address states each identifier (``identifiers``); the
+    turn's knowledge context says which work carries that identifier. No identifier, or no work that carries
+    it: no record, and the citation states no role.
+    """
+    from agent.common.knowledge_context import turn_knowledge_context
+    from agent.common.knowledge_context import use_for_source_ref
+
+    context = turn_knowledge_context()
+    for scheme in law.source.identifiers:
+        value = law.source.identifier_at(url, scheme) if url else None
+        use = use_for_source_ref(context, scheme, value) if value else None
+        if use is not None:
+            return use.work_id, use.edition_id
+    return None, None
+
+
+def _revision(stated: str) -> SourceRevision | None:
+    """The day the source says this text is in force from, as a record; None when it stated none or not a day."""
+    day = parse_day(stated)
+    return SourceRevision(date=day.isoformat()) if day else None
 
 
 def _cut_body(body: str) -> tuple[str, bool]:

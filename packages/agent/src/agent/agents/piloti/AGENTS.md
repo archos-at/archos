@@ -50,7 +50,10 @@ the statements the answer relies on that are unbacked or contradicted
 (`confidence_check`). Two structural gates sit on top, never a word list: the
 quote gate (`markers._quote_cap`) and the law gate (`law_unsettled`: an answer
 citing building law the records do not settle is at most medium, ADR-0139's
-amendment); the self-report sets no level. No model, a timeout, an
+amendment), or stating law without the records: a sentence that cites only web
+pages and names law, or says a text binds while the gate may not bind
+(`common/binding_claims.py`, its words in `configs/norms/*/claim_terms.yml`,
+never in code); the self-report sets no level. No model, a timeout, an
 error or an unreadable reply surfaces NO level, never a guessed one. Do not put
 rules back in front of the grader: five rounds of word lists, sentence classes
 and aggregation each moved the errors to the other side (ADR-0139). Deep

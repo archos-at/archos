@@ -200,6 +200,12 @@ export const sourceRecordFields = {
     .enum(SOURCE_DATA_FLOWS)
     .default('public_only')
     .describe('site_keyed when a site point (a bbox, a coordinate) is sent: publishing it needs a privacy reviewer.'),
+  identifiers: z
+    .record(z.string().regex(/^[a-z][a-z0-9_]{0,39}$/), z.object({ query: z.string().min(1).max(80) }).strict())
+    .default({})
+    .describe(
+      'How a work’s identifier is read from the address of a passage at this source, by the scheme the knowledge records name it under: {"<scheme>": {"query": "<query parameter>"}}. A cited passage finds its work, and so its role, by it.',
+    ),
   terms: sourceTermsSchema,
   monitor: sourceMonitorSchema.default({ kind: 'none', intervalHours: 24 }),
   access: z.record(z.string(), z.unknown()).describe('The protocol’s configuration (see public_sources.access).'),
@@ -232,6 +238,7 @@ export function sourceConfigOf(record: SourceRecordValues): Record<string, unkno
     format: record.format,
     hosts: record.hosts,
     data_flow: record.dataFlow,
+    ...(Object.keys(record.identifiers ?? {}).length > 0 ? { identifiers: record.identifiers } : {}),
     terms: { url: record.terms.url, licence: record.terms.licence, attribution: record.terms.attribution, checked: record.terms.checked },
     monitor: {
       kind: record.monitor.kind,

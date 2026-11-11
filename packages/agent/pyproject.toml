@@ -68,6 +68,9 @@ dependencies = [
     # Pure Python on numpy, a 4 MB wheel with its model inside: lingua's wheel is
     # 160 MB and fast-langdetect downloads its model at runtime.
     "py3langid>=0.4.0,<0.5",
+    # A source's address is a public DNS name (`common/url_safety.py`): the host-name grammar and
+    # the IANA top-level-domain list it ships. Pure Python, MIT, no network at import or at call.
+    "validators>=0.35,<0.37",
     # The `otel` extra brings `HatchetInstrumentor` (`observability/orchestrator_tracing.py`).
     "hatchet-sdk[otel]==1.44.0",
 ]

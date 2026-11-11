@@ -47,6 +47,7 @@ import {
 import { ensureTenantBucketChecked, resolveDocumentBucket } from '@/lib/storage/bucket'
 import { recordDocumentAccess } from '@/lib/download-log/service'
 import { getAccessibleDocument } from './access'
+import { stopReadBeforeArchive } from './archive-read-stop'
 import { contentDisposition } from './content-disposition'
 import { AGENT_DOCUMENT_MEDIA_TYPE, renderAgentDocumentMarkdown } from './agent-document-markdown'
 import { resolveDocumentBranding, type DocumentBranding } from './branding'
@@ -707,11 +708,10 @@ export async function archiveDocument(
 ): Promise<{ documentId: string; lifecycle: 'archived' }> {
   const document = await getAccessibleDocument(session, documentId, 'write')
   if (document.projectId) {
-    await requireProjectAccess(session, document.projectId, [
-      'project:documents:write',
-      'project:edit',
-    ])
+    await requireProjectAccess(session, document.projectId, ['project:documents:write', 'project:edit'])
   }
+  // A read still running would write its chunks after the purge below.
+  const readStopped = await stopReadBeforeArchive(session, document)
   await setDocumentLifecycle(documentId, session.organizationId, 'archived')
   // Out of the default listing for everyone, not only for the tab that archived it.
   publishShelfChanged(session.organizationId, documentShelf(document))
@@ -748,6 +748,7 @@ export async function archiveDocument(
       // `null` is "this row owns no chunks", which is a different fact from
       // "the backend refused" and must not read as one.
       chunksPurged,
+      readStopped,
     },
     request,
   })

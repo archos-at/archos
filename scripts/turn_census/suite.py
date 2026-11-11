@@ -1404,7 +1404,7 @@ def main(argv: list[str] | None = None) -> int:
     not_applicable: list[str] = []
     horizon: list[str] = []
     fixture_sets = ("files", "visual", "north-star")
-    if args.set in ("precedent", "workspace", *fixture_sets):
+    if args.set in ("precedent", "workspace", "golden", *fixture_sets):
         rows = set_questions(args.set)
         if args.set == "files":
             from files_eval import split_applicable

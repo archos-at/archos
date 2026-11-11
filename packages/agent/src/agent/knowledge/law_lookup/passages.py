@@ -52,6 +52,8 @@ class Passage:
     body: str
     score: float
     status_note: str = ""
+    #: The day this text is in force from, as the source stated it; empty when it stated none.
+    version_date: str = ""
 
 
 def build_passages(selections: list[Selection], address: Address, law: LawSource) -> list[Passage]:
@@ -82,6 +84,7 @@ def _passages_for(selection: Selection, address: Address, limit: int, law: LawSo
                 body=cut_on_subsection(body, limit),
                 score=score_for(rank, address.has_section),
                 status_note=status_note,
+                version_date=candidate.version_date,
             )
         )
     return out

@@ -15,7 +15,8 @@
 
 import type { RevisionRef } from '@/lib/documents/revision-links'
 import type { Shelf } from '@/lib/source-kinds'
-import { citedLoci, isHttpUrl, type CitationLocus, type CitedDocument } from './model'
+import { citedLoci, type CitationLocus, type CitedDocument } from './model'
+import { isHttpUrl } from './text'
 import { parseKbLocator, type KbCitationLocator } from './locator'
 import {
   isIndexedFromRendition,
@@ -281,6 +282,10 @@ const openAt = (doc: CitedDocument, locus?: CitationLocus): CitationLocus | unde
 export const openAtLocus = (doc: CitedDocument, locus?: CitationLocus): CitationLocus | undefined =>
   openAt(doc, locus)
 
+/** A document at an http(s) address: the in-app reader when it serves that host, else a link out. */
+const addressTarget = (doc: CitedDocument, url: string, snippet: string | undefined): CitationTarget =>
+  isRisUrl(url) ? { kind: 'ris', title: doc.title, url, snippet } : { kind: 'url', url }
+
 /**
  * Resolve a document (optionally at a specific locus) to its preview target.
  *
@@ -302,19 +307,12 @@ export const resolveCitationTarget = (
     baseCorpusFiles?: string[]
   }
 ): CitationTarget => {
-  if (isHttpUrl(doc.url)) {
-    const url = doc.url!
-    if (isRisUrl(url)) {
-      const risLocus = openAt(doc, options?.locus)
-      return { kind: 'ris', title: doc.title, url, snippet: risLocus?.snippet ?? doc.snippet }
-    }
-    return { kind: 'url', url }
-  }
-
   const locus = openAt(doc, options?.locus)
   // The PLACE may be borrowed from another locus of the same document; the
   // cited PASSAGE never is. See `isActionable`.
   const snippet = options?.locus?.snippet ?? locus?.snippet ?? doc.snippet
+  if (isHttpUrl(doc.url)) return addressTarget(doc, doc.url!, snippet)
+
   const locator = documentLocator(doc)
 
   if (locator) {
@@ -401,6 +399,12 @@ export const resolveCitationTarget = (
       }
     }
   }
+
+  // Nothing here holds the document, but its producer or its records name where it is published: a
+  // law read at its source and cited by its key (no `url`, no file). Open that, in the reader when the
+  // host is one it serves. Last, so a corpus or office copy the reader may open always wins.
+  const publicUrl = doc.line?.public_url
+  if (publicUrl && isHttpUrl(publicUrl)) return addressTarget(doc, publicUrl, snippet)
 
   return { kind: 'info', title: doc.title, snippet }
 }

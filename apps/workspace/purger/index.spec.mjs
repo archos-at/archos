@@ -75,8 +75,8 @@ describe('purger tick during a database outage', () => {
     await purgerOver(sql, createFailureStreak({ label: '[purger] queue', escalateAfter: ESCALATE_AFTER })).tick()
 
     expect(error.mock.calls.map(([line]) => line)).toEqual([
+      '[purger] failed to close the rows of erased folders:',
       '[purger] failed to reap stranded rows:',
-      '[purger] failed to re-offer exhausted rows:',
       '[purger] tick failed, retrying on the next poll:',
     ])
   })
@@ -138,7 +138,7 @@ describe('a purge and its record are one transaction', () => {
     expect(statements.some((statement) => /SET status = (CASE|'failed')/.test(statement.text))).toBe(false)
   })
 
-  it('re-offers exhausted pending rows on every tick, before it claims', async () => {
+  it('repairs no pending row on a tick: the database refuses one with no attempts left (migration 0227)', async () => {
     spies()
     const { sql, statements } = queueWithOneFolder()
     const purger = createPurger({
@@ -149,9 +149,7 @@ describe('a purge and its record are one transaction', () => {
 
     await purger.tick()
 
-    const reoffer = statements.findIndex((statement) => /SET attempts = \$ WHERE status = 'pending'/.test(statement.text))
-    const claim = statements.findIndex((statement) => /^SELECT q\.\* FROM deletion_queue/.test(statement.text))
-    expect(reoffer).toBeGreaterThanOrEqual(0)
-    expect(reoffer).toBeLessThan(claim)
+    expect(statements.some((statement) => /^SELECT q\.\* FROM deletion_queue/.test(statement.text))).toBe(true)
+    expect(statements.filter((statement) => /SET attempts = \$/.test(statement.text))).toEqual([])
   })
 })

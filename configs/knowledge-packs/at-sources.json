@@ -15,6 +15,11 @@
         "ris.bka.gv.at"
       ],
       "dataFlow": "public_only",
+      "identifiers": {
+        "ris_gesetzesnummer": {
+          "query": "Gesetzesnummer"
+        }
+      },
       "terms": {
         "url": "https://www.ris.bka.gv.at/RisInfo/OGD-FAQ.pdf",
         "licence": "public_open",

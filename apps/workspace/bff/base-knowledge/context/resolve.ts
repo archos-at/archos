@@ -31,6 +31,7 @@ import {
   type Leaf,
   type ProcedureContext,
   type UseLabel,
+  type UseRoute,
 } from './wire'
 
 export interface SiteLeaf {
@@ -119,6 +120,32 @@ export function freshnessOf(kind: KnowledgeWorkKind, edition: GraphEdition | und
   return { freshness: 'check_due', lastCheckedAt, stale: age >= 2 * target, overdue: true }
 }
 
+type ResolvedUse = ReturnType<typeof resolveChain>['uses'][number]
+
+const isoDay = (value: string | null | undefined): string | null => (value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null)
+
+/** The instrument that declares a use binding: the last step of its route, when that step is a relation. */
+export function routeOf(graph: KnowledgeGraph, use: Pick<ResolvedUse, 'route'>): UseRoute | null {
+  const last = use.route.at(-1)
+  if (!last || last.via !== 'relation') return null
+  const work = graph.works.get(last.workId)
+  const edition = last.editionId ? graph.editions.get(last.editionId) : undefined
+  return {
+    workId: last.workId,
+    designation: work?.designation ? nameOf(work.designation) : null,
+    editionLabel: edition?.label ? nameOf(edition.label) : null,
+    provision: last.provision ? nameOf(last.provision).slice(0, 300) : null,
+  }
+}
+
+/** The first day a binding role holds from: the edition's entry into force, and for a route the declaring relation's too (the later one). */
+export function roleSinceOf(graph: KnowledgeGraph, use: Pick<ResolvedUse, 'route'>, edition: GraphEdition | undefined): string | null {
+  const last = use.route.at(-1)
+  const relation = last?.via === 'relation' ? graph.relations.find((candidate) => candidate.id === last.relationId) : undefined
+  const days = [isoDay(edition?.inForceFrom), isoDay(relation?.validFrom)].filter((day): day is string => day !== null)
+  return days.sort().at(-1) ?? null
+}
+
 const siteOnly = (factors: readonly ConnectingFactor[]): boolean => factors.length === 1 && factors[0] === 'site'
 
 /** One resolved use, with the coverage qualifier, the freshness degradation and the connecting factor applied. */
@@ -165,6 +192,8 @@ function contextUse(
     role,
     qualifier,
     via: use.route.at(-1)?.via ?? 'none',
+    route: routeOf(graph, use),
+    roleSince: role === 'binding' ? roleSinceOf(graph, use, edition) : null,
     date: inputs.date,
     freshness: fresh.freshness,
     lastCheckedAt: fresh.lastCheckedAt,
@@ -175,6 +204,8 @@ function contextUse(
     editionLabel: edition?.label ? nameOf(edition.label) : null,
     sourceRefs: [...(work.sourceRefs ?? [])].slice(0, 8),
     sourceUrl: edition?.sourceUrl ?? null,
+    language: edition?.text?.language ?? null,
+    textStatus: edition?.text?.status ?? null,
     applicability: use.applicability,
   }
 }

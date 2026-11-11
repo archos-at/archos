@@ -36,7 +36,6 @@ vi.mock('./repository', () => ({
   recomputeLessonVoteCounters: vi.fn(async () => undefined),
   reopenSkippedReport: vi.fn(async () => false),
   createLessonFromReport: vi.fn(),
-  evictActiveOverCapacity: vi.fn(async () => []),
   expireStaleCandidates: vi.fn(async () => []),
   flagIneffectiveActiveLessons: vi.fn(async () => []),
   retireQuietAddressedLessons: vi.fn(async () => []),
@@ -52,6 +51,10 @@ vi.mock('./repository', () => ({
   recordSkippedReport: vi.fn(async () => undefined),
   updateLessonWithEvent: vi.fn(),
 }))
+vi.mock('./capacity-repository', () => ({
+  evictActiveOverCapacity: vi.fn(async () => []),
+  activateLessonWithCapacity: vi.fn(),
+}))
 vi.mock('./distill-client', () => ({
   distillReport: vi.fn(),
 }))
@@ -61,7 +64,7 @@ import { embedNote } from '@/lib/knowledge/embeddings'
 import {
   createLessonFromReport,
   listSemanticLessonCandidates,
-  evictActiveOverCapacity,
+  getLesson,
   expireStaleCandidates,
   findLiveLessonByContent,
   flagIneffectiveActiveLessons,
@@ -71,12 +74,15 @@ import {
   recordSkippedReport,
   retireQuietAddressedLessons,
 } from './repository'
+import { activateLessonWithCapacity, evictActiveOverCapacity } from './capacity-repository'
 import { distillReport } from './distill-client'
 import {
   buildPlatformLessonsInjection,
   DIGEST_MAX_CHARS,
   kickLessonDistillation,
+  MAX_ACTIVE_LESSONS,
   resetLessonSweepStateForTests,
+  updateLesson,
 } from './service'
 import type { DistillOutcome } from './types'
 
@@ -375,5 +381,61 @@ describe('buildPlatformLessonsInjection', () => {
     vi.mocked(listActiveLessonsForDigest).mockResolvedValue([])
 
     expect((await buildPlatformLessonsInjection()).digest).toBeNull()
+  })
+})
+
+describe('operator activation at capacity', () => {
+  const at = new Date('2026-01-01T00:00:00Z')
+  const lessonRow = (status: string) =>
+    ({
+      id: 'lesson-old',
+      content: 'Inhalt.',
+      category: 'general',
+      status,
+      heldReason: null,
+      reportCount: 1,
+      orgCount: 1,
+      firstReportedAt: at,
+      lastReportedAt: at,
+      activatedAt: null,
+      activatedBy: null,
+      retiredAt: null,
+      retiredReason: null,
+      rootCauseStatus: 'unknown',
+      rootCauseNote: null,
+      createdAt: at,
+      updatedAt: at,
+    }) as unknown as NonNullable<Awaited<ReturnType<typeof getLesson>>>
+  const session = { userId: 'op-1', email: 'op@example.test' } as Parameters<typeof updateLesson>[0]
+
+  it('activates and evicts in one repository call, never through a separate eviction', async () => {
+    vi.mocked(getLesson).mockResolvedValue(lessonRow('candidate'))
+    vi.mocked(activateLessonWithCapacity).mockResolvedValue({
+      row: lessonRow('active'),
+      evictedIds: ['other'],
+    })
+
+    const view = await updateLesson(session, 'lesson-old', { status: 'active' })
+
+    expect(activateLessonWithCapacity).toHaveBeenCalledWith(
+      'lesson-old',
+      expect.objectContaining({ status: 'active', activatedBy: 'op-1' }),
+      expect.objectContaining({ action: 'activated', actor: 'op-1' }),
+      MAX_ACTIVE_LESSONS
+    )
+    expect(evictActiveOverCapacity).not.toHaveBeenCalled()
+    expect(view.status).toBe('active')
+  })
+
+  it('returns the row as stored by the activation transaction', async () => {
+    vi.mocked(getLesson).mockResolvedValue(lessonRow('retired'))
+    vi.mocked(activateLessonWithCapacity).mockResolvedValue({
+      row: { ...lessonRow('active'), activatedBy: 'op-1' },
+      evictedIds: [],
+    })
+
+    const view = await updateLesson(session, 'lesson-old', { status: 'active' })
+
+    expect(view.activatedBy).toBe('op-1')
   })
 })
