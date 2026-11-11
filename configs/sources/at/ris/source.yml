@@ -200,6 +200,80 @@ engine:
   host_rewrites:
     - ["https://ogd.ris.bka.gv.at/", "https://www.ris.bka.gv.at/"]
 
+# How a law lookup reads RIS (public_sources.lookup): the citation grammar of
+# Austrian legal texts, the applications its search offers, the Bundesland
+# filter, and the words the lookup writes back. Code reads these; none of it is
+# in code (the country-as-data plan, step 4).
+lookup:
+  language: de
+  search: search
+  document: document
+  locus:
+    units:
+      - {sign: "§", forms: ["§"], repeatable: true, word: false}
+      - {sign: Art, forms: [Artikel, Art], dot: true}
+    subsection: [Abs, Absatz]
+    item: [Z, Ziffer]
+    letter: [lit]
+    sentence: Satz
+    conjunctions: [und, sowie, u.]
+    range_words: [bis]
+    see_also: [siehe, vgl., s.]
+  collections:
+    - id: BrKons
+      kind: statute
+      level: national
+      consolidated: true
+      guide: "consolidated FEDERAL law (Bundesgesetze, Verordnungen des Bundes)."
+    - id: LrKons
+      kind: statute
+      level: subdivision
+      consolidated: true
+      guide: "consolidated STATE law — Bauordnungen, Bautechnikgesetze, Garagengesetze and all other Landesgesetze live here; ALWAYS set `federal_state` for building-law questions."
+    - {id: BgblAuth, kind: gazette, level: national, guide: "authentic federal gazette — only when the user needs the legally binding promulgation."}
+    - {id: LgblAuth, kind: gazette, level: subdivision, guide: "authentic state gazettes — only when the user needs the legally binding promulgation."}
+    - {id: Begut, kind: draft, guide: "draft bills (legislation in progress)."}
+    - {id: RegV, kind: draft, guide: "government bills (legislation in progress)."}
+    - {id: Vwgh, kind: case_law, guide: "case law of the administrative court."}
+    - {id: Vfgh, kind: case_law, guide: "case law of the constitutional court."}
+    - {id: Justiz, kind: case_law, guide: "civil and criminal case law."}
+    - {id: Bvwg, kind: case_law, guide: "case law of the federal administrative court."}
+    - {id: Lvwg, kind: case_law, level: subdivision, guide: "case law of the state administrative courts."}
+    - {id: Dsk, kind: case_law, guide: "data protection decisions."}
+    - {id: Erlaesse, kind: decree, guide: "federal ministry decrees."}
+  territory:
+    argument: federal_state
+    table: federal_state
+    names:
+      AT-1: Burgenland
+      AT-2: Kärnten
+      AT-3: Niederösterreich
+      AT-4: Oberösterreich
+      AT-5: Salzburg
+      AT-6: Steiermark
+      AT-7: Tirol
+      AT-8: Vorarlberg
+      AT-9: Wien
+    # In the order a question is probed for them.
+    choices: [Wien, Niederösterreich, Oberösterreich, Steiermark, Kärnten, Salzburg, Tirol, Vorarlberg, Burgenland]
+  case_law_signals: [vwgh, vfgh, judikatur, erkenntnis, entscheidung, geschäftszahl, geschaeftszahl, beschluss, urteil]
+  search_guidance: |-
+    Search term rules:
+    - `suchworte` must be German legal terminology; strip filler words. Prefer the statutory term (e.g. "Stellplatzverpflichtung" not "Parkplätze vorgeschrieben").
+    - Use `titel` only when the user names a specific law ("Bauordnung für Wien", "Garagengesetz").
+    - Dates only when the request clearly constrains time (decision periods, version in force at a date).
+    - Keep `reasoning` to one short sentence.
+  wording:
+    source: RIS
+    subdivision: Bundesland
+    consolidated_note: "Legal status: konsolidierte Fassung (consolidated version) — informational, not legally binding. The authentic text is the promulgation in the Bundesgesetzblatt/Landesgesetzblatt (applications BgblAuth/LgblAuth)."
+    example_territory: Wien
+    example_work: Bauordnung für Wien
+    untitled: RIS-Dokument
+    title_prefix: RIS
+    title_suffix: Fassung vom
+    language: German
+
 fixtures:
   - name: Landesrecht search for the Bauordnung in Wien (recorded 2026-11-06)
     operation: search

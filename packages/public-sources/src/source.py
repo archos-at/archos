@@ -33,6 +33,7 @@ from typing import Literal
 from urllib.parse import urlparse
 
 import yaml
+from public_sources.lookup import Lookup
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
@@ -246,6 +247,8 @@ class Source(_Strict):
     fixtures: tuple[Fixture, ...]
     #: Where a keyed source takes its key; ``None`` for an open one.
     credential: Credential | None = None
+    #: How a law lookup reads this source (:mod:`public_sources.lookup`); ``None`` for a source no lookup reads.
+    lookup: Lookup | None = None
 
     _directory: Path | None = PrivateAttr(default=None)
 
@@ -291,7 +294,21 @@ class Source(_Strict):
         engine_cls.config_model.model_validate(self.engine)
         for url in config.urls():
             self.require_allowed(url)
+        self._lookup_fits(config)
         return self
+
+    def _lookup_fits(self, config) -> None:
+        """A lookup block names only operations and tables the access configuration has."""
+        if self.lookup is None:
+            return
+        operations = getattr(config, "operations", None)
+        if operations is not None:
+            missing = [op for op in (self.lookup.search, self.lookup.document) if op not in operations]
+            if missing:
+                raise ValueError(f"lookup names operations the access configuration lacks: {missing}")
+        tables = getattr(config, "tables", None)
+        if self.lookup.territory and tables is not None and self.lookup.territory.table not in tables:
+            raise ValueError(f"lookup.territory.table {self.lookup.territory.table!r} is not a table of the access")
 
     # -- reading ----------------------------------------------------------
 
