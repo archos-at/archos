@@ -59,8 +59,8 @@ export const QDRANT_CALLERS = [
  *     break the product. Tightening egress is a follow-up that needs a live
  *     cluster to validate. The exception is Gotenberg (rule 13), which needs no
  *     egress at all, so denying all of it cannot break anything it does. The
- *     frontend's address search calls komoot's public Photon over HTTPS
- *     (ADR-0151) through that open egress.
+ *     frontend's address search, where a stack switches it on (ADR-0159),
+ *     calls komoot's public Photon over HTTPS through that open egress.
  *   - **Intra-namespace is allowed wholesale** (frontend→backend, backend→data,
  *     workers→data, backend→frontend BFF). Per-edge micro-policies buy little
  *     here and are far easier to get subtly wrong. The exceptions are the pods

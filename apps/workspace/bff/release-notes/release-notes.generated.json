@@ -785,6 +785,14 @@
         },
         {
           "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Files that had been read in full but showed as failed after a large upload show as read again the next time their folder is opened.",
+            "de": "Dateien, die vollständig gelesen wurden, nach einem großen Upload jedoch als fehlgeschlagen angezeigt wurden, werden beim nächsten Öffnen ihres Ordners wieder als gelesen angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "building-law",
           "text": {
             "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",
@@ -861,6 +869,14 @@
           "text": {
             "en": "A standard that a building code makes binding, such as a Swiss or German norm referenced by Viennese law, can now also be asked about for a past date, instead of being reported as unknown.",
             "de": "Eine durch eine Bauordnung verbindlich gemachte Norm, etwa eine im Wiener Recht referenzierte Schweizer oder deutsche Norm, kann nun auch für einen vergangenen Zeitpunkt abgefragt werden, statt als unbekannt gemeldet zu werden."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "administration",
+          "text": {
+            "en": "The Subprocessors page is corrected after a full review: the hosting provider appears under its current company name, sign-in is shown to also send invitation e-mails and to keep an office's own AI keys, and address search is marked optional. Session recording is no longer called sampled.",
+            "de": "Die Seite „Subprocessors“ ist nach einer vollständigen Überprüfung korrigiert: Der Hosting-Anbieter erscheint unter seinem aktuellen Unternehmensnamen, beim Login ist nun auch angegeben, dass Einladungs-E-Mails versendet und die eigenen KI-Schlüssel eines Büros gespeichert werden, und die Adresssuche ist als optional gekennzeichnet. Die Sitzungsaufzeichnung wird nicht mehr als stichprobenbasiert bezeichnet."
           }
         },
         {

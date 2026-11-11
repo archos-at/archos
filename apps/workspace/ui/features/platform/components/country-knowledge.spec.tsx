@@ -117,6 +117,66 @@ describe('CountryKnowledge', () => {
     expect(screen.queryByText('The drafts could not be loaded')).not.toBeInTheDocument()
   })
 
+  test('says so when a refresh fails with drafts listed, and reads the first page again on request', async () => {
+    serve()
+    const draft = (id: string, title: string) => ({ ...OVERVIEW.queue[0], id, title, status: 'draft' })
+    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
+    const FIRST = '/api/platform/knowledge/change-requests?status=draft'
+    const pages: Record<string, () => Response> = {
+      [FIRST]: () => Response.json({ changeRequests: [draft('cr-d1', 'OIB 2019')], nextCursor: '50' }),
+      [`${FIRST}&cursor=50`]: () => Response.json({ changeRequests: [draft('cr-d2', 'OIB 2023')], nextCursor: null }),
+    }
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => pages[url]?.() ?? routed(url, init))
+    const draftReads = () => fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.startsWith(FIRST))
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    const list = await screen.findByTestId('country-knowledge-drafts')
+    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
+
+    // A verdict in the open request reads the page again, and this time the drafts do not answer.
+    pages[FIRST] = () => new Response('no', { status: 500 })
+    await user.click(within(screen.getByTestId('country-knowledge-queue')).getByRole('button', { name: 'Review' }))
+    await user.click(await screen.findByRole('button', { name: 'All correct' }))
+    expect(await screen.findByText('The drafts could not be loaded')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByTestId('change-request-panel')).not.toBeInTheDocument())
+    // What was listed stays, and the next page is not offered over a list that may be out of date.
+    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show more drafts' })).not.toBeInTheDocument()
+
+    // Asking again repeats the read that failed, the first page, never the old cursor's next page.
+    pages[FIRST] = () => Response.json({ changeRequests: [draft('cr-d3', 'OIB 2027')], nextCursor: null })
+    const before = draftReads().length
+    await user.click(screen.getByRole('button', { name: /again/i }))
+    expect(await within(list).findByText('OIB 2027')).toBeInTheDocument()
+    expect(draftReads().slice(before)).toEqual([FIRST])
+    expect(within(list).queryByText('OIB 2019')).not.toBeInTheDocument()
+    expect(screen.queryByText('The drafts could not be loaded')).not.toBeInTheDocument()
+  })
+
+  test('repeats a failed next page with the cursor it asked with', async () => {
+    serve()
+    const draft = (id: string, title: string) => ({ ...OVERVIEW.queue[0], id, title, status: 'draft' })
+    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
+    const FIRST = '/api/platform/knowledge/change-requests?status=draft'
+    const pages: Record<string, () => Response> = {
+      [FIRST]: () => Response.json({ changeRequests: [draft('cr-d1', 'OIB 2019')], nextCursor: '50' }),
+      [`${FIRST}&cursor=50`]: () => new Response('no', { status: 500 }),
+    }
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => pages[url]?.() ?? routed(url, init))
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    const list = await screen.findByTestId('country-knowledge-drafts')
+    await user.click(screen.getByRole('button', { name: 'Show more drafts' }))
+    expect(await screen.findByText('The drafts could not be loaded')).toBeInTheDocument()
+    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
+    pages[`${FIRST}&cursor=50`] = () => Response.json({ changeRequests: [draft('cr-d2', 'OIB 2023')], nextCursor: null })
+    await user.click(screen.getByRole('button', { name: 'Show more drafts' }))
+    expect(await within(list).findByText('OIB 2023')).toBeInTheDocument()
+    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
+    expect(screen.queryByText('The drafts could not be loaded')).not.toBeInTheDocument()
+  })
+
   test('lists the drafts, where texts are attached, and opens the one a link names', async () => {
     serve()
     const draft = { ...OVERVIEW.queue[0], id: 'cr-draft', title: 'OIB 2019', status: 'draft' }

@@ -50,6 +50,12 @@ from agent_host.routes.oib import add_oib_routes
 _COLLECTION = "oib_knowledge"
 
 
+def _job_done(name: str, sha256: str, chunk_format_version: int) -> bool:
+    """A job for ``name`` prepared at the file's current mark and finished: what ``oib_sync`` records."""
+    corpus_store.begin_job(name)
+    return corpus_store.mark_ingested(name, sha256, chunk_format_version)
+
+
 @pytest.fixture
 def summary_db():
     # ignore_cleanup_errors: the SQLite engine's connection (and its -wal/-shm
@@ -782,7 +788,7 @@ async def test_a_manual_sync_that_breaks_is_a_500(app, monkeypatch):
 async def test_reingest_queues_only_the_named_documents(app, ingestor):
     for name in ("a.pdf", "b.pdf", "c.pdf"):
         corpus_store.put(name, _pdf_bytes())
-        corpus_store.mark_ingested(name, corpus_store.get_file(name).sha256, oib_sync.CHUNK_FORMAT_VERSION)
+        _job_done(name, corpus_store.get_file(name).sha256, oib_sync.CHUNK_FORMAT_VERSION)
 
     async with _client(app) as client:
         response = await client.post("/v1/admin/oib/reingest", json={"file_names": ["a.pdf", "c.pdf"]})
@@ -818,7 +824,7 @@ async def test_reingest_records_the_country_and_edition_the_platform_sent(app, i
 @pytest.mark.asyncio
 async def test_reingesting_twice_while_the_first_job_waits_is_still_one_job(app, ingestor):
     corpus_store.put("a.pdf", _pdf_bytes())
-    corpus_store.mark_ingested("a.pdf", corpus_store.get_file("a.pdf").sha256, oib_sync.CHUNK_FORMAT_VERSION)
+    _job_done("a.pdf", corpus_store.get_file("a.pdf").sha256, oib_sync.CHUNK_FORMAT_VERSION)
 
     async with _client(app) as client:
         for _ in range(2):

@@ -789,6 +789,8 @@ def test_an_unreachable_bff_keeps_the_new_version(tmp_path, monkeypatch, live_in
     # Nothing listens on port 9: the real client gets a refused connection.
     monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://127.0.0.1:9")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "secret")
+    # One refused connect says "no answer"; the retry ladder behind it is 15 s of real backoff.
+    monkeypatch.setattr("agent.common.connect_retry.CONNECT_RETRIES", 0)
     _seed_previous_version(live_ingestor, stores, "proj_down", "statik.txt")
     upload = tmp_path / "tmp_upload.txt"
     upload.write_text("Neue Fassung der Statik.", encoding="utf-8")

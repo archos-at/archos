@@ -85,6 +85,15 @@ export const isRecheckableInterruption = (row: ReconcilableDocument, now: number
 }
 
 /**
+ * What the backend's job lookup wrote for a job it no longer knew, until it answered "unknown":
+ * such a row was never read to an outcome, so it is settled again from the listing.
+ */
+export const JOB_NOT_FOUND_MESSAGE = 'Job ID not found'
+
+export const isForgottenJobFailure = (row: ReconcilableDocument | undefined): boolean =>
+  row?.status === 'failed' && row.errorMessage === JOB_NOT_FOUND_MESSAGE
+
+/**
  * A `cancelled` row recent enough to still be worth asking about, and with a
  * job the batch call can answer for.
  *

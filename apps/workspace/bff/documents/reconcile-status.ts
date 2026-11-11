@@ -15,6 +15,7 @@
 import { fetchInChunks, type BackendJobFile, type BackendJobStatus } from './status-batch'
 import {
   extractIngestJobId,
+  isForgottenJobFailure,
   isLostJob,
   isRecheckableCancellation,
   isRecheckableInterruption,
@@ -23,7 +24,7 @@ import {
 } from './lost-job'
 import { getBackendUrl } from '@/lib/backend-url'
 import type { SettledBy } from '@/lib/analytics/ingest-events'
-import { announceSettledIngests } from './announce-settled'
+import { announceSettledIngests, announceSettledShelves } from './announce-settled'
 import { timingOf, type IngestTiming } from './ingest-timing'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import {
@@ -47,8 +48,6 @@ import {
   type ReadingCoverage,
 } from './dossier'
 import { setDocumentReconciledStatus } from './repository'
-import { documentShelf } from './shelf'
-import { publishShelfChanged } from './shelf-live'
 import { projectReadings } from '@/lib/search/facets-projector'
 import { listCollectionDocumentsForProjection } from '@/lib/search/facets-repository'
 import { parseIngestFailureCategory, type IngestFailureFacts } from './retry-policy'
@@ -839,25 +838,6 @@ async function projectReplacedDocuments(
 }
 
 /**
- * One `shelf.changed` per shelf the settled rows are on. A row type that does
- * not carry its shelf (`projectId`, `scope`) announces nothing; the listing
- * and the per-document status read both carry it.
- */
-function announceSettledShelves(
-  organizationId: string,
-  rows: readonly ReconcilableDocument[],
-  settledIds: ReadonlySet<string>
-): void {
-  const shelves = new Map<string, NonNullable<ReturnType<typeof documentShelf>>>()
-  for (const row of rows) {
-    if (!settledIds.has(row.id) || !('projectId' in row)) continue
-    const shelf = documentShelf(row as { projectId: string | null; scope?: string })
-    if (shelf) shelves.set(shelf.kind === 'project' ? shelf.projectId : 'office_shelf', shelf)
-  }
-  for (const shelf of shelves.values()) publishShelfChanged(organizationId, shelf)
-}
-
-/**
  * Reconcile in-flight document rows with the backend's ingestion state and
  * persist any terminal transition (and re-check a recent `interrupted:`
  * failure or `cancelled` row, see `INTERRUPTED_REASON_PREFIX` in `lost-job.ts`), then merge
@@ -994,6 +974,23 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
     )
   }
 
+  // A `Job ID not found` failure was a forgotten job, not a verdict: only an indexed file heals it.
+  await Promise.all(
+    rows.filter(isForgottenJobFailure).map(async (row) => {
+      const ref = collectionFileRef(row)
+      if (!ref) return
+      const files = await loadCollectionFilesCached(row.collectionName)
+      if (!files || files.ambiguousNames.has(ref.filename)) return
+      const jobId = extractIngestJobId(row.metadata)
+      const resolution = resolveFromCollection(files, ref, jobId)
+      if (resolution?.status !== 'completed') return
+      if (await setDocumentReconciledStatus(row.id, organizationId, resolution, { status: row.status, jobId })) {
+        moved.add(row.id)
+      }
+      resolutions.set(row.id, resolution)
+    })
+  )
+
   // Rows that came to rest settle their upload, audit a quarantine and tell
   // its reviewers (ADR-0086). Only the rows this read moved: a concurrent read
   // that lost the race settles nothing. Never throws. A quarantine whose audit
@@ -1003,7 +1000,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   if (settled.length > 0) {
     await onDocumentsSettled(
       organizationId,
-      settled.map(([id, resolution]) => ({ id, status: resolution.status }))
+      settled.map(([id, resolution]) => ({ id, status: resolution.status, ...(isForgottenJobFailure(rows.find((row) => row.id === id)) ? { correction: true } : {}) }))
     )
     // The badge flipped for everyone reading the shelf, and a colleague's
     // upload held until its screening passed is on their shelf from now on
