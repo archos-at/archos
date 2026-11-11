@@ -28,7 +28,7 @@ vi.mock('./turn-snapshot', () => ({ rememberTurnContext: vi.fn() }))
 
 import { proposedRecordSchema } from '../platform/wire'
 import { graphFromProposals } from '../chain/from-proposals'
-import { gateNamesLaw } from '../wire/project-law'
+import { gateNamesLaw, MAX_PROJECT_LAW_USES, projectLawSchema } from '../wire/project-law'
 import { lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
 import { knowledgeContextSchema } from './wire'
@@ -215,6 +215,14 @@ describe('lawOf', () => {
       expect(lawOf(context)).toEqual({ gate: state, uses: [], factLabels: {} })
     },
   )
+
+  it('shows the first uses the page holds where a site has more, binding first, and the page still parses', () => {
+    const use = (index: number) => ({ workId: `work:std-${index}`, editionId: `edition:std-${index}`, role: 'binding' as const, qualifier: null, via: 'relation' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [], sourceUrl: null, route: null, roleSince: null, language: null, textStatus: null, applicability: null })
+    const uses = Array.from({ length: MAX_PROJECT_LAW_USES + 5 }, (_, index) => use(index))
+    const context = { gate: { state: 'core' as const, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses, text: null, retrieval: { countries: [] } }
+    const law = projectLawSchema.parse(lawOf(context))
+    expect(law.uses.map((entry) => entry.workId)).toEqual(uses.slice(0, MAX_PROJECT_LAW_USES).map((entry) => entry.workId))
+  })
 
   it('lets every coverage level but none name law', () => {
     expect(gateNamesLaw('open')).toBe(true)

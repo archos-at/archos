@@ -31,6 +31,9 @@ export const PLATFORM_KNOWLEDGE_EXPOSURE = {
   'platform-knowledge-overview-get': PLATFORM_PUBLIC,
   'platform-knowledge-publish': PLATFORM_PUBLIC,
   'platform-knowledge-records-propose': PLATFORM_PUBLIC,
+  // A country's release between deployments: export reads, import writes a draft only, reviewed and published as any.
+  'platform-knowledge-release-export': PLATFORM_PUBLIC,
+  'platform-knowledge-release-import': PLATFORM_PUBLIC,
   'platform-knowledge-rollback': PLATFORM_PUBLIC,
   'platform-knowledge-schema-get': PLATFORM_PUBLIC,
   // A country's public sources (ADR-0174): platform configuration of public pages, never a tenant's content.

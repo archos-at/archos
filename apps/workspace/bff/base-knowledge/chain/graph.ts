@@ -147,6 +147,4 @@ export interface ResolvedChain {
   uses: readonly EditionUse[]
   /** Law on the chain left out because its edition at the date is unknown, never guessed (`time/editions.ts`). */
   undetermined: readonly UndeterminedLaw[]
-  /** More uses than one resolution returns: what was left out reads as nothing, so a caller fails closed. */
-  truncated: boolean
 }

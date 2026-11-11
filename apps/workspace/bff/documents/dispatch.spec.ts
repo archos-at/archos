@@ -365,7 +365,7 @@ describe('dispatchDocument', () => {
       expect.objectContaining({ method: 'POST' }),
     )
     expect(runBimExtraction).not.toHaveBeenCalled()
-    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null)
+    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null, expect.objectContaining({ ingestJobId: null }))
     expect(result).toEqual({ jobId: 'job-1', status: 'pending' })
   })
 
@@ -785,7 +785,7 @@ describe('an office file is converted, by a job, before it is ingested', () => {
       file_ref: ORIGINAL_URL,
       file_name: 'Baubeschreibung.docx',
     })
-    await vi.waitFor(() => expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null))
+    await vi.waitFor(() => expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null, expect.objectContaining({ ingestJobId: null })))
     // The rendition is read by the same queued job, so it lives as long as file_ref.
     const renditionRead = vi
       .mocked(getSignedUrl)
@@ -1123,7 +1123,7 @@ describe('the ingest dispatch after a timeout', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2)
     // The same request, so the backend can recognise it.
     expect(fetchSpy.mock.calls[1][1].body).toBe(fetchSpy.mock.calls[0][1].body)
-    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-live', null)
+    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-live', null, expect.objectContaining({ ingestJobId: null }))
     expect(markDocumentIngestFailed).not.toHaveBeenCalled()
   })
 
@@ -1139,7 +1139,8 @@ describe('the ingest dispatch after a timeout', () => {
     expect(markDocumentIngestFailed).toHaveBeenCalledWith(
       'doc-1',
       'org-1',
-      'Ingestion could not be started'
+      'Ingestion could not be started',
+      expect.objectContaining({ ingestJobId: null })
     )
   })
 
@@ -1244,7 +1245,7 @@ describe('dispatchDocument — upload screening', () => {
     const result = await dispatchDocument(input('Baubeschreibung.pdf'))
     expect(result).toEqual({ jobId: null, status: 'failed' })
     expect(fetchSpy).not.toHaveBeenCalled()
-    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', INGEST_DISPATCH_FAILED_MESSAGE)
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', INGEST_DISPATCH_FAILED_MESSAGE, expect.objectContaining({ ingestJobId: null }))
     errorLog.mockRestore()
   })
 })

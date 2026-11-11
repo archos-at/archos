@@ -70,6 +70,9 @@ const EXPECTED: Record<string, string> = {
   'knowledge/sources/[sourceKey]/test/route.ts POST': 'knowledgeWrite',
   'knowledge/sources/[sourceKey]/credential/route.ts PUT': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/validation/route.ts GET': 'settingsView',
+  // A country's release between deployments: the export carries capture texts (a reviewer's read), the import writes a draft.
+  'knowledge/releases/[countryId]/route.ts GET': 'knowledgeReview',
+  'knowledge/releases/route.ts POST': 'knowledgeWrite',
   'knowledge/schemas/route.ts GET': 'settingsView',
   'knowledge/change-requests/[changeRequestId]/submit/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/review/route.ts POST': 'knowledgeReview',
