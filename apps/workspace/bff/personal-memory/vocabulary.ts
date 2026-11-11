@@ -16,5 +16,5 @@ export type PersonalMemoryKind = (typeof PERSONAL_MEMORY_KINDS)[number]
 export const PERSONAL_MEMORY_PROVENANCES = ['agent', 'user', 'distillation'] as const
 export type PersonalMemoryProvenance = (typeof PERSONAL_MEMORY_PROVENANCES)[number]
 
-/** The longest note the store keeps; migration 0225's CHECK holds the same number. */
+/** The longest note the store keeps; migration 0228's CHECK holds the same number. */
 export const PERSONAL_MEMORY_MAX_CONTENT_CHARS = 2000

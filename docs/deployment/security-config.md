@@ -139,8 +139,8 @@ Two layers hold it:
   roles; out, DNS and public addresses on 443. It holds no secret and no
   service-account token, so a hostile PDF that took the reader reaches nothing.
   In Compose it has a network of its own (`public-sources`) shared with those
-  three roles and no store; Coolify puts every service on one managed network,
-  so there the guard is the only layer.
+  three roles and no store; where every service shares one network, the guard
+  is the only layer.
 
 ### When the fetcher is not there
 

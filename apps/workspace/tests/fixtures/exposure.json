@@ -3639,6 +3639,16 @@
    },
    "reason": null
   },
+  "platform-knowledge-base-get": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
   "platform-knowledge-change-request-create": {
    "kind": "catalog",
    "domain": "platform",
@@ -3720,6 +3730,16 @@
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
   "platform-knowledge-document-delete": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-document-get": {
    "kind": "catalog",
    "domain": "platform",
    "sensitivity": null,

@@ -62,11 +62,18 @@ describe('documentExistsInCollection', () => {
 
   it('addresses the row by id and collection, and by nothing about its author', async () => {
     await documentExistsInCollection(DOC_ID, 'proj_1')
-    expect(compared).toEqual(['id', 'collection_name'])
+    expect(compared).toEqual(['id', 'collection_name', 'lifecycle'])
+  })
+
+  // An archived document's chunks were purged; a job still running when it
+  // was archived must take its own back out.
+  it('asks for a document still in the working set', async () => {
+    await documentExistsInCollection(DOC_ID, 'proj_1')
+    expect(compared).toContain('lifecycle')
   })
 
   it('narrows by organization when the caller supplies one', async () => {
     await documentExistsInCollection(DOC_ID, 'archiv_org-1', 'org-1')
-    expect(compared).toEqual(['id', 'collection_name', 'organization_id'])
+    expect(compared).toEqual(['id', 'collection_name', 'organization_id', 'lifecycle'])
   })
 })

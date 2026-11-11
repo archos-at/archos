@@ -374,7 +374,7 @@ async def upload_documents(
 
         # Get the job to extract file_ids for the response
         job_status = await asyncio.to_thread(ingestor.get_job_status, job_id)
-        file_ids = [fd.file_id for fd in job_status.file_details]
+        file_ids = [fd.file_id for fd in job_status.file_details] if job_status else []
 
         logger.info(f"Submitted ingestion job {job_id} for {len(files)} file(s)")
 

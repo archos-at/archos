@@ -35,13 +35,13 @@
  * The graph is dense because the domain is, not by neglect: a person may
  * read any file again, archive it or replace its bytes at any time. What it
  * does rule out is the part worth a rule: a quarantined row leaves only by a
- * release (migration 0122's trigger says the same in the database), and a
- * verdict (`completed`, `quarantined`, `cancelled`) is only ever a job's.
+ * release or a re-screen (the trigger of migrations 0122 and 0225 says the
+ * same in the database), and a verdict (`completed`, `quarantined`,
+ * `cancelled`) is only ever a job's.
  *
- * `rescreen` is not declared from `quarantined` although the writer's WHERE
- * admits the row: the trigger refuses the write (`GQH01`), so the move does not
- * exist. `visibility.integration.spec.ts` holds that, and says what the trigger
- * would have to allow.
+ * `rescreen` from `quarantined` lifts nothing: the row is `uploaded` again and
+ * still held by its verdict column until the new reading passes
+ * (`visibility.integration.spec.ts` walks it).
  */
 import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import type { DocumentStatus } from './document-status'
@@ -115,7 +115,7 @@ export const DOCUMENT_READING_LIFECYCLE = defineLifecycle<DocumentStatus, Docume
         rescreen: 'uploaded',
       },
     },
-    quarantined: { on: { release: 'uploaded' } },
+    quarantined: { on: { release: 'uploaded', rescreen: 'uploaded' } },
     stored: {
       on: {
         dispatch: 'pending',

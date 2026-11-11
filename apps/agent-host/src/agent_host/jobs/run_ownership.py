@@ -13,15 +13,21 @@ THE RULE. A copy owns the job when, in one locked transaction:
   ``STALE_SECONDS``: no ``job_info`` write and no event (the run emits a
   ``job.heartbeat`` every 30 s, ``runner.HEARTBEAT_INTERVAL_SECONDS``). That is
   a previous attempt that never finished; taking it over touches
-  ``updated_at``, so a third copy sees the job alive. The window is the ghost
-  reaper's (``routes/job_reaper.GHOST_JOB_TIMEOUT_SECONDS``), the one this tier
-  already trusts to call a run dead; a shorter one would take over a run still
-  building its workflow, which emits nothing for a while.
+  ``updated_at``, so a third copy sees the job alive, and so does the ghost
+  reaper, which reads the same two signs. The window is the ghost reaper's
+  (``routes/job_reaper.GHOST_JOB_TIMEOUT_SECONDS`` is this number), the one
+  this tier already trusts to call a run dead; a shorter one would take over a
+  run still building its workflow, which emits nothing for a while.
 
 Anything else loses: a terminal job, or a ``running`` one whose run is alive.
 A copy that finds the job alive polls for ``STALE_SECONDS`` and a margin
 before it gives up, because a retry Hatchet started after a worker died can
-arrive before that worker's last heartbeat has aged out.
+arrive before that worker's last heartbeat has aged out. A copy that gives up
+ends its Hatchet run as done ("duplicate"), deliberately: failing it instead
+would spend the job's retries while the live run works, and the on-failure
+task would then write FAILURE over that live run. The cost: if the live run
+dies after the copy gave up, nothing is left to retry it and the ghost reaper
+fails the job, visibly.
 
 WHY NOT THE ATTEMPT NUMBER. Hatchet's ``retry_count`` cannot tell a duplicate
 from a rescue: two copies of one delivery share it, and the engine reassigns a
@@ -47,7 +53,7 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-#: Silent this long, the previous run is gone: the ghost reaper's window.
+#: Silent this long, the previous run is gone. The ghost reaper's window is this number.
 STALE_SECONDS = 300
 #: How long a copy that found the run alive keeps looking before it gives up.
 WAIT_SECONDS = STALE_SECONDS + 60

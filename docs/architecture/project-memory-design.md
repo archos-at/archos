@@ -42,7 +42,7 @@ organization memory (Office).
 **Built.**
 
 - The personal store. `personal_memory` is a table of its own with row-level
-  security on the person (migration 0225), so a colleague's or an
+  security on the person (migration 0228), so a colleague's or an
   administrator's query matches no row. Two kinds, `preference` and `profile`.
   The person's routes are `/api/user/memory` and `/api/user/memory/[itemId]`,
   with the operations `personal-memory-*`. Code: `apps/workspace/bff/personal-memory/`.
@@ -59,7 +59,7 @@ organization memory (Office).
   nobody else. In a shared conversation it is null, because other people read
   the answer. The block is rendered into the chat prompt only, never into the
   context the clarifier and deep research receive.
-- The temporary refusal. `conversations.temporary` (migration 0226) is set by
+- The temporary refusal. `conversations.temporary` (migration 0229) is set by
   the conversation's owner on create or with `PATCH /api/conversations/{id}`.
   Both internal memory routes refuse a write that names a temporary
   conversation with 403 `TEMPORARY_CONVERSATION`. The turn context reports the
@@ -82,7 +82,7 @@ organization memory (Office).
     off (`created: false` from `POST /api/internal/memory`).
   - A personal note is never on the message, which everyone in the
     conversation reads. The agent stores it with the answer's message id
-    (`personal_memory.source_message_id`, migration 0227), and the owner's
+    (`personal_memory.source_message_id`, migration 0230), and the owner's
     browser reads its own notes of the conversation
     (`GET /api/user/memory?sourceConversationId=…`, once per conversation,
     `ui/features/chat/stores/turn-notes-store.ts`) and shows each under the

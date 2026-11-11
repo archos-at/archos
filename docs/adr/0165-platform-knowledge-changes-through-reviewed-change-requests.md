@@ -349,16 +349,19 @@ hours before it is released (ADR-0174).
 - A file uploaded and published within minutes is first indexed by the job its
   upload queued, which carries no country: `oib_sync.mark_for_reingest` leaves
   a waiting or running job alone. That job no longer makes the file read as
-  indexed. `oib_sync.settle` compares when the job was prepared with when the
-  file was last marked, drops a job prepared before the mark, and the next
-  sync cycle queues one that carries it; until that one is done the index
-  status says pending. The comparison is to the second and across two clocks
-  (the job's is the api tier's, the mark's the database's), so a mark set
-  within the same second as the job, or inside the clock skew, can still be
-  missed; the file is then read by nobody (`ZZ`), and a re-ingest from the
-  corpus page repairs it. Replacing the waiting job outright would close
-  that too, and needs a test against the engine: a corpus job's id is derived
-  from the file's name, hash and chunk format.
+  indexed. Each mark is a new generation on the file's row
+  (`oib_corpus_files.mark_generation`, bumped in the transaction that writes
+  the mark), a job records the generation it was prepared at
+  (`job_mark_generation`), and marking and preparing share the file's lock, so
+  a job is prepared wholly before a mark or wholly after it. The write that
+  records a file as indexed takes only a job at the current generation
+  (`corpus_store.mark_ingested`, one statement); `oib_sync.settle` drops any
+  other, and the next sync cycle queues one that carries the mark. Until that
+  one is done the index status says pending. No clock is read: the first form
+  compared two times to the second, the job's from the api tier and the
+  mark's from the database, and missed a mark set in the job's own second or
+  inside the skew. A job in flight when these columns arrive has no
+  generation and is done once more.
 - An attach that finds its manifestation proposed again while the text was
   being stored is refused (409) and names nothing; attaching again names the
   bytes already stored. A file removed from the corpus between an attach's

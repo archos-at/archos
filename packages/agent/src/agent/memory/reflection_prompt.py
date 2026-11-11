@@ -33,8 +33,8 @@ REFLECTION_SYSTEM_PROMPT = (
     '("Maße immer in Zentimetern." / "Im Büro für Brandschutz zuständig."), in the language they wrote in.\n\n'
     "Record a finding ONLY if ALL of these hold:\n"
     "- it is durable — true across future turns, not transient conversation detail;\n"
-    "- it is specific to THIS project or to THIS person — NEVER general building-code knowledge (OIB limits, "
-    "ÖNORM values etc. already live in the corpus) and NEVER a firm-wide policy (this stage "
+    "- it is specific to THIS project or to THIS person — NEVER general building-code knowledge (limits and "
+    "values from regulations and standards already live in the corpus) and NEVER a firm-wide policy (this stage "
     "only records project and personal findings; org-wide conventions are set by a human, not here);\n"
     "- it is NOT already present in the existing project or personal memory shown below (never restate) — this bars "
     "RESTATEMENTS, not CORRECTIONS: a finding that changes what an existing entry says is new;\n"

@@ -49,7 +49,7 @@ export type NoteRefusalKind = SecretKind | ContactKind
 /** What a refusal calls each kind. English: an agent reads it too. Never the value found. */
 const KIND_NAMES: Record<NoteRefusalKind, string> = {
   iban: 'a bank account number (IBAN)',
-  at_svnr: 'an Austrian social-insurance number',
+  at_svnr: 'a social-insurance number',
   credit_card: 'a payment card number',
   de_svnr: 'a German pension-insurance number',
   de_tax_id: 'a German tax identification number',

@@ -478,9 +478,24 @@ describe('BaseKnowledge', () => {
     })
   })
 
+  test('reads the whole corpus from the platform route, never from the office listing', async () => {
+    // The office listing holds only what is released to the operator's own office (ADR-0173);
+    // the page manages every file, released or not.
+    const fetchSpy = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(jsonResponse(STATUS)))
+    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
+
+    render(<BaseKnowledge />)
+    await screen.findByText('oib-richtlinie-2.pdf')
+
+    const urls = fetchSpy.mock.calls.map(([url]) => url)
+    expect(urls).toContain('/api/platform/knowledge/documents')
+    expect(urls.filter((url) => url.startsWith('/api/knowledge-base'))).toEqual([])
+  })
+
   test('uploading a file posts to the corpus and starts background polling', async () => {
-    const fetchSpy = vi.fn((url: string, _init?: RequestInit) => {
-      if (typeof url === 'string' && url.includes('/api/platform/knowledge/documents')) {
+    const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
+      // The same path lists the corpus (GET) and takes an upload (POST).
+      if (typeof url === 'string' && url.includes('/api/platform/knowledge/documents') && init?.method === 'POST') {
         return Promise.resolve(
           jsonResponse({
             status: 'pending',

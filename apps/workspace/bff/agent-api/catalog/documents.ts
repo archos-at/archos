@@ -241,7 +241,9 @@ export const documentsOperations = [
     domain: 'documents',
     summary: 'Cancel a document’s running ingestion',
     description:
-      'Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.',
+      'Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. ' +
+      '`result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` ' +
+      'is the status the document holds afterwards, which is not `cancelled` when the read ended first.',
     method: 'POST',
     path: '/api/documents/[id]/cancel',
     params: documentParams,

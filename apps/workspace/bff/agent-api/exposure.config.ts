@@ -383,9 +383,12 @@ export const EXPOSURE = {
   // knowledge
   'site-resolve': OFFERED,
   'address-search': withheld('external-service', 'proxies a public geocoder; a calling agent has its own map and web tools'),
+  // Offered on both doors because the routes themselves answer per office: only the base-corpus files released in a
+  // country the acting person's organization is entitled to (ADR-0173, lib/knowledge/released-corpus.ts). The
+  // whole corpus, unreleased files included, is the platform door's (platform-knowledge-base-get and -get).
   'knowledge-base-get': OFFERED,
-  'norm-list': OFFERED,
   'knowledge-document-get': OFFERED,
+  'norm-list': OFFERED,
   'widget-token-get': withheld('external-service', 'mints a token for the WorkOS widgets the browser renders; the identity provider’s UI, not office work'),
 
   // bim

@@ -628,7 +628,6 @@
   "ci/image_inputs.py": 1,
   "configs/config_oib_openrouter.yml": 4,
   "deploy/.env.example": 17,
-  "deploy/compose/docker-compose.coolify.yaml": 78,
   "deploy/compose/docker-compose.yaml": 118,
   "deploy/compose/init-db.sql": 20,
   "deploy/migration/chroma_export.py": 2,

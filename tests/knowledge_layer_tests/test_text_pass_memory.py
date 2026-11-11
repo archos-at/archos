@@ -116,5 +116,10 @@ def test_a_pdf_pdfium_cannot_count_is_left_to_the_layout_pass(tmp_path, monkeypa
     assert adapter._dense_page_texts(str(broken), 1) == {}
 
 
+@pytest.fixture
+def _no_memory_release_between_files():
+    """This file tests the release itself, so the suite's stub of it stays off."""
+
+
 def test_releasing_memory_after_a_file_never_raises():
     adapter._release_memory("plaene.pdf")

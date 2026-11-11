@@ -1,0 +1,17 @@
+-- A personal note knows the answer it was saved under (ADR-0180: every save is
+-- visible on the answer that caused it).
+--
+-- A note the assistant keeps about a person is never put on the answer's
+-- message: other people read a shared conversation's messages. So the note
+-- carries the answer's id instead, and the owner's browser asks for their own
+-- notes of the conversation (`GET /api/user/memory?sourceConversationId=…`)
+-- and shows each under its answer. Row-level security already answers that
+-- query with the owner's rows only (0228).
+--
+-- The id is the answer message's, which the agent derives per turn
+-- (`answer_message_id`: uuid5 of conversation and turn) and the browser holds
+-- as that message's id. Nullable, with no default: a note a person wrote, a
+-- note from before this migration and a note saved off the chat socket (a
+-- research run) belong to no answer. No foreign key: the note outlives the
+-- message, as it outlives the conversation (`source_conversation_id`).
+ALTER TABLE "personal_memory" ADD COLUMN IF NOT EXISTS "source_message_id" uuid;

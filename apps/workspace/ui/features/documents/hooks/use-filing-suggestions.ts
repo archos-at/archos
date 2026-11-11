@@ -6,13 +6,16 @@
  *
  * Read when the shelf is shown and whenever the caller's `refreshKey` moves (a
  * listing re-read, a decision). While an upload is on screen (`watching`) it
- * is read again every few seconds: the judgement from the file names runs as
- * soon as the batch is sealed, and the person should see its answer while they
- * are still looking at the upload, not on their next visit. A failed read
- * keeps what was shown; a suggestion is never worth an error on the page.
+ * is read again when the shelf's live channel says so: the judgement from the
+ * file names runs as soon as the batch is sealed, the filing job announces
+ * what it proposed as `shelf.changed` (`reviewUploadFiling`), and the person
+ * sees its answer while they are still looking at the upload. A slow poll
+ * stays under it for a lost hint. A failed read keeps what was shown; a
+ * suggestion is never worth an error on the page.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { LiveShelf } from '@/lib/documents/shelf-live-events'
 import { listOpenProposals } from '@/lib/proposals/client'
 import type { ListedProposal, ProposalListQuery } from '@/lib/proposals/types'
 import {
@@ -21,9 +24,10 @@ import {
   type FilingFolderSuggestion,
   type FilingSuggestionView,
 } from '../lib/filing-suggestions'
+import { useShelfLive } from '@/features/realtime/use-shelf-live'
 
-/** How often an upload on screen asks again: the runner's poll plus one model call fit in two rounds. */
-export const FILING_POLL_MS = 4000
+/** How often an upload on screen asks again when no hint came: the floor under the shelf's live channel. */
+export const FILING_FALLBACK_POLL_MS = 60_000
 
 export interface FilingSuggestions {
   /** For a file row: by the id of each document a suggestion names. */
@@ -67,9 +71,15 @@ export function useFilingSuggestions({
     reload()
   }, [reload, refreshKey, officeShelf])
 
+  const liveShelf = useMemo<LiveShelf | null>(
+    () => (projectId ? { kind: 'project', projectId } : asked ? { kind: 'office_shelf' } : null),
+    [projectId, asked]
+  )
+  useShelfLive(liveShelf, reload, { enabled: watching })
+
   useEffect(() => {
     if (!watching || !asked) return
-    const timer = setInterval(reload, FILING_POLL_MS)
+    const timer = setInterval(reload, FILING_FALLBACK_POLL_MS)
     return () => clearInterval(timer)
   }, [watching, asked, reload])
 

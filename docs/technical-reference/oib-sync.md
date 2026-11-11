@@ -24,7 +24,11 @@ oib_corpus_files
   ingested_sha256        text null          -- the bytes the index was last built from
   chunk_format_version   int null           -- the chunking pipeline's version at that ingestion
   failed_job_id          text null          -- the ingest job that ran for these bytes and gave up
+  mark_generation        int not null default 0  -- how often the file was marked (set_mark bumps it)
+  job_mark_generation    int null           -- the mark_generation the job for these bytes was prepared at
 ```
+
+The last two were added after the table (`_ADDED_FILE_COLUMNS`): a table created before them gets them on first use, under the schema lock and only when the catalog says they are missing.
 
 ```
 oib_corpus_marks                            -- ADR-0173: the platform record a file is the text of
@@ -62,7 +66,7 @@ OR chunk_format_version IS DISTINCT FROM CHUNK_FORMAT_VERSION
 | A Qdrant cluster that was wiped or repointed (`QDRANT_URL`) | The cycle sees rows claiming ingestion while the collection is empty, forgets every `ingested_sha256` and re-ingests |
 | An admin's "re-index" | `POST /v1/admin/oib/reingest` clears `ingested_sha256` and `failed_job_id` for the named files, drops their finished or failed job and queues a new one |
 
-The hash and version are written only after the file's job reached `FileStatus.SUCCESS`, and only if the row still holds the bytes that were ingested (`mark_ingested` is a conditional update), so a file replaced while it was being ingested still needs ingestion afterwards. The worker never writes the table; whoever reads the job's status next does (`oib_sync.settle`, called by the sync cycle and by the status view).
+The hash and version are written only after the file's job reached `FileStatus.SUCCESS`, and only if the row still holds the bytes that were ingested (`mark_ingested` is a conditional update), so a file replaced while it was being ingested still needs ingestion afterwards. The same update takes only a job prepared at the file's current mark (`job_mark_generation = mark_generation`): `begin_job` records the generation when a job is prepared, `set_mark` bumps it, and a job a mark overtook wrote chunks without that mark, so `settle` drops it and the next cycle queues one that carries it (ADR-0165). No timestamp decides this. The worker never writes the table; whoever reads the job's status next does (`oib_sync.settle`, called by the sync cycle and by the status view).
 
 ---
 
@@ -117,7 +121,7 @@ Run twice, the second cycle queues nothing: the job exists, waiting or running. 
 - A name the table does not list returns `None`, and any copy this process still holds is deleted: the table says what exists.
 - A listed file that cannot be fetched (the object is gone, the hash does not match) raises `CorpusStoreError`; a table that cannot be read raises too. Neither is "not in the corpus", and nothing is deleted on a guess.
 
-What calls it: ingestion, `GET /v1/oib/documents/{file_name}` (the PDF viewer; 404 for a name the table does not list, 503 for a listed one the store cannot serve), the corpus export (`GET /v1/admin/oib/corpus.tar.gz`, which fails rather than ship half a corpus) and the chat tool `look`.
+What calls it: ingestion, the two PDF reads (`GET /v1/corpus/documents/{file_name}` for an office, which serves a file only to a reader of a country its release marked it with and answers 404 otherwise, and `GET /v1/admin/corpus/documents/{file_name}` for the platform operator, which serves any listed file; both 404 for a name the table does not list and 503 for a listed one the store cannot serve), the corpus export (`GET /v1/admin/oib/corpus.tar.gz`, which fails rather than ship half a corpus) and the chat tool `look`.
 
 ---
 
@@ -149,7 +153,7 @@ The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `inge
 | Lock | Protects |
 |------|----------|
 | `keyed_lock("oib-sync")` | One sync cycle at a time, across replicas |
-| `keyed_lock("oib-file:<name>")` | The decision to queue a job for **one** document, an upload's store plus its enqueue, and `remove_document`. Held for milliseconds, never for an ingestion. Different documents stay fully concurrent |
+| `keyed_lock("oib-file:<name>")` | The decision to queue a job for **one** document, an upload's store plus its enqueue, `mark_for_reingest` (so a job is prepared wholly before a mark or wholly after it) and `remove_document`. Held for milliseconds, never for an ingestion. Different documents stay fully concurrent |
 
 `keyed_lock` waits, in this process and, on Postgres, across replicas (a Postgres advisory lock); without Postgres only the process lock holds. The ingestor also serialises the replacement of one document's previous version, under its own key. Two workers cannot run one job: the queue claim is exclusive and the job id is unique.
 

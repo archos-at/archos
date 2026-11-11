@@ -39,7 +39,7 @@ and it fails the same way.
 
 The upload sweep settles open batches, and by default only those created in the last
 7 days. `?windowDays=N` (1 to 60) widens the look-back for this one run, so a batch
-that aged out while stuck is included. The scheduler never sends it.
+that aged out while stuck is included. The every-minute `upload-sweep` cron task never looks back that far.
 
 ```bash
 kubectl -n grid exec deploy/frontend -c frontend -- node -e '
@@ -69,8 +69,20 @@ GROUP BY status;
 ```
 
 `pending` should be gone. Expect the indexed share as `completed` and the rest as `failed`
-(`ingest_failure_category = 'transient'`, `ingest_retryable = true`), about 304 and 224 for the two
-batches of the 2026-10 incident.
+(`ingest_failure_category = 'transient'`, `ingest_retryable = true`).
+
+That is not what the 2026-10 incident got. The backend's job lookup answered a job past its
+retention as `failed` with `Job ID not found` instead of unknown, so the reconciler never reached
+the listing or the lost-job rule: all 528 rows of the two batches became `failed: Job ID not found`,
+304 of them indexed. The lookup now answers unknown, and a read heals such a row to `completed`
+when its file is indexed (`isForgottenJobFailure` in `bff/documents/lost-job.ts`). Count what is left:
+
+```sql
+SELECT count(*) FROM documents
+WHERE organization_id = '<organization id>' AND status = 'failed' AND error_message = 'Job ID not found';
+```
+
+Those were never indexed under their name; step 4 re-reads them.
 
 ## 4. Re-ingest the failed ones
 

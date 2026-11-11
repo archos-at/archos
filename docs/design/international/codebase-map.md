@@ -137,7 +137,7 @@ Paths are relative to `/home/user/archos`.
 | C21 | Prompt view derives `country=at` from any valid non-`outside_austria` token | `bff/project-profile/prompt-view.ts:181-193` [V] | S1 |
 | C22 | Location register: `FederalState` type of 9 Länder, Austrian statute citations | `bff/project-intake/location-register.ts:35-45, 84-113` [V header and type] | S3, but data-shaped |
 | C23 | BIM rule catalogue: seven OIB rules, thresholds and German strings inline in 1,550 lines; escape bands in `bim/profile.ts:44-53` | `bff/bim/rules.ts` [V size; baseline entry 1549] | S3 |
-| C24 | `OFFICE_TIME_ZONE = 'Europe/Vienna'` drives calendar-day logic and scheduling | `bff/format.ts:328`, `bff/scheduling/office-clock.ts:19` [V format.ts] | S2 |
+| C24 | `OFFICE_TIME_ZONE = 'Europe/Vienna'` drives calendar-day logic and scheduling | `bff/format.ts:374`, the `frist-reminder` cron in `bff/scheduling/tasks.ts` [V format.ts] | S2 |
 | C25 | Pinned `de-AT`/`de-DE` number locales in about ten places | scout 10 list [S] | S1 each |
 | C26 | Upload screening `at_svnr` detector (with iban, credit_card) | `bff/upload-screening/policy.ts:21` [V] | S1 per detector |
 | C27 | Austrian default filing folders (Einreichung, Behörde und Bescheide …) | `bff/filing/conventions.ts:22` [S] | S1 |

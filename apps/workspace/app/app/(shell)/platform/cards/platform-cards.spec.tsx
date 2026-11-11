@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
+import { rendererSettled } from '@/features/a2ui/A2uiCard'
 import { PlatformCards } from './platform-cards'
 
 function jsonResponse(body: unknown, ok = true, statusCode = 200) {
@@ -61,6 +62,10 @@ const catalog = {
     },
   ],
 }
+
+// The card renderer is loaded by a dynamic import: without this the spec passes only
+// when an earlier spec in the same worker already loaded it (gotchas.md).
+beforeAll(rendererSettled)
 
 describe('PlatformCards', () => {
   beforeEach(() => {

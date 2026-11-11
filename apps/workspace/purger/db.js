@@ -10,6 +10,7 @@
 /** @typedef {import('./types').Tx} Tx */
 /** @typedef {import('./types').QueueEntry} QueueEntry */
 /** @typedef {import('postgres').Sql} Sql */
+/** @typedef {Pick<QueueEntry, 'id' | 'claim_token'>} Claim  the row a holder claimed, and the claim it took */
 
 // Every statement below spans tenants (the queue covers all organizations),
 // so each runs under the platform step-up — see workers/platform-scope.js.
@@ -19,6 +20,12 @@ const { withPlatformScope } = require('../workers/platform-scope')
 // (`bff/db/schema/deletion-queue.ts`, `DELETION_LIFECYCLE`), which this process
 // cannot import: it runs unbuilt. `deletion-lifecycle.spec.mjs` holds every
 // status literal and every move in this file to that declaration.
+//
+// A `pending` row always has an attempt left: `markFailed` and the request
+// side's release leave a row at the cap `failed`, a hold's release refunds its
+// attempt, and the database refuses anything else
+// (`deletion_queue_pending_has_attempts`, migration 0227). So nothing here
+// looks for a `pending` row the claim below can never take.
 const MAX_ATTEMPTS = 10
 const STALE_CLAIM_MINUTES = 15
 
@@ -38,6 +45,18 @@ const STALE_CLAIM_MINUTES = 15
  *   64m. Never-claimed rows (claimed_at IS NULL) are eligible immediately.
  * The row lock (FOR UPDATE SKIP LOCKED) serializes competing purgers and
  * purge-vs-restore races.
+ *
+ * The claim is a token. Every claim writes a fresh `claimed_at` (the request
+ * side's `claimBinEntryNow` does too), and the entry carries it back as
+ * `claim_token`, the timestamp as text so its microseconds survive. Every
+ * closing write below matches it: a holder whose stale claim was taken over
+ * finds another token on the row and changes nothing, whatever the status
+ * reads by then. A takeover is always later than the claim it replaces (by the
+ * 15 minutes, or by the backoff), so two holders never share one.
+ *
+ * The token is compared as `$token::text::timestamptz`. Cast straight to
+ * `timestamptz`, the parameter takes that type and postgres.js sends it through
+ * its date serializer, which cuts it to milliseconds: no row would ever match.
  */
 /**
  * @param {Tx} tx
@@ -64,12 +83,15 @@ async function claimNext(tx) {
   `
   if (rows.length === 0) return null
   const entry = /** @type {QueueEntry} */ (/** @type {unknown} */ (rows[0]))
-  await tx`
+  const claims = /** @type {{ claim_token: string }[]} */ (
+    await tx`
     UPDATE deletion_queue
     SET status = 'purging', claimed_at = now(), attempts = attempts + 1
     WHERE id = ${entry.id}
+    RETURNING claimed_at::text AS claim_token
   `
-  return entry
+  )
+  return { ...entry, claim_token: claims[0]?.claim_token }
 }
 
 /**
@@ -98,16 +120,16 @@ async function hasActiveHold(tx, entry) {
  */
 /**
  * @param {Sql} sql
- * @param {string} entryId
+ * @param {Claim} claim
  * @returns {Promise<void>}
  */
-async function releaseHeld(sql, entryId) {
+async function releaseHeld(sql, claim) {
   await withPlatformScope(sql, (tx) => tx`
     UPDATE deletion_queue
     SET status = 'pending',
         attempts = GREATEST(attempts - 1, 0),
         last_error = 'blocked by active legal hold at purge time'
-    WHERE id = ${entryId} AND status = 'purging'
+    WHERE id = ${claim.id} AND status = 'purging' AND claimed_at = ${claim.claim_token}::text::timestamptz
   `)
 }
 
@@ -119,20 +141,27 @@ async function releaseHeld(sql, entryId) {
  * (a database restart between the two), and the row of an erased entity then
  * read `failed` once its attempts were spent.
  *
- * Like every write below it moves only a row that is still `purging`: after a
+ * Like every write below it moves only the row this holder claimed: after a
  * stale claim was taken over, or „Endgültig löschen" closed the row in a
- * request, a second holder's late answer must not move a finished row.
+ * request, a second holder's late answer must not move it.
+ *
+ * It also closes a row that reads `failed` under this same claim. That is a
+ * final attempt that ran past the stale window and was reaped while it was
+ * still working: the purge then committed, and the row of an erased entity
+ * must not keep saying `failed`. A row a person retried carries a new claim.
  */
 /**
  * @param {Tx} tx  the purge's transaction, already in platform scope
- * @param {string} entryId
+ * @param {Claim} claim
  * @returns {Promise<void>}
  */
-async function markPurged(tx, entryId) {
+async function markPurged(tx, claim) {
   await tx`
     UPDATE deletion_queue
     SET status = 'purged', purged_at = now(), last_error = NULL
-    WHERE id = ${entryId} AND status = 'purging'
+    WHERE id = ${claim.id}
+      AND (status = 'purging' OR status = 'failed')
+      AND claimed_at = ${claim.claim_token}::text::timestamptz
   `
 }
 
@@ -143,16 +172,16 @@ async function markPurged(tx, entryId) {
  */
 /**
  * @param {Sql} sql
- * @param {string} entryId
+ * @param {Claim} claim
  * @param {unknown} message
  * @returns {Promise<void>}
  */
-async function markFailed(sql, entryId, message) {
+async function markFailed(sql, claim, message) {
   await withPlatformScope(sql, (tx) => tx`
     UPDATE deletion_queue
     SET status = CASE WHEN attempts >= ${MAX_ATTEMPTS} THEN 'failed' ELSE 'pending' END,
         last_error = ${String(message).slice(0, 2000)}
-    WHERE id = ${entryId} AND status = 'purging'
+    WHERE id = ${claim.id} AND status = 'purging' AND claimed_at = ${claim.claim_token}::text::timestamptz
   `)
 }
 
@@ -163,17 +192,67 @@ async function markFailed(sql, entryId, message) {
  */
 /**
  * @param {Sql} sql
- * @param {string} entryId
+ * @param {Claim} claim
  * @param {unknown} message
  * @returns {Promise<void>}
  */
-async function markFailedPermanent(sql, entryId, message) {
+async function markFailedPermanent(sql, claim, message) {
   await withPlatformScope(sql, (tx) => tx`
     UPDATE deletion_queue
     SET status = 'failed',
         last_error = ${String(message).slice(0, 2000)}
-    WHERE id = ${entryId} AND status = 'purging'
+    WHERE id = ${claim.id} AND status = 'purging' AND claimed_at = ${claim.claim_token}::text::timestamptz
   `)
+}
+
+/**
+ * Close the rows of folders that are provably erased but do not say so.
+ *
+ * A folder's purge runs in the BFF over HTTP and commits there; the queue row
+ * is closed afterwards, in the purger's transaction. When that transaction
+ * fails on the final attempt (a database restart, a crash), the folder is gone
+ * and its row ends `failed`: recorded by the catch, or reaped 15 minutes on.
+ * The BFF leaves a durable mark of a finished purge, `project_folders.purged_at`
+ * (set last, after every document), and the row's payload names the
+ * conversations whose traces a removal still owes. Purged, with none owed, is
+ * erased by every record there is, so the row is closed `purged`. This runs
+ * before the reap, which fails what is left.
+ *
+ * What it cannot tell stays `failed`, for a person: a folder whose removal
+ * owes traces, and every chat. A chat's erasure leaves its row gone, but
+ * whether its Langfuse traces were erased is recorded nowhere. A project's
+ * rows go in the same transaction as its queue row, so it cannot be half done.
+ * Returns the number closed.
+ */
+/**
+ * @param {Sql} sql
+ * @returns {Promise<number>}
+ */
+async function closeErased(sql) {
+  const rows = /** @type {{ id: string }[]} */ (
+    await withPlatformScope(sql, (tx) => tx`
+    UPDATE deletion_queue q
+    SET status = 'purged', purged_at = now(), last_error = NULL
+    WHERE q.entity_type = 'folder'
+      AND (
+        q.status = 'failed'
+        OR (
+          q.status = 'purging'
+          AND q.attempts >= ${MAX_ATTEMPTS}
+          AND q.claimed_at < now() - make_interval(mins => ${STALE_CLAIM_MINUTES})
+        )
+      )
+      AND (q.payload #> '{derivedRemoval,conversationIds,0}') IS NULL
+      AND EXISTS (
+        SELECT 1 FROM project_folders f
+        WHERE f.id::text = q.entity_id
+          AND f.organization_id = q.organization_id
+          AND f.purged_at IS NOT NULL
+      )
+    RETURNING q.id
+  `)
+  )
+  return rows.length
 }
 
 /**
@@ -210,42 +289,14 @@ async function reapStranded(sql) {
   return rows.length
 }
 
-/**
- * Give a `pending` row that has no attempts left its last one back.
- *
- * claimNext never takes a row at MAX_ATTEMPTS, so such a row reads as waiting
- * and is never purged. No writer leaves one any more: a request-side release
- * („Endgültig löschen" failing, `releaseBinEntry`) used to, when it had claimed
- * a row the purger had already given up on, or spent the last attempt itself.
- * Rows stranded before that was fixed are still there, and this is what brings
- * them back: one more purge, which ends them `purged` or `failed`. Returns the
- * number re-offered.
- */
-/**
- * @param {Sql} sql
- * @returns {Promise<number>}
- */
-async function reofferExhausted(sql) {
-  const rows = /** @type {{ id: string }[]} */ (
-    await withPlatformScope(sql, (tx) => tx`
-    UPDATE deletion_queue
-    SET attempts = ${MAX_ATTEMPTS - 1}
-    WHERE status = 'pending'
-      AND attempts >= ${MAX_ATTEMPTS}
-    RETURNING id
-  `)
-  )
-  return rows.length
-}
-
 module.exports = {
   claimNext,
+  closeErased,
   hasActiveHold,
   markFailed,
   markFailedPermanent,
   markPurged,
   reapStranded,
-  reofferExhausted,
   releaseHeld,
   MAX_ATTEMPTS,
 }

@@ -77,10 +77,18 @@ def _row(name: str) -> corpus_store.FileRow:
 
 
 def _mark_was_set(*, hours_from_now: int) -> None:
-    """Move every mark's time, as if the release had marked the files then."""
+    """Move every mark's time, as if the database's clock had said so when the release marked the files."""
     at = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=hours_from_now)
     with corpus_store._transaction() as conn:
         conn.execute(update(corpus_store._marks).values(marked_at=at))
+
+
+def _mark_at_the_instant_the_job_was_prepared(name: str) -> None:
+    """Give the mark of ``name`` the very time its job was submitted: the two happened in one second."""
+    status = ingest_status_store.get(oib_sync.job_id_for(_row(name)))
+    assert status is not None
+    with corpus_store._transaction() as conn:
+        conn.execute(update(corpus_store._marks).values(marked_at=status.submitted_at.replace(tzinfo=None)))
 
 
 def _queued() -> int:
@@ -293,7 +301,7 @@ class TestSync:
         assert _sync().ingested_recorded == 1
 
     def test_an_empty_store_waiting_for_its_import_is_not_taken_for_a_reset(self, ingestor, monkeypatch):
-        """Compose and Coolify start the new release before the import: no re-embedding of the corpus meanwhile."""
+        """Compose starts the new release before the import: no re-embedding of the corpus meanwhile."""
         corpus_store.put("a.pdf", b"a")
         _sync()
         run_worker()
@@ -615,13 +623,14 @@ class TestMarkForReingest:
 
         assert _sync().enqueued == 1
 
-    def test_a_job_prepared_before_the_release_marked_its_file_is_done_again_with_the_mark(self, ingestor):
-        """The upload job carries no country: finished after the release marked the file, it does not count."""
+    def _released_while_its_upload_job_waits(self) -> None:
+        """An upload's job, prepared without a mark and still waiting, then the release that marks the file."""
         corpus_store.put("a.pdf", b"a")
-        _sync()  # the upload's job, prepared without a mark, still waiting
+        _sync()
         mark = corpus_store.FileMark(country_id="AT", edition_id="edition:oib-rl-1-2019")
         assert oib_sync.mark_for_reingest("a.pdf", mark) is True
-        _mark_was_set(hours_from_now=1)  # a release, after the job was prepared
+
+    def _the_unmarked_job_is_done_again_with_the_mark(self) -> None:
         (unmarked,) = run_worker()
         assert "country_id" not in unmarked.config
 
@@ -630,11 +639,69 @@ class TestMarkForReingest:
         # Not recorded: its chunks are nobody's. A job that carries the mark is queued in its place.
         assert (result.ingested_recorded, result.enqueued) == (0, 1)
         assert _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
-        _mark_was_set(hours_from_now=-1)  # the mark is older than the job the cycle has just prepared
         (marked,) = run_worker()
         assert marked.config["country_id"] == "AT"
         assert _sync().ingested_recorded == 1
         assert not _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
+
+    def test_a_job_prepared_before_the_release_marked_its_file_is_done_again_with_the_mark(self, ingestor):
+        """The upload job carries no country: finished after the release marked the file, it does not count."""
+        self._released_while_its_upload_job_waits()
+        _mark_was_set(hours_from_now=1)  # a release, after the job was prepared
+        self._the_unmarked_job_is_done_again_with_the_mark()
+
+    def test_a_mark_set_in_the_second_its_job_was_prepared_is_not_taken_as_carried(self, ingestor):
+        """Which came first is a count on the file's row, not two times compared to the second."""
+        self._released_while_its_upload_job_waits()
+        _mark_at_the_instant_the_job_was_prepared("a.pdf")
+        self._the_unmarked_job_is_done_again_with_the_mark()
+
+    def test_a_mark_from_a_database_whose_clock_is_behind_the_api_tier_is_not_missed(self, ingestor):
+        """The mark's time is the database's, the job's the api tier's: neither clock decides."""
+        self._released_while_its_upload_job_waits()
+        _mark_was_set(hours_from_now=-1)  # the database says the mark is older than the job it followed
+        self._the_unmarked_job_is_done_again_with_the_mark()
+
+    def test_a_mark_that_lands_while_a_cycle_settles_the_job_is_not_recorded(self, ingestor):
+        """The cycle read the row before the mark: the write that records the index checks the generation itself."""
+        corpus_store.put("a.pdf", b"a")
+        _sync()
+        run_worker()
+        read_before_the_mark = corpus_store.list_files()
+        corpus_store.set_mark("a.pdf", corpus_store.FileMark(country_id="AT"))
+
+        settled = oib_sync.settle(read_before_the_mark)
+
+        assert settled.recorded == 0
+        assert _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
+
+    def test_a_reingest_that_sets_no_mark_keeps_the_job_that_carries_it(self, ingestor):
+        corpus_store.put("a.pdf", b"a")
+        corpus_store.set_mark("a.pdf", corpus_store.FileMark(country_id="AT"))
+        _sync()
+        assert oib_sync.mark_for_reingest("a.pdf") is True  # an admin's re-index: the mark stays what it was
+
+        (marked,) = run_worker()
+
+        assert marked.config["country_id"] == "AT"
+        assert _sync().ingested_recorded == 1
+
+    def test_marking_waits_for_the_file_lock_a_job_is_prepared_under(self, ingestor):
+        """A job is prepared wholly before a mark or wholly after it: both hold the file's lock."""
+        corpus_store.put("a.pdf", b"a")
+        marked = threading.Event()
+
+        def mark() -> None:
+            oib_sync.mark_for_reingest("a.pdf", corpus_store.FileMark(country_id="AT"))
+            marked.set()
+
+        with oib_sync._file_lock("a.pdf"):
+            thread = threading.Thread(target=mark)
+            thread.start()
+            assert not marked.wait(0.2)
+            assert corpus_store.get_mark("a.pdf") is None
+        thread.join(5)
+        assert marked.is_set() and corpus_store.get_mark("a.pdf") is not None
 
     def test_a_job_that_is_still_waiting_is_left_alone(self, ingestor):
         corpus_store.put("a.pdf", b"a")

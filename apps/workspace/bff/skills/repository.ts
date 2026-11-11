@@ -1,7 +1,8 @@
 /**
  * Skills repository — the only module that queries the `skills` table
- * (ADR-0017). Jobs and their runs live next door in `@/lib/jobs/repository`:
- * a job ATTACHES a skill, so the two are separate tables with separate owners.
+ * (ADR-0017). Jobs and their runs are task definitions and task runs, read
+ * and written by `@/lib/tasks/repository`: a job ATTACHES a skill, so the two
+ * are separate tables with separate owners.
  *
  * Repository rules: drizzle only; no HTTP, no auth, no WorkOS. Every query that
  * serves tenant data takes `organizationId` and scopes the WHERE clause with it

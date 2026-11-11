@@ -12,6 +12,8 @@ and keeps what ingestion needs to know about each file:
 ``ingested_sha256``    the hash the index was last built from, ``NULL`` before
 ``chunk_format_version`` the chunking pipeline's version at that ingestion
 ``failed_job_id``      the ingest job that gave up on the current bytes, ``NULL`` if none
+``mark_generation``    how often the file was marked (:func:`set_mark`), 0 before
+``job_mark_generation`` the ``mark_generation`` the job for these bytes was prepared at
 ====================== ======================================================
 
 A file needs ingestion when its ``ingested_sha256`` differs from its
@@ -52,21 +54,13 @@ import logging
 import os
 import tempfile
 import threading
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
 from pathlib import Path
 from typing import BinaryIO
 from urllib.parse import quote
 
 import httpx
-from sqlalchemy import BigInteger
-from sqlalchemy import Column
-from sqlalchemy import DateTime
-from sqlalchemy import Integer
-from sqlalchemy import MetaData
-from sqlalchemy import Table
-from sqlalchemy import Text
 from sqlalchemy import delete
 from sqlalchemy import func
 from sqlalchemy import select
@@ -77,6 +71,10 @@ from sqlalchemy.schema import CreateTable
 
 from agent.common import seaweed_s3
 from agent.common.db_utils import ensure_schema
+from agent.corpus_tables import ADDED_FILE_COLUMNS as _ADDED_FILE_COLUMNS  # noqa: F401 - a test drops them
+from agent.corpus_tables import create_files as _create_files
+from agent.corpus_tables import files as _files
+from agent.corpus_tables import marks as _marks
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
 
 logger = logging.getLogger(__name__)
@@ -92,32 +90,6 @@ _INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 _BFF_TIMEOUT_SECONDS = 15.0
 _PUT_TIMEOUT_SECONDS = 300.0
 _CHUNK_BYTES = 1024 * 1024
-
-_metadata = MetaData()
-_files = Table(
-    "oib_corpus_files",
-    _metadata,
-    Column("file_name", Text, primary_key=True),
-    Column("storage_key", Text, nullable=False),
-    Column("sha256", Text, nullable=False),
-    Column("size_bytes", BigInteger, nullable=False),
-    Column("uploaded_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
-    Column("ingested_sha256", Text, nullable=True),
-    Column("chunk_format_version", Integer, nullable=True),
-    Column("failed_job_id", Text, nullable=True),
-)
-
-#: The platform record a corpus file is the text of (ADR-0173): its country's pack and its edition.
-#: Its own table, so the file table's shape stays what every replica created; set by the platform's
-#: indexing job, read into every ingest job of the file, so a re-ingest keeps them on the chunks.
-_marks = Table(
-    "oib_corpus_marks",
-    _metadata,
-    Column("file_name", Text, primary_key=True),
-    Column("country_id", Text, nullable=True),
-    Column("edition_id", Text, nullable=True),
-    Column("marked_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
-)
 
 _initialized: set[str] = set()
 _INIT_LOCK = threading.Lock()
@@ -157,6 +129,12 @@ class FileRow:
     ingested_sha256: str | None = None
     chunk_format_version: int | None = None
     failed_job_id: str | None = None
+    mark_generation: int = 0
+    job_mark_generation: int | None = None
+
+    def job_carries_the_mark(self) -> bool:
+        """Whether the job for these bytes was prepared at the file's current mark (:func:`begin_job`)."""
+        return self.job_mark_generation == self.mark_generation
 
     def needs_ingestion(self, chunk_format_version: int) -> bool:
         """True when the index was not built from these bytes with this pipeline version."""
@@ -228,7 +206,7 @@ def _ensure_table(url: str) -> None:
             return
         # Replicas that first touch the table together would race the CREATE.
         engine = DocumentMetadataStore._get_or_create_sync_engine(url)
-        ensure_schema(engine, _files.name, lambda conn: conn.execute(CreateTable(_files, if_not_exists=True)))
+        ensure_schema(engine, _files.name, _create_files)
         ensure_schema(engine, _marks.name, lambda conn: conn.execute(CreateTable(_marks, if_not_exists=True)))
         _initialized.add(url)
 
@@ -251,6 +229,8 @@ def _row_from(record) -> FileRow:
         ingested_sha256=record.ingested_sha256,
         chunk_format_version=None if record.chunk_format_version is None else int(record.chunk_format_version),
         failed_job_id=record.failed_job_id,
+        mark_generation=int(record.mark_generation),
+        job_mark_generation=None if record.job_mark_generation is None else int(record.job_mark_generation),
     )
 
 
@@ -299,7 +279,11 @@ class FileMark:
 
 
 def set_mark(name: str, mark: FileMark) -> None:
-    """Record which country and edition ``name`` is the text of; a later ingest job carries them."""
+    """Record which country and edition ``name`` is the text of; a later ingest job carries them.
+
+    Each call is a new generation of the file's mark, in the same transaction: a job prepared before
+    it (:func:`begin_job`) no longer counts as the file's index (:func:`mark_ingested`).
+    """
     _require_name(name)
     values = {"country_id": mark.country_id, "edition_id": mark.edition_id}
     with _transaction() as conn:
@@ -309,6 +293,23 @@ def set_mark(name: str, mark: FileMark) -> None:
             .values(file_name=name, **values)
             .on_conflict_do_update(index_elements=[_marks.c.file_name], set_={**values, "marked_at": func.now()})
         )
+        conn.execute(
+            update(_files).where(_files.c.file_name == name).values(mark_generation=_files.c.mark_generation + 1)
+        )
+
+
+def begin_job(name: str) -> FileMark | None:
+    """Record that a job for ``name`` is prepared at the file's current mark generation; the mark it carries.
+
+    The generation is taken before the mark is read, so a mark that lands in between leaves the job
+    a generation behind and its result is refused: never a job that counts and lacks the mark.
+    """
+    with _transaction() as conn:
+        conn.execute(
+            update(_files).where(_files.c.file_name == name).values(job_mark_generation=_files.c.mark_generation)
+        )
+        record = conn.execute(select(_marks).where(_marks.c.file_name == name)).first()
+    return FileMark(country_id=record.country_id, edition_id=record.edition_id) if record is not None else None
 
 
 #: The country of the corpus that predates ``country_id``: it held Austria alone (ADR-0173).
@@ -345,14 +346,11 @@ def get_mark(name: str) -> FileMark | None:
     return FileMark(country_id=record.country_id, edition_id=record.edition_id) if record is not None else None
 
 
-def marked_at(name: str) -> datetime | None:
-    """When ``name`` was last marked, in UTC without a zone; None for a file no release has marked."""
-    with _transaction() as conn:
-        record = conn.execute(select(_marks.c.marked_at).where(_marks.c.file_name == name)).first()
-    if record is None or record.marked_at is None:
-        return None
-    at = record.marked_at
-    return at.astimezone(UTC).replace(tzinfo=None) if at.tzinfo is not None else at
+def released_to(name: str, countries: Iterable[str]) -> bool:
+    """Whether a reader of ``countries`` reads ``name``: its release mark names one of them; unmarked, nobody's."""
+    # The file-level form of ``vector_store.scope.corpus_country_condition`` (ADR-0173).
+    mark = get_mark(name)
+    return mark is not None and mark.country_id is not None and mark.country_id in set(countries)
 
 
 def list_marks() -> dict[str, FileMark]:
@@ -368,13 +366,21 @@ def mark_ingested(name: str, sha256: str, chunk_format_version: int) -> bool:
     """Record that the index was built from ``sha256`` by pipeline ``chunk_format_version``.
 
     Only if the row still holds those bytes: a file replaced while it was being
-    ingested keeps its old ingested hash and so still needs ingestion. False
-    when the row is gone or changed. A recorded success clears a recorded failure.
+    ingested keeps its old ingested hash and so still needs ingestion. And only
+    if the job was prepared at the file's current mark (:func:`begin_job`): one
+    prepared before the last :func:`set_mark` wrote chunks without that mark, and
+    the check is in this one statement, so a mark set while a cycle settles is not
+    missed. False when the row is gone or changed, or the job is a mark behind.
+    A recorded success clears a recorded failure.
     """
     with _transaction() as conn:
         result = conn.execute(
             update(_files)
-            .where(_files.c.file_name == name, _files.c.sha256 == sha256)
+            .where(
+                _files.c.file_name == name,
+                _files.c.sha256 == sha256,
+                _files.c.job_mark_generation == _files.c.mark_generation,
+            )
             .values(ingested_sha256=sha256, chunk_format_version=chunk_format_version, failed_job_id=None)
         )
     return result.rowcount == 1

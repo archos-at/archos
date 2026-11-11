@@ -62,7 +62,9 @@ export async function uploadedPdfHashes(file: File, maxBytes = MAX_UPLOAD_BYTES)
   let unsafe = false
   let twice = false
   // What the PDFs would unpack to, by the sizes the archive declares: unzipSync allocates each member's declared
-  // size, so a small archive of zeros is refused before anything is inflated.
+  // size, so a small archive of zeros is refused before anything is inflated. A stored member is copied by its
+  // compressed size whatever it declares to unpack to, and many entries may point at one payload, so the larger
+  // of the two sizes counts: an entry that declares nothing still costs its payload.
   let unpacked = 0
   const paths = new Set<string>()
   try {
@@ -76,7 +78,7 @@ export async function uploadedPdfHashes(file: File, maxBytes = MAX_UPLOAD_BYTES)
           paths.add(path)
         }
         if (!member.name.toLowerCase().endsWith('.pdf')) return false
-        unpacked += member.originalSize
+        unpacked += Math.max(member.size, member.originalSize)
         return unpacked <= maxBytes
       },
     })

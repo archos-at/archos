@@ -49,7 +49,7 @@ const SEES_EVERY_ROW: Record<string, string> = {
     'Sweep: reads dispatched ingests back from the backend (`reconcileStalePending`) and writes their status. The rows go to a worker, never to a person.',
   'lib/documents/repository/ingest-state.ts#findIngestAnnouncementFacts':
     'Analytics: the attempt count and upload batch of rows a status read just settled, for `document_ingest_finished`. Ids and numbers into an event, nothing to a person.',
-  'lib/documents/repository/ingest-state.ts#listInFlightDocumentsForIngestJobs':
+  'lib/documents/repository/ingest-state.ts#listSettleableDocumentsForIngestJobs':
     "The settle push: the in-flight rows of jobs the worker says ended, held by definition, each reconciled in its own organization. Nothing to a person; the route answers a count.",
   'lib/documents/repository/quarantine-and-retry.ts#listFailedDocumentPageInOrg':
     'Sweep: the failed-ingestion rescan re-dispatches each id through `reingestDocument`. Ids only, to a job.',

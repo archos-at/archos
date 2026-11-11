@@ -13,9 +13,9 @@ export const knowledgeOperations = [
     domain: 'knowledge',
     summary: 'See what the building-law corpus contains',
     description:
-      'The status of the platform-owned base corpus (OIB guidelines and the like): which documents it holds and ' +
-      'whether they are indexed. Identical for every organization. To search it use the document search with ' +
-      '`shelf: "base"` (no project needed); for Austrian law itself the law lookup. This only lists what is there.',
+      'The base corpus as this organization reads it: the documents released in a country the organization is entitled to, and ' +
+      'whether each is indexed. An organization entitled to no country gets an empty list. To search it use the document search with ' +
+      '`shelf: "base"` (no project needed); for the law itself the law lookup. This only lists what is there.',
     method: 'GET',
     path: '/api/knowledge-base',
     load: () => import('@/app/api/knowledge-base/route'),
@@ -83,8 +83,8 @@ export const knowledgeOperations = [
     summary: 'Read a base-corpus PDF',
     description:
       'The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an ' +
-      'attached resource up to 5 MiB; a larger file is not sent. Identical for every organization. Use it to quote a source a ' +
-      'citation points at.',
+      'attached resource up to 5 MiB; a larger file is not sent. Only a document released in a country the organization is entitled to; ' +
+      'any other name answers 404, whether or not such a file exists. Use it to quote a source a citation points at.',
     method: 'GET',
     path: '/api/knowledge-base/documents/[fileName]',
     params: z.object({ fileName: z.string().describe('The base-corpus file name, exactly as knowledge-base-get lists it.') }),

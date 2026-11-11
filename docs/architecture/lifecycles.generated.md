@@ -107,7 +107,7 @@ stateDiagram-v2
   failed --> completed: complete
   failed --> stored: unindex
   failed --> uploaded: replace, release, rescreen
-  quarantined --> uploaded: release
+  quarantined --> uploaded: release, rescreen
   stored --> pending: dispatch
   stored --> processing: process
   stored --> failed: fail
@@ -157,6 +157,7 @@ Born as `uploaded`, `stored`. Final: none.
 | `failed` | `release` | `uploaded` |
 | `failed` | `rescreen` | `uploaded` |
 | `quarantined` | `release` | `uploaded` |
+| `quarantined` | `rescreen` | `uploaded` |
 | `stored` | `dispatch` | `pending` |
 | `stored` | `process` | `processing` |
 | `stored` | `fail` | `failed` |

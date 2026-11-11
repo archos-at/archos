@@ -116,6 +116,7 @@ import {
 import { getDeletedFolderContentPolicy } from '@/lib/organizations/deleted-folder-content'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import {
+  type BinEntryClaim,
   closeBinEntryPurged,
   closeBinEntryRestored,
   claimBinEntryNow,
@@ -747,17 +748,17 @@ export async function purgeBinnedFolder(organizationId: string, folderId: string
  * it erased. Until then `counts.tracesErased` is 0; the folder is purged
  * either way and gone from the Papierkorb.
  */
-async function purgeClaimedNow(organizationId: string, folderId: string): Promise<FolderPurgeResult> {
+async function purgeClaimedNow(organizationId: string, folderId: string, claim: BinEntryClaim): Promise<FolderPurgeResult> {
   try {
     const result = await purgeBinnedFolder(organizationId, folderId)
     if (result.traceConversationIds.length > 0) {
-      await handBinEntryToPurger(organizationId, folderId, { purged: result.counts })
+      await handBinEntryToPurger(organizationId, folderId, claim, { purged: result.counts })
     } else {
-      await closeBinEntryPurged(organizationId, folderId, { purged: result.counts })
+      await closeBinEntryPurged(organizationId, folderId, claim, { purged: result.counts })
     }
     return result
   } catch (error) {
-    await releaseBinEntry(organizationId, folderId, error instanceof Error ? error.message : String(error)).catch(() => undefined)
+    await releaseBinEntry(organizationId, folderId, claim, error instanceof Error ? error.message : String(error)).catch(() => undefined)
     throw error
   }
 }
@@ -774,10 +775,10 @@ export async function purgeFolderFromBinNow(
   await requireProjectAccess(session, input.projectId, 'project:manage')
   const { project, root } = await binEntryFor(session, input.projectId, input.folderId)
   await assertNoActiveHold(session.organizationId, 'folder', root.id)
-  if (!(await claimBinEntryNow(session.organizationId, root.id))) {
-    throw new ConflictError('This folder is already being deleted.')
-  }
-  const result = await purgeClaimedNow(session.organizationId, root.id)
+  const claim = await claimBinEntryNow(session.organizationId, root.id)
+  if (!claim) throw new ConflictError('This folder is already being deleted.')
+  // The claim travels with the purge: its closing write moves only the row this request holds.
+  const result = await purgeClaimedNow(session.organizationId, root.id, claim)
   await recordAuditEvent({
     organizationId: session.organizationId,
     actor: { userId: session.userId, email: session.email },

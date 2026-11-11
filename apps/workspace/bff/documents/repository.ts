@@ -24,7 +24,7 @@ export { findDocumentAuthoredByRef, findLiveDocumentByFilename, findProjectColle
 export { findStorageKeyByCollectionAndFilename, findPageTextTarget, findStorageKeyByIdAndCollection, documentExistsInCollection } from './repository/storage'
 export type { StoredDocumentFile } from './repository/storage'
 export { deleteProjectDocument, setDocumentDisplayName, setDocumentIngestJob, markDocumentNotIndexed, PLACEMENT_REINGEST_MARKER, markDocumentProcessing, setDocumentBackgroundJob } from './repository/mutations'
-export { findIngestAnnouncementFacts, listInFlightDocumentsForIngestJobs, listStalePendingDocuments, listStuckProcessingDocuments, markDocumentIngestFailed } from './repository/ingest-state'
+export { findIngestAnnouncementFacts, listSettleableDocumentsForIngestJobs, listStalePendingDocuments, listStuckProcessingDocuments, markDocumentIngestFailed } from './repository/ingest-state'
 export type { IngestAnnouncementFacts, StuckProcessingDocument } from './repository/ingest-state'
 export { findFolderPathsInProject, findFolderPathInProject, findFolderPathInOfficeShelf, countDocumentsByProject } from './repository/folders'
 export { setDocumentReconciledStatus, markScreeningReleased } from './repository/reconcile'

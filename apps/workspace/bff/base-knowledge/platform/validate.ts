@@ -73,7 +73,8 @@ export const KIT_HINTS: Readonly<Record<KitCheck, string>> = {
     'exactly as the capture has them, including what the record names (its name, designation or label).',
   'KC-7':
     'Repair the source record so it parses, its hosts cover every URL it names, and each recorded fixture passes; ' +
-    'platform-knowledge-source-test shows what each fixture requested and found.',
+    'platform-knowledge-source-test shows what each fixture requested and found. A fixture of a document (a PDF) names ' +
+    'the capture the platform took of it (`captureId`), not its bytes.',
 }
 
 export interface Problem {
