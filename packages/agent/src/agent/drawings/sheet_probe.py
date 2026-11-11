@@ -196,6 +196,8 @@ class Undecided:
 
     crossings: tuple[Crossing, ...]
     reason: str
+    #: Why, for a caller that words the refusal itself: ``too_flat`` (the probe meets a line too flat), else ``other``.
+    cause: str = "other"
 
 
 def _extended(start: Point, end: Point) -> tuple[Point, Point, float]:
@@ -247,6 +249,7 @@ def _span(sheet: Sheet, found: Sequence[Crossing], first: int, second: int, leng
             tuple(found),
             f"the line between the two points meets a line at {slant:.0f} degrees: place the two points square "
             "across the two faces, or measure between line ends with `distance`",
+            "too_flat",
         )
     moved = (abs(start.along - SNAP_RADIUS_PT), abs(end.along - SNAP_RADIUS_PT - length))
     points, askew = _between_faces(sheet.segments, start, end)
@@ -299,6 +302,8 @@ class Unsnapped:
 
     candidates: tuple[Point, ...]
     reason: str
+    #: Which of the three it was: ``none`` in reach, ``several`` in reach, or too ``dense`` to tell corners apart.
+    cause: str = "none"
 
 
 def _intersection(first: tuple[float, float, float, float], second: tuple[float, float, float, float]) -> Point | None:
@@ -364,7 +369,9 @@ def snap(sheet: Sheet, point: Point) -> Snapped | Unsnapped:
     near = _in_reach(sheet, point)
     if len(near) > MAX_PAIRED_SEGMENTS:
         return Unsnapped(
-            (), f"{len(near)} lines pass within reach of the point: too many to tell its corners apart (hatching?)"
+            (),
+            f"{len(near)} lines pass within reach of the point: too many to tell its corners apart (hatching?)",
+            "dense",
         )
     found = _clustered(_candidates(sheet, near, point), point)
     if not found:
@@ -376,7 +383,8 @@ def snap(sheet: Sheet, point: Point) -> Snapped | Unsnapped:
     if alone or on_it:
         return Snapped(nearest, distance, width)
     places = tuple(place for place, _ in found)
-    return Unsnapped(places, f"{len(found)} line ends or intersections within reach; place the point on one of them")
+    reason = f"{len(found)} line ends or intersections within reach; place the point on one of them"
+    return Unsnapped(places, reason, "several")
 
 
 def polyline_length(points: Sequence[Point]) -> float:

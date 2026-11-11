@@ -33,6 +33,33 @@ Provenance = Literal["printed_figure", "vector_verified", "vector_estimated"]
 PROVENANCES: tuple[Provenance, ...] = ("printed_figure", "vector_verified", "vector_estimated")
 Verdict = Literal["met", "not_met", "undecidable"]
 Quantity = Literal["clearance", "distance", "path", "area"]
+#: Why there is no number, where the engine decides it: no usable scale at the place; a point with several
+#: corners in reach, with none, or among lines too dense to tell apart; a probe that meets a line too flat; a
+#: span over two scale regions; a page without linework; corners that enclose no area; anything else.
+Cause = Literal[
+    "uncalibrated",
+    "several_in_reach",
+    "none_in_reach",
+    "too_dense",
+    "too_flat",
+    "two_regions",
+    "scan",
+    "not_an_area",
+    "other",
+]
+CAUSES: tuple[Cause, ...] = (
+    "uncalibrated",
+    "several_in_reach",
+    "none_in_reach",
+    "too_dense",
+    "too_flat",
+    "two_regions",
+    "scan",
+    "not_an_area",
+    "other",
+)
+#: The cause of a point the probe tied nowhere (``sheet_probe.Unsnapped.cause``).
+CAUSE_OF_UNSNAPPED: dict[str, Cause] = {"none": "none_in_reach", "several": "several_in_reach", "dense": "too_dense"}
 
 #: A threshold this close to the value is undecidable whatever the interval: the face a width is
 #: measured to (structural, finished) is unknown to centimetres. Provisional until measured on real sheets.
@@ -123,6 +150,9 @@ class NoNumber:
     crossings: tuple[CrossingRow, ...] = ()
     candidates: tuple[tuple[float, float], ...] = ()
     printed: PrintedOnSpan | None = None
+    #: Why, as a code a caller words itself (the review view's tape): one of :data:`CAUSES`. Not rendered: the
+    #: text a model reads is ``reason`` and ``remedy``.
+    cause: Cause = "other"
 
 
 Answer = Measurement | NoNumber

@@ -32,8 +32,11 @@ from pydantic import Field
 
 from agent.common.turn_file_kinds import turn_states
 from agent.drawings import sheet_probe
+from agent.drawings.sheet_answers import CAUSE_OF_UNSNAPPED
 from agent.drawings.sheet_answers import Answer
+from agent.drawings.sheet_answers import Cause
 from agent.drawings.sheet_answers import Measurement
+from agent.drawings.sheet_types import inert
 
 from ..look.resolve import Resolved
 from .measure_register import ANSWER_TIMEOUT_S
@@ -77,24 +80,40 @@ def _measurement(answer: Measurement) -> dict[str, Any]:
         "provenance": answer.provenance,
         "scaleState": answer.scale.state,
         "scaleRatio": answer.scale.ratio,
+        # The figure a value was read off, as printed: only where nothing was measured.
+        "printed": inert(answer.printed.text) if answer.provenance == "printed_figure" and answer.printed else None,
         "verdict": outcome.verdict if outcome is not None else None,
         "reasons": list(outcome.reasons) if outcome is not None else [],
         "points": _pairs(answer.points),
     }
 
 
-def _no_number(reason: str, remedy: str, scale_state: str | None = None, candidates: Iterable = ()) -> dict[str, Any]:
+def _no_number(
+    code: Cause, reason: str, remedy: str, scale_state: str | None = None, candidates: Iterable = ()
+) -> dict[str, Any]:
+    """No number: ``code`` for an interface to word, the engine's own ``reason`` and ``remedy`` for support."""
     return {
-        "noNumber": {"reason": reason, "remedy": remedy, "scaleState": scale_state, "candidates": _pairs(candidates)}
+        "noNumber": {
+            "code": code,
+            "reason": reason,
+            "remedy": remedy,
+            "scaleState": scale_state,
+            "candidates": _pairs(candidates),
+        }
     }
 
 
-def structured(answer: Answer) -> dict[str, Any]:
+#: On a page without linework these causes all mean the one thing a person can act on: it is a scan.
+_SCAN_READS_AS: frozenset[str] = frozenset({"uncalibrated", "none_in_reach"})
+
+
+def structured(answer: Answer, scan: bool = False) -> dict[str, Any]:
     """An engine answer as data: every field a fact of the answer, none added. Pure."""
     if isinstance(answer, Measurement):
         return {"measurement": _measurement(answer)}
     state = answer.scale.state if answer.scale is not None else None
-    return _no_number(answer.reason, answer.remedy, state, answer.candidates)
+    code: Cause = "scan" if scan and answer.cause in _SCAN_READS_AS else answer.cause
+    return _no_number(code, answer.reason, answer.remedy, state, answer.candidates)
 
 
 def arguments_of(request: TapeRequest) -> DrawingMeasureInput:
@@ -110,8 +129,8 @@ def arguments_of(request: TapeRequest) -> DrawingMeasureInput:
 def measured(loaded: LoadedSheet, request: TapeRequest) -> dict[str, Any]:
     """A measuring operation over a loaded sheet, as data. Pure."""
     if request.operation == "distance" and len(request.points) != 2:
-        return _no_number("a distance needs two points", "pass exactly two")
-    return structured(measure(loaded, arguments_of(request)))
+        return _no_number("other", "a distance needs two points", "pass exactly two")
+    return structured(measure(loaded, arguments_of(request)), loaded.sheet.scan)
 
 
 def _snap_of(loaded: LoadedSheet, share: Sequence[float]) -> dict[str, Any]:
@@ -121,15 +140,16 @@ def _snap_of(loaded: LoadedSheet, share: Sequence[float]) -> dict[str, Any]:
         return {
             "snapped": list(sheet.share(found.point)),
             "movedPt": found.moved,
-            "reason": None,
+            "code": None,
             "detail": None,
             "candidates": [],
         }
     candidates = _pairs(sheet.share(place) for place in found.candidates[:MAX_POINTS])
+    code = CAUSE_OF_UNSNAPPED.get(found.cause, "other")
     return {
         "snapped": None,
         "movedPt": None,
-        "reason": "several" if candidates else "none",
+        "code": "scan" if sheet.scan and code in _SCAN_READS_AS else code,
         "detail": found.reason,
         "candidates": candidates,
     }
@@ -146,9 +166,11 @@ async def run_tape(request: TapeRequest) -> dict[str, Any]:
         return {"refused": "not_enabled"}
     loaded = await load_resolved_sheet(Resolved(request.file_name, request.collection), request.page)
     if isinstance(loaded, str):
-        return _no_number(loaded, "")
+        return _no_number("other", loaded, "")
     work = snapped if request.operation == "snap" else measured
     try:
         return await asyncio.wait_for(asyncio.to_thread(work, loaded, request), ANSWER_TIMEOUT_S)
     except TimeoutError:
-        return _no_number("the page is too dense to answer in time", "zoom in and place the points on clear corners")
+        return _no_number(
+            "too_dense", "the page is too dense to answer in time", "zoom in and place the points on clear corners"
+        )

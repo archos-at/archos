@@ -107,9 +107,55 @@ async def test_a_snap_says_where_each_point_lands_or_that_nothing_is_in_reach(lo
 
     found = tape.snapped(loaded, _request("snap", [near, [0.95, 0.95]]))["snap"]
 
-    assert found[0]["snapped"] == pytest.approx(CORNERS[0], abs=2e-5) and found[0]["reason"] is None
+    assert found[0]["snapped"] == pytest.approx(CORNERS[0], abs=2e-5) and found[0]["code"] is None
     assert found[0]["movedPt"] > 0
-    assert found[1]["snapped"] is None and found[1]["reason"] == "none" and found[1]["candidates"] == []
+    assert found[1]["snapped"] is None and found[1]["code"] == "none_in_reach" and found[1]["candidates"] == []
+
+
+async def test_a_refusal_carries_a_code_the_interface_words_and_the_text_a_model_reads_is_unchanged(looked_up) -> None:
+    loaded = await _loaded()
+    nowhere = _request("distance", [[0.9, 0.9], [0.95, 0.95]])
+    bow_tie = _request("area", [FLOOR.share(0, 0), FLOOR.share(4, 3), FLOOR.share(4, 0), FLOOR.share(0, 3)])
+
+    assert tape.measured(loaded, nowhere)["noNumber"]["code"] == "none_in_reach"
+    assert tape.measured(loaded, bow_tie)["noNumber"]["code"] == "not_an_area"
+    # The code is no line of the text: the tool's answer for the same call names the reason and remedy only.
+    text, _ = measure_register.answer(loaded, tape.arguments_of(nowhere))
+    assert "none_in_reach" not in text and "cause" not in text
+
+
+@pytest.mark.parametrize(
+    ("cause", "scan", "code"),
+    [
+        ("uncalibrated", False, "uncalibrated"),
+        ("uncalibrated", True, "scan"),
+        ("none_in_reach", True, "scan"),
+        ("several_in_reach", True, "several_in_reach"),
+        ("two_regions", False, "two_regions"),
+        ("too_flat", False, "too_flat"),
+        ("too_dense", False, "too_dense"),
+        ("other", False, "other"),
+    ],
+)
+def test_the_code_is_the_engines_cause_and_a_page_without_linework_reads_as_a_scan(cause, scan, code) -> None:
+    from agent.drawings.sheet_answers import NoNumber
+
+    refused = NoNumber("the engine's reason", "the engine's remedy", 1, cause=cause)
+
+    assert tape.structured(refused, scan)["noNumber"] == {
+        "code": code,
+        "reason": "the engine's reason",
+        "remedy": "the engine's remedy",
+        "scaleState": None,
+        "candidates": [],
+    }
+
+
+def test_every_refusal_of_the_engine_states_a_known_cause() -> None:
+    from agent.drawings import sheet_answers
+
+    assert set(sheet_answers.CAUSE_OF_UNSNAPPED.values()) <= set(sheet_answers.CAUSES)
+    assert sheet_answers.NoNumber("r", "m", 1).cause == "other"
 
 
 async def test_a_distance_takes_exactly_two_points(looked_up) -> None:
@@ -133,7 +179,8 @@ async def test_a_stated_pdf_is_measured_through_the_scoped_lookup_and_the_statem
         answer = await tape.run_tape(_request("distance", CORNERS[:2]))
 
     assert answer["measurement"]["value"] == pytest.approx(4.0, abs=0.05)
-    assert looked_up[0]["query"] == {"collection": COLLECTION, "filename": FILE}
+    # The page's calibrations are read with the file, so a person's calibration makes the tape's scale verified.
+    assert looked_up[0]["query"] == {"collection": COLLECTION, "filename": FILE, "calibrationsPage": 1}
     assert looked_up[0]["headers"]  # the turn's envelope, echoed
     assert not turn_file_kinds.turn_states("pdf")
 

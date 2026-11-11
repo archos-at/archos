@@ -25,9 +25,11 @@ from dataclasses import dataclass
 from dataclasses import replace
 
 from agent.drawings import sheet_probe
+from agent.drawings.sheet_answers import CAUSE_OF_UNSNAPPED
 from agent.drawings.sheet_answers import CONFIRM_THE_SCALE
 from agent.drawings.sheet_answers import VERDICT_FLOOR_M
 from agent.drawings.sheet_answers import Answer
+from agent.drawings.sheet_answers import Cause
 from agent.drawings.sheet_answers import CrossingRow
 from agent.drawings.sheet_answers import Measurement
 from agent.drawings.sheet_answers import NoNumber
@@ -173,6 +175,7 @@ def _one_scale(
         f"the measurement touches two scale regions ({first}; {second})",
         "measure inside one region: a measurement never crosses two",
         request.page,
+        cause="two_regions",
     )
 
 
@@ -202,7 +205,10 @@ def _unscaled(sheet: Sheet, points: Sequence[Point], scale: ScaleReading, reques
     if found is not None and found.metres is not None:
         return _printed_answer(found, sheet, points, scale, request)
     reason = f"this region has no usable scale ({scale.reason})"
-    return NoNumber(reason, CONFIRM_THE_SCALE, request.page, scale, printed=_printed(found, sheet, None, 0.0))
+    cause: Cause = "scan" if sheet.scan else "uncalibrated"
+    return NoNumber(
+        reason, CONFIRM_THE_SCALE, request.page, scale, printed=_printed(found, sheet, None, 0.0), cause=cause
+    )
 
 
 _AS_DRAWN = "Between linework as drawn: the engine does not tell a structural face from a finished one."
@@ -261,6 +267,7 @@ def clearance(
             _PLACE_BETTER,
             request.page,
             crossings=_rows(sheet, found.crossings),
+            cause="too_flat" if found.cause == "too_flat" else "other",
         )
     dashed = ("Note: a line this span ends on is dashed (hidden, overhead or planned, by the sheet's legend).",)
     notes = dashed if found.start.dashed or found.end.dashed else ()
@@ -295,6 +302,7 @@ def _snapped(sheet: Sheet, shares: Sequence[Sequence[float]], request: Request) 
                 "place the point on a line end or corner, or on one of the candidates listed",
                 request.page,
                 candidates=tuple(sheet.share(place) for place in found.candidates[:MAX_CROSSINGS_LISTED]),
+                cause=CAUSE_OF_UNSNAPPED.get(found.cause, "other"),
             )
         snapped.append(found)
     return snapped
@@ -344,6 +352,7 @@ def area(sheet: Sheet, shares: Sequence[Sequence[float]], request: Request) -> A
             "the corners do not enclose an area: the outline through them crosses itself or is flat",
             "pass the corners in order around the outline",
             request.page,
+            cause="not_an_area",
         )
     scale = _one_scale(sheet, points, request, closed=True)
     if isinstance(scale, NoNumber):
