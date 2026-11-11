@@ -32,6 +32,7 @@ BACKEND_READ_TOOLS: Final[tuple[str, ...]] = (
     "list_files",
     "look",
     "ifc_measure",
+    "drawing_measure",
     "dxf_measure",
     "law_lookup",
 )

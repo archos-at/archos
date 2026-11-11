@@ -4,7 +4,8 @@
  * Which model files a turn's project holds, against a REAL Postgres.
  *
  * `projectModelKinds` decides whether the agent is sent `ifc_query`,
- * `ifc_measure` and `dxf_measure` at all. A false "no" takes a tool from a
+ * `ifc_measure` and `dxf_measure` at all, and states the PDF that
+ * `drawing_measure` needs (the turn context ANDs the entitlement, ADR-0182). A false "no" takes a tool from a
  * turn that needed it; a file from another project, or another conversation's
  * private upload, counted as "yes" leaks that the file exists. The SQL is the
  * thing under test, so this runs through the restricted runtime role
@@ -109,23 +110,23 @@ describe.skipIf(!url)('projectModelKinds', () => {
   })
 
   it('names the kind a project holds, whatever the extension case', async () => {
-    expect(await projectModelKinds(ORG, WITH_IFC, CONVERSATION)).toEqual({ ifc: true, dxf: false })
+    expect(await projectModelKinds(ORG, WITH_IFC, CONVERSATION)).toEqual({ ifc: true, dxf: false, pdf: false })
   })
 
   it('counts a zipped IFC, which the IFC pipeline claims too', async () => {
-    expect(await projectModelKinds(ORG, WITH_IFCZIP, null)).toEqual({ ifc: true, dxf: false })
+    expect(await projectModelKinds(ORG, WITH_IFCZIP, null)).toEqual({ ifc: true, dxf: false, pdf: false })
   })
 
   it('does not count another project, a held file or another conversation', async () => {
-    expect(await projectModelKinds(ORG, WITH_NOTHING, CONVERSATION)).toEqual({ ifc: false, dxf: false })
+    expect(await projectModelKinds(ORG, WITH_NOTHING, CONVERSATION)).toEqual({ ifc: false, dxf: false, pdf: true })
   })
 
   it("counts this conversation's own upload", async () => {
-    expect(await projectModelKinds(ORG, WITH_NOTHING, OTHER_CONVERSATION)).toEqual({ ifc: false, dxf: true })
+    expect(await projectModelKinds(ORG, WITH_NOTHING, OTHER_CONVERSATION)).toEqual({ ifc: false, dxf: true, pdf: true })
   })
 
   it('counts the office shelf, and only its own organization', async () => {
     const project = WITH_NOTHING
-    expect(await projectModelKinds(OFFICE_ONLY_ORG, project, null)).toEqual({ ifc: false, dxf: true })
+    expect(await projectModelKinds(OFFICE_ONLY_ORG, project, null)).toEqual({ ifc: false, dxf: true, pdf: false })
   })
 })

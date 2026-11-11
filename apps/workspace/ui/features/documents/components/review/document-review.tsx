@@ -11,6 +11,7 @@ import {
   MessagesSquare,
   MousePointer2,
   RotateCcw,
+  Ruler,
   Sparkles,
   Speech,
   SquareDashed,
@@ -65,6 +66,12 @@ import { clearReviewParams, setReviewParams } from '../../lib/open-review'
 import { covers, ReviewStageContext, STAGE_FOOT, STAGE_HEAD, type StageBounds } from './review-stage'
 import { DraftCard, ThreadCard, type CardPlacement } from './thread-card'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { rememberToolsIntro, toolsIntroSeen } from './review-tools-intro'
+import { useReviewCalibration } from '../../hooks/use-review-calibration'
+import { CalibrationPageLayer } from './calibration-page-layer'
+import { CALIBRATE_KEY, CalibrationPanel } from './calibration-panel'
+
+export { TOOLS_INTRO_KEY, toolsIntroSeen } from './review-tools-intro'
 
 /** A tool on the palette: the review's own, or the cursor chat, which sets nothing. */
 type PaletteTool = ReviewTool | 'chat'
@@ -74,29 +81,10 @@ const TOOLS: Array<{ tool: PaletteTool; key: string; icon: LucideIcon }> = [
   { tool: 'point', key: 'C', icon: MessageSquarePlus },
   { tool: 'region', key: 'R', icon: SquareDashed },
   { tool: 'ask', key: 'P', icon: Sparkles },
+  { tool: 'calibrate', key: CALIBRATE_KEY, icon: Ruler },
   // A head speaking, not a bubble: the comment tool already is one, and this one keeps nothing.
   { tool: 'chat', key: '/', icon: Speech },
 ]
-
-/** Where this browser keeps that it has seen the tools explained: the first review opens with them spelled out. */
-export const TOOLS_INTRO_KEY = 'review.toolsIntroSeen'
-
-/** Whether the tools were explained here before. Storage that cannot be read counts as seen: no intro on every open. */
-export function toolsIntroSeen(): boolean {
-  try {
-    return window.localStorage.getItem(TOOLS_INTRO_KEY) === '1'
-  } catch {
-    return true
-  }
-}
-
-function rememberToolsIntro(): void {
-  try {
-    window.localStorage.setItem(TOOLS_INTRO_KEY, '1')
-  } catch {
-    // A private window: the intro shows again next time, which is harmless.
-  }
-}
 
 /** A phone, or a phone on its side: a card beside a mark has no room, so it comes up from the bottom edge. */
 const DOCKED_CARDS = '(max-width: 639px), (pointer: coarse) and (max-height: 500px)'
@@ -128,8 +116,11 @@ function ReviewTools({
   variant,
   onFold,
   onAim,
+  calibrate,
 }: {
   review: ReviewState
+  /** The reader may calibrate the drawing's scale here (`drawing-measure`, and the right to). */
+  calibrate: boolean
   chatOpen: boolean
   onChat: () => void
   variant: 'icons' | 'intro' | 'touch'
@@ -138,7 +129,7 @@ function ReviewTools({
   onAim?: () => void
 }): JSX.Element {
   const t = useTranslations(filesCopy)
-  const offered = TOOLS.filter(({ tool }) => tool === 'chat' || toolOffered(tool, review))
+  const offered = TOOLS.filter(({ tool }) => tool === 'chat' || (tool === 'calibrate' ? calibrate : toolOffered(tool, review)))
   return (
     <div role="group" aria-label={t('review.toolsLabel')} data-testid="review-tools" data-variant={variant} className="flex items-center gap-0.5">
       {offered.map(({ tool, key, icon: Icon }) => {
@@ -154,7 +145,7 @@ function ReviewTools({
               if (tool === 'chat') return onChat()
               // Picked again, the tool in hand is put down. `detail` is 0 for a click the keyboard made (Enter, Space).
               review.setTool(pressed ? 'select' : tool)
-              if (!pressed && tool !== 'select' && event.detail === 0) onAim?.()
+              if (!pressed && tool !== 'select' && tool !== 'calibrate' && event.detail === 0) onAim?.()
             }}
             className={cn(
               // The tool in hand is filled in ink: what the pointer will do is never a guess.
@@ -648,6 +639,7 @@ export function DocumentReviewMode({
   const [focus, setFocus] = useState<{ page: number; y: number; key: string; instant?: boolean } | null>(null)
   const [following, setFollowing] = useState<string | null>(null)
   const { annotations, select, setTool, tool, selectedId, draft, setDraft, room, piloti } = review
+  const calibration = useReviewCalibration(review)
   /**
    * The page this reader is on (the one crossing the middle of the view), for
    * who is elsewhere. Null until the viewer first reports: it opens on page 1.
@@ -948,6 +940,7 @@ export function DocumentReviewMode({
     const key = event.key.toLowerCase()
     if (key === '/') openChat(true)
     else if (key === 'v') setTool('select')
+    else if (key === CALIBRATE_KEY.toLowerCase() && calibration.offered) calibration.begin()
     else if ((key === 'c' || key === 'r') && review.canAnnotate) {
       setTool(key === 'c' ? 'point' : 'region')
       startAim()
@@ -1050,6 +1043,7 @@ export function DocumentReviewMode({
   const toolsPalette = (variant: 'icons' | 'intro' | 'touch') => (
     <ReviewTools
       review={review}
+      calibrate={calibration.offered}
       chatOpen={chat !== null}
       onChat={() => openChat(false)}
       variant={variant}
@@ -1253,25 +1247,29 @@ export function DocumentReviewMode({
                 // With a pointer, the tools lead the viewer's own pill: one bar at the foot.
                 toolbarLead={touch ? undefined : toolsPalette(intro ? 'intro' : 'icons')}
                 pageOverlay={(page) => (
-                  <ReviewPageLayer
-                    page={page}
-                    review={review}
-                    focused
-                    onPinByKeyboard={focusNextCard}
-                    aim={aim && aim.page === page ? aim : null}
-                    renderAsk={
-                      docked ? undefined : (ask, { placement }) => <AgentAnswerCard key={ask.id} review={review} ask={ask} placement={placement} />
-                    }
-                    renderThread={
-                      docked
-                        ? undefined
-                        : ({ placement }) => (draft && draft.page !== page ? null : threadCard(placement))
-                    }
-                  />
+                  <>
+                    <ReviewPageLayer
+                      page={page}
+                      review={review}
+                      focused
+                      onPinByKeyboard={focusNextCard}
+                      aim={aim && aim.page === page ? aim : null}
+                      renderAsk={
+                        docked ? undefined : (ask, { placement }) => <AgentAnswerCard key={ask.id} review={review} ask={ask} placement={placement} />
+                      }
+                      renderThread={
+                        docked
+                          ? undefined
+                          : ({ placement }) => (draft && draft.page !== page ? null : threadCard(placement))
+                      }
+                    />
+                    <CalibrationPageLayer page={page} calibration={calibration} />
+                  </>
                 )}
                 className="size-full"
               />
               <ReviewToaster foot={foot} />
+              <CalibrationPanel calibration={calibration} page={viewPage ?? 1} className="absolute top-3 right-3 z-30" />
             </div>
             <div hidden={!list.columnOpen} className="flex shrink-0" data-testid="review-list-column">
               <ReviewPanel review={review} onOpen={openFromList} onWalkProposals={walkProposals} onCheckFixed={checkFixed} />

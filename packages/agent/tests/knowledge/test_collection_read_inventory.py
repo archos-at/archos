@@ -58,6 +58,11 @@ TOOLS: dict[str, tuple[str, str]] = {
         "reports",
         "packages/agent/tests/tools/drawings/test_dxf_measure.py::test_a_read_reports_its_collection_so_a_restricted_folder_is_admitted",
     ),
+    # A PDF sheet read and measured (ADR-0182): the same scoped lookup, and the read is reported.
+    "drawing_measure": (
+        "reports",
+        "packages/agent/tests/tools/drawings/test_drawing_measure.py::test_a_read_reports_its_collection_so_a_restricted_folder_is_admitted",
+    ),
     # Listings: never a restricted folder's file.
     "list_files": (
         "lists_nothing_restricted",

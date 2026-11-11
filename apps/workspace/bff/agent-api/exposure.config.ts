@@ -49,6 +49,7 @@ import {
   ASK,
   CANVAS,
   DECISION,
+  DRAWING_CALIBRATION,
   MEMORY,
   PERSONAL_MEMORY,
   NATIVE_READ,
@@ -255,6 +256,12 @@ export const EXPOSURE = {
   'annotation-reply-update': OFFERED,
   'annotation-update': { external: true, agent: 'native:canvas__update', reason: CANVAS },
   'document-annotations-export': OFFERED,
+  // Dark to outside agents behind the `drawing-measure` entitlement (ADR-0182), as the `drawing-measure` read is:
+  // the door has no per-operation flag yet. The in-product agent is offered them; the routes refuse where the
+  // organization does not hold the entitlement, and its set or withdraw is a proposal the person accepts.
+  'drawing-calibration-list': { external: false, agent: true, reason: DRAWING_CALIBRATION },
+  'drawing-calibration-set': { external: false, agent: true, reason: DRAWING_CALIBRATION },
+  'drawing-calibration-withdraw': { external: false, agent: true, reason: DRAWING_CALIBRATION },
   'document-quarantine-allow': SENSITIVE,
   'document-quarantine-allow-request': OFFERED,
   'document-quarantine-get': OFFERED,
@@ -469,6 +476,14 @@ export const EXPOSURE = {
   'document-look': { external: true, agent: 'native:look', reason: NATIVE_READ },
   'ifc-measure': { external: true, agent: 'native:ifc_measure', reason: NATIVE_READ },
   'dxf-measure': { external: true, agent: 'native:dxf_measure', reason: NATIVE_READ },
+  // Dark behind the `drawing-measure` entitlement (ADR-0182): a backend operation carries no flag, so
+  // `external: true` would open it to every outside agent. Offer it when the flag is retired.
+  'drawing-measure': {
+    external: false,
+    agent: 'native:drawing_measure',
+    reason:
+      'reads and measures a page of a PDF drawing; the chat agent calls its own drawing_measure, bound only where the organization holds the drawing-measure entitlement, and the door has no per-operation flag yet',
+  },
   'law-lookup': { external: true, agent: 'native:law_lookup', reason: NATIVE_READ },
 
   // the app-only tools of the door's MCP Apps views (`catalog/app-views.ts`)

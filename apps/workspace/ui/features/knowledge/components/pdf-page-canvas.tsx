@@ -416,6 +416,9 @@ export const PdfPageCanvas: FC<PdfPageCanvasProps> = ({
         registerRef(pageNumber, node)
       }}
       data-page={pageNumber}
+      // The page as shown, in points (pdf.js's unscaled viewport): what turns a share of the page into a length on paper.
+      data-page-width-pt={base?.width}
+      data-page-height-pt={base?.height}
       role="group"
       aria-label={label}
       style={{ width: targetWidth || undefined, height }}

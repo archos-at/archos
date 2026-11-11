@@ -358,6 +358,29 @@
     "card": null,
     "step": null
    }
+  },
+  "calibrateScale": {
+   "summary": "Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for",
+   "tool": null,
+   "annotationOp": null,
+   "operations": [
+    "drawing-calibration-list",
+    "drawing-calibration-set",
+    "drawing-calibration-withdraw"
+   ],
+   "canvas": {
+    "kind": "rendering",
+    "component": "features/documents/components/review/calibration-panel.tsx",
+    "card": null,
+    "step": null
+   },
+   "chat": {
+    "kind": "gap",
+    "slice": "drawing-measure slice 6",
+    "reason": "The chat has no card that asks a person to confirm a scale yet: a calibration is set and withdrawn in the review view only, and an answer that needs one cannot ask for it.",
+    "card": null,
+    "step": null
+   }
   }
  }
 }

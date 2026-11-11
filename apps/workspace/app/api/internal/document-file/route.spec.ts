@@ -14,6 +14,8 @@ vi.mock('@/lib/documents/document-storage-keys', () => ({
   findDocumentImageStorageKey: vi.fn(),
 }))
 
+vi.mock('@/lib/drawing-calibrations/page-read', () => ({ activeCalibrationsOfPage: vi.fn() }))
+
 vi.mock('@/lib/conversations/restricted-use', () => ({
   drawableRestrictedCollections: vi.fn(),
 }))
@@ -28,6 +30,7 @@ vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
 import { GET } from './route'
 import { drawableRestrictedCollections } from '@/lib/conversations/restricted-use'
 import { withTenant } from '@/lib/db/tenant-context'
+import { activeCalibrationsOfPage } from '@/lib/drawing-calibrations/page-read'
 import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/documents/document-storage-keys'
 import { REQUEST_CONTEXT_HEADER_NAMES, buildRequestContextEnvelope } from '@/lib/request-context'
 
@@ -260,6 +263,57 @@ describe('GET /api/internal/document-file', () => {
       expect((await GET(request(`?collection=${RESTRICTED.toUpperCase()}&filename=gehalt.png`))).status).toBe(404)
       expect(findDocumentStorageKey).not.toHaveBeenCalled()
       expect(drawableRestrictedCollections).not.toHaveBeenCalled()
+    })
+  })
+
+  // A person's calibrations for the measuring tool (migration 0236): only under the turn's envelope.
+  describe('with calibrationsPage', () => {
+    const VERSIONED = { ...STORED, versionId: '22222222-2222-4222-8222-222222222222' }
+    const CALIBRATION = {
+      id: '33333333-3333-4333-8333-333333333333',
+      region: { x: 0.1, y: 0.1, w: 0.5, h: 0.5 },
+      from: { x: 0.2, y: 0.2 },
+      to: { x: 0.4, y: 0.2 },
+      lengthM: 5,
+    }
+    const query = '?collection=proj_1&filename=plan.png&calibrationsPage=2'
+
+    beforeEach(() => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(VERSIONED)
+      vi.mocked(activeCalibrationsOfPage).mockResolvedValue([CALIBRATION])
+    })
+
+    it('carries the active calibrations of that page of the version, in the signed organization', async () => {
+      const res = await GET(request(query, 'test-token', envelope()))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ documentId: VERSIONED.id, versionId: VERSIONED.versionId, calibrations: [CALIBRATION] })
+      expect(vi.mocked(activeCalibrationsOfPage).mock.calls[0]).toEqual([
+        'org_1',
+        { documentId: VERSIONED.id, versionId: VERSIONED.versionId, page: 2 },
+      ])
+    })
+
+    it('carries none without an envelope, and reads none', async () => {
+      const res = await GET(request(query))
+      expect(await res.json()).toMatchObject({ calibrations: [] })
+      expect(activeCalibrationsOfPage).not.toHaveBeenCalled()
+    })
+
+    it('carries none for a document with no version row', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const res = await GET(request(query, 'test-token', envelope()))
+      expect(await res.json()).toMatchObject({ calibrations: [] })
+      expect(activeCalibrationsOfPage).not.toHaveBeenCalled()
+    })
+
+    it('leaves the field out when the query does not ask', async () => {
+      const res = await GET(request('?collection=proj_1&filename=plan.png', 'test-token', envelope()))
+      expect(await res.json()).not.toHaveProperty('calibrations')
+    })
+
+    it('400s a page below 1 or not a whole number', async () => {
+      expect((await GET(request('?collection=proj_1&filename=plan.png&calibrationsPage=0'))).status).toBe(400)
+      expect((await GET(request('?collection=proj_1&filename=plan.png&calibrationsPage=1.5'))).status).toBe(400)
     })
   })
 })

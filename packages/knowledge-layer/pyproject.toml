@@ -10,6 +10,7 @@ packages = [
     "knowledge_layer.ingest",
     "knowledge_layer.read_passage",
     "knowledge_layer.search",
+    "knowledge_layer.sheet",
     "knowledge_layer.vector_store",
 ]
 package-dir = {"knowledge_layer" = "src"}
@@ -45,6 +46,9 @@ llamaindex = [
     "qdrant-client>=1.19.1,<2",
     "pdfplumber>=0.11.10",
     "pypdfium2>=5.12.1",
+    # knowledge_layer.sheet reads page dictionary entries PDFium does not give (/VP, /Measure, /UserUnit)
+    # with pdfminer. It arrived only as pdfplumber's own dependency.
+    "pdfminer.six>=20251230",
     "Pillow>=9.0.0",
     "openai>=2.53.0",
     # Office extractors (office_extractors.py): openpyxl reads .xlsx/.xlsm
