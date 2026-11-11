@@ -49,10 +49,16 @@ export interface PageRegionThumbnailProps {
   label?: string
   /** `none`: render nothing when the page cannot be shown, instead of a tile saying so. */
   fallback?: 'tile' | 'none'
-  /** Told once the place is drawn: an image upload's signed picture, so a viewer can open it. */
-  onDrawn?: (drawn: { image?: ImageClip }) => void
+  /**
+   * Told once the place is drawn: an image upload's signed picture, so a viewer
+   * can open it, or a PDF page's size as shown, in points, so a caller can say
+   * what a distance on it is on paper.
+   */
+  onDrawn?: (drawn: { image?: ImageClip; pagePt?: { width: number; height: number } }) => void
   /** Told when the reader may not open the document. */
   onDenied?: () => void
+  /** Told when the page cannot be shown for another reason (no such page, the file did not load). */
+  onUnavailable?: () => void
   /**
    * The boxes to mark, in the page's frame, instead of the place's own: a
    * citation with several depictions on one page. Only with `clip={false}`,
@@ -91,6 +97,7 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
   fallback = 'tile',
   onDrawn,
   onDenied,
+  onUnavailable,
   marks,
   overlay,
   className,
@@ -103,8 +110,8 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
   const [state, setState] = useState<State>({ status: 'waiting' })
   const near = !lazy || seen
   // The callbacks are read when the drawing ends, not a reason to draw again.
-  const told = useRef({ onDrawn, onDenied })
-  told.current = { onDrawn, onDenied }
+  const told = useRef({ onDrawn, onDenied, onUnavailable })
+  told.current = { onDrawn, onDenied, onUnavailable }
   const regionKey = `${place.region?.join(',') ?? ''}|${place.point?.join(',') ?? ''}`
 
   useEffect(() => {
@@ -121,8 +128,11 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
     }).then((drawn) => {
       if (controller.signal.aborted) return
       setState(drawn)
-      if (drawn.status === 'drawn') told.current.onDrawn?.({ image: drawn.image })
+      if (drawn.status === 'drawn') {
+        told.current.onDrawn?.({ image: drawn.image, ...(drawn.pagePt ? { pagePt: drawn.pagePt } : {}) })
+      }
       if (drawn.status === 'denied') told.current.onDenied?.()
+      if (drawn.status === 'unavailable') told.current.onUnavailable?.()
     })
     return () => controller.abort()
     // `place` is keyed by its address below; a new object for the same place draws nothing new.

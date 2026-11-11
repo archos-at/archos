@@ -900,12 +900,22 @@ export const chat: typeof en.chat = {
         proposal: 'Vorschlag',
         member: 'Person',
       },
-      // Eine vorgeschlagene Kalibrierung (`drawing-calibration-set`): was mit „Übernehmen“ bestätigt wird.
+      // Eine vorgeschlagene Kalibrierung (`drawing-calibration-set`) ist eine Frage, die man mit einem Blick
+      // auf den Ausschnitt beantwortet: keine Aktion, keine Koordinaten.
       calibration: {
-        confirm: 'Referenzstrecke: {length} zwischen den beiden markierten Punkten, Seite {page}',
-        // Solange kein Ausschnitt zu sehen ist (lädt noch, oder das Dokument ist für die lesende Person nicht zu öffnen).
-        confirmWithoutPicture: 'Referenzstrecke: {length}, Seite {page}',
-        picture: 'Seite {page}, Ausschnitt mit der Referenzstrecke',
+        title: 'Maßstab bestätigen',
+        question: 'Ist die markierte Strecke {length} lang?',
+        // „{ratio}“ ist das Verhältnis, wie es auf der Zeichnung steht, z. B. 1:100.
+        meaning: 'Dann gilt im markierten Bereich der Maßstab {ratio}.',
+        caption: '{document} · Seite {page}',
+        captionPage: 'Seite {page}',
+        picture: 'Seite {page}, Ausschnitt mit der markierten Strecke',
+        accept: 'Bestätigen',
+        accepting: 'Wird bestätigt …',
+        // Solange der Ausschnitt nicht zu sehen ist, gibt es nichts zu bestätigen.
+        loading: 'Der Ausschnitt wird noch geladen.',
+        applied: 'Maßstab bestätigt.',
+        dismissed: 'Maßstab nicht bestätigt.',
       },
       inputLabel: 'Eingaben',
       // Ein langer Wert ist erst gekürzt; „Übernehmen“ wartet, bis jeder ganz gelesen ist.

@@ -118,7 +118,7 @@ describe('CalibrationPageLayer', () => {
     expect(region).toHaveStyle({ left: '10%', top: '20%', width: '80%', height: '60%' })
     dragBox({ x: 0.3, y: 0.4 }, { x: 0.9, y: 0.9 })
     expect(screen.getByTestId('calibration-draft-region')).toHaveStyle({ left: '10%', top: '20%', width: '80%', height: '60%' })
-    expect(screen.getByTestId('calibration-region-state')).toHaveTextContent('From the document')
+    expect(screen.getByTestId('calibration-region-state')).toHaveTextContent('the area the drawing defines')
   })
 
   it('draws a saved calibration where it holds, with the ratio the page gives it, once the panel is open', async () => {

@@ -1,25 +1,26 @@
 'use client'
 
 /**
- * Dev preview: the receipt of a proposed calibration (`drawing-calibration-set`,
- * ADR-0183), as the reader of a chat sees it. Accepting it confirms "the
- * distance between these two points on this drawing is N metres", so the open
- * card shows the page clip with the reference span on it and says the length
- * in one line, above the inputs every operation receipt shows.
+ * Dev preview: a proposed calibration (`drawing-calibration-set`, ADR-0183) as
+ * the reader of a chat sees it: one question answered by eye. The page clip
+ * with the region and the reference span, „Ist die markierte Strecke 10,80 m
+ * lang?“, the scale a yes sets, and „Bestätigen“ or „Verwerfen“. No action
+ * name, no coordinates.
  *
  *   1. Open, for a reader who may decide.
  *   2. Open, for a reader who may only read: no buttons, and the line saying why.
- *   3. Applied by a colleague: „Übernommen von Anna Berger · …“.
- *   4. Open, on a document this reader may not open: the tile instead of the
- *      page, and the line no longer speaks of marked points.
+ *   3. Confirmed by a colleague: „Maßstab bestätigt.“, who and when.
+ *   4. Open, on a document this reader may not open: nothing can be checked by
+ *      eye, so the generic receipt with every input stands in.
  *
  * Backend-free. The proposals API is faked (`../_fixtures/fake-proposals.ts`),
- * so „Übernehmen“ and „Verwerfen“ move a proposal as the server would. A
+ * so „Bestätigen“ and „Verwerfen“ move a proposal as the server would. A
  * module-scope fetch shim answers the drawing's `/file` with the A1 fixture
  * (`../_fixtures/a1-sheet.ts`), so the clip is the real thumbnail drawing a
- * real PDF with pdf.js, and the hidden document's with 404, as the file route
- * answers a reader who may not open it. Fixtures:
- * `../_fixtures/calibration-proposal.ts`. Gated by `../layout.tsx`. Pinned to German.
+ * real PDF with pdf.js and the scale is computed from that page, and the
+ * hidden document's with 404, as the file route answers a reader who may not
+ * open it. Fixtures: `../_fixtures/calibration-proposal.ts`. Gated by
+ * `../layout.tsx`. Pinned to German.
  */
 
 import type { ReactNode } from 'react'
@@ -77,24 +78,20 @@ export default function CalibrationProposalPreviewPage() {
             <Scenario
               id="open"
               title="Offen, darf entscheiden"
-              note="Der Ausschnitt der Zeichnung mit der Referenzstrecke, die Zeile, die sagt, was bestätigt wird, und darunter jede Eingabe. „Übernehmen“ wartet, bis die gekürzten Werte ganz angezeigt wurden."
+              note="Eine Frage, mit einem Blick zu beantworten: der Ausschnitt mit der markierten Strecke, die Länge, und welcher Maßstab bei „Ja“ gilt."
             >
               <Receipt proposalId={CALIBRATION_DEMO.open} />
             </Scenario>
-            <Scenario
-              id="read-only"
-              title="Offen, darf nicht entscheiden"
-              note="Dieselbe Karte ohne Schaltflächen, mit dem Grund."
-            >
+            <Scenario id="read-only" title="Offen, darf nicht entscheiden" note="Dieselbe Frage ohne Schaltflächen, mit dem Grund.">
               <Receipt proposalId={CALIBRATION_DEMO.readOnly} />
             </Scenario>
-            <Scenario id="applied" title="Von einer Kollegin übernommen" note="Die Quittung: was geschah, wer es entschieden hat und wann.">
+            <Scenario id="applied" title="Von einer Kollegin bestätigt" note="Die Quittung: was gilt, wer es bestätigt hat und wann.">
               <Receipt proposalId={CALIBRATION_DEMO.applied} />
             </Scenario>
             <Scenario
               id="hidden-document"
               title="Offen, Dokument für die lesende Person nicht zu öffnen"
-              note="Die Kachel statt der Seite; die Zeile spricht nicht von markierten Punkten. Die Eingaben bleiben."
+              note="Ohne Ausschnitt lässt sich nichts mit einem Blick prüfen: die allgemeine Karte mit jeder Eingabe, damit nichts ungesehen übernommen wird."
             >
               <Receipt proposalId={CALIBRATION_DEMO.hiddenDocument} />
             </Scenario>
