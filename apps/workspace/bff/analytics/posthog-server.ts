@@ -73,6 +73,10 @@ export type ServerEvent =
   | 'llm_usage_by_outcome'
   | 'organization_budget_snapshot'
   | 'agent_operation_called'
+  // Measuring from drawings (ADR-0183): a person's calibration set or withdrawn, and any proposal decided.
+  | 'drawing_calibration_set'
+  | 'drawing_calibration_withdrawn'
+  | 'proposal_decided'
   | 'agent_operation_missing'
   | 'product_feedback_ticket_opened'
   | 'product_feedback_reply_sent'

@@ -11,6 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/documents/access', () => ({ getAccessibleDocument: vi.fn() }))
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({
   shelfReaderFor: vi.fn(async (session: { userId: string }) => ({ kind: 'member', userId: session.userId })),
@@ -32,6 +33,7 @@ vi.mock('./repository', () => ({
   withdrawDrawingCalibration: vi.fn(),
 }))
 
+import { captureServer } from '@/lib/analytics/posthog-server'
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Document } from '@/lib/db/schema/documents'
@@ -220,6 +222,12 @@ describe('setCalibration', () => {
       createdBy: 'user_1',
     })
     expect(answer.calibration).toMatchObject({ id: CALIBRATION_ID, status: 'active', lengthM: 5.4 })
+    expect(captureServer).toHaveBeenCalledWith({
+      event: 'drawing_calibration_set',
+      distinctId: 'user_1',
+      organizationId: 'org_1',
+      properties: { document_id: DOC_ID, page: row().page },
+    })
   })
 
   it('needs the write permission', async () => {
@@ -265,6 +273,7 @@ describe('withdrawCalibration', () => {
       withdrawnAt: '2026-11-11T11:00:00.000Z',
       withdrawnBy: 'user_1',
     })
+    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'drawing_calibration_withdrawn' }))
   })
 
   it('needs the write permission', async () => {
