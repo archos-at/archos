@@ -34,6 +34,8 @@ export interface LawMapEdition {
   issuedOn: string | null
   /** The file its manifestation holds and the page it cites, when the request carries one. */
   text: { file: string | null; url: string | null } | null
+  /** Its manifestations in the request, by record id: where a text is attached. */
+  manifestationIds: string[]
   review: ReviewState
 }
 
@@ -185,7 +187,7 @@ function indexWorksAndEditions(revisions: readonly RevisionView[]): Indexed {
     if (revision.type === 'work') works.set(revision.recordId, { revision, body: bodyOfRevision(revision) })
     if (revision.type === 'edition') {
       const body = bodyOfRevision(revision)
-      editions.set(revision.recordId, { id: revision.recordId, workId: text(body.workId) ?? '', label: text(body.label) ?? revision.recordId, issuedOn: text(body.issuedOn), text: null, review: reviewOf([revision]) })
+      editions.set(revision.recordId, { id: revision.recordId, workId: text(body.workId) ?? '', label: text(body.label) ?? revision.recordId, issuedOn: text(body.issuedOn), text: null, manifestationIds: [], review: reviewOf([revision]) })
       editionRevisions.set(revision.recordId, revision)
     }
   }
@@ -195,6 +197,7 @@ function indexWorksAndEditions(revisions: readonly RevisionView[]): Indexed {
     if (!edition) continue
     const url = revision.citations.find((citation) => citation.url)?.url ?? null
     edition.text = { file: text(body.corpusFile), url }
+    edition.manifestationIds.push(revision.recordId)
     const own = editionRevisions.get(edition.id)
     edition.review = reviewOf(own ? [own, revision] : [revision])
   }

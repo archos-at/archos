@@ -28,7 +28,7 @@ import { lawMapOf } from '@/lib/base-knowledge/platform/law-map'
 import { reviewUnitsOf } from '@/lib/base-knowledge/platform/law-map-review'
 import type { ChangeRequestSummary, ChangeRequestView } from '@/lib/base-knowledge/platform/wire'
 import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
-import { countryName } from '../change-request-format'
+import { countryName } from '../country-name'
 import { usePlatformJson } from '../countries/use-platform-json'
 import { QuietLinks } from './law-map-atoms'
 import { REVIEWED_AFTER_APPROVAL, ReleaseBar } from '../change-request-release'
@@ -142,6 +142,13 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
           map={map}
           units={new Map(units.map((unit) => [unit.key, unit]))}
           confirm={confirm}
+          texts={{
+            requestId: view.id,
+            countryId: view.countryId,
+            byRecord: new Map((view.texts ?? []).map((one) => [one.recordId, one])),
+            canAttach: canWrite && view.status === 'draft',
+            onAttached: request.reload,
+          }}
           add={
             canWrite && sources.load.state === 'ready'
               ? {

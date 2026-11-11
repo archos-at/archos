@@ -17,7 +17,7 @@ import { TableCell, TableRow } from '@/components/ui/table'
 import { useLocale, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import type { TextPlacementList, TextPlacementView } from '@/lib/base-knowledge/platform/text-wire'
-import { countryName } from './change-request-format'
+import { countryName } from './country-name'
 
 const TEXTS = '/api/platform/knowledge/texts'
 /** The pages one load follows: 20 × 500 files, far above a corpus of tens of files per country. */
