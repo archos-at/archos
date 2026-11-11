@@ -228,6 +228,22 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: country-in-code
+        name: no new country-specific name, host or literal in source code
+        # A country is records, never code (ADR-0162, ADR-0168, ADR-0169,
+        # ADR-0173, ADR-0174). Austria came first and was written as code: the
+        # OIB in module and route names, RIS as a package and a model tool, the
+        # Länder as literals. A ratchet on ci/country_in_code_baseline.json
+        # over the tokens in ci/country_tokens.json keeps a second copy from
+        # arriving while the first is burned down
+        # (docs/architecture/country-extensibility.md). Always, for the reason
+        # file-size gives; the venv python, for the reason file-size gives.
+        # About four seconds.
+        entry: .venv/bin/python scripts/check_country_in_code.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: coverage-copy
         name: the website claims a country's law only as far as its pack's coverage goes
         # ADR-0173: the building-law page's country lines are generated from the
