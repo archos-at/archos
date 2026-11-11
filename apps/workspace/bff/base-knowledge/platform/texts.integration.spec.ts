@@ -690,11 +690,11 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
     const OWN_PAGE = 'OIB-Richtlinie 6 Energieeinsparung und Wärmeschutz, as its author wrote it on a host of their own'
 
     /** A source record whose one host is its author's own. */
-    const ownSource = (sourceKey: string, captureId: string) =>
+    const ownSource = (sourceKey: string, captureId: string, title = 'A host of the author’s own') =>
       wire.proposedRecordSchema.parse({
         type: 'source',
         key: sourceKey,
-        title: 'A host of the author’s own',
+        title,
         territoryId: OWN_TERRITORY,
         protocol: 'web_document',
         format: 'pdf_document',
@@ -845,6 +845,47 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       await service.submitPlatformChangeRequest(AUTHOR, after.id)
       expect((await service.getPlatformChangeRequest(AUTHOR, after.id)).texts).toMatchObject([{ sourceOrigin: 'released', countsAsFetched: false }])
       await expect(service.decidePlatformChangeRequest(AUTHOR, after.id, alone)).rejects.toMatchObject({ status: 409 })
+    })
+
+    it('holds a fetch again once the release of its source is rolled back, and not when a newer release supersedes it', async () => {
+      /** A submitted request whose text was fetched through the released source `sourceKey`. */
+      const submittedThrough = async (name: string, sourceKey: string) => {
+        const drafted = await draft(name, null, true)
+        await service.proposePlatformRecords(AUTHOR, drafted.id, { records: [...drafted.records, drafted.manifestation], dryRun: false })
+        apiTier(`the publisher’s PDF for ${name}`)
+        await texts.importPlatformText(AUTHOR, drafted.id, { manifestationKey: drafted.manifestationKey, sourceId: sourceKey, url: OWN_URL })
+        await service.submitPlatformChangeRequest(AUTHOR, drafted.id)
+        return drafted.id
+      }
+      const unchecked = async (id: string) => (await service.getPlatformChangeRequest(AUTHOR, id)).sourcesUnchecked
+
+      // The source's first release, by four eyes, and a fetch through it.
+      const first = await draftWithOwnSource('standing-source')
+      await publish(first.id)
+      const throughFirst = await submittedThrough('through-first-release', first.sourceKey)
+      expect(await unchecked(throughFirst)).toBe(false)
+
+      // A newer release of the same source supersedes that revision and takes nothing back.
+      const again = await draft('standing-source-again', null, true)
+      const [capture] = (await service.getPlatformChangeRequest(AUTHOR, again.id)).captures
+      apiTier('')
+      await service.proposePlatformRecords(AUTHOR, again.id, {
+        records: [...again.records, again.manifestation, ownSource(first.sourceKey, capture!.captureId, 'The same host, retitled')],
+        dryRun: false,
+      })
+      await publish(again.id)
+      expect(await unchecked(throughFirst)).toBe(false)
+      const throughSecond = await submittedThrough('through-second-release', first.sourceKey)
+      expect(await unchecked(throughSecond)).toBe(false)
+
+      // The newer release is rolled back: what was fetched through it is nobody's fetch again, already submitted or not.
+      await release.rollbackChangeRequest(again.id, 'The retitled source was wrong.', { by: EXPERT.userId, decisionSource: 'app' })
+      expect((await service.getPlatformChangeRequest(AUTHOR, throughSecond)).texts).toMatchObject([{ sourceOrigin: 'released', countsAsFetched: false }])
+      expect(await unchecked(throughSecond)).toBe(true)
+      await expect(service.decidePlatformChangeRequest(AUTHOR, throughSecond, alone)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('reviewed source') })
+      // The first release stands again and was never rolled back itself: its fetch still counts, and is approved alone.
+      expect(await unchecked(throughFirst)).toBe(false)
+      await expect(service.decidePlatformChangeRequest(AUTHOR, throughFirst, alone)).resolves.toMatchObject({ status: 'approved' })
     })
   })
 })

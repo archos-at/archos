@@ -25,9 +25,11 @@ from agent.knowledge.document_classification import canonical_doc_class
 from agent.oib_status import OibKnowledgeStatus
 
 from ..corpus_upload import MAX_OIB_UPLOAD_BYTES
+from ..corpus_upload import SQUATTED_NAME_REASON
 from ..corpus_upload import extract_zip_pdfs
 from ..corpus_upload import is_zip_upload
 from ..corpus_upload import sanitize_pdf_name
+from ..corpus_upload import squats_a_text_name
 from ..jobs.ingest_dispatch import enqueue_only
 from ..models.knowledge_mark import OibReingestRequest
 from ..models.requests import OibDocumentDeleteResponse
@@ -296,6 +298,8 @@ async def upload_oib_document(
 
     # Single-PDF upload.
     name = sanitize_pdf_name(file.filename)
+    if squats_a_text_name(name, content):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Not stored: {SQUATTED_NAME_REASON}")
     resolved_class = _resolved_doc_class(doc_class, name)
 
     try:

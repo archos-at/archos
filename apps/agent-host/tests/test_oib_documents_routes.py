@@ -345,8 +345,8 @@ async def test_a_zip_sent_as_a_pdf_replaces_no_file(app, bucket):
     reaches the store under a name it keeps is refused there.
     """
     reviewed = _pdf_bytes(b"%PDF-1.4 the text a reviewer read")
-    assert (await _upload(app, "at-oib-rl-2-aaaaaaaaaaaa.pdf", reviewed, "application/pdf")).status_code == 200
-    archive = _build_zip({"at-oib-rl-2-aaaaaaaaaaaa.pdf": _pdf_bytes(b"%PDF-1.4 the attacker's text")})
+    assert (await _upload(app, "at-oib-rl-2-2019.pdf", reviewed, "application/pdf")).status_code == 200
+    archive = _build_zip({"at-oib-rl-2-2019.pdf": _pdf_bytes(b"%PDF-1.4 the attacker's text")})
 
     disguised = await _upload(app, "innocent.pdf", archive, "application/zip")
     honest = await _upload(app, "bulk.zip", archive, "application/zip")
@@ -354,8 +354,8 @@ async def test_a_zip_sent_as_a_pdf_replaces_no_file(app, bucket):
     assert disguised.status_code == 400 and "disagree" in disguised.json()["detail"]
     member = honest.json()["members"][0]
     assert (member["status"], member["reason"]) == ("rejected", "the corpus keeps other bytes under this name")
-    assert bucket.objects == {"base-corpus/at-oib-rl-2-aaaaaaaaaaaa.pdf": reviewed}
-    assert set(corpus_store.list_files()) == {"at-oib-rl-2-aaaaaaaaaaaa.pdf"}
+    assert bucket.objects == {"base-corpus/at-oib-rl-2-2019.pdf": reviewed}
+    assert set(corpus_store.list_files()) == {"at-oib-rl-2-2019.pdf"}
 
 
 @pytest.mark.asyncio
@@ -366,6 +366,46 @@ async def test_the_content_type_decides_nothing_about_an_upload(app, bucket):
     assert as_zip.status_code == 200 and as_zip.json()["kind"] == "file"
     assert not_a_zip.status_code == 400
     assert set(bucket.objects) == {"base-corpus/plan.pdf"}
+
+
+@pytest.mark.asyncio
+async def test_a_zip_that_holds_one_path_twice_is_refused_whole(app, bucket):
+    """zipfile keeps the first copy of a path and the BFF's reader the last: two tiers, two files."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf, pytest.warns(UserWarning, match="Duplicate name"):
+        zf.writestr("F.pdf", _pdf_bytes(b"%PDF-1.4 the copy this tier would store"))
+        zf.writestr("F.pdf", _pdf_bytes(b"%PDF-1.4 the copy the BFF would hash"))
+        zf.writestr("ok.pdf", _pdf_bytes())
+
+    res = await _upload(app, "bulk.zip", buf.getvalue(), "application/zip")
+
+    assert res.status_code == 400 and "twice" in res.json()["detail"]
+    assert bucket.objects == {}
+    # Positive control: the same base name in two folders is two paths, and the first is kept as before.
+    folders = _build_zip({"a/F.pdf": _pdf_bytes(), "b/F.pdf": _pdf_bytes()})
+    assert (await _upload(app, "bulk.zip", folders, "application/zip")).json()["accepted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_plain_upload_cannot_take_the_name_an_attached_text_would_get(app, bucket):
+    """`<key>-<12 hex>.pdf` says what its bytes are: other bytes under it would hold the name against the real text."""
+    text = _pdf_bytes(b"%PDF-1.4 the publisher's text")
+    honest = f"at-oib-rl-6-2015-text-{hashlib.sha256(text).hexdigest()[:12]}.pdf"
+    squatted = "at-oib-rl-6-2015-text-0123456789ab.pdf"
+    other = _pdf_bytes(b"%PDF-1.4 somebody else's bytes")
+
+    single = await _upload(app, squatted, other, "application/pdf")
+    archive = await _upload(
+        app, "bulk.zip", _build_zip({f"texts/{squatted}": other, "ok.pdf": _pdf_bytes()}), "application/zip"
+    )
+
+    assert single.status_code == 400 and "sha256" in single.json()["detail"]
+    rejected = [m for m in archive.json()["members"] if m["status"] == "rejected"]
+    assert [(m["file_name"], "sha256" in m["reason"]) for m in rejected] == [(squatted, True)]
+    assert set(bucket.objects) == {"base-corpus/ok.pdf"}
+    # Positive controls: the name of these very bytes, and a name that only looks similar.
+    assert (await _upload(app, honest, text, "application/pdf")).status_code == 200
+    assert (await _upload(app, "oib-rl-6-2015.pdf", other, "application/pdf")).status_code == 200
 
 
 def _zip_with_raw_names(members: dict[str, bytes]) -> bytes:

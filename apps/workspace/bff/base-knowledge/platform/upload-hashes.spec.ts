@@ -16,6 +16,21 @@ const sha = (text: string) => createHash('sha256').update(strToU8(text)).digest(
 const zip = (members: Record<string, string>) =>
   new File([zipSync(Object.fromEntries(Object.entries(members).map(([name, text]) => [name, strToU8(text)])))], 'texts.zip', { type: 'application/zip' })
 
+/**
+ * A ZIP that holds `path` twice, with two contents. zipSync takes an object, so it cannot say one path twice: the
+ * second member is zipped under a stand-in name of the same length, renamed in the bytes (its local header and its
+ * central-directory entry).
+ */
+function duplicatedMember(path: string, first: string, second: string): Uint8Array {
+  const standIn = `${path.slice(0, -1)}~`
+  const bytes = zipSync({ [path]: strToU8(first), [standIn]: strToU8(second) }, { level: 0 })
+  const needle = strToU8(standIn)
+  for (let at = 0; at <= bytes.length - needle.length; at += 1) {
+    if (needle.every((byte, offset) => bytes[at + offset] === byte)) bytes.set(strToU8(path), at)
+  }
+  return bytes
+}
+
 describe('the hashes of a plain corpus upload', () => {
   it('is the one PDF under its name', async () => {
     expect([...(await uploadedPdfHashes(new File(['one'], 'oib-rl-1.pdf')))]).toEqual([['oib-rl-1.pdf', sha('one')]])
@@ -47,6 +62,13 @@ describe('the hashes of a plain corpus upload', () => {
 
   it.each([['x.pdf\0y.pdf'], ['x.pdf\0.txt'], ['a\\x.pdf'], ['a/../x.pdf']])('refuses a ZIP with a member two readers would name differently: %j', async (member) => {
     await expect(uploadedPdfHashes(zip({ [member]: 'other bytes', 'ok.pdf': 'one' }))).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('refuses a ZIP that holds one member path twice: this reader keeps the last copy, the api tier’s the first', async () => {
+    const twice = duplicatedMember('F.pdf', 'the copy the api tier would store', 'the copy this tier would hash')
+    await expect(uploadedPdfHashes(new File([twice], 'texts.zip'))).rejects.toMatchObject({ status: 400, message: expect.stringContaining('twice') })
+    // Positive control: the same base name in two folders is two paths.
+    expect((await uploadedPdfHashes(zip({ 'a/F.pdf': 'one', 'b/F.pdf': 'one' }))).get('F.pdf')).toBe(sha('one'))
   })
 
   it('compares names in one normal form', async () => {

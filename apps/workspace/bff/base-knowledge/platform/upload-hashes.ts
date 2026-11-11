@@ -55,16 +55,27 @@ export async function uploadedPdfHashes(file: File): Promise<Map<string, string>
   if (!isZip) return new Map([[name, sha256(bytes)]])
   let members: Record<string, Uint8Array>
   let unsafe = false
+  let twice = false
+  const paths = new Set<string>()
   try {
     members = unzipSync(bytes, {
       filter: (member) => {
         unsafe ||= unsafeMember(member.name)
+        // Directory entries aside, every member is counted, a PDF or not.
+        if (!member.name.endsWith('/')) {
+          const path = corpusName(member.name)
+          twice ||= paths.has(path)
+          paths.add(path)
+        }
         return member.name.toLowerCase().endsWith('.pdf')
       },
     })
   } catch {
     throw new BadRequestError('The ZIP could not be read; upload its PDFs one by one.')
   }
+  // One path twice: this reader keeps the last copy and the api tier's the first, so the hash here would not be of
+  // the bytes stored there. Refused whole, as the api tier refuses it (`_open_archive`).
+  if (twice) throw new BadRequestError('The ZIP holds one member path twice; remove the duplicate.')
   if (unsafe) {
     throw new BadRequestError('The ZIP holds a member whose name has a NUL, a backslash or a ".." step; rename it, or upload its PDFs one by one.')
   }

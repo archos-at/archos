@@ -24,7 +24,10 @@
 --   revision was published to stable before the fetch, by a request that two
 --   people saw: approved by four eyes, or approved alone and since confirmed
 --   by its second review. A source one person released alone opens nothing
---   until then.
+--   until then. And only while that release stands: once it is rolled back
+--   (a source found wrong is withdrawn that way), what was fetched through it
+--   is held again, also in requests already submitted. A newer release of
+--   the source supersedes the revision and takes nothing back.
 -- - `draft`: a source proposed in the same change request, usable to test a
 --   fetch for 24 hours (ADR-0174). Never counted.
 --
@@ -58,7 +61,8 @@ ALTER TABLE "knowledge_citation_captures" ADD CONSTRAINT knowledge_citation_capt
   CHECK (("source_revision_id" IS NOT NULL) = coalesce("source_origin" IN ('released', 'draft'), false));
 --> statement-breakpoint
 -- Whether a fetch went through a source two people have seen: a built-in one, or a source record's revision
--- released before the fetch by a request approved by four eyes or confirmed by its second review.
+-- released before the fetch by a request approved by four eyes or confirmed by its second review, and not rolled
+-- back since. Fails closed: read at approval time, so a rollback holds what was fetched before it too.
 CREATE OR REPLACE FUNCTION knowledge_source_reviewed(source text, origin text, revision text, fetched_at timestamp with time zone)
   RETURNS boolean LANGUAGE sql STABLE AS $$
   SELECT CASE origin
@@ -70,6 +74,12 @@ CREATE OR REPLACE FUNCTION knowledge_source_reviewed(source text, origin text, r
       WHERE mv.record_id = 'source:' || source AND mv.to_revision_id::text = revision
         AND mv.channel = 'stable' AND mv.action = 'publish' AND mv.released_at <= fetched_at
         AND (cr.second_review IS NULL OR cr.second_review = 'confirmed')
+        -- Still released, or superseded by a newer release: a rollback of this release takes its word back.
+        AND NOT EXISTS (
+          SELECT 1 FROM knowledge_release_moves rb
+          WHERE rb.record_id = mv.record_id AND rb.channel = 'stable' AND rb.action = 'rollback'
+            AND rb.from_revision_id = mv.to_revision_id AND rb.seq > mv.seq
+        )
     )
     ELSE false
   END

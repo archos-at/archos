@@ -212,8 +212,14 @@ of the first three, and a third review sharpened the fourth and the sixth (see
   what counts (`knowledge_source_reviewed`, migration 0222): a built-in
   source, or a revision a stable release published before the fetch, from a
   request approved by four eyes or approved alone and since confirmed by its
-  second review. A draft's source never counts, and neither does one its author
-  released alone: two single approvals do not add up to one person's publish.
+  second review, and only while that release stands. A draft's source never
+  counts, and neither does one its author released alone: two single approvals
+  do not add up to one person's publish. A release that is rolled back, which
+  is how a source found wrong is withdrawn (a disputed second review ends the
+  same way, or already fails the condition before), takes its word back: what
+  was fetched through that revision is held again, in requests already
+  submitted too, because the question is asked at approval. A newer release of
+  the source supersedes the revision and takes nothing back.
   Everything else is held like an operator-supplied capture (ADR-0170,
   migration 0218): `knowledge_sources_unchecked` is true until somebody other
   than the revision's author (and a text's uploader) marked a verdict on it
@@ -320,8 +326,15 @@ hours before it is released (ADR-0174).
   or in this draft, configures the key, and the api tier then answers for the
   key from the repository or not at all. The database cannot see the
   repository, so it takes that word; a `released` origin it checks itself.
-- A source revision that was released and later rolled back still counts for
-  the fetches made while it was released.
+- A rollback of a source's release holds what was fetched through it in every
+  request not yet approved. A request approved before the rollback stays
+  approved, and what it published stays published: withdrawing those is a
+  rollback of their own.
+- A plain upload named like an attached text (`<key>-<12 hex>.pdf`) is refused
+  by the api tier unless the twelve digits are its bytes' hash, so nobody holds
+  the name a real import would take. A ZIP that holds one member path twice is
+  refused whole in both tiers: one reader keeps the first copy, the other the
+  last.
 - A text's name carries twelve hex digits of its hash, 48 bits. Two texts of
   one manifestation that collide are refused (`NAME_TAKEN`), never merged.
 - A file a record only names (proposed with `corpusFile` set by hand) keeps the
@@ -364,14 +377,16 @@ a NUL in a member's name, is refused before the corpus is asked; a text and a
 capture fetched through a source their own draft proposes refuse every
 approval until another person's `sourceChecked`; a fetch through a source two
 people released is approved alone; one through a source its author released
-alone is not.
+alone is not; a rollback of the source's release holds the fetch again, and a
+newer release of the source does not.
 `scripts/rls-test-db.sh` (migration 0222 and its down: a built-in source
 counts, a draft's does not, a capture stored before the columns or written by
 an older build, and the two CHECK constraints).
 `upload-hashes.spec.ts` (a ZIP's members by base name; ZIP or PDF by the first
 bytes; unsafe member names; one normal form).
 `apps/agent-host/tests/test_oib_documents_routes.py` (a name the corpus keeps
-takes the same bytes and no others; both reported uploads replace nothing).
+takes the same bytes and no others; both reported uploads replace nothing; one
+path twice in a ZIP; a name of the attached-text form with other bytes).
 `apps/agent-host/tests/test_public_source_capture_route.py` (the
 bytes and their read both come from the fetcher, without a fetcher nothing
 is fetched, parsed or kept, and a text is kept under the name of its bytes

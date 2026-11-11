@@ -9,8 +9,10 @@ store has the last word: a name it keeps never takes other bytes
 (``oib_sync.store_and_request``, ADR-0165).
 """
 
+import hashlib
 import io
 import os
+import re
 import unicodedata
 import zipfile
 from pathlib import Path
@@ -39,6 +41,24 @@ def sanitize_pdf_name(raw: str | None) -> str:
 def normalised_name(name: str) -> str:
     """A file name as the corpus compares it: NFC, no surrounding whitespace (the BFF's `corpusName`)."""
     return unicodedata.normalize("NFC", name).strip()
+
+
+# The name the product gives an attached text: its manifestation's key and twelve hex digits of its sha256
+# (`corpus_text_name` in `routes/public_source_capture.py`, `textFileName` in the BFF).
+_TEXT_NAME = re.compile(r"[a-z0-9][a-z0-9._-]{0,99}-([0-9a-f]{12})\.pdf")
+
+
+def squats_a_text_name(name: str, content: bytes) -> bool:
+    """Whether ``name`` has the form of an attached text's name and ``content`` is not the bytes it names.
+
+    Such a name says what its bytes are. A plain upload that put other bytes under it would hold the name against the
+    text a later import or attach would keep there, for good: a corpus file's bytes never change (ADR-0165).
+    """
+    named = _TEXT_NAME.fullmatch(name)
+    return named is not None and hashlib.sha256(content).hexdigest()[:12] != named.group(1)
+
+
+SQUATTED_NAME_REASON = "the name ends in twelve hex digits that are not the sha256 of the file's bytes"
 
 
 def is_zip_upload(upload: UploadFile, content: bytes) -> bool:
@@ -76,6 +96,24 @@ def is_safe_zip_member(member_name: str, base_dir: Path) -> bool:
     return target == base_resolved or base_resolved in target.parents
 
 
+def _open_archive(content: bytes) -> zipfile.ZipFile:
+    """The upload as an archive (400 when it is none), refused whole when it holds one member path twice.
+
+    This reader would keep the first copy of such a path and another reader the last (the BFF's does), so the two
+    tiers would not be speaking of the same bytes. The BFF refuses the same archive (``uploadedPdfHashes``).
+    """
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(content))
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid ZIP archive: {exc}") from exc
+    paths = [normalised_name(member.orig_filename) for member in archive.infolist() if not member.is_dir()]
+    if len(set(paths)) != len(paths):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="The ZIP holds one member path twice; remove the duplicate"
+        )
+    return archive
+
+
 def extract_zip_pdfs(content: bytes) -> tuple[list[tuple[str, bytes]], list[tuple[str, str]]]:
     """Safely extract member PDFs from a ZIP upload.
 
@@ -93,11 +131,7 @@ def extract_zip_pdfs(content: bytes) -> tuple[list[tuple[str, bytes]], list[tupl
     # A stable, non-existent anchor for the zip-slip resolved-path check.
     base_dir = Path(os.getcwd()) / "__oib_zip_extract__"
 
-    try:
-        archive = zipfile.ZipFile(io.BytesIO(content))
-    except zipfile.BadZipFile as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid ZIP archive: {exc}") from exc
-
+    archive = _open_archive(content)
     for member in archive.infolist():
         # The name as the archive spells it: `filename` is already cut at a NUL.
         member_name = member.orig_filename
@@ -127,6 +161,9 @@ def extract_zip_pdfs(content: bytes) -> tuple[list[tuple[str, bytes]], list[tupl
             data = archive.read(member)
         except Exception as exc:
             rejected.append((base_name, f"could not read member: {exc}"))
+            continue
+        if squats_a_text_name(base_name, data):
+            rejected.append((base_name, SQUATTED_NAME_REASON))
             continue
         seen_names.add(base_name)
         total_bytes += len(data)
