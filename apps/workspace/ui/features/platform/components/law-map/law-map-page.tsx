@@ -6,8 +6,8 @@
  * (docs/design/international/country-onboarding-ux.md, section B). It reads
  * the open change request the review reads (`change-requests/[id]`), so what
  * it shows is what a reviewer decides on; `?request=` names another. A
- * reviewer confirms there, unit by unit (`law-map-review.ts`); approving and
- * publishing stay in the change request.
+ * reviewer confirms there, unit by unit (`law-map-review.ts`), and the request
+ * is approved, published or rolled back from the same page (`ReleaseBar`).
  */
 
 import type { JSX } from 'react'
@@ -31,6 +31,7 @@ import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-serv
 import { countryName } from '../change-request-format'
 import { usePlatformJson } from '../countries/use-platform-json'
 import { QuietLinks } from './law-map-atoms'
+import { REVIEWED_AFTER_APPROVAL, ReleaseBar } from '../change-request-release'
 import { branchesOf, LawMapOutline } from './law-map-outline'
 
 const BASE = '/api/platform/knowledge/change-requests'
@@ -95,7 +96,8 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   const view = current
   // What waits for a verdict; a unit sent back waits for its proposer, not for this reviewer.
   const waiting = units.filter((unit) => unit.review === 'open')
-  const reviewable = view.status === 'submitted'
+  // Verdicts are taken while the request is submitted, and on an approved one whose second review is due (ADR-0176).
+  const reviewable = view.status === 'submitted' || (view.secondReview?.state === 'due' && REVIEWED_AFTER_APPROVAL.includes(view.status))
   // "Next" opens what waits and the branches it sits in, then brings it into view.
   const goTo = (key: string): void => {
     const unit = units.find((one) => one.key === key)
@@ -104,12 +106,14 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
     setOpen(key)
     window.setTimeout(() => document.getElementById(`row-${key}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50)
   }
+  // As the server decides it (0208, 0218): an author of any revision in the request.
+  const authored = Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id)
   const confirm = {
     requestId: view.id,
-    open: reviewable,
+    // A second review is never its author's: the review dialog hides its verdicts from them too.
+    open: reviewable && !(view.status !== 'submitted' && authored),
     canReview,
-    // As the server decides it (0208, 0218): an author of any revision in the request.
-    authored: Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id),
+    authored,
     onDone: (advance: boolean) => {
       request.reload()
       if (!advance) return
@@ -128,22 +132,18 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
             .map((one) => ({ href: `${countryHref}/map?request=${one.id}`, label: t('otherRequest', { title: one.title }) }))}
         />
       ) : null}
-      {reviewable && canReview ? (
+      {reviewable && canReview && waiting.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          {waiting.length > 0 ? (
-            <Button size="sm" variant="outline" onClick={() => goTo(waiting[0]?.key ?? '')} data-testid="next-to-confirm">
-              {t('toConfirm', { count: waiting.length })}
-            </Button>
-          ) : (
-            <span>
-              {view.sourcesUnchecked ? t('sourcesUnchecked') : t('allConfirmed')}{' '}
-              <Link href={`${countryHref}?section=review&request=${view.id}`} className="underline underline-offset-2">
-                {t('approveThere')}
-              </Link>
-            </span>
-          )}
+          <Button size="sm" variant="outline" onClick={() => goTo(waiting[0]?.key ?? '')} data-testid="next-to-confirm">
+            {t('toConfirm', { count: waiting.length })}
+          </Button>
         </div>
       ) : null}
+      {reviewable && canReview && waiting.length === 0 ? (
+        <p className="text-sm">{view.sourcesUnchecked ? t('sourcesUnchecked') : view.status === 'submitted' ? t('allConfirmed') : t('allConfirmedSecond')}</p>
+      ) : null}
+      {/* What comes after the verdicts: approve, publish, roll back, the second review, the same bar the review dialog ends with. */}
+      <ReleaseBar view={view} canManage={canReview} onChanged={request.reload} className="justify-start" />
       {units.length === 0 ? (
         <EmptyState icon={MapIcon} title={t('title')} description={t('empty')} />
       ) : (
