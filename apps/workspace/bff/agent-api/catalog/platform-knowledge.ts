@@ -36,6 +36,7 @@ import {
   territoryImportBodySchema,
 } from '@/lib/base-knowledge/platform/wire'
 import { importTextBodySchema, listTextsQuerySchema, uploadTextFields } from '@/lib/base-knowledge/platform/text-wire'
+import { addDocumentBodySchema, uploadDocumentFields } from '@/lib/base-knowledge/platform/document-add-wire'
 import type { AgentOperation, PersonConfirmation } from '../operation'
 import { MAX_UPLOAD_BYTES, uploadBodySchemaWith } from '../upload-wire'
 
@@ -51,6 +52,15 @@ const IN_COUNTRIES_VIEW: PersonConfirmation = { decideAt: () => '/app/platform/c
 const requestParams = z.object({
   changeRequestId: z.uuid().describe('The change request id, from platform-knowledge-change-request-create or -list.'),
 })
+const countryParams = z.object({
+  countryId: z.string().describe('The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get.'),
+})
+const ADDED_DOCUMENT =
+  'Goes into the country’s open draft change request, or a new one titled for the document when none is open. Proposes ' +
+  'the work (when new), the edition and its manifestation, each quoting where the document prints the work’s designation ' +
+  'or title and the edition’s label, then attaches the PDF. Returns `changeRequestId`, `opened` (a new request), the keys ' +
+  'and the text’s `sha256`. Refused with EDITION_EXISTS when the work has that edition, NOT_PRINTED when the document does ' +
+  'not print the designation or label as given. Then platform-knowledge-validate and -change-request-submit.'
 const organizationParams = z.object({
   organizationId: z.string().describe('The organization id, from platform-overview-get.'),
 })
@@ -239,6 +249,58 @@ export const platformKnowledgeOperations = [
     path: '/api/platform/knowledge/texts',
     query: listTextsQuerySchema,
     load: () => import('@/app/api/platform/knowledge/texts/route'),
+  },
+  {
+    name: 'platform-knowledge-work-list',
+    domain: 'platform',
+    summary: 'List a country’s released works with their editions',
+    description:
+      'Each released work of `countryId` with its `workKey`, title, designation and kind, and its released editions’ labels: ' +
+      'what platform-knowledge-document-add files a PDF under, by `workKey`.',
+    method: 'GET',
+    path: '/api/platform/knowledge/countries/[countryId]/works',
+    params: countryParams,
+    load: () => import('@/app/api/platform/knowledge/countries/[countryId]/works/route'),
+  },
+  {
+    name: 'platform-knowledge-document-add',
+    domain: 'platform',
+    summary: 'Add a PDF to a country from its publisher’s URL, in one call',
+    description:
+      'The whole flow for one document: `url` is the PDF on a host of one of the country’s sources (refused with ' +
+      'HOST_NOT_ON_SOURCE otherwise, and NOT_A_PDF when it answers no PDF). The platform fetches it, so its origin is proven. ' +
+      '`work` is `{workKey}` from platform-knowledge-work-list or a new `{title, designation, kind}`. ' +
+      ADDED_DOCUMENT,
+    method: 'POST',
+    path: '/api/platform/knowledge/countries/[countryId]/documents',
+    params: countryParams,
+    body: addDocumentBodySchema,
+    idempotent: true,
+    examples: [
+      {
+        params: { countryId: 'AT' },
+        body: { url: 'https://www.oib.or.at/sites/default/files/oib-rl-1-2019.pdf', work: { workKey: 'at-oib-rl-1' }, label: 'April 2019', inForceFrom: null },
+      },
+    ],
+    load: () => import('@/app/api/platform/knowledge/countries/[countryId]/documents/route'),
+  },
+  {
+    name: 'platform-knowledge-document-upload',
+    domain: 'platform',
+    summary: 'Add an uploaded PDF to a country, in one call',
+    description:
+      'When no source of the country serves the PDF; otherwise use platform-knowledge-document-add. Send `body.files[0]` ' +
+      `(one PDF, up to ${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB) and \`body.fields\`: \`work\` as JSON, \`label\`, \`inForceFrom\`, ` +
+      '`publishedAt` (where the publisher publishes it) and `titleText` (the title lines copied from the PDF, which the records ' +
+      'quote). Nobody fetched it, so another person checks it against its source before anyone approves. ' +
+      ADDED_DOCUMENT,
+    method: 'POST',
+    path: '/api/platform/knowledge/countries/[countryId]/documents/upload',
+    params: countryParams,
+    body: uploadBodySchemaWith(uploadDocumentFields),
+    bodyEncoding: 'multipart',
+    idempotent: true,
+    load: () => import('@/app/api/platform/knowledge/countries/[countryId]/documents/upload/route'),
   },
   {
     name: 'platform-knowledge-records-propose',
