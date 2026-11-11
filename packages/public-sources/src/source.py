@@ -30,6 +30,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 from typing import Literal
+from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
 import yaml
@@ -225,6 +226,13 @@ class Fixture(_Strict):
     expect: dict[str, Any]
 
 
+class AddressIdentifier(_Strict):
+    """Where an address at this source states one of a work's identifiers."""
+
+    #: The query parameter that carries it, matched without regard to case.
+    query: str = Field(min_length=1, max_length=80)
+
+
 class Source(_Strict):
     """A configured public source. See the module docstring."""
 
@@ -243,6 +251,10 @@ class Source(_Strict):
     #: (``agent.common.web_sources``). A subdomain of a listed host counts as that host.
     copy_hosts: tuple[str, ...] = ()
     data_flow: DataFlow = "public_only"
+    #: How a work's identifier is read from the address of a passage at this source, by the scheme the
+    #: knowledge records name it under (a work's ``identifiers``). A citation finds its work by it; a scheme
+    #: no source lists is matched nowhere.
+    identifiers: dict[str, AddressIdentifier] = Field(default_factory=dict)
     terms: Terms
     monitor: Monitor = Monitor()
     #: The protocol's configuration, validated by that access type's model.
@@ -321,6 +333,16 @@ class Source(_Strict):
     def allows(self, url: str) -> bool:
         """Whether ``url`` is https on one of this source's hosts, on the default port."""
         return url_on_hosts(url, self.hosts)
+
+    def identifier_at(self, url: str, scheme: str) -> str | None:
+        """The identifier ``scheme`` names in ``url``, by this source's ``identifiers``; None when the address
+        is not on this source's hosts, the scheme is not listed, or the address states none."""
+        location = self.identifiers.get(scheme)
+        if location is None or not self.allows(url):
+            return None
+        wanted = location.query.lower()
+        values = next((found for name, found in parse_qs(urlparse(url).query).items() if name.lower() == wanted), [])
+        return values[0] if values else None
 
     def require_allowed(self, url: str) -> None:
         if not self.allows(url):

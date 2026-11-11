@@ -170,6 +170,9 @@ export const encodeCitations = (
       regions: citation.regions,
       project: citation.project,
       is_cited: citation.isCited,
+      // What the line states, as it was resolved on the day of the answer: a reload, a share and an
+      // export show the status the answer had, not one resolved again today.
+      ...citation.line,
     })),
   }
 }

@@ -29,6 +29,7 @@ from agent.common.binding_claims import score_answer
 from agent.common.binding_claims import turn_binding_claims
 from agent.common.law_gate import law_unsettled
 from agent.common.retrieval_ledger import build_retrieval_ledger
+from agent.observability.citation_scores import emit_citation_line_scores
 from agent.tools.bim.measurement_sources import MeasurementSource
 from agent.tools.bim.measurement_sources import measurement_sources_to_wire
 
@@ -224,6 +225,7 @@ def assemble_result(
     if final.quote_stamps:
         result["quote_stamps"] = list(final.quote_stamps)
     state = ResearchAgentState.model_validate(result)
+    emit_citation_line_scores(wire, writer="chat")
     if final.answered and (final.source_lookup_attempted or measurement_grounded):
         record_turn_ledger(
             final, turn_sources=turn_sources, wire=wire, capped_reason=state.answer_confidence_capped_reason

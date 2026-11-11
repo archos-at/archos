@@ -26,15 +26,12 @@ export {
   compareDocuments,
   documentIdentity,
   hitCount,
-  hostnameOf,
   identityMatches,
   isCited,
-  isHttpUrl,
   locusKey,
   locusOf,
   normalizeFileKey,
   normalizeFileName,
-  normalizeUrl,
   refHost,
   refKey,
   refNumber,
@@ -51,6 +48,8 @@ export {
   type CitedDocument,
   type DocumentIdentityInput,
 } from './model'
+
+export { hostnameOf, isHttpUrl, normalizeUrl } from './text'
 
 export { parseKbLocator, locatorFromPseudoUrl, type KbCitationLocator } from './locator'
 

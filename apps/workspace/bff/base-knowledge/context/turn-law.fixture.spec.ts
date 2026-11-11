@@ -123,6 +123,23 @@ describe('the knowledge context’s contract with the Python tier', () => {
     ])
   })
 
+  it('names the instrument that declares an edition binding and the day that holds from, from the packs', () => {
+    const contexts = JSON.parse(generated) as Record<string, { knowledgeContext: ReturnType<typeof contextAt> }>
+    const routed = contexts['AT-9'].knowledgeContext.uses.filter((use) => use.via === 'relation' && use.role === 'binding')
+    expect(routed.length).toBeGreaterThan(0)
+    for (const use of routed) {
+      expect(use.route?.designation, use.workId).toBeTruthy()
+      expect(use.roleSince, use.workId).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    }
+    // Law in its territory has no declaring instrument, and nothing but a binding role is dated.
+    for (const { knowledgeContext } of Object.values(contexts)) {
+      for (const use of knowledgeContext.uses) {
+        if (use.via !== 'relation') expect(use.route, use.workId).toBeNull()
+        if (use.role !== 'binding') expect(use.roleSince, use.workId).toBeNull()
+      }
+    }
+  })
+
   it('is the committed fixture', () => {
     expect(committed(FIXTURE, generated), 'The packs or the resolver changed. Re-run with UPDATE_FIXTURES=1 and commit the fixture.').toBe(generated)
   })

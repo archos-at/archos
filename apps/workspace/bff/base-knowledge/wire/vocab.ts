@@ -202,10 +202,12 @@ export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
 
 /**
  * The schemes a work's identifiers are read in, so a passage the agent reads
- * live at its source finds its work (ADR-0175): RIS's Gesetzesnummer (the
- * `Gesetzesnummer` query parameter of a consolidated text) and an ELI (the
- * work's URL, matched by whole path segments). A scheme added here is matched
- * by the agent only once it learns it (`citations/roles.py`).
+ * live at its source finds its work (ADR-0175). The agent knows no scheme: a
+ * source's producer states the identifier its own source record reads off the
+ * document (`identifiers` in the source record, e.g. a query parameter), and it
+ * is compared whole with the work's (`use_for_source_ref`). Nothing is matched
+ * by URL. That this list names schemes of one country is debt: the vocabulary
+ * belongs to the source records (`docs/design/citations.md`).
  */
 export const SOURCE_REF_SCHEMES = ['ris_gesetzesnummer', 'eli'] as const
 export type SourceRefScheme = (typeof SOURCE_REF_SCHEMES)[number]
