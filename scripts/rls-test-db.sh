@@ -4151,7 +4151,7 @@ echo "==> 0228 golden cases and its down migration verified"
 # it (the dev stack's BFF sets it per transaction) it is. The down hands such a
 # request its second review back and restores 0214's CHECK; 0228 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying 0228 one operator alone and its down migration on so_0229"
+echo "==> verifying 0229 one operator alone and its down migration on so_0229"
 migrate_before so_0229 0229_knowledge_single_operator
 SO_0228=c0000000-0000-4000-8000-000000000228
 sql_in so_0229 <<<"INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$SO_0228', 'dev alone', 'AT', 'user_author');"
@@ -4172,4 +4172,4 @@ check_in so_0229 "SELECT approval || '/' || coalesce(second_review, '-') FROM kn
 check_in so_0229 "SELECT count(*) FROM pg_proc WHERE proname = 'knowledge_single_operator'" "0" "0228 down drops the setting's reader"
 apply_in so_0229 0229_knowledge_single_operator.sql
 check_in so_0229 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_starts_four_eyes'" "1" "0228 applies again after its down"
-echo "==> 0228 one operator alone and its down migration verified"
+echo "==> 0229 one operator alone and its down migration verified"
