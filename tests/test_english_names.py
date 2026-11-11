@@ -13,6 +13,7 @@ names and legal citations stay as they are. The stems are in
 
 from __future__ import annotations
 
+import functools
 import io
 import json
 import keyword
@@ -53,7 +54,9 @@ def _count(path: str) -> int:
     return count
 
 
+@functools.cache
 def _current() -> dict[str, int]:
+    """Counted once per process: two tests read it, and tokenizing every Python file is about three seconds."""
     return {path: count for path in _python_files() if (count := _count(path))}
 
 
