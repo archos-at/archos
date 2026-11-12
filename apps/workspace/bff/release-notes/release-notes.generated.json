@@ -1225,6 +1225,14 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A law looked up in its current consolidated version is no longer labelled with the date of an older version of the paragraph.",
+            "de": "Ein Gesetz, das in seiner aktuellen konsolidierten Fassung abgerufen wird, ist nicht mehr mit dem Datum einer älteren Fassung des Paragraphen gekennzeichnet."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "A document no longer shows as failed, and stays that way, when it was read again or replaced while an earlier attempt to start reading it was still waiting.",
