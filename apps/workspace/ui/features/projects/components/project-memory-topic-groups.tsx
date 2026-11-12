@@ -136,9 +136,12 @@ export function ProjectMemoryTopicGroups({
 }: ProjectMemoryTopicGroupsProps): JSX.Element {
   const topicNames = topics.map((entry) => entry.name)
   const ordered = [...items].sort((a, b) => kindRank(a.kind) - kindRank(b.kind))
+  // A topic only office notes hold has no project note for the shelf's rename or ungroup to
+  // act on: the server would move nothing and answer so, so the folder offers no actions.
+  const projectTopics = new Set(items.filter((item) => item.scope === 'project').map((item) => item.topic))
   const renderTopicActions = (topic: string | null): ReactNode => {
-    if (topic === null) return null
-    const count = topics.find((entry) => entry.name === topic)?.count ?? 0
+    if (topic === null || !projectTopics.has(topic)) return null
+    const count = topics.find((entry) => entry.name === topic)?.count ?? items.filter((item) => item.topic === topic).length
     return (
       <ProjectTopicActions projectId={projectId} topic={topic} count={count} onChanged={onChanged} />
     )

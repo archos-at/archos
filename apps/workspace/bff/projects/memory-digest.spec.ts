@@ -16,7 +16,7 @@ const note = (overrides: Partial<DigestItem> = {}): DigestItem => ({
 })
 
 const HEADER_LINE = 'PROJECT_MEMORY v1'
-const INDEX_HEAD = "topics of the project's notes shown here (at most 20 named):"
+const INDEX_HEAD = "topics of the project's memory, bounded (at most 20 named):"
 const BUDGET = 1800
 
 describe('formatTopicDigest', () => {
@@ -145,7 +145,8 @@ describe('formatTopicDigest', () => {
     const index = lines[1]
     const named = [...index.matchAll(/"([^"]*)" \(\d+\)/g)].map((match) => match[1])
     const tail = /\(\+(\d+) more topics, not named\)/.exec(index)
-    // Each printed note's topic is named in the index, or the tail counts the topics left unnamed.
+    // Without the shelf's topics the index is over the printed notes, so every printed topic
+    // is either named or among the topics the tail counts (the tail counts all unnamed topics).
     // A printed line opens `- ["Topic" | `, so the topic runs from index 4 to its closing quote.
     const printedTopics = new Set(printedLines.map((line) => line.slice(4, line.indexOf('" | '))))
     const unnamed = [...printedTopics].filter((topic) => !named.includes(topic))
@@ -156,6 +157,67 @@ describe('formatTopicDigest', () => {
     const digest = formatTopicDigest([note({ content: 'roof load', topic: 'Dach' })], 3, BUDGET)
 
     expect(digest?.split('\n').slice(-1)[0]).toMatch(/^\(\+3 weitere Notizen/)
+  })
+})
+
+describe("formatTopicDigest with the shelf's open topics", () => {
+  it('names an open topic of the shelf even when none of its notes prints', () => {
+    const digest = formatTopicDigest(
+      [note({ content: 'EI 90 im Treppenhaus', topic: 'Brandschutz' })],
+      0,
+      BUDGET,
+      [
+        { name: 'Stellplätze', count: 3 },
+        { name: 'Brandschutz', count: 2 },
+      ]
+    ) as string
+
+    expect(digest.split('\n')[1]).toBe(`${INDEX_HEAD} "Stellplätze" (3), "Brandschutz" (2)`)
+    expect(digest.split('\n')).toHaveLength(3)
+  })
+
+  it('adds an admitted restricted note to its topic once, beside the open topics', () => {
+    const digest = formatTopicDigest(
+      [note({ content: 'Honorar pauschal', topic: 'Honorar', restrictedFolderIds: ['f-1'] })],
+      0,
+      BUDGET,
+      [{ name: 'Brandschutz', count: 2 }]
+    ) as string
+
+    expect(digest.split('\n')[1]).toBe(`${INDEX_HEAD} "Brandschutz" (2), "Honorar" (1)`)
+  })
+
+  it('names no topic of a restricted note the caller did not pass (not admitted)', () => {
+    // The caller drops a restricted note it does not admit before it formats, so its topic
+    // reaches the index only through the shelf's OPEN topics, which never hold it.
+    const digest = formatTopicDigest(
+      [note({ content: 'Dach in Holz', topic: 'Dach' })],
+      1,
+      BUDGET,
+      [{ name: 'Brandschutz', count: 2 }]
+    ) as string
+
+    expect(digest.split('\n')[1]).not.toContain('Geheim')
+    expect(digest).not.toContain('Geheim')
+  })
+
+  it('names at most twenty shelf topics and counts the rest in the tail', () => {
+    const shelf = Array.from({ length: DIGEST_TOPIC_INDEX_MAX + 5 }, (_, index) => ({
+      name: `T${String(index).padStart(2, '0')}`,
+      count: 1,
+    }))
+    const digest = formatTopicDigest([note({ topic: 'T00' })], 0, BUDGET, shelf) as string
+    const index = digest.split('\n')[1]
+
+    expect(index.endsWith(', (+5 more topics, not named)')).toBe(true)
+    expect(index.split(' (1)').length - 1).toBe(DIGEST_TOPIC_INDEX_MAX)
+    expect(digest.length).toBeLessThanOrEqual(BUDGET)
+  })
+
+  it('keeps a shelf with no topic at all byte-identical: no index, no topic tag', () => {
+    const digest = formatTopicDigest([note({ content: 'roof load', topic: null })], 0, BUDGET, [])
+
+    expect(digest).toBe([HEADER_LINE, '- [derived_fact | medium | unverified] "roof load"'].join('\n'))
   })
 })
 

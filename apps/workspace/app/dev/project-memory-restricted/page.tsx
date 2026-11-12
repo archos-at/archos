@@ -12,12 +12,15 @@
  *     restricted notes out entirely, so their topic „Honorar“ is not listed
  *     on this side either.
  *
- * Every note has a topic except one (ADR-0180, the topics amendment). A
- * module-scope fetch shim (browser + dev only) answers each reader's shelf the
- * way `/api/projects/[id]/memory` does: the list with `topics` (counted over
- * the notes that reader sees), `?topic=` filtering, and the topic routes
- * (`PATCH …/memory/topics`, a note's `PATCH` with `topic`). Each reader's shelf
- * is kept in the shim's own copy, so a rename or a move shows in the preview.
+ * Every note has a topic except one (ADR-0180, the topics amendment). The
+ * office note „Bauordnung“ is on both shelves too, as the list shows the
+ * office's notes beside the project's. A module-scope fetch shim (browser +
+ * dev only) answers each reader's shelf the way `/api/projects/[id]/memory`
+ * does: the list with `topics` (counted over the notes that reader sees),
+ * `?topic=` filtering, and the topic routes (`PATCH …/memory/topics`, a note's
+ * `PATCH` with `topic`, an office note's `PATCH /api/organization/memory/[id]`).
+ * Each reader's shelf is kept in the shim's own copy, so a rename or a move
+ * shows in the preview.
  * Not linked from anywhere and 404s outside development.
  */
 
@@ -97,11 +100,17 @@ const JUDGED = item(
   'Die Nachtragsforderung des Statikers wird erst nach Prüfung der Mehrmassen freigegeben.',
   { restrictedFolderIds: [RESTRICTED_FOLDER], restrictedFolderNames: ['Verträge'], restrictionJudge: 'drawn', topic: 'Honorar' }
 )
+// An office note (the organization's, ADR-0180): listed on every project shelf, moved on its own route.
+const OFFICE = item('m-office-1', 'constraint', 'Büro: Die Bauordnung gilt für jedes Projekt.', {
+  scope: 'organization',
+  projectId: null,
+  topic: 'Bauordnung',
+})
 
 /** Each reader's shelf, the copy the shim serves and the topic routes change. */
 const SHELVES: Record<string, ShelfItem[]> = {
-  [CLEARED]: [RESTRICTED, JUDGED, ...OPEN],
-  [UNCLEARED]: [...OPEN],
+  [CLEARED]: [RESTRICTED, JUDGED, ...OPEN, OFFICE],
+  [UNCLEARED]: [...OPEN, OFFICE],
 }
 
 /** Two topics name one topic when they differ only in case (`resolveTopic`, the German rules); null is no topic. */
@@ -134,23 +143,36 @@ function filterByTopic(shelf: ShelfItem[], topic: string | null): ShelfItem[] {
   return shelf.filter((candidate) => sameTopic(candidate.topic, topic === '' ? null : topic))
 }
 
-/** `PATCH …/memory/topics` moves every note on `from` to `to`; a `to` another topic has merges them. */
+/** `PATCH …/memory/topics` moves every project note on `from` to `to`; office notes stay (as the server leaves them). */
 function renameTopic(projectId: string, body: ShelfBody): Response {
   const shelf = SHELVES[projectId]
   const from = body.from ?? null
   const to = resolveName(body.to, shelf)
-  const moved = shelf.filter((candidate) => sameTopic(candidate.topic, from)).length
-  SHELVES[projectId] = shelf.map((candidate) => (sameTopic(candidate.topic, from) ? { ...candidate, topic: to } : candidate))
+  const onProject = (candidate: ShelfItem) => candidate.scope === 'project' && sameTopic(candidate.topic, from)
+  const moved = shelf.filter(onProject).length
+  SHELVES[projectId] = shelf.map((candidate) => (onProject(candidate) ? { ...candidate, topic: to } : candidate))
   return Response.json({ moved })
 }
 
-/** `PATCH …/memory/<itemId>`: moving one note to a topic is what the preview needs of the item route. */
+/** `PATCH …/memory/<itemId>`: moving one project note to a topic. An office note is not on the project's route (404). */
 function moveNote(projectId: string, itemId: string, body: ShelfBody): Response {
   const shelf = SHELVES[projectId]
-  const existing = shelf.find((candidate) => candidate.id === itemId)
+  const existing = shelf.find((candidate) => candidate.id === itemId && candidate.scope === 'project')
   if (!existing) return Response.json({ error: 'Not found' }, { status: 404 })
   const moved = { ...existing, topic: resolveName(body.topic, shelf), updatedAt: new Date().toISOString() }
   SHELVES[projectId] = shelf.map((candidate) => (candidate.id === itemId ? moved : candidate))
+  return Response.json({ item: moved })
+}
+
+/** `PATCH /api/organization/memory/<itemId>`: an office note is one note on every shelf, so the move lands on each copy. */
+function moveOfficeNote(itemId: string, body: ShelfBody): Response {
+  const existing = SHELVES[CLEARED].find((candidate) => candidate.id === itemId && candidate.scope === 'organization')
+  if (!existing) return Response.json({ error: 'Not found' }, { status: 404 })
+  const office = SHELVES[CLEARED].filter((candidate) => candidate.scope === 'organization')
+  const moved = { ...existing, topic: resolveName(body.topic, office), updatedAt: new Date().toISOString() }
+  for (const projectId of Object.keys(SHELVES)) {
+    SHELVES[projectId] = SHELVES[projectId].map((candidate) => (candidate.id === itemId ? moved : candidate))
+  }
   return Response.json({ item: moved })
 }
 
@@ -169,6 +191,8 @@ async function answerShelf(projectId: string, segment: string | undefined, url: 
 
 /** `/api/projects/<id>/memory`, its `topics` route and one note: the shelf paths the shim answers. */
 const SHELF_PATH = /^\/api\/projects\/([^/]+)\/memory(?:\/([^/]+))?$/
+/** `/api/organization/memory/<id>`: an office note's own route. */
+const OFFICE_NOTE_PATH = /^\/api\/organization\/memory\/([^/]+)$/
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __restrictedMemoryShim?: boolean }
@@ -181,6 +205,11 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       const parsed = new URL(url, 'http://preview.local')
       const match = SHELF_PATH.exec(parsed.pathname)
       if (match && SHELVES[match[1]]) return answerShelf(match[1], match[2], parsed, init)
+      const office = OFFICE_NOTE_PATH.exec(parsed.pathname)
+      if (office && init?.method === 'PATCH') {
+        const body = typeof init.body === 'string' ? (JSON.parse(init.body) as ShelfBody) : {}
+        return moveOfficeNote(office[1], body)
+      }
       return real(input, init)
     }
   }

@@ -896,21 +896,14 @@ function restrictedFoldersOfItems(items: readonly Pick<DigestItem, 'restrictedFo
   return [...new Set(items.flatMap((item) => item.restrictedFolderIds ?? []))].sort()
 }
 
-/**
- * The items `formatDigestLines` will actually print: in order, skipping blank
- * content, as many as the digest text has lines. The budget cuts the tail, and
- * a note the cut leaves out is not in the prompt, so it is not use.
- */
+/** The items `formatDigestLines` prints (blank content skipped): the budget cuts the tail, and a cut note is not use. */
 function printedItems<T extends DigestItem>(items: readonly T[], digest: string | null): T[] {
   if (!digest) return []
   const lines = digest.split('\n').filter((line) => line.startsWith('- [')).length
   return items.filter((item) => item.content.replace(/\s+/g, ' ').trim()).slice(0, lines)
 }
 
-/**
- * Format the digest, admitting the restricted notes it prints first. A note
- * whose collections are not all admitted is dropped and the digest formatted again.
- */
+/** Format the digest, admitting the restricted notes it prints first; a note not fully admitted is dropped. */
 async function formatAdmittedDigest<T extends DigestItem>(
   kept: readonly T[],
   omitted: number,
@@ -1000,12 +993,8 @@ export async function buildProjectMemoryDigest(
   const embedding = queryText
     ? embedNote(queryText, { timeoutMs: 1000, signal: abandon.signal })
     : Promise.resolve(null)
-  // The shelf's open topics (no clearance) ride beside the recency read, so the index names every topic
-  // the agent may reuse, not only the printed notes'.
-  const [recent, shelf] = await Promise.all([
-    selectRecallCandidates(scope, null),
-    projectId && organizationId ? projectTopicsOf(projectId, organizationId, []) : undefined,
-  ])
+  const shelfRead = projectId && organizationId ? projectTopicsOf(projectId, organizationId, []) : undefined
+  const [recent, shelf] = await Promise.all([selectRecallCandidates(scope, null), shelfRead])
   const denseCanMatter =
     recent.length > 0 && (recent.length >= RECALL_CANDIDATE_LIMIT || recent.some((row) => Boolean(row.hasEmbedding)))
   if (!denseCanMatter) abandon.abort()

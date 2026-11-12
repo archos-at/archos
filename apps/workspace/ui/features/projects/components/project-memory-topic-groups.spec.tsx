@@ -92,4 +92,29 @@ describe('ProjectMemoryTopicGroups', () => {
     await userEvent.click(screen.getByRole('button', { name: /edit/i }))
     expect(handlers.onStartEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'fire' }))
   })
+
+  test('a folder of office notes only offers no rename or ungroup, as the project’s routes would move nothing', () => {
+    const office = note({
+      id: 'office',
+      scope: 'organization',
+      projectId: null,
+      content: 'Büro: Die Bauordnung gilt für jedes Projekt.',
+      topic: 'Bauordnung',
+    })
+    render(
+      <ProjectMemoryTopicGroups
+        projectId="p1"
+        items={[office]}
+        allItems={[office]}
+        topics={[{ name: 'Bauordnung', count: 1 }]}
+        readOnly={false}
+        controls={controls()}
+        onChanged={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('Büro: Die Bauordnung gilt für jedes Projekt.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Rename topic' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ungroup' })).not.toBeInTheDocument()
+  })
 })
