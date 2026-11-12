@@ -77,14 +77,7 @@ record naming `EU` as a dated parent whose interval has not ended today: a
 membership with a `validTo` in the past entitles nothing). A record of another pack is readable
 where a released platform relation reaches it from one the office may read
 (`knowledge_reached_by_relation`, SECURITY DEFINER, walking backwards from the
-record); a rollback of the relation withdraws it. Amended 2026-11-12 (migration
-0236): walking back from every row was not cheap. An office entitled to little
-of the corpus ran the walk once per hidden platform row, again inside each
-revision table's policy, and paid seconds per read. The policy and
-`recordReadable` now read `knowledge_reached_ids()`, the same reach walked
-forward from the records the office is entitled to, once per subplan
-that needs it (two to four in a query) rather than once per hidden row;
-`visibility.integration.spec.ts` holds it to the per-row walk.
+record so the row policy stays cheap); a rollback of the relation withdraws it.
 
 **Austria is pack 1, the EU pack 0.** `configs/knowledge-packs/{eu,at}.json`
 are proposals in the records format, generated once from the OIB's own table
