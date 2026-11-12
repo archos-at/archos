@@ -72,6 +72,7 @@ import {
   setProjectStatusInOrg,
   setProjectWorkosResourceId,
   softDeleteProjectAndEnqueue,
+  type ProjectProfileState,
   type ProjectStatusWrite,
 } from './repository'
 
@@ -290,7 +291,9 @@ export interface CreateProjectInput {
  * the compensating delete. A closing given with it is NOT carried out: the
  * project stays active while its documents are read and closes when the
  * review is finished, so the intake keeps the closing as an intent.
- * Without it this is the function it always was.
+ * With `setup: 'self'` no intake row is written, but the site the project was
+ * created with is (`seedProjectSite`). Either way the project returned carries
+ * the profile written, so its `profileVersion` is the stored one.
  */
 export async function createProject(
   session: AuthorizedSession,
@@ -319,6 +322,7 @@ export async function createProject(
   })
 
   let project = inserted
+  let seeded: ProjectProfileState | null = null
   try {
     const resource = await workos.authorization.createResource({
       resourceTypeSlug: 'project',
@@ -337,7 +341,7 @@ export async function createProject(
     })
 
     if (piloti) {
-      await startProjectIntake(
+      seeded = await startProjectIntake(
         session,
         inserted,
         {
@@ -352,8 +356,9 @@ export async function createProject(
       )
     } else {
       const { location, address, federalState, country } = input
-      await seedProjectSite(session, inserted, { location, address, federalState, country }, now)
+      seeded = await seedProjectSite(session, inserted, { location, address, federalState, country }, now)
     }
+    if (seeded) project = { ...inserted, ...seeded }
     if (closeNow) project = await closeNewProject(session, inserted.id, closeNow, now)
   } catch (error) {
     // Best-effort undo, in WorkOS and in Postgres; it never throws.

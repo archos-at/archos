@@ -30,6 +30,10 @@
  * other way round. The write skips the access check for the reason
  * `createProject` closes a new project through the repository: the creator's
  * FGA grant may not have propagated yet.
+ *
+ * A project the person sets up themselves (`setup: self`) gets the same site
+ * entries with no intake row (`seedProjectSite`): a site stated on create is
+ * never dropped for the setup chosen.
  */
 
 import 'server-only'
@@ -45,7 +49,7 @@ import { seedProjectProfile } from '@/lib/project-profile/profile-service'
 import { salvageProjectProfile } from '@/lib/project-profile/salvage'
 import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
 import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/project-profile/types'
-import { inProjectTransaction } from './repository'
+import { inProjectTransaction, type ProjectProfileState } from './repository'
 
 export interface IntakeSeedInput {
   description?: string | undefined
@@ -177,7 +181,7 @@ export async function startProjectIntake(
   project: Project,
   input: IntakeSeedInput,
   now: Date
-): Promise<void> {
+): Promise<ProjectProfileState | null> {
   const row = intakeRowFor(session, project.id, input)
   const insertRow = async (tx: Parameters<typeof insertProjectIntake>[0]): Promise<void> => {
     await insertProjectIntake(tx, row)
@@ -185,23 +189,23 @@ export async function startProjectIntake(
   const profile = seededProfile(project, intakeSeed(input, now, session.userId))
   if (!profile) {
     await inProjectTransaction(session.organizationId, insertRow)
-    return
+    return null
   }
-  await seedProjectProfile(project, profile, insertRow)
+  return seedProjectProfile(project, profile, insertRow)
 }
 
 /**
  * The site a project the person sets up themselves (`setup: self`) was created with: the same entries
  * {@link startProjectIntake} writes, with no intake row, since nothing is read. A site stated on create
  * (a chosen hit, a typed address, `country`, `federalState`) is never dropped for the setup it chose.
- * Throws on failure; the caller rolls the project back.
+ * Answers the profile it wrote, or null when no site was given. Throws on failure; the caller rolls the project back.
  */
 export async function seedProjectSite(
   session: Pick<AuthorizedSession, 'userId'>,
   project: Project,
   input: Pick<IntakeSeedInput, 'location' | 'address' | 'federalState' | 'country'>,
   now: Date
-): Promise<void> {
+): Promise<ProjectProfileState | null> {
   const profile = seededProfile(project, intakeSeed(input, now, session.userId))
-  if (profile) await seedProjectProfile(project, profile)
+  return profile ? seedProjectProfile(project, profile) : null
 }

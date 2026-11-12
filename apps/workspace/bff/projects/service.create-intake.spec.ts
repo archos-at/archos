@@ -185,6 +185,15 @@ describe('createProject, set up by Piloti', () => {
     )
   })
 
+  it('answers the project with the profile the seed wrote, so its version is the stored one', async () => {
+    const profile = { facts: {}, goals: {}, unknowns: [], assumptions: {} }
+    seedProjectSite.mockResolvedValueOnce({ profile, profileVersion: 2, profilePromptView: null, profileDisplay: null, profileUpdatedAt: NOW })
+
+    const project = await createProject(session, { name: 'Selbst', setup: 'self', country: 'at' }, undefined, NOW)
+
+    expect(project.profileVersion).toBe(2)
+  })
+
   it('rolls the project back when the site of a "self" project cannot be written', async () => {
     seedProjectSite.mockRejectedValueOnce(new Error('write failed'))
 
