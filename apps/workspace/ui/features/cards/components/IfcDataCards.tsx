@@ -614,11 +614,8 @@ export function IfcComplianceCard({
   // WRONG — every fire-resistance rule stands down, so for a moment the card
   // contradicts the model page about the same building. It also costs a
   // measured ~1.5 s and ~126 MB of server work per card, thrown away.
-  const {
-    data: run,
-    isLoading: queryLoading,
-    error,
-  } = useModelQuery(facts.ready ? (model?.id ?? null) : null, request, pickCompliance)
+  const query = useModelQuery(facts.ready ? (model?.id ?? null) : null, request, pickCompliance)
+  const { data: run, isLoading: queryLoading, error } = query
   const rules = run?.rules ?? null
   const isLoading = queryLoading || !facts.ready
 
@@ -704,13 +701,15 @@ export function IfcComplianceCard({
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {rule.applicable
-                      ? t('compliance.counts', {
+                    {/* A hint, from the records, is said as is: its counts would read as missing data. */}
+                    {!rule.applicable
+                      ? `${t('compliance.notApplicable')}: ${rule.notApplicableReason ?? ''}`
+                      : (rule.hint ??
+                        t('compliance.counts', {
                           passed: rule.passed,
                           failed: rule.failed,
                           undecidable: rule.undecidable,
-                        })
-                      : `${t('compliance.notApplicable')}: ${rule.notApplicableReason ?? ''}`}
+                        }))}
                   </p>
                 </li>
               ))}

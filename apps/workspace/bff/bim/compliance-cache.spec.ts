@@ -18,6 +18,9 @@ import {
   writeComplianceCache,
   type CachedCompliance,
 } from './compliance-cache'
+import { basisKey, ruleBases } from './rule-basis'
+import { contextAt, contextUse } from './rule-basis.fixtures'
+import { BIM_RULES } from './rules'
 
 const value = (label: string): CachedCompliance => ({
   compliance: [],
@@ -63,11 +66,14 @@ describe('the compliance cache', () => {
     expect(readComplianceCache(model('m-1'), 4, 'office', 'AT')).toBeNull()
   })
 
-  it('misses on a different site: an OIB verdict is no verdict in Germany', () => {
-    writeComplianceCache(model('m-1'), 4, 'residential', 'AT-9>AT', value('a'))
+  it('misses on a changed basis: a verdict where one edition binds is a hint where another does', () => {
+    const at = (territoryId: string, label: string) =>
+      basisKey(ruleBases(BIM_RULES, contextAt(territoryId, 'core', [contextUse('OIB-Richtlinie 2', label)])))
+    writeComplianceCache(model('m-1'), 4, 'residential', at('AT-9', 'Ausgabe Mai 2023'), value('a'))
 
-    expect(readComplianceCache(model('m-1'), 4, 'residential', 'DE')).toBeNull()
-    expect(readComplianceCache(model('m-1'), 4, 'residential', 'unplaced')).toBeNull()
+    expect(readComplianceCache(model('m-1'), 4, 'residential', at('AT-9', 'Ausgabe Mai 2023'))).not.toBeNull()
+    expect(readComplianceCache(model('m-1'), 4, 'residential', at('AT-6', 'Ausgabe April 2019'))).toBeNull()
+    expect(readComplianceCache(model('m-1'), 4, 'residential', basisKey(ruleBases(BIM_RULES, null)))).toBeNull()
   })
 
   it('misses on a different model', () => {

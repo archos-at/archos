@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { extractIfcModel, IfcExtractionError, looksLikeStepIfc } from './extract'
 import { buildStoredRuleInputs, readStoredRuleInputs } from './rule-inputs'
+import { SETTLED_BASES } from './rule-basis.fixtures'
 import { runBimRules } from './rules'
 import { createZip } from './zip'
 import type { BimModelIndex } from './types'
@@ -277,14 +278,13 @@ describe('extractIfcModel', () => {
 
 describe('IsExternal, from the file to the verdict', () => {
   const EXTERNAL_WALL_FLAG = "#44=IFCPROPERTYSINGLEVALUE('IsExternal',$,IFCBOOLEAN(.T.),$);"
-  const VIENNA = { chain: ['AT-9', 'AT'] }
 
   async function envelopeRule(edit: (step: string) => string) {
     const step = edit(readFileSync(FIXTURE, 'latin1'))
     const bytes = new TextEncoder().encode(step)
     const index = await extractIfcModel(bytes.buffer as ArrayBuffer, 'sample-building.ifc')
     const stored = readStoredRuleInputs(buildStoredRuleInputs(index.elements, false))
-    const results = runBimRules(stored?.elements ?? [], { site: VIENNA, mainUse: 'residential' })
+    const results = runBimRules(stored?.elements ?? [], { bases: SETTLED_BASES, mainUse: 'residential' })
     return results.find((result) => result.ruleId === 'oib6-u-value-external-wall')
   }
 
