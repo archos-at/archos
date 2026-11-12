@@ -12,7 +12,7 @@
  */
 
 import type { JSX } from 'react'
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import { Pencil, Trash2, Ungroup } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -21,99 +21,66 @@ import {
   updatePersonalMemoryNote,
 } from '@/adapters/api/personal-memory-client'
 import { TopicPicker } from '@/components/memory/topic-picker'
+import { TopicRenameDialog } from '@/components/memory/topic-rename-dialog'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Field, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { useTranslations } from '@/i18n'
 import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
 import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
-import { normalizeTopic } from '@/lib/memory-topics/topic'
-
-/** The topic a typed name means in its normal form (null for no name), or null when it is too long to be one. */
-function normalizedOrNull(raw: string): { topic: string | null } | null {
-  try {
-    return { topic: normalizeTopic(raw) }
-  } catch {
-    return null
-  }
-}
 
 /** The topic's own actions, in the topic's heading. The no-topic group has none: there is nothing to rename, merge or remove. */
 export function PersonalTopicActions({
   topic,
   count,
+  topics,
   onChanged,
 }: {
   topic: string | null
   /** How many of the person's notes are on the topic: what the removal says it deletes. */
   count: number
+  /** The person's topics, the merge targets a rename offers. */
+  topics: string[]
   onChanged: () => void
 }): JSX.Element | null {
   const t = useTranslations(memoryTopicsCopy)
   const shared = useTranslations(personalMemoryCopy)
-  const generatedId = useId()
   const [busy, setBusy] = useState(false)
   const [renaming, setRenaming] = useState(false)
-  const [name, setName] = useState('')
   const [removing, setRemoving] = useState(false)
 
   if (topic === null) return null
 
-  const typed = normalizedOrNull(name)
-  const nameTooLong = typed === null
-  const nameEmpty = typed !== null && typed.topic === null
-  // Only the same name is no change. A new case of the name is a rename: the server changes the spelling.
-  const unchanged = typed?.topic === topic
-  const nameErrorId = `${generatedId}-name-error`
-
-  /** Runs one write, then reads the list again; a failure says so and changes nothing. */
-  const runWrite = async (task: () => Promise<void>, failure: string): Promise<void> => {
+  /** Runs one write, then reads the list again; a failure says so, changes nothing and resolves false. */
+  const runWrite = async (task: () => Promise<void>, failure: string): Promise<boolean> => {
     setBusy(true)
     try {
       await task()
       onChanged()
+      return true
     } catch {
       toast.error(failure)
+      return false
     } finally {
       setBusy(false)
     }
   }
 
-  const openRename = (): void => {
-    setName(topic)
-    setRenaming(true)
-  }
+  // A name another topic has merges the notes into it; the server resolves the spelling against the shelf.
+  const rename = (to: string): Promise<boolean> =>
+    runWrite(() => renamePersonalMemoryTopic({ from: topic, to }).then(() => undefined), shared('errors.saveFailed'))
 
-  const rename = (): Promise<void> => {
-    if (!typed || typed.topic === null) return Promise.resolve()
-    if (unchanged) {
-      setRenaming(false)
-      return Promise.resolve()
-    }
-    const to = typed.topic
-    return runWrite(async () => {
-      // A name another topic has merges the notes into it; the server answers how many moved.
-      await renamePersonalMemoryTopic({ from: topic, to })
-      setRenaming(false)
-    }, shared('errors.saveFailed'))
-  }
-
-  const ungroup = (): Promise<void> =>
-    runWrite(async () => {
-      await renamePersonalMemoryTopic({ from: topic, to: null })
-    }, shared('errors.saveFailed'))
+  const ungroup = (): Promise<boolean> =>
+    runWrite(() => renamePersonalMemoryTopic({ from: topic, to: null }).then(() => undefined), shared('errors.saveFailed'))
 
   const remove = (): Promise<void> =>
     runWrite(async () => {
       await removePersonalMemoryTopic(topic)
       setRemoving(false)
-    }, shared('errors.removeFailed'))
+    }, shared('errors.removeFailed')).then(() => undefined)
 
   return (
     <div className="flex flex-wrap items-center gap-1" data-testid="personal-topic-actions">
-      <Button variant="ghost" size="sm" onClick={openRename} disabled={busy}>
+      <Button variant="ghost" size="sm" onClick={() => setRenaming(true)} disabled={busy}>
         <Pencil className="size-4" aria-hidden />
         {t('rename')}
       </Button>
@@ -126,45 +93,13 @@ export function PersonalTopicActions({
         {t('removeTopic')}
       </Button>
 
-      <Dialog open={renaming} onOpenChange={setRenaming}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('rename')}</DialogTitle>
-            <DialogDescription>{t('mergeHint')}</DialogDescription>
-          </DialogHeader>
-          <Field>
-            <FieldLabel htmlFor={`${generatedId}-name`}>{t('renamePlaceholder')}</FieldLabel>
-            <Input
-              id={`${generatedId}-name`}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  void rename()
-                }
-              }}
-              placeholder={t('renamePlaceholder')}
-              aria-invalid={nameTooLong || undefined}
-              aria-describedby={nameTooLong ? nameErrorId : undefined}
-              autoFocus
-            />
-            {nameTooLong && (
-              <p id={nameErrorId} className="text-destructive mt-1 text-xs">
-                {t('topicTooLong')}
-              </p>
-            )}
-          </Field>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setRenaming(false)} disabled={busy}>
-              {shared('cancel')}
-            </Button>
-            <Button size="sm" onClick={() => void rename()} disabled={busy || nameTooLong || nameEmpty}>
-              {shared('save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TopicRenameDialog
+        open={renaming}
+        topic={topic}
+        topics={topics}
+        onOpenChange={setRenaming}
+        onRename={rename}
+      />
 
       <ConfirmDialog
         open={removing}

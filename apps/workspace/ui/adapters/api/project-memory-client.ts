@@ -4,8 +4,9 @@
  * Typed fetch client for a project's memory and its closing experience
  * (`/api/projects/[id]/memory…`, `/api/projects/[id]/experience`): listing the
  * remembered decisions and constraints, confirming or dismissing one, recording
- * a lesson, and asking the backend to read the project's documents for what they
- * say about the project. Same-origin BFF routes; the item shape is the schema's
+ * a lesson, renaming or ungrouping a topic, moving a note to another topic, and
+ * asking the backend to read the project's documents for what they say about
+ * the project. Same-origin BFF routes; the item shape is the schema's
  * own (`lib/db/schema/project-memory.ts`) and the extraction result is the
  * experience library's (`lib/project-experience/types.ts`).
  *
@@ -43,6 +44,19 @@ export interface ProjectMemoryUpdate {
 const jsonHeaders: HeadersInit = { 'Content-Type': 'application/json' }
 
 const memoryPath = (projectId: string): string => `/api/projects/${encodeURIComponent(projectId)}/memory`
+
+/** A note's own route. An office note is the organization's, so it goes where the office panel sends it. */
+const noteUrl = (projectId: string, item: { id: string; scope: string }): string =>
+  item.scope === 'organization'
+    ? `/api/organization/memory/${encodeURIComponent(item.id)}`
+    : `${memoryPath(projectId)}/${encodeURIComponent(item.id)}`
+
+/** A PATCH that answers JSON, or throws the typed error with the status the shelf refused with. */
+async function patchJson<T>(url: string, body: unknown): Promise<T> {
+  const response = await fetch(url, { method: 'PATCH', headers: jsonHeaders, body: JSON.stringify(body) })
+  if (!response.ok) throw new ApiRequestError(`Failed to update project memory: ${response.status}`, response.status)
+  return (await response.json()) as T
+}
 
 // ============================================================
 // Memory
@@ -88,6 +102,23 @@ export const addProjectMemoryItem = async (
   if (!response.ok) throw new ApiRequestError(`Failed to add project memory: ${response.status}`, response.status)
   return (await response.json()) as { item: ProjectMemoryEntry }
 }
+
+/**
+ * Rename a topic of the project shelf, or merge it into another (a name another
+ * topic has merges the notes into it), or ungroup it (`to` null). Answers how many
+ * notes moved.
+ */
+export const renameProjectMemoryTopic = (
+  projectId: string,
+  input: { from: string | null; to: string | null },
+): Promise<{ moved: number }> => patchJson<{ moved: number }>(`${memoryPath(projectId)}/topics`, input)
+
+/** Move one note, of the project or of the office, to another topic (`null` for none). Answers the note. */
+export const moveProjectMemoryNote = (
+  projectId: string,
+  item: { id: string; scope: string },
+  topic: string | null,
+): Promise<{ item: unknown }> => patchJson<{ item: unknown }>(noteUrl(projectId, item), { topic })
 
 // ============================================================
 // Experience

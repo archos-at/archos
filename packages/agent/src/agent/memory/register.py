@@ -266,7 +266,9 @@ def _restricted_target(target: _Target, project_id: str | None) -> _Target | str
 MAX_SUPERSEDES_CHARS = 500
 
 
-async def _emit_memory_proposal_card(*, content: str, kind: str, confidence: str, supersedes: str = "") -> bool:
+async def _emit_memory_proposal_card(
+    *, content: str, kind: str, confidence: str, supersedes: str = "", topic: str = ""
+) -> bool:
     """Build and register a ``memory_proposal`` confirmation card, with its server proposal.
 
     Returns True if the card was added to a bound conversation-scoped card

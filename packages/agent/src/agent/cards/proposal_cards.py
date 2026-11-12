@@ -133,6 +133,11 @@ class MemoryProposalCard(CardModel):
         max_length=500,
         description="The earlier note this one corrects, quoted verbatim; accepting the proposal retires it",
     )
+    topic: str | None = Field(
+        default=None,
+        max_length=40,
+        description="The subject the note is filed under on its shelf; the browser sends it with the note",
+    )
     proposal_id: str | None = Field(
         default=None,
         pattern=PROPOSAL_ID_PATTERN,
