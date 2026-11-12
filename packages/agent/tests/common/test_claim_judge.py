@@ -286,6 +286,28 @@ class TestWorkspaceRecordsKeepToTheirShare:
         assert data["turn_context"] == [long_law]
 
     def test_the_whole_block_stays_within_the_budget_and_the_context(self):
-        body = build_messages(self._two_reads())[1].content
+        # A context at its producers' sizes: the law block at its 16,000 characters, an inventory of 6,000.
+        context = ["<building_law>" + "y" * 16_000 + "</building_law>", "<inventory>" + "z" * 6_000 + "</inventory>"]
+        evidence = _evidence(
+            Passage("[1]", "Wände gegen Außenluft: U ≤ 0,35 W/m²K", cited=True),
+            records=[self.READ, self.READ],
+            context=context,
+        )
+        data = _data(build_messages(evidence))
+        body = build_messages(evidence)[1].content
 
-        assert len(body) < claim_judge.EVIDENCE_BUDGET_CHARS
+        assert [p["label"] for p in data["passages"]] == ["[1]"]
+        assert len(body) < claim_judge.EVIDENCE_BUDGET_CHARS + 2_000
+
+    def test_the_newest_reads_are_kept_and_stay_in_reading_order(self):
+        # Two early listings must not push out the read the answer was written after.
+        listing, cited_read = "list (read): " + "l" * 11_000, "project-base-get (read): " + "U-Wert 0,30"
+        data = _data(build_messages(_evidence(records=[listing, listing, listing, cited_read])))
+
+        assert data["records"] == [listing, listing, cited_read]
+        assert data["records_left_out_for_length"] == 1
+
+    def test_the_grader_is_told_a_cut_is_unseen_data_never_a_regulation(self):
+        assert "[cut for length]" in claim_judge.SYSTEM_PROMPT
+        assert "records_left_out_for_length" in claim_judge.SYSTEM_PROMPT
+        assert "never excuses a statement of what a regulation requires" in claim_judge.SYSTEM_PROMPT

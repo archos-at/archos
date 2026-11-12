@@ -2,5 +2,5 @@
 # area: answers
 fixes:
   - >
-    Answers that look up the building law of a project on a past or future day now always show how well
-    their sources back them, and the steps behind them no longer show that lookup as failed.
+    Answers that look up the building law of a project on a past or future day show how well their sources
+    back them again, and the steps behind them no longer show that lookup as failed.
