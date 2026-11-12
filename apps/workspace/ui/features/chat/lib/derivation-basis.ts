@@ -53,36 +53,37 @@ const SHELF_KEYS: Record<string, string> = {
 }
 
 /**
- * A clause a reader can write down: a numbered point, a paragraph, a table, a
- * figure, an annex, a Ziffer. Anything else the chunker put in `clause` (a
- * heading trail „Anforderungen … › U-Wert Bauteil (2)“, a cover number, the
- * Vorbemerkungen „0“) is no address; the card leaves it to the hover.
+ * A clause a reader can write down: a numbered point („3.2.1“, „A.1“), a
+ * paragraph with its Absatz, Ziffer and litera („§ 43 Abs. 2 Z 9“), or a
+ * named one followed by its number or letter („Tabelle 3“, „Anhang A“,
+ * „Anlage 1“, „Art. 15a“, „Ziffer 3“). Anything else the chunker put in
+ * `clause` (a heading trail „Anforderungen … › U-Wert Bauteil (2)“, a heading
+ * that only starts like one, „Punktförmige Wärmebrücken“, „Tabellenverzeichnis“,
+ * a cover number, a bare year, the Vorbemerkungen „0“) is no address: the card
+ * leaves it to the hover. A numbered heading („3.2.1 Allgemeines“) is
+ * addressed by its number.
  */
-const ADDRESS = /^(?:§|Art(?:ikel|\.)|Tab(?:elle|\.)|Abb(?:ildung|\.)|Anh(?:ang|\.)|Abs\.|Pkt\.|Punkt|Z\.?\s?\d|\d+(?:\.\d+)*[a-z]?$)/
-const MAX_ADDRESS = 32
+const TOKEN = String.raw`(?:\d+[a-z]?(?:\.\d+[a-z]?)*\.?|[a-z](?:\.\d+)*)`
+const NAMED = String.raw`(?:(?:Art|Tab|Abb|Anh|Abs|Pkt|lit|Z)\.\s*|(?:Artikel|Tabelle|Tab|Abbildung|Anhang|Anlage|Absatz|Punkt|Ziffer|Z|Kapitel|Abschnitt)\s+)${TOKEN}`
+const PARAGRAPH = String.raw`§{1,2}\s*\d+[a-z]?(?:\s+(?:Abs\.|Absatz)\s*\d+[a-z]?)?(?:\s+(?:Z\.?|Ziffer)\s*\d+)?(?:\s+lit\.\s*[a-z])?`
+const POINT = String.raw`(?:[a-z]\.)?\d+(?:\.\d+)*[a-z]?\.?`
+const ADDRESS = new RegExp(`^(?:${PARAGRAPH}|${NAMED}|${POINT})$`, 'i')
+const NUMBERED_HEADING = /^(\d+(?:\.\d+)+)\.?\s+\p{L}/u
+const NO_ADDRESS = /^(?:\d{4}|0|(?:Pkt\.|Punkt)\s*0)$/i
 
-export const isAddress = (clause: string | undefined): clause is string => {
-  const text = clause?.trim()
-  return !!text && text !== '0' && text.length <= MAX_ADDRESS && !text.includes('›') && ADDRESS.test(text)
+/** The address a clause names, as written, or undefined when it names none (see `ADDRESS`). */
+export const addressOf = (clause: string | undefined): string | undefined => {
+  const text = clause?.trim().replace(/\s+/g, ' ')
+  if (!text) return undefined
+  const heading = NUMBERED_HEADING.exec(text)
+  const candidate = heading ? heading[1]! : text
+  if (NO_ADDRESS.test(candidate) || !ADDRESS.test(candidate)) return undefined
+  return candidate
 }
 
-const addressLabel = (t: Translator, clause: string): string =>
-  /^\d/.test(clause) ? t('thinking.node.basis.clause', { clause }) : clause
-
-/**
- * „Pkt. 3.1.1“, „§ 1“, „Tabelle 3, S. 10“ or „S. 7“: the address of one passage.
- * Only a numbered point is called one, and it is address enough; a clause that
- * names its own kind (a paragraph sign, a table) is said as it is written,
- * never „Pkt. § 1“, and keeps its page. A clause that is no address (see
- * `isAddress`) leaves the page alone.
- */
-export const locusLabel = (t: Translator, locus: CitationLocus): string | undefined => {
-  const clause = locus.clause?.trim()
-  const page = typeof locus.page === 'number' ? t('thinking.node.basis.page', { page: locus.page }) : undefined
-  if (!isAddress(clause)) return page
-  if (/^\d/.test(clause)) return addressLabel(t, clause)
-  return [clause, page].filter(Boolean).join(', ')
-}
+/** „Pkt. 3.2.1“ for a bare numbered point, every other address as written. */
+const addressLabel = (t: Translator, address: string): string =>
+  new RegExp(`^${POINT}$`, 'i').test(address) ? t('thinking.node.basis.clause', { clause: address.replace(/\.$/, '') }) : address
 
 /** „7–8, 10“: pages sorted, a run of consecutive pages said as a range. */
 export const pageRanges = (pages: readonly number[]): string => {
@@ -108,11 +109,17 @@ const MAX_ADDRESSES = 2
  */
 export const documentLocation = (t: Translator, doc: CitedDocument): string | undefined => {
   const loci = isCited(doc) ? citedLoci(doc) : doc.loci
-  const addresses = [...new Set(loci.flatMap((locus) => (isAddress(locus.clause) ? [addressLabel(t, locus.clause.trim())] : [])))]
+  const addresses = [...new Set(loci.flatMap((locus) => {
+    const address = addressOf(locus.clause)
+    return address ? [addressLabel(t, address)] : []
+  }))]
   const pages = loci.flatMap((locus) => (typeof locus.page === 'number' ? [locus.page] : []))
   const named = addresses.slice(0, MAX_ADDRESSES)
   if (addresses.length > MAX_ADDRESSES) named.push(t('thinking.node.basis.more', { count: addresses.length - MAX_ADDRESSES }))
-  const parts = [named.join(', '), pages.length > 0 ? t('thinking.node.basis.page', { page: pageRanges(pages) }) : '']
+  const distinct = new Set(pages)
+  const pageLabel =
+    distinct.size === 0 ? '' : distinct.size === 1 ? t('thinking.node.basis.page', { page: pages[0]! }) : t('thinking.node.basis.pages', { pages: pageRanges(pages) })
+  const parts = [named.join(', '), pageLabel]
   const label = parts.filter(Boolean).join(' · ')
   return label || undefined
 }
@@ -175,29 +182,43 @@ export const adoptingAct = (doc: Pick<CitedDocument, 'line'>): string | undefine
   return `${designation}, ${provision}`
 }
 
-/** The first day a binding role holds, as the dictionary writes a day; undefined for anything but `YYYY-MM-DD`. */
-const roleSince = (t: Translator, doc: Pick<CitedDocument, 'line'>): string | undefined => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(doc.line?.role_since ?? '')
+
+/** The labels a role carries when the platform's check of its edition is due or was never made (ADR-0173). */
+const CHECK_DUE = new Set(['check_overdue', 'unchecked_since'])
+
+/** `YYYY-MM-DD` as the dictionary writes a day; undefined for anything else. */
+const dayOf = (t: Translator, value: string | null | undefined): string | undefined => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? '')
   return match ? t('thinking.node.basis.date', { year: match[1], month: match[2], day: match[3] }) : undefined
 }
 
-/** The labels a role carries when the platform has not checked it against its source (ADR-0173). */
-const UNCHECKED = new Set(['check_overdue', 'unchecked_since'])
+/**
+ * What the records say about how far the route has been checked: never against its source, last on a day
+ * that is now past due, or read from an official source nobody curated. Nothing when the check is current.
+ */
+const checkState = (t: Translator, doc: CitedDocument): string[] => {
+  const B = 'thinking.node.basis.'
+  const labels = doc.line?.role_labels ?? []
+  const states: string[] = []
+  if (labels.includes('uncurated_source')) states.push(t(`${B}uncurated`))
+  if (labels.some((label) => CHECK_DUE.has(label))) {
+    const last = dayOf(t, doc.line?.last_checked_at)
+    states.push(last ? t(`${B}checkedOn`, { date: last }) : t(`${B}unchecked`))
+  }
+  return states
+}
 
 /**
  * One line of „Grundlagen“: the edition, the act it is binding through and since when, then the passage.
  * This is the chain a reader checks the answer by: which act makes this edition apply at the site. It is
- * the platform's record of that chain, so when the record was never checked against its source the line
- * says so, rather than stating the route as settled law.
+ * the platform's record of that chain, so when that record is not checked, or its check is past due, the
+ * line says which, rather than stating the route as settled law.
  */
 const basisLine = (t: Translator, doc: CitedDocument): BasisLine => {
   const act = adoptingAct(doc)
-  const since = act ? roleSince(t, doc) : undefined
+  const since = act ? dayOf(t, doc.line?.role_since) : undefined
   const B = 'thinking.node.basis.'
-  const record = act && [
-    since ? t(`${B}bindingSince`, { act, since }) : t(`${B}binding`, { act }),
-    ...((doc.line?.role_labels ?? []).some((label) => UNCHECKED.has(label)) ? [t(`${B}unchecked`)] : []),
-  ]
+  const record = act && [since ? t(`${B}bindingSince`, { act, since }) : t(`${B}binding`, { act }), ...checkState(t, doc)]
   const name = record ? t(`${B}withRecord`, { name: cardName(doc), record: record.join(', ') }) : cardName(doc)
   const text = [name, documentLocation(t, doc)].filter(Boolean).join(', ')
   return { numbers: citationNumbers(doc), text }

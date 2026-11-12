@@ -1728,12 +1728,17 @@ export const chat: typeof en.chat = {
         open: 'Offen',
         clause: 'Pkt.\u00A0{clause}',
         page: 'S.\u00A0{page}',
+        pages: 'S.\u00A0{pages}',
         more: '+{count} weitere',
         // Eine Ausgabe, die ein Rechtsakt hier für verbindlich erklärt: der Akt, wie ihn die Daten nennen.
         binding: 'verbindlich über {act}',
         bindingSince: 'verbindlich über {act} seit {since}',
         // Der Weg stammt aus dem Datensatz der Plattform, der noch nie an der Rechtsquelle geprüft wurde.
-        unchecked: 'laut Plattformdaten, noch nicht an der Quelle geprüft',
+        unchecked: 'laut Plattformdaten, noch nie an der Quelle geprüft',
+        // Geprüft, aber die nächste Prüfung ist fällig: der Tag der letzten.
+        checkedOn: 'laut Plattformdaten, zuletzt am {date} an der Quelle geprüft',
+        // Aus einer amtlichen Quelle gelesen, die niemand kuratiert hat.
+        uncurated: 'amtliche Quelle, nicht kuratiert',
         withRecord: '{name} ({record})',
         date: '{day}.{month}.{year}',
         // Aus einem Aufruf ohne Treffer: wo gesucht wurde und wonach. Nie „Keine Informationen gefunden“.

@@ -10,7 +10,7 @@ import {
   cardName,
   documentLocation,
   documentLocationDetail,
-  locusLabel,
+  addressOf,
   pageRanges,
 } from './derivation-basis'
 import { documentShortName } from './document-names'
@@ -26,7 +26,7 @@ const FILE_NAME = /\.pdf\b|text-[0-9a-f]{6,}/
 describe('the Herleitung names a cited edition by its records, never by its file', () => {
   test('the last card says the edition, the act it is binding through and since when, then the passage', () => {
     const law = basisLines(t, cardsOf(stairs)).law.map((line) => line.text)
-    expect(law[0]).toBe('OIB-Richtlinie 4, Ausgabe April 2019 (verbindlich über StBTV 2020 seit 01.09.2020, laut Plattformdaten, noch nicht an der Quelle geprüft), Tabelle 3 · S. 4, 10')
+    expect(law[0]).toBe('OIB-Richtlinie 4, Ausgabe April 2019 (verbindlich über StBTV 2020 seit 01.09.2020, laut Plattformdaten, noch nie an der Quelle geprüft), Tabelle 3 · S. 4, 10')
     // Law read live keeps its own title and has no route: it is law in its own territory.
     expect(law[1]).toBe('Steiermärkische Bautechnikverordnung 2020 – StBTV 2020, § 1')
     for (const text of law) expect(text).not.toMatch(FILE_NAME)
@@ -35,7 +35,7 @@ describe('the Herleitung names a cited edition by its records, never by its file
   test('an act whose provision is a gazette number is said with its designation in front', () => {
     const [line] = basisLines(t, cardsOf(uValue)).law
     expect(line.numbers).toEqual([1, 2])
-    expect(line.text.startsWith('OIB-Richtlinie 6, Ausgabe 2025 (verbindlich über WBTV, LGBl. 26/2026 seit 15.07.2026, laut Plattformdaten, noch nicht an der Quelle geprüft)')).toBe(true)
+    expect(line.text.startsWith('OIB-Richtlinie 6, Ausgabe 2025 (verbindlich über WBTV, LGBl. 26/2026 seit 15.07.2026, laut Plattformdaten, noch nie an der Quelle geprüft)')).toBe(true)
     expect(line.text).not.toMatch(FILE_NAME)
   })
 
@@ -72,13 +72,32 @@ describe('adoptingAct', () => {
   })
 })
 
-describe('locusLabel', () => {
-  test('only a numbered point is called one, and a named clause keeps its page', () => {
-    expect(locusLabel(t, { key: 'a', isCited: true, clause: '3.2.1' })).toBe('Pkt. 3.2.1')
-    expect(locusLabel(t, { key: 'b', isCited: true, clause: '§ 1' })).toBe('§ 1')
-    expect(locusLabel(t, { key: 'c', isCited: true, clause: 'Tabelle 3', page: 10 })).toBe('Tabelle 3, S.\u00A010')
-    expect(locusLabel(t, { key: 'e', isCited: true, clause: '3.2.1', page: 10 })).toBe('Pkt.\u00A03.2.1')
-    expect(locusLabel(t, { key: 'd', isCited: true, clause: 'Pkt. 4.2' })).toBe('Pkt. 4.2')
+describe('addressOf', () => {
+  test('a clause a reader can write down is its address', () => {
+    for (const clause of ['3.2.1', '2.3.1a', 'A.1', '§ 1', '§ 43 Abs. 2', '§ 36 Abs. 1 Z 9', 'Art. 15a', 'Artikel 3', 'Tabelle 3', 'Tab. 2b', 'Anhang A', 'Anh. B', 'Anlage 1', 'Ziffer 3', 'Z 9', 'Abs. 2', 'Absatz 2', 'Pkt. 4.2', 'pkt. 4.2', 'lit. a', 'Kapitel 3', 'Abschnitt 2.3']) {
+      expect(addressOf(clause), clause).toBe(clause)
+    }
+    expect(addressOf('3.2.1.')).toBe('3.2.1.')
+    expect(addressOf('3.2.1 Allgemeines')).toBe('3.2.1')
+  })
+
+  test('a heading, a bare word, a year, a cover number and the Vorbemerkungen are none', () => {
+    for (const clause of ['Punktförmige Wärmebrücken', 'Tabellenverzeichnis', 'Abbildungsverzeichnis', 'Begriffsbestimmungen', 'Tab.', '§', 'Anhang', 'Z3', '2019', '0', 'Pkt. 0', 'OIB-330.6-138/25 SEPTEMBER 2025', 'U-Wert Bauteil › Neubau (2)', '']) {
+      expect(addressOf(clause), clause).toBeUndefined()
+    }
+  })
+})
+
+describe('the check state of a route', () => {
+  const [doc] = cardsOf(stairs)
+  const withLine = (line: object) => ({ ...doc, line: { ...doc.line, ...line } })
+  test('a check that is due names the day of the last one', () => {
+    const due = withLine({ role_labels: ['check_overdue'], last_checked_at: '2025-03-01' })
+    expect(basisLines(t, [due]).law[0].text).toContain('seit 01.09.2020, laut Plattformdaten, zuletzt am 01.03.2025 an der Quelle geprüft)')
+  })
+  test('an uncurated source says so', () => {
+    const raw = withLine({ role_labels: ['uncurated_source'], last_checked_at: null })
+    expect(basisLines(t, [raw]).law[0].text).toContain('seit 01.09.2020, amtliche Quelle, nicht kuratiert)')
   })
 })
 
@@ -91,10 +110,10 @@ describe('the card names an address, the hover the passage', () => {
       loci: loci.map((locus, i) => ({ key: String(i), isCited: true, ...locus })),
     }) as unknown as Parameters<typeof documentLocation>[1]
 
-  test('a heading trail, a cover number and the Vorbemerkungen are no address', () => {
-    expect(locusLabel(t, { key: 'h', isCited: true, clause: heading, page: 7 })).toBe('S.\u00A07')
-    expect(locusLabel(t, { key: 'c', isCited: true, clause: 'OIB-330.6-138/25 SEPTEMBER 2025', page: 1 })).toBe('S.\u00A01')
-    expect(locusLabel(t, { key: 'z', isCited: true, clause: '0', page: 4 })).toBe('S.\u00A04')
+  test('a heading trail, a cover number and the Vorbemerkungen leave the page alone', () => {
+    expect(documentLocation(t, doc([{ clause: heading, page: 7 }]))).toBe('S.\u00A07')
+    expect(documentLocation(t, doc([{ clause: 'OIB-330.6-138/25 SEPTEMBER 2025', page: 1 }]))).toBe('S.\u00A01')
+    expect(documentLocation(t, doc([{ clause: '0', page: 4 }]))).toBe('S.\u00A04')
   })
 
   test('the card reads the addresses and the pages, the hover every passage', () => {
