@@ -314,7 +314,7 @@ export function CloseProjectDialog({
             <div className="flex flex-wrap gap-2">
               {selected.size > 0 && proposal && items.length > 0 ? (
                 <>
-                  <Button variant="outline" onClick={() => finish(false)} disabled={pending}>
+                  <Button variant="secondary" onClick={() => finish(false)} disabled={pending}>
                     {t('cleanup.closeOnly')}
                   </Button>
                   <Button onClick={() => finish(true)} disabled={pending}>

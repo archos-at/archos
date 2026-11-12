@@ -212,8 +212,8 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
               <div
                 className={
                   controller.isNote
-                    ? 'border-input bg-muted relative overflow-hidden rounded-control border shadow-sm'
-                    : 'border-input bg-input-background relative overflow-hidden rounded-control border shadow-sm'
+                    ? 'border-input bg-muted relative overflow-hidden rounded-control border'
+                    : 'border-input bg-input-background relative overflow-hidden rounded-control border'
                 }
               >
                 {/* Answer body — the hero white surface. It fills the top of the card

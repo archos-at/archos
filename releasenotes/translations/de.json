@@ -72,6 +72,10 @@
     "de": "Eine kurze Verbindungsunterbrechung beim Einlesen einer Datei führt nicht mehr dazu, dass Seitenvorschauen, Bilder oder Thumbnails fehlen. Bei großen Plänen und langen Dokumenten bleiben Dokumenttyp und wichtige Fakten erhalten, die {productName} daraus ausliest."
   },
   {
+    "en": "A building-law text from a country release is now cited by its name, for example \"OIB-Richtlinie 4, Ausgabe Mai 2023\", instead of by its stored file name. The name comes from the work and edition the release reviewed, and a title someone set by hand is kept.",
+    "de": "Ein baurechtlicher Text aus einem Länder-Release wird nun mit seinem Namen zitiert, zum Beispiel „OIB-Richtlinie 4, Ausgabe Mai 2023“, statt mit seinem gespeicherten Dateinamen. Der Name stammt aus dem Werk und der Ausgabe, die im Release geprüft wurden; ein manuell festgelegter Titel bleibt erhalten."
+  },
+  {
     "en": "A cancelled upload in a chat's files now reads as cancelled instead of still uploading and can be removed with one click, and a file that finished reading just as you stopped it stays read.",
     "de": "Ein abgebrochener Upload in den Dateien eines Chats wird jetzt als abgebrochen statt weiterhin als laufend angezeigt und lässt sich mit einem Klick entfernen; eine Datei, deren Einlesen genau beim Abbrechen abgeschlossen wurde, bleibt als eingelesen markiert."
   },
@@ -484,6 +488,10 @@
     "de": "Eine Folgefrage baut jetzt auf der vorherigen Frage und Antwort auf – auch nach einer Antwort, bei der lange Passagen gelesen wurden, sowohl im Chat als auch, wenn ein anderer Agent Piloti fragt."
   },
   {
+    "en": "A guideline the platform holds as a released edition is now cited by its name and edition, such as „OIB-Richtlinie 6, Ausgabe März 2015“, with the body that issues it as publisher, instead of by its file name with the federal legal database as its source. This holds wherever the records of the site state its coverage.",
+    "de": "Eine Richtlinie, die auf der Plattform als veröffentlichte Ausgabe hinterlegt ist, wird nun mit ihrem Namen und ihrer Ausgabe zitiert, etwa als „OIB-Richtlinie 6, Ausgabe März 2015“, wobei die herausgebende Stelle als Herausgeber angegeben wird, statt mit ihrem Dateinamen und der Bundesrechtsdatenbank als Quelle. Dies gilt überall dort, wo die Datensätze der Website ihren Geltungsbereich ausweisen."
+  },
+  {
     "en": "A guideline written only for some buildings, such as a garage or a high-rise, can now say so, and is then named only for the buildings it is for, in the setup and in the chat alike. Where a deciding fact is still missing it reads „zu prüfen“ and names it; where it applies it says why and opens its text.",
     "de": "Eine Richtlinie, die nur für bestimmte Gebäude wie Garagen oder Hochhäuser gilt, kann das jetzt angeben und wird dann sowohl in der Einrichtung als auch im Chat nur für die Gebäude angezeigt, für die sie gilt. Fehlt noch eine entscheidende Angabe, steht dort „zu prüfen“ und die fehlende Angabe wird genannt; gilt die Richtlinie, wird erklärt, warum, und ihr Text geöffnet."
   },
@@ -546,6 +554,10 @@
   {
     "en": "A new revision now also tells everyone working on the open annotations it leaves behind, and says how many are left to check.",
     "de": "Eine neue Revision informiert jetzt auch alle, die an den offenen Anmerkungen arbeiten, die sie hinterlässt, und zeigt an, wie viele noch zu prüfen sind."
+  },
+  {
+    "en": "A newer edition of a standard is added beside the earlier one, and answers use the edition that applied when the project was filed. Running projects keep their edition, by the same rule as the standards the platform holds.",
+    "de": "Eine neuere Ausgabe einer Norm wird neben der bisherigen ergänzt; Antworten beziehen sich auf die Ausgabe, die bei Einreichung des Projekts galt. Laufende Projekte behalten ihre Ausgabe – nach derselben Regel wie die von der Plattform geführten Normen."
   },
   {
     "en": "A newly uploaded document can be found in search sooner: its content is searchable as soon as it is read, while its summary, tags and topics are still being written. It shows as finished once those are done too.",
@@ -634,6 +646,10 @@
   {
     "en": "A project with a filing date of today or earlier now gets its building-law answers, and the law named on its project page, on the editions in force that day, not today's. The answer says it took the filing date as the reference date and did not check transitional provisions.",
     "de": "Ein Projekt mit einem Einreichdatum von heute oder früher erhält seine baurechtlichen Antworten und das auf seiner Projektseite angeführte Gesetz nun in der an diesem Tag geltenden Fassung statt in der heutigen. Die Antwort gibt an, dass sie das Einreichdatum als Stichtag herangezogen und Übergangsbestimmungen nicht geprüft hat."
+  },
+  {
+    "en": "A project you set up yourself now keeps the country and Bundesland it was created with. Before, they were dropped and the first question asked for the Land again; an agent creating a project through the agent door hit the same gap.",
+    "de": "Ein Projekt, das Sie selbst anlegen, behält jetzt das Land und Bundesland, mit denen es erstellt wurde. Bisher gingen diese Angaben verloren und in der ersten Frage wurde erneut nach dem Land gefragt; bei Projekten, die ein Agent über den Agentenzugang anlegt, trat dieselbe Lücke auf."
   },
   {
     "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",
@@ -1128,6 +1144,10 @@
     "de": "Eine Antwort, die noch entsteht, bleibt erhalten, wenn Ihre Verbindung abbricht, und Piloti zeigt „Piloti arbeitet weiter“, bis die Antwort da ist."
   },
   {
+    "en": "An answer that names which edition of a guideline applies at your site, and since when, is no longer rated low confidence just for that statement. The confidence check now reads the same record of what applies at the site that the answer was written from.",
+    "de": "Eine Antwort, die angibt, welche Ausgabe einer Richtlinie an Ihrem Standort gilt und seit wann, wird nicht mehr allein für diese Aussage mit geringer Konfidenz bewertet. Die Konfidenzprüfung greift jetzt auf denselben Datensatz zu, der festhält, was an dem Standort gilt, auf dessen Grundlage die Antwort erstellt wurde."
+  },
+  {
     "en": "An answer with a card now takes one step less.",
     "de": "Eine Antwort mit Karte braucht jetzt einen Schritt weniger."
   },
@@ -1534,6 +1554,10 @@
   {
     "en": "Cards no longer show stray characters, such as a link printed in raw brackets next to the card's own working link. A card offers only the links it builds from the source it names.",
     "de": "Karten zeigen keine störenden Zeichen mehr, etwa einen Link in rohen Klammern neben dem eigenen, funktionierenden Link der Karte. Eine Karte bietet nur die Links an, die sie aus der genannten Quelle baut."
+  },
+  {
+    "en": "Cards, menus, popovers, dialogs and notices across the app draw one thin edge again instead of two lines on top of each other, so pages such as the project overview, the chat and the settings look calmer.",
+    "de": "Karten, Menüs, Popovers, Dialoge und Hinweise zeigen appweit wieder nur eine dünne Linie statt zweier übereinanderliegender Linien, sodass Seiten wie die Projektübersicht, der Chat und die Einstellungen ruhiger wirken."
   },
   {
     "en": "Changes Piloti proposes are filed again in every chat, and a proposed action now shows every value it would set in full and names the project or document it changes, so you never apply text you were not shown.",
@@ -2024,8 +2048,16 @@
     "de": "Jedes Büro kann jetzt eigene Standards, Kommentare und Richtlinien erfassen und abfragen, welche Fassung eines Gesetzes zu einem früheren Zeitpunkt galt."
   },
   {
+    "en": "Every page in a project now opens the same way: the project's name, the page's title, its tabs and a line, on the same edge as the content below. The office filing looks and navigates like a project's files, with the open folder named at the top and a way back up.",
+    "de": "Jede Seite in einem Projekt öffnet sich jetzt auf dieselbe Weise: mit dem Projektnamen, dem Seitentitel, den Tabs und einer Linie, die mit dem darunterliegenden Inhalt bündig abschließt. Die Büroablage sieht aus und funktioniert wie die Dateien eines Projekts: Der geöffnete Ordner wird oben angezeigt, und Sie können zur übergeordneten Ebene zurückkehren."
+  },
+  {
     "en": "Every step behind that figure is published with it: which numbers are our assumptions, which are yours, what a planner's week is assumed to look like, and what the calculation deliberately leaves out.",
     "de": "Jeder Schritt hinter dieser Zahl wird mitveröffentlicht: welche Zahlen auf unseren Annahmen beruhen und welche auf Ihren, wie die Arbeitswoche eines Planers angenommen wird und was die Berechnung bewusst nicht berücksichtigt."
+  },
+  {
+    "en": "Every white button now has one look and darkens when you point at it. Cards and folders darken too instead of lifting, and a file tile answers with the edge of its preview, with no grey laid behind it.",
+    "de": "Alle weißen Buttons haben jetzt ein einheitliches Erscheinungsbild und werden dunkler, wenn Sie mit dem Mauszeiger darauf zeigen. Auch Karten und Ordner werden dunkler statt angehoben; bei Dateikacheln wird der Rand der Vorschau hervorgehoben, ohne grauen Hintergrund."
   },
   {
     "en": "Existing budget limits were converted from euros to points. Check your organization, member and project limits once and adjust them if the new values are not what you meant.",
@@ -2752,6 +2784,10 @@
     "de": "In der Übersicht ist der Steckbrief jetzt eine Zusammenfassung mit einem „Bearbeiten“-Dialog; beim Schließen eines Projekts wird abgefragt, wer beteiligt war, damit der Datensatz vollständig ist, bevor er schreibgeschützt wird."
   },
   {
+    "en": "On the website's home page, the feld72 quote is new and stands beside a photo of the whole feld72 team, credited to its photographer, and the founders row now says who the three people are. Large retina screens and phones can now be sent larger images, so screenshots and photos stay sharp there once their full-size originals are in.",
+    "de": "Auf der Startseite ist das Zitat von feld72 neu und steht neben einem Foto des gesamten feld72-Teams mit Fotograf:innen-Credit; in der Gründer:innen-Zeile steht nun, wer die drei Personen sind. Große Retina-Displays und Smartphones können nun größere Bilder erhalten, damit Screenshots und Fotos scharf bleiben, sobald die Originale in voller Größe vorliegen."
+  },
+  {
     "en": "Once a newer version is published, Piloti stops answering from the replaced one. The older version stays in the version list and can still be opened.",
     "de": "Sobald eine neuere Fassung veröffentlicht ist, antwortet Piloti nicht mehr aus der ersetzten Fassung. Die ältere Fassung bleibt im Fassungsverlauf und lässt sich weiter öffnen."
   },
@@ -3350,6 +3386,10 @@
   {
     "en": "Right-click in a project's Files works the way it does in Finder and Explorer: a file, a folder and the empty list each open their own menu. The ⋯ button on a file or folder offers the same actions, so the menu stays available if you never right-click.",
     "de": "Der Rechtsklick im Bereich Dateien eines Projekts funktioniert wie im Finder und im Explorer: Eine Datei, ein Ordner und die leere Liste öffnen jeweils ein eigenes Menü. Die Schaltfläche ⋯ an einer Datei oder einem Ordner bietet dieselben Aktionen, sodass das Menü auch dann erreichbar bleibt, wenn Sie nie mit der rechten Maustaste klicken."
+  },
+  {
+    "en": "Rows, buttons and menu entries now darken by the same single step when you point at them, everywhere in the app. The entry under the pointer no longer looks like the one that is open, and the three-dot button of a file shows when you point at it.",
+    "de": "Zeilen, Schaltflächen und Menüeinträge werden jetzt überall in der App beim Darüberfahren um genau eine Stufe dunkler. Der Eintrag unter dem Mauszeiger sieht nicht mehr wie der geöffnete Eintrag aus, und die Drei-Punkte-Schaltfläche einer Datei wird beim Darüberfahren angezeigt."
   },
   {
     "en": "Saving organization settings, standing instructions or the price list now shows Saved on the button itself rather than in a separate message, and a usage or storage panel that fails to load offers a retry in place.",
@@ -4024,6 +4064,10 @@
     "de": "Die Ordner-Chips über der Dateiliste in Dateien sind wieder lesbar. In Projekten mit einer langen Dateiliste waren sie so stark zusammengedrückt, dass die Ordnernamen mitten im Wort abgeschnitten wurden."
   },
   {
+    "en": "The frame that shows where the keyboard is, and the border of a text field you click into, are now a mid grey where they were almost black. Fields, checkboxes and switches also answer when you point at them.",
+    "de": "Der Rahmen für den Tastaturfokus und der Rahmen eines Textfelds, das Sie anklicken, sind jetzt mittelgrau statt fast schwarz. Felder, Kontrollkästchen und Schalter reagieren jetzt auch, wenn Sie mit dem Mauszeiger darauf zeigen."
+  },
+  {
     "en": "The header of the file preview now holds only the name, the kind of document and the controls for the file. Who created it, who is responsible and „Piloti dazu fragen“ moved into the panel beside it.",
     "de": "Der Kopf der Dateivorschau zeigt nur noch Namen, Dokumentart und die Schaltflächen für die Datei. Wer sie erstellt hat, wer zuständig ist und „Piloti dazu fragen“ stehen jetzt im Bereich daneben."
   },
@@ -4334,6 +4378,10 @@
   {
     "en": "The summary of an image no longer starts with a stray text marker.",
     "de": "Die Zusammenfassung eines Bildes beginnt nicht mehr mit einer störenden Textmarkierung."
+  },
+  {
+    "en": "The tabs of the project settings now look and work like the tabs of the files page: a grey track with the open tab in white. A tab or a view you point at darkens, where only its lettering changed before.",
+    "de": "Die Tabs der Projekteinstellungen sehen jetzt aus und funktionieren wie die Tabs auf der Dateiseite: mit einer grauen Leiste und dem aktiven Tab in Weiß. Wenn Sie mit der Maus über einen Tab oder eine Ansicht fahren, wird dieser bzw. diese dunkler; bisher änderte sich nur die Schriftfarbe."
   },
   {
     "en": "The terms and number checks your office sets now also cover what you type into the chat: before a message with an IBAN or a listed term goes out, Piloti shows what it found and sends only a masked version, or lets you edit it first.",
@@ -5278,6 +5326,10 @@
   {
     "en": "Your office's shared documents now have one name everywhere: Büroablage, in the navigation, on source labels, in upload messages and in Piloti's answers. The English interface calls it Office filing.",
     "de": "Die gemeinsamen Dokumente Ihres Büros heißen jetzt überall gleich: Büroablage, in der Navigation, bei den Quellenangaben, in den Upload-Meldungen und in den Antworten von Piloti. Die englische Oberfläche nennt sie Office filing."
+  },
+  {
+    "en": "Your office's standards, commentaries and directives now have a place of their own beside the Büroablage, with folders, filters for what still needs confirming or checking, and a page per standard. You find a standard and its state in seconds, and the Büroablage marks these files as Grundlage.",
+    "de": "Die Normen, Kommentare und Richtlinien Ihres Büros haben nun neben der Büroablage einen eigenen Bereich – mit Ordnern, Filtern für noch zu bestätigende oder zu prüfende Inhalte und einer Seite pro Norm. Sie finden eine Norm und ihren Status in Sekunden; in der Büroablage sind diese Dateien als Grundlage gekennzeichnet."
   },
   {
     "en": "Your organization can now give Piloti standing instructions under Organization → Instructions, such as result first, then reasons, or assume Vienna when no province is named. They apply to every question from everyone in the office.",

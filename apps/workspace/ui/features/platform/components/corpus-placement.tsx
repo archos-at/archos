@@ -79,7 +79,7 @@ export function CorpusGroupRow({ group, colSpan }: { group: string; colSpan: num
   const t = useTranslations(platformCopy)
   const { locale } = useLocale()
   return (
-    <TableRow className="bg-muted/50 hover:bg-muted/50" data-testid="corpus-group">
+    <TableRow className="bg-desk hover:bg-desk" data-testid="corpus-group">
       <TableCell colSpan={colSpan} className="py-2">
         <span className="text-foreground text-xs font-medium">
           {group === UNPLACED ? t('knowledgeAdmin.placement.unplaced') : countryName(group, locale)}

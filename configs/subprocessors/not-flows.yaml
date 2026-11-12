@@ -53,6 +53,8 @@ hosts:
   www.oib.or.at: a link to the OIB guidelines, shown to people
   www.openstreetmap.org: a link a person may click to see a photo's location; the app loads nothing from it
   www.wien.gv.at: a source link in the norm registry, shown to people
+  vilmapflaum.com: the photographer's site, linked in the photo credit on the website's home page; the page loads nothing from it
+  www.instagram.com: the photographer's Instagram, linked in the photo credit on the website's home page; the page loads nothing from it
   eur-lex.europa.eu: a citation in the EU knowledge pack (configs/knowledge-packs/eu.json), a source a reviewer opens; nothing fetches it
 model_vendors:
   qdrant: Qdrant's built-in BM25 (qdrant/bm25), computed inside our own Qdrant

@@ -161,7 +161,7 @@ function MultiSelect({
                   onClick={() => remove(entry)}
                   aria-label={removeLabel(name)}
                   className={cn(
-                    'text-muted-foreground hover:bg-accent hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-control outline-none',
+                    'text-muted-foreground hover:bg-hover hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-control outline-none',
                     FOCUS_RING
                   )}
                 >

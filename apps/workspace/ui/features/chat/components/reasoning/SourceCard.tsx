@@ -227,10 +227,11 @@ export const SourceCard: FC<{
           // rather than spill past a narrow column (design-language
           // §Typography); `break-word` is the last resort for a word the
           // dictionary does not know, never a mid-syllable cut by default.
-          'bg-card relative min-w-0 flex-1 rounded-surface border px-3 py-2.5 shadow-xs hyphens-auto [overflow-wrap:break-word] [hyphenate-limit-chars:10_4_4]',
-          !used && !live && 'border-dashed',
+          'bg-card relative min-w-0 flex-1 rounded-surface px-3 py-2.5 shadow-xs hyphens-auto [overflow-wrap:break-word] [hyphenate-limit-chars:10_4_4]',
+          // An uncited source is a dashed outline, not a sheet: a border of its own in place of the shadow's ring.
+          !used && !live && 'border border-dashed shadow-none',
           !used && !live && link !== 'receded' && UNCITED_DIM,
-          link === 'selected' && 'border-foreground ring-foreground ring-1'
+          link === 'selected' && 'ring-foreground ring-1'
         )}
       >
         {/* The keyboard's way to the card's own toggle: a real button under the
@@ -343,7 +344,7 @@ export const BareSourceCard: FC<{ name: string; loci?: RoundLocus[]; workspace?:
     <div role="listitem" data-source-card className="flex min-w-0 flex-col">
       <div
         className={cn(
-          'bg-card min-w-0 flex-1 rounded-surface border border-dashed px-3 py-2.5 shadow-xs',
+          'bg-card min-w-0 flex-1 rounded-surface border border-dashed px-3 py-2.5',
           UNCITED_DIM
         )}
       >

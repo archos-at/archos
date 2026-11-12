@@ -187,7 +187,7 @@ export function AddDocumentDialog(props: {
               {t(done.opened ? 'countryPages.addDocument.doneOpened' : 'countryPages.addDocument.doneAdded', { title: done.changeRequestTitle })}
             </p>
             <DialogFooter>
-              <Button variant="outline" onClick={() => close(false)}>
+              <Button variant="secondary" onClick={() => close(false)}>
                 {t('countryKnowledge.close')}
               </Button>
               <Button onClick={() => (close(false), onReview(done.changeRequestId))}>{a('reviewNow')}</Button>

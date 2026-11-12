@@ -170,6 +170,12 @@ export interface FileItem {
    * reader as Zuständige. Null or absent: none, or a listing that did not count.
    */
   marks?: MarkTally | null
+  /**
+   * The office standard this office shelf file is recorded as (ADR-0163), by
+   * its entry id: „Grundlage“ on the row, a press to its page. Null or absent:
+   * not a standard, or a listing that did not ask.
+   */
+  baseKnowledgeEntryId?: string | null
 }
 
 export interface FileAssignee {

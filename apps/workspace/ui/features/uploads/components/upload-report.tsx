@@ -34,7 +34,7 @@ export function UploadReportLines({ report }: { report: UploadReport }): JSX.Ele
       {copy.details.length > 0 && <p className="text-xs">{copy.details.join(' · ')}</p>}
       {report.newFindings > 0 && (
         <div className="relative z-10 mt-1">
-          <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+          <Button asChild size="sm" variant="secondary" className="h-7 text-xs">
             <Link href={uploadReportFindingsHref(report, DOCUMENT_FINDINGS_ANCHOR)} data-testid="upload-report-open-findings">
               <FileSearch aria-hidden />
               {t('uploadReport.open')}

@@ -177,7 +177,7 @@ export function ConnectAgentCard({ state, guideHref }: ConnectAgentCardProps): J
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="secondary" size="sm">
             <a href={guideHref} target="_blank" rel="noreferrer">
               <BookOpen aria-hidden />
               {t('guide')}

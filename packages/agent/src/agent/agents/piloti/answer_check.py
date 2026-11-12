@@ -33,7 +33,7 @@ from agent.observability.langfuse_scores import emit_scores
 
 @dataclass(frozen=True)
 class TurnCheck:
-    """The turn's judge and the turn context it reads beside the evidence (profile, inventory)."""
+    """The turn's judge and the turn context it reads beside the evidence (profile, inventory, building law)."""
 
     judge: JudgeFn | None = None
     context: tuple[str, ...] = ()
@@ -55,8 +55,14 @@ class Answered:
 
 
 def turn_check(state: Any, llm: Any) -> TurnCheck:
-    """The turn's check: its judge on the org's follow-ups model (override, BYOK), and the turn context."""
+    """The turn's check: its judge on the org's follow-ups model (override, BYOK), and the turn context.
+
+    The context carries the turn's ``<building_law>`` block, the records' statement of which edition binds
+    at the site and since when (ADR-0175). The answer was told to state the binding edition from it; a
+    check without it found every such statement unbacked and graded the answer low (dev QC, 2026-11-12).
+    """
     from agent.common.claim_judge import llm_judge
+    from agent.common.law_gate import turn_building_law_block
     from agent.common.model_overrides import AgentGroup
     from agent.knowledge.inventory import in_scope_shelves_from_context
     from agent.knowledge.inventory import render_inventory_block
@@ -65,7 +71,8 @@ def turn_check(state: Any, llm: Any) -> TurnCheck:
     resolved = resolve_group_llm(llm, AgentGroup.FOLLOW_UPS, label="answer check")
     documents = [doc.model_dump() for doc in (getattr(state, "available_documents", None) or [])]
     inventory = render_inventory_block(documents, in_scope_shelves=in_scope_shelves_from_context() or None)
-    context = tuple(part for part in (getattr(state, "project_context", None), inventory) if part)
+    parts = (getattr(state, "project_context", None), inventory, turn_building_law_block())
+    context = tuple(part for part in parts if part)
     return TurnCheck(llm_judge(resolved) if resolved is not None else None, context)
 
 

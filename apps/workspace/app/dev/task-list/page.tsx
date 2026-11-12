@@ -178,10 +178,10 @@ function GlidingList() {
   return (
     <div className="flex flex-col">
       <div className="flex flex-wrap gap-2 border-b p-3">
-        <Button size="sm" variant="outline" onClick={toggleArrival} data-testid="glide-arrival">
+        <Button size="sm" variant="secondary" onClick={toggleArrival} data-testid="glide-arrival">
           {arrived ? 'Neuen Lauf wieder entfernen' : 'Ein neuer Lauf kommt an'}
         </Button>
-        <Button size="sm" variant="outline" onClick={toggleMidnight} data-testid="glide-midnight">
+        <Button size="sm" variant="secondary" onClick={toggleMidnight} data-testid="glide-midnight">
           {aged ? 'Zurück auf heute' : 'Mitternacht vergeht'}
         </Button>
       </div>

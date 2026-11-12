@@ -1052,7 +1052,7 @@ export function SkillEditorDialog({
               {canDelete && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   className="text-destructive hover:text-destructive"
                   onClick={() => setConfirmOpen(true)}
                 >

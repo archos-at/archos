@@ -20,8 +20,8 @@ import { markInk, pinLabel } from './review-page-layer'
 export const markRowClassName = (selected = false): string =>
   cn(
     'flex w-full gap-3 rounded-control px-2.5 py-2.5 text-left transition-colors duration-quick ease-out outline-none',
-    'hover:bg-accent focus-visible:ring-ring/60 focus-visible:ring-2',
-    selected && 'bg-accent'
+    'hover:bg-hover focus-visible:ring-ring/60 focus-visible:ring-2',
+    selected && 'bg-selected hover:bg-selected'
   )
 
 /** The two rings of a point on Offene Punkte: ink (the theme's foreground, light on a dark page), and ochre where it needs the reader. */

@@ -127,7 +127,7 @@ const FindingRow: FC<{
         className={cn(
           'border-border/60 border-t align-top',
           '@max-[30rem]/matrix:flex @max-[30rem]/matrix:flex-col @max-[30rem]/matrix:gap-1.5 @max-[30rem]/matrix:rounded-surface @max-[30rem]/matrix:border @max-[30rem]/matrix:p-3',
-          expandable && 'hover:bg-muted/40 cursor-pointer'
+          expandable && 'hover:bg-hover cursor-pointer'
         )}
         onClick={expandable ? () => setOpen((value) => !value) : undefined}
         data-testid="finding-row"

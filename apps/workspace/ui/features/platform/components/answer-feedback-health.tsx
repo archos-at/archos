@@ -305,7 +305,7 @@ export function AnswerFeedbackHealth({
           title={t('answerFeedback.noMatch')}
           action={
             filtered ? (
-              <Button variant="outline" size="sm" onClick={clearFilters} data-testid="clear-filters-empty">
+              <Button variant="secondary" size="sm" onClick={clearFilters} data-testid="clear-filters-empty">
                 <X className="size-3.5" aria-hidden />
                 {t('answerFeedback.filters.clearAll')}
               </Button>
@@ -816,7 +816,7 @@ function TurnsCard({ data, busy, filters, locale, onClearFilters, onOpenTurn }: 
                 size="sm"
                 title={t('answerFeedback.noMatch')}
                 action={
-                  <Button variant="outline" size="sm" onClick={onClearFilters}>
+                  <Button variant="secondary" size="sm" onClick={onClearFilters}>
                     <X className="size-3.5" aria-hidden />
                     {t('answerFeedback.filters.clearAll')}
                   </Button>

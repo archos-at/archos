@@ -201,7 +201,7 @@ const MetaChip = forwardRef<
       {onClear && (
         <button data-attr="files-clear"
           type="button"
-          className="text-muted-foreground hover:text-foreground mr-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="text-muted-foreground hover:text-foreground mr-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/60"
           aria-label={clearLabel}
           onClick={onClear}
         >
@@ -423,7 +423,7 @@ export function ReviewCard({
       aria-label={labelledBy ? undefined : label}
       className={cn(
         'focus-visible:ring-ring/60 outline-none focus-visible:ring-2',
-        'bg-popover text-popover-foreground border-border/70 animate-in fade-in-0 zoom-in-95 duration-base ease-entrance motion-reduce:animate-none w-[20rem] rounded-overlay border shadow-xl',
+        'bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 duration-base ease-entrance motion-reduce:animate-none w-[20rem] rounded-overlay shadow-xl',
         'flex max-h-(--card-max-height) flex-col',
         PLACEMENT_CLASSES[placement]
       )}

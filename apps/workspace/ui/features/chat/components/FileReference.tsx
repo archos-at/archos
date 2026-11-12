@@ -178,7 +178,7 @@ const FileReferenceChip: FC<{
           // pointer, where it is answering one name rather than shouting
           // about all of them.
           'underline decoration-dotted decoration-foreground/30 underline-offset-[3px]',
-          'hover:decoration-solid hover:decoration-foreground/50 hover:bg-muted',
+          'hover:decoration-solid hover:decoration-foreground/50 hover:bg-hover',
           'focus-visible:bg-muted',
           // A name is wide enough for a fingertip already; only the vertical
           // axis needs help, and growing sideways would push the sentence's

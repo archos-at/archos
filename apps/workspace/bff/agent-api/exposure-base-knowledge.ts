@@ -14,7 +14,11 @@ import type { Exposure } from './exposure.config'
 import { OFFERED, externalOnly } from './exposure-presets'
 
 export const BASE_KNOWLEDGE_EXPOSURE = {
+  'base-knowledge-bulk': OFFERED,
   'base-knowledge-check-record': OFFERED,
+  'base-knowledge-edition-add': OFFERED,
+  'base-knowledge-folder-create': OFFERED,
+  'base-knowledge-folder-list': OFFERED,
   'base-knowledge-edition-as-of': OFFERED,
   'base-knowledge-confirm': externalOnly(
     'which documents the office relies on in its answers is the person’s decision; the agent proposes, the person confirms',

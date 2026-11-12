@@ -148,7 +148,7 @@ export function SkillDetail({
                 />
                 {isOrg && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => onEdit(skill)}>
+                    <Button size="sm" variant="secondary" onClick={() => onEdit(skill)}>
                       <Pencil className="size-3.5" aria-hidden />
                       {t('toolbox.actions.edit')}
                     </Button>

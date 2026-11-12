@@ -208,7 +208,7 @@ function Preview(): JSX.Element {
         {STORIES.map((story) => (
           <Button
             key={story.id}
-            variant="outline"
+            variant="secondary"
             data-testid={`open-${story.id}`}
             onClick={() => {
               openRevisionCompare(story.older, story.newer, story.overlays)

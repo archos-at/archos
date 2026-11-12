@@ -190,6 +190,24 @@ describe('toTechnicalText', () => {
     expect(toTechnicalText(live, NOW)).toBe(toTechnicalText(law, NOW))
   })
 
+  test('a text the publish titled from its records still takes its issuer as publisher', () => {
+    const titled = refFor({
+      id: 'c13',
+      content: '',
+      timestamp: NOW,
+      title: 'XA Guide 4, Edition 2019',
+      fileName: 'manifestation-xa-guide-4-2019-text-0a1b2c3d4e5f.pdf',
+      kind: 'building_law',
+      lane: 'building_law_base',
+      origin: 'kb',
+      number: 13,
+      isCited: true,
+      line: { edition_id: 'edition:xa-guide-4-2019', designation: 'XA Guide 4', edition_label: 'Edition 2019', issuer: 'Xanadu Building Institute' },
+    })
+    expect(toCslItem(titled, NOW)).toMatchObject({ type: 'standard', title: 'XA Guide 4, Edition 2019', publisher: 'Xanadu Building Institute' })
+    expect(toTechnicalText(titled, NOW)).not.toContain('Rechtsinformationssystem')
+  })
+
   test('a recorded text whose edition label repeats the designation names it once', () => {
     const recorded = refFor({
       id: 'c12',

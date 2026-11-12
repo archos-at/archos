@@ -313,7 +313,7 @@ export const AgentPrompt: FC<AgentPromptProps> = ({
                       {t('agentPrompt.startResearch')}
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={handleShallow}
                       aria-label={t('agentPrompt.answerShallowAria')}

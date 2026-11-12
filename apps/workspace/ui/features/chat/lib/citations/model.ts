@@ -863,7 +863,11 @@ export class CitationAccumulator {
     if (title && (!doc.title || looksLikeFilename(doc.title))) doc.title = title
     // A text of an edition the records name, with no title of its own, is called what they call it, never by
     // its file name; law read live keeps its own title.
-    doc.title = recordedName({ title: observation.title, fileName: doc.fileName, line: observation.line ?? doc.line }) ?? doc.title
+    // Judged on an observation that carries a title: one that omits it says nothing about the document's own name,
+    // so a live law's title, or a name the records already gave, stays.
+    if (observation.title != null) {
+      doc.title = recordedName({ title: observation.title, fileName: doc.fileName, line: observation.line ?? doc.line }) ?? doc.title
+    }
 
     if (observation.locus) this.mergeLocus(doc, observation.locus)
 

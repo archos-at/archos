@@ -62,7 +62,7 @@ export const ChatScreeningNotice: FC<ChatScreeningNoticeProps> = ({
           <Button type="button" size="sm" onClick={onSendMasked}>
             {t('screening.sendMasked')}
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onEdit}>
+          <Button type="button" size="sm" variant="secondary" onClick={onEdit}>
             {t('screening.edit')}
           </Button>
         </span>

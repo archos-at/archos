@@ -73,7 +73,7 @@ export function LoadMore({
       ) : (
         <>
           {failed && <p className="text-muted-foreground text-xs">{failedLabel}</p>}
-          <Button type="button" variant="outline" size="sm" onClick={onLoadMore} data-testid="load-more-button">
+          <Button type="button" variant="secondary" size="sm" onClick={onLoadMore} data-testid="load-more-button">
             {loadMoreLabel}
           </Button>
         </>

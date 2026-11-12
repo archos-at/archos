@@ -360,12 +360,12 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
           Item's own focus ring, which drew a double black bar against the
           dividers and read as a rendering fault.
         */
-        'hover:bg-muted focus-visible:bg-muted focus-visible:ring-0',
+        'hover:bg-desk focus-visible:bg-desk focus-visible:ring-0',
         // The keyboard's own indicator is the app's focus outline (3:1, WCAG
         // 2.4.11), drawn inside the row's rounded edge (`data-focus-inset`).
         'rounded-control',
         inert && 'bg-muted/60',
-        focused && 'bg-muted',
+        focused && 'bg-desk',
       )}
     >
       <motion.li
