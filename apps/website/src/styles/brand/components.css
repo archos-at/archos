@@ -204,7 +204,7 @@ a.ui-wordmark:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 /* Wide: a landscape photo (a team, a group) in its own proportions, 7 of 12 columns, never cropped */
 .ui-quote-wrap--wide { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
 .ui-quote-wrap--wide .ui-quote-portrait > img { aspect-ratio: auto; }
-/* Photo credit under the photo: the holder, then the links side by side */
+/* Photo credit under the photo: a line for what it shows and one for the holder, then the links side by side */
 .ui-quote-credit { display: flex; flex-wrap: wrap; column-gap: var(--space-4); margin-top: var(--space-3); color: var(--ink-muted); }
 .ui-quote-credit-holder { flex-basis: 100%; }
 .ui-quote-credit a { color: inherit; text-decoration: underline; text-decoration-thickness: var(--stroke-hairline); text-underline-offset: 0.25em; }

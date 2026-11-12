@@ -103,6 +103,7 @@ const de = {
     role: 'Architekt & Projektleiter',
     photoAlt: 'Das Team von feld72 in seinem Büro, stehend, sitzend und auf dem Boden vor einer weißen Wand mit grauen Vorhängen',
     photoCredit: {
+      subject: 'Teamfoto feld72',
       holder: 'Copyright: Vilma Pflaum Photography',
       links: [
         { text: '@vilmapflaumphotography', href: 'https://www.instagram.com/vilmapflaumphotography/' },
@@ -233,6 +234,7 @@ const en: typeof de = {
     role: 'Architect & project lead (translated from German)',
     photoAlt: 'The feld72 team in their office, standing, seated and on the floor in front of a white wall with grey curtains',
     photoCredit: {
+      subject: 'feld72 team photo',
       holder: 'Copyright: Vilma Pflaum Photography',
       links: [
         { text: '@vilmapflaumphotography', href: 'https://www.instagram.com/vilmapflaumphotography/' },
