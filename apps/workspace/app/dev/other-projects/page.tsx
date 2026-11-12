@@ -68,7 +68,7 @@ const CITATIONS: CitationSource[] = [
 
 const Block: FC<{ title: string; children: ReactNode }> = ({ title, children }) => (
   <section className="flex flex-col gap-2">
-    <h2 className="text-sm font-semibold">{title}</h2>
+    <h2 className="text-sm font-medium">{title}</h2>
     {children}
   </section>
 )
@@ -78,7 +78,7 @@ export default function OtherProjectsDevPage() {
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 p-4 sm:p-8" data-testid="other-projects-preview">
       <div>
-        <h1 className="text-lg font-semibold">A chat that drew on other projects</h1>
+        <h1 className="text-lg font-medium">A chat that drew on other projects</h1>
         <p className="text-muted-foreground mt-1 text-sm">ADR-0094: sources name their project; the composer names the projects that narrow the chat now, as the server judges it.</p>
       </div>
       <Block title="1. The sources">

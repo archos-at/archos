@@ -250,7 +250,7 @@ function StepRail({
                 <span
                   aria-hidden
                   className={cn(
-                    'flex size-[22px] items-center justify-center rounded-full border text-[11px] font-semibold tabular-nums',
+                    'flex size-[22px] items-center justify-center rounded-full border text-[11px] font-medium tabular-nums',
                     active && 'border-primary bg-primary text-primary-foreground',
                     done && 'border-primary text-foreground bg-card',
                     !active && !done && 'border-border bg-card text-muted-foreground',

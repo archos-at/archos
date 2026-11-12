@@ -152,8 +152,8 @@ describe('the app rail’s material', () => {
     expect(rail).toMatch(/'text-muted-foreground h-9 [^']*text-\[13px\] font-normal/)
     expect(rail).toMatch(/font-medium data-\[active=true\]:font-medium/)
     for (const file of ['ui/components/shell/app-sidebar.tsx', 'ui/components/shell/rail-chats.tsx']) expect(source(file)).not.toMatch(/\bfont-semibold\b/)
-    // The selector's name too; 600 stays only on the icon rail's initials, the one place no name fits.
-    expect(source('ui/components/shell/project-switcher.tsx').match(/\bfont-semibold\b/g)).toHaveLength(1)
+    // The selector's name too, and since 2026-11-12 the icon rail's initials: nothing in the app is 600.
+    expect(source('ui/components/shell/project-switcher.tsx')).not.toMatch(/\bfont-semibold\b/)
     expect(source('ui/components/shell/project-switcher.tsx')).toMatch(/<MiddleTruncate text=\{name\}[^>]*text-\[13px\] font-medium/)
     expect(source('ui/components/shell/rail-chats.tsx')).not.toMatch(/\btext-(sm|name)\b/)
   })

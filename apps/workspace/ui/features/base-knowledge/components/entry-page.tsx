@@ -561,7 +561,7 @@ export function EntryPage({
       )}
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <h2 className="text-xl font-semibold">{entry.values.designation ?? entry.values.title}</h2>
+          <h2 className="text-xl font-medium">{entry.values.designation ?? entry.values.title}</h2>
           {entry.values.designation && <p className="text-muted-foreground">{entry.values.title}</p>}
           <Provenance entry={entry} />
         </div>

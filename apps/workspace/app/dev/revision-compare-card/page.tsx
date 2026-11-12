@@ -45,7 +45,7 @@ const CHANGES = [
 
 const Scenario: FC<{ id: string; title: string; children: ReactNode }> = ({ id, title, children }) => (
   <section data-testid={`revision-compare-scenario-${id}`} className="flex flex-col gap-3">
-    <h2 className="text-foreground text-sm font-semibold">{title}</h2>
+    <h2 className="text-foreground text-sm font-medium">{title}</h2>
     {children}
   </section>
 )

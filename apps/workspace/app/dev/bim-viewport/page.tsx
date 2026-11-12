@@ -97,7 +97,7 @@ function Stage({
   return (
     <section className="space-y-2">
       <div>
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <h2 className="text-sm font-medium">{title}</h2>
         <p className="text-muted-foreground text-xs">
           {description}
           {desktopOnly ? ' Desktop only: drawn at desktop width, scroll sideways on a phone.' : ''}
@@ -133,7 +133,7 @@ export default function BimViewportDevPage(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4 sm:p-8" data-testid="bim-viewport-preview">
       <div>
-        <h1 className="text-lg font-semibold">Model — viewer chrome</h1>
+        <h1 className="text-lg font-medium">Model — viewer chrome</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           A handful of controls and two lists, floating over the building. Everything analytical
           is one button away rather than in front of the model, and the selection card does not
@@ -338,7 +338,7 @@ export default function BimViewportDevPage(): JSX.Element {
 
       <section className="space-y-2">
         <div>
-          <h2 className="text-sm font-semibold">Phone — portrait</h2>
+          <h2 className="text-sm font-medium">Phone — portrait</h2>
           <p className="text-muted-foreground text-xs">
             The same stage on a 393 px phone: six labelled tools that fit, and the selection as a
             sheet with a peek size, so the building stays above it. Tap the sheet header to open it;
@@ -352,7 +352,7 @@ export default function BimViewportDevPage(): JSX.Element {
 
       <section className="space-y-2">
         <div>
-          <h2 className="text-sm font-semibold">Phone — landscape</h2>
+          <h2 className="text-sm font-medium">Phone — landscape</h2>
           <p className="text-muted-foreground text-xs">
             852 × 393, drawn at 46 %. The tools become a column on the left edge, the selection a
             narrow panel on the right, and the building keeps the middle.

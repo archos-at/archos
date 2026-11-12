@@ -108,7 +108,7 @@ export function LiveCursor({
             <span
               data-slot="live-cursor-initial"
               aria-hidden
-              className="animate-in fade-in-0 motion-reduce:animate-none absolute top-[14px] left-[11px] flex size-4 items-center justify-center rounded-full text-[9px] leading-none font-semibold text-white shadow-sm"
+              className="animate-in fade-in-0 motion-reduce:animate-none absolute top-[14px] left-[11px] flex size-4 items-center justify-center rounded-full text-[9px] leading-none font-medium text-white shadow-sm"
               style={{ backgroundColor: color }}
             >
               {icon ?? initial}

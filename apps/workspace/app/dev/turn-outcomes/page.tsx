@@ -179,7 +179,7 @@ export default function TurnOutcomesPage() {
                 href={`/dev/turn-outcomes?scenario=${scenarioId}${auto ? '&auto=1' : ''}`}
                 className={
                   scenarioId === id
-                    ? 'text-foreground font-semibold'
+                    ? 'text-foreground font-medium'
                     : 'text-muted-foreground hover:text-foreground'
                 }
                 // A fresh page per scenario: one scripted turn per socket.

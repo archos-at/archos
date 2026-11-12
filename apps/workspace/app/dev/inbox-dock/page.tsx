@@ -106,7 +106,7 @@ export default function InboxDockPreviewPage(): JSX.Element {
                 className="m-auto max-w-md space-y-2 p-8 text-center"
                 data-testid="inbox-dock-page"
               >
-                <p className="text-sm font-semibold">
+                <p className="text-sm font-medium">
                   Hier steht die Seite, die ein Eintrag öffnet
                 </p>
                 <p className="text-muted-foreground text-sm">

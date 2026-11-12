@@ -127,7 +127,7 @@ export const CitationMarker: FC<{ href: string; fallback: ReactNode }> = ({ href
           // em-relative, not a ramp step: the marker rides inside a running
           // sentence and has to track whatever size that sentence is set at.
           // The -0.15em lift is optical superscript alignment.
-          'relative -top-[0.15em] text-[0.68em] font-semibold leading-[1.45] tabular-nums',
+          'relative -top-[0.15em] text-[0.68em] font-medium leading-[1.45] tabular-nums',
           // WHERE A FINGER DRIVES IT, THE PILL IS THE TARGET — AND `touch-target`
           // IS THE WRONG TOOL HERE, uniquely. That utility centres a
           // `max(100%, 44px)` catchment on the control, which is right for a
@@ -310,7 +310,7 @@ const PendingCitationMarker: FC<{ number: number }> = ({ number }) => {
       aria-label={t('citationPeek.pendingAria', { number })}
       className={cn(
         'inline-flex items-center rounded-control px-[3px]',
-        'relative -top-[0.15em] text-[0.68em] font-semibold leading-[1.45] tabular-nums',
+        'relative -top-[0.15em] text-[0.68em] font-medium leading-[1.45] tabular-nums',
         // The live pill's touch sizing too: settling changes the colour and
         // nothing else, or the line re-wraps the moment the source arrives.
         'pointer-coarse:min-h-[26px] pointer-coarse:justify-center pointer-coarse:px-[7px] pointer-coarse:text-[0.78em]',

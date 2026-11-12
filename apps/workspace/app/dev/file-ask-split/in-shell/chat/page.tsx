@@ -98,7 +98,7 @@ export default function FileAskSplitInShellPreview(): JSX.Element {
           >
             <FilePreviewBridge>
               <div className="m-auto max-w-md space-y-2 p-8 text-center" data-testid="file-ask-in-shell-page">
-                <p className="text-sm font-semibold">Hier steht die Seite des Projekts</p>
+                <p className="text-sm font-medium">Hier steht die Seite des Projekts</p>
                 <p className="text-muted-foreground text-sm">
                   Der Chat, die Dateien oder die Einstellungen, über die ganze Breite.
                 </p>

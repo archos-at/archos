@@ -1,17 +1,16 @@
 # Typography: one ramp of roles
 
-**Status: accepted in its numbers 2026-11-12 (fourth version), not yet in the
-code.** The owner decided the open points the same day: the whole interface is
-13px, the greeting is 24px, the phone's page title was left to this document
-(18px), and nothing is heavier than 500 (600 read as too thick). Tone (ink and
-muted) is out of scope: this document is about type only. It stands on the values of two changes merged since, the lighter rail
+**Status: in force since 2026-11-12 for weight, the kit's controls, the phone's
+page title and the greeting; the renaming to roles and the off-ramp sizes are
+still to do** („Slices“ says which). The owner decided the numbers that day: the
+whole interface is 13px, the greeting is 24px, the phone's page title was left
+to this document (18px), and nothing is heavier than 500 (600 read as too
+thick). Tone (ink and muted) is out of scope: this document is about type only.
+It stands on the lighter rail
 ([#1617](https://github.com/archos-at/archos/pull/1617)) and the one header
-anatomy ([#1681](https://github.com/archos-at/archos/pull/1681)), and changes
-two of their values (the phone's page title, and 600 where they keep it). Until slice 1 lands, the numbers in
-[`design-language.md`](design-language.md) („Hard numbers“, „Type ramp“, „One
-type ramp, one scale“) are what the code and
-`apps/workspace/tests/brand-literals.spec.ts` hold. This document replaces all
-three when it is accepted.
+anatomy ([#1681](https://github.com/archos-at/archos/pull/1681)). Where
+[`design-language.md`](design-language.md) still says otherwise in its three
+older ramp passages, this document holds.
 
 The first version (2026-11-11) proposed 14px names, weights 440/540/640,
 24px page titles and a clean-up of the muted greys. The owner's corrections of the same days went the other way
@@ -110,41 +109,54 @@ on its 22px line, the answer is `answer`, the follow-ups and the composer's
 presses are `name`. The answer is larger than the question on purpose: it is
 what is read.
 
-## What changes against the rail and the headers as merged
+## What changed against the rail and the headers as merged
 
 - **The phone's page title is 18/26/500, not 16/24/500** (#1681). With the section heading at 500, a 16/500 title
   would be set exactly as a heading under it. 18, 16, 14 keeps the ladder.
 - #1617 sets the rail's rows as `text-[13px] font-normal` where it took
-  `text-name` away, because the token carries 500. Slice 1 writes them as
+  `text-name` away, because the token carries 500. The renaming (slice 1) writes them as
   `text-name font-normal`, the role with its resting state.
-- #1617 keeps menus at 14px and the kit's tabs are 14px. Both go to 13px with
-  the kit (slice 2).
+- #1617 keeps menus at 14px and the kit's tabs are 14px. Both are 13px now.
 - The hero greeting goes from 23 to 24px (`display`).
 - Both keep 600 for `text-section` and for state (the phone tab bar's current
-  tab, the mail list's subject). Slice 4 sets them to 500.
+  tab, the mail list's subject). Now 500.
 
 ## Slices
 
+Done on 2026-11-12:
+
+- **Two weights.** `--text-section--font-weight: 500`, every `font-semibold`
+  and the one `font-bold` to `font-medium` (105 files; the wordmark keeps its
+  face). `tests/brand-literals.spec.ts` („weight“) fails `font-semibold` or
+  heavier anywhere but `logo.tsx`.
+- **The kit's controls at 13px.** `button`, `toggle`, `tabs`, `label` and the
+  menu labels set `text-name`; the items of `dropdown-menu`, `context-menu`,
+  `select` and `command`, and `table`, set `text-name font-normal`. Dateien's
+  local 14px overrides went with them (`files-header-controls.tsx`, the mail
+  list's segmented control, `section-nav.tsx`). Field values, a select's
+  trigger and the command input stay 14px.
+- **`display`** (`--text-display`, 24/32/500) for the greeting, and the
+  phone's page title on `text-pane-title` (`PAGE_TITLE_CLASS`).
+
+A size set on an ancestor beats the kit: `[&_[data-slot=button]]:text-sm` on a
+tool row kept Dateien's buttons at 14px after the kit had moved. Search for
+`]:text-` before trusting a change to a primitive.
+
+Still to do:
+
 1. **Tokens and renaming, no pixel moves** (roles are reachable). Add `label`,
-   `body`, `code` and `display` in
-   `apps/workspace/ui/styles/tokens.css` and to `TYPE_SCALE` in
-   `apps/workspace/bff/utils.ts`. A codemod turns `text-xs`, `text-[13px]` and a
-   `text-sm` without a weight into the role each already is.
-2. **The kit goes to 13px** (the same answer on every screen). The primitives
-   in `ui/components/ui/` (button, tabs, dropdown-menu, select, table, badge,
-   label, command) set `name`; field values stay `body`. About fifteen files,
-   and the one slice every surface shows: capture before and after. The dialog
-   title becomes `pane-title` (its line goes from 28 to 26px).
-3. **Fold the off-ramp sizes in, surface by surface.** About 250 declarations:
-   9, 10 and 10.5px to 11 or 12; 15 and 17px to 14 or 16; 23px and everything
-   over it to `display`; 11px kept for codes and pill counts only; typed line heights
-   gone. Chat, review and settings first: they still carry the rules from
-   before Paper on a desk.
-4. **600 becomes 500, and the ratchet.** `--text-section--font-weight: 500`,
-   and the 31 `font-semibold` call sites to `font-medium` (the mail list's
-   state, the mention, numerals in fills); `brand-literals.spec.ts` changes
-   from „440, 500 and 600“ to „440 and 500“ and fails `font-semibold` outside
-   the wordmark. Then a per-file ratchet in the manner of
+   `body` and `code` in `apps/workspace/ui/styles/tokens.css` and to
+   `TYPE_SCALE` in `apps/workspace/bff/utils.ts`. A codemod turns `text-xs`,
+   `text-[13px]` and a `text-sm` without a weight into the role each already
+   is. `section-nav.tsx` sets `text-[13px] leading-5` until then: `text-name`
+   would give its resting tabs 500.
+2. **Fold the off-ramp sizes in, surface by surface.** About 250 declarations:
+   9, 10 and 10.5px to 11 or 12; 15 and 17px to 14 or 16; everything over 24px
+   to `display`; 11px kept for codes and pill counts only; typed line heights
+   gone. Controls that set their own `text-sm` beside the kit (about 140
+   `text-sm font-medium` call sites) are checked here: a control goes to
+   `text-name`, a sentence stays. Chat, review and settings first.
+3. **The ratchet.** A per-file ratchet in the manner of
    `ci/size_baseline.json`: no raw `text-<size>`, no `font-<weight>` outside
    state on a name, no `leading-*` beside a role; the count may only shrink.
    The three ramps in `design-language.md` become a pointer to this document.

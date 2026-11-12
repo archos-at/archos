@@ -89,7 +89,7 @@ describe('PageHeader', () => {
     expect(subtitle.className.split(/\s+/)).not.toContain('hidden')
     const title = screen.getByRole('heading', { level: 1 })
     expect(title.className).toContain('text-page-title')
-    expect(title.className).toContain('phone:text-section')
+    expect(title.className).toContain('phone:text-pane-title')
   })
 
   it('keeps the description on a phone for a page that asks to, a page the tab bar does not name', () => {

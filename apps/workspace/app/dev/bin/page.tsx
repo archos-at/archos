@@ -165,11 +165,11 @@ export default function BinDevPage(): JSX.Element {
         </ProjectSectionFrame>
       </div>
       <section className="flex flex-col gap-3 px-4 sm:px-6">
-        <h2 className="text-sm font-semibold">Organisation → Sensible Daten → „Inhalte aus gelöschten Ordnern“</h2>
+        <h2 className="text-sm font-medium">Organisation → Sensible Daten → „Inhalte aus gelöschten Ordnern“</h2>
         <DeletedFolderContentCard canEdit />
       </section>
       <section className="flex flex-col gap-2 px-4 sm:px-6">
-        <h2 className="text-sm font-semibold">„Quelle gelöscht am …“ unter abgeleiteten Inhalten</h2>
+        <h2 className="text-sm font-medium">„Quelle gelöscht am …“ unter abgeleiteten Inhalten</h2>
         <p className="text-sm">Laut Werkvertrag ist die Abnahme bis 30. November vorgesehen. [1]</p>
         <SourceDeletedNote at={daysAgo(3 - BIN_DAYS)} />
         <p className="mt-3 text-sm">Notiz: Honorarzone III vereinbart.</p>

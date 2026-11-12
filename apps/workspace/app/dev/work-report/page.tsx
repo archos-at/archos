@@ -29,7 +29,7 @@ const Preview: FC = () => (
     {WORK_REPORT_SCENARIOS.map(({ id, title, note, work }) => (
       <section key={id} data-testid={`work-report-scenario-${id}`} className="flex flex-col gap-3">
         <div>
-          <h2 className="text-foreground text-sm font-semibold">{title}</h2>
+          <h2 className="text-foreground text-sm font-medium">{title}</h2>
           <p className="text-muted-foreground text-xs">{note}</p>
         </div>
         <AnatomyBlock card={{ type: 'work_report', ...work }} />

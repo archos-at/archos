@@ -245,11 +245,11 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
       style={{ paddingBottom: `var(--welcome-offset, ${WELCOME_OFFSET_FALLBACK})` }}
     >
       {/* Hero greeting — the one larger moment in the app, and the only place
-          the ramp's 23px step is used (design language, "Type ramp"). The
+          `text-display` (24/32/500) is set as a greeting (docs/design/typography.md). The
           project-grounded starters live in their own plan (categorized,
           backend-driven) — until they land, the canvas stays quiet rather
           than showing static examples. */}
-      <h1 className="text-foreground text-center text-[23px] font-medium">
+      <h1 className="text-foreground text-center text-display">
         {heading}
       </h1>
 

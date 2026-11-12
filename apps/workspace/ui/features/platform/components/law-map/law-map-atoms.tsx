@@ -45,12 +45,12 @@ export function OutlineRow({
   const body = (
     <>
       <span className="flex min-w-0 items-baseline gap-2.5">
-        <span className={cn('min-w-0 break-words', size === 'lg' ? 'text-2xl font-semibold' : size === 'md' ? 'font-medium' : '', muted && 'text-muted-foreground font-normal')}>{name}</span>
+        <span className={cn('min-w-0 break-words', size === 'lg' ? 'text-2xl font-medium' : size === 'md' ? 'font-medium' : '', muted && 'text-muted-foreground font-normal')}>{name}</span>
         {meta ? <span className="text-muted-foreground truncate text-xs max-sm:hidden">{meta}</span> : null}
       </span>
       <span className="flex items-baseline justify-end gap-2.5 whitespace-nowrap">
         {exceptions ? <span className="text-muted-foreground text-xs max-sm:hidden">{exceptions}</span> : null}
-        {value ? <span className={cn('tabular-nums', muted ? 'text-muted-foreground' : 'font-semibold')}>{value}</span> : null}
+        {value ? <span className={cn('tabular-nums', muted ? 'text-muted-foreground' : 'font-medium')}>{value}</span> : null}
         {coming ? <span className="text-warning text-xs font-medium">{coming}</span> : null}
         {confirmed ? <Check className="text-success size-3.5 self-center" aria-hidden /> : null}
         {attention ? <span className="bg-warning size-2 self-center rounded-full" aria-hidden /> : null}

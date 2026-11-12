@@ -153,7 +153,7 @@ function AgentAuthoredFixtures(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 p-6" data-testid="agent-authored-preview">
       <div>
-        <h1 className="text-lg font-semibold">Von {PRODUCT_NAME} erstellte Dateien</h1>
+        <h1 className="text-lg font-medium">Von {PRODUCT_NAME} erstellte Dateien</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Ein Bericht, den {PRODUCT_NAME} geschrieben hat, ist eine ganz normale unvergebene Datei — mit einer
           Zeile, die sagt, wer sie erstellt hat.

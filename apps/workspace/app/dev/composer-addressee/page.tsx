@@ -82,7 +82,7 @@ function MockComposer({
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <div className="contents">
           <span className="order-3 ml-auto flex shrink-0 items-center gap-1">
-            <span className="text-muted-foreground inline-flex h-8 items-center px-1.5 text-xs font-semibold pointer-coarse:h-11">
+            <span className="text-muted-foreground inline-flex h-8 items-center px-1.5 text-xs font-medium pointer-coarse:h-11">
               Mittel
             </span>
             <span className="text-subtle inline-flex size-[34px] items-center justify-center pointer-coarse:size-11">
@@ -209,7 +209,7 @@ export default function ComposerAddresseePreviewPage(): JSX.Element {
         className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8 text-foreground"
       >
         <div>
-          <h1 className="text-xl font-semibold">Wer die Nachricht bekommt</h1>
+          <h1 className="text-xl font-medium">Wer die Nachricht bekommt</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Die Aussage im Composer — überall dort, wo die Nachricht nicht an {PRODUCT_NAME} geht.
             Der Standardfall bleibt still; genau das macht die anderen lesbar.

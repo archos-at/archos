@@ -95,7 +95,7 @@ export const BranchOptions: FC<BranchOptionsProps> = ({
                 'transition-colors duration-quick ease-out motion-reduce:transition-none',
                 isSelected
                   ? 'bg-primary text-primary-foreground'
-                  : 'border-[1.5px] border-input bg-card text-xs font-semibold text-muted-foreground'
+                  : 'border-[1.5px] border-input bg-card text-xs font-medium text-muted-foreground'
               )}
               aria-hidden="true"
             >

@@ -30,7 +30,7 @@ export default function PageSheetDevPage(): JSX.Element {
     <div className="bg-background text-foreground min-h-dvh" data-testid="page-sheet-preview">
       {/* The page the sheet covers. */}
       <div className="space-y-4 p-8">
-        <h1 className="text-lg font-semibold">/dev/page-sheet — the page underneath</h1>
+        <h1 className="text-lg font-medium">/dev/page-sheet — the page underneath</h1>
         <Button variant="secondary" onClick={() => setOpen(true)} data-testid="reopen-sheet">
           Reopen sheet
         </Button>

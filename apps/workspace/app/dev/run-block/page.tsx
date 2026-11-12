@@ -49,7 +49,7 @@ const HOURS_AGO = (h: number): string => new Date(Date.now() - h * 60 * 60 * 100
 function Panel({ title, note, children }: { title: string; note: string; children: React.ReactNode }) {
   return (
     <section className="flex w-[680px] max-w-full flex-col gap-2">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="text-sm font-medium text-foreground">{title}</h2>
       <p className="text-xs text-muted-foreground">{note}</p>
       {children}
     </section>
@@ -99,7 +99,7 @@ function Motion(): JSX.Element {
   const done = frame >= frames.length - 1
   return (
     <section className="flex w-[680px] max-w-full flex-col gap-3" data-motion-frame={frame}>
-      <h2 className="text-lg font-semibold text-foreground">Ein Lauf, von vorne bis zum Bericht</h2>
+      <h2 className="text-lg font-medium text-foreground">Ein Lauf, von vorne bis zum Bericht</h2>
       <p className="text-sm leading-relaxed text-muted-foreground">
         Jede Phase, jede Runde, die Landung. Zu beurteilen: ob der Haken zieht und die Verbindungslinie
         danach füllt; ob eine ankommende Runde steigt und ihre Chips nacheinander folgen; ob am Ende der

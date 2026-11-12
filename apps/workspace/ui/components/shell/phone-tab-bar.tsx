@@ -200,8 +200,8 @@ function PhoneTabItem({
           // The 12px label, as every label in the app (design-language.md,
           // „Type ramp“); 11px read as fine print under an 18px glyph.
           'relative max-w-full truncate px-0.5 text-xs leading-none',
-          // 500 at rest and 600 when current, as the rail's rows.
-          tab.active ? 'font-semibold' : 'font-medium'
+          // 500 at rest and when current: the sheet behind the glyph says which tab is open.
+          'font-medium'
         )}
       >
         {label}

@@ -108,7 +108,7 @@ export default function DownloadLogDevPage(): JSX.Element {
         />
         <DownloadLogView people={PEOPLE} />
         <section className="flex flex-col gap-3">
-          <h2 className="text-base font-semibold">Aufbewahrung des Download-Protokolls</h2>
+          <h2 className="text-base font-medium">Aufbewahrung des Download-Protokolls</h2>
           <DownloadLogRetentionForm initialDays={180} />
         </section>
       </main>

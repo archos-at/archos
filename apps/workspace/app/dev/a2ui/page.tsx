@@ -106,7 +106,7 @@ export default function A2uiPreviewPage() {
   return (
     <I18nProvider initialLocale="de" fixedLocale>
       <main className="text-foreground mx-auto flex w-full max-w-[680px] flex-col gap-8 p-6">
-        <h1 className="text-lg font-semibold">A2UI — every card through the chat&apos;s path</h1>
+        <h1 className="text-lg font-medium">A2UI — every card through the chat&apos;s path</h1>
         {COMPOSITIONS.map((card, index) => (
           <section key={`composition-${index}`} data-card={`composition_${index}`} className="flex flex-col gap-2">
             <h2 className="text-muted-foreground font-mono text-xs">composition {index + 1}</h2>

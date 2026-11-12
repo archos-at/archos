@@ -490,7 +490,7 @@ function AnswerFeedbackPreview() {
       >
         <section className="flex flex-col gap-4">
           <header>
-            <h1 className="text-xl font-semibold">Antwortqualität</h1>
+            <h1 className="text-xl font-medium">Antwortqualität</h1>
             <p className="text-muted-foreground mt-1 text-sm">
               Plattform → Antwortqualität → Bewertungen, aus Fixtures.
             </p>

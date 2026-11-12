@@ -98,7 +98,7 @@ export default function DocumentAnswerDevPage(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-10 p-8">
       <div>
-        <h1 className="text-lg font-semibold">document_grid — chat surfacing card</h1>
+        <h1 className="text-lg font-medium">document_grid — chat surfacing card</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Files the assistant asked you to look at — FileCard thumbnails, not a
           filename list. One file peeks. Several close matches are a short grid.

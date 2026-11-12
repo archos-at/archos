@@ -392,7 +392,7 @@ export default function CitationHealthDevPage(): JSX.Element {
   return (
     <I18nProvider initialLocale="de" fixedLocale>
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-8">
-        <h1 className="text-xl font-semibold">
+        <h1 className="text-xl font-medium">
           Antwortqualität · Zitations-Qualität
         </h1>
         {params.has('readonly') ? (

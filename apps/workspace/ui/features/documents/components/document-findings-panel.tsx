@@ -126,7 +126,7 @@ export function DocumentFindingsSection({
       className="flex scroll-mt-4 flex-col gap-1 px-4 pb-3 pt-2"
       data-testid="document-findings-panel"
     >
-      <h3 id="document-findings-title" className="text-foreground text-name font-semibold">
+      <h3 id="document-findings-title" className="text-foreground text-name font-medium">
         {t('findings.title')}
       </h3>
       <p className="text-meta text-muted-foreground">{t('findings.hint')}</p>

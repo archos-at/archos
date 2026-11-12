@@ -427,7 +427,7 @@ Energieausweis: :energy-class[A+] statt :energy-class[C]. Begehung um 10:30 Uhr.
 const Block: FC<{ title: string; note: string; children: ReactNode }> = ({ title, note, children }) => (
   <section className="flex flex-col gap-3">
     <div>
-      <h2 className="text-foreground text-sm font-semibold">{title}</h2>
+      <h2 className="text-foreground text-sm font-medium">{title}</h2>
       <p className="text-muted-foreground text-xs">{note}</p>
     </div>
     {children}

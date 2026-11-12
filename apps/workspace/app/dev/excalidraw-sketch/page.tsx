@@ -35,7 +35,7 @@ const REFUSED = [
 function Panel({ title, note, children }: { title: string; note: string; children: React.ReactNode }) {
   return (
     <section className="flex w-[760px] max-w-full flex-col gap-2" data-testid="sketch-panel">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="text-sm font-medium text-foreground">{title}</h2>
       <p className="text-xs text-muted-foreground">{note}</p>
       <div className="rounded-lg border border-input bg-card px-[22px] pb-[17px] pt-[18px]">{children}</div>
     </section>

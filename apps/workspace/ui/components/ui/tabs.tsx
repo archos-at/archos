@@ -105,7 +105,7 @@ const TabsTrigger = React.forwardRef<
         // `relative isolate` + pill `-z-10`: the pill paints above the list's
         // own background but below the trigger's text and icons, with no
         // wrapper element to disturb the trigger's flex layout.
-        'data-[state=active]:text-foreground data-[state=inactive]:hover:bg-hover data-[state=inactive]:hover:text-foreground outline-none relative isolate inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-control px-3.5 py-1 text-sm font-medium whitespace-nowrap transition-[color,background-color,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-50 pointer-coarse:min-h-11 active:scale-[0.98] motion-reduce:active:scale-100 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=\'size-\'])]:size-4',
+        'data-[state=active]:text-foreground data-[state=inactive]:hover:bg-hover data-[state=inactive]:hover:text-foreground outline-none relative isolate inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-control px-3.5 py-1 text-name font-medium whitespace-nowrap transition-[color,background-color,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-50 pointer-coarse:min-h-11 active:scale-[0.98] motion-reduce:active:scale-100 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=\'size-\'])]:size-4',
         FOCUS_RING,
         'focus-visible:ring-inset focus-visible:ring-offset-0',
         className

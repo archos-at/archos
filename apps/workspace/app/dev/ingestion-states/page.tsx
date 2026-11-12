@@ -194,7 +194,7 @@ function Stage({ title, note, children }: { title: string; note: string; childre
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        <h2 className="text-sm font-medium text-foreground">{title}</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">{note}</p>
       </div>
       {children}
@@ -216,7 +216,7 @@ export default function IngestionStatesDevPage(): JSX.Element {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-8 md:px-8" data-testid="ingestion-states">
       <div>
-        <h1 className="text-xl font-semibold">Ingestion states</h1>
+        <h1 className="text-xl font-medium">Ingestion states</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Every state a document passes between the drop and being readable, on every surface that names it. States
           that share a colour are told apart by their glyph.

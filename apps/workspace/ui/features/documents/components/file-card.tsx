@@ -432,7 +432,7 @@ export const FileCard = memo(function FileCard({
             {/* Provenance, where a surface mixes stores (the Archiv): a signal, so it keeps its colour and its word. */}
             {source && sourceLabel && (
               <span
-                className="mb-1.5 inline-flex shrink-0 items-center rounded-control px-2 py-[3px] text-xs font-semibold leading-none tracking-[0.02em]"
+                className="mb-1.5 inline-flex shrink-0 items-center rounded-control px-2 py-[3px] text-xs font-medium leading-none tracking-[0.02em]"
                 style={SOURCE_TINT[source]}
               >
                 {sourceLabel}

@@ -48,7 +48,7 @@ mindmap
 function Panel({ title, note, children }: { title: string; note: string; children: React.ReactNode }) {
   return (
     <section className="flex w-[680px] max-w-full flex-col gap-2">
-      <h2 className="text-foreground text-sm font-semibold">{title}</h2>
+      <h2 className="text-foreground text-sm font-medium">{title}</h2>
       <p className="text-muted-foreground text-xs">{note}</p>
       <div className="border-input bg-card rounded-lg border px-[22px] pt-[18px] pb-[17px]">{children}</div>
     </section>

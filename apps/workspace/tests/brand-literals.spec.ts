@@ -2,7 +2,7 @@
 /**
  * The brand rules the workspace keeps at its own level (docs/design/design-language.md,
  * "Paper on a desk", then "Type ramp" and "Weight and white"): nothing but the wordmark is set in
- * capitals, weights are 440 / 500 / 600 (never 700), the app has five neutrals and three elevations, and the
+ * capitals, weights are 440 / 500 (600 is the wordmark's alone), the app has five neutrals and three elevations, and the
  * chart palette is typed in one file. Each rule is a ratchet: the allowlists below name
  * the few places that are exceptions on purpose, with the reason, and a new occurrence
  * anywhere else fails here instead of waiting for a reviewer's eye.
@@ -38,25 +38,25 @@ const WHITE_ALLOWED = new Set([
   'ui/features/diagrams/components/mermaid-diagram.tsx', // a comment recalling the old white
 ])
 
-/** 700 on purpose: the wordmark, and a 12px numeral inside a badge. */
-const BOLD_ALLOWED = new Set(['ui/components/brand/logo.tsx', 'ui/features/project-intake/components/reading/reading-milestone-card.tsx'])
+/** Heavier than 500 on purpose: the wordmark, Switzer Semibold. */
+const BOLD_ALLOWED = new Set(['ui/components/brand/logo.tsx'])
 
 describe('weight', () => {
-  it('weights are 440, 500 and 600: nothing is bold or extrabold but the wordmark', () => {
-    // Paper on a desk (2026-11-10): 600 is for headings and for state (an unread subject, a row that needs you),
-    // so `font-semibold` is free; 700 and up stays the wordmark's.
+  it('weights are 440 and 500: nothing is semibold or bolder but the wordmark', () => {
+    // Owner decision 2026-11-12 (docs/design/typography.md): 600 read as too thick, on headings, on state and on
+    // numerals in a fill alike. Rank comes from size; what needs the reader is told by its dot, not by 600.
     const offenders = files
       .filter((f) => f.name.endsWith('.tsx') || f.name.endsWith('.ts'))
-      .filter((f) => /\bfont-(bold|extrabold|black)\b/.test(withoutComments(f.text)) && !BOLD_ALLOWED.has(f.name))
+      .filter((f) => /\bfont-(semibold|bold|extrabold|black)\b/.test(withoutComments(f.text)) && !BOLD_ALLOWED.has(f.name))
       .map((f) => f.name)
     expect(offenders).toEqual([])
   })
 
-  it('the type scale carries a title by size at 500 and the small heading at 600: section 16/600, pane title 18/500, page title 20/500', () => {
-    // The titles were 24/600 from 2026-11-10 and read heavy beside every page that still set its own 20/500 title
-    // (review of 2026-11-11). 600 stays for the 16px heading, which size alone does not lift off the body.
+  it('the type scale carries every heading by size at 500: section 16, pane title 18, page title 20, display 24', () => {
+    // The titles were 24/600 from 2026-11-10 and read heavy (review of 2026-11-11); the 16px heading followed to
+    // 500 on 2026-11-12, when the owner found every 600 too thick (docs/design/typography.md).
     const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
-    for (const [name, size, weight] of [['section', '1rem', '600'], ['pane-title', '1.125rem', '500'], ['page-title', '1.25rem', '500']]) {
+    for (const [name, size, weight] of [['section', '1rem', '500'], ['pane-title', '1.125rem', '500'], ['page-title', '1.25rem', '500'], ['display', '1.5rem', '500']]) {
       expect(tokens, name).toMatch(new RegExp(`--text-${name}:\\s*${size};`))
       expect(tokens, name).toMatch(new RegExp(`--text-${name}--font-weight:\\s*${weight};`))
     }
@@ -625,12 +625,12 @@ describe('one separator', () => {
 describe('one size for a segmented control', () => {
   // Dateien's two worded segmented controls (the E-Mail-Eingang's filter, Offene Punkte's) are set at the tabs'
   // 14px; at 12px and 14px side by side the same control read as two (2026-11).
-  it('every worded segmented group in Dateien is 14px', () => {
+  it('every worded segmented group in Dateien is the interface\u2019s 13px (`text-name`)', () => {
     const offenders = files
       .filter((f) => DATEIEN_SURFACE.some((path) => f.name.startsWith(path)))
       .filter((f) =>
         openingTags(withoutComments(f.text), ['ToggleGroup']).some(
-          ({ tag }) => /\bsegmented\b/.test(tag) && !/size="icon/.test(tag) && !/\[&>button\]:text-sm/.test(tag)
+          ({ tag }) => /\bsegmented\b/.test(tag) && !/size="icon/.test(tag) && !/\[&>button\]:text-name/.test(tag)
         )
       )
       .map((f) => f.name)
@@ -769,7 +769,7 @@ describe('colour is a verdict', () => {
   })
   it('a mention of the reader in a mark wins by weight on the desk, not by ochre', () => {
     expect(source('ui/features/documents/components/review/mark-body.tsx')).toMatch(/meTone="ink"/)
-    expect(source('ui/features/collaboration/components/MentionText.tsx')).toMatch(/meTone === 'ink'\s*\?\s*'bg-desk text-foreground font-semibold'/)
+    expect(source('ui/features/collaboration/components/MentionText.tsx')).toMatch(/meTone === 'ink'\s*\?\s*'bg-desk text-foreground font-medium'/)
   })
   it('a face in Dateien is no hue: the preview’s and the list’s assignees are neutral', () => {
     expect(source('ui/features/documents/components/assignment-faces.tsx')).toMatch(/<AvatarStack[^>]*tone="neutral"/)
@@ -818,9 +818,9 @@ describe('rows, weights and the phone', () => {
     expect(source('ui/features/inbound-mail/components/inbound-mail-row.tsx')).toMatch(/'group\/row items-start rounded-control px-3 py-2\.5 /)
     expect(source('ui/features/documents/components/review/mark-row.tsx')).toMatch(/'flex w-full gap-3 rounded-control px-2\.5 py-2\.5 /)
   })
-  it('a mail subject’s weight is its state: 600 needs the reader, 500 waits on a press, 440 is handled', () => {
+  it('a mail subject’s weight is its state: 500 needs the reader or waits on a press, 440 is handled', () => {
     expect(source('ui/features/inbound-mail/components/inbound-mail-row.tsx')).toMatch(
-      /needsReader \? 'text-foreground font-semibold' : waiting \? 'text-foreground font-medium' : 'text-foreground font-normal'/
+      /needsReader \|\| waiting \? 'text-foreground font-medium' : 'text-foreground font-normal'/
     )
     // A row's name is `text-name` (13/20) in every list: the mail list's 14px subject was the one name of its own size.
     expect(source('ui/features/inbound-mail/components/inbound-mail-row.tsx')).toMatch(/line-clamp-2 text-name text-pretty/)

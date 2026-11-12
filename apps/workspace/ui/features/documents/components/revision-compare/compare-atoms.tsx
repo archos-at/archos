@@ -27,7 +27,7 @@ export function ChangeBadge({ number, active = false, className }: { number: num
     <span
       aria-hidden
       className={cn(
-        'flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--compare-mark)] text-[11px] leading-none font-semibold text-[var(--compare-paper)] tabular-nums',
+        'flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--compare-mark)] text-[11px] leading-none font-medium text-[var(--compare-paper)] tabular-nums',
         active && 'ring-2 ring-[var(--compare-mark)] ring-offset-1 ring-offset-background',
         className,
       )}

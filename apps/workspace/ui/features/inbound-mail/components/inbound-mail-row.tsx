@@ -164,7 +164,7 @@ export function InboundMailRow({
           />
           <div className="flex min-w-0 flex-1 flex-col" /* a name and one meta line: 56px with the row's 10px */>
             <div className="flex min-w-0 items-baseline gap-2">
-              <p className={cn('min-w-0 flex-1 line-clamp-2 text-name text-pretty [overflow-wrap:anywhere]', needsReader ? 'text-foreground font-semibold' : waiting ? 'text-foreground font-medium' : 'text-foreground font-normal')} title={mail.subject ?? undefined} /* a handled mail reads in ink at the normal weight: the tab says it is done, grey made every row read disabled */>
+              <p className={cn('min-w-0 flex-1 line-clamp-2 text-name text-pretty [overflow-wrap:anywhere]', needsReader || waiting ? 'text-foreground font-medium' : 'text-foreground font-normal')} title={mail.subject ?? undefined} /* a handled mail reads in ink at the normal weight: the tab says it is done, grey made every row read disabled */>
                 {subject}
               </p>
               <TimeAgo date={mail.receivedAt} locale={locale} className="text-muted-foreground shrink-0 text-xs tabular-nums" />

@@ -71,7 +71,7 @@ const Scenario: FC<{ id: string; title: string; note: string; children: React.Re
 }) => (
   <section data-testid={`look-scenario-${id}`} className="flex flex-col gap-3">
     <div>
-      <h2 className="text-foreground text-sm font-semibold">{title}</h2>
+      <h2 className="text-foreground text-sm font-medium">{title}</h2>
       <p className="text-muted-foreground text-xs">{note}</p>
     </div>
     {children}

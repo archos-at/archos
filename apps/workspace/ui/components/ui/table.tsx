@@ -28,7 +28,7 @@ const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableE
   // scrolls sideways is the box a sticky head sticks to, and it never scrolls down.
   ({ className, scrollX = true, ...props }, ref) => (
     <div className={cn('relative w-full', scrollX && 'overflow-x-auto')}>
-      <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
+      <table ref={ref} className={cn('w-full caption-bottom text-name font-normal', className)} {...props} />
     </div>
   ),
 )

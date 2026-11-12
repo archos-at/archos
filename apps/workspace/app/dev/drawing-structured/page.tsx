@@ -179,7 +179,7 @@ export default function DrawingStructuredDevPage() {
   return (
     <main className="bg-background min-h-screen space-y-6 p-8">
       <header>
-        <h1 className="text-foreground text-lg font-semibold">Structured analysis</h1>
+        <h1 className="text-foreground text-lg font-medium">Structured analysis</h1>
         <p className="text-muted-foreground mt-1 max-w-xl text-sm">
           The advanced disclosure under a visual chunk&apos;s description. Expand each to see the
           extracted structure; the second panel uses a domain this build ships no vocabulary for.

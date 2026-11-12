@@ -254,7 +254,7 @@ function BimTablesPreview(): JSX.Element {
             askHref="/app/projects/p1/chat?ask=x"
           />
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold">Element chip in an answer</h2>
+            <h2 className="text-sm font-medium">Element chip in an answer</h2>
             <p className="text-sm leading-relaxed text-foreground">
               Die Trennwand zwischen Stiegenhaus und Wohnung 03 —{' '}
               {CHIP_LINK && <IfcElementChip link={CHIP_LINK}>Innenwand IW-12</IfcElementChip>} —

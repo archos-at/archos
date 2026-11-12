@@ -155,7 +155,7 @@ export function RevisionsFixture(): JSX.Element {
       <main className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
         {!only && (
           <div>
-            <h1 className="text-lg font-semibold">Files browser — Fassungen</h1>
+            <h1 className="text-lg font-medium">Files browser — Fassungen</h1>
             <p className="text-muted-foreground mt-1 text-sm">
               One entry per document; the count beside the name; one badge on an older Fassung.
             </p>

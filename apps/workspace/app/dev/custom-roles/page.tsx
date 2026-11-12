@@ -151,7 +151,7 @@ function CustomRolesPreview(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4 sm:p-8" data-testid="custom-roles-preview">
       <div>
-        <h1 className="text-lg font-semibold">Organisation — Eigene Rollen</h1>
+        <h1 className="text-lg font-medium">Organisation — Eigene Rollen</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           ADR-0087: an office&apos;s own roles in WorkOS, as a User Admin without the models or budgets permission
           sees them.
