@@ -644,6 +644,10 @@
     "de": "Ein Projekt mit einem Einreichdatum von heute oder früher erhält seine baurechtlichen Antworten und das auf seiner Projektseite angeführte Gesetz nun in der an diesem Tag geltenden Fassung statt in der heutigen. Die Antwort gibt an, dass sie das Einreichdatum als Stichtag herangezogen und Übergangsbestimmungen nicht geprüft hat."
   },
   {
+    "en": "A project you set up yourself now keeps the country and Bundesland it was created with. Before, they were dropped and the first question asked for the Land again; an agent creating a project through the agent door hit the same gap.",
+    "de": "Ein Projekt, das Sie selbst anlegen, behält jetzt das Land und Bundesland, mit denen es erstellt wurde. Bisher gingen diese Angaben verloren und in der ersten Frage wurde erneut nach dem Land gefragt; bei Projekten, die ein Agent über den Agentenzugang anlegt, trat dieselbe Lücke auf."
+  },
+  {
     "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",
     "de": "Bei den Dateien eines Projekts wird die Anzahl wartender E-Mails nicht mehr in einer Zeile oberhalb der Dateien angezeigt, sondern im Inbox-Tab."
   },
@@ -2036,6 +2040,10 @@
     "de": "Jeder Schritt hinter dieser Zahl wird mitveröffentlicht: welche Zahlen auf unseren Annahmen beruhen und welche auf Ihren, wie die Arbeitswoche eines Planers angenommen wird und was die Berechnung bewusst nicht berücksichtigt."
   },
   {
+    "en": "Every white button now has one look and darkens when you point at it. Cards and folders darken too instead of lifting, and a file tile answers with the edge of its preview, with no grey laid behind it.",
+    "de": "Alle weißen Buttons haben jetzt ein einheitliches Erscheinungsbild und werden dunkler, wenn Sie mit dem Mauszeiger darauf zeigen. Auch Karten und Ordner werden dunkler statt angehoben; bei Dateikacheln wird der Rand der Vorschau hervorgehoben, ohne grauen Hintergrund."
+  },
+  {
     "en": "Existing budget limits were converted from euros to points. Check your organization, member and project limits once and adjust them if the new values are not what you meant.",
     "de": "Bestehende Budgetlimits wurden von Euro in Punkte umgerechnet. Prüfen Sie Ihre Organisations-, Mitglieder- und Projektlimits einmal und passen Sie sie an, wenn die neuen Werte nicht dem entsprechen, was Sie gemeint haben."
   },
@@ -2760,6 +2768,10 @@
     "de": "In der Übersicht ist der Steckbrief jetzt eine Zusammenfassung mit einem „Bearbeiten“-Dialog; beim Schließen eines Projekts wird abgefragt, wer beteiligt war, damit der Datensatz vollständig ist, bevor er schreibgeschützt wird."
   },
   {
+    "en": "On the website's home page, the feld72 quote is new and stands beside a photo of the whole feld72 team, credited to its photographer, and the founders row now says who the three people are. Large retina screens and phones can now be sent larger images, so screenshots and photos stay sharp there once their full-size originals are in.",
+    "de": "Auf der Startseite ist das Zitat von feld72 neu und steht neben einem Foto des gesamten feld72-Teams mit Fotograf:innen-Credit; in der Gründer:innen-Zeile steht nun, wer die drei Personen sind. Große Retina-Displays und Smartphones können nun größere Bilder erhalten, damit Screenshots und Fotos scharf bleiben, sobald die Originale in voller Größe vorliegen."
+  },
+  {
     "en": "Once a newer version is published, Piloti stops answering from the replaced one. The older version stays in the version list and can still be opened.",
     "de": "Sobald eine neuere Fassung veröffentlicht ist, antwortet Piloti nicht mehr aus der ersetzten Fassung. Die ältere Fassung bleibt im Fassungsverlauf und lässt sich weiter öffnen."
   },
@@ -3358,6 +3370,10 @@
   {
     "en": "Right-click in a project's Files works the way it does in Finder and Explorer: a file, a folder and the empty list each open their own menu. The ⋯ button on a file or folder offers the same actions, so the menu stays available if you never right-click.",
     "de": "Der Rechtsklick im Bereich Dateien eines Projekts funktioniert wie im Finder und im Explorer: Eine Datei, ein Ordner und die leere Liste öffnen jeweils ein eigenes Menü. Die Schaltfläche ⋯ an einer Datei oder einem Ordner bietet dieselben Aktionen, sodass das Menü auch dann erreichbar bleibt, wenn Sie nie mit der rechten Maustaste klicken."
+  },
+  {
+    "en": "Rows, buttons and menu entries now darken by the same single step when you point at them, everywhere in the app. The entry under the pointer no longer looks like the one that is open, and the three-dot button of a file shows when you point at it.",
+    "de": "Zeilen, Schaltflächen und Menüeinträge werden jetzt überall in der App beim Darüberfahren um genau eine Stufe dunkler. Der Eintrag unter dem Mauszeiger sieht nicht mehr wie der geöffnete Eintrag aus, und die Drei-Punkte-Schaltfläche einer Datei wird beim Darüberfahren angezeigt."
   },
   {
     "en": "Saving organization settings, standing instructions or the price list now shows Saved on the button itself rather than in a separate message, and a usage or storage panel that fails to load offers a retry in place.",
@@ -4032,6 +4048,10 @@
     "de": "Die Ordner-Chips über der Dateiliste in Dateien sind wieder lesbar. In Projekten mit einer langen Dateiliste waren sie so stark zusammengedrückt, dass die Ordnernamen mitten im Wort abgeschnitten wurden."
   },
   {
+    "en": "The frame that shows where the keyboard is, and the border of a text field you click into, are now a mid grey where they were almost black. Fields, checkboxes and switches also answer when you point at them.",
+    "de": "Der Rahmen für den Tastaturfokus und der Rahmen eines Textfelds, das Sie anklicken, sind jetzt mittelgrau statt fast schwarz. Felder, Kontrollkästchen und Schalter reagieren jetzt auch, wenn Sie mit dem Mauszeiger darauf zeigen."
+  },
+  {
     "en": "The header of the file preview now holds only the name, the kind of document and the controls for the file. Who created it, who is responsible and „Piloti dazu fragen“ moved into the panel beside it.",
     "de": "Der Kopf der Dateivorschau zeigt nur noch Namen, Dokumentart und die Schaltflächen für die Datei. Wer sie erstellt hat, wer zuständig ist und „Piloti dazu fragen“ stehen jetzt im Bereich daneben."
   },
@@ -4342,6 +4362,10 @@
   {
     "en": "The summary of an image no longer starts with a stray text marker.",
     "de": "Die Zusammenfassung eines Bildes beginnt nicht mehr mit einer störenden Textmarkierung."
+  },
+  {
+    "en": "The tabs of the project settings now look and work like the tabs of the files page: a grey track with the open tab in white. A tab or a view you point at darkens, where only its lettering changed before.",
+    "de": "Die Tabs der Projekteinstellungen sehen jetzt aus und funktionieren wie die Tabs auf der Dateiseite: mit einer grauen Leiste und dem aktiven Tab in Weiß. Wenn Sie mit der Maus über einen Tab oder eine Ansicht fahren, wird dieser bzw. diese dunkler; bisher änderte sich nur die Schriftfarbe."
   },
   {
     "en": "The terms and number checks your office sets now also cover what you type into the chat: before a message with an IBAN or a listed term goes out, Piloti shows what it found and sends only a masked version, or lets you edit it first.",

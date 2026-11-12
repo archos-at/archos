@@ -26,12 +26,15 @@ describe('Archiv header', () => {
     expect(group).not.toBeNull()
     const open = source.lastIndexOf('<div', group!.index)
     const classes = source.slice(open, group!.index)
-    expect(classes).toContain('max-w-full')
+    expect(classes).toContain('min-w-0')
     expect(classes).not.toMatch(/\bshrink-0\b/)
   })
 
-  it('puts the controls on their own full-width line on a phone', () => {
-    expect(source).toMatch(/max-sm:w-full/)
+  it('puts the controls in a row of their own under the title, at every width', () => {
+    // Beside the title they wrapped into three ragged rows (review of 2026-11-11); Dateien's tool row holds them now.
+    const row = source.indexOf('<SectionToolRow className')
+    expect(row).toBeGreaterThan(source.indexOf('<PageHeader'))
+    expect(source.indexOf('data-testid="office-shelf-controls"')).toBeGreaterThan(row)
   })
 })
 

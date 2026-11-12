@@ -38,6 +38,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { SECTION_READING_COLUMN } from '@/components/shell/section-layout'
+import { cn } from '@/lib/utils'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { jobsCopy } from '@/i18n/namespaces/jobs'
@@ -501,7 +503,7 @@ export function TasksPanel({
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* Liste and Zeitplan read the same tasks: the toggle is a preference
               that rides `?view=`, never a destination. */}
-          <div className="mx-auto w-full max-w-3xl px-4 pt-4 md:px-6">
+          <div className={cn(SECTION_READING_COLUMN, 'pt-4')}>
             <ToggleGroup
               type="single"
               value={view}
@@ -525,7 +527,7 @@ export function TasksPanel({
           </div>
 
           {isTimetableView ? (
-            <div className="usage-viz mx-auto w-full max-w-5xl p-4 md:p-6">
+            <div className="usage-viz listing-container p-4 md:px-8 md:py-6">
               <ScheduleTimetable
                 schedules={jobs}
                 loading={loading}
@@ -647,7 +649,7 @@ function StandingTasksSection({
 
   return (
     <section
-      className="mx-auto w-full max-w-3xl p-4 pt-2 md:px-6"
+      className={cn(SECTION_READING_COLUMN, 'pb-4 pt-2')}
       aria-label={t('standing.heading')}
     >
       <SectionLabel as="h2" className="mb-2">

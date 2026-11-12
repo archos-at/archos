@@ -368,6 +368,14 @@
           }
         },
         {
+          "section": "features",
+          "area": "general",
+          "text": {
+            "en": "On the website's home page, the feld72 quote is new and stands beside a photo of the whole feld72 team, credited to its photographer, and the founders row now says who the three people are. Large retina screens and phones can now be sent larger images, so screenshots and photos stay sharp there once their full-size originals are in.",
+            "de": "Auf der Startseite ist das Zitat von feld72 neu und steht neben einem Foto des gesamten feld72-Teams mit Fotograf:innen-Credit; in der Gründer:innen-Zeile steht nun, wer die drei Personen sind. Große Retina-Displays und Smartphones können nun größere Bilder erhalten, damit Screenshots und Fotos scharf bleiben, sobald die Originale in voller Größe vorliegen."
+          }
+        },
+        {
           "section": "improvements",
           "area": "documents",
           "text": {
@@ -581,6 +589,38 @@
           "text": {
             "en": "The upload menu says which formats you can upload and the size limit, and that you can drop files anywhere on the page. An empty folder shows one „Hochladen“ button, and the upload panel shows its progress as „3,0 von 6,0 MB“.",
             "de": "Im Upload-Menü steht, welche Formate Sie hochladen können, welches Größenlimit gilt und dass Sie Dateien überall auf der Seite ablegen können. In einem leeren Ordner wird ein einzelner Button „Hochladen“ angezeigt, und das Upload-Panel zeigt den Fortschritt als „3,0 von 6,0 MB“ an."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Rows, buttons and menu entries now darken by the same single step when you point at them, everywhere in the app. The entry under the pointer no longer looks like the one that is open, and the three-dot button of a file shows when you point at it.",
+            "de": "Zeilen, Schaltflächen und Menüeinträge werden jetzt überall in der App beim Darüberfahren um genau eine Stufe dunkler. Der Eintrag unter dem Mauszeiger sieht nicht mehr wie der geöffnete Eintrag aus, und die Drei-Punkte-Schaltfläche einer Datei wird beim Darüberfahren angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The tabs of the project settings now look and work like the tabs of the files page: a grey track with the open tab in white. A tab or a view you point at darkens, where only its lettering changed before.",
+            "de": "Die Tabs der Projekteinstellungen sehen jetzt aus und funktionieren wie die Tabs auf der Dateiseite: mit einer grauen Leiste und dem aktiven Tab in Weiß. Wenn Sie mit der Maus über einen Tab oder eine Ansicht fahren, wird dieser bzw. diese dunkler; bisher änderte sich nur die Schriftfarbe."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Every white button now has one look and darkens when you point at it. Cards and folders darken too instead of lifting, and a file tile answers with the edge of its preview, with no grey laid behind it.",
+            "de": "Alle weißen Buttons haben jetzt ein einheitliches Erscheinungsbild und werden dunkler, wenn Sie mit dem Mauszeiger darauf zeigen. Auch Karten und Ordner werden dunkler statt angehoben; bei Dateikacheln wird der Rand der Vorschau hervorgehoben, ohne grauen Hintergrund."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The frame that shows where the keyboard is, and the border of a text field you click into, are now a mid grey where they were almost black. Fields, checkboxes and switches also answer when you point at them.",
+            "de": "Der Rahmen für den Tastaturfokus und der Rahmen eines Textfelds, das Sie anklicken, sind jetzt mittelgrau statt fast schwarz. Felder, Kontrollkästchen und Schalter reagieren jetzt auch, wenn Sie mit dem Mauszeiger darauf zeigen."
           }
         },
         {
@@ -1197,6 +1237,14 @@
           "text": {
             "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",
             "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "A project you set up yourself now keeps the country and Bundesland it was created with. Before, they were dropped and the first question asked for the Land again; an agent creating a project through the agent door hit the same gap.",
+            "de": "Ein Projekt, das Sie selbst anlegen, behält jetzt das Land und Bundesland, mit denen es erstellt wurde. Bisher gingen diese Angaben verloren und in der ersten Frage wurde erneut nach dem Land gefragt; bei Projekten, die ein Agent über den Agentenzugang anlegt, trat dieselbe Lücke auf."
           }
         },
         {

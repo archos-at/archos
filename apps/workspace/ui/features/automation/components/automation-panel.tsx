@@ -4,6 +4,7 @@ import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { ListChecks, Sparkles } from 'lucide-react'
 
+import { ProjectSectionTabs } from '@/components/shell/project-section-frame'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SkillsPanel } from '@/features/skills/components/skills-panel'
 import { TasksPanel } from '@/features/tasks/components/tasks-panel'
@@ -110,11 +111,10 @@ export function AutomationPanel({
 
   return (
     <Tabs value={tab} onValueChange={selectTab} className="h-full min-h-0 gap-0">
-      {/* One slim bar. The frame above already carries the section title and
-          its subtitle, so a second full-width description strip here read as a
-          doubled header; the tabs are the only thing this row owes. */}
-      <div className="border-border shrink-0 border-b px-4 py-2 md:px-6">
-        <TabsList>
+      {/* The two places as tabs in the section's header, under its title, where Dateien's stand
+          (`ProjectSectionTabs`): they were a bar of their own under the header, with a second rule. */}
+      <ProjectSectionTabs>
+        <TabsList className="mb-2 h-8 bg-desk p-0.5" /* the track of Dateien's places: 32px on the desk */>
           <TabsTrigger value="tasks">
             <ListChecks aria-hidden />
             {t('sections.tasks')}
@@ -124,7 +124,7 @@ export function AutomationPanel({
             {t('sections.skills')}
           </TabsTrigger>
         </TabsList>
-      </div>
+      </ProjectSectionTabs>
       <TabsContent value="tasks" className="min-h-0 overflow-hidden">
         <TasksPanel
           projectId={projectId}

@@ -21,6 +21,7 @@
 import type { JSX } from 'react'
 import { use } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
+import { ProjectSectionFrame, ProjectSectionTabs } from '@/components/shell/project-section-frame'
 import { SectionNav } from '@/components/shell/section-nav'
 import { Brain, FileStack, Gauge, GitCompareArrows, LayoutDashboard, Users } from 'lucide-react'
 import { DocumentsSettings } from '@/features/projects/components/settings/documents-settings'
@@ -264,21 +265,22 @@ export default function SettingsDevPage({
   }))
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8" data-testid="settings-preview">
-      <h1 className="mb-6 text-xl font-medium">Overview</h1>
-      <div className="flex flex-col gap-6">
-        <div>
+    // The real section frame over the real page container, as `projects/[id]/settings/layout.tsx` composes them: the
+    // preview drew a title and a tab strip of its own, which showed a header the app does not have.
+    <main className="bg-background h-dvh" data-testid="settings-preview">
+      <ProjectSectionFrame projectId={PROJECT_ID} projectName="Wohnbau Mariahilf" pathname={`/app/projects/${PROJECT_ID}/settings`}>
+      <div className="listing-container flex flex-col gap-6 px-4 py-6 md:px-8 md:py-8">
+        <ProjectSectionTabs>
           <SectionNav
             label="Project settings"
             items={items}
             rootHref="/dev/settings"
             pillId="dev-settings-pill"
             orientation="tabs"
-            // As `ProjectSettingsNav` draws it: this preview mounts the nav itself, and kept the grey pill when the
-            // product moved to the track (2026-11-12).
             track
+            compactOnPhone
           />
-        </div>
+        </ProjectSectionTabs>
         <div className="min-w-0">
           {current === 'overview' && (
             <ProjectOverview
@@ -327,6 +329,7 @@ export default function SettingsDevPage({
           )}
         </div>
       </div>
+      </ProjectSectionFrame>
     </main>
   )
 }
