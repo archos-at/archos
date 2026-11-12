@@ -31,6 +31,7 @@ const CAPPED_REASON_COPY = {
   ungrounded: 'ungrounded',
   quote_unverified: 'quoteUnverified',
   law_unsettled: 'lawUnsettled',
+  open_point: 'openPoint',
 } as const
 export const EXPORTED_CAPPED_REASONS = Object.keys(CAPPED_REASON_COPY) as [
   ExportedCappedReason,

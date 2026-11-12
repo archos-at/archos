@@ -198,6 +198,22 @@ describe('ConfidenceChip for a checked answer (ADR-0139)', () => {
     expect((await screen.findAllByText(/Which edition binds at this site is not yet settled/)).length).toBeGreaterThan(0)
   })
 
+  test('says when an open point the answer names itself capped the level', async () => {
+    const user = userEvent.setup()
+    render(
+      <ConfidenceChip
+        confidence="medium"
+        cappedReason="open_point"
+        reason="Bindung der OIB-RL 2 nicht an der Quelle geprüft"
+        check={{ status: 'judged', level: 'high', findings: [] }}
+      />
+    )
+
+    await user.hover(screen.getByRole('button'))
+
+    expect((await screen.findAllByText(/The answer itself names an open point it relies on/)).length).toBeGreaterThan(0)
+  })
+
   test('an unavailable check shows no level and says the check did not run', async () => {
     const user = userEvent.setup()
     render(<ConfidenceChip confidence={null} check={{ status: 'unavailable', findings: [] }} />)

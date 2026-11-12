@@ -82,6 +82,7 @@ export const answerExport: typeof en.answerExport = {
     ungrounded: 'Begrenzt: die Antwort ist nicht durch Quellen belegt.',
     quoteUnverified: 'Begrenzt: ein Zitat war nicht wortgleich gegen die Quelle prüfbar.',
     lawUnsettled: 'Begrenzt: die verbindliche Fassung des Baurechts steht für diesen Standort noch nicht geprüft fest.',
+    openPoint: 'Begrenzt: die Antwort nennt selbst einen offenen Punkt, auf dem sie aufbaut.',
   },
   page: 'S. {page}',
   untitledSource: 'Quelle ohne Titel',

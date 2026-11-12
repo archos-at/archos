@@ -2163,6 +2163,7 @@ export const chat: typeof en.chat = {
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
       lawUnsettled:
         'Mittlere Sicherheit: die Antwort stützt sich auf Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
+      openPoint: 'Mittlere Sicherheit: die Antwort nennt selbst einen offenen Punkt, auf dem sie aufbaut.',
       // Die Messung belegt die Zahl, nicht die Rechtsaussage daneben — deshalb
       // bleibt die gemischte Antwort auf „gering", und der Tooltip sagt warum.
       normativeClaimUncited:
@@ -2196,6 +2197,9 @@ export const chat: typeof en.chat = {
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist deshalb begrenzt.',
       lawUnsettled:
         'Welche Fassung hier verbindlich ist, steht für diesen Standort noch nicht geprüft fest; die Einschätzung ist deshalb höchstens mittel.',
+      // Die Prüfung liest, ob die Quellen jede Aussage stützen. Sagt die Antwort
+      // selbst, dass etwas offen oder ungeprüft ist, ist sie nicht „hoch".
+      openPoint: 'Die Antwort nennt selbst einen offenen Punkt, auf dem sie aufbaut; die Einschätzung ist deshalb höchstens mittel.',
       unavailable: 'Belegprüfung nicht verfügbar',
       unavailableTooltip:
         'Die Belegprüfung konnte für diese Antwort nicht laufen. {productName} zeigt deshalb keine Einschätzung; die Antwort selbst ist unverändert.',
@@ -2217,6 +2221,7 @@ export const chat: typeof en.chat = {
           'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
         lawUnsettled:
           'Begrenzt durch Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
+        openPoint: 'Begrenzt durch einen offenen Punkt, den die Antwort selbst nennt.',
         // Ein Eintrag im Arbeitsbereich oder eine Messung belegt Fakten über
         // das Büro und das Gebäude, nie eine Aussage über das Recht.
         normativeClaimUncited:

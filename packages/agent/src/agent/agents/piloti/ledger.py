@@ -198,6 +198,7 @@ def assemble_result(
         "answer_citation_grounded": final.citation_grounded,
         "answer_measurement_grounded": measurement_grounded,
         "confidence_check": final.confidence_check,
+        "answer_open_points": list(final.open_points),
         "answer_lookup_found_nothing": final.lookup_found_nothing,
         "answer_quotes_verified": final.quotes_verified,
         # A sentence that states law without the records caps like law the records do not settle.

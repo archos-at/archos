@@ -3618,7 +3618,8 @@
               "enum": [
                 "ungrounded",
                 "quote_unverified",
-                "law_unsettled"
+                "law_unsettled",
+                "open_point"
               ],
               "type": "string"
             },

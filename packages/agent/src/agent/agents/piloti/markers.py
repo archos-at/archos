@@ -20,6 +20,7 @@ can share one implementation without a circular import.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from typing import Any
 from typing import Literal
 
@@ -178,8 +179,9 @@ def detect_and_strip_confidence_marker(content: Any) -> tuple[Any, ConfidenceLev
 # (``answer_confidence_version`` on the wire):
 #
 # - **Chat** (:func:`surface_checked_confidence`, ADR-0139): the level the
-#   answer check (``common/claim_judge.py``) gave, under the hard quote gate.
-#   The self-report only says the answer is one to grade; it sets no level.
+#   answer check (``common/claim_judge.py``) gave, under the hard quote gate,
+#   the law gate and the open-point cap. The self-report does not set the level;
+#   below ``high`` it is the answer naming a gap of its own, and caps it.
 #   No check, no level.
 # - **Deep research** (:func:`surface_answer_confidence`, rule 1): the
 #   answer-level floors over the self-report. Every chat turn stored before the
@@ -198,6 +200,8 @@ CONFIDENCE_RULE_VERSION = 2
 #: - ``quote_unverified``       a quoted span matched no retrieved passage.
 #: - ``law_unsettled``          the answer rests on building law the turn's records do not settle: the gate
 #:   withholds a binding claim, or the coverage is open (ADR-0175). Capped to ``medium``.
+#: - ``open_point``             the answer itself names an open point: the check read one in its prose or its
+#:   confidence reason, or the answer rated itself below ``high``. Capped to ``medium``.
 #: - ``normative_claim_uncited``, ``measurement_only``, ``citation_fallback``:
 #:   no longer produced (rules 1 and 2 as chat ran them). Kept because stored
 #:   turns carry them.
@@ -205,6 +209,7 @@ CappedReason = Literal[
     "ungrounded",
     "quote_unverified",
     "law_unsettled",
+    "open_point",
     "normative_claim_uncited",
     "measurement_only",
     "citation_fallback",
@@ -261,22 +266,35 @@ def _quote_cap(quotes_verified: bool, citation_grounded: bool) -> ConfidenceLeve
     return MEASUREMENT_CONFIDENCE_CEILING if citation_grounded else "low"
 
 
+def answer_names_open_point(open_points: Sequence[str], self_reported: ConfidenceLevel | None) -> bool:
+    """Whether the answer itself names a gap: the check read an open point, or the answer rated itself below high.
+
+    The prompt's ``medium`` is „an inference or a named gap", its ``low`` missing or conflicting evidence: either
+    self-report is the answer saying it is not settled, whatever the check found backed.
+    """
+    return bool(open_points) or self_reported in ("low", "medium")
+
+
 def surface_checked_confidence(
     checked: ConfidenceLevel | None,
     *,
     quotes_verified: bool = True,
     citation_grounded: bool = False,
     law_unsettled: bool = False,
+    open_point: bool = False,
 ) -> ConfidenceLevel | None:
-    """The answer check's level under the quote gate and the law gate; ``None`` when the check gave none.
+    """The answer check's level under the quote gate, the law gate and the open-point cap; ``None`` without a level.
 
     The law gate is structural, like the quote gate: an answer that rests on building law the records do
-    not settle (``law_unsettled``) is at most ``medium``, whatever the grader read (staging QC, F6).
+    not settle (``law_unsettled``) is at most ``medium``, whatever the grader read (staging QC, F6). So is
+    an answer that names an open point of its own (``open_point``, :func:`answer_names_open_point`): the
+    check grades whether the evidence backs each statement, and „die Bindung ist nicht geprüft" is backed
+    by evidence that says so, so the level alone read such an answer ``high`` beside a reason naming the gap.
     """
     if checked is None:
         return None
     quoted = _at_most(checked, _quote_cap(quotes_verified, citation_grounded))
-    return _at_most(quoted, MEASUREMENT_CONFIDENCE_CEILING) if law_unsettled else quoted
+    return _at_most(quoted, MEASUREMENT_CONFIDENCE_CEILING) if law_unsettled or open_point else quoted
 
 
 def checked_confidence_capped_reason(
@@ -285,13 +303,14 @@ def checked_confidence_capped_reason(
     quotes_verified: bool = True,
     citation_grounded: bool = False,
     law_unsettled: bool = False,
+    open_point: bool = False,
 ) -> CappedReason | None:
-    """``quote_unverified`` or ``law_unsettled`` for the gate that lowered the check's level, else ``None``."""
-    if surface_checked_confidence(checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded) != (
-        checked
-    ):
+    """The gate that lowered the check's level, quote gate first, then the law gate, then the open point; else None."""
+    quoted = surface_checked_confidence(checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded)
+    if quoted != checked:
         return "quote_unverified"
-    surfaced = surface_checked_confidence(
-        checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded, law_unsettled=law_unsettled
-    )
-    return "law_unsettled" if surfaced != checked else None
+    if quoted is None or _at_most(quoted, MEASUREMENT_CONFIDENCE_CEILING) == quoted:
+        return None
+    if law_unsettled:
+        return "law_unsettled"
+    return "open_point" if open_point else None

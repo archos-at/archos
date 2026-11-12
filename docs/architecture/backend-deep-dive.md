@@ -123,8 +123,9 @@ field at its default, and each is reset at the turn boundary in
   workspace records from `common/workspace_records.py`, the profile and the
   inventory, measurements, readings, and what the quote check found), and
   returns a level and the statements it found unbacked or contradicted
-  (`TurnResult.confidence_check`). The quote gate below is the one rule on top;
-  the self-report sets no level. A check that cannot run surfaces no level.
+  (`TurnResult.confidence_check`). Three caps sit on top, each to at most
+  "medium": the quote gate below, the law gate (`"law_unsettled"`), and the
+  open-point cap (`"open_point"`). A check that cannot run surfaces no level.
   Deep research keeps rule 1, the answer-level floors described in the rest of
   this entry.
   - `"ungrounded"` — rule 1: citation verification left the report without
@@ -135,6 +136,15 @@ field at its default, and each is reset at the turn boundary in
     registry's captured `chunk_text`, fail-open; the offending span is annotated
     inline with `[nicht wörtlich in der Quelle belegt]` and the answer is never
     otherwise altered).
+  - `"law_unsettled"` — the answer rests on building law the turn's records do
+    not settle (ADR-0139's amendment of 2026-11-10, `common/law_gate.py`).
+  - `"open_point"` — the answer itself names an open point its main point
+    depends on: the check read one in its prose or in its confidence reason
+    (`Check.open_points`, scored as `confidence-open-points`), or the answer
+    rated itself below "high". The grader grades whether the evidence backs each
+    statement, and „die Bindung ist nicht an der Quelle geprüft" is backed by a
+    record that says so, so the level alone read such an answer "high" beside a
+    reason naming the gap (golden case `at-a6`, 2026-11-12).
   - `"normative_claim_uncited"` / `"measurement_only"` — no longer produced;
     they named rule 1's measurement branches for chat, which the answer check
     replaced (ADR-0139). Stored turns still carry the tokens.

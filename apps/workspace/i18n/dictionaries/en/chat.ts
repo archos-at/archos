@@ -2136,6 +2136,7 @@ export const chat = {
         'A quote could not be verified verbatim against the source; the assessment is capped accordingly.',
       lawUnsettled:
         'Medium confidence: the answer rests on building law whose binding edition at this site is not yet settled by reviewed records.',
+      openPoint: 'Medium confidence: the answer itself names an open point it relies on.',
       // The measurement backs the number, not the legal statement beside it —
       // so the mixed answer stays at "low" and the tooltip says why.
       normativeClaimUncited:
@@ -2168,6 +2169,9 @@ export const chat = {
       quoteUnverified: 'A quotation could not be confirmed word for word in its source, so the level is capped.',
       lawUnsettled:
         'Which edition binds at this site is not yet settled by reviewed records, so the level is at most medium.',
+      // The check reads whether the sources back each statement. An answer that
+      // itself says something is open or unchecked is not "high".
+      openPoint: 'The answer itself names an open point it relies on, so the level is at most medium.',
       unavailable: 'Evidence check unavailable',
       unavailableTooltip:
         'The evidence check could not run for this answer, so {productName} shows no level; the answer itself is unchanged.',
@@ -2188,6 +2192,7 @@ export const chat = {
         quoteUnverified:
           'A quote could not be verified verbatim against the source; the assessment is capped accordingly.',
         lawUnsettled: 'Capped by building law whose binding edition at this site is not yet settled by reviewed records.',
+        openPoint: 'Capped by an open point the answer itself names.',
         normativeClaimUncited:
           'Capped by a legal statement without a cited source. A workspace record or a measurement does not back a legal statement.',
         measurementOnly:

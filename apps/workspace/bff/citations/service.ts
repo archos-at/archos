@@ -32,11 +32,7 @@ export const CITATION_DEFECT_KINDS = CITATION_EVENT_KINDS.filter(
 
 /** The repository's filter for a scope: its UTC day bounds plus the id lists. */
 export function citationScopeFilter(scope: QualityScope): repository.CitationScopeFilter {
-  return {
-    ...scopeBounds(scope),
-    organizationIds: scope.organizationIds,
-    projectIds: scope.projectIds,
-  }
+  return { ...scopeBounds(scope), organizationIds: scope.organizationIds, projectIds: scope.projectIds }
 }
 
 export interface CitationKindTotal {
@@ -581,6 +577,7 @@ const EXPORT_GLOSSARY: Record<string, string> = {
   'confidence.quote_unverified': 'Capped to low: a quoted span matched no retrieved passage.',
   'confidence.law_unsettled':
     "Confidence capped to medium: the answer cites building law the turn's knowledge records do not settle (no curated coverage at the site).",
+  'confidence.open_point': 'Capped to medium: the answer itself names an open point it rests on.',
   'confidence.normative_claim_uncited':
     'Confidence capped: the answer was grounded in a measurement but also made a legal claim without a verified citation.',
   'confidence.measurement_only':

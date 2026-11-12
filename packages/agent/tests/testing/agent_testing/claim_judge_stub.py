@@ -40,13 +40,18 @@ def stored_evidence(answer: dict) -> Evidence:
     )
 
 
-def stub_judge(level: Level = "high", findings: Sequence[Finding] = (), calls: list[Evidence] | None = None) -> JudgeFn:
-    """A judge that always answers ``level`` with ``findings``, appending each request to ``calls``."""
+def stub_judge(
+    level: Level = "high",
+    findings: Sequence[Finding] = (),
+    calls: list[Evidence] | None = None,
+    open_points: Sequence[str] = (),
+) -> JudgeFn:
+    """A judge that always answers ``level``, ``findings`` and ``open_points``, appending each request to ``calls``."""
 
     async def judge(evidence: Evidence) -> Check | None:
         if calls is not None:
             calls.append(evidence)
-        return Check(level, tuple(findings))
+        return Check(level, tuple(findings), tuple(open_points))
 
     return judge
 

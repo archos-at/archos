@@ -101,6 +101,27 @@ class TestTheEvidenceIsData:
         assert data["quotations_not_found_in_their_passage"] == ["zwei Fenster"]
 
 
+class TestTheConfidenceReason:
+    """The reason reaches the reader beside the level, so the check reads it too (golden at-a6, 2026-11-12)."""
+
+    REASON = "Gebäudeklasse aus dem Profil abgeleitet; Bindung der OIB-RL 2 nicht an der Quelle geprüft"
+
+    def test_the_answers_own_confidence_reason_stands_beside_the_answer_outside_the_data(self):
+        body = build_messages(_evidence(confidence_reason=self.REASON))[1].content
+
+        assert body.index("<answer>") < body.index("<confidence_reason>") < body.index("<evidence>")
+        assert self.REASON in body[: body.index("<evidence>")]
+
+    def test_no_reason_no_block(self):
+        assert "<confidence_reason>" not in build_messages(_evidence())[1].content
+
+    def test_the_grader_is_asked_for_the_open_points_the_answer_names_itself(self):
+        system = build_messages(_evidence())[0].content
+
+        assert "open_points" in system and "<confidence_reason>" in system
+        assert "A gap the confidence reason names is always one" in system
+
+
 class TestThePassagesGoInWhole:
     def test_a_rule_far_into_a_passage_is_sent(self):
         rule = "Punkt 9.4: mindestens 1,20 m."
@@ -150,6 +171,22 @@ class TestTheReply:
         check = parse_reply(json.dumps({"level": "medium", "findings": many}))
 
         assert len(check.findings) == claim_judge.MAX_FINDINGS
+
+    def test_the_open_points_are_read_trimmed_and_bounded(self):
+        points = ["Bindung nicht an der Quelle geprüft", "  ", *(f"Punkt {i}" for i in range(9))]
+
+        check = parse_reply(json.dumps({"level": "high", "findings": [], "open_points": points}))
+
+        assert check.open_points[0] == "Bindung nicht an der Quelle geprüft"
+        assert len(check.open_points) == claim_judge.MAX_OPEN_POINTS and "" not in check.open_points
+
+    def test_a_reply_without_open_points_names_none(self):
+        check = parse_reply('{"level": "high", "findings": []}')
+
+        assert check is not None and check.open_points == ()
+
+    def test_open_points_are_required_by_the_structured_format(self):
+        assert "open_points" in claim_judge.CheckReply.model_json_schema()["required"]
 
     def test_a_reply_that_is_no_such_object_is_none(self):
         assert parse_reply("Alles belegt.") is None
