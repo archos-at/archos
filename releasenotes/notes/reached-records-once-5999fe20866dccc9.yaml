@@ -1,0 +1,8 @@
+---
+# area: building-law
+operators:
+  - >
+    Base-knowledge reads for an office no longer take seconds per query: which
+    countries it is entitled to, and which records a relation reaches, are each
+    worked out once per query instead of once per row. To roll this back, roll the
+    frontend back before its database migration.
