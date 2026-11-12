@@ -1035,3 +1035,26 @@ async def test_a_superseded_quote_too_long_for_a_proposal_is_dropped_not_sent(mo
     (body,) = transport.bodies()
     assert _contract_errors(body) == []
     assert "supersedes" not in body["payload"]
+
+
+@pytest.mark.asyncio
+async def test_a_legacy_card_carries_the_topic_the_note_is_filed_under(monkeypatch, proposals):
+    proposals.install(404)  # an older BFF stores no proposal: the browser writes the note from the card
+    insert = MagicMock(side_effect=pm.OrgMemoryDisabledError("disabled"))
+
+    await _remember(monkeypatch, insert, scope="organization", topic="Brandschutz")
+
+    (card,) = proposals.registry.snapshot()
+    assert card["type"] == "memory_proposal" and "proposal_id" not in card
+    assert card["topic"] == "Brandschutz"
+
+
+@pytest.mark.asyncio
+async def test_a_topic_too_long_to_keep_is_left_off_the_card(monkeypatch, proposals):
+    proposals.install(404)
+    insert = MagicMock(side_effect=pm.OrgMemoryDisabledError("disabled"))
+
+    await _remember(monkeypatch, insert, scope="organization", topic="T" * 41)
+
+    (card,) = proposals.registry.snapshot()
+    assert "topic" not in card

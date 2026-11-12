@@ -2,6 +2,7 @@
 
 import typing
 
+import pytest
 from pydantic import ValidationError
 
 from agent.cards.card_model import CardModel

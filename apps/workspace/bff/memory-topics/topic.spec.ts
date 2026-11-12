@@ -6,6 +6,7 @@ import { BadRequestError } from '@/lib/api/errors'
 import {
   MEMORY_TOPIC_MAX_LENGTH,
   memoryTopicQueryField,
+  distinctTopicNames,
   memoryTopicRenameSchema,
   normalizeTopic,
   requireRenameFrom,

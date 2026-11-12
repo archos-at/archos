@@ -123,6 +123,33 @@ describe('MemoryProposalCard', () => {
     expect(await screen.findByText(/Saved to this project/)).toBeInTheDocument()
   })
 
+  it('sends the topic the card names with the note, to either route', async () => {
+    const { posts } = stubFetch()
+    const user = userEvent.setup()
+    render(<MemoryProposalCard {...baseProps} topic="Brandschutz" />)
+
+    await user.click(screen.getByRole('button', { name: 'Yes, remember org-wide' }))
+
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0].body).toEqual({
+      kind: 'preference',
+      content: baseProps.content,
+      confidence: 'high',
+      topic: 'Brandschutz',
+    })
+  })
+
+  it('sends no topic key when the card names none', async () => {
+    const { posts } = stubFetch()
+    const user = userEvent.setup()
+    render(<MemoryProposalCard {...baseProps} topic={null} />)
+
+    await user.click(screen.getByRole('button', { name: 'Save to just this project' }))
+
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0].body).not.toHaveProperty('topic')
+  })
+
   it('stays focused and busy while saving, ignores a second press, then hands focus to the receipt', async () => {
     let release: () => void = () => {}
     const posts: string[] = []

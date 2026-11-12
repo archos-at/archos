@@ -246,7 +246,7 @@ export const projectsOperations = [
     summary: 'List a project’s memory items',
     description:
       'The facts, decisions and notes ' + PRODUCT_NAME + ' keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). ' +
-      'Pass `includeArchived: "true"` for archived ones, or `conversationId` for those noted in one conversation. `topics` counts all items the caller sees. Item ids feed project-memory-update and project-memory-delete.',
+      'Pass `includeArchived: "true"` for archived ones, or `conversationId` for those noted in one conversation. `topics` counts the caller's active items. Item ids feed project-memory-update and project-memory-delete.',
     method: 'GET',
     path: '/api/projects/[id]/memory',
     params: projectParams,
