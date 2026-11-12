@@ -94,6 +94,16 @@ const PREAMBLE =
   'where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, ' +
   'which add no requirement. Information from an authority shows its practice, not a norm.'
 
+/**
+ * The binding section's header, and the answer rule for what it lists (owner, 2026-11-12): whenever the
+ * answer names one of these editions it says since when it binds, and through what where the line names a
+ * route, whether or not the question asked "since when". The day is the line's, which is the records'
+ * (`roleSinceOf`); a day from a web page or from memory is never one.
+ */
+export const BINDING_HEADER =
+  'Binding here. Whenever the answer names one of these, it says since when it binds and, where the line names a route, through what, ' +
+  "as the line states, even if not asked; the day is the records' own, never a web page's, and where a line names no day, say the records name none:"
+
 /** After the date when it is a filing day: the turn reads no reviewed reference-date rule, so the date is assumed. */
 const FILING_DAY = ", the filing day taken as the reference date (an assumption; transitional law not checked: say so)"
 
@@ -220,7 +230,7 @@ export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, 
   const source = uncurated ? "from the platform's records, some read from an uncurated official source (marked)" : "from the platform's reviewed records"
   const lines = [
     `Building law at this site, ${leafName} (${resolved.chain.join(', ')}), on ${resolved.date}${onFilingDay ? FILING_DAY : ''}, ${source}. ${PREAMBLE}`,
-    ...section("Binding here (a day named is the records' own: state it from here, not from a web page):", by('binding').flatMap((use) => bindingLine(graph, use, resolved.chain, noteOf(use)))),
+    ...section(BINDING_HEADER, by('binding').flatMap((use) => bindingLine(graph, use, resolved.chain, noteOf(use)))),
     ...section('Authority practice here:', by('authority_practice').map((use) => practiceLine(graph, use))),
     ...section(
       'Guidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):',
