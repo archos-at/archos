@@ -25,13 +25,13 @@ const status: KnowledgeBaseStatus = {
   files: [file('a-guideline-2019.pdf', 'XA'), file('a-guideline-2023.pdf', 'XA'), file('b-notes.pdf', null), file('c-law.pdf', 'XB')],
 }
 
-const narrow = (query: Record<string, string>) => narrowCorpus(status, corpusQuerySchema.parse(query))
+const narrow = (query: Record<string, string | boolean>) => narrowCorpus(status, corpusQuerySchema.parse(query))
 
 describe('narrowCorpus', () => {
   it('answers the whole store without a query, as the platform page reads it', () => {
     const all = narrow({})
     expect(all.files).toEqual(status.files)
-    expect(all).toMatchObject({ matched: 4, nextOffset: null, summary: status.summary })
+    expect(all).toMatchObject({ matched: 4, nextCursor: null, summary: status.summary })
   })
 
   it('filters by a part of the name, ignoring case', () => {
@@ -46,13 +46,15 @@ describe('narrowCorpus', () => {
   it('leaves out the summaries when brief', () => {
     expect(narrow({ brief: 'true' }).files.every((f) => !('summary' in f))).toBe(true)
     expect(narrow({ brief: 'false' }).files[0]).toHaveProperty('summary')
+    // An agent sends JSON, so a boolean is the same answer as the query string's text.
+    expect(narrow({ brief: true }).files.every((f) => !('summary' in f))).toBe(true)
   })
 
-  it('pages with limit and offset, and says where the next page starts', () => {
-    expect(narrow({ limit: '3' })).toMatchObject({ matched: 4, nextOffset: 3 })
-    const last = narrow({ limit: '3', offset: '3' })
+  it('pages with limit and cursor, and says where the next page starts', () => {
+    expect(narrow({ limit: '3' })).toMatchObject({ matched: 4, nextCursor: '3' })
+    const last = narrow({ limit: '3', cursor: '3' })
     expect(last.files.map((f) => f.fileName)).toEqual(['c-law.pdf'])
-    expect(last.nextOffset).toBeNull()
+    expect(last.nextCursor).toBeNull()
   })
 
   it('refuses a country that is no ISO code', () => {

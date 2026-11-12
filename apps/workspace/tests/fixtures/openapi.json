@@ -29152,7 +29152,7 @@
       "get": {
         "operationId": "platform-knowledge-base-get",
         "summary": "See the whole base corpus, released or not",
-        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list. The whole store with summaries is longer than one result: narrow it with `nameContains` and `countryId` (or `none`), leave out the summaries with `brief: true`, and page with `limit` and `offset` (`matched`, `nextOffset`).",
+        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list. The whole store with summaries is longer than one result: narrow it with `nameContains` and `countryId` (or `none`), leave out the summaries with `brief: true`, and page with `limit` and `cursor` (`matched`, `nextCursor`).",
         "tags": [
           "platform"
         ],
@@ -29193,10 +29193,17 @@
             "required": false,
             "schema": {
               "description": "true leaves out each file’s summary, which is most of the answer’s length.",
-              "type": "string",
-              "enum": [
-                "true",
-                "false"
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
+                }
               ]
             },
             "description": "true leaves out each file’s summary, which is most of the answer’s length."
@@ -29214,15 +29221,15 @@
             "description": "At most this many files (up to 500)."
           },
           {
-            "name": "offset",
+            "name": "cursor",
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Skip this many of the matching files: the previous answer’s nextOffset.",
-              "type": "integer",
-              "minimum": 0
+              "description": "nextCursor of the previous answer.",
+              "type": "string",
+              "pattern": "^\\d{1,6}$"
             },
-            "description": "Skip this many of the matching files: the previous answer’s nextOffset."
+            "description": "nextCursor of the previous answer."
           }
         ],
         "responses": {
