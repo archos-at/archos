@@ -388,26 +388,6 @@ numbers above are one run on German questions the product actually gets.
 - `tests/test_decision_eval.py`: the adoption gate's arithmetic;
   `tests/fixtures/derivation/decision_eval_2026-09-22.csv`: its last result.
 
-### Amendments
-
-- **2026-11-12, the platform's records state a released text's class (owner's
-  decision).** A released platform text (`<manifestationKey>-<hash>.pdf`)
-  carries no filename hint, so every one landed in `other` and sat in the
-  neutral lane beside its legacy copy, which the filename guess filed as an
-  OIB-Richtlinie. A work record now states the class its texts are filed
-  under (`docClass`, migration 0237), a claim the reviewer decides like any
-  other, and the indexing job stamps it when it publishes a text
-  (`bff/base-knowledge/platform/indexing.ts`, beside the title). The records
-  are a human-reviewed source, so this keeps Use 8's rule that nothing
-  unreviewed sets the class. A person's class still wins: the stamp writes only
-  over an unset class or the neutral default `other` that ingestion writes when
-  nobody chose (a person who chose `other` on purpose is overwritten by the next
-  publish of that work's text, and sets it again). The work kinds could not
-  carry it: a Richtlinie, its Begriffsbestimmungen and its list of cited
-  standards are all `model_code`, a Leitfaden and the Erläuterungen both
-  `commentary`, and a kind-to-class table in code would name a country's
-  classes in source.
-
 ## Pros and Cons of the Options
 
 ### 1. No decision model

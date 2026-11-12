@@ -143,8 +143,6 @@ export const knowledgeWorkRevisions = pgTable('knowledge_work_revisions', {
   historyAvailableFrom: date('history_available_from'),
   /** What the work attaches to (0213): the site, the office's seat, the client. Anything but `site` alone never binds by the site's chain. */
   connectsBy: text('connects_by').array().$type<ConnectingFactor[]>().notNull().default(['site']),
-  /** The document class its released texts are filed under in the base corpus (0237, ADR-0064); NULL when the records state none. */
-  docClass: text('doc_class'),
 })
 
 export const knowledgeEditionRevisions = pgTable('knowledge_edition_revisions', {

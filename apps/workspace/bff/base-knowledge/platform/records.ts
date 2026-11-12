@@ -67,8 +67,6 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
           ...(authorityKey ? { authorityId: `authority:${authorityKey}` } : {}),
         })),
         historyAvailableFrom: record.historyAvailableFrom,
-        // A class nobody stated is no claim (0237), so a work proposed before it reviews as it did.
-        ...(record.docClass ? { docClass: record.docClass } : {}),
         // The site alone is the default column value, and no claim of its own (0213).
         ...(isSiteOnly(record.connectsBy) ? {} : { connectsBy: record.connectsBy }),
       }
@@ -158,9 +156,9 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
 /** Body columns that are no claim a reviewer decides: keys and the copy's licence statements. */
 const NOT_CLAIMS = new Set(['revisionId', 'recordId', 'organizationId', 'terms', 'sha256', 'textStatus', 'parentIds', 'datedParents'])
 
-/** A column 0213, 0235 or 0237 added, left at what it says when nobody stated it: no claim, so older proposals review as they did. */
+/** A column 0213 or 0235 added, left at what it says when nobody stated it: no claim, so older proposals review as they did. */
 function unstated(path: string, value: unknown): boolean {
-  if (path === 'coverageLevel' || path === 'municipalLaw' || path === 'zone' || path === 'docClass') return value === null || value === undefined
+  if (path === 'coverageLevel' || path === 'municipalLaw' || path === 'zone') return value === null || value === undefined
   if (path === 'connectsBy') return Array.isArray(value) && isSiteOnly(value as string[])
   return false
 }

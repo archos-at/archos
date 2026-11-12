@@ -49,8 +49,6 @@ const corpus = vi.hoisted(() => ({
   titles: new Map<string, string | null>(),
   /** Files the corpus keeps no metadata row for yet: a title for one answers 404. */
   untitled: new Set<string>(),
-  /** The document class of each file, as a person or the indexing job set it. */
-  docClasses: new Map<string, string>(),
   answers: true,
 }))
 
@@ -77,7 +75,6 @@ vi.mock('@/lib/knowledge/service', () => ({
         currentSha256,
         countryId: corpus.countries.get(fileName) ?? null,
         displayTitle: corpus.titles.get(fileName) ?? null,
-        docClass: corpus.docClasses.get(fileName) ?? null,
       })),
     }
   },
@@ -87,9 +84,6 @@ vi.mock('@/lib/knowledge/service', () => ({
       throw new NotFoundError('No summary found for that document')
     }
     corpus.titles.set(fileName, title)
-  },
-  updateKnowledgeBaseDocClass: async (fileName: string, docClass: string) => {
-    corpus.docClasses.set(fileName, docClass)
   },
   uploadKnowledgeBaseDocument: async (file: File) => {
     const bytes = Buffer.from(await file.arrayBuffer())
@@ -167,12 +161,12 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
   }
 
   /** A draft with a captured masthead, and a work, an edition and a manifestation citing it; the manifestation names `corpusFile`. */
-  async function draft(name: string, corpusFile: string | null = null, fetched = false, docClass: string | null = null) {
+  async function draft(name: string, corpusFile: string | null = null, fetched = false) {
     const { id } = await service.createPlatformChangeRequest(AUTHOR, { title: `Texts ${name}`, countryId: 'AT' })
     const capture = await masthead(id, fetched)
     const cite = (quote: string) => [{ captureId: capture.captureId, quote }]
     const records = [
-      { type: 'work', key: key(`${name}-rl-1`), kind: 'guideline', title: 'Mechanische Festigkeit und Standsicherheit', designation: 'OIB-Richtlinie 1', docClass, citations: cite('OIB-Richtlinie 1 Mechanische Festigkeit') },
+      { type: 'work', key: key(`${name}-rl-1`), kind: 'guideline', title: 'Mechanische Festigkeit und Standsicherheit', designation: 'OIB-Richtlinie 1', citations: cite('OIB-Richtlinie 1 Mechanische Festigkeit') },
       { type: 'edition', key: key(`${name}-rl-1-2019`), workKey: key(`${name}-rl-1`), label: 'April 2019', citations: cite('Ausgabe April 2019, herausgegeben') },
     ].map((record) => wire.proposedRecordSchema.parse(record))
     const manifestation = wire.proposedRecordSchema.parse({
@@ -337,29 +331,6 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       expect(corpus.marks[name]).toMatchObject({ countryId: 'AT', editionId: `edition:${key('published-rl-1-2019')}` })
       // A citation of it is named by its records, not by its file name.
       expect(corpus.titles.get(name)).toBe('OIB-Richtlinie 1, April 2019')
-    })
-
-    it('files a published text under the class its work record states, unless a person chose one', async () => {
-      const stamped = await draft('classed', null, false, 'law')
-      await service.proposePlatformRecords(AUTHOR, stamped.id, { records: [...stamped.records, stamped.manifestation], dryRun: false })
-      const file = pdf('classed.pdf', 'guideline 1, classed by its records')
-      const name = nameOf(stamped.manifestationKey, await sha(file))
-      await texts.uploadPlatformText(AUTHOR, stamped.id, stamped.manifestationKey, file)
-      // Ingestion filed it under the neutral default: nobody chose that.
-      corpus.docClasses.set(name, 'other')
-      const outcome = await publish(stamped.id)
-      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId: outcome.indexRuns[0] as string }, { last: true })
-      expect(corpus.docClasses.get(name)).toBe('law')
-
-      const chosen = await draft('chosen', null, false, 'law')
-      await service.proposePlatformRecords(AUTHOR, chosen.id, { records: [...chosen.records, chosen.manifestation], dryRun: false })
-      const kept = pdf('chosen.pdf', 'guideline 1, a class a person chose')
-      const keptName = nameOf(chosen.manifestationKey, await sha(kept))
-      await texts.uploadPlatformText(AUTHOR, chosen.id, chosen.manifestationKey, kept)
-      corpus.docClasses.set(keptName, 'external_standard')
-      const run = await publish(chosen.id)
-      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId: run.indexRuns[0] as string }, { last: true })
-      expect(corpus.docClasses.get(keptName)).toBe('external_standard')
     })
 
     it('retries a run whose text the corpus keeps no row for yet, and titles it then', async () => {
