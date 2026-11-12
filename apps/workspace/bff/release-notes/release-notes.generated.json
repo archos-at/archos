@@ -649,6 +649,14 @@
         },
         {
           "section": "improvements",
+          "area": "bim",
+          "text": {
+            "en": "The model check now gives a pass or a fail only where the edition its threshold comes from applies at your project's site. Elsewhere it shows the value it read as a note, says which edition applies there instead, and puts nothing on the list of properties to add in your CAD model or up for confirmation in the Prüfbuch.",
+            "de": "Der Modellcheck liefert nur dort ein positives oder negatives Ergebnis, wo die Ausgabe, aus der der Grenzwert stammt, am Standort Ihres Projekts gilt. Andernorts zeigt er den ausgelesenen Wert als Hinweis an, nennt die dort stattdessen geltende Ausgabe und nimmt keine Eigenschaften in die Liste auf, die Sie Ihrem CAD-Modell hinzufügen oder im Prüfbuch bestätigen müssen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "building-law",
           "text": {
             "en": "Answers can now quote the edition of an OIB guideline that actually binds in your Land: the April 2019 guidelines in Burgenland, Steiermark and Vorarlberg, and the 2019, 2025 and 2015 editions of OIB-RL 6 where a Land still applies them.",
