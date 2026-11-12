@@ -28,9 +28,19 @@ from agent_host.conversation_bus import reset_bus_for_tests
 CONV = "conv-123"
 
 
-def _two_replicas() -> tuple[ConversationBus, ConversationBus]:
+class Clock:
+    """The clock key TTLs run on, moved only by the test."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def _two_replicas(clock: Clock | None = None) -> tuple[ConversationBus, ConversationBus]:
     """Two buses sharing ONE in-memory broker == two replicas on one Dragonfly."""
-    transport = InMemoryTransport()
+    transport = InMemoryTransport(clock=clock) if clock else InMemoryTransport()
     return ConversationBus(transport, replica_id="R1"), ConversationBus(transport, replica_id="R2")
 
 
@@ -286,10 +296,11 @@ async def test_only_the_holder_renews_or_releases_the_marker():
 async def test_a_marker_nobody_renews_expires_and_the_next_turn_takes_it(monkeypatch):
     """A replica killed mid-turn stops renewing; its marker ends with its TTL."""
     monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", 0.05)
-    first, second = _two_replicas()
+    clock = Clock()
+    first, second = _two_replicas(clock)
     await first.acquire_running(CONV, "t1")
 
-    await asyncio.sleep(0.1)
+    clock.now += 0.1
 
     assert await second.running_holder(CONV) is None
     assert not await first.renew_running(CONV, "t1")  # too late: not renewed back to life
@@ -299,11 +310,12 @@ async def test_a_marker_nobody_renews_expires_and_the_next_turn_takes_it(monkeyp
 @pytest.mark.asyncio
 async def test_a_renewed_marker_outlives_its_ttl(monkeypatch):
     monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", 0.2)
-    first, second = _two_replicas()
+    clock = Clock()
+    first, second = _two_replicas(clock)
     await first.acquire_running(CONV, "t1")
 
-    for _ in range(4):
-        await asyncio.sleep(0.1)
+    for _ in range(4):  # on the TTL's own clock, so no stalled loop can lapse it between two renewals
+        clock.now += 0.1
         assert await first.renew_running(CONV, "t1")
 
     assert await second.running_holder(CONV) == RunningMarker(replica="R1", turn_id="t1")
