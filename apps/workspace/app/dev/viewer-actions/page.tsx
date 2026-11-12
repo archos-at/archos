@@ -187,7 +187,7 @@ const ViewerProbe: FC = () => {
 
 const Block: FC<{ title: string; children: ReactNode }> = ({ title, children }) => (
   <section className="flex flex-col gap-2">
-    <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+    <h2 className="text-sm font-medium text-foreground">{title}</h2>
     {children}
   </section>
 )

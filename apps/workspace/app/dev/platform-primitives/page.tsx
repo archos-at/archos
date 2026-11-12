@@ -61,7 +61,7 @@ function Preview(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4 sm:p-8">
       <div>
-        <h1 className="text-lg font-semibold">Platform — admin primitives</h1>
+        <h1 className="text-lg font-medium">Platform — admin primitives</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           SectionCard + DataToolbar + Table + Pagination + Sheet. The shape every platform section is converted to.
         </p>

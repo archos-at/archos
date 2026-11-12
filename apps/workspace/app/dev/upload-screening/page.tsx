@@ -58,7 +58,7 @@ export default function UploadScreeningDevPage(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-4 sm:p-8" data-testid="upload-screening-preview">
       <div>
-        <h1 className="text-lg font-semibold">Organisation — Sensible Daten</h1>
+        <h1 className="text-lg font-medium">Organisation — Sensible Daten</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           The upload-screening policy (ADR-0086): name gate in the browser, content gate before any model.
         </p>

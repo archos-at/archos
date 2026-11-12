@@ -48,7 +48,7 @@ function Frame({ caption, children }: { caption: string; children: React.ReactNo
     <section className="space-y-4">
       <p className="text-muted-foreground text-xs">{caption}</p>
       <div className="space-y-1">
-        <h2 className="text-foreground text-sm font-semibold">Uploads</h2>
+        <h2 className="text-foreground text-sm font-medium">Uploads</h2>
         <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
           Wer wann wie viele Dateien hochgeladen hat. Die Übersicht Datei für Datei sieht jede Person nur für ihre
           eigenen Uploads.

@@ -73,7 +73,7 @@ export default function ChatScreeningDevPage(): JSX.Element {
       data-testid="chat-screening-preview"
     >
       <div>
-        <h1 className="text-lg font-semibold">Composer — Sensible Daten</h1>
+        <h1 className="text-lg font-medium">Composer — Sensible Daten</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           What the composer says before a message with sensitive data leaves the browser (ADR-0086).
           {PRODUCT_NAME}&apos;s suggested list; the office&apos;s own list works the same way.

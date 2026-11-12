@@ -78,7 +78,7 @@ const U_VALUE: CalculationStepData[] = [
 const Block: FC<{ title: string; note: string; children: ReactNode }> = ({ title, note, children }) => (
   <section className="flex flex-col gap-2">
     <div>
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="text-sm font-medium text-foreground">{title}</h2>
       <p className="max-w-2xl text-xs text-muted-foreground">{note}</p>
     </div>
     <div className="w-[680px] max-w-full">{children}</div>

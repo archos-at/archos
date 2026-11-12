@@ -80,7 +80,7 @@ export default function PlanApprovalPreviewPage() {
         className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 text-foreground md:p-8"
       >
         <header>
-          <h1 className="text-xl font-semibold">Rechercheplan-Entscheidung</h1>
+          <h1 className="text-xl font-medium">Rechercheplan-Entscheidung</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Starten, kurz beantworten lassen — oder abbrechen, mit Quittung.
           </p>

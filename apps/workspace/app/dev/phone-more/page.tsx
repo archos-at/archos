@@ -31,7 +31,7 @@ export default function PhoneMoreDevPage(): JSX.Element {
   return (
     <FeedbackProvider threadsApi={threadsApi}>
     <div className="bg-background flex h-dvh flex-col">
-      <div className="flex h-14 shrink-0 items-center border-b px-4 text-lg font-semibold">Kaiserstraße 43</div>
+      <div className="flex h-14 shrink-0 items-center border-b px-4 text-lg font-medium">Kaiserstraße 43</div>
       <main className="text-muted-foreground min-h-0 flex-1 p-4 text-sm">Page content</main>
       <PhoneTabBar projectId={projectId} canAccessOfficeShelf canAccessInbox pathname={pathname} />
       <PhoneMoreSheet

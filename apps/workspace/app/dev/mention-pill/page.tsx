@@ -66,7 +66,7 @@ export default function MentionPillPreviewPage() {
           className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 md:p-8"
         >
           <header>
-            <h1 className="text-xl font-semibold">Erwähnungen im Chat</h1>
+            <h1 className="text-xl font-medium">Erwähnungen im Chat</h1>
             <p className="text-muted-foreground mt-1 text-sm">
               Eine Erwähnung verweist auf eine Person — und beantwortet im Vorbeigehen, wer das ist.
             </p>

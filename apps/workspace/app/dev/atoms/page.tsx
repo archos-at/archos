@@ -26,7 +26,7 @@ export default function AtomsDevPage(): JSX.Element {
     <main className="mx-auto flex max-w-4xl flex-col gap-6 bg-background p-4 text-foreground sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">Atoms</h1>
+          <h1 className="text-lg font-medium">Atoms</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Every atom in ui/components/ui, grouped by job. Radius follows size: inline 4px, controls 6px, surfaces 10px, overlays 14px, pills for chips.
           </p>

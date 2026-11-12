@@ -107,7 +107,7 @@ export const CitationIndex: FC<{ index?: string }> = ({ index }) =>
     // there and the marker renders flush against the label ("3Attika-Detail").
     // Carrying its own trailing space makes the marker read correctly in every
     // chip shape rather than only in the ones that keep it a flex child.
-    <span className="me-1 shrink-0 text-xs font-semibold tabular-nums opacity-60">{index}</span>
+    <span className="me-1 shrink-0 text-xs font-medium tabular-nums opacity-60">{index}</span>
   )
 
 /** Everything a citation shows before it is clicked, in either layout. */

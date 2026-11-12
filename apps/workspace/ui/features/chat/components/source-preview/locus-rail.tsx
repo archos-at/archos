@@ -141,7 +141,7 @@ export const LocusRail: FC<{
               >
                 <span className="flex items-center gap-1.5">
                   {locus.number != null ? (
-                    <span className="shrink-0 text-xs font-semibold tabular-nums opacity-70">
+                    <span className="shrink-0 text-xs font-medium tabular-nums opacity-70">
                       [{locus.number}]
                     </span>
                   ) : (

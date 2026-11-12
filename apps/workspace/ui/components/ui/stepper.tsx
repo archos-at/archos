@@ -119,7 +119,7 @@ export function Stepper({
                       : `${index + 1}. ${step.label}`
                   }
                   className={cn(
-                    'focus-visible:ring-ring/60 flex size-7 shrink-0 items-center pointer-coarse:size-11 pointer-coarse:text-sm justify-center rounded-full border text-xs font-semibold tabular-nums',
+                    'focus-visible:ring-ring/60 flex size-7 shrink-0 items-center pointer-coarse:size-11 pointer-coarse:text-sm justify-center rounded-full border text-xs font-medium tabular-nums',
                     'transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none',
                     done && 'border-primary bg-primary text-primary-foreground',
                     active && 'border-primary text-primary ring-primary/20 bg-card ring-4',

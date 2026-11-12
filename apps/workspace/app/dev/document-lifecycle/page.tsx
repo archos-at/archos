@@ -252,7 +252,7 @@ function ArchiveFixture(): JSX.Element {
       data-testid="document-lifecycle-archive-preview"
     >
       <div>
-        <h1 className="text-lg font-semibold">Stilllegen</h1>
+        <h1 className="text-lg font-medium">Stilllegen</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Der einzige Akt in diesem Abschnitt, der sich im Haus nicht zurücknehmen lässt — und
           deshalb der einzige, der vorher sagt, was er tut.
@@ -388,7 +388,7 @@ function DocumentLifecycleFixtures(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-10 p-6" data-testid="document-lifecycle-preview">
       <div>
-        <h1 className="text-lg font-semibold">Fassungen und Freigabe</h1>
+        <h1 className="text-lg font-medium">Fassungen und Freigabe</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Der Stand einer Datei, die Entscheidungen, die dieser Stand zulässt, und die
           Fassungsgeschichte darunter.

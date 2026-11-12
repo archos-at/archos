@@ -27,7 +27,7 @@ export default function ProjectSectionChromeDevPage({
   const { section } = use(params)
   return (
     <div className="bg-background flex h-dvh flex-col">
-      <div className="flex h-14 shrink-0 items-center border-b px-4 text-lg font-semibold">Kaiserstraße 43</div>
+      <div className="flex h-14 shrink-0 items-center border-b px-4 text-lg font-medium">Kaiserstraße 43</div>
       <main className="min-h-0 flex-1">
         <ProjectSectionFrame projectId="demo" projectName="Kaiserstraße 43">
           <div data-testid="content-start" className="p-4 text-sm text-muted-foreground">

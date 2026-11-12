@@ -25,7 +25,7 @@ function StateMark({ state }: { state: MilestoneState }): JSX.Element {
     return (
       <span
         aria-hidden
-        className="bg-warning-subtle text-warning flex size-5 shrink-0 items-center justify-center rounded-full text-[12px] font-bold leading-none"
+        className="bg-warning-subtle text-warning flex size-5 shrink-0 items-center justify-center rounded-full text-[12px] font-medium leading-none"
       >
         !
       </span>

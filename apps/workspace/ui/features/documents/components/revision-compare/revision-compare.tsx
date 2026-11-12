@@ -594,7 +594,7 @@ function ChangesButton({
       {busy ? <Spinner size="xs" aria-hidden /> : <ListChecks aria-hidden />}
       {label}
       {count > 0 && (
-        <span className="bg-foreground text-background rounded-full px-1.5 text-[11px] leading-4 font-semibold tabular-nums">
+        <span className="bg-foreground text-background rounded-full px-1.5 text-[11px] leading-4 font-medium tabular-nums">
           {count}
         </span>
       )}

@@ -148,7 +148,7 @@ export default function AwaitingBannerPreviewPage() {
       className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 text-foreground md:p-8"
     >
       <header>
-        <h1 className="text-xl font-semibold">Warten auf eine Antwort</h1>
+        <h1 className="text-xl font-medium">Warten auf eine Antwort</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Der Assistent hält sich zurück — und sagt, warum.
         </p>

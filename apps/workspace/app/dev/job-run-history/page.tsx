@@ -87,7 +87,7 @@ export default function JobRunHistoryDevPage(): JSX.Element {
         className="min-h-dvh bg-background p-8 text-foreground"
       >
         <div className="mx-auto w-full max-w-[720px] rounded-xl border border-border bg-card p-4 text-card-foreground sm:p-5">
-          <h2 className="mb-1 text-sm font-semibold text-foreground">Ausführungsverlauf</h2>
+          <h2 className="mb-1 text-sm font-medium text-foreground">Ausführungsverlauf</h2>
           <div className="border-t border-border pt-1">
             <JobRunHistory projectId="p1" jobId="j1" />
           </div>

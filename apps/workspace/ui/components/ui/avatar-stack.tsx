@@ -172,7 +172,7 @@ export function AvatarStack({
           // Neutral by design: this bubble is a count, not a person, so it must
           // not borrow anybody's identity colour.
           className={cn(
-            'relative inline-flex items-center justify-center rounded-full bg-muted font-semibold tabular-nums text-muted-foreground ring-2 ring-card',
+            'relative inline-flex items-center justify-center rounded-full bg-muted font-medium tabular-nums text-muted-foreground ring-2 ring-card',
             AVATAR_STACK_SIZES[size]
           )}
         >

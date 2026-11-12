@@ -77,7 +77,7 @@ function BimModelPreview(): JSX.Element {
         <div className="flex flex-col gap-4">
           <IfcModelViewer sourceUrl={null} elements={ELEMENTS} className="h-[320px]" />
           <section className="rounded-lg border p-3">
-            <h2 className="mb-2 text-sm font-semibold">Properties</h2>
+            <h2 className="mb-2 text-sm font-medium">Properties</h2>
             <IfcPropertyPanel element={SELECTED} isLoading={false} error={null} />
           </section>
         </div>

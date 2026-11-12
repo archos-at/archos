@@ -30,7 +30,7 @@ const COUNTS = [0, 7, 99, 100, 12345]
 function Panel({ title, note, children }: { title: string; note: string; children: React.ReactNode }) {
   return (
     <section className="flex w-[560px] max-w-full flex-col gap-2">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="text-sm font-medium text-foreground">{title}</h2>
       <p className="text-xs text-muted-foreground">{note}</p>
       <div className="rounded-lg border bg-card p-4">{children}</div>
     </section>

@@ -98,7 +98,7 @@ function TaskDetailPreviewBody(): JSX.Element {
       data-testid="task-detail-preview"
       className="bg-background text-foreground flex min-h-screen flex-col gap-2 p-10"
     >
-      <h2 className="text-foreground text-sm font-semibold">
+      <h2 className="text-foreground text-sm font-medium">
         {legacy ? 'Ein Lauf ohne Ablauf' : 'Was der Lauf getan hat'}
       </h2>
       <p className="text-muted-foreground max-w-prose text-xs">

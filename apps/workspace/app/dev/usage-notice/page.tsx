@@ -105,7 +105,7 @@ function Sample({ title, notice }: { title: string; notice: ChatUsageNotice }): 
 export default function UsageNoticePreview(): JSX.Element {
   return (
     <main className="bg-background mx-auto flex max-w-3xl flex-col gap-6 p-6">
-      <h1 className="text-lg font-semibold">Chat usage notice</h1>
+      <h1 className="text-lg font-medium">Chat usage notice</h1>
       {SAMPLES.map((sample) => (
         <Sample key={sample.title} {...sample} />
       ))}

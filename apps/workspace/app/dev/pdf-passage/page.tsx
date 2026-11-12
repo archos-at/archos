@@ -513,7 +513,7 @@ export default function PdfPassagePreviewPage() {
             background-color: color-mix(in oklch, var(--source-law) 10%, transparent);
           }
         `}</style>
-        <h1 className="mb-1 text-lg font-semibold text-foreground">Textlayer über der Seite</h1>
+        <h1 className="mb-1 text-lg font-medium text-foreground">Textlayer über der Seite</h1>
         <p className="mb-4 max-w-3xl text-sm text-muted-foreground">
           Die Seite wird als Bild gerendert; darüber liegt der echte Text der Seite, unsichtbar und
           auswählbar. Hier ist er eingefärbt: Jede Zeile muss auf den Glyphen darunter liegen —
@@ -550,7 +550,7 @@ export default function PdfPassagePreviewPage() {
         }
       `}</style>
 
-      <h1 className="mb-1 text-lg font-semibold text-foreground">Fundstelle im PDF</h1>
+      <h1 className="mb-1 text-lg font-medium text-foreground">Fundstelle im PDF</h1>
       <p className="mb-4 max-w-3xl text-sm text-muted-foreground">
         Die zitierte Passage wird im Textlayer der Seite gesucht und markiert — links der
         ankommende Impuls, rechts die bleibende Markierung. Der Ausschnitt ist über zwei Zeilen

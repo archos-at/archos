@@ -186,7 +186,7 @@ function Stage({ title, note, children }: { title: string; note: string; childre
   return (
     <section className="space-y-2">
       <div>
-        <h2 className="text-foreground text-sm font-semibold">{title}</h2>
+        <h2 className="text-foreground text-sm font-medium">{title}</h2>
         <p className="text-muted-foreground text-xs">{note}</p>
       </div>
       <div className="bg-background overflow-hidden rounded-xl border">{children}</div>
@@ -248,7 +248,7 @@ export default function FilingSuggestionsDevPage(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-6">
       <div>
-        <h1 className="text-lg font-semibold">Ablagevorschläge</h1>
+        <h1 className="text-lg font-medium">Ablagevorschläge</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           {PRODUCT_NAME} schlägt vor, in welchen beschriebenen Ordner ein Upload gehört. Eine Person bestätigt pro Ordner.
         </p>

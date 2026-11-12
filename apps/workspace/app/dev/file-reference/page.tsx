@@ -171,7 +171,7 @@ const Block: FC<{ title: string; note: string; children: ReactNode }> = ({
 }) => (
   <section className="flex flex-col gap-2">
     <div>
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="text-sm font-medium text-foreground">{title}</h2>
       <p className="max-w-3xl text-xs text-muted-foreground">{note}</p>
     </div>
     {children}

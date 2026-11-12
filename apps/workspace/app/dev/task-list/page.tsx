@@ -193,7 +193,7 @@ function GlidingList() {
 function Panel({ title, note, children }: { title: string; note: string; children: React.ReactNode }) {
   return (
     <section className="flex w-[720px] max-w-full flex-col gap-2">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="text-sm font-medium text-foreground">{title}</h2>
       <p className="text-xs text-muted-foreground">{note}</p>
       <div className="rounded-lg border bg-card">{children}</div>
     </section>

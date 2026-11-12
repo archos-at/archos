@@ -110,7 +110,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         className={collapsed ? TILE_CLASS : TRIGGER_CLASS}
       >
         {collapsed ? (
-          <span aria-hidden data-slot="project-initials" className="text-xs leading-none font-semibold">
+          <span aria-hidden data-slot="project-initials" className="text-xs leading-none font-medium">
             {projectInitials(name)}
           </span>
         ) : (

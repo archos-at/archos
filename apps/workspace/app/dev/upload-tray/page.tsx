@@ -183,7 +183,7 @@ function Stage({ title, note, children }: { title: string; note: string; childre
   return (
     <section className="space-y-2">
       <div>
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        <h2 className="text-sm font-medium text-foreground">{title}</h2>
         <p className="text-xs text-muted-foreground">{note}</p>
       </div>
       <div className="overflow-hidden rounded-xl border">{children}</div>
@@ -201,7 +201,7 @@ export default function UploadTrayDevPage() {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-8 p-6">
       <div>
-        <h1 className="text-lg font-semibold">Upload surface + explorer detail view</h1>
+        <h1 className="text-lg font-medium">Upload surface + explorer detail view</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           A percentage is drawn only where bytes are actually moving. Every other phase gets motion and an elapsed
           time instead of a number nobody measured.

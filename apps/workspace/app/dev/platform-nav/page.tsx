@@ -15,7 +15,7 @@ export default function PlatformNavDevPage(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-8 p-4 sm:p-8">
       <div>
-        <h1 className="text-lg font-semibold">Platform — section nav</h1>
+        <h1 className="text-lg font-medium">Platform — section nav</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           The shared shell&apos;s section nav: twelve sections in four groups on the rail, one
           scrolling strip on a phone.

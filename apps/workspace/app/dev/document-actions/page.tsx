@@ -158,7 +158,7 @@ function HeaderRow({
         {drawing ? 'DXF' : 'PDF'}
       </span>
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-[15px] font-semibold leading-tight text-foreground">
+        <h3 className="truncate text-[15px] font-medium leading-tight text-foreground">
           {document.displayName}
         </h3>
         <p className="mt-1 truncate text-[11.5px] text-muted-foreground">

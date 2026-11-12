@@ -191,7 +191,7 @@ function FolderAccessPreview(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-6" data-testid="folder-access-preview">
       <div>
-        <h1 className="text-lg font-semibold">Dateien — Lesen und Bearbeiten pro Ordner</h1>
+        <h1 className="text-lg font-medium">Dateien — Lesen und Bearbeiten pro Ordner</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           ADR-0088: „Verträge“, „Honorare“ und „Statik“ haben eigene Zugriffsrechte. Hover a lock for what the list means;
           „Nur lesen“ marks a folder the person may open but not change. ⋯ → „Zugriff…“ edits the list.

@@ -115,7 +115,7 @@ function SelectionFixture({ view, sheetOpen = false }: { view: 'cards' | 'list';
   const levelFiles = FILES.filter((f) => (f.folderId ?? null) === folderNav.currentFolderId)
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-4 p-4">
-      <h1 className="text-lg font-semibold">Files browser — selection</h1>
+      <h1 className="text-lg font-medium">Files browser — selection</h1>
       <div className="flex h-[640px] flex-col overflow-hidden rounded-xl border" data-testid="file-browser-selection">
         <div className="min-h-0 flex-1 overflow-y-auto">
           <FileBrowserPane
@@ -230,7 +230,7 @@ function FolderDropTargetFixture(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
       <div>
-        <h1 className="text-lg font-semibold">Files browser — a folder as a drop target</h1>
+        <h1 className="text-lg font-medium">Files browser — a folder as a drop target</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           „Brandschutz“ dragged over „Statik“. One answer to the gesture: the folder, ringed.
         </p>
@@ -275,7 +275,7 @@ function FoldersInListViewFixture(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
       <div>
-        <h1 className="text-lg font-semibold">Files browser — folders in the detail view</h1>
+        <h1 className="text-lg font-medium">Files browser — folders in the detail view</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           The level’s folders as the first rows of the sortable file table, under its head, at the root.
         </p>
@@ -333,7 +333,7 @@ function SearchInListViewFixture(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
       <div>
-        <h1 className="text-lg font-semibold">Files browser — a search answered in the detail view</h1>
+        <h1 className="text-lg font-medium">Files browser — a search answered in the detail view</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           The ranking survives into a list whose own default is newest-first, and every row shows the passage
           that matched.
@@ -388,7 +388,7 @@ function FileContextMenuFixture(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
       <div>
-        <h1 className="text-lg font-semibold">Files browser — right-click a file</h1>
+        <h1 className="text-lg font-medium">Files browser — right-click a file</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Open, Ask about this, Download, Rename, Move, Delete. Same list as the ⋯.
         </p>
@@ -461,7 +461,7 @@ function FolderCrudFixture({ mode }: { mode: 'menu' | 'rename' }): JSX.Element {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-8 p-6">
       <div>
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-lg font-medium">
           {mode === 'menu' ? 'Folder card — the card’s own actions' : 'Folder card — renaming in place'}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -501,7 +501,7 @@ function SearchFailedFixture(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
       <div>
-        <h1 className="text-lg font-semibold">Files browser — the search could not run</h1>
+        <h1 className="text-lg font-medium">Files browser — the search could not run</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Held apart from “no matches”, which is a statement about the reader’s own files.
         </p>
@@ -548,7 +548,7 @@ function JustUploadedFixture(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
       <div>
-        <h1 className="text-lg font-semibold">Files browser — a batch that just landed</h1>
+        <h1 className="text-lg font-medium">Files browser — a batch that just landed</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Two documents still being read (one with its page preview already rendered) beside two that have settled.
         </p>
@@ -587,7 +587,7 @@ function FileBrowserFixtures(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
       <div>
-        <h1 className="text-lg font-semibold">Files browser — folder drill-down</h1>
+        <h1 className="text-lg font-medium">Files browser — folder drill-down</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Breadcrumb path, folder cards beside the files, New-folder popover, and the cards/list toggle.
           Click a folder card to enter it; the path walks back out.

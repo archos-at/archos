@@ -272,7 +272,7 @@ export default function BimCardsDevPage(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8" data-testid="bim-cards-preview">
       <div>
-        <h1 className="text-lg font-semibold">Chat cards — model-backed</h1>
+        <h1 className="text-lg font-medium">Chat cards — model-backed</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           The agent supplies an identifier; the card fetches the numbers. So an answer can point at
           the wrong table, which is visible — it can never state a floor area that is not in the

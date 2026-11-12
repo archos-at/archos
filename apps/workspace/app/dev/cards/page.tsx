@@ -62,7 +62,7 @@ function Gallery() {
   const proposalsReady = useFakeProposalClient()
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 p-6">
-      <h1 className="text-lg font-semibold">Grid card gallery</h1>
+      <h1 className="text-lg font-medium">Grid card gallery</h1>
 
       <Section id="key_takeaways">
         <KeyTakeawaysCard

@@ -252,7 +252,7 @@ export default function ShareDialogDevPage(): JSX.Element {
         className="mx-auto flex max-w-3xl flex-col gap-6 p-8 text-foreground"
       >
         <div>
-          <h1 className="text-xl font-semibold">Teilen</h1>
+          <h1 className="text-xl font-medium">Teilen</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Die eine Freigabe-Oberfläche: Sichtbarkeit, Personen mit Zugriff und Einladen.
           </p>
