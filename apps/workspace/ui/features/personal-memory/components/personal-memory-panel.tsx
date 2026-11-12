@@ -35,6 +35,7 @@ import {
   MemoryNoteText,
 } from '@/components/memory/memory-note-parts'
 import { TopicFolders } from '@/components/memory/topic-folders'
+import { TopicPicker } from '@/components/memory/topic-picker'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -48,6 +49,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { TimeAgo } from '@/components/ui/time-ago'
 import { useLocale, useTranslations } from '@/i18n'
+import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
 import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
 import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { collectPages } from '@/lib/api/offset-page'
@@ -75,6 +77,7 @@ const refusedKind = (error: unknown): NoteRefusalKind | null =>
 
 export function PersonalMemoryPanel(): JSX.Element {
   const t = useTranslations(personalMemoryCopy)
+  const topicCopy = useTranslations(memoryTopicsCopy)
   const kindLabels = useMemoryKindLabels()
   const { locale } = useLocale()
   const [notes, setNotes] = useState<PersonalMemoryNote[] | null>(null)
@@ -93,6 +96,7 @@ export function PersonalMemoryPanel(): JSX.Element {
   const [adding, setAdding] = useState(false)
   const [addKind, setAddKind] = useState<PersonalMemoryKind>('preference')
   const [addContent, setAddContent] = useState('')
+  const [addTopic, setAddTopic] = useState<string | null>(null)
   const [addBusy, setAddBusy] = useState(false)
 
   const load = useCallback(async (signal: { cancelled: boolean }): Promise<void> => {
@@ -133,6 +137,7 @@ export function PersonalMemoryPanel(): JSX.Element {
   const closeAdd = (): void => {
     setAdding(false)
     setAddContent('')
+    setAddTopic(null)
   }
 
   const submitAdd = async (): Promise<void> => {
@@ -140,7 +145,7 @@ export function PersonalMemoryPanel(): JSX.Element {
     if (!content) return
     setAddBusy(true)
     try {
-      const { item, created } = await addPersonalMemoryNote({ kind: addKind, content })
+      const { item, created } = await addPersonalMemoryNote({ kind: addKind, content, topic: addTopic })
       keep(item)
       closeAdd()
       // A text one of the person's notes already says is that note, marked current: nothing was added.
@@ -353,6 +358,16 @@ export function PersonalMemoryPanel(): JSX.Element {
                 maxLength={PERSONAL_MEMORY_MAX_CONTENT_CHARS}
                 rows={2}
                 autoFocus
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="personal-memory-add-topic">{topicCopy('filterLabel')}</FieldLabel>
+              <TopicPicker
+                id="personal-memory-add-topic"
+                topics={topicNames}
+                value={addTopic}
+                onChange={setAddTopic}
+                disabled={addBusy}
               />
             </Field>
             <div className="flex justify-end gap-2">

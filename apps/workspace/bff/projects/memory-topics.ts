@@ -138,7 +138,8 @@ export async function renameProjectShelfTopic(input: {
     await listProjectMemory(projectId, { organizationId, includeArchived: true, readableFolderIds: readable })
   ).filter((item) => item.scope === 'project')
   const from = resolveTopic(input.from, namesOf(visible.map((item) => item.topic)))
-  const openNames = namesOf(visible.filter((item) => !item.restrictedFolderIds?.length).map((item) => item.topic))
+  // The open topics of the whole shelf, the office's included: the names a create or an update resolves against.
+  const openNames = namesOf((await shelfTopicRows(projectId, organizationId, [])).map((row) => row.topic))
   const to = resolveTopic(input.to, openNames.filter((name) => name !== from))
   // A rename onto its own name changes nothing: no write, and no count of one.
   if (to === from) return { moved: 0 }

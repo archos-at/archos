@@ -42,6 +42,8 @@ export interface PersonalMemoryCreate {
   kind: PersonalMemoryKind
   content: string
   pinned?: boolean
+  /** The note's topic; null or absent for none. */
+  topic?: string | null
 }
 
 /** What a note may be changed to; at least one field. */

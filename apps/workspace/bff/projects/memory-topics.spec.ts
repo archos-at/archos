@@ -172,14 +172,28 @@ describe('renameProjectShelfTopic', () => {
 
   it('merges into an open topic the shelf already has, in any case', async () => {
     h.listed = [note('a', 'Brandschutz'), note('b', 'Stellplätze')]
+    h.rows = [...h.listed]
 
     await renameProjectShelfTopic({ projectId: PROJECT, organizationId: ORG, readable: [], from: 'Brandschutz', to: 'STELLPLÄTZE' })
 
     expect(h.sets).toEqual([{ topic: 'Stellplätze' }])
   })
 
+  it('merges into an open office topic: a rename resolves against the same open topics a create does', async () => {
+    h.listed = [note('a', 'Stellplätze')]
+    h.rows = [
+      ...h.listed,
+      note('office-1', 'Brandschutz', { scope: 'organization', projectId: null }),
+    ]
+
+    await renameProjectShelfTopic({ projectId: PROJECT, organizationId: ORG, readable: [], from: 'Stellplätze', to: 'BRANDSCHUTZ' })
+
+    expect(h.sets).toEqual([{ topic: 'Brandschutz' }])
+  })
+
   it('does not offer a restricted note’s topic to an open note: the name is written as typed', async () => {
     h.listed = [note('open-1', 'Brandschutz'), note('restricted-1', 'Bauherr', { restrictedFolderIds: ['f1'] })]
+    h.rows = [...h.listed]
 
     await renameProjectShelfTopic({ projectId: PROJECT, organizationId: ORG, readable: ['f1'], from: 'Brandschutz', to: 'bauherr' })
 
