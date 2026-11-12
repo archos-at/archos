@@ -40,7 +40,7 @@ import {
 } from './project-status'
 import { dateToMonth, isMonth, monthToDate, type Month } from './month'
 import type { ProjectSetup } from './create-project-schema'
-import { startProjectIntake } from './intake-seed'
+import { seedProjectSite, startProjectIntake } from './intake-seed'
 import { undoHalfCreatedProject } from './project-creation-undo'
 import type { GeocodeResult } from '@/lib/geocoding/types'
 import { nextOffsetCursor, type OffsetPage } from '@/lib/api/offset-page'
@@ -350,6 +350,9 @@ export async function createProject(
         },
         now
       )
+    } else {
+      const { location, address, federalState, country } = input
+      await seedProjectSite(session, inserted, { location, address, federalState, country }, now)
     }
     if (closeNow) project = await closeNewProject(session, inserted.id, closeNow, now)
   } catch (error) {
