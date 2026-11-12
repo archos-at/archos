@@ -143,12 +143,22 @@ drifted. Change a token or a brand string in `packages/brand`, then sync.
 Reference media from the eight-page reference site, renamed in English by what each file shows.
 The tables give the source file and where it appears.
 
-**Rendered media** are in `src/assets/media/`, as full-resolution masters: 2560 px on the long
+**Rendered media** are in `src/assets/media/`, as full-resolution masters: 3840 px on the long
 edge at most, never shrunk by hand, WebP at quality 92 (photos) or 95 (screenshots), in sRGB.
 Views take them from `src/lib/media.ts` and render them with Astro's `<Image>`, which builds
 variants from 320 px (photos) or 640 px (screenshots) up to the master's width, with a `srcset` and
-`sizes`, so a phone loads the variant its layout needs (the hero at 390 px: 57 KB instead of 181 KB;
-a gallery card stays 2560 px, because on a phone it shows its image 500 px high and 1250 px wide).
+`sizes`, so a phone loads the variant its layout needs (the hero at 390 px: 57 KB instead of 181 KB).
+
+A master must carry the device pixels of its widest drawing, or the browser enlarges it and it looks
+soft. Measured on dev.archos.tech (2026-11-12, Playwright, drawn width × device pixel ratio against
+the file the `srcset` chose): with 2560 px masters the hero was enlarged 1.08× on a 14-inch MacBook
+(1512 × 2), 1.25× on a 16-inch (1728 × 2) and 1.9× on a 5K screen; a gallery card 1.29× on a phone
+(390 × 3: 500 px high at 5:2 is about 3300 device pixels); `ai-search-compare-photo` (1104 px) 1.27×
+on every retina screen; the founder portraits (560 and 380 px) up to 2.8× on a phone. Everything else
+was drawn at or below its file's size. So the hero and the gallery want 3840 px masters from the
+Drive originals (4960 px), and a duo photo at least 1500 px. Images uploaded into a Claude chat
+arrive at 2000 px on the long edge, smaller than these masters: replace a master only from the
+original file (Drive, or committed to the branch), never from a chat upload.
 The video is imported with `?url`, so it is served from `/_astro/` like the images. The built files
 have hashed names, so a replaced master reaches every visitor at once. Photos show in their own
 colours and brightness: no CSS filter darkens or tints them. Where text sits on a photo, the design
@@ -168,7 +178,7 @@ section order there.
 | `ai-search-compare-photo.webp` | Drive `06_Startseite_KI-sucht-vergleicht-prueft.png`, 1104 × 1424 (the original's size) | Home, duo card "KI sucht, vergleicht und prüft." (dark card, photo) |
 | `knowledge-video.mp4` | Drive `archos_wissen_final_C_2432.mp4` (video folder), unchanged (H.264, 2432 × 1216, 34 s; a provisional cut) | German home only (its frames carry German text; the English home has no visual there until an English cut exists), the video "Das Wissen Ihres Büros wird nutzbar." H.264 MP4 plays in every current browser, so there is no WebM twin |
 | `knowledge-video-poster.webp` | The video's frame at 6 s ("Doch es liegt verstreut."), 2432 × 1216 | Same video, poster |
-| `team-conversation-photo.webp` | Drive `08_Startseite_Zitat-Foto.png` (grayscale), 1080 × 1350 | Home, portrait beside the feld72 quote |
+| `feld72-team-photo.webp` | TODO(owner): a grey stand-in (2000 × 1294) until the feld72 team photo arrives as a file; © Vilma Pflaum Photography, credited under the photo | Home, beside the feld72 quote, wide (`Quote` with `wide`, in its own proportions, never cropped) |
 | `jonathan-uhlemann.webp` | Drive `Founder/Unknown.jpg` (702 × 700), cropped to 4:5, 560 × 700 | Home, founders row "Das Planungsbüro der Zukunft entsteht heute." (portrait, 4:5) |
 | `matthias-bigl.webp` | the retired site's original portrait (git history, 1086 × 1448, colour), cropped to 4:5 and set in greyscale like the others, 560 × 700 | Home, founders row (portrait, 4:5) |
 | `ferdinand-rubenbauer.webp` | the retired site's team graphic (git history, `team.png`, right card, duotone), cropped to 4:5 and set in greyscale, 380 × 475; the largest version that exists, a new photo is still welcome | Home, founders row (portrait, 4:5) |

@@ -98,14 +98,21 @@ const de = {
     ],
   },
   quote: {
-    text: 'Der USP von Architektinnen und Architekten ist die Haltung, weniger die Produktion. Die Informationsflut zu bewältigen, das kann KI.',
+    text: 'Die zukünftige Stärke von Architekturbüros liegt in ihrer Haltung, weniger in der Produktion. Die Flut an Informationen zu bewältigen, das kann KI.',
     name: 'Ralph Reisinger',
     role: 'Architekt & Projektleiter',
-    portraitAlt: 'Vier Männer im Gespräch vor einer hellen Ziegelfassade',
+    photoAlt: 'Das Team von feld72 in seinem Büro, stehend, sitzend und auf dem Boden vor einer weißen Wand mit grauen Vorhängen',
+    photoCredit: {
+      holder: 'Copyright: Vilma Pflaum Photography',
+      links: [
+        { text: '@vilmapflaumphotography', href: 'https://www.instagram.com/vilmapflaumphotography/' },
+        { text: 'https://vilmapflaum.com', href: 'https://vilmapflaum.com' },
+      ],
+    },
   },
   founders: {
     title: 'Das Planungsbüro der Zukunft entsteht heute.',
-    caption: 'Wir übersetzen KI-Fortschritt in Planungsfortschritt.',
+    caption: 'Die Gründer von {name}. Wir übersetzen KI-Fortschritt in Planungsfortschritt.',
     people: [
       {
         name: 'Jonathan Uhlemann',
@@ -221,14 +228,21 @@ const en: typeof de = {
     ],
   },
   quote: {
-    text: 'An architect’s strength is their point of view, not their output. Handling the flood of information is something AI can do.',
+    text: 'The future strength of architecture firms lies in their point of view, less in production. Handling the flood of information is something AI can do.',
     name: 'Ralph Reisinger',
     role: 'Architect & project lead (translated from German)',
-    portraitAlt: 'Four men in conversation in front of a light brick facade',
+    photoAlt: 'The feld72 team in their office, standing, seated and on the floor in front of a white wall with grey curtains',
+    photoCredit: {
+      holder: 'Copyright: Vilma Pflaum Photography',
+      links: [
+        { text: '@vilmapflaumphotography', href: 'https://www.instagram.com/vilmapflaumphotography/' },
+        { text: 'https://vilmapflaum.com', href: 'https://vilmapflaum.com' },
+      ],
+    },
   },
   founders: {
     title: 'The planning firm of the future starts today.',
-    caption: 'We turn AI progress into progress in planning.',
+    caption: 'The founders of {name}. We turn AI progress into progress in planning.',
     people: [
       {
         name: 'Jonathan Uhlemann',
