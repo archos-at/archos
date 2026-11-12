@@ -1,0 +1,7 @@
+---
+fixes:
+  - >
+    A question about the law on a given day, such as a submission's filing
+    day, now finds the regulation you name and reads the version in force that
+    day, where before it could miss the regulation, even for today. A day of
+    today or later reads today's text, and the answer says so.

@@ -66,7 +66,8 @@ question, then the project's site, and the answer states which.
 number. Up to six in one call ("{plural} 75 {conjunction} 81 {work}"); past six it names those it did not read.
     application (str): Only for the non-statute collections: {_collections_line(law)}. Empty for statute law.
     as_of (str): Optional YYYY-MM-DD: the version in force on that day (e.g. the filing day of a \
-submission), read only from {name} version documents of that day; a miss rather than today's text.
+submission). A past day is read only from {name} version documents of that day, a miss rather than today's \
+text; today or a later day reads today's text, and says so.
 
 Returns:
     str: Numbered passages, each with Source, Dokumentart, Punkt, a Citation key to copy verbatim, and the \

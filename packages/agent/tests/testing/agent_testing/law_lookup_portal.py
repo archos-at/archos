@@ -22,6 +22,7 @@ from __future__ import annotations
 import contextlib
 import json
 from collections.abc import AsyncIterator
+from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
@@ -175,11 +176,13 @@ def hit(
     region: str = "",
     since: str = "",
     until: str = "",
+    provision: str = "",
 ) -> dict[str, Any]:
     """One search hit in the format's shape; its field names are the format's (``engines.ris_xml``)."""
     url = url or f"https://{DOCS}/documents/national/{number}.html"
     fields = {
         "Kurztitel": title,
+        "ArtikelParagraphAnlage": provision,
         "Bundesland": region,
         "Inkrafttretensdatum": since,
         "Ausserkrafttretensdatum": until,
@@ -220,6 +223,8 @@ class Portal(Upstream):
 
     responses: dict[str, dict[str, str]] = field(default_factory=dict)
     search: dict[str, str] = field(default_factory=search_answer)
+    #: When set, the answer to each search by its query parameters (else :attr:`search`, whatever was asked).
+    answer: Callable[[dict[str, str]], dict[str, str]] | None = None
     searches: list[dict[str, str]] = field(default_factory=list)
 
     @classmethod
@@ -245,11 +250,13 @@ class Portal(Upstream):
         def handler(request: httpx.Request) -> httpx.Response:
             if str(request.url).startswith(SEARCH_BASE):
                 self.requested.append(str(request.url))
-                self.searches.append(dict(request.url.params))
+                params = dict(request.url.params)
+                self.searches.append(params)
+                answer = self.answer(params) if self.answer else self.search
                 return httpx.Response(
-                    int(self.search.get("status", "200")),
-                    headers={"content-type": self.search["content_type"]},
-                    content=self.search["body"].encode("utf-8"),
+                    int(answer.get("status", "200")),
+                    headers={"content-type": answer["content_type"]},
+                    content=answer["body"].encode("utf-8"),
                 )
             return documents.handle_request(request)
 

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from public_sources.access.base import fold
 
 from agent.knowledge.law_lookup.address import Address
+from agent.knowledge.law_lookup.address import section_in
 from agent.knowledge.law_lookup.as_of import in_force_on
 from agent.knowledge.law_lookup.as_of import parse_day
 from agent.knowledge.law_lookup.client import SourceRequestError
@@ -31,6 +32,10 @@ logger = logging.getLogger(__name__)
 MAX_CANDIDATES = 3
 #: Live-search page size.
 LIVE_PAGE_SIZE = 20
+#: Page size of a past day's search by the act's title. Such a search answers every version of every provision
+#: of the act (a province's building ordinance: 35 to 58 hits, dev QC 2026-11-12), and the one in force on the
+#: day has to be on the page; the source's largest page.
+VERSIONS_PAGE_SIZE = 100
 
 
 @dataclass(frozen=True)
@@ -67,9 +72,10 @@ async def collect_candidates(search: Search, question: str, address: Address, tr
 
     On a past day (``as_of``) only live version documents in force on it: an
     address or a catalog pointer names today's consolidation (``as_of.py``).
+    A day of today or later never reaches here as ``as_of`` (``as_of.reads_today``).
     """
     if as_of:
-        return await live_candidates(search, question, address, trace, as_of)
+        return await dated_candidates(search, question, address, trace, as_of)
     addressed = candidate_from_address(address, search.law)
     if addressed is not None:
         trace.searched = f"the address you passed ({addressed.citation_url})"
@@ -211,20 +217,52 @@ async def live_candidates(
     if not search.law.lookup.search:
         return []
     plan = await search_plan(search, question, address, trace)
+    hits = await _hits(search, _search_args(search.law, plan, as_of))
+    if as_of:
+        return versions_on(hits, as_of, trace, search.law)
+    return [candidate_from_hit(hit, search.law) for hit in hits[:MAX_CANDIDATES]]
+
+
+async def dated_candidates(
+    search: Search, question: str, address: Address, trace: LookupTrace, as_of: str
+) -> list[Candidate]:
+    """On a past day: the named act's versions of that day, found by its title; else the planned search.
+
+    A caller who names the act has said which law it is, so its title is the search, with no full-text
+    terms and no planner rewrite: the words of a question („which guidelines are binding") rarely stand in
+    the provision that answers it, and a source with no version date for a collection answers a full-text
+    search with today's hits or none (dev QC 2026-11-12: three provinces' building ordinances missed).
+    """
+    if address.law and search.law.lookup.search:
+        plan = {
+            "collection": trace.collection or search.law.lookup.statute(subdivision=bool(address.territory)).id,
+            "terms": "",
+            "title": address.law,
+            "territory": address.territory,
+        }
+        hits = await _hits(search, _search_args(search.law, plan, as_of, page_size=VERSIONS_PAGE_SIZE))
+        kept = versions_on(hits, as_of, trace, search.law, address)
+        if kept:
+            trace.searched = f"the versions of {address.law!r}"
+            trace.collection = plan["collection"]
+            return kept
+    return await live_candidates(search, question, address, trace, as_of)
+
+
+async def _hits(search: Search, args: dict[str, str]) -> list:
+    """The search's hits; a failed search is no hits, because a tool must always hand the agent a string."""
     try:
-        result = await search.client.search(_search_args(search.law, plan, as_of))
+        result = await search.client.search(args)
     except SourceRequestError as exc:
         logger.info("law_lookup: live search failed (%s)", exc)
         return []
-    except Exception:  # a tool must always hand the agent a string, so a miss it is
+    except Exception:
         logger.exception("law_lookup: live search failed")
         return []
-    if as_of:
-        return versions_on(result.hits, as_of, trace, search.law)
-    return [candidate_from_hit(hit, search.law) for hit in result.hits[:MAX_CANDIDATES]]
+    return list(result.hits)
 
 
-def _search_args(law: LawSource, plan: dict, as_of: str) -> dict[str, str]:
+def _search_args(law: LawSource, plan: dict, as_of: str, *, page_size: int = LIVE_PAGE_SIZE) -> dict[str, str]:
     """The plan as the record's search operation's arguments (its templates name them)."""
     args = {
         "application": plan["collection"],
@@ -233,19 +271,35 @@ def _search_args(law: LawSource, plan: dict, as_of: str) -> dict[str, str]:
         "date_from": as_of,
         "date_to": "",
         "page": "1",
-        "page_size": str(LIVE_PAGE_SIZE),
+        "page_size": str(page_size),
     }
     if law.lookup.territory is not None:
         args[law.lookup.territory.argument] = plan["territory"]
     return args
 
 
-def versions_on(hits, as_of: str, trace: LookupTrace, law: LawSource) -> list[Candidate]:
-    """The version documents in force on ``as_of``, each read as itself, never the whole law of today."""
+def versions_on(hits, as_of: str, trace: LookupTrace, law: LawSource, address: Address | None = None):
+    """The version documents in force on ``as_of``, each read as itself, never the whole law of today.
+
+    With an address, only the addressed provisions' documents, where a hit states its provision: a version
+    document holds one provision, and the act's other provisions of that day answer nothing about it.
+    """
     day = parse_day(as_of)
     kept = [hit for hit in hits if day is not None and in_force_on(hit.metadata, day, law.engine)]
-    trace.versions_dropped = len(hits) - len(kept)
+    trace.versions_dropped += len(hits) - len(kept)
+    if address is not None:
+        kept = [hit for hit in kept if _holds_addressed(hit, address, law)]
     return [candidate_from_hit(hit, law, whole_law=False) for hit in kept[:MAX_CANDIDATES]]
+
+
+def _holds_addressed(hit, address: Address, law: LawSource) -> bool:
+    """Whether a version document holds an addressed provision; true when either side names none."""
+    field = law.engine.provision_field
+    stated = hit.metadata.get(field, "") if field else ""
+    if not stated or not address.sections:
+        return True
+    kind, number = section_in(stated, law.grammar)
+    return number in address.sections and kind in ("", address.kind)
 
 
 async def search_plan(search: Search, question: str, address: Address, trace: LookupTrace) -> dict:

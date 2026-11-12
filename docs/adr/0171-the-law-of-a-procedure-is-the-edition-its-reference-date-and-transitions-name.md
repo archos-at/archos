@@ -107,6 +107,20 @@ Chosen option 2.
   (today's consolidation) are never read for a past day, and nothing found is a
   miss that says today's text was not substituted
   (`packages/ris-adapter/src/lookup/as_of.py`).
+  (Amended 2026-11-12, now `packages/agent/src/agent/knowledge/law_lookup/`.)
+  Only a day before today is a past day. A day of today or later (the UTC date,
+  `as_of.reads_today`) is today's consolidated text by the usual path (address,
+  catalog, search), and the answer opens with a line saying so; for a later day
+  it adds that an amendment already promulgated for that day is not in today's
+  text. On a past day with a named act (`Address.law`), the source is searched
+  by the act's title alone, with no full-text terms and no planner rewrite, on
+  the source's largest page (`VERSIONS_PAGE_SIZE`), and of the versions in
+  force that day only the addressed provisions' documents are read, where the
+  hit states its provision (`Engine.provision_field`). Nothing kept falls back
+  to the planned search, and nothing found there is still the miss. Dev QC
+  2026-11-12: a dated call skipped the address and the catalog and searched the
+  question's words, which stand in no provision that answers them, so three
+  Länder's building ordinances missed, today's date included.
 - **Flag.** `time-editions`, an entitlement. Off: the route answers 403 and
   `law-lookup` refuses `as_of` (the agent tier reads it as
   `features.timeEditions` from `GET /api/internal/stages`). (Amended by [ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md): the switch and its off path are removed; the records are the only path.)
@@ -136,7 +150,10 @@ Chosen option 2.
 - Bad: Land law in RIS has no verified date parameter (`configs/sources/at/ris/source.yml`,
   "[verify the OGD API]"), so a Land `as_of` lookup may find only today's
   versions and miss. That is the fail-closed answer, and it is what verifying
-  the parameter would change.
+  the parameter would change. (Amended 2026-11-12: a search by the act's title
+  answers every version of every provision, 35 to 58 hits for a Land's building
+  ordinance, so a named act's version of the day is found without the
+  parameter; an act with more versions than one page holds can still miss.)
 - Bad: `knowledge-search` takes no `asOf` yet. Platform corpus points carry no
   edition until S8's payload (`edition_id`), so a filter could only drop the
   platform corpus or claim a check it did not make.

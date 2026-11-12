@@ -16,6 +16,9 @@ from agent.common.action_outcome import ActionOutcome
 from agent.common.action_rows import ActionRow
 from agent.knowledge.law_lookup.address import parse_address
 from agent.knowledge.law_lookup.as_of import as_of_error
+from agent.knowledge.law_lookup.as_of import reads_today
+from agent.knowledge.law_lookup.as_of import today
+from agent.knowledge.law_lookup.as_of import today_note
 from agent.knowledge.law_lookup.cache import ttl_seconds
 from agent.knowledge.law_lookup.candidates import Search
 from agent.knowledge.law_lookup.candidates import collect_candidates
@@ -197,9 +200,14 @@ class _Lookup:
     ) -> str:
         law, tool = bound.law, self.config.tool_name
         address = parse_address(question, instrument, jurisdiction, law)
-        trace = LookupTrace(collection=application, as_of=as_of)
+        # Today or later is today's text, by the usual path; only a past day reads version documents (ADR-0171).
+        now = today()
+        current = bool(as_of) and reads_today(as_of, now)
+        trace = LookupTrace(
+            collection=application, as_of="" if current else as_of, as_of_today=as_of if current else ""
+        )
         trace.source, trace.source_revision, trace.source_origin = law.source.id, bound.revision, bound.origin
-        trace.candidates = await collect_candidates(bound.search, question, address, trace, as_of)
+        trace.candidates = await collect_candidates(bound.search, question, address, trace, trace.as_of)
         documents = await fetch_documents(bound.client, trace.candidates, trace, self.ttl)
         selections = await select_passages(bound.picker, question, address, documents, trace, law)
         passages = build_passages(selections, address, law)
@@ -207,9 +215,11 @@ class _Lookup:
         emit_lookup_span(question, address, trace, passages, tool)
         outcome.hits = len(passages)
         if not passages:
-            return miss_message(question, address, trace, law)
-        capture_passages(passages)
-        return format_passages(passages, ingested, address, law, tool)
+            result = miss_message(question, address, trace, law)
+        else:
+            capture_passages(passages)
+            result = format_passages(passages, ingested, address, law, tool)
+        return f"{today_note(as_of, now)}\n{result}" if current else result
 
 
 async def _resolve_llms(tool_config: LawLookupToolConfig, builder: Builder):
