@@ -44,8 +44,15 @@ would hold them, and renew them, for as long as it runs: the organization was
 refused "several answers in progress" by answers that had already ended. The
 producer records them in a :class:`~agent.common.turn_admission.TurnSlots`
 this stream owns, and the stream gives back whatever is still held once it
-stops waiting, with a warning and a ``turn-slots-stranded`` score on the turn's
-trace (``agent.common.turn_admission``, "The slot is the turn's").
+stops waiting, a second cancel included, with a warning and a
+``turn-slots-stranded`` score on the turn's trace (``agent.common.turn_admission``,
+"The slot is the turn's").
+
+The trade: the slot goes back when the turn ends, not when its work does. A
+producer that swallows its cancel and keeps calling models runs on without a
+slot, so for that while the organization may run one more turn than its limit.
+That is the lesser fault (a stuck teardown is the usual case, and it calls
+nothing), and ``turn-slots-stranded`` names every turn it happens on.
 
 No intermediate step is read here: the chat wire carries what the turn's
 ``_run`` yields (wire bodies, ADR-0068), and steps go only to the exporters.
@@ -102,8 +109,12 @@ async def stream_workflow(payload: Any, *, session: Session) -> AsyncIterator[An
             yield item
         await producer
     finally:
-        await _stop(producer)
-        await _return_slots(slots)
+        try:
+            await _stop(producer)
+        finally:
+            # A second cancel (a Stop pressed again, a supersede republished every 2 s) ends the wait
+            # above with CancelledError; the slots go back all the same.
+            await _return_slots(slots)
 
 
 async def _produce(items: asyncio.Queue[Any], payload: Any, *, session: Session, slots: TurnSlots) -> None:

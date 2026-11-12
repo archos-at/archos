@@ -439,7 +439,7 @@ An agent asks Piloti through `POST /api/agent-asks` (the MCP operation `agent-as
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AGENT_ASK_MAX_SECONDS` | No | `2820` | How long an ask may stay `submitted` or `working` before the next read of it (`agent-ask-get`, a cancel) ends it `failed`: its turn's outcome notice never arrived, as when a replica died mid-turn. The chat turn's own deadline (`CHAT_TURN_DEADLINE_SECONDS`, 2700) plus two minutes for the notice, so an ask is never ended while its turn may still answer; `ask-wire.spec.ts` holds the default to that deadline. |
+| `AGENT_ASK_MAX_SECONDS` | No | `2820` | How long an ask may stay `submitted` or `working` before it is ended `failed`, by the `agent-ask-expiry` sweep (every five minutes) or by the next read of it (`agent-ask-get`, a cancel), whichever comes first: its turn's outcome notice never arrived, as when a replica died mid-turn. The web tier reads it for a read and the `bff-jobs` worker for the sweep, so an override goes on both (in Pulumi the worker inherits the frontend's environment, `bff-jobs-env.ts`); set on one only, the read and the sweep end asks at different ages. The chat turn's own deadline (`CHAT_TURN_DEADLINE_SECONDS`, 2700) plus two minutes for the notice, so an ask is never ended while its turn may still answer; `ask-wire.spec.ts` holds the default to that deadline. |
 
 ---
 

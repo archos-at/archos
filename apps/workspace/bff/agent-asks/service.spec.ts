@@ -32,6 +32,7 @@ vi.mock('./repository', () => ({
   findAsk: vi.fn(),
   findAskById: vi.fn(),
   findAsksOpenBefore: vi.fn(async () => []),
+  OPEN_ASKS_PAGE: 200,
   hasAskedInConversation: vi.fn(),
   insertAsk: vi.fn(),
   listAskDocuments: vi.fn(async () => []),

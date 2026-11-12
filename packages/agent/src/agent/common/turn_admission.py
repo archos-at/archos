@@ -63,6 +63,13 @@ turn records its slots there, and when the turn is over the owner gives back
 whatever is still held (:func:`return_turn_slots`). The lease stays the bound
 for a replica that dies; this is the bound for a turn that ended.
 
+The trade is deliberate: the slot goes back when the turn ends, not when its
+work does. A workflow that swallowed its cancel and goes on calling models runs
+without a slot, so the organization may run one turn over its limit while it
+does. That is rarer and cheaper than the leak (the usual case is a teardown
+stuck on a dead connection, which calls nothing), and the stream scores every
+such turn ``turn-slots-stranded``, so it is seen rather than assumed.
+
 Fails OPEN, like every other layer except the budget: a cache outage must never
 be the reason chat stops.
 """
@@ -77,6 +84,7 @@ import threading
 import time
 import uuid
 from collections.abc import AsyncIterator
+from collections.abc import Callable
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from contextlib import contextmanager
@@ -229,12 +237,14 @@ def _release(key: str, member: str) -> None:
     _local_release(key, member)
 
 
-def _renew_all(held: list[str], member: str) -> None:
+def _renew_all(held: list[str], member: str, released: Callable[[], bool] = lambda: False) -> None:
     """Re-stamp every slot this turn holds, in the store and the local table.
 
     Both, for the reason `_release` runs both: the store may have come or gone
     since the acquire. A slot that is no longer there was reclaimed, which means
-    renewals stopped for a whole lease; that is logged, never re-taken.
+    renewals stopped for a whole lease; that is logged, never re-taken. Unless
+    ``released`` says its turn gave it back meanwhile (`return_turn_slots`): a
+    renewal that raced that release found nothing, and nothing went wrong.
     """
     now = time.time()
     for key in held:
@@ -244,7 +254,7 @@ def _renew_all(held: list[str], member: str) -> None:
             logger.warning("Failed to renew turn slot on %s", key, exc_info=True)
             continue
         local = _local_renew(key, member, now)
-        if renewed is not None and int(renewed) == 0 and not local:
+        if renewed is not None and int(renewed) == 0 and not local and not released():
             logger.warning("Turn slot on %s was reclaimed while the turn still ran", key)
 
 
@@ -296,7 +306,7 @@ async def _keep_renewing(held: list[str], member: str, owner: TurnSlots | None =
         if owner is not None and owner.closed:
             return
         try:
-            await asyncio.to_thread(_renew_all, held, member)
+            await asyncio.to_thread(_renew_all, held, member, lambda: owner is not None and owner.closed)
         except Exception:  # pragma: no cover - _renew_all already contains its errors
             logger.warning("Turn slot renewal failed", exc_info=True)
 

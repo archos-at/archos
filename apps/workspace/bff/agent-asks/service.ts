@@ -76,6 +76,7 @@ import {
   insertAsk,
   listAskDocuments,
   markAskWorking,
+  OPEN_ASKS_PAGE,
   type AskEnd,
 } from './repository'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -281,7 +282,7 @@ async function expireIfLost(row: AgentAskRow, now = Date.now()): Promise<AgentAs
 }
 
 /** The most asks one sweep ends; the next run takes the rest. */
-export const LOST_ASKS_PER_SWEEP = 200
+export const LOST_ASKS_PER_SWEEP = OPEN_ASKS_PAGE
 
 /**
  * End, in every organization, the asks still open past {@link askMaxSeconds}:
