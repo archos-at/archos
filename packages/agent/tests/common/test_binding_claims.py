@@ -185,7 +185,49 @@ def test_the_garage_law_answer_cited_from_two_mirrors_is_recorded_and_scored():
     cited = [(LAW_MIRRORS[0], 1), (LAW_MIRRORS[1], 2)]
     claims = turn_binding_claims(content, cited)
     assert [claim.reason for claim in claims] == ["web_only", "web_only"]
-    assert len(law_cited_from_web(entry for entry, _number in cited)) >= 1
+    assert len(law_cited_from_web(content, cited)) >= 1
+
+
+#: The Wien answer of 2026-11-12 (conversation s_7bce72bc…, answer 558f2d73…): the records held the day.
+WIEN_DATE = (
+    "In Wien gilt die **OIB-Richtlinie 4, Ausgabe Mai 2023, seit 23. Februar 2024**: Die WBTV 2023 trat am Tag "
+    "nach ihrer Kundmachung in Kraft [2]; das Datum bestätigt die Kammer der Ziviltechniker:innen [3]."
+)
+RIS_PARAGRAPH = SourceEntry(
+    citation_key="Wiener Bautechnikverordnung 2023, § 5", source_type="knowledge_layer", shelf="base"
+)
+CHAMBER_NEWSLETTER = SourceEntry(
+    url="https://ost.zt.at/newsletter-w-noe-bgl/archiv-2024/zt-sondernewsletter-2302-wiener-bautechnikverordnung-2023-tritt-heute-in-kraft",
+    title="Newsletter Kammer der Architekten und Ingenieurkonsulenten für Wien, Niederösterreich und Burgenland",
+    source_type="generic",
+    tool_name="web_search_tool",
+)
+OIB_RL_4 = HeldWork(
+    designation="OIB-Richtlinie 4", where="knowledge_base", names=web_sources._names("OIB-Richtlinie 4")
+)
+
+
+def test_a_web_page_cited_beside_the_legal_database_for_a_held_work_s_binding_day_is_law_cited_from_web(monkeypatch):
+    """The page neither copies nor names the work; the sentence citing it does, and the records hold its day."""
+    monkeypatch.setattr(web_sources, "held_works", lambda: (OIB_RL_4,))
+    cited = [(RIS_PARAGRAPH, 2), (CHAMBER_NEWSLETTER, 3)]
+    assert law_cited_from_web(WIEN_DATE, cited, works=[OIB_RL_4]) == ["OIB-Richtlinie 4"]
+    assert law_cited_from_web(WIEN_DATE, [(RIS_PARAGRAPH, 2)], works=[OIB_RL_4]) == []
+
+
+def test_a_web_page_cited_for_something_that_names_no_held_work_is_not_law_from_the_web(monkeypatch):
+    monkeypatch.setattr(web_sources, "held_works", lambda: (OIB_RL_4,))
+    content = "Der Hersteller empfiehlt eine jährliche Wartung des Geländers [3]."
+    assert law_cited_from_web(content, [(CHAMBER_NEWSLETTER, 3)], works=[OIB_RL_4]) == []
+
+
+def test_a_written_date_does_not_end_its_sentence():
+    assert module.sentences(WIEN_DATE) == [WIEN_DATE]
+    assert module.sentences("Gilt seit 2024. Die Wand ist R 60. Mehr nicht.") == [
+        "Gilt seit 2024.",
+        "Die Wand ist R 60.",
+        "Mehr nicht.",
+    ]
 
 
 def test_a_binding_edition_named_from_a_web_page_is_recorded():
