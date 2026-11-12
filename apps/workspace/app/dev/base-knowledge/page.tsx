@@ -21,7 +21,7 @@ import {
   matchesQuery,
   subtreeOf,
 } from '@/lib/base-knowledge/office/listing'
-import type { BaseKnowledgeList, ListEntriesQuery } from '@/lib/base-knowledge/wire'
+import type { BaseKnowledgeEntry, BaseKnowledgeList, ListEntriesQuery } from '@/lib/base-knowledge/wire'
 import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES } from '../_fixtures/base-knowledge'
 import { buildPdf, type PdfLine } from '../_fixtures/sample-pdf'
 
@@ -51,7 +51,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   if (!w.__baseKnowledgeShim) {
     w.__baseKnowledgeShim = true
     const real = window.fetch.bind(window)
-    let added = 0
+    const added: BaseKnowledgeEntry[] = []
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const raw =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
@@ -69,11 +69,14 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       // A file added (uploaded or taken from the shelf) comes back as a proposal, as the server makes one from its
       // name; here the fixture's proposals answer in turn, so adding several walks the forms one after another.
       if (url.pathname === '/api/base-knowledge/upload' || (url.pathname === '/api/base-knowledge' && init?.method === 'POST')) {
+        // Each added file is its own proposal (as on the server), kept for the reads that follow, however many are added.
         const proposals = BASE_KNOWLEDGE_ENTRIES.filter((candidate) => candidate.status === 'proposed')
-        return Response.json(proposals[added++ % proposals.length])
+        const proposal = { ...proposals[added.length % proposals.length], id: `added-${added.length + 1}` }
+        added.push(proposal)
+        return Response.json(proposal)
       }
       const entryId = /^\/api\/base-knowledge\/([^/]+)/.exec(url.pathname)?.[1]
-      const entry = entryId ? BASE_KNOWLEDGE_ENTRIES.find((candidate) => candidate.id === decodeURIComponent(entryId)) : undefined
+      const entry = entryId ? [...BASE_KNOWLEDGE_ENTRIES, ...added].find((candidate) => candidate.id === decodeURIComponent(entryId)) : undefined
       // An entry's own path answers with the entry; a write leaves the fixture as it is.
       if (entry) return Response.json(url.pathname.endsWith('/confirm') ? { ...entry, status: 'confirmed' } : entry)
       if (url.pathname.startsWith('/api/base-knowledge')) return Response.json({ results: [] })

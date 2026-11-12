@@ -150,10 +150,15 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
   const openedHere = useRef(false)
   const openFile = useCallback(
     (entryId: string) => {
+      // A file already on screen (or still loading) is replaced, never stacked: closing still leads back to where the first was opened.
+      if (location.fileId) {
+        go({ fileId: entryId }, { replace: true })
+        return
+      }
       openedHere.current = true
       go({ fileId: entryId })
     },
-    [go],
+    [go, location.fileId],
   )
   const closeFile = useCallback(() => {
     if (openedHere.current) back()

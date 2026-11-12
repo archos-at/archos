@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState, type JSX } from 'react'
 import type { BaseKnowledgeEntry } from '@/adapters/api/base-knowledge-client'
 import { FilePreviewDialog, fileItemFromStatus, type FileItem } from '@/features/documents/file-preview'
+import { Spinner } from '@/components/ui/spinner'
 import { StandardFacts } from './standard-facts'
 
 interface StandardFileProps {
@@ -49,6 +50,14 @@ export function StandardFile({ entry, canManage, onClose, onManage, onOpenEditio
     }
   }, [documentId])
 
+  // Until the file is read, the place is held under a scrim, so a second press cannot open another file over it.
+  if (!file) {
+    return (
+      <div className="bg-background/60 fixed inset-0 z-50 grid place-items-center" data-testid="standard-file-loading">
+        <Spinner size="lg" />
+      </div>
+    )
+  }
   return (
     <FilePreviewDialog
       file={file}

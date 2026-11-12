@@ -147,6 +147,19 @@ describe('BaseKnowledgeWorkspace', () => {
     await waitFor(() => expect(navigation.replace).toHaveBeenLastCalledWith(`/app/base-knowledge?entry=${second.id}`, { scroll: false }))
   })
 
+  it('holds the place under a scrim while the file loads, and a further press replaces rather than stacks', async () => {
+    navigation.search = 'file=oenorm-b-1600'
+    stubFetch(listOf())
+    const fetchMock = vi.mocked(fetch)
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input, init) => (String(input).startsWith('/api/documents/') ? new Promise<Response>(() => {}) : answer(input, init)))
+    renderWorkspace()
+    expect(await screen.findByTestId('standard-file-loading')).toBeTruthy()
+    const [first] = await screen.findAllByTestId('base-knowledge-row')
+    await userEvent.click(within(first).getByTestId('base-knowledge-entry-name'), { pointerEventsCheck: 0 })
+    expect(navigation.push).not.toHaveBeenCalled()
+  })
+
   it('opens a standard as its file, from its row', async () => {
     stubFetch(listOf())
     renderWorkspace()
