@@ -55,7 +55,10 @@ _HEADER_RE = re.compile(r"^Österreichisches Institut für Bautechnik\b")
 #: ``Ausgabe März 2015``, ``Ausgabe September 2025``. Matched on May alone, the footer of
 #: every other edition stayed in its Punkte as text and the breadcrumb fell back to the
 #: file's name (measured on the released 2015, 2019 and 2025 texts, 2026-11-12).
-_EDITION = r"Ausgabe\s+[A-ZÄÖÜ][a-zäöü]+\s+\d{4}\b"
+#: The month is one of the twelve: any capitalised word took "Leitfaden Ausgabe Wien 2020"
+#: for a footer and dropped the line.
+_MONTH = r"(?:Jänner|Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)"
+_EDITION = rf"Ausgabe\s+{_MONTH}\s+\d{{4}}\b"
 _FOOTER_RE = re.compile(rf"^.{{0,90}}?\b{_EDITION}(?:\s+Rev\.\s*[\d.]+)?(?:\s+Seite\s+\d+\s+von\s+\d+)?\s*$")
 #: Same shape as ``_FOOTER_RE`` but capturing the document label in front of the date,
 #: which is the most reliable name for the Richtlinie: it recurs on nearly every page,
@@ -233,7 +236,7 @@ def _document_subject(lines: list[str]) -> str:
     """
     marker = re.compile(r"^(?:-|O\s?ia\b|Erläuternde\b|Bemerkungen\b)")
     for index, line in enumerate(lines):
-        if not re.match(r"^Ausgabe:\s*[A-ZÄÖÜ][a-zäöü]+\s*\d{4}\s*$", line):
+        if not re.match(rf"^Ausgabe:\s*{_MONTH}\s*\d{{4}}\s*$", line):
             continue
         collected: list[str] = []
         for candidate in reversed(lines[max(0, index - 4) : index]):
@@ -489,26 +492,43 @@ def _back_matter(text_pages: list[dict[str, Any]]) -> tuple[str, ...]:
     this, the Punkt run ran on to the colophon, and the annex was filed under the last
     Punkt: twelve pages of Energieausweis forms cited as "8.3.2" (OIB-RL 6, Ausgabe Mai
     2023 and September 2025, measured 2026-11-12).
+
+    Read from the contents page that holds the last numbered entry, and from no other: a
+    Tabellen- or Abbildungsverzeichnis after it lists captions, and a caption quoted in
+    the last Punkt's text is no back matter.
+
+    The coverage gate of :func:`clause_documents` leaves the whole postamble (this back
+    matter and the colophon) out of the body it measures: it is not evidence against the
+    outline.
     """
     trailing: list[str] = []
     for page in text_pages:
         text = page.get("text") or ""
         if not _is_toc_page(text):
             continue
+        entries: list[str] = []
+        numbered_seen = False
         for line in (stripped for stripped in map(str.strip, text.splitlines()) if _TOC_ENTRY_RE.search(stripped)):
             match = _CLAUSE_RE.match(line)
             numbered = match is not None and _parse_clause_id(match.group(1)) is not None
-            trailing = [] if numbered else [*trailing, _title_key(line)]
+            numbered_seen = numbered_seen or numbered
+            entries = [] if numbered else [*entries, _title_key(line)]
+        if numbered_seen:
+            trailing = entries
     return tuple(key for key in trailing if key)
 
 
 def _cut_back_matter(segments: list[_Segment], postamble: list[tuple[int, str]], keys: tuple[str, ...]) -> None:
-    """Move the last Punkt's lines from the first one that opens a back-matter entry on into the postamble."""
+    """Move the last Punkt's lines from the first one that IS a back-matter entry on into the postamble.
+
+    The whole line must key as the entry: a sentence of the last Punkt that merely starts
+    with its word ("Anhang 1 auszustellen …") stays in the Punkt.
+    """
     if not segments or not keys:
         return
     last = segments[-1].lines
     for index, (_page, line) in enumerate(last[1:], start=1):
-        if _DOT_LEADER_RE.search(line) is None and _title_key(line).startswith(keys):
+        if _DOT_LEADER_RE.search(line) is None and _title_key(line) in keys:
             postamble[:0] = last[index:]
             del last[index:]
             return

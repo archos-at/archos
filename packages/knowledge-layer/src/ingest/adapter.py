@@ -85,6 +85,7 @@ from .chunk_metadata import provenance_from_config
 from .chunk_metadata import stamp_chunk_metadata
 from .chunking_choice import is_released_text as _released
 from .chunking_choice import text_documents_for_pages
+from .chunking_choice import text_documents_for_pages as _chunk
 from .measures import INGEST_TRACE_NAME  # noqa: F401 - re-exported, the trace's name
 from .measures import file_trace as _file_trace
 from .measures import finish_file as _finish_file_trace
@@ -4077,7 +4078,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             self._update_file_status(job, i, FileStatus.FAILED, error=error)
                             logger.warning("Scanned PDF not ingested (VLM not configured): %s", file_name)
                             continue
-                        text_documents = text_documents_for_pages(text_pages, file_name, file_size, _released(config))
+                        text_documents = _chunk(text_pages, file_name, file_size, _released(config, collection_name))
                     elif is_image:
                         # Standalone image: read by the vision model (a hard requirement:
                         # no text to fall back on), that reading screened, then its

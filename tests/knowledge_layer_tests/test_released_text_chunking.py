@@ -13,6 +13,10 @@ Synthetic page dicts only: no third-party PDF.
 
 from __future__ import annotations
 
+import ast
+from pathlib import Path
+
+from knowledge_layer import ingest
 from knowledge_layer.ingest import clause_documents
 from knowledge_layer.ingest import is_released_text
 from knowledge_layer.ingest import text_documents_for_pages
@@ -79,7 +83,7 @@ def test_a_released_text_is_cut_on_its_numbered_clauses() -> None:
 
 
 def test_without_the_records_the_same_file_takes_the_heading_path() -> None:
-    """The file name says nothing; only the records route it (and a tenant's file never has them)."""
+    """The file name says nothing; only the records route it."""
     docs = text_documents_for_pages(_pages(CONTENTS, BODY, ESCAPE, FIGHTING, ANNEX), RELEASED, 1)
     assert {doc.metadata.get("chunking") for doc in docs} != {"clause", "page"}
     assert not any(doc.metadata.get("chunking") == "clause" for doc in docs)
@@ -92,9 +96,30 @@ def test_a_released_text_without_numbered_clauses_keeps_the_heading_path() -> No
 
 
 def test_the_job_knows_a_released_text_by_the_edition_its_mark_names() -> None:
-    assert is_released_text({"knowledge_edition_id": "edition:rl-2-2023", "country_id": "XA"})
-    assert not is_released_text({"country_id": "XA"})
-    assert not is_released_text({"knowledge_edition_id": ""})
+    assert is_released_text({"knowledge_edition_id": "edition:rl-2-2023", "country_id": "XA"}, "oib_knowledge")
+    assert not is_released_text({"country_id": "XA"}, "oib_knowledge")
+    assert not is_released_text({"knowledge_edition_id": ""}, "oib_knowledge")
+
+
+def test_an_office_copy_of_an_edition_is_no_released_text() -> None:
+    """A confirmed office copy (its licensed ÖNORM) carries the edition too, on the office's own shelf."""
+    edition = {"knowledge_edition_id": "edition:onorm-b-1600-2017"}
+    for office_collection in ("archiv_org_1", "proj_7f3a", "s_session_1"):
+        assert not is_released_text(edition, office_collection), office_collection
+
+
+def test_the_ingest_job_passes_its_config_and_collection_to_the_choice() -> None:
+    """Dropping the argument would cut every released text on its headings again, and nothing else would notice."""
+    source = Path(ingest.__file__).with_name("adapter.py").read_text(encoding="utf-8")
+    calls = [
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) in {"text_documents_for_pages", "_chunk"}
+    ]
+    released = [call for call in calls if len(call.args) == 4]
+    assert len(released) == 1
+    choice = released[0].args[3]
+    assert isinstance(choice, ast.Call) and [ast.unparse(arg) for arg in choice.args] == ["config", "collection_name"]
 
 
 def test_the_footer_of_any_edition_month_is_furniture() -> None:
@@ -118,3 +143,35 @@ def test_the_annex_does_not_count_against_the_coverage_gate() -> None:
     long_annex = ANNEX + "Feld fuer weitere Angaben zur Anlage und ihrer Wartung im Betrieb.\n" * 60
     docs = clause_documents(_pages(CONTENTS, BODY, ESCAPE, FIGHTING, long_annex), RELEASED, 1)
     assert docs is not None
+
+
+def test_a_sentence_that_starts_with_the_annex_word_stays_in_the_last_clause() -> None:
+    """Only a line that IS the contents entry opens the back matter, not one that begins with its word."""
+    fighting = FIGHTING.replace(
+        "4.1 Gebaeude muessen fuer die Feuerwehr zugaenglich sein.\n",
+        "4.1 Der Nachweis ist nach dem Muster in\nAnhang 1 auszustellen und muss die Pruefung nennen.\n",
+    )
+    docs = text_documents_for_pages(_pages(CONTENTS, BODY, ESCAPE, fighting, ANNEX), RELEASED, 1, released_text=True)
+    assert "Anhang 1 auszustellen" in _clause(docs, "4.1").text
+    assert "Muster der Bescheinigung" not in _clause(docs, "4.1").text
+
+
+def test_a_list_of_tables_after_the_contents_opens_no_back_matter() -> None:
+    """A caption the last Punkt quotes is its text; the Tabellenverzeichnis lists it, the contents page does not."""
+    tables = (
+        "Tabellenverzeichnis\n"
+        "Tabelle 1: Gehweglaengen .............................. 3\n"
+        "Tabelle 2: Mindestwerte ............................... 4\n"
+    )
+    fighting = FIGHTING.replace("sein.\n", "sein.\nTabelle 2: Mindestwerte\nBreite der Zufahrt 3 m.\n")
+    docs = text_documents_for_pages(
+        _pages(CONTENTS, tables, BODY, ESCAPE, fighting, ANNEX), RELEASED, 1, released_text=True
+    )
+    assert "Breite der Zufahrt 3 m" in _clause(docs, "4.1").text
+
+
+def test_an_edition_named_in_the_text_is_no_footer() -> None:
+    """Only a month makes a footer: "Leitfaden Ausgabe Wien 2020" is a line of the text."""
+    escape = ESCAPE.replace("3.1.4 Im Falle", "Siehe den Leitfaden Ausgabe Wien 2020\n3.1.4 Im Falle")
+    docs = text_documents_for_pages(_pages(CONTENTS, BODY, escape, FIGHTING, ANNEX), RELEASED, 1, released_text=True)
+    assert "Leitfaden Ausgabe Wien 2020" in _clause(docs, "3.1.3").text

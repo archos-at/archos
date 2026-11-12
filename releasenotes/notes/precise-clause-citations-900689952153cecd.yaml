@@ -8,8 +8,8 @@ fixes:
     forms in the annex of OIB-Richtlinie 6 no longer as its last Punkt.
 operators:
   - >
-    Chunks built before this release keep the coarser Punkt. After deploying,
-    rebuild the released texts once per environment with
-    platform-knowledge-reingest, naming every corpusFile that
-    platform-knowledge-text-list lists; platform-knowledge-sync skips them
-    because their bytes have not changed.
+    The base corpus is rebuilt once after this deploy, on every environment:
+    the chunk format moves to 5, so the next sync re-ingests each file from
+    the same bytes and keeps its stored country and edition. No manual
+    re-ingest is needed. Until a file's rebuild finishes it answers from its
+    old chunks.

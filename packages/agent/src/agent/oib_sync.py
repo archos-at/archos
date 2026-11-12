@@ -92,7 +92,15 @@ SYNC_LOCK_KEY = "oib-sync"
 #    chunks addressed ``clause_id = "Tabelle N"``. Removing them also drops the 12
 #    table rows version 3 accepted as Punkte (OIB-RL 2 13-15, OIB-RL 2.1 6.1-6.3,
 #    and their Änderungen twins): 1645 Punkt ids become 1633, plus 104 table chunks.
-CHUNK_FORMAT_VERSION = 4
+# 5: a released text (``<manifestationKey>-<hash>.pdf``, a base-corpus job carrying
+#    ``knowledge_edition_id``) is cut on its Punkte first, where the heading chunker cut
+#    it and cited 5.1.1 to 5.1.4 of a Richtlinie as "5.1"; the footer of any edition
+#    month (not May alone) is furniture, so every chunk of a 2015 or 2019 copy changes
+#    its breadcrumb from the file name to "OIB-Richtlinie N — Subject"; the annex the
+#    contents page lists after the last Punkt leaves that Punkt. Without this bump the
+#    released texts would keep their heading-cut chunks until someone re-ingested each
+#    by hand, on every environment. Stored marks survive the rebuild (``begin_job``).
+CHUNK_FORMAT_VERSION = 5
 
 
 @dataclass(frozen=True)
