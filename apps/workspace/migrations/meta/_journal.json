@@ -1667,6 +1667,13 @@
       "when": 1795200000000,
       "tag": "0237_open_agent_asks_index",
       "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1795300000000,
+      "tag": "0238_memory_topics",
+      "breakpoints": true
     }
   ]
 }

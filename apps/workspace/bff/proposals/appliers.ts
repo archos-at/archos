@@ -81,9 +81,12 @@ export async function applyMemory(payload: MemoryPayload, context: ApplyContext)
     content: payload.content,
     confidence: payload.confidence,
     sourceConversationId: originConversationId,
+    topic: payload.topic,
   }
   const options = { supersedesContent: payload.supersedes ?? null }
   const scope = context.memoryScope ?? payload.scope
+  // The topic is resolved against the shelf the note lands on, as a create does: a project
+  // note's by `addProjectMemoryItem`, an office note's by `createOrganizationMemoryItem`.
   const item =
     scope === 'project'
       ? await addProjectMemoryItem(session, projectId, input, options)

@@ -395,6 +395,27 @@ def test_the_personal_memory_block_is_read_whole_at_the_bffs_bound(request_conte
     assert client.personal_memory_lines(blocks.personal_memory) == 2
 
 
+def test_a_personal_block_grouped_by_topic_counts_only_its_notes(request_context, opener):
+    """The topic index and the topic headings are not notes: only the ``- `` lines count."""
+    block = "\n".join(
+        [
+            PERSONAL_HEADER,
+            'topics of the person\'s 3 notes (at most 20 named): "Brandschutz" (2), "Stellplätze" (1)',
+            'Topic "Brandschutz":',
+            '- [pinned | profile] "Leitet die Einreichplanung."',
+            '- [preference] "Antwortet kurz."',
+            'Topic "Stellplätze":',
+            '- [preference] "Will Stellplatzzahlen tabellarisch."',
+        ]
+    )
+    _answer(opener, personalMemory=block)
+
+    blocks = client.fetch_turn_context(request_context)
+
+    assert blocks.personal_memory == block
+    assert client.personal_memory_lines(blocks.personal_memory) == 3
+
+
 def test_a_longer_personal_block_is_cut_at_a_whole_line(request_context, opener):
     block = "\n".join([PERSONAL_HEADER] + [f'- [preference] "{"x" * 90} {n}"' for n in range(40)])
     _answer(opener, personalMemory=block)

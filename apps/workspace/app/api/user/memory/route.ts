@@ -7,20 +7,32 @@
 import { NextResponse } from 'next/server'
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { offsetPageOf } from '@/lib/api/offset-page'
-import { clearPersonalMemory, createPersonalMemoryItem, listPersonalMemory } from '@/lib/personal-memory/service'
+import {
+  clearPersonalMemory,
+  createPersonalMemoryItem,
+  listPersonalMemory,
+  listPersonalMemoryTopics,
+  personalListFilter,
+} from '@/lib/personal-memory/service'
 import { createPersonalMemorySchema, listPersonalMemoryQuerySchema } from '@/lib/personal-memory/wire'
 
 /** Stated on each handler: `authz-coverage.spec.ts` reads every export on its own. */
 const WHY = 'the caller’s own notes, keyed to session.userId and held by row-level security on the person'
 
+/**
+ * One page of the caller's notes, and `topics`: every topic of the caller's
+ * notes with how many hold it (the whole shelf, not the page). `topic` narrows
+ * the page to one topic.
+ */
 export const GET = apiRoute(
   async ({ session, request }) => {
     const query = parseQuery(request, listPersonalMemoryQuerySchema)
-    return listPersonalMemory(
-      { organizationId: session.organizationId, userId: session.userId },
-      offsetPageOf(query),
-      { sourceConversationId: query.sourceConversationId }
-    )
+    const owner = { organizationId: session.organizationId, userId: session.userId }
+    const [page, topics] = await Promise.all([
+      listPersonalMemory(owner, offsetPageOf(query), await personalListFilter(owner, query)),
+      listPersonalMemoryTopics(owner),
+    ])
+    return { ...page, topics }
   },
   { authz: { sessionOnly: true, why: WHY } }
 )

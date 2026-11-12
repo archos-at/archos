@@ -19,13 +19,16 @@ import {
   normalizeContent,
   type AssertionRelation,
 } from '@/lib/knowledge/consolidation'
-import { formatBoundedDigest } from '@/lib/knowledge/digest-format'
 import { embedNote, enrichForEmbedding, toVectorLiteral, type EmbeddedNote } from '@/lib/knowledge/embeddings'
 import { assertStorableNote } from '@/lib/knowledge/note-content-guard'
 import { daysSince, fuseHybridRelevance, rankByRecallScore } from '@/lib/knowledge/recall-scoring'
 import { STALE_VECTOR, backfillAfterRecall, embedStoredNote } from './memory-embedding'
 import { refuseStatusMove, statusMayBecome, supersedable } from './memory-status'
 import { RECALL_CANDIDATE_LIMIT, selectRecallCandidates, type DigestTiming } from './memory-recall'
+import { formatTopicDigest } from './memory-digest'
+import { restatedTopicSet } from './memory-refresh-topic'
+import { projectTopicsOf } from './memory-topics'
+import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import { maskChatText } from '@/lib/upload-screening/service'
 
 /** Re-exported so a route reads the bound without importing the schema (ADR-0017). */
@@ -496,16 +499,16 @@ async function refreshDuplicate(
   values: NewProjectMemoryItem,
   rewrite = false
 ): Promise<ProjectMemoryItem> {
-  const db = getDb()
   const incoming = (values.confidence ?? 'medium') as ProjectMemoryConfidence
   const best =
     CONFIDENCE_RANK[incoming] > CONFIDENCE_RANK[duplicate.confidence]
       ? incoming
       : duplicate.confidence
-  const [updated] = await db
+  const [updated] = await getDb()
     .update(projectMemory)
     .set({
       ...(rewrite ? { content: values.content, ...STALE_VECTOR } : {}),
+      ...restatedTopicSet(values.topic),
       confidence: best,
       lastReferencedAt: new Date(),
       updatedAt: new Date(),
@@ -561,9 +564,8 @@ export async function createProjectMemoryItem(
   //     (`conflictsWithId`). A rewording only the vector saw merges.
   //  3. A caller-named supersede target → that entry is retired.
   //
-  // Merging in (2) keeps the OLD text, so a correction that merges is silently
-  // dropped while the stale row gets a fresh timestamp — memory then can never
-  // be corrected, only appended to.
+  // Merging in (2) keeps the OLD text, so a correction that merges is silently dropped
+  // while the stale row gets a fresh timestamp: memory can then only be appended to.
   const exact = await findActiveDuplicate(values)
   if (exact) {
     const corrected = assertionRelation(values.content, exact.content) === 'corrected'
@@ -781,7 +783,7 @@ export async function updateProjectMemoryItem(
   patch: Partial<
     Pick<
       ProjectMemoryItem,
-      'content' | 'kind' | 'status' | 'confidence' | 'verification' | 'pinned' | 'salience'
+      'content' | 'kind' | 'status' | 'confidence' | 'verification' | 'pinned' | 'salience' | 'topic'
     >
   >
 ): Promise<ProjectMemoryItem | null> {
@@ -828,42 +830,17 @@ export type DigestItem = Pick<
 > & {
   /** Set on a restricted item, which the line then marks `restricted` (ADR-0087). */
   restrictedFolderIds?: readonly string[] | null
+  /** The note's topic (migration 0238): its line's first tag, and a name in the digest's index. */
+  topic?: string | null
 }
 
 /**
- * Pure digest formatter (exported for tests). Each item becomes one line:
- *   - [scope-tag kind | confidence | verification] "content"
- * Content is whitespace-collapsed and wrapped in double quotes with internal
- * quotes escaped (\"), so stored content can never forge an additional
- * `- [...]` tag line or break out of its own entry. Lines are appended in
- * order until DIGEST_MAX_CHARS would be exceeded.
+ * Pure digest formatter (exported for tests): the header, the topic index (over
+ * the shelf's open topics when given) and one line per item (`./memory-digest.ts`).
+ * Content is quoted and escaped; the text is bounded by DIGEST_MAX_CHARS.
  */
-export function formatDigestLines(items: DigestItem[], omitted = 0): string | null {
-  // The escaping/bounding mechanics live in the shared formatter; this wrapper
-  // decides the header, the per-item tag set, and the truncation notice.
-  const digest = formatBoundedDigest(
-    'PROJECT_MEMORY v1',
-    items.map((item) => ({
-      tags: [
-        ...(item.scope === 'organization' ? ['org-wide'] : []),
-        // Only ever reaches a turn cleared for it; the tag tells the model the
-        // note is confidential, so it is not written into anything shared.
-        ...(item.restrictedFolderIds && item.restrictedFolderIds.length > 0 ? ['restricted'] : []),
-        item.kind,
-        item.confidence,
-        item.verification,
-      ],
-      content: item.content,
-    })),
-    DIGEST_MAX_CHARS
-  )
-  if (!digest) return null
-  // A cap says so in the text the MODEL reads, not only in the operator's log
-  // — otherwise the agent presents a truncated shelf as the whole shelf and
-  // answers "what do you remember" confidently and wrongly (gotchas.md).
-  return omitted > 0
-    ? `${digest}\n(+${omitted} weitere Notizen zu diesem Projekt, hier nicht gezeigt — frag nach, wenn eine davon zählen könnte.)`
-    : digest
+export function formatDigestLines(items: DigestItem[], omitted = 0, shelf?: MemoryTopicCount[]): string | null {
+  return formatTopicDigest(items, omitted, DIGEST_MAX_CHARS, shelf)
 }
 
 /**
@@ -919,34 +896,24 @@ function restrictedFoldersOfItems(items: readonly Pick<DigestItem, 'restrictedFo
   return [...new Set(items.flatMap((item) => item.restrictedFolderIds ?? []))].sort()
 }
 
-/**
- * The items `formatDigestLines` will actually print: in order, skipping blank
- * content, as many as the digest text has lines. The budget cuts the tail, and
- * a note the cut leaves out is not in the prompt, so it is not use.
- */
+/** The items `formatDigestLines` prints (blank content skipped): the budget cuts the tail, and a cut note is not use. */
 function printedItems<T extends DigestItem>(items: readonly T[], digest: string | null): T[] {
   if (!digest) return []
   const lines = digest.split('\n').filter((line) => line.startsWith('- [')).length
   return items.filter((item) => item.content.replace(/\s+/g, ' ').trim()).slice(0, lines)
 }
 
-/**
- * Format the digest, admitting the restricted notes it prints first. A note
- * whose collections are not all admitted is dropped and the digest formatted
- * again from what is left; what is left needs no further admission.
- */
+/** Format the digest, admitting the restricted notes it prints first; a note not fully admitted is dropped. */
 async function formatAdmittedDigest<T extends DigestItem>(
-  kept: readonly T[],
-  omitted: number,
-  admit: MemoryDigestOptions['admitRestricted']
+  kept: readonly T[], omitted: number, admit: MemoryDigestOptions['admitRestricted'], shelf?: MemoryTopicCount[]
 ): Promise<{ digest: string | null; kept: readonly T[] }> {
-  const digest = formatDigestLines([...kept], omitted)
+  const digest = formatDigestLines([...kept], omitted, shelf)
   const restricted = restrictedFoldersOfItems(printedItems(kept, digest))
   if (restricted.length === 0) return { digest, kept }
   const admitted = admit ? await admit(restricted) : new Set<string>()
   if (restricted.every((folderId) => admitted.has(folderId))) return { digest, kept }
   const allowed = kept.filter((item) => (item.restrictedFolderIds ?? []).every((name) => admitted.has(name)))
-  return { digest: formatDigestLines([...allowed], omitted + kept.length - allowed.length), kept: allowed }
+  return { digest: formatDigestLines([...allowed], omitted + kept.length - allowed.length, shelf), kept: allowed }
 }
 
 /**
@@ -1023,7 +990,8 @@ export async function buildProjectMemoryDigest(
   const embedding = queryText
     ? embedNote(queryText, { timeoutMs: 1000, signal: abandon.signal })
     : Promise.resolve(null)
-  const recent = await selectRecallCandidates(scope, null)
+  const shelfRead = projectId && organizationId ? projectTopicsOf(projectId, organizationId, []) : undefined
+  const [recent, shelf] = await Promise.all([selectRecallCandidates(scope, null), shelfRead])
   const denseCanMatter =
     recent.length > 0 && (recent.length >= RECALL_CANDIDATE_LIMIT || recent.some((row) => Boolean(row.hasEmbedding)))
   if (!denseCanMatter) abandon.abort()
@@ -1039,6 +1007,7 @@ export async function buildProjectMemoryDigest(
   const candidates: RecallCandidate[] = rows.map((row) => ({
     id: row.id,
     scope: row.scope,
+    topic: row.topic,
     kind: row.kind,
     content: row.content,
     confidence: row.confidence,
@@ -1089,11 +1058,8 @@ export async function buildProjectMemoryDigest(
   backfillAfterRecall(candidates, rows, embedded, Boolean(queryText) && !denseCanMatter)
 
   const selected = [...keptPinned, ...keptRecalled]
-  const { digest, kept } = await formatAdmittedDigest(
-    selected,
-    candidates.length - selected.length,
-    options.admitRestricted
-  )
+  const omitted = candidates.length - selected.length
+  const { digest, kept } = await formatAdmittedDigest(selected, omitted, options.admitRestricted, shelf)
 
   // Recall FOR A QUESTION is the reinforcement event: what was surfaced against
   // a query decays more slowly next time. The query-less handshake build

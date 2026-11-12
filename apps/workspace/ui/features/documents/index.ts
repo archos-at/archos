@@ -29,3 +29,5 @@ export { InboundMailWaitingLine } from './components/inbound-mail-waiting-line'
 // The office standards (Grundlagen des Büros) drill into their folders as Dateien does: one path row, one folder tile.
 export { FolderBreadcrumbRow, FolderCard, FolderCardSkeleton } from './components/folder-navigation'
 export { FileGrid } from './components/file-grid'
+// The project memory shelf marks a note restricted to folders' access lists with the lock Dateien uses.
+export { FolderAccessMark } from './components/folder-access-mark'

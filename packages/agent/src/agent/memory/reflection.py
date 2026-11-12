@@ -55,6 +55,7 @@ from agent.knowledge.project_memory import VALID_CONFIDENCES
 from agent.knowledge.project_memory import insert_memory_item
 from agent.knowledge.project_memory import looks_like_personal_data
 from agent.knowledge.project_memory import looks_like_secret
+from agent.knowledge.project_memory import memory_topic
 from agent.memory.reflection_prompt import MAX_NEW_ITEMS
 from agent.memory.reflection_prompt import REFLECTION_SYSTEM_PROMPT
 from agent.memory.restriction import RestrictionDecision
@@ -166,6 +167,12 @@ class _ReflectionFinding(BaseModel):
             "adds something new instead of replacing anything."
         )
     )
+    topic: str = Field(
+        description=(
+            "The subject the finding is filed under on its shelf: one to three words in the person's "
+            "language, reusing a topic already shown in memory when one fits. Empty string if none."
+        )
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -196,6 +203,7 @@ class _ReflectionFinding(BaseModel):
         # nothing extra. Stored as salience in [0,1].
         known["importance"] = _clamped_importance(known.get("importance"))
         known["supersedes"] = str(known.get("supersedes") or "").strip()
+        known["topic"] = memory_topic(known.get("topic"))
         return known
 
 
@@ -412,6 +420,7 @@ async def _write_personal_finding(
         content=finding.content,
         conversation_id=conversation_id,
         provenance_type="distillation",
+        topic=finding.topic,
     )
     if written is None:
         return None
@@ -448,6 +457,7 @@ async def _write_finding(
         # Retires the entry this finding corrects (frontend resolves the quote;
         # unresolvable or human-curated targets are left alone).
         supersedes_content=finding.supersedes or None,
+        topic=finding.topic,
         # ADR-0087: a finding from a turn that could read restricted folders
         # is served only to people cleared for the ones it draws on.
         restricted_collections=decision.restriction,

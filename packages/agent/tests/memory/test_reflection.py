@@ -128,7 +128,7 @@ class TestFindingVocabulary:
         """The obligation in ``memory/AGENTS.md``: a field in one and not the
         other parses nothing, and the pass silently records zero findings."""
         fields = set(R._ReflectionFinding.model_fields)
-        assert fields == {"about", "kind", "content", "confidence", "importance", "supersedes"}
+        assert fields == {"about", "kind", "content", "confidence", "importance", "supersedes", "topic"}
         example = R.REFLECTION_SYSTEM_PROMPT[R.REFLECTION_SYSTEM_PROMPT.rindex('{"findings"') :]
         assert all(f'"{field}":' in example for field in fields)
         assert set(R.ReflectionOutput.model_json_schema()["$defs"]["_ReflectionFinding"]["required"]) == fields
@@ -1050,6 +1050,7 @@ class TestPersonalFindingsAreWrittenToPersonalMemory:
                 "content": "Prefers short answers without tables.",
                 "conversation_id": "conv-1",
                 "provenance_type": "distillation",
+                "topic": "",
             }
         ]
         assert [(row["id"], row["about"]) for row in recorded] == [("n-1", "person"), ("p-1", "project")]
@@ -1097,3 +1098,100 @@ class TestPersonalFindingsAreWrittenToPersonalMemory:
 
         assert judged == ["Client chose a flat roof."]
         assert project[0]["restricted_collections"] is None
+
+
+class TestTopics:
+    """A finding names the subject it is filed under. The model's topic reaches both
+    writers; a topic longer than the BFF keeps is dropped, and the finding is kept."""
+
+    def test_a_finding_parses_its_topic_trimmed(self):
+        [finding] = _sanitize([{"kind": "decision", "content": "Flachdach gewählt.", "topic": "  Dach "}])
+        assert finding.topic == "Dach"
+
+    def test_a_missing_topic_is_empty(self):
+        [finding] = _sanitize([{"kind": "decision", "content": "Flachdach gewählt."}])
+        assert finding.topic == ""
+
+    def test_a_topic_of_forty_characters_is_kept(self):
+        [finding] = _sanitize([{"kind": "decision", "content": "Flachdach gewählt.", "topic": "T" * 40}])
+        assert finding.topic == "T" * 40
+
+    def test_an_overlong_topic_is_dropped_and_the_finding_kept(self):
+        [finding] = _sanitize([{"kind": "decision", "content": "Flachdach gewählt.", "topic": "T" * 41}])
+        assert (finding.content, finding.topic) == ("Flachdach gewählt.", "")
+
+    def test_the_prompt_asks_for_a_topic_reused_from_memory(self):
+        assert "Reuse a topic already shown in the memory" in R.REFLECTION_SYSTEM_PROMPT
+        assert "not a kind" in R.REFLECTION_SYSTEM_PROMPT
+        assert "in the spelling the memory uses" in R.REFLECTION_SYSTEM_PROMPT
+        # A project line may open with its topic: the supersede quote names the content, never the tag.
+        assert '`- ["Topic" | kind | confidence | verification]`' in R.REFLECTION_SYSTEM_PROMPT
+
+    def test_the_prompt_writes_the_topic_in_the_persons_language(self):
+        assert "in the language the person wrote in" in R.REFLECTION_SYSTEM_PROMPT
+        assert "topic is one to three words naming the subject, in the language the person wrote in" in (
+            R.REFLECTION_SYSTEM_PROMPT
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_topic_reaches_both_writers(self, monkeypatch):
+        project, personal = [], []
+        reply = (
+            '{"findings": ['
+            '{"about": "project", "kind": "decision", "content": "Flachdach gewählt.", "confidence": "high", '
+            '"importance": 6, "supersedes": "", "topic": "Dach"}, '
+            '{"about": "person", "kind": "preference", "content": "Kurze Antworten.", "confidence": "high", '
+            '"importance": 4, "supersedes": "", "topic": "Stil"}]}'
+        )
+
+        def insert_project(**kwargs):
+            project.append(kwargs)
+            return "p-1"
+
+        def insert_personal(**kwargs):
+            personal.append(kwargs)
+            return PersonalMemoryWrite(id="n-1", created=True)
+
+        monkeypatch.setattr(R, "insert_memory_item", insert_project)
+        monkeypatch.setattr(R, "insert_personal_memory_item", insert_personal)
+
+        await R.run_memory_reflection(
+            llm=_FakeLLM(reply),
+            query="q",
+            answer="a",
+            project_id="proj-1",
+            organization_id="org-1",
+            conversation_id="conv-1",
+            memory_digest=None,
+            envelope=_ENVELOPE,
+        )
+
+        assert [row["topic"] for row in project] == ["Dach"]
+        assert [row["topic"] for row in personal] == ["Stil"]
+
+    @pytest.mark.asyncio
+    async def test_an_overlong_topic_is_written_without_one(self, monkeypatch):
+        project = []
+        reply = (
+            '{"findings": [{"about": "project", "kind": "decision", "content": "Flachdach gewählt.", '
+            '"confidence": "high", "importance": 6, "supersedes": "", "topic": "' + "T" * 41 + '"}]}'
+        )
+
+        def insert_project(**kwargs):
+            project.append(kwargs)
+            return "p-1"
+
+        monkeypatch.setattr(R, "insert_memory_item", insert_project)
+
+        recorded = await R.run_memory_reflection(
+            llm=_FakeLLM(reply),
+            query="q",
+            answer="a",
+            project_id="proj-1",
+            organization_id="org-1",
+            conversation_id="conv-1",
+            memory_digest=None,
+        )
+
+        assert [row["content"] for row in recorded] == ["Flachdach gewählt."]
+        assert project[0]["topic"] == ""

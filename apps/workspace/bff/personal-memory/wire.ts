@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { pageQueryShape } from '@/lib/api/offset-page'
+import { memoryTopicField, memoryTopicQueryField, memoryTopicRenameSchema } from '@/lib/memory-topics/wire'
 import { PERSONAL_MEMORY_KINDS, PERSONAL_MEMORY_MAX_CONTENT_CHARS } from './vocabulary'
 
 const content = z
@@ -25,6 +26,7 @@ const kind = z
  * `GET /api/user/memory`: one lean page, `limit` and the previous page's
  * `nextCursor`. With `sourceConversationId`, only the notes saved from that
  * conversation: each carries `sourceMessageId`, the answer it was saved under.
+ * With `topic`, only the notes on that topic (an empty value: those with none).
  */
 export const listPersonalMemoryQuerySchema = z.object({
   ...pageQueryShape,
@@ -36,12 +38,14 @@ export const listPersonalMemoryQuerySchema = z.object({
     .describe(
       'Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`.'
     ),
+  topic: memoryTopicQueryField,
 })
 
 export const createPersonalMemorySchema = z.object({
   kind,
   content,
   pinned: z.boolean().optional().describe('A pinned note reaches every turn first.'),
+  topic: memoryTopicField.optional(),
 })
 
 export const patchPersonalMemorySchema = z
@@ -49,8 +53,24 @@ export const patchPersonalMemorySchema = z
     kind: kind.optional(),
     content: content.optional(),
     pinned: z.boolean().optional(),
+    topic: memoryTopicField.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: 'Empty patch' })
+
+/**
+ * `DELETE /api/user/memory/topics`: removes every note of the person on this
+ * topic, for good. The name is the topic as the list names it.
+ */
+export const deletePersonalMemoryTopicSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('Topic to remove, as topics names it; its notes are deleted.'),
+})
+
+/** `PATCH /api/user/memory/topics`: the same body as the project shelf's (`memoryTopicRenameSchema`). */
+export const renamePersonalMemoryTopicSchema = memoryTopicRenameSchema
 
 export type CreatePersonalMemoryInput = z.infer<typeof createPersonalMemorySchema>
 export type PatchPersonalMemoryInput = z.infer<typeof patchPersonalMemorySchema>
@@ -76,6 +96,8 @@ export const internalPersonalMemorySchema = z
      * own answers their own note is shown.
      */
     sourceMessageId: z.guid().optional(),
+    /** The topic the agent files the note under: reused from the shelf when one matches (`resolveTopic`). */
+    topic: memoryTopicField.optional(),
   })
   .strict()
 

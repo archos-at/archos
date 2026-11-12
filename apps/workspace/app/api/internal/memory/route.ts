@@ -20,6 +20,8 @@ import {
   createProjectMemoryItemForProject,
   organizationExists,
 } from '@/lib/projects/memory-service'
+import { resolveOfficeTopicForWrite, resolveTopicForAgentProjectWrite } from '@/lib/projects/memory-topics'
+import { memoryTopicField } from '@/lib/memory-topics/wire'
 import {
   memoryJudgeVerdictSchema,
   recordMemoryJudgeVerdict,
@@ -85,6 +87,11 @@ const internalMemorySchema = z
      * helped decide who reads it. Collections only, never text.
      */
     restrictionJudge: memoryJudgeVerdictSchema.optional(),
+    /**
+     * The topic the agent files the note under (ADR-0180): a short subject, reused
+     * from the shelf's topics when one matches in any case (`resolveTopic`).
+     */
+    topic: memoryTopicField.optional(),
   })
   .refine((v) => (v.scope === 'project' ? !!v.projectId : !!v.organizationId), {
     message: 'project scope requires projectId; organization scope requires organizationId',
@@ -106,6 +113,7 @@ export const POST = internalApiRoute(
       salience,
       restrictedCollections,
       restrictionJudge,
+      topic: rawTopic,
     } = await parseJsonBody(request, internalMemorySchema)
 
     // Organization memory reaches every project in the tenant, so it is never
@@ -163,6 +171,13 @@ export const POST = internalApiRoute(
         // A temporary conversation keeps nothing (ADR-0180): refused here, at
         // the single writer, whatever the agent decided.
         await requireConversationKeepsMemory(sourceConversationId, tenant)
+        // The topic, resolved against the shelf the note goes to (undefined: none named).
+        const topic =
+          rawTopic === undefined
+            ? undefined
+            : scope === 'project'
+              ? await resolveTopicForAgentProjectWrite(projectId as string, rawTopic)
+              : await resolveOfficeTopicForWrite(organizationId as string, rawTopic)
 
         // Reported by the service, never derived from the returned row: a duplicate
         // or paraphrase refresh returns an EXISTING item whose `supersedesId` may
@@ -188,6 +203,7 @@ export const POST = internalApiRoute(
                   ...(salience !== undefined ? { salience } : {}),
                   ...(restrictedCollections ? { restrictedCollections } : {}),
                   ...(restrictionJudge ? { restrictionJudge: restrictionJudge.verdict } : {}),
+                  ...(topic === undefined ? {} : { topic }),
                 },
                 writeOptions
               )
@@ -202,6 +218,7 @@ export const POST = internalApiRoute(
                   sourceConversationId: sourceConversationId ?? null,
                   provenanceType,
                   ...(salience !== undefined ? { salience } : {}),
+                  ...(topic === undefined ? {} : { topic }),
                 },
                 writeOptions
               )

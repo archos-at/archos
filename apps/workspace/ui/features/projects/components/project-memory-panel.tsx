@@ -1,40 +1,27 @@
 'use client'
 
 import { collectPages } from '@/lib/api/offset-page'
-import { SourceDeletedNote } from '@/components/projects/source-deleted-note'
 import type { JSX } from 'react'
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { Brain, Plus, Users } from 'lucide-react'
+import { MemoryListSkeleton } from '@/components/memory/memory-note-parts'
+import { TopicPicker } from '@/components/memory/topic-picker'
+import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import {
-  Brain,
-  Check,
-  CircleAlert,
-  Pencil,
-  Pin,
-  PinOff,
-  Plus,
-  Trash2,
-  Users,
-} from 'lucide-react'
-import {
-  MemoryListSkeleton,
-  MemoryNoteAction,
-  MemoryNoteActions,
-  MemoryNoteEditor,
-  MemoryNoteItem,
-  MemoryNoteText,
-} from '@/components/memory/memory-note-parts'
-import { PROJECT_MEMORY_KINDS, type ProjectMemoryItem, type ProjectMemoryKind } from '@/lib/db/schema/project-memory'
-import { Badge } from '@/components/ui/badge'
+  ProjectMemoryTopicGroups,
+  pickableTopicNames,
+  type MemoryItem,
+  type ProjectMemoryNoteControls,
+} from './project-memory-topic-groups'
+import { PROJECT_MEMORY_KINDS, type ProjectMemoryKind } from '@/lib/db/schema/project-memory'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FactLine } from '@/components/ui/fact-line'
 import { Field, FieldLabel } from '@/components/ui/field'
-import { ItemContent, ItemList } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
 import { RaisedCard, RaisedCardBody } from '@/components/ui/raised-card'
-import { SectionLabel } from '@/components/ui/section-label'
 import {
   Select,
   SelectContent,
@@ -43,10 +30,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { FolderAccessMark } from '@/features/documents/components/folder-access-mark'
-import { useLocale, useTranslations } from '@/i18n'
+import { useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
+import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
 import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
 import { noteRefusalKind, type NoteRefusalKind } from '@/lib/knowledge/note-refusal'
 import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
@@ -57,30 +44,11 @@ import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
  * panel is the human backstop (view / add / edit / confirm / pin / dismiss).
  */
 
-/** Memory item as it arrives over the wire (timestamps serialize to strings). */
-type MemoryItem = Omit<ProjectMemoryItem, 'createdAt' | 'updatedAt' | 'lastReferencedAt'> & {
-  createdAt: string
-  updatedAt: string
-  lastReferencedAt: string | null
-  /** The folders a restricted note (ADR-0087) is restricted to; only ever sent to a cleared reader. */
-  restrictedFolderNames?: string[]
-  /** When a folder the note came from was purged (ADR-0088): „Quelle gelöscht am …". */
-  sourceDeletedAt?: string
-}
-
-/**
- * The tooltip on a restricted note's lock: the folders it came from, when
- * known, and whether a language model helped decide that (ADR-0087; AI Act).
- */
-function restrictionTitle(item: MemoryItem, t: Translator): string {
-  const folders = item.restrictedFolderNames ?? []
-  const where =
-    folders.length > 0
-      ? t('memory.restricted.title', { folders: folders.join(', ') })
-      : t('memory.restricted.titleUnknown')
-  if (!item.restrictionJudge) return where
-  const judge = item.restrictionJudge === 'failed' ? t('memory.restricted.judgeFailed') : t('memory.restricted.judged')
-  return `${where} ${judge}`
+/** One page of the shelf's list: its notes, the cursor on, and the shelf's topics. */
+interface MemoryPage {
+  items: MemoryItem[]
+  nextCursor: string | null
+  topics?: MemoryTopicCount[]
 }
 
 interface ProjectMemoryPanelProps {
@@ -91,43 +59,6 @@ interface ProjectMemoryPanelProps {
    * and for a closed project, whose memory is read-only (ADR-0090).
    */
   readOnly?: boolean
-}
-
-const KNOWN_VERIFICATIONS = ['unverified', 'source_grounded', 'user_confirmed']
-
-function verificationLabel(verification: string, t: Translator): string {
-  return KNOWN_VERIFICATIONS.includes(verification)
-    ? t(`memory.verification.${verification}`)
-    : verification
-}
-
-const KNOWN_CONFIDENCES = ['low', 'medium', 'high']
-
-/** „Sicherheit: mittel“, never the stored token; a value this build does not know is shown as it is. */
-function confidenceLabel(confidence: string, t: Translator): string {
-  return KNOWN_CONFIDENCES.includes(confidence) ? t(`memory.confidence.${confidence}`) : confidence
-}
-
-function provenanceLabel(provenanceType: string, t: Translator): string {
-  return provenanceType === 'user' ? t('memory.provenance.user') : t('memory.provenance.grid')
-}
-
-/** Compact relative time ("2h ago", "3d ago") with a date fallback for older items. */
-function formatWhen(isoDate: string, t: Translator, locale: string): string {
-  const date = new Date(isoDate)
-  if (Number.isNaN(date.getTime())) return ''
-  const seconds = Math.round((Date.now() - date.getTime()) / 1000)
-  // floor, not round: 3,570s would otherwise render as "60 minutes ago"
-  // instead of "1 hour ago" (same at the hour/day boundaries).
-  if (seconds < 60) return t('memory.time.justNow')
-  if (seconds < 3600) return t('memory.time.minutesAgo', { count: Math.floor(seconds / 60) })
-  if (seconds < 86400) return t('memory.time.hoursAgo', { count: Math.floor(seconds / 3600) })
-  if (seconds < 86400 * 30) return t('memory.time.daysAgo', { count: Math.floor(seconds / 86400) })
-  return new Intl.DateTimeFormat(locale, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(date)
 }
 
 /**
@@ -165,10 +96,11 @@ export function ProjectMemoryPanel({
 }: ProjectMemoryPanelProps): JSX.Element {
   const t = useTranslations(projectsCopy)
   const tNote = useTranslations(personalMemoryCopy)
+  const tTopic = useTranslations(memoryTopicsCopy)
   const refused = (kind: NoteRefusalKind): string => tNote(`refused.${kind}`)
   const kindLabels = useMemoryKindLabels()
-  const { locale } = useLocale()
   const [items, setItems] = useState<MemoryItem[] | null>(null)
+  const [topics, setTopics] = useState<MemoryTopicCount[]>([])
   const [error, setError] = useState<string | null>(null)
   /** Item currently being mutated — disables its actions to avoid double-fires. */
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -181,6 +113,7 @@ export function ProjectMemoryPanel({
   const [addKind, setAddKind] = useState<ProjectMemoryKind>('decision')
   const [addScope, setAddScope] = useState<'project' | 'organization'>('project')
   const [addContent, setAddContent] = useState('')
+  const [addTopic, setAddTopic] = useState<string | null>(null)
   const [addBusy, setAddBusy] = useState(false)
 
   const baseUrl = `/api/projects/${projectId}/memory`
@@ -196,16 +129,23 @@ export function ProjectMemoryPanel({
       // skeleton or clear an existing error banner — it only swaps in fresh
       // items when they arrive. The initial load is non-silent.
       if (!silent) setError(null)
+      // Every page carries the shelf's topics, counted over the whole shelf
+      // rather than the page: the last page's are kept.
+      let shelfTopics: MemoryTopicCount[] = []
       collectPages<MemoryItem>((cursor) =>
-        requestJson<{ items: MemoryItem[]; nextCursor: string | null }>(
+        requestJson<MemoryPage>(
           `${baseUrl}?limit=200${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
           undefined,
           t
-        )
+        ).then((page) => {
+          shelfTopics = page.topics ?? []
+          return page
+        })
       )
         .then((all) => {
           if (signal.cancelled) return
           setItems(all)
+          setTopics(shelfTopics)
           if (silent) setError(null)
         })
         .catch((err: unknown) => {
@@ -291,6 +231,12 @@ export function ProjectMemoryPanel({
     }
   }
 
+  const closeAdd = () => {
+    setAdding(false)
+    setAddContent('')
+    setAddTopic(null)
+  }
+
   const submitAdd = async () => {
     const content = addContent.trim()
     if (!content) return
@@ -300,14 +246,13 @@ export function ProjectMemoryPanel({
         addScope === 'organization' ? orgUrl : baseUrl,
         {
           method: 'POST',
-          body: JSON.stringify({ kind: addKind, content }),
+          body: JSON.stringify({ kind: addKind, content, topic: addTopic }),
         },
         t,
         refused
       )
       setItems((prev) => (prev ? [item, ...prev] : [item]))
-      setAddContent('')
-      setAdding(false)
+      closeAdd()
       toast.success(t('memory.added'))
     } catch (err) {
       setError(err instanceof Error ? err.message : t('memory.errors.addFailed'))
@@ -332,24 +277,25 @@ export function ProjectMemoryPanel({
 
   const visible =
     items?.filter((it) => it.status !== 'superseded' && it.status !== 'dismissed') ?? []
-  /**
-   * What the conflict badge says on hover: the note this one contradicts, by
-   * its own words. An agent finding that disagreed with a pinned, confirmed or
-   * user-written note was not allowed to retire it (`conflictsWithId`), so the
-   * two stand side by side — and without this the pair reads as a duplicate
-   * nobody can explain.
-   */
-  const conflictTitle = (item: MemoryItem): string => {
-    const other = items?.find((it) => it.id === item.conflictsWithId)
-    return other
-      ? t('memory.conflict.title', { note: other.content })
-      : t('memory.conflict.titleUnknown')
+  const reload = () => load({ cancelled: false })
+  const noteControls: ProjectMemoryNoteControls = {
+    busyId,
+    editingId,
+    editDraft,
+    onEditDraftChange: setEditDraft,
+    onStartEdit: startEdit,
+    onCancelEdit: () => setEditingId(null),
+    onSaveEdit: (item) => void submitEdit(item),
+    onPatch: (item, body) => void patchItem(item, body),
+    onAskRemove: (id) => setConfirmingDeleteId(id),
   }
-  const groups = PROJECT_MEMORY_KINDS.map((kind) => ({
-    kind,
-    items: visible.filter((it) => it.kind === kind),
-  })).filter((group) => group.items.length > 0)
   const confirmingDeleteItem = items?.find((it) => it.id === confirmingDeleteId) ?? null
+  // A new note takes an open topic, as a move does: an office note only the office's topics.
+  const addTopicNames = pickableTopicNames(
+    visible,
+    { scope: addScope, restricted: false },
+    topics.map((entry) => entry.name)
+  )
 
   return (
     // `min-w-0`: the panel sits in a grid cell on the settings page, and a grid
@@ -406,7 +352,11 @@ export function ProjectMemoryPanel({
                 <FieldLabel htmlFor="memory-add-scope">{t('memory.scopeAria')}</FieldLabel>
                 <Select
                   value={addScope}
-                  onValueChange={(value) => setAddScope(value as 'project' | 'organization')}
+                  onValueChange={(value) => {
+                    // A topic belongs to one shelf: a project topic must not ride along onto an office note.
+                    setAddScope(value as 'project' | 'organization')
+                    setAddTopic(null)
+                  }}
                 >
                   <SelectTrigger id="memory-add-scope" className="w-44">
                     <SelectValue />
@@ -427,8 +377,7 @@ export function ProjectMemoryPanel({
                 onKeyDown={(event) => {
                   if (event.key === 'Escape') {
                     event.preventDefault()
-                    setAdding(false)
-                    setAddContent('')
+                    closeAdd()
                   }
                 }}
                 placeholder={t('memory.addPlaceholder')}
@@ -436,14 +385,21 @@ export function ProjectMemoryPanel({
                 autoFocus
               />
             </Field>
+            <Field>
+              <FieldLabel htmlFor="memory-add-topic">{tTopic('filterLabel')}</FieldLabel>
+              <TopicPicker
+                id="memory-add-topic"
+                topics={addTopicNames}
+                value={addTopic}
+                onChange={setAddTopic}
+                disabled={addBusy}
+              />
+            </Field>
             <div className="flex justify-end gap-2">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setAdding(false)
-                  setAddContent('')
-                }}
+                onClick={closeAdd}
                 disabled={addBusy}
               >
                 {t('memory.cancel')}
@@ -473,7 +429,7 @@ export function ProjectMemoryPanel({
 
       {!error && items === null && <MemoryListSkeleton />}
 
-      {!error && items !== null && groups.length === 0 && (
+      {!error && items !== null && visible.length === 0 && (
         <EmptyState
           icon={Brain}
           title={t('memory.emptyTitle')}
@@ -481,129 +437,16 @@ export function ProjectMemoryPanel({
         />
       )}
 
-      {!error && items !== null && groups.length > 0 && (
-        <ItemList>
-          {groups.map((group) => (
-            <Fragment key={group.kind}>
-              <div className="bg-muted px-5 py-2">
-                <SectionLabel as="h3">{kindLabels.group(group.kind)}</SectionLabel>
-              </div>
-              {group.items.map((item) => {
-                const busy = busyId === item.id
-                const isEditing = editingId === item.id
-                return (
-                  <MemoryNoteItem key={item.id}>
-                    <ItemContent>
-                      {isEditing ? (
-                        <MemoryNoteEditor
-                          id={`memory-edit-${item.id}`}
-                          label={t('memory.edit')}
-                          value={editDraft}
-                          onChange={setEditDraft}
-                          onSave={() => void submitEdit(item)}
-                          onCancel={() => setEditingId(null)}
-                          busy={busy}
-                          saveLabel={t('memory.save')}
-                          cancelLabel={t('memory.cancel')}
-                        />
-                      ) : (
-                        <>
-                          <MemoryNoteText pinned={item.pinned} pinnedLabel={t('memory.pinned')}>
-                            {item.content}
-                          </MemoryNoteText>
-                          {item.restrictedFolderIds && item.restrictedFolderIds.length > 0 && (
-                            <Badge
-                              variant="outline"
-                              className="text-muted-foreground mt-1.5"
-                              data-testid="memory-restricted"
-                            >
-                              <FolderAccessMark
-                                names={item.restrictedFolderNames ?? []}
-                                label={restrictionTitle(item, t)}
-                              />
-                              {t('memory.restricted.badge')}
-                              {item.restrictionJudge && (
-                                <span data-testid="memory-restriction-judged">
-                                  {' · '}
-                                  {t('memory.restricted.judgedBadge')}
-                                </span>
-                              )}
-                            </Badge>
-                          )}
-                          {item.sourceDeletedAt && (
-                            <SourceDeletedNote at={item.sourceDeletedAt} className="mt-1" />
-                          )}
-                          {item.conflictsWithId && (
-                            <Badge
-                              variant="outline"
-                              className="text-muted-foreground mt-1.5"
-                              title={conflictTitle(item)}
-                              data-testid="memory-conflict"
-                            >
-                              <CircleAlert aria-hidden />
-                              {t('memory.conflict.badge')}
-                            </Badge>
-                          )}
-                          <p className="text-muted-foreground mt-1 text-xs">
-                            {item.scope === 'organization' && (
-                              <>
-                                <span className="font-medium">{t('memory.orgWide')}</span>
-                                {' · '}
-                              </>
-                            )}
-                            {confidenceLabel(item.confidence, t)}
-                            {' · '}
-                            {verificationLabel(item.verification, t)}
-                            {' · '}
-                            {provenanceLabel(item.provenanceType, t)}
-                            {' · '}
-                            {formatWhen(item.updatedAt, t, locale)}
-                          </p>
-                        </>
-                      )}
-                    </ItemContent>
-
-                    {!isEditing && !readOnly && (
-                      <MemoryNoteActions>
-                        <MemoryNoteAction
-                          icon={item.pinned ? PinOff : Pin}
-                          label={item.pinned ? t('memory.unpin') : t('memory.pin')}
-                          title={item.pinned ? t('memory.unpinTitle') : t('memory.pinTitle')}
-                          onClick={() => void patchItem(item, { pinned: !item.pinned })}
-                          disabled={busy}
-                        />
-                        {item.verification !== 'user_confirmed' && (
-                          <MemoryNoteAction
-                            icon={Check}
-                            label={t('memory.confirm')}
-                            title={t('memory.confirmTitle')}
-                            onClick={() => void patchItem(item, { verification: 'user_confirmed' })}
-                            disabled={busy}
-                          />
-                        )}
-                        <MemoryNoteAction
-                          icon={Pencil}
-                          label={t('memory.edit')}
-                          title={t('memory.editTitle')}
-                          onClick={() => startEdit(item)}
-                          disabled={busy}
-                        />
-                        <MemoryNoteAction
-                          icon={Trash2}
-                          label={t('memory.removeAria')}
-                          title={t('memory.removeTitle')}
-                          onClick={() => setConfirmingDeleteId(item.id)}
-                          disabled={busy}
-                          destructive
-                        />
-                      </MemoryNoteActions>
-                    )}
-                  </MemoryNoteItem>
-                )
-              })}
-            </Fragment>
-          ))}
-        </ItemList>
+      {!error && items !== null && visible.length > 0 && (
+        <ProjectMemoryTopicGroups
+          projectId={projectId}
+          items={visible}
+          allItems={items}
+          topics={topics}
+          readOnly={readOnly}
+          controls={noteControls}
+          onChanged={reload}
+        />
       )}
 
       <ConfirmDialog

@@ -10,12 +10,16 @@ import { NotFoundError } from '@/lib/api/errors'
 import { deleteProjectMemoryItem, updateProjectMemoryItem } from '@/lib/projects/memory-service'
 import { patchOrgMemorySchema } from '@/lib/organizations/organization-wire'
 import { toMemoryWireItem } from '@/lib/projects/project-memory-wire'
+import { withOfficeTopic } from '@/lib/projects/office-memory-topics'
 
 type Params = { itemId: string }
 
 export const PATCH = apiRoute<Params>(
   async ({ session, params, request }) => {
-    const patch = await parseJsonBody(request, patchOrgMemorySchema)
+    const patch = await withOfficeTopic(
+      session.organizationId,
+      await parseJsonBody(request, patchOrgMemorySchema)
+    )
     const item = await updateProjectMemoryItem(
       { organizationId: session.organizationId },
       params.itemId,

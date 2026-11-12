@@ -75,6 +75,7 @@ export const makeMemoryItem = (
   restrictedFolderIds: null,
   restrictionJudge: null,
   evidence: null,
+  topic: null,
   salience: 0.5,
   pinned: false,
   createdBy: null,

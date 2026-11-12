@@ -2980,6 +2980,19 @@
           "title": "Title",
           "type": "string"
         },
+        "topic": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The subject the note is filed under on its shelf; the browser sends it with the note",
+          "title": "Topic"
+        },
         "type": {
           "const": "memory_proposal",
           "title": "Type",

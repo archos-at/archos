@@ -21,6 +21,7 @@ from agent.knowledge.project_memory import TEMPORARY_CONVERSATION_CODE
 from agent.knowledge.project_memory import VALID_PROVENANCES
 from agent.knowledge.project_memory import TemporaryConversationError
 from agent.knowledge.project_memory import looks_like_secret
+from agent.knowledge.project_memory import memory_topic
 from agent.knowledge.project_memory import record_turn_memory_write
 from agent.knowledge.project_memory import turn_answer_message
 
@@ -55,6 +56,7 @@ def insert_personal_memory_item(
     content: str,
     conversation_id: str | None = None,
     provenance_type: str = "agent",
+    topic: str | None = None,
 ) -> PersonalMemoryWrite | None:
     """Record one note in the personal memory of the person the envelope names.
 
@@ -79,6 +81,8 @@ def insert_personal_memory_item(
     }
     if conversation_id:
         payload["sourceConversationId"] = conversation_id
+    if kept_topic := memory_topic(topic):
+        payload["topic"] = kept_topic
     answer_message_id = turn_answer_message()
     if answer_message_id:
         # The answer this note was saved under. The note itself is never put on

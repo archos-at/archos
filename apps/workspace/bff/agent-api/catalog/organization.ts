@@ -220,8 +220,9 @@ export const organizationOperations = [
     domain: 'organization',
     summary: 'List organization memory',
     description:
-      'The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. ' +
-      'Any member may read. Item ids feed organization-memory-update and organization-memory-delete.',
+      'Knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned, then newest, a `limit` (default 50) page with `nextCursor`. ' +
+      '`topics` counts active items; `topic` filters. ' +
+      'Any member reads. Ids feed organization-memory-update and organization-memory-delete.',
     method: 'GET',
     path: '/api/organization/memory',
     query: listOrganizationMemoryQuerySchema,
@@ -244,7 +245,7 @@ export const organizationOperations = [
     domain: 'organization',
     summary: 'Edit an organization memory item',
     description:
-      'Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned). ' +
+      'Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned, or `topic`). ' +
       'At least one field is required. The id comes from organization-memory-list.',
     method: 'PATCH',
     path: '/api/organization/memory/[itemId]',

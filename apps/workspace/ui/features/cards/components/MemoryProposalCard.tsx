@@ -34,6 +34,8 @@ interface MemoryProposalCardProps {
   decisionsMustPersist?: boolean
   /** The earlier note this one corrects, quoted; accepting the proposal retires it. */
   supersedes?: string | null
+  /** The subject the note is filed under on its shelf; the fallback below sends it with the note. */
+  topic?: string | null
   /** The stored proposal this card is a receipt of (ADR-0105). Absent: the fallback below. */
   proposalId?: string | null
 }
@@ -79,6 +81,7 @@ function BrowserWrittenMemoryCard({
   content,
   kind,
   confidence = 'medium',
+  topic,
   messageId,
   cardKey,
   decisionsMustPersist,
@@ -115,7 +118,7 @@ function BrowserWrittenMemoryCard({
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, content, confidence }),
+        body: JSON.stringify({ kind, content, confidence, ...(topic ? { topic } : {}) }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))

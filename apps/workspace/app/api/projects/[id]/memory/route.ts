@@ -5,7 +5,7 @@
 
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { offsetPageOf } from '@/lib/api/offset-page'
-import { addProjectMemoryItem, getProjectMemoryPage } from '@/lib/projects/service'
+import { addProjectMemoryItem, getProjectMemoryShelf } from '@/lib/projects/service'
 import { canWriteProjectMemory } from '@/lib/projects/settings-access'
 import { createMemorySchema, listMemoryQuerySchema, toMemoryWireItem } from '@/lib/projects/project-memory-wire'
 
@@ -14,18 +14,21 @@ type Params = { id: string }
 export const GET = apiRoute<Params>(
   async ({ session, params, request }) => {
     const query = parseQuery(request, listMemoryQuerySchema)
-    const { items, nextCursor } = await getProjectMemoryPage(session, params.id, {
+    // One access check and one clearance answer the page and the topics; `topic` filters after visibility.
+    const { items, nextCursor, topics } = await getProjectMemoryShelf(session, params.id, {
       includeArchived: query.includeArchived === 'true',
       sourceConversationId: query.conversationId || undefined,
       page: offsetPageOf(query),
+      topic: query.topic,
     })
     // `canWrite`: whether the caller may edit and remove these notes, so a
     // surface that lists them (the answer's noted chip) offers no action the
     // item route would refuse.
     const canWrite = await canWriteProjectMemory(session, params.id)
-    return { items: items.map(toMemoryWireItem), nextCursor, canWrite }
+    // `topics`: the shelf's topics with how many notes each holds, over every note the caller sees, not this page.
+    return { items: items.map(toMemoryWireItem), nextCursor, canWrite, topics }
   },
-  { authz: { enforcedBy: 'getProjectMemory (requireProjectAccess project:view)' } }
+  { authz: { enforcedBy: 'getProjectMemoryShelf (requireProjectAccess project:view)' } }
 )
 
 export const POST = apiRoute<Params>(

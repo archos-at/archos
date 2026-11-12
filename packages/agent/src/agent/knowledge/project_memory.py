@@ -272,6 +272,16 @@ def turn_memory_writes() -> tuple[str, ...]:
 
 VALID_PROVENANCES = {"agent", "distillation"}
 
+#: The longest topic the BFF keeps (``MEMORY_TOPIC_MAX_LENGTH``). A longer one is
+#: dropped here, not sent: the note is still worth keeping, and the BFF would refuse it.
+MEMORY_TOPIC_MAX_LENGTH = 40
+
+
+def memory_topic(raw: object) -> str:
+    """The topic to send with a note: trimmed, or "" when there is none or it is too long to keep."""
+    topic = raw.strip() if isinstance(raw, str) else ""
+    return topic if len(topic) <= MEMORY_TOPIC_MAX_LENGTH else ""
+
 
 def fetch_memory_digest(
     *,
@@ -407,6 +417,7 @@ def insert_memory_item(
     salience: float | None = None,
     restricted_collections: Sequence[str] | None = None,
     restriction_judge: Mapping[str, object] | None = None,
+    topic: str | None = None,
 ) -> str | None:
     """Record one memory item via the internal BFF endpoint.
 
@@ -431,6 +442,9 @@ def insert_memory_item(
     ``restriction_judge`` is the memory judge's verdict on this item, when it
     was asked (``JudgeVerdict.as_payload``): the BFF records it in the audit
     trail with the item it was about. Collections only, never text.
+
+    ``topic`` is the subject the note is filed under on its shelf, sent only when
+    :func:`memory_topic` keeps one; the BFF normalizes it against the shelf's topics.
 
     Returns the new item id, or None when the target (project/org) is unknown.
     Raises :class:`agent.common.bff_http.BffError` (a ``RuntimeError``)
@@ -472,10 +486,7 @@ def insert_memory_item(
         # only when the caller rated it — the column's 0.5 default is the
         # neutral midpoint and must stay the fallback, not an explicit write.
         payload["salience"] = max(0.0, min(1.0, float(salience)))
-    if restricted_collections:
-        payload["restrictedCollections"] = sorted(set(restricted_collections))
-    if restriction_judge:
-        payload["restrictionJudge"] = dict(restriction_judge)
+    payload.update(_shelf_fields(restricted_collections, restriction_judge, topic))
 
     try:
         body = bff_http.post_json("/api/internal/memory", payload, timeout=_REQUEST_TIMEOUT_SECONDS)
@@ -490,6 +501,22 @@ def insert_memory_item(
     # (stripped and capped), and only the route knows whether a row was created
     # or an earlier note retired.
     return _record_write(body, payload)
+
+
+def _shelf_fields(
+    restricted_collections: Sequence[str] | None,
+    restriction_judge: Mapping[str, object] | None,
+    topic: str | None,
+) -> dict[str, object]:
+    """The optional fields of a shelf write: the restriction the caller decided, and the note's topic."""
+    fields: dict[str, object] = {}
+    if restricted_collections:
+        fields["restrictedCollections"] = sorted(set(restricted_collections))
+    if restriction_judge:
+        fields["restrictionJudge"] = dict(restriction_judge)
+    if kept_topic := memory_topic(topic):
+        fields["topic"] = kept_topic
+    return fields
 
 
 def _raise_named_refusal(exc: bff_http.BffRefusedError) -> None:
