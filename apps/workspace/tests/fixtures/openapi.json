@@ -21624,6 +21624,141 @@
         }
       }
     },
+    "/api/base-knowledge/bulk": {
+      "post": {
+        "operationId": "base-knowledge-bulk",
+        "summary": "Check, move or remove many base-knowledge entries at once",
+        "description": "One action over up to 50 entries: `check` records a check with its result, `move` files them into a folder from base-knowledge-folder-list, `remove` deletes them and their documents. Answers one result per entry; a refused entry does not stop the others. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entryIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "description": "From base-knowledge-list; at most 50."
+                  },
+                  "action": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "const": "check"
+                          },
+                          "result": {
+                            "type": "string",
+                            "enum": [
+                              "current",
+                              "newer_known",
+                              "withdrawn",
+                              "source_unreachable"
+                            ],
+                            "description": "current: still the edition in force."
+                          },
+                          "note": {
+                            "description": "Where it was checked.",
+                            "type": "string",
+                            "maxLength": 1000
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "result"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "const": "move"
+                          },
+                          "folderId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "From base-knowledge-folder-list."
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "folderId"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "const": "remove"
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "type"
+                    }
+                  }
+                },
+                "required": [
+                  "entryIds",
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Check, move or remove many base-knowledge entries at once",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/base-knowledge/{entryId}/checks": {
       "post": {
         "operationId": "base-knowledge-check-record",
@@ -21788,6 +21923,32 @@
                       }
                     ]
                   },
+                  "inForceFrom": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When this edition took effect; null: from issuedOn."
+                  },
+                  "inForceTo": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When it stopped applying, if withdrawn; a later edition ends it by itself."
+                  },
                   "territoryIds": {
                     "maxItems": 20,
                     "type": "array",
@@ -21884,6 +22045,82 @@
         },
         "x-mcp-annotations": {
           "title": "Confirm a proposed base-knowledge entry",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge/{entryId}/editions": {
+      "post": {
+        "operationId": "base-knowledge-edition-add",
+        "summary": "Upload a newer edition of a base-knowledge entry",
+        "description": "Uploads the newer edition into the entry’s folder as a second edition of the same work (its edition read from the file name), proposed until a person confirms it. Answers then take the edition in force on the project’s reference day; the earlier entry stays for projects filed before, with a check that found a newer edition. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "From base-knowledge-list."
+            },
+            "description": "From base-knowledge-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Upload a newer edition of a base-knowledge entry",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
@@ -22030,6 +22267,146 @@
         },
         "x-mcp-annotations": {
           "title": "Which edition of a law or norm applied on a date or to a permit procedure",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge/folders": {
+      "post": {
+        "operationId": "base-knowledge-folder-create",
+        "summary": "Create a folder for the office’s base knowledge",
+        "description": "Creates a folder under the base-knowledge root (created on first use) or under one of its folders, e.g. by trade or by standards body. Refused when a sibling has the name. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "e.g. a trade, a topic or a standards body."
+                  },
+                  "parentId": {
+                    "description": "A folder from base-knowledge-folder-list; omit for the top level.",
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "description": {
+                    "description": "What belongs in it, in the office’s words.",
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Create a folder for the office’s base knowledge",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      },
+      "get": {
+        "operationId": "base-knowledge-folder-list",
+        "summary": "List the folders of the office’s base knowledge",
+        "description": "The base-knowledge root folder on the office shelf (`rootId`, null until first used) and every folder below it. They are office shelf folders: rename or delete one with office-shelf-folder-update or -delete; the root keeps its name and place. Any member may read.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "description": "Default and max 200.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Default and max 200."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The previous page’s `nextCursor`.",
+              "type": "string",
+              "pattern": "^\\d{1,5}$"
+            },
+            "description": "The previous page’s `nextCursor`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the folders of the office’s base knowledge",
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,
@@ -22222,6 +22599,32 @@
                       }
                     ]
                   },
+                  "inForceFrom": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When this edition took effect; null: from issuedOn."
+                  },
+                  "inForceTo": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When it stopped applying, if withdrawn; a later edition ends it by itself."
+                  },
                   "territoryIds": {
                     "maxItems": 20,
                     "type": "array",
@@ -22398,7 +22801,7 @@
       "get": {
         "operationId": "base-knowledge-list",
         "summary": "List the office’s base knowledge: its standards, commentaries and directives",
-        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Only confirmed entries reach answers. Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -22426,6 +22829,59 @@
               "maxLength": 120
             },
             "description": "Part of a designation or title."
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Part of a designation, title or file name.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "description": "Part of a designation, title or file name."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "technical_standard",
+                "guideline",
+                "commentary",
+                "authority_directive",
+                "statute"
+              ]
+            }
+          },
+          {
+            "name": "attention",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used.",
+              "type": "string",
+              "enum": [
+                "proposed",
+                "check_due",
+                "metadata_only"
+              ]
+            },
+            "description": "proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used."
+          },
+          {
+            "name": "folderId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "A folder from base-knowledge-folder-list: its entries and those of its subfolders.",
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "A folder from base-knowledge-folder-list: its entries and those of its subfolders."
           },
           {
             "name": "limit",
@@ -22546,6 +23002,32 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "inForceFrom": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When this edition took effect; null: from issuedOn."
+                  },
+                  "inForceTo": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "When it stopped applying, if withdrawn; a later edition ends it by itself."
                   },
                   "territoryIds": {
                     "maxItems": 20,
@@ -22756,7 +23238,7 @@
                     "format": "binary"
                   },
                   "folderId": {
-                    "description": "From office-shelf-folder-list; omit for the root.",
+                    "description": "From base-knowledge-folder-list; omit for the base-knowledge root folder.",
                     "type": "string"
                   }
                 },
@@ -29152,9 +29634,85 @@
       "get": {
         "operationId": "platform-knowledge-base-get",
         "summary": "See the whole base corpus, released or not",
-        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.",
+        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list. The whole store with summaries is longer than one result: narrow it with `nameContains` and `countryId` (or `none`), leave out the summaries with `brief: true`, and page with `limit` and `cursor` (`matched`, `nextCursor`).",
         "tags": [
           "platform"
+        ],
+        "parameters": [
+          {
+            "name": "nameContains",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only files whose name contains this text, ignoring case.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Only files whose name contains this text, ignoring case."
+          },
+          {
+            "name": "countryId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the files a release marked with this country (ISO 3166-1 alpha-2), or `none` for the files no release marked.",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                },
+                {
+                  "const": "none"
+                }
+              ]
+            },
+            "description": "Only the files a release marked with this country (ISO 3166-1 alpha-2), or `none` for the files no release marked."
+          },
+          {
+            "name": "brief",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "true leaves out each file’s summary, which is most of the answer’s length.",
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
+                }
+              ]
+            },
+            "description": "true leaves out each file’s summary, which is most of the answer’s length."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "At most this many files (up to 500).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "At most this many files (up to 500)."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "nextCursor of the previous answer.",
+              "type": "string",
+              "pattern": "^\\d{1,6}$"
+            },
+            "description": "nextCursor of the previous answer."
+          }
         ],
         "responses": {
           "200": {
@@ -30249,8 +30807,8 @@
     "/api/platform/knowledge/documents/{fileName}": {
       "delete": {
         "operationId": "platform-knowledge-document-delete",
-        "summary": "Delete an uploaded base-corpus document",
-        "description": "Removes an admin-uploaded PDF from the shared base corpus for every organization: source file, registry entry and indexed chunks. It cannot be undone, and repo-shipped corpus files cannot be deleted. The file name comes from the corpus listing.",
+        "summary": "Delete a base-corpus document",
+        "description": "Removes a PDF from the shared base corpus for every organization: stored file, registry entry and indexed chunks. It cannot be undone. A file a platform record names as its text is refused (409) until that request is rolled back or rejected. The file name comes from platform-knowledge-base-get.",
         "tags": [
           "platform"
         ],
@@ -30292,7 +30850,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Delete an uploaded base-corpus document",
+          "title": "Delete a base-corpus document",
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": true,

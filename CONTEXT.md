@@ -108,6 +108,15 @@ documents, Bescheide and uploads) and *Web*. A *Modellmessung* (a value measured
 the project's BIM model) is shown beside them but is never a source for a legal
 verdict.
 
+**Grundlagen des Büros** (office standards):
+The standards, commentaries, authority directives, guidelines and laws an office holds itself, each a
+Büroablage file recorded as base knowledge with its kind, Ausgabe, where it applies, licence and last
+check (ADR-0163). A place of its own beside the Büroablage, with folders under one root folder of that name.
+An *Ausgabe* (edition) is the standard's state, a *Fassung* the state of the uploaded file: a newer Ausgabe
+is added beside the earlier one, and an answer uses the one in force on the project's reference day.
+_Code_: `baseKnowledge` (`/app/base-knowledge`, `/api/base-knowledge`, `base-knowledge-*` operations).
+_Avoid_: „Normen" for the whole place (commentaries and directives are not standards); „Version" for an Ausgabe.
+
 **Shelf**:
 Where a document lives, which decides who may read it and what a search reaches:
 the *Büroablage* (the organization's shelf, formerly „Archiv"; code name

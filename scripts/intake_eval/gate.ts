@@ -27,7 +27,11 @@
  * Run from the repository root: `bun run scripts/intake_eval/gate.ts`.
  */
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createInterface } from 'node:readline'
+import { rulesetValuesSchema } from '../../apps/workspace/bff/base-knowledge/wire/ruleset'
+import type { StoredRuleset } from '../../apps/workspace/bff/base-knowledge/rulesets/select'
 import { projectIntakeDefinitionV1 as definition } from '../../apps/workspace/bff/project-profile/intake-definition'
 import type { DocumentEvidence } from '../../apps/workspace/bff/project-profile/evidence-schema'
 import { emptyProjectProfile } from '../../apps/workspace/bff/project-profile/patch-engine'
@@ -66,9 +70,22 @@ function reasonFromEvidence(evidence: Pick<DocumentEvidence, 'fileName' | 'page'
   return `${where}: „${evidence.quote}"`
 }
 
+/**
+ * The setup records the route classifies by. The service reads the released ones from the
+ * database; the eval's fixture project sits in Austria, so the gate reads the pack an operator
+ * releases for it (`configs/knowledge-packs/at-setup.json`), parsed by the same wire.
+ */
+const pack: { records: Array<{ key: string; values: unknown }> } = JSON.parse(
+  readFileSync(join(import.meta.dir, '..', '..', 'configs', 'knowledge-packs', 'at-setup.json'), 'utf8')
+)
+const records: readonly StoredRuleset[] = pack.records.map((record) => ({
+  id: `ruleset:${record.key}`,
+  values: rulesetValuesSchema.parse(record.values),
+}))
+
 function needs(request: GateRequest) {
   const profile = ProjectProfileSchema.parse(request.profile ?? {})
-  return { needs: computeNeeds(profile, definition, { mode: request.mode ?? 'active', dismissed: request.dismissed ?? [] }) }
+  return { needs: computeNeeds(profile, definition, { mode: request.mode ?? 'active', dismissed: request.dismissed ?? [], records }) }
 }
 
 function record(request: GateRequest) {
@@ -89,7 +106,8 @@ function record(request: GateRequest) {
   const plan = planRecord(profile, definition, screened, {
     now: new Date().toISOString(),
     readingId: parsed.data.jobId,
-    needs: { mode: request.mode ?? 'active', dismissed },
+    needs: { mode: request.mode ?? 'active', dismissed, records },
+    records,
   })
   return { status: 200, results: plan.results, opened: plan.opened, profile: plan.profile }
 }
@@ -103,6 +121,7 @@ function withdraw(request: GateRequest) {
   const plan = planWithdraw(profile, definition, parsed.data.keys, {
     now: new Date().toISOString(),
     readingId: parsed.data.jobId,
+    records,
   })
   return { status: 200, results: plan.results, profile: plan.profile }
 }

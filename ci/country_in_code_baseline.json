@@ -147,7 +147,6 @@
   "apps/workspace/ui/features/layout/components/SourceSignalChip.tsx": 1,
   "apps/workspace/ui/features/layout/lib/report-citations.ts": 4,
   "apps/workspace/ui/features/layout/lib/source-presets.ts": 2,
-  "apps/workspace/ui/features/organization/components/base-knowledge-card.tsx": 1,
   "apps/workspace/ui/features/platform/components/citation-health.tsx": 1,
   "apps/workspace/ui/features/platform/components/knowledge-document-sheet.tsx": 2,
   "apps/workspace/ui/features/platform/components/knowledge-summary.tsx": 2,
