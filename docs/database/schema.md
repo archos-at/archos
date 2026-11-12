@@ -2515,11 +2515,16 @@ platform only.
 | `knowledge_index_runs` | The indexing of one published text: `requested`, `queued`, or `failed` with `failure` | Platform-private |
 | `organization_countries` | A country the platform entitled an office to (`entitled_by`, `decision_source`) | The office reads its own rows; only the platform writes (restrictive guards `false`) |
 
-Reads: an office reads a platform record once it has a head and
-`knowledge_country_entitled(country_id)` (its home country or an
-`organization_countries` row), and a platform revision or body once
-`knowledge_revision_released(revision_id)` (ever released to stable) and its
-record is readable. Both are `SECURITY DEFINER`. `scripts/rls-test-db.sh`
+Reads: an office reads a platform record once it has a head and its country is
+one the office is entitled to (`country_id IN (SELECT
+knowledge_entitled_countries())`: its home country, an `organization_countries`
+row, or `EU` while a member) or a released platform relation reaches it from
+one it may read (`id IN (SELECT knowledge_reached_ids())`). Each is one set per
+subplan since 0236; 0211's per-row `knowledge_country_entitled` and
+`knowledge_reached_by_relation` stay defined as their oracles. A platform
+revision or body is readable once `knowledge_revision_released(revision_id)`
+(ever released to stable) and its record is. All of these functions are
+`SECURITY DEFINER`. `scripts/rls-test-db.sh`
 verifies 0205's triggers and its down;
 `bff/base-knowledge/platform/platform.integration.spec.ts` proves entitlement,
 rollback and the guards with positive controls.
