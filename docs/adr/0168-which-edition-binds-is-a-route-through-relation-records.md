@@ -93,7 +93,8 @@ edition always says since when it binds, and through which instrument where the
 route names one, whether or not the question asked „seit wann“. The day is the
 records' (`roleSinceOf`: the edition's entry into force, or the declaring
 relation's if later), never a web page's; a line with no day is said to have
-none. The rule is the header of the chain text's binding section
+none. On a line by territory (a law of the site) the day is that edition's, its
+Fassung, not the law's own entry into force; the header says which is which. The rule is the header of the chain text's binding section
 (`BINDING_HEADER` in `chain/text.ts`), which the model reads in the turn's
 `<building_law>` block and in `project-base-get` for an `asOf` day, rather than a
 line in `chat_static.md`, which sits at its 5,000-token budget.

@@ -96,13 +96,16 @@ const PREAMBLE =
 
 /**
  * The binding section's header, and the answer rule for what it lists (owner, 2026-11-12): whenever the
- * answer names one of these editions it says since when it binds, and through what where the line names a
- * route, whether or not the question asked "since when". The day is the line's, which is the records'
- * (`roleSinceOf`); a day from a web page or from memory is never one.
+ * answer names one of these editions it states the day its line gives, and the route's instrument where the
+ * line names one, whether or not the question asked "since when". The day is the line's, which is the
+ * records' (`roleSinceOf`); a day from a web page or from memory is never one. On a line by territory the day
+ * is the edition's (its Fassung), not the law's own entry into force, so the header says which is which.
  */
 export const BINDING_HEADER =
-  'Binding here. Whenever the answer names one of these, it says since when it binds and, where the line names a route, through what, ' +
-  "as the line states, even if not asked; the day is the records' own, never a web page's, and where a line names no day, say the records name none:"
+  'Binding here. Whenever the answer names one of these, it states the day its line gives, in the line\'s terms (after a route, ' +
+  '"since" is the day the edition binds from; "this edition since" is the day that text took effect, not when the law began to bind), ' +
+  "and the route's instrument where the line names one, even if not asked; the day is the records' own, never a web page's, and where " +
+  'a line names no day, say the records name none:'
 
 /** After the date when it is a filing day: the turn reads no reviewed reference-date rule, so the date is assumed. */
 const FILING_DAY = ", the filing day taken as the reference date (an assumption; transitional law not checked: say so)"

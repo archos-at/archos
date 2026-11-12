@@ -88,7 +88,15 @@ describe('the chain text', () => {
   it('tells the answer to state since when each binding edition binds, and through what, from the records alone', () => {
     const header = text('AT-9').split('\n')[1]
     expect(header).toBe(BINDING_HEADER)
-    for (const words of ['since when it binds', 'through what', 'even if not asked', "the records' own, never a web page's", 'the records name none']) {
+    for (const words of [
+      'states the day its line gives',
+      "the route's instrument",
+      'even if not asked',
+      "the records' own, never a web page's",
+      'the records name none',
+      // A line by territory dates the edition's text, not the law: the answer must not say the law binds from then.
+      'not when the law began to bind',
+    ]) {
       expect(header, words).toContain(words)
     }
     // The line under it carries both: the route and the records' day.
