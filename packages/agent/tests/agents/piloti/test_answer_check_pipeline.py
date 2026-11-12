@@ -26,6 +26,7 @@ from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
 from agent.common.claim_judge import Evidence
 from agent.common.claim_judge import Finding
+from agent.common.claim_judge import Unavailable
 
 APPROVALS = (
     '{"items": [{"assignee": "Anna Berger", "status": "pending", "document": "Einreichplan EG"},'
@@ -167,9 +168,13 @@ async def test_an_unavailable_check_surfaces_no_level_and_is_scored(monkeypatch)
 
     final, state = await _finalize(messages, judge=failing_judge())
 
-    assert final.confidence_check == {"status": "unavailable"}
+    reason = {"cause": "timeout", "error_type": "TimeoutError", "elapsed_ms": 12_000}
+    assert final.confidence_check == {"status": "unavailable", "unavailable_reason": reason}
     assert state.answer_confidence is None and state.answer_confidence_version is None
-    assert {score.name: score.value for score in written}["confidence-judge-unavailable"] == 1.0
+    by_name = {score.name: score for score in written}
+    assert by_name["confidence-judge-unavailable"].value == 1.0
+    assert by_name["confidence-judge-unavailable-reason"].value == "timeout"
+    assert "TimeoutError" in by_name["confidence-judge-unavailable-reason"].comment
 
 
 async def test_no_judge_at_all_is_the_same_unavailable_turn():
@@ -177,7 +182,21 @@ async def test_no_judge_at_all_is_the_same_unavailable_turn():
 
     final = await finalize_answer(messages, registry=SourceRegistry(), tools=[], repair=None, turn_sources=[])
 
-    assert final.confidence_check == {"status": "unavailable"}
+    assert final.confidence_check == {"status": "unavailable", "unavailable_reason": {"cause": "no_judge"}}
+
+
+async def test_the_unavailable_reason_reaches_the_stored_turn_through_the_wire_model():
+    """The persisted row is built from ``TurnResult``; a reason it refused would cost the whole check."""
+    from agent.common.wire_v2 import ConfidenceCheck
+
+    reason = Unavailable("unparseable", finish_reason="length", truncated=True, elapsed_ms=9_100, answer_chars=40)
+    messages = [HumanMessage("Was liegt bei Anna?"), *_workspace_read(), AIMessage(ANSWER_ENVELOPE.format(prose="3."))]
+
+    final, _ = await _finalize(messages, judge=failing_judge(reason=reason))
+
+    check = ConfidenceCheck.model_validate(final.confidence_check)
+    assert check.unavailable_reason is not None and check.unavailable_reason.truncated is True
+    assert check.unavailable_reason.cause == "unparseable" and check.level is None
 
 
 async def test_a_judged_level_and_the_dropped_labels_are_scored(monkeypatch):

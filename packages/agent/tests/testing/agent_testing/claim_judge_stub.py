@@ -18,6 +18,7 @@ from agent.common.claim_judge import Finding
 from agent.common.claim_judge import JudgeFn
 from agent.common.claim_judge import Level
 from agent.common.claim_judge import Passage
+from agent.common.claim_judge import Unavailable
 
 #: The measurement set: twelve stored answers with what their turns registered (ADR-0139).
 REPO_ROOT = next(path for path in Path(__file__).resolve().parents if (path / "Taskfile.yml").is_file())
@@ -51,12 +52,12 @@ def stub_judge(level: Level = "high", findings: Sequence[Finding] = (), calls: l
     return judge
 
 
-def failing_judge(calls: list[Evidence] | None = None) -> JudgeFn:
-    """A judge that could not run: the turn surfaces no level."""
+def failing_judge(calls: list[Evidence] | None = None, reason: Unavailable | None = None) -> JudgeFn:
+    """A judge that could not run (``reason``, a timeout unless told otherwise): the turn surfaces no level."""
 
-    async def judge(evidence: Evidence) -> Check | None:
+    async def judge(evidence: Evidence) -> Unavailable:
         if calls is not None:
             calls.append(evidence)
-        return None
+        return reason or Unavailable("timeout", error_type="TimeoutError", elapsed_ms=12_000)
 
     return judge

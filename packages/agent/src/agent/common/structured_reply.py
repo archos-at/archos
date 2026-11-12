@@ -46,7 +46,17 @@ def _rejects_response_format(exc: BaseException) -> bool:
 
 
 async def structured_reply(llm: Any, messages: list[Any], schema: type[BaseModel]) -> str:
-    """Ask ``llm`` for a reply shaped like ``schema`` and return it as text.
+    """Ask ``llm`` for a reply shaped like ``schema`` and return it as text (:func:`structured_response`)."""
+    response = await structured_response(llm, messages, schema)
+    return content_to_text(getattr(response, "content", response))
+
+
+async def structured_response(llm: Any, messages: list[Any], schema: type[BaseModel]) -> Any:
+    """Ask ``llm`` for a reply shaped like ``schema`` and return the model's message whole.
+
+    The message, not its text, for a caller that reads how the call ended
+    (``response_metadata["finish_reason"]``, ``usage_metadata``): the answer
+    check tells a reply cut at its token budget from one that was garbled.
 
     Requests native strict json_schema structured output; the response-healing
     plugin (forced on OpenRouter LLMs in llm_factory) repairs any fenced/prose
@@ -69,7 +79,7 @@ async def structured_reply(llm: Any, messages: list[Any], schema: type[BaseModel
             "%s call rejected even without response_format (%s); retrying with caching as usual", schema.__name__, exc
         )
         response = await _ask_for_json(llm, messages, schema)
-    return content_to_text(getattr(response, "content", response))
+    return response
 
 
 async def _ask_for_json(llm: Any, messages: list[Any], schema: type) -> Any:

@@ -26,8 +26,10 @@ from agent.common import content_to_text
 from agent.common.claim_judge import Evidence
 from agent.common.claim_judge import JudgeFn
 from agent.common.claim_judge import Passage
+from agent.common.claim_judge import Unavailable
 from agent.common.workspace_records import records_from_messages
 from agent.observability.langfuse_scores import answer_check_scores
+from agent.observability.langfuse_scores import answer_check_unavailable_scores
 from agent.observability.langfuse_scores import emit_scores
 
 
@@ -130,10 +132,22 @@ def evidence_for(answered: Answered, context: Sequence[str] = ()) -> Evidence:
 
 
 async def check_answer(answered: Answered, check: TurnCheck | None) -> dict[str, Any]:
-    """One judge call; the check wire-ready, ``unavailable`` without a judge or a usable reply. Scored."""
+    """One judge call; the check wire-ready, ``unavailable`` with its reason without a judge or a usable reply.
+
+    Scored, and an unavailable check's cause is the trace's ``answer_check_unavailable``.
+    """
+    from agent.observability.langfuse_trace_attributes import record_trace_metadata
+
     check = check or TurnCheck()
-    result = await check.judge(evidence_for(answered, check.context)) if check.judge is not None else None
-    emit_scores(answer_check_scores(result.level if result is not None else None), writer="piloti")
-    if result is None:
-        return {"status": "unavailable"}
-    return {"status": "judged", "level": result.level, "findings": [f.to_wire() for f in result.findings]}
+    no_judge = Unavailable("no_judge")
+    result = await check.judge(evidence_for(answered, check.context)) if check.judge is not None else no_judge
+    if isinstance(result, Unavailable):
+        reason = result.to_wire()
+        scores = [*answer_check_scores(None), *answer_check_unavailable_scores(reason)]
+        record_trace_metadata(answer_check_unavailable=result.cause, answer_check_truncated=result.truncated or None)
+        wire: dict[str, Any] = {"status": "unavailable", "unavailable_reason": reason}
+    else:
+        scores = answer_check_scores(result.level)
+        wire = {"status": "judged", "level": result.level, "findings": [f.to_wire() for f in result.findings]}
+    emit_scores(scores, writer="piloti")
+    return wire

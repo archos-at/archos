@@ -50,7 +50,9 @@ export const clientMessageSchema = z.discriminatedUnion("type", [userMessageSche
 
 export const confidenceFindingSchema = z.object({ "problem": z.enum(["unbacked","contradicted"]), "reason": z.string().max(300), "source": z.string().max(200), "statement": z.string().max(300) }).describe("A statement the answer relies on that its evidence does not back, or contradicts.")
 
-export const confidenceCheckSchema = z.object({ "findings": z.array(confidenceFindingSchema).optional(), "level": z.union([z.enum(["low","medium","high"]), z.null()]).default(null), "status": z.enum(["judged","unavailable"]) }).describe("What the answer check found (ADR-0139): ``judged``, a level and what holds it down; or ``unavailable``.")
+export const confidenceUnavailableSchema = z.object({ "answer_chars": z.union([z.number().int().gte(0), z.null()]).default(null), "cause": z.enum(["no_judge","timeout","error","unparseable","no_reply"]), "elapsed_ms": z.union([z.number().int().gte(0), z.null()]).default(null), "error_type": z.union([z.string().max(100), z.null()]).default(null), "evidence_chars": z.union([z.number().int().gte(0), z.null()]).default(null), "finish_reason": z.union([z.string().max(40), z.null()]).default(null), "truncated": z.boolean().default(false) }).describe("Why the answer check gave no level (``claim_judge.Unavailable``), and what its call looked like.")
+
+export const confidenceCheckSchema = z.object({ "findings": z.array(confidenceFindingSchema).optional(), "level": z.union([z.enum(["low","medium","high"]), z.null()]).default(null), "status": z.enum(["judged","unavailable"]), "unavailable_reason": z.union([confidenceUnavailableSchema, z.null()]).default(null) }).describe("What the answer check found (ADR-0139): ``judged``, a level and what holds it down; or ``unavailable``.")
 
 export const heartbeatValueSchema = z.object({ "every_ms": z.number().int().gt(0) })
 

@@ -64,21 +64,17 @@ import json
 from typing import Annotated
 from typing import Any
 from typing import Literal
-from typing import get_args
-from typing import get_origin
 
 from pydantic import BaseModel
 from pydantic import BeforeValidator
-from pydantic import ConfigDict
 from pydantic import Field
-from pydantic import SerializationInfo
-from pydantic import SerializerFunctionWrapHandler
 from pydantic import TypeAdapter
 from pydantic import WithJsonSchema
-from pydantic import model_serializer
 from pydantic import model_validator
 
 from agent.common.source_kinds import LEGACY_SHELF_VALUES
+from agent.common.wire_model import OpenWireModel as _OpenModel
+from agent.common.wire_model import WireModel as _Model
 
 #: The only wire version. There is no ``v: 1`` reader anywhere (ADR-0068).
 WIRE_VERSION: Literal[2] = 2
@@ -88,44 +84,6 @@ WIRE_VERSION: Literal[2] = 2
 CLOSE_CLIENT_OUTDATED = 4426
 
 Scalar = str | int | float | bool
-
-
-def _is_const(annotation: Any) -> bool:
-    return get_origin(annotation) is Literal and len(get_args(annotation)) == 1
-
-
-class _Model(BaseModel):
-    """Closed models: a field the contract does not name is a producer bug.
-
-    A frame omits every field at its default (:func:`to_frame` dumps with
-    ``exclude_defaults``) except the ``const`` ones, which are the discriminators
-    (``v``, ``type``, ``name``, ``kind``) and must always be on the wire. The
-    reader's schema restores the defaults, so the frame stays minimal and still
-    parses to the same value.
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    @model_serializer(mode="wrap")
-    def _keep_consts(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict[str, Any]:
-        data = handler(self)
-        if info.exclude_defaults:
-            consts = {
-                name: getattr(self, name) for name, f in type(self).model_fields.items() if _is_const(f.annotation)
-            }
-            data = {**consts, **data}
-        return data
-
-
-class _OpenModel(BaseModel):
-    """A payload whose full contract lives elsewhere (cards, sources, ledger).
-
-    The wire names the fields it routes on and passes the rest through; the
-    owning contract validates the whole (``answerCardSchema``, the citation wire,
-    ``sanitizeAnswerMeta``).
-    """
-
-    model_config = ConfigDict(extra="allow", frozen=True)
 
 
 # ---------------------------------------------------------------------------
@@ -416,12 +374,28 @@ class ConfidenceFinding(_Model):
     source: str = Field(max_length=200)
 
 
+class ConfidenceUnavailable(_Model):
+    """Why the answer check gave no level (``claim_judge.Unavailable``), and what its call looked like."""
+
+    cause: Literal["no_judge", "timeout", "error", "unparseable", "no_reply"]
+    #: ``error``: the exception's class name.
+    error_type: str | None = Field(default=None, max_length=100)
+    finish_reason: str | None = Field(default=None, max_length=40)
+    #: The reply stopped at the check's output budget.
+    truncated: bool = False
+    elapsed_ms: int | None = Field(default=None, ge=0)
+    evidence_chars: int | None = Field(default=None, ge=0)
+    answer_chars: int | None = Field(default=None, ge=0)
+
+
 class ConfidenceCheck(_Model):
     """What the answer check found (ADR-0139): ``judged``, a level and what holds it down; or ``unavailable``."""
 
     status: Literal["judged", "unavailable"]
     level: Literal["low", "medium", "high"] | None = None
     findings: list[ConfidenceFinding] = Field(default_factory=list)
+    #: ``unavailable`` only: why. Read by operators and the eval, never shown as a level.
+    unavailable_reason: ConfidenceUnavailable | None = None
 
 
 class TurnResult(_Model):

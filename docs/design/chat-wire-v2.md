@@ -317,6 +317,10 @@ client reads leniently:**
   from `parseWireEvent` as `{type: 'UNKNOWN', of, ...envelope}`, its body
   dropped. The fold passes over it, so its `seq` still counts and the turn
   settles; the Herleitung draws nothing for it.
+- A new key inside a known object is the same case: `confidence_check.unavailable_reason`
+  (why the answer check gave no level) reaches an older bundle stripped, and
+  its turn reads as before. Its `cause` is an enum, so a cause added later is
+  the break described next, for every bundle that knows the field.
 
 Changing what a known field may hold is a break. `answer_confidence_version`
 is the worked example: the confidence rule changed (the answer check,

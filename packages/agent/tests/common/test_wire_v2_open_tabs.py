@@ -61,6 +61,15 @@ def test_an_unavailable_check_reads_too():
     assert _old_tab_reads(frame)
 
 
+def test_an_unavailable_check_with_its_reason_reads_too():
+    """``unavailable_reason`` is a new key inside ``confidence_check``: an older bundle strips it."""
+    reason = {"cause": "unparseable", "finish_reason": "length", "truncated": True, "elapsed_ms": 9100}
+    frame = _checked_finish(CONFIDENCE_RULE_VERSION, {"status": "unavailable", "unavailable_reason": reason})
+    frame["result"].pop("answer_confidence", None)
+    frame["result"].pop("answer_confidence_version", None)
+    assert _old_tab_reads(frame)
+
+
 def test_the_check_sees_the_break_a_new_version_number_would_be():
     """What review caught: ``answer_confidence_version: 3`` fails the old ``1 | 2``."""
     assert not _old_tab_reads(_checked_finish(3, {"status": "judged", "level": "high"}))

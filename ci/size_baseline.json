@@ -81,7 +81,7 @@
     "packages/agent/src/agent/common/cost_tracking.py": 627,
     "packages/agent/src/agent/common/norm_registry.py": 673,
     "packages/agent/src/agent/common/provider_limiter.py": 635,
-    "packages/agent/src/agent/common/wire_v2.py": 1087,
+    "packages/agent/src/agent/common/wire_v2.py": 1075,
     "packages/agent/src/agent/tokenomics/report/_report_template_single.py": 761,
     "packages/agent/src/agent/tools/bim/register.py": 694,
     "packages/agent/src/agent/tools/cross_project/register.py": 816,

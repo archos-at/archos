@@ -21,6 +21,7 @@ from agent.agents.piloti.models import ResearchAgentState
 from agent.common import claim_judge
 from agent.common.claim_judge import Evidence
 from agent.common.claim_judge import Passage
+from agent.common.claim_judge import Unavailable
 from agent.common.claim_judge import build_messages
 from agent.common.claim_judge import llm_judge
 from agent.common.claim_judge import parse_reply
@@ -44,8 +45,10 @@ def _data(messages) -> dict:
 class _Model:
     """A chat model double: records what was bound and answers ``reply`` (or raises, or hangs)."""
 
-    def __init__(self, reply: str = '{"level": "high", "findings": []}', *, error=None, delay=0.0):
+    def __init__(self, reply: str = '{"level": "high", "findings": []}', *, error=None, delay=0.0, ending=None):
         self.reply, self.error, self.delay = reply, error, delay
+        #: ``response_metadata`` and ``usage_metadata`` of the reply, as a provider reports how it ended.
+        self.ending = ending or ({}, {})
         self.bound: list[dict] = []
         self.messages = None
 
@@ -62,7 +65,8 @@ class _Model:
             await asyncio.sleep(self.delay)
         if self.error is not None:
             raise self.error
-        return MagicMock(content=self.reply)
+        metadata, usage = self.ending
+        return MagicMock(content=self.reply, response_metadata=metadata, usage_metadata=usage)
 
 
 class TestTheEvidenceIsData:
@@ -169,12 +173,52 @@ class TestTheCall:
         # The evidence is this answer's own: the call writes nothing to the provider's cache.
         assert model.one_shot is True
 
-    async def test_an_error_a_timeout_or_an_unreadable_reply_is_no_level(self, monkeypatch):
+    async def test_an_error_a_timeout_or_an_unreadable_reply_is_no_level_and_says_which(self, monkeypatch):
         monkeypatch.setattr(claim_judge, "JUDGE_TIMEOUT_S", 0.01)
 
-        assert await llm_judge(_Model(error=RuntimeError("402 Payment Required")))(_evidence()) is None
-        assert await llm_judge(_Model(delay=1.0))(_evidence()) is None
-        assert await llm_judge(_Model(reply="Ich halte alles für belegt."))(_evidence()) is None
+        error = await llm_judge(_Model(error=PermissionError("402 Payment Required")))(_evidence())
+        timeout = await llm_judge(_Model(delay=1.0))(_evidence())
+        garbled = await llm_judge(_Model(reply="Ich halte alles für belegt."))(_evidence())
+        empty = await llm_judge(_Model(reply="  "))(_evidence())
+
+        assert isinstance(error, Unavailable) and (error.cause, error.error_type) == ("error", "PermissionError")
+        assert isinstance(timeout, Unavailable) and timeout.cause == "timeout"
+        assert isinstance(garbled, Unavailable) and (garbled.cause, garbled.truncated) == ("unparseable", False)
+        assert isinstance(empty, Unavailable) and empty.cause == "no_reply"
+
+    async def test_a_reply_cut_at_the_output_budget_is_told_from_a_garbled_one(self):
+        cut = '{"level": "low", "findings": [{"statement": "Die Treppe'
+        by_reason = _Model(reply=cut, ending=({"finish_reason": "length"}, {}))
+        by_tokens = _Model(reply=cut, ending=({}, {"output_tokens": claim_judge.MAX_OUTPUT_TOKENS}))
+
+        for model in (by_reason, by_tokens):
+            outcome = await llm_judge(model)(_evidence())
+            assert isinstance(outcome, Unavailable) and outcome.cause == "unparseable" and outcome.truncated
+
+        assert (await llm_judge(by_reason)(_evidence())).finish_reason == "length"
+
+    async def test_an_unavailable_check_carries_the_call_s_time_and_prompt_size(self):
+        evidence = _evidence(Passage("[1] Bauordnung", "Treppen: 1,20 m.", cited=True))
+
+        outcome = await llm_judge(_Model(reply="nein"))(evidence)
+
+        assert outcome.answer_chars == len(evidence.answer)
+        assert outcome.evidence_chars == len(json.dumps(_data(build_messages(evidence)), ensure_ascii=False))
+        assert outcome.elapsed_ms is not None and outcome.elapsed_ms >= 0
+        assert outcome.to_wire()["cause"] == "unparseable" and "truncated" not in outcome.to_wire()
+
+    async def test_every_call_records_its_facts_on_the_trace(self):
+        from agent.observability import langfuse_trace_attributes as attributes
+
+        token = attributes.begin_trace_contributions()
+        try:
+            await llm_judge(_Model(ending=({"finish_reason": "stop"}, {"output_tokens": 40})))(_evidence())
+            metadata = attributes.snapshot_contributions()["metadata"]
+        finally:
+            attributes.end_trace_contributions(token)
+
+        assert metadata["answer_check_finish_reason"] == "stop" and metadata["answer_check_output_tokens"] == 40
+        assert {"answer_check_elapsed_ms", "answer_check_evidence_chars", "answer_check_answer_chars"} <= set(metadata)
 
     def test_the_agent_resolves_it_on_the_follow_ups_group_and_has_none_without_a_model(self, monkeypatch):
         from agent.stages import runner
