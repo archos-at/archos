@@ -4,7 +4,7 @@
 code.** The owner decided the open points the same day: the whole interface is
 13px, the greeting is 24px, the phone's page title was left to this document
 (18px), and nothing is heavier than 500 (600 read as too thick). Tone (ink and
-muted) is out of scope: this document is about type only. It stands on the values of two open changes, the lighter rail
+muted) is out of scope: this document is about type only. It stands on the values of two changes merged since, the lighter rail
 ([#1617](https://github.com/archos-at/archos/pull/1617)) and the one header
 anatomy ([#1681](https://github.com/archos-at/archos/pull/1681)), and changes
 two of their values (the phone's page title, and 600 where they keep it). Until slice 1 lands, the numbers in
@@ -110,7 +110,7 @@ on its 22px line, the answer is `answer`, the follow-ups and the composer's
 presses are `name`. The answer is larger than the question on purpose: it is
 what is read.
 
-## What changes against the two open changes
+## What changes against the rail and the headers as merged
 
 - **The phone's page title is 18/26/500, not 16/24/500** (#1681). With the section heading at 500, a 16/500 title
   would be set exactly as a heading under it. 18, 16, 14 keeps the ladder.
