@@ -535,6 +535,8 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   captures: CaptureView[]
   /** A record cites an operator-supplied capture, or names a text nobody fetched, that nobody but its author checked against its source: nobody approves until another person does, alone or not. */
   sourcesUnchecked: boolean
+  /** What it would release that nothing refuses and a reviewer weighs before approving or publishing (`validate.ts` `releaseWarnings`). */
+  warnings: import('./validate').ReleaseWarning[]
   /** Each role approved alone and its second review (ADR-0176); empty on a four-eyes request. */
   secondReviewRoles: SecondReviewRoleView[]
   /** `overrideReason` is set on an author's own approval through the override (ADR-0176). */

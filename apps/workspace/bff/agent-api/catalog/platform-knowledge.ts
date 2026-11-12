@@ -113,7 +113,8 @@ export const platformKnowledgeOperations = [
     description:
       'Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the ' +
       'approvals (with the reason of one given alone), and the release moves. `approval` is four_eyes, or single when its ' +
-      'author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed.',
+      'author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed. ' +
+      '`warnings` names what the request would release that nothing refuses: read each to the person before they approve or publish.',
     method: 'GET',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]',
     params: requestParams,

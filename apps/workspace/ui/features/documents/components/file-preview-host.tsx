@@ -353,7 +353,7 @@ export function FilePreviewHost({
           !parked && !peeking && 'group z-40',
           !parked &&
             !peeking &&
-            'bg-popover text-popover-foreground fixed left-[calc(50%+var(--page-inset-start,0px)/2)] top-[calc(50%+var(--page-inset-top,0px)/2)] z-50 h-[min(85dvh,calc(100dvh-var(--page-inset-top,0px)-2rem))] w-[min(960px,calc(100%-var(--page-inset-start,0px)-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-overlay border shadow-lg',
+            'bg-popover text-popover-foreground fixed left-[calc(50%+var(--page-inset-start,0px)/2)] top-[calc(50%+var(--page-inset-top,0px)/2)] z-50 h-[min(85dvh,calc(100dvh-var(--page-inset-top,0px)-2rem))] w-[min(960px,calc(100%-var(--page-inset-start,0px)-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-overlay shadow-lg',
           // On a phone, portrait or on its side, the document is the screen:
           // one presentation however it was opened (Dateien, the chat's file
           // pill, a citation), not a card with the page dimmed around it.

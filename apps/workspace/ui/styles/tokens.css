@@ -760,9 +760,14 @@
   --elevation-lg: var(--elevation-3);
 }
 
-/* The type scale (size / line / weight). Weights are 440, 500 and 600 only:
-   600 is for headings and for state (unread, needs you). `text-section`,
-   `text-pane-title` and `text-page-title` carry their weight. */
+/* The type scale (size / line / weight). Weights are 440, 500 and 600 only.
+   A title carries its rank by size, at 500: the page title (20) and the pane
+   title (18). 600 is for the small heading, where size alone does not lift it
+   off 14px body (`text-section`, 16), and for state (unread, needs you). The
+   titles were 24/600 from 2026-11-10 and read heavy beside every page that still
+   set its own 20/500 title (review of 2026-11-11: „die Headline ist zu dick“,
+   and the headers before were „übersichtlicher“): back to 20/500.
+   Each step carries its weight. */
 @theme static {
   --text-meta: 0.75rem;
   --text-meta--line-height: 1rem;
@@ -772,10 +777,10 @@
   --text-section: 1rem;
   --text-section--line-height: 1.5rem;
   --text-section--font-weight: 600;
-  --text-pane-title: 1.25rem;
-  --text-pane-title--line-height: 1.75rem;
-  --text-pane-title--font-weight: 600;
-  --text-page-title: 1.5rem;
-  --text-page-title--line-height: 2rem;
-  --text-page-title--font-weight: 600;
+  --text-pane-title: 1.125rem;
+  --text-pane-title--line-height: 1.625rem;
+  --text-pane-title--font-weight: 500;
+  --text-page-title: 1.25rem;
+  --text-page-title--line-height: 1.75rem;
+  --text-page-title--font-weight: 500;
 }

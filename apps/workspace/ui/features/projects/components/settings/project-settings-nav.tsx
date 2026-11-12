@@ -58,7 +58,9 @@ export function ProjectSettingsNav({
       rootHref={settingsSectionHref(projectId, 'overview')}
       pillId="project-settings-nav-pill"
       orientation="tabs"
+      // On the track, as Dateien's places: the two stand in the same place in the section's header.
       track
+      compactOnPhone
       data-testid="project-settings-nav"
     />
   )

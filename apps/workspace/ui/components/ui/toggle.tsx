@@ -22,7 +22,7 @@ const toggleVariants = cva(
       variant: {
         default: 'bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground',
         outline:
-          'border border-border bg-transparent text-muted-foreground shadow-xs hover:bg-hover hover:text-foreground data-[state=on]:border-border data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-foreground data-[state=on]:shadow-xs',
+          'border border-border bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground data-[state=on]:border-border data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-foreground',
         inverted:
           'text-muted-foreground hover:bg-hover hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-2xs',
         // A filter chip (paper on a desk, principle 4): never the press's shape. A 28px pill of the desk's fill and no

@@ -42,7 +42,7 @@ import { captureViews } from './captures'
 import { attachedTexts } from './text-store'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
 import { singleOperator } from './single-operator'
-import type { DatedPlatformEdition, KnownRecord } from './validate'
+import { releaseWarnings, type DatedPlatformEdition, type KnownRecord } from './validate'
 import type { ChangeRequestSummary, ChangeRequestView, ProposedRecord, RevisionView, SecondReviewRoleView } from './wire'
 
 const REASON = 'platform base knowledge: change requests'
@@ -404,6 +404,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
       texts,
       captures,
       sourcesUnchecked: unchecked[0]?.unchecked === true,
+      warnings: releaseWarnings(request.countryId, revisions),
       // A request approved alone owes a second review only where the trigger marked one due: never on one operator's dev.
       secondReviewRoles: request.secondReview === null ? [] : secondReviewRolesOf,
       approvals: approvals.map((approval) => ({

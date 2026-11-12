@@ -17,6 +17,7 @@
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { I18nProvider } from '@/i18n'
+import { ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { AutomationPanel } from '@/features/automation/components/automation-panel'
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -46,12 +47,10 @@ export default function AutomationDevPage(): JSX.Element {
         data-testid="automation-preview"
         className="bg-background text-foreground flex h-dvh flex-col"
       >
-        <AutomationPanel
-          projectId="p1"
-          canManageOrgSkills
-          canManageJobs
-          initialTab="tasks"
-        />
+        {/* Inside the real section frame: the panel's tabs stand in its header (`ProjectSectionTabs`). */}
+        <ProjectSectionFrame projectId="p1" projectName="Holzbau Wien" pathname="/app/projects/p1/automation">
+          <AutomationPanel projectId="p1" canManageOrgSkills canManageJobs initialTab="tasks" />
+        </ProjectSectionFrame>
       </main>
     </I18nProvider>
   )
