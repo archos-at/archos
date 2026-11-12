@@ -15,6 +15,7 @@ import re
 from dataclasses import dataclass
 
 from public_sources.access.base import fold
+from public_sources.access.base import placeholders
 
 from agent.knowledge.law_lookup.address import Address
 from agent.knowledge.law_lookup.address import section_in
@@ -226,27 +227,44 @@ async def live_candidates(
 async def dated_candidates(
     search: Search, question: str, address: Address, trace: LookupTrace, as_of: str
 ) -> list[Candidate]:
-    """On a past day: the named act's versions of that day, found by its title; else the planned search.
+    """On a past day: the named provision's versions of that day, found by the act's title; else the planned search.
 
-    A caller who names the act has said which law it is, so its title is the search, with no full-text
-    terms and no planner rewrite: the words of a question („which guidelines are binding") rarely stand in
-    the provision that answers it, and a source with no version date for a collection answers a full-text
-    search with today's hits or none (dev QC 2026-11-12: three provinces' building ordinances missed).
+    A caller who names the act and the provision has said which law it is, so the act's title is the search,
+    with no full-text terms and no planner rewrite: the words of a question („which guidelines are binding")
+    rarely stand in the provision that answers it, and a source with no version date for a collection answers
+    a full-text search with today's hits or none (dev QC 2026-11-12: three provinces' building ordinances
+    missed). Where the record's search takes the provision (``{provision}``), the search is narrowed to it
+    first: a large act holds more versions than a page. An act named with no provision is the planned search's,
+    which looks for the provision that answers.
     """
-    if address.law and search.law.lookup.search:
-        plan = {
-            "collection": trace.collection or search.law.lookup.statute(subdivision=bool(address.territory)).id,
-            "terms": "",
-            "title": address.law,
-            "territory": address.territory,
-        }
-        hits = await _hits(search, _search_args(search.law, plan, as_of, page_size=VERSIONS_PAGE_SIZE))
-        kept = versions_on(hits, as_of, trace, search.law, address)
+    if not (address.law and address.sections and search.law.lookup.search):
+        return await live_candidates(search, question, address, trace, as_of)
+    plan = {
+        "collection": trace.collection or search.law.lookup.statute(subdivision=bool(address.territory)).id,
+        "terms": "",
+        "title": address.law,
+        "territory": address.territory,
+    }
+    narrowed = len(address.sections) == 1 and _takes_provision(search.law)
+    for provision in (address.number, "") if narrowed else ("",):
+        args = _search_args(search.law, plan, as_of, page_size=VERSIONS_PAGE_SIZE)
+        args.update(provision=provision, provision_kind=address.kind if provision else "")
+        kept = versions_on(await _hits(search, args), as_of, trace, search.law, address)
         if kept:
             trace.searched = f"the versions of {address.law!r}"
             trace.collection = plan["collection"]
             return kept
     return await live_candidates(search, question, address, trace, as_of)
+
+
+def _takes_provision(law: LawSource) -> bool:
+    """Whether the record's search operation narrows to one provision (a ``{provision}`` argument)."""
+    try:
+        operation = law.access.operation(law.lookup.search)
+    except Exception:  # noqa: BLE001 — an access type with no operations narrows nothing
+        return False
+    templates = [template for param in operation.params for template in (param.name, param.value)]
+    return any(name == "provision" for template in templates for name, _arg in placeholders(template))
 
 
 async def _hits(search: Search, args: dict[str, str]) -> list:
@@ -286,7 +304,7 @@ def versions_on(hits, as_of: str, trace: LookupTrace, law: LawSource, address: A
     """
     day = parse_day(as_of)
     kept = [hit for hit in hits if day is not None and in_force_on(hit.metadata, day, law.engine)]
-    trace.versions_dropped += len(hits) - len(kept)
+    trace.versions_dropped = len(hits) - len(kept)
     if address is not None:
         kept = [hit for hit in kept if _holds_addressed(hit, address, law)]
     return [candidate_from_hit(hit, law, whole_law=False) for hit in kept[:MAX_CANDIDATES]]

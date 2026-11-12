@@ -292,9 +292,11 @@ async def test_a_past_day_finds_the_named_act_by_its_title_and_reads_the_address
 
     assert portal.documents_requested == [OLD_60]
     assert "(2015)" in output and "(2021)" not in output and "Bicycle" not in output
+    # Narrowed to the provision by the record's own argument, so a large act's other versions do not crowd it out.
     search = portal.searches[0]
-    assert search["title"] == REGIONAL and "q" not in search
+    assert search["title"] == REGIONAL and search["section"] == "60" and "q" not in search
     assert search["per_page"] == "100" and search["Region.InSouthmark"] == "true"
+    assert len(portal.searches) == 1
 
 
 @pytest.mark.asyncio
@@ -304,11 +306,37 @@ async def test_a_past_day_the_named_act_has_no_version_of_is_still_a_miss():
 
     assert portal.documents_requested == []
     assert "Today's text is not given in its place" in output
-    # The title search found only a later version; the planned search ran after it, as before.
-    assert len(portal.searches) == 2
+    # Narrowed to § 60, then by the title alone, then the planned search, as before this path existed.
+    assert [search.get("section") for search in portal.searches] == ["60", None, None]
+    assert "q" in portal.searches[-1]
 
 
 def test_only_a_day_before_today_is_a_past_day():
     from agent.knowledge.law_lookup.as_of import reads_today
 
     assert [reads_today(day, TODAY) for day in ("2026-11-11", "2026-11-12", "2026-11-13")] == [False, True, True]
+
+
+# Review of the fix: an act named with no provision is a question about the act, and the planned search looks for
+# the provision that answers it. A title search would read whichever provisions the source lists first.
+@pytest.mark.asyncio
+async def test_a_past_day_with_the_act_but_no_provision_is_the_planned_search():
+    portal = _regional_versions(*_ALL_VERSIONS)
+    args = {**_REGIONAL_ARGS, "instrument": REGIONAL}
+    output = await _ask_on(portal, **args, as_of="2019-06-01")
+
+    assert len(portal.searches) == 1 and "q" in portal.searches[0]
+    assert portal.documents_requested == []
+    assert "Today's text is not given in its place" in output
+
+
+# A version of that day was read and answered nothing: the miss says so, not that no version was found.
+@pytest.mark.asyncio
+async def test_a_version_of_the_day_read_without_an_answer_is_not_called_missing():
+    portal = _regional_versions(*_ALL_VERSIONS)
+    portal.set_text(OLD_60, REGIONAL, "§ 61. (1) Bicycle stands (2015).")
+    output = await _ask_on(portal, **_REGIONAL_ARGS, as_of="2019-06-01")
+
+    assert portal.documents_requested == [OLD_60]
+    assert "1 Statutes version document(s) of that day were read and none answered" in output
+    assert "no Statutes version document of that day was found" not in output

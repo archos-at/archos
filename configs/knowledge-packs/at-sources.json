@@ -95,6 +95,39 @@
                 "name": "{date_to_param[application]}",
                 "value": "{date_to}",
                 "group": "terms"
+              },
+              {
+                "name": "Abschnitt.Von",
+                "value": "{provision}",
+                "group": "terms",
+                "when": {
+                  "application": [
+                    "BrKons",
+                    "LrKons"
+                  ]
+                }
+              },
+              {
+                "name": "Abschnitt.Bis",
+                "value": "{provision}",
+                "group": "terms",
+                "when": {
+                  "application": [
+                    "BrKons",
+                    "LrKons"
+                  ]
+                }
+              },
+              {
+                "name": "Abschnitt.Typ",
+                "value": "{provision_type[provision_kind]}",
+                "group": "terms",
+                "when": {
+                  "application": [
+                    "BrKons",
+                    "LrKons"
+                  ]
+                }
               }
             ]
           },
@@ -189,6 +222,12 @@
               "Bks": "EntscheidungsdatumVon",
               "BgblAuth": "Kundmachung.Von",
               "BrKons": "Fassung.FassungVom"
+            }
+          },
+          "provision_type": {
+            "values": {
+              "§": "Paragraph",
+              "Art": "Artikel"
             }
           },
           "date_to_param": {

@@ -31,11 +31,16 @@ _RUNNERS = {
 #: Where the lookup departs from the RIS tool on purpose: the requests it sends before the ones the tool sent.
 #: Everything after them, and the text it returns, is still the tool's, byte for byte.
 DEPARTURES = {
-    # ADR-0171, amended 2026-11-12: a past day with a named act searches by the act's title first. Unrecorded
-    # here, so it finds nothing, and the lookup falls back to the planned search the tool sent.
+    # ADR-0171, amended 2026-11-12: a past day with a named act and provision searches by the act's title, first
+    # narrowed to the provision. Neither is recorded here, so both find nothing, and the lookup falls back to the
+    # planned search the tool sent. What the new path does with real answers is the as-of suite's to show
+    # (``law_lookup/test_law_lookup_as_of.py``), not this rig's.
     "as-of": [
         "https://data.bka.gv.at/ris/api/v2.6/Landesrecht?Applikation=LrKons&DokumenteProSeite=OneHundred"
         "&Seitennummer=1&Titel=Garagengesetz+Wien&Bundesland.SucheInWien=true"
+        "&Abschnitt.Von=50&Abschnitt.Bis=50&Abschnitt.Typ=Paragraph",
+        "https://data.bka.gv.at/ris/api/v2.6/Landesrecht?Applikation=LrKons&DokumenteProSeite=OneHundred"
+        "&Seitennummer=1&Titel=Garagengesetz+Wien&Bundesland.SucheInWien=true",
     ],
 }
 

@@ -63,6 +63,16 @@ access:
           when: {application: [LrKons, Lgbl, LgblAuth, Vbl]}
         - {name: "{date_from_param[application]}", value: "{date_from}", group: terms}
         - {name: "{date_to_param[application]}", value: "{date_to}", group: terms}
+        # One provision of a consolidated act (`provision`: its number, `provision_kind`: the locus sign): a
+        # search by an act's title answers every version of every provision, and a large act holds more than
+        # a page (the Bauordnung für Wien: 478 hits, § 81 alone 6; verified live 2026-11-12). A lettered
+        # paragraph (§ 60a) finds nothing this way, and the lookup then searches by the title alone.
+        - {name: Abschnitt.Von, value: "{provision}", group: terms, when: {application: [BrKons, LrKons]}}
+        - {name: Abschnitt.Bis, value: "{provision}", group: terms, when: {application: [BrKons, LrKons]}}
+        - name: Abschnitt.Typ
+          value: "{provision_type[provision_kind]}"
+          group: terms
+          when: {application: [BrKons, LrKons]}
     # A document of the citizen application, from its number.
     document:
       base_url: https://www.ris.bka.gv.at
@@ -154,6 +164,9 @@ access:
         Bks: EntscheidungsdatumVon
         BgblAuth: Kundmachung.Von
         BrKons: Fassung.FassungVom
+    # The kind of provision `Abschnitt.Von`/`Bis` count in, by the locus sign (`lookup.locus.units`).
+    provision_type:
+      values: {"§": Paragraph, Art: Artikel}
     date_to_param:
       values:
         Vfgh: EntscheidungsdatumBis

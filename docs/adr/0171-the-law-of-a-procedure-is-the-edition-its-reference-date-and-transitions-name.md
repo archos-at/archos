@@ -112,12 +112,19 @@ Chosen option 2.
   `as_of.reads_today`) is today's consolidated text by the usual path (address,
   catalog, search), and the answer opens with a line saying so; for a later day
   it adds that an amendment already promulgated for that day is not in today's
-  text. On a past day with a named act (`Address.law`), the source is searched
-  by the act's title alone, with no full-text terms and no planner rewrite, on
-  the source's largest page (`VERSIONS_PAGE_SIZE`), and of the versions in
+  text. On a past day with a named act and provision (`Address.law` and a
+  section), the source is searched by the act's title, with no full-text terms
+  and no planner rewrite, on the source's largest page (`VERSIONS_PAGE_SIZE`).
+  Where the record's search takes a `{provision}` argument (RIS: `Abschnitt.Von`
+  and `Bis`), that search is narrowed to the one provision first, since a large act
+  holds more versions than a page; then the title alone. Of the versions in
   force that day only the addressed provisions' documents are read, where the
-  hit states its provision (`Engine.provision_field`). Nothing kept falls back
-  to the planned search, and nothing found there is still the miss. Dev QC
+  hit states its provision (`Engine.provision_field`). An act named with no
+  provision, or nothing kept, falls to the planned search, and nothing found
+  there is still the miss. A miss after a version of that day was read says
+  so, rather than that none was found. A provision the narrowing cannot
+  express (RIS: a lettered paragraph, § 60a) in an act of more than a page of
+  versions can still miss. Dev QC
   2026-11-12: a dated call skipped the address and the catalog and searched the
   question's words, which stand in no provision that answers them, so three
   Länder's building ordinances missed, today's date included.

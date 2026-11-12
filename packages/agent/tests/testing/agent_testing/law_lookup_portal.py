@@ -68,6 +68,7 @@ XA_STATUTES: dict[str, Any] = {
                     {"name": "title", "value": "{title}"},
                     {"name": "{region[region]}", "value": "true", "when": {"application": ["Regional"]}},
                     {"name": "{date_from_param[application]}", "value": "{date_from}"},
+                    {"name": "section", "value": "{provision}"},
                 ],
             },
             "document": {"base_url": f"https://{DOCS}", "path": "documents/{segment}/{reference}.html"},
