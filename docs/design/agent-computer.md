@@ -119,25 +119,31 @@ which already has versions, review, backups and deletion.
 ```mermaid
 stateDiagram-v2
   [*] --> active: first write or execute
-  active --> resident: run ends
+  active --> resident: run or file operation ends
   resident --> active: next write or execute
   resident --> dormant: about 30 s without use
   dormant --> active: next write or execute
-  dormant --> deleted: idle limit reached
-  resident --> deleted: conversation deleted
-  dormant --> deleted: conversation deleted
+  dormant --> deleting: idle limit reached (retention claim)
+  resident --> deleting: conversation deleted
+  dormant --> deleting: conversation deleted
+  deleting --> deleted: storage cleared, row removed
   deleted --> [*]
 ```
+
+A conversation deleted while its workspace is `active` waits for the operation to
+end: a running script is killed first, so the wait is bounded by the run time limit.
+There is no edge from `active` to `deleting`.
 
 | State | Memory | Storage | What happens there |
 |---|---|---|---|
 | `active` | Isolate plus the Durable Object | Bucket, cached on the pod | A script runs, or the agent reads or writes a file |
 | `resident` | The Durable Object only | Same | Between runs within a turn |
 | `dormant` | None that counts (see the memory floor below) | Bucket | Most workspaces, most of the time. Reopens on demand, on any pod |
+| `deleting` | None | Bucket, until cleared | Claimed for deletion. No write or run reaches it (see the retention claim below) |
 | `deleted` | None | None | The Durable Object's storage is cleared, the record row removed |
 
-When this is built, `active`, `dormant` and `deleted` become a declared lifecycle in
-code ([ADR-0179](../adr/0179-lifecycles-are-declared-as-statechart-tables.md)) on the
+When this is built, `active`, `dormant`, `deleting` and `deleted` become a declared
+lifecycle in code ([ADR-0179](../adr/0179-lifecycles-are-declared-as-statechart-tables.md)) on the
 `agent_workspaces` row. `resident` is workerd's business and is not recorded.
 
 ## Execution states
@@ -193,6 +199,19 @@ data-protection officer.
 | Task | Shape | Like |
 |---|---|---|
 | `workspace-retention` | Cron, hourly: claim workspaces past the idle limit, delete each, then the row; also delete any whose conversation no longer exists | `download-log-retention`, `inbound-mail-sweep` (`apps/workspace/bff/scheduling/tasks.ts`) |
+
+**The retention claim cannot race a write.** The sweep claims in one statement that
+re-checks the limit: it sets `state = 'deleting'` only where `last_used` is still
+past the limit and the state is `dormant`, and deletes only the rows that statement
+returned. The workspace backend opens every write and run by setting `last_used =
+now()` in a statement that matches only rows not in `deleting`. Whichever statement
+commits first wins:
+
+- The touch commits first: the claim no longer matches, and the workspace lives on.
+- The claim commits first: the touch matches no row, so the write or run never
+  reaches the old workspace. The backend waits for the deletion to finish and starts
+  a fresh, empty workspace for the conversation. Nothing is lost that the person had
+  not already left alone for the whole idle limit.
 | Deletion with a conversation | A `bff-job` kind enqueued by the conversation's deletion path, so a computer that is briefly unavailable does not block the deletion; the sweep catches anything left | The `bff-job` pattern (`apps/workspace/bff/jobs-queue/`) |
 
 **Hatchet does not run each `execute`.** A run inside a turn takes a quarter of a
@@ -201,7 +220,8 @@ agent runs in the background, as it does for research today, with
 per-organization round-robin concurrency, retries and KEDA scaling (ADR-0150).
 
 **The agent's workspace backend** creates the record on first use, updates `last
-used` on each run, disposes every execution, and is the only caller of the computer.
+used` on each write and each run (the touch above), disposes every execution, and is
+the only caller of the computer.
 
 ## Running it in the cluster
 
@@ -252,9 +272,17 @@ an upgrade is a deliberate change with the measurements rerun.
   days ([`kubernetes.md`](../deployment/kubernetes.md#cluster-backups-ipax-velero)).
   A bucket on the existing SeaweedFS volume is therefore in those backups, and a
   deleted workspace stays in them for up to 30 days. Either state that in the annex,
-  or give the workspace bucket its own SeaweedFS volume labelled
-  `velero.io/exclude-from-backup=true` (the standard Velero exclusion; confirm IPAX's
-  schedule honours it). Workspaces are scratch, so excluding them loses nothing.
+  or give the workspace bucket its own SeaweedFS volume and keep that volume's data
+  out of the backups. Workspaces are scratch, so excluding them loses nothing.
+
+  Excluding the data takes more than a label. Velero's
+  `velero.io/exclude-from-backup=true` filters Kubernetes resources; what happens to a
+  volume's data is a separate control, a volume policy with the `skip` action. IPAX
+  backs up each volume as a CSI snapshot whose data Kopia copies off the cluster
+  (`snapshotMoveData`, see the table in `kubernetes.md`), and the schedule is theirs,
+  not in this repo. So the exclusion is confirmed with IPAX before real documents go
+  in: the label on the volume's claim, a volume policy that skips it, the Velero
+  version that enforces both, and that neither a snapshot nor its copy is taken.
 - **What a pod holds:** the cluster key and credentials for the workspace bucket only,
   no other secret, no service account token, no egress beyond the bucket and its
   peers. A script that escaped its isolate could read other workspaces through those
@@ -329,5 +357,5 @@ summary reaches the model.
 | Cluster mode keeps objects in a bucket and hands them off on stop | workerd source, `src/workerd/server/cluster/` (`lib.rs`, `owner.rs`) and `workerd.capnp`; **not run yet** |
 | Commit latency with a bucket behind every write | Not measured; step 1 measures it against SeaweedFS |
 | Deleting a workspace removes its log and snapshots from the bucket | Not checked; must hold before real documents go in |
-| Velero honours the exclusion label on IPAX | Not checked; ask IPAX |
+| IPAX's Velero skips the workspace volume's data (label, volume policy, snapshot and copy) | Not checked; ask IPAX |
 | The examples above work end to end | Only the Word and Excel files were produced in the test |
