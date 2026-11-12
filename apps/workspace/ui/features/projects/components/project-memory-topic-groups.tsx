@@ -141,7 +141,8 @@ export function ProjectMemoryTopicGroups({
   const projectTopics = new Set(items.filter((item) => item.scope === 'project').map((item) => item.topic))
   const renderTopicActions = (topic: string | null): ReactNode => {
     if (topic === null || !projectTopics.has(topic)) return null
-    const count = topics.find((entry) => entry.name === topic)?.count ?? items.filter((item) => item.topic === topic).length
+    const count =
+      topics.find((entry) => entry.name === topic)?.count ?? items.filter((item) => item.topic === topic).length
     return (
       <ProjectTopicActions projectId={projectId} topic={topic} count={count} onChanged={onChanged} />
     )

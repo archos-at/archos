@@ -48,7 +48,10 @@ function cleanTopic(topic: string | null | undefined): string | null {
  * the count is those plus the printed restricted notes (already admitted by the
  * caller); without them, every printed note counts.
  */
-function indexedTopics(items: readonly DigestItem[], shelf: readonly MemoryTopicCount[] | undefined): MemoryTopicCount[] {
+function indexedTopics(
+  items: readonly DigestItem[],
+  shelf: readonly MemoryTopicCount[] | undefined
+): MemoryTopicCount[] {
   const counts = new Map<string, number>()
   const add = (topic: string | null | undefined, count: number) => {
     const name = cleanTopic(topic)
