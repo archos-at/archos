@@ -29,7 +29,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 import { PROJECT_MEMORY_KINDS, type ProjectMemoryItem } from '@/lib/db/schema/project-memory'
-import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
+import { distinctTopicNames, type MemoryTopicCount } from '@/lib/memory-topics/topic'
 import { ProjectNoteTopicMove, ProjectTopicActions } from './project-topic-actions'
 
 /** Memory item as it arrives over the wire (timestamps serialize to strings). */
@@ -128,11 +128,6 @@ function kindRank(kind: string): number {
   return rank === -1 ? PROJECT_MEMORY_KINDS.length : rank
 }
 
-/** The distinct topics of the notes, each once, in the order they first appear. */
-function topicNamesOf(items: readonly MemoryItem[]): string[] {
-  return [...new Set(items.flatMap((item) => (item.topic === null ? [] : [item.topic])))]
-}
-
 export function ProjectMemoryTopicGroups({
   projectId,
   items,
@@ -146,7 +141,7 @@ export function ProjectMemoryTopicGroups({
   // filed only under a topic an open note holds: a restricted topic's name must not reach
   // a note that everyone it is open to can read (ADR-0087).
   const allTopicNames = topics.map((entry) => entry.name)
-  const openTopicNames = topicNamesOf(items.filter((item) => !item.restrictedFolderIds?.length))
+  const openTopicNames = distinctTopicNames(items.filter((item) => !item.restrictedFolderIds?.length))
   const ordered = [...items].sort((a, b) => kindRank(a.kind) - kindRank(b.kind))
   // A topic only office notes hold has no project note for the shelf's rename or ungroup to
   // act on: the server would move nothing and answer so, so the folder offers no actions.

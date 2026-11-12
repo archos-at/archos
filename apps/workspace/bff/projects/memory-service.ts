@@ -499,13 +499,12 @@ async function refreshDuplicate(
   values: NewProjectMemoryItem,
   rewrite = false
 ): Promise<ProjectMemoryItem> {
-  const db = getDb()
   const incoming = (values.confidence ?? 'medium') as ProjectMemoryConfidence
   const best =
     CONFIDENCE_RANK[incoming] > CONFIDENCE_RANK[duplicate.confidence]
       ? incoming
       : duplicate.confidence
-  const [updated] = await db
+  const [updated] = await getDb()
     .update(projectMemory)
     .set({
       ...(rewrite ? { content: values.content, ...STALE_VECTOR } : {}),
@@ -565,9 +564,8 @@ export async function createProjectMemoryItem(
   //     (`conflictsWithId`). A rewording only the vector saw merges.
   //  3. A caller-named supersede target → that entry is retired.
   //
-  // Merging in (2) keeps the OLD text, so a correction that merges is silently
-  // dropped while the stale row gets a fresh timestamp — memory then can never
-  // be corrected, only appended to.
+  // Merging in (2) keeps the OLD text, so a correction that merges is silently dropped
+  // while the stale row gets a fresh timestamp: memory can then only be appended to.
   const exact = await findActiveDuplicate(values)
   if (exact) {
     const corrected = assertionRelation(values.content, exact.content) === 'corrected'
