@@ -34,6 +34,7 @@ import logging
 import os
 import uuid
 from collections.abc import Iterable
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from dataclasses import field
@@ -183,7 +184,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "CATEGORICAL",
         "Which guard lowered the surfaced confidence, or none.",
         categories=(
-            *("none", "ungrounded", "quote_unverified", "law_unsettled"),
+            *("none", "ungrounded", "quote_unverified", "law_unsettled", "open_point"),
             *("normative_claim_uncited", "measurement_only", "citation_fallback"),  # retired; stored turns carry them
         ),
     ),
@@ -283,6 +284,15 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "against everything the turn registered, before the quote gate. Not written when the check was "
         "unavailable or the answer graded nothing.",
         categories=("low", "medium", "high"),
+    ),
+    ScoreDefinition(
+        "confidence-open-points",
+        "NUMERIC",
+        "How many open points the answer check read in the answer itself (its prose or its confidence reason): "
+        "something it states is open, unchecked or unresolved and its main point depends on. Above zero caps the "
+        "surfaced level at medium (confidence-capped open_point); the comment names them. Written with "
+        "confidence-judged-level.",
+        min_value=0,
     ),
     ScoreDefinition(
         "confidence-judge-unavailable",
@@ -448,11 +458,14 @@ def work_unfiled_scores(dropped: int) -> list[RuntimeScore]:
     return [RuntimeScore("work-proposals-unfiled", float(max(0, dropped)))]
 
 
-def answer_check_scores(level: str | None) -> list[RuntimeScore]:
-    """The answer check's level, or that it was unavailable (``common/claim_judge.py``, ADR-0139)."""
+def answer_check_scores(level: str | None, open_points: Sequence[str] = ()) -> list[RuntimeScore]:
+    """The answer check's level and the open points it read, or that it was unavailable (ADR-0139)."""
     if level is None:
         return [_boolean("confidence-judge-unavailable", True)]
-    return [_boolean("confidence-judge-unavailable", False), RuntimeScore("confidence-judged-level", level)]
+    named = RuntimeScore(
+        "confidence-open-points", float(len(open_points)), comment="; ".join(open_points)[:500] or None
+    )
+    return [_boolean("confidence-judge-unavailable", False), RuntimeScore("confidence-judged-level", level), named]
 
 
 def dropped_citation_scores(dropped: int) -> list[RuntimeScore]:

@@ -1,0 +1,7 @@
+---
+# area: answers
+fixes:
+  - >
+    An answer that itself says something it relies on is still open or not
+    checked, such as which edition binds at the site, no longer shows high
+    confidence beside that remark: it shows medium, and the chip says why.

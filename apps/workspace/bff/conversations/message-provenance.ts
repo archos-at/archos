@@ -207,7 +207,7 @@ export type StepDetailValue = string | number | boolean | string[]
 
 /**
  * Why the deterministic overconfidence guard downgraded the model's own
- * self-assessment. Five causes, two of them about the SECOND kind of grounding:
+ * self-assessment. The causes, two of them about the SECOND kind of grounding:
  * an IFC measurement carries a provenance, a tolerance, a readable method and
  * the GlobalIds it came from, but has no passage to quote — so it can never
  * satisfy the citation gate.
@@ -215,6 +215,8 @@ export type StepDetailValue = string | number | boolean | string[]
  * - `ungrounded`              nothing verified and nothing measured.
  * - `quote_unverified`        a quoted span matched no source passage.
  * - `law_unsettled`           cites building law the turn's records do not settle.
+ * - `open_point`              the answer itself names an open point it relies on (its prose or its
+ *   confidence reason, as the answer check read them), or rated itself below high.
  * - `normative_claim_uncited` the answer WAS measurement-grounded but also
  *   asserts something normative with no verified citation, so it is held at
  *   'low' rather than riding out on the measurement's evidence.
@@ -406,6 +408,7 @@ export const CAPPED_REASONS = [
   'ungrounded',
   'quote_unverified',
   'law_unsettled',
+  'open_point',
   'normative_claim_uncited',
   'measurement_only',
   'citation_fallback',

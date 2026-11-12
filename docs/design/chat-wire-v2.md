@@ -326,6 +326,12 @@ from a stored per-sentence turn; an older bundle strips it and shows the level.
 `packages/agent/tests/common/test_wire_v2_open_tabs.py` checks a checked and an
 unavailable `RUN_FINISHED` against the schema as it stood before.
 
+A server-to-client field whose values grow (`answer_confidence_capped_reason`)
+carries `x-unknown-as-null` in its schema (`json_schema_extra` in `wire_v2.py`);
+the generator emits it with `.catch(null)`, so a value the bundle does not know
+reads as absent and the turn settles. A bundle built before the marker still
+refuses the new value once.
+
 So a new field on `TurnResult`, a new step kind, a new `CUSTOM` or a new event
 type needs no client release first. An old tab simply does not show it, and
 `RUN_FINISHED` stays authoritative for the answer. A new *terminal* type is the

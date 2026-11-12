@@ -21,6 +21,7 @@ const CAPPED_REASON_KEYS: Record<AnswerConfidenceCappedReason, string> = {
   ungrounded: 'ungrounded',
   quote_unverified: 'quoteUnverified',
   law_unsettled: 'lawUnsettled',
+  open_point: 'openPoint',
   normative_claim_uncited: 'normativeClaimUncited',
   measurement_only: 'measurementOnly',
   citation_fallback: 'citationFallback',
@@ -199,7 +200,7 @@ const CheckedChip: FC<{
           </span>
         ) : null}
         <span className="mt-1 block">{t('confidence.checked.tooltip')}</span>
-        {cappedReason === 'quote_unverified' || cappedReason === 'law_unsettled' ? (
+        {cappedReason === 'quote_unverified' || cappedReason === 'law_unsettled' || cappedReason === 'open_point' ? (
           <span className="mt-1 block">{t(`confidence.checked.${CAPPED_REASON_KEYS[cappedReason]}`)}</span>
         ) : null}
       </TooltipContent>
