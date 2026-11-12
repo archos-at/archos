@@ -29,6 +29,7 @@ import {
   getKnowledgeBaseStatus,
   reingestKnowledgeBaseDocuments,
   updateKnowledgeBaseDisplayTitle,
+  updateKnowledgeBaseDocClass,
   withdrawCorpusFile,
   type CorpusFileMark,
 } from '@/lib/knowledge/service'
@@ -81,6 +82,8 @@ interface ReleasedText {
   sha256: string | null
   /** The name the records give the text: the work's designation (or its title) and the edition's label. */
   title: string | null
+  /** The document class the work's record states (0237), or null. */
+  docClass: string | null
 }
 
 /**
@@ -96,8 +99,10 @@ async function releasedTextOf(revisionId: string): Promise<ReleasedText | null> 
       label: string | null
       designation: string | null
       work_title: string | null
+      doc_class: string | null
     }>(sql`
-      SELECT m.edition_id, r.country_id, m.sha256, e.label, w.identifiers ->> 'designation' AS designation, w.title AS work_title
+      SELECT m.edition_id, r.country_id, m.sha256, e.label, w.identifiers ->> 'designation' AS designation, w.title AS work_title,
+        w.doc_class
       FROM knowledge_manifestation_revisions m
       JOIN knowledge_records r ON r.id = m.record_id
       LEFT JOIN knowledge_records er ON er.id = m.edition_id AND er.organization_id IS NULL
@@ -112,6 +117,7 @@ async function releasedTextOf(revisionId: string): Promise<ReleasedText | null> 
     mark: { countryId: row.country_id, editionId: row.edition_id },
     sha256: row.sha256,
     title: releasedTextTitle(row.designation, row.work_title, row.label),
+    docClass: row.doc_class,
   }
 }
 
@@ -134,22 +140,34 @@ async function heldBytes(corpusFile: string, reviewed: string | null | undefined
 }
 
 /**
- * Give a released text the title its records name, unless it has one. A text's file is named
- * `<manifestationKey>-<12 hex>.pdf`, which no title guess reads, so without this every citation of it shows that
- * name. Answers false when the corpus has no row for the file yet (an ingest that never wrote one): the run is
- * retried, after the re-ingest it queues has written the row. Any other failure is logged and the run goes on: the
- * title is a label, the chunks are what answer.
+ * The class a person set wins over the records' (ADR-0064, amended 2026-11-12): the records stamp a file whose class
+ * is unset or the neutral default, which ingestion writes when nobody chose one.
  */
-async function stampTitle(held: HeldFile, title: string | null): Promise<boolean> {
-  if (!title || held.displayTitle) return true
-  try {
-    await updateKnowledgeBaseDisplayTitle(held.fileName, title)
-    return true
-  } catch (error) {
-    if (error instanceof NotFoundError) return false
-    console.error('[base-knowledge] the title of a released text was not set', { corpusFile: held.fileName, error })
-    return true
+const UNCHOSEN_DOC_CLASSES = new Set([null, 'other'])
+
+/**
+ * Give a released text the title and the document class its records name, where it has none of its own. A text's
+ * file is named `<manifestationKey>-<12 hex>.pdf`, which no title or class guess reads, so without this every
+ * citation of it shows that name and it is filed as `other`. Answers false when the corpus has no row for the file
+ * yet (an ingest that never wrote one): the run is retried, after the re-ingest it queues has written the row. Any
+ * other failure is logged and the run goes on: both are labels, the chunks are what answer.
+ */
+async function stampRecords(held: HeldFile, released: ReleasedText | null): Promise<boolean> {
+  const stamps: [string, () => Promise<void>][] = []
+  if (released?.title && !held.displayTitle) stamps.push(['title', () => updateKnowledgeBaseDisplayTitle(held.fileName, released.title)])
+  if (released?.docClass && UNCHOSEN_DOC_CLASSES.has(held.docClass) && released.docClass !== held.docClass) {
+    const docClass = released.docClass
+    stamps.push(['document class', () => updateKnowledgeBaseDocClass(held.fileName, docClass)])
   }
+  for (const [label, stamp] of stamps) {
+    try {
+      await stamp()
+    } catch (error) {
+      if (error instanceof NotFoundError) return false
+      console.error(`[base-knowledge] the ${label} of a released text was not set`, { corpusFile: held.fileName, error })
+    }
+  }
+  return true
 }
 
 /** The job's step: hand the file to the corpus and record what it answered. Throws to be retried. */
@@ -171,17 +189,17 @@ export async function runPlatformTextIndex(
       await markRun(run.id, 'failed', refusal ?? `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
       return
     }
-    // Before the re-ingest: it keeps a stored title, so the chunks it writes carry this one.
-    const titled = await stampTitle(held, released?.title ?? null)
+    // Before the re-ingest: it keeps a stored title and class, so the chunks it writes carry these.
+    const titled = await stampRecords(held, released)
     const result = await reingestKnowledgeBaseDocuments([run.corpusFile], released ? { [run.corpusFile]: released.mark } : {})
     if (result.unknown.includes(run.corpusFile) || !result.queued.includes(run.corpusFile)) {
       await markRun(run.id, 'failed', `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
       return
     }
     if (!titled) {
-      // The re-ingest just queued writes the row; the retry stamps it. The last attempt indexes without a title.
+      // The re-ingest just queued writes the row; the retry stamps it. The last attempt indexes without a title or class.
       if (!attempt.last) throw new Error(`the base corpus has no row for ${run.corpusFile} to title yet`)
-      console.error('[base-knowledge] a released text was indexed without its title', { corpusFile: run.corpusFile })
+      console.error('[base-knowledge] a released text was indexed without its title and class', { corpusFile: run.corpusFile })
     }
     await markRun(run.id, 'queued', null)
   } catch (error) {

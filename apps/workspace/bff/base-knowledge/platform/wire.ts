@@ -37,6 +37,7 @@ import { goldenCaseFields } from '@/lib/base-knowledge/wire/golden-case'
 import { appliesWhenTableSchema } from '@/lib/base-knowledge/wire/applies-when'
 import { transitionTableSchema } from '@/lib/base-knowledge/wire/time'
 import { zoneSchema } from '@/lib/base-knowledge/wire/zone'
+import { DOC_CLASSES } from '@/lib/knowledge/doc-class'
 
 /** ISO 3166-1 alpha-2: what an office is entitled to and a platform record belongs to. */
 export const countryIdSchema = z
@@ -102,6 +103,13 @@ const workRecord = z.object({
     .max(10)
     .default([]),
   historyAvailableFrom: isoDate.nullable().default(null).describe('The first day whose edition is held.'),
+  docClass: z
+    .enum(DOC_CLASSES)
+    .nullable()
+    .default(null)
+    .describe(
+      'The document class the base corpus files its released texts under (the same list platform-knowledge-doc-class-update takes): what the text IS, a binding text, its explanatory notes, a guide, its definitions, a list of cited standards. Publishing a text stamps it unless a person set another class. Null states none.',
+    ),
   connectsBy: z
     .array(z.enum(CONNECTING_FACTORS))
     .min(1)

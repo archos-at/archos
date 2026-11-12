@@ -31455,6 +31455,29 @@
                                 }
                               ]
                             },
+                            "docClass": {
+                              "default": null,
+                              "description": "The document class the base corpus files its released texts under (the same list platform-knowledge-doc-class-update takes): what the text IS, a binding text, its explanatory notes, a guide, its definitions, a list of cited standards. Publishing a text stamps it unless a person set another class. Null states none.",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "oib_guideline",
+                                    "oib_guide",
+                                    "oib_explanatory_note",
+                                    "oib_definitions",
+                                    "oib_reference",
+                                    "oib_amendment",
+                                    "external_standard",
+                                    "law",
+                                    "other"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "connectsBy": {
                               "default": [
                                 "site"

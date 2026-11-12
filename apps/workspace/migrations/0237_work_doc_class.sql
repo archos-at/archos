@@ -1,0 +1,14 @@
+-- The document class a work's released texts are filed under in the base
+-- corpus (`doc_class`, ADR-0064 as amended 2026-11-12): a claim of the work
+-- record a reviewer decides, read by the indexing job when it publishes a
+-- text (`bff/base-knowledge/platform/indexing.ts`). Before this column the
+-- records named no class: an OIB-Richtlinie, its Begriffsbestimmungen and its
+-- list of cited standards are all `model_code`, a Leitfaden and the
+-- Erläuterungen both `commentary`, so every released text read `other`.
+--
+-- Nullable and unchecked here: the closed vocabulary is the knowledge
+-- backend's (`agent.knowledge.doc_class_vocabulary`), which validates every
+-- write of a class; the proposal schema holds a record to the same list
+-- (`DOC_CLASSES`, `bff/knowledge/doc-class.ts`). Additive: an older build
+-- never reads the column.
+ALTER TABLE "knowledge_work_revisions" ADD COLUMN IF NOT EXISTS "doc_class" text;
