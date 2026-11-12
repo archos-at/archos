@@ -1,5 +1,6 @@
 
 
+import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { AlertCircle, FolderTree, Info, RotateCcw, ShieldAlert, Sparkles } from 'lucide-react'
@@ -35,7 +36,7 @@ import { IfcFileFacts } from './file-preview-pane-lazy'
 import type { FilePreviewController } from './use-file-preview-controller'
 import { MailThreadTab, ThreadRailViews } from './mail-thread'
 
-export function FilePreviewDetailsPanel({ controller }: { controller: FilePreviewController }) {
+export function FilePreviewDetailsPanel({ controller, detailsLead }: { controller: FilePreviewController; detailsLead?: ReactNode }) {
   const { mailFocus, mailThread, railView, setRailView, viewerUserId } = controller
   const { actions, assigneeNames, canCollaborate, canManage, details, detailsFailed, detailsLoading, detailsOpen, discussHint, file, handleReingest, hasOwnershipBlock, hasVisualContent, heldVerdict, inChat, indexedReady, isFailed, isHeld, isModel, onAssigneesChanged, onLifecycleChanged, onOpenDocument, onReingested, onRevisionChanged, onTagsUpdated, openMarks, openReview, pdfInWell, peekView, peeking, projectId, reader, responsibleNames, retryDetails, review, reviewEnabled, reviewViewer, revisionsShown, scope, setDetailsOpen, setShownFinding, setShownPage, showIndexedHeading, showInlinePdf, showMetadataPanel, showPage, shownFinding, shownType, t } = controller
   return (
@@ -111,6 +112,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                 „Verantwortlich" and Ask never need a scroll. In the split layout
                 (@2xl+) it is level with the top of the document; stacked, it is
                 the first thing under the preview. */}
+              {detailsLead && <div className="mb-5" data-testid="file-preview-details-lead">{detailsLead}</div>}
               {hasOwnershipBlock && (
               <div className="mb-5 flex flex-col gap-3" /* 12px between the presses, as every pair */>
                 {/* Provenance, not status: the badge is up in the header with

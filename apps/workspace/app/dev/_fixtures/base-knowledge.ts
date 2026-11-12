@@ -141,6 +141,7 @@ const ENTRIES: BaseKnowledgeEntry[] = [
       designation: 'DIN 4109-1:2018',
       title: 'Schallschutz im Hochbau – Teil 1: Mindestanforderungen',
       editionLabel: '2018-01',
+      issuedOn: '2018-01-01',
       issuer: 'DIN',
     },
     {

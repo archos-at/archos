@@ -6,9 +6,12 @@
 export const baseKnowledge = {
   title: 'Office standards',
   subtitle: 'Standards, commentaries and directives your office owns, which {productName} relies on in your answers.',
-  upload: 'Upload',
-  uploading: 'Uploading …',
-  uploadDone: '{count} uploaded: please review and confirm',
+  upload: 'Add a standard',
+  uploading: 'Adding …',
+  adding: {
+    step: 'New standard {position} of {count}',
+    confirmNext: 'Confirm and continue',
+  },
   uploadFailed: '“{name}” could not be uploaded.',
   fromShelf: 'Take from Office filing',
   loadError: 'The office standards could not be loaded.',
@@ -21,7 +24,7 @@ export const baseKnowledge = {
   guide: {
     toggle: 'How it works',
     upload: {
-      title: '1 · Upload',
+      title: '1 · Add',
       body: 'Purchased standards, commentaries on building law, building authority directives and guidelines belong here, not project documents or templates. {productName} proposes from the file name what it is and which edition. {productName} does not read the text yet.',
     },
     confirm: {
@@ -34,7 +37,7 @@ export const baseKnowledge = {
     },
     licence: {
       title: 'Licence and AI processing',
-      body: 'Whether {productName} may read a purchased standard is your office’s decision under its licence, not {productName}’s. It takes two statements: the licence covers everyone in the office, and it allows processing by AI services. Without the second, {productName} names the standard and its edition but neither reads nor quotes it (“Metadata only”).',
+      body: 'Whether {productName} may read a purchased standard is your office’s decision under its licence, not {productName}’s. It takes two statements: the licence covers everyone in the office, and it allows processing by AI services. Without the second, {productName} names the standard and its edition but neither reads nor quotes it (“Title and edition only”).',
     },
   },
   empty: {
@@ -54,7 +57,7 @@ export const baseKnowledge = {
     all: 'All',
     proposed: 'To confirm',
     checkDue: 'Check due',
-    metadataOnly: 'Metadata only',
+    metadataOnly: 'Title and edition only',
     kindAll: 'All kinds',
     search: 'Search designation, title or file',
     searchLabel: 'Search office standards',
@@ -67,7 +70,7 @@ export const baseKnowledge = {
     kind: 'Kind',
     edition: 'Edition',
     status: 'Status',
-    text: 'Text',
+    text: 'In answers',
     checked: 'Last checked',
   },
   status: {
@@ -77,9 +80,9 @@ export const baseKnowledge = {
     checkDue: 'Check due',
   },
   text: {
-    used: 'Read',
-    metadataOnly: 'Metadata only',
-    held: 'Not read yet',
+    used: 'Quoted',
+    metadataOnly: 'Title and edition only',
+    held: 'After confirming',
     usedHint: '{productName} reads, searches and quotes the text.',
     metadataOnlyHint: '{productName} names title and edition but neither reads nor quotes the text until your office allows AI processing.',
     heldHint: '{productName} reads the text only once you confirm the standard.',
@@ -101,7 +104,15 @@ export const baseKnowledge = {
     removeTitle: 'Remove {count} standards?',
     removeBody: 'The standards and their files are removed from Office filing. {productName} no longer quotes them. This cannot be undone.',
   },
+  facts: {
+    title: 'Standard',
+    designation: 'Designation',
+    manage: 'Edit details',
+    reviewAndConfirm: 'Review and confirm',
+    checked: 'Recorded as current.',
+  },
   detail: {
+    openFile: 'Open file',
     editions: 'Editions',
     editionsWhy: 'Answers take the edition in force on the project’s reference date: for a project filed earlier the one of that time, otherwise the current one.',
     editionLine: 'Edition {label}',
@@ -205,6 +216,5 @@ export const baseKnowledge = {
     none: 'No matching document, or all are already recorded.',
     loadError: 'The documents in Office filing could not be loaded.',
     take: 'Take',
-    done: 'Taken: please review and confirm',
   },
 }

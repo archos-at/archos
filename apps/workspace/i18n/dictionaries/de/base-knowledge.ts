@@ -6,9 +6,12 @@
 export const baseKnowledge = {
   title: 'Grundlagen des Büros',
   subtitle: 'Normen, Kommentare und Weisungen, die Ihr Büro besitzt und auf die sich {productName} in Ihren Antworten stützt.',
-  upload: 'Hochladen',
-  uploading: 'Wird hochgeladen …',
-  uploadDone: '{count} hochgeladen: bitte prüfen und bestätigen',
+  upload: 'Grundlage hinzufügen',
+  uploading: 'Wird hinzugefügt …',
+  adding: {
+    step: 'Neue Grundlage {position} von {count}',
+    confirmNext: 'Bestätigen und weiter',
+  },
   uploadFailed: '„{name}“ konnte nicht hochgeladen werden.',
   fromShelf: 'Aus der Büroablage übernehmen',
   loadError: 'Die Grundlagen konnten nicht geladen werden.',
@@ -21,7 +24,7 @@ export const baseKnowledge = {
   guide: {
     toggle: 'So funktioniert es',
     upload: {
-      title: '1 · Hochladen',
+      title: '1 · Hinzufügen',
       body: 'Gekaufte Normen, Kommentare zum Baurecht, Weisungen der Baubehörden und Richtlinien gehören hierher, nicht Projektunterlagen oder Vorlagen. {productName} schlägt aus dem Dateinamen vor, was es ist und welche Ausgabe. Den Text liest {productName} noch nicht.',
     },
     confirm: {
@@ -34,7 +37,7 @@ export const baseKnowledge = {
     },
     licence: {
       title: 'Lizenz und KI-Verarbeitung',
-      body: 'Ob {productName} den Text einer gekauften Norm lesen darf, entscheidet Ihr Büro mit seiner Lizenz, nicht {productName}. Dafür braucht es zwei Aussagen: Die Lizenz gilt für alle im Büro, und sie erlaubt die Verarbeitung durch KI-Dienste. Ohne die zweite nennt {productName} die Norm und ihre Ausgabe, liest und zitiert sie aber nicht („Nur Metadaten“).',
+      body: 'Ob {productName} den Text einer gekauften Norm lesen darf, entscheidet Ihr Büro mit seiner Lizenz, nicht {productName}. Dafür braucht es zwei Aussagen: Die Lizenz gilt für alle im Büro, und sie erlaubt die Verarbeitung durch KI-Dienste. Ohne die zweite nennt {productName} die Norm und ihre Ausgabe, liest und zitiert sie aber nicht („Nur Titel und Ausgabe“).',
     },
   },
   empty: {
@@ -54,7 +57,7 @@ export const baseKnowledge = {
     all: 'Alle',
     proposed: 'Zu bestätigen',
     checkDue: 'Prüfung fällig',
-    metadataOnly: 'Nur Metadaten',
+    metadataOnly: 'Nur Titel und Ausgabe',
     kindAll: 'Alle Arten',
     search: 'Bezeichnung, Titel oder Datei suchen',
     searchLabel: 'Grundlagen durchsuchen',
@@ -67,7 +70,7 @@ export const baseKnowledge = {
     kind: 'Art',
     edition: 'Ausgabe',
     status: 'Status',
-    text: 'Text',
+    text: 'In Antworten',
     checked: 'Zuletzt geprüft',
   },
   status: {
@@ -77,9 +80,9 @@ export const baseKnowledge = {
     checkDue: 'Prüfung fällig',
   },
   text: {
-    used: 'Wird gelesen',
-    metadataOnly: 'Nur Metadaten',
-    held: 'Noch nicht gelesen',
+    used: 'Wird zitiert',
+    metadataOnly: 'Nur Titel und Ausgabe',
+    held: 'Erst nach Bestätigung',
     usedHint: '{productName} liest, durchsucht und zitiert den Text.',
     metadataOnlyHint: '{productName} nennt Titel und Ausgabe, liest und zitiert den Text aber nicht, bis Ihr Büro die KI-Verarbeitung erlaubt.',
     heldHint: 'Den Text liest {productName} erst, wenn Sie die Grundlage bestätigen.',
@@ -101,7 +104,15 @@ export const baseKnowledge = {
     removeTitle: '{count} Grundlagen entfernen?',
     removeBody: 'Die Grundlagen und ihre Dateien werden aus der Büroablage entfernt. {productName} zitiert sie danach nicht mehr. Das lässt sich nicht rückgängig machen.',
   },
+  facts: {
+    title: 'Grundlage',
+    designation: 'Bezeichnung',
+    manage: 'Angaben bearbeiten',
+    reviewAndConfirm: 'Prüfen und bestätigen',
+    checked: 'Als aktuell festgehalten.',
+  },
   detail: {
+    openFile: 'Datei öffnen',
     editions: 'Ausgaben',
     editionsWhy: 'Antworten nehmen die Ausgabe, die am Stichtag des Projekts galt: für ein früher eingereichtes Projekt die damalige, sonst die aktuelle.',
     editionLine: 'Ausgabe {label}',
@@ -205,6 +216,5 @@ export const baseKnowledge = {
     none: 'Kein passendes Dokument, oder alle sind schon erfasst.',
     loadError: 'Die Dokumente der Büroablage konnten nicht geladen werden.',
     take: 'Übernehmen',
-    done: 'Übernommen: bitte prüfen und bestätigen',
   },
 }
