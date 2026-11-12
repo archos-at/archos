@@ -4326,3 +4326,40 @@ refused_in cs_0234 "INSERT INTO knowledge_ruleset_revisions (revision_id, record
 apply_in cs_0234 0234_citation_style_rulesets.sql
 check_in cs_0234 "SELECT count(*) FROM pg_constraint WHERE conname = 'knowledge_ruleset_revisions_citation_style_purpose'" "1" "0234 applies again after its down"
 echo "==> 0234 citation style and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0235: a territory states its time zone (`zone`). The down drops the
+# column (lossy: every stated zone goes), and 0235 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0235 territory zone and its down migration on tz_0235"
+migrate_until tz_0235 0235_territory_zone
+apply_in tz_0235 0235_territory_zone.sql   # up twice: idempotent
+check_in tz_0235 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'zone'" "1" "0235 adds the zone column"
+apply_in tz_0235 0235_territory_zone.down.sql
+check_in tz_0235 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'zone'" "0" "0235 down drops the zone column"
+apply_in tz_0235 0235_territory_zone.sql
+check_in tz_0235 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'zone'" "1" "0235 applies again after its down"
+echo "==> 0235 territory zone and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0236: the records policy reads the reach as one set
+# (`knowledge_reached_ids()`), not 0211's per-row walk. The down restores 0228's
+# policy and drops the function (lossless; the per-row function stays defined
+# throughout), and 0236 applies again. That the set answers what the walk
+# answers is `visibility.integration.spec.ts`'s, on the full chain above.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0236 reach read once and its down migration on rr_0236"
+migrate_until rr_0236 0236_reached_records_once
+apply_in rr_0236 0236_reached_records_once.sql   # up twice: idempotent
+RR_POLICY="SELECT count(*) FROM pg_policies WHERE tablename = 'knowledge_records' AND qual LIKE '%knowledge_reached_ids()%'"
+RR_WALK="SELECT count(*) FROM pg_policies WHERE tablename = 'knowledge_records' AND qual LIKE '%knowledge_reached_by_relation(id)%'"
+check_in rr_0236 "$RR_POLICY" "1" "0236 reads the reach as one set in the records policy"
+check_in rr_0236 "$RR_WALK" "0" "0236 leaves no per-row walk in the records policy"
+check_in rr_0236 "SELECT count(*) FROM pg_proc WHERE proname = 'knowledge_reached_by_relation'" "1" "0236 keeps the per-row walk defined for the previous build"
+apply_in rr_0236 0236_reached_records_once.down.sql
+check_in rr_0236 "$RR_POLICY" "0" "0236 down takes the set out of the records policy"
+check_in rr_0236 "$RR_WALK" "1" "0236 down restores 0228's per-row walk in the records policy"
+check_in rr_0236 "SELECT count(*) FROM pg_proc WHERE proname = 'knowledge_reached_ids'" "0" "0236 down drops the set function"
+apply_in rr_0236 0236_reached_records_once.sql
+check_in rr_0236 "$RR_POLICY" "1" "0236 applies again after its down"
+echo "==> 0236 reach read once and its down migration verified"

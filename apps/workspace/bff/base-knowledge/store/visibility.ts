@@ -8,7 +8,9 @@
  * - a released platform record (it has a head) of a country the office is
  *   entitled to (`knowledge_country_entitled`, the `EU` pack following an
  *   entitled member), or one a released relation reaches from such a record
- *   (`knowledge_reached_by_relation`: a DIN edition a Land law makes binding).
+ *   (`knowledge_reached_ids()`: a DIN edition a Land law makes binding). The
+ *   reach is a set built once per subplan (migration 0236): the per-row walk of 0211 cost
+ *   an office entitled to little of the corpus seconds per read.
  *
  * Every read of base knowledge for an office (the chain, the time path, the
  * territory chain, the office's listings, rulesets, coverage) ANDs this, so a
@@ -26,5 +28,5 @@ export function recordReadable(alias: string, organizationId: string): SQL {
   if (!ALIAS.test(alias)) throw new RangeError(`not a table alias: ${alias}`)
   const r = sql.raw(alias)
   return sql`(${r}.organization_id = ${organizationId} OR (${r}.organization_id IS NULL AND ${r}.head_revision_id IS NOT NULL
-    AND (knowledge_country_entitled(${r}.country_id) OR knowledge_reached_by_relation(${r}.id))))`
+    AND (knowledge_country_entitled(${r}.country_id) OR ${r}.id IN (SELECT knowledge_reached_ids()))))`
 }
