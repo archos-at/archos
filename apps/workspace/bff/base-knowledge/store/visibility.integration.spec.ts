@@ -137,6 +137,31 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     }
   })
 
+  // Migration 0236 reads the reach as one set per query; 0211's per-row walk stays defined, and is the oracle:
+  // for every office, every platform record is in the set exactly where the walk answers true.
+  it('reads the reach as one set that answers what the per-row walk answers, for every office', async () => {
+    const offices = (
+      await withPlatformAccess('visibility spec: every office', () =>
+        db.execute<{ id: string }>(sql`SELECT workos_organization_id AS id FROM organizations ORDER BY 1`),
+      )
+    ).map((row) => row.id)
+    for (const organizationId of offices) {
+      const disagreements = await drizzle(owner).transaction(async (tx) => {
+        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true)`)
+        return tx.execute<{ id: string; walk: boolean }>(sql`
+          SELECT r.id, knowledge_reached_by_relation(r.id) AS walk FROM knowledge_records r
+          WHERE r.organization_id IS NULL
+            AND knowledge_reached_by_relation(r.id) IS DISTINCT FROM (r.id IN (SELECT knowledge_reached_ids()))`)
+      })
+      expect(disagreements, organizationId).toEqual([])
+    }
+    const reached = await drizzle(owner).transaction(async (tx) => {
+      await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${AUSTRIAN}, true)`)
+      return (await tx.execute<{ id: string }>(sql`SELECT knowledge_reached_ids() AS id`)).map((row) => row.id)
+    })
+    expect(reached).toEqual(expect.arrayContaining([`work:sia-500-${RUN}`, `edition:sia-500-2009-${RUN}`]))
+  })
+
   it('is not vacuous: an Austrian office reads the reached Swiss standard and the EU pack, a German office neither', async () => {
     const austrian = await throughPredicate(AUSTRIAN)
     expect(austrian).toEqual(expect.arrayContaining([`work:sia-500-${RUN}`, 'EU']))
