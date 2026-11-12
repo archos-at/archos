@@ -82,7 +82,7 @@ export function TopicFolders<T extends { id: string; topic: string | null }>({
         <Collapsible key={group.topic ?? ''} defaultOpen={defaultOpen} data-testid="topic-folder">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="min-w-0">
-              <CollapsibleTrigger className="group/folder hover:bg-muted/50 focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-md py-1 pr-2 text-left text-sm font-medium focus-visible:ring-2 focus-visible:outline-none">
+              <CollapsibleTrigger className="group/folder hover:bg-hover focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-md py-1 pr-2 text-left text-sm font-medium focus-visible:ring-2 focus-visible:outline-none">
                 <ChevronDown
                   className="text-muted-foreground size-4 shrink-0 transition-transform group-data-[state=closed]/folder:-rotate-90 motion-reduce:transition-none"
                   aria-hidden
