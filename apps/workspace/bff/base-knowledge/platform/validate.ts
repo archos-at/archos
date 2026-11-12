@@ -375,20 +375,25 @@ export interface ReleaseWarning {
   detail: string
 }
 
-export const NO_COVERAGE_WARNING = 'the country states no coverage: every site in it stays at gate none, without binding editions'
+export const NO_COVERAGE_WARNING =
+  'the country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one'
 
 /**
  * The request's warnings, from each record's newest revision in it. A country whose own territory record
- * (`id === countryId`) states no `coverageLevel` leaves every site in it at gate `none` (`context/resolve.ts`
- * `coverageAt`): its law is read, and no edition binds. A union states none by design (it never lends its
- * coverage to a member). Pure.
+ * (`id === countryId`) states no `coverageLevel` leaves a site in it at gate `none` (`context/resolve.ts`
+ * `coverageAt`, the nearest territory on the chain that states one) unless a region on its chain states one:
+ * its law is read, and no edition binds. Silent when a territory of the request states coverage, since the
+ * region may then be the one that answers. A union states none by design (it never lends its coverage to a
+ * member). Pure.
  */
 export function releaseWarnings(
   countryId: string,
   revisions: readonly (Pick<RevisionView, 'type' | 'recordId'> & { claims: readonly { path: string; value: unknown }[] })[],
 ): ReleaseWarning[] {
-  const country = revisions.find((revision) => revision.type === 'territory' && revision.recordId === countryId)
+  const states = (revision: (typeof revisions)[number]) =>
+    revision.claims.some((claim) => claim.path === 'coverageLevel' && claim.value !== null && claim.value !== undefined)
+  const territories = revisions.filter((revision) => revision.type === 'territory')
+  const country = territories.find((revision) => revision.recordId === countryId)
   if (!country || country.claims.some((claim) => claim.path === 'kind' && claim.value === 'union')) return []
-  const stated = country.claims.some((claim) => claim.path === 'coverageLevel' && claim.value !== null && claim.value !== undefined)
-  return stated ? [] : [{ code: 'country_states_no_coverage', recordId: countryId, detail: NO_COVERAGE_WARNING }]
+  return territories.some(states) ? [] : [{ code: 'country_states_no_coverage', recordId: countryId, detail: NO_COVERAGE_WARNING }]
 }

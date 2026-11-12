@@ -330,7 +330,7 @@ describe('releaseWarnings', () => {
 
   it('warns, and refuses nothing, when the country’s own territory states no coverage', () => {
     expect(releaseWarnings('XA', [territory({})])).toEqual([{ code: 'country_states_no_coverage', recordId: 'XA', detail: NO_COVERAGE_WARNING }])
-    expect(NO_COVERAGE_WARNING).toBe('the country states no coverage: every site in it stays at gate none, without binding editions')
+    expect(NO_COVERAGE_WARNING).toBe('the country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one')
   })
 
   it('is quiet when the country states a coverage, for a subdivision, a union, or a request without the country', () => {
@@ -338,5 +338,10 @@ describe('releaseWarnings', () => {
     expect(releaseWarnings('XA', [territory({ id: 'XA-1', kind: 'state', parents: [{ id: 'XA', validFrom: null, validTo: null }] })])).toEqual([])
     expect(releaseWarnings('XU', [territory({ id: 'XU', kind: 'union' })])).toEqual([])
     expect(releaseWarnings('XA', [])).toEqual([])
+  })
+
+  it('is quiet when a region of the request states the coverage the country leaves open', () => {
+    const region = territory({ id: 'XA-1', kind: 'state', parents: [{ id: 'XA', validFrom: null, validTo: null }], coverageLevel: 'core' })
+    expect(releaseWarnings('XA', [territory({}), region])).toEqual([])
   })
 })

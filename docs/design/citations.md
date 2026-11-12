@@ -349,10 +349,13 @@ by its lane prefix `building_law`: the line read "oib-rl-6-2015-text-….pdf, Pk
 Rechtsinformationssystem des Bundes (RIS)." (L on dev, reproduced by the `recorded-text` case of the
 citation-lines fixture). Now each use carries the work's `issuer` (`context/resolve.ts`, `contextUseSchema`),
 the citation wire carries it beside `designation` and `edition_label` (`citations/roles.role_fields`), and a
-source whose line names an edition (`edition_id` and `designation`) is written as a `standard` whatever its
-lane: its title the designation and the edition label, its publisher the issuer, its place the `place` of the
-style's kind whose `publisher` is that issuer (`shared/citation-style.ts` `recordedName`). The chip takes the
-same title (`citations/model.ts`). Law read live names no edition and keeps its own title and source. Where
+source whose line names an edition (`edition_id` and `designation`) and that has no title of its own (none,
+or its file name) is written as a `standard` whatever its lane: its title the designation and the edition
+label, its publisher the issuer, its place the `place` of the style's kind whose `publisher` is that issuer
+(`shared/citation-style.ts` `recordedName`). A work whose record names no issuer, or one the style spells
+otherwise, keeps the publisher of the standard kind its lane matches. The chip takes the same title
+(`citations/model.ts`). Law read live always carries its own title, so it keeps that title and its source even
+where `use_for_source_ref` hands it the use of a held edition of its work (`knowledge_context.py`). Where
 no use reaches a passage the file name and lane stay the fallback: a gate of `none` carries no uses at all
 (`resolve.ts`, so a country whose territory states no coverage cites its texts by file name, the warning
 `country_states_no_coverage` on its change request), and neither does a turn replayed from its text without

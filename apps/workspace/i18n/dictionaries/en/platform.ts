@@ -164,7 +164,7 @@ export const platform = {
       wrong: 'Entries not correct: {count}. A request with a wrong entry cannot be approved.',
     },
     warnings: {
-      country_states_no_coverage: 'The country states no coverage: every site in it stays at gate none, without binding editions.',
+      country_states_no_coverage: 'The country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one.',
     },
     acceptAll: 'All correct',
     acceptChecked: 'Checked against the source, all correct',

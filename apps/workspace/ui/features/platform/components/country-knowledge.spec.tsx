@@ -439,7 +439,7 @@ describe('CountryKnowledge', () => {
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     await user.click(await screen.findByRole('button', { name: 'All correct' }))
     expect(await screen.findByTestId('change-request-warning-country_states_no_coverage')).toHaveTextContent(
-      'The country states no coverage: every site in it stays at gate none, without binding editions.'
+      'The country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one.'
     )
     // A warning refuses nothing: the approval stays the reviewer's.
     expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled()

@@ -162,7 +162,7 @@ export const platform: typeof en.platform = {
     },
     warnings: {
       country_states_no_coverage:
-        'Das Land nennt keine Abdeckung: Jeder Standort darin bleibt beim Gate „none“, ohne verbindliche Ausgaben.',
+        'Das Land nennt keine Abdeckung: Ein Standort darin bleibt beim Gate „none“, ohne verbindliche Ausgaben, außer eine Region auf seiner Kette nennt eine.',
     },
     acceptAll: 'Alle richtig',
     acceptChecked: 'Mit der Quelle verglichen, alles richtig',

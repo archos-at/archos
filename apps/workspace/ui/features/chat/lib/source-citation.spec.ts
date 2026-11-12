@@ -172,6 +172,47 @@ describe('toTechnicalText', () => {
     expect(toTechnicalText(live, NOW)).toBe(toTechnicalText(law, NOW))
   })
 
+  test('a law read live keeps its own title and source even where the records hold an edition of its work', () => {
+    const live = refFor({
+      id: 'c10',
+      content: '',
+      timestamp: NOW,
+      title: 'Bauordnung für Wien § 108',
+      kind: 'building_law',
+      lane: 'building_law_ris',
+      origin: 'ris',
+      url: 'https://www.ris.bka.gv.at/x',
+      number: 10,
+      isCited: true,
+      line: { work_id: 'work:bo-wien', edition_id: 'edition:bo-wien-2023', designation: 'BO für Wien', edition_label: 'LGBl. Nr. 37/2023', issuer: 'Land Wien' },
+    })
+    expect(live.document.title).toBe('Bauordnung für Wien § 108')
+    expect(toTechnicalText(live, NOW)).toBe(toTechnicalText(law, NOW))
+  })
+
+  test('a recorded text whose work names no issuer keeps the publisher its lane gives', () => {
+    const recorded = refFor({
+      id: 'c11',
+      content: '',
+      timestamp: NOW,
+      title: 'oib-rl-6-2015-text-0a1b2c3d4e5f.pdf',
+      fileName: 'oib-rl-6-2015-text-0a1b2c3d4e5f.pdf',
+      kind: 'building_law',
+      lane: 'building_law_oib',
+      origin: 'kb',
+      page: 9,
+      number: 11,
+      isCited: true,
+      line: { edition_id: 'edition:oib-rl-6-2015', designation: 'OIB-Richtlinie 6', edition_label: 'Ausgabe März 2015' },
+    })
+    expect(toCslItem(recorded, NOW)).toMatchObject({
+      type: 'standard',
+      title: 'OIB-Richtlinie 6, Ausgabe März 2015',
+      publisher: 'Österreichisches Institut für Bautechnik',
+      'publisher-place': 'Wien',
+    })
+  })
+
   test('numbers the bibliography the way the answer cites it', () => {
     expect(toTechnicalTextList([oib, law], NOW).split('\n')[1]).toMatch(/^\[2\] Bauordnung/)
   })
