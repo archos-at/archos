@@ -4,6 +4,16 @@
 numbers marked *measured* were taken on a development machine to size that
 deployment.
 
+## Summary
+
+| | |
+|---|---|
+| **What** | The agent gets one tool, `execute`. It runs a short JavaScript program the agent wrote, with the documents it needs, and returns the files the program made. |
+| **Why** | Today the agent reads and writes about the work. With `execute` it does the work: totals and ratios from code instead of the model's head, documents checked against each other, Word and Excel files the office opens without explanation. Large documents are processed in code, so less of an office's text reaches the model provider. |
+| **How** | Each run gets a fresh isolate with no network, thrown away afterwards, inside a pod that holds nothing worth taking. Files in, files out, nothing kept in the runtime. The shape of Anthropic's code execution tool, on our own cluster. |
+| **Effort and cost** | A handful of small pieces, most beside things that exist. A run takes a fraction of a second; the runner is stateless and scales with KEDA. No new vendor, no new processor of office data, nothing to ask IPAX. |
+| **Needs a decision** | The isolate engine (a one-day test of two candidates decides), where `/workspace/` files are stored, and the limits per run. |
+
 ## What this is
 
 The agent gets one new tool, `execute`. It runs a short JavaScript module the agent
@@ -255,7 +265,8 @@ Each rejection names the premise it rests on, so a later reader re-checks the pr
 
 1. The isolate engine: workerd or isolated-vm, decided by the one-day spike.
 2. Where `/workspace/` bytes live: a higher cap in the draft store, or the object
-   store.
+   store. Whichever it is, its backups and its deletion with the conversation are
+   checked before real documents go in.
 3. The limits above.
 4. Whether runs count toward an office's credits (ADR-0053).
 
