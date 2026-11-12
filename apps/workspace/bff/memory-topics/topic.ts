@@ -80,7 +80,7 @@ export const memoryTopicField = z
   .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
   .nullable()
   .describe(
-    `The note's topic: one to three words naming its subject ("Brandschutz", not "Entscheidung"), reusing a topic the shelf already has. Max ${MEMORY_TOPIC_MAX_LENGTH} characters. null: no topic.`
+    `The note's topic: one to three words naming its subject ("fire safety", not "decision"), reusing a topic the shelf already has. Max ${MEMORY_TOPIC_MAX_LENGTH} characters. null: no topic.`
   )
 
 /** `PATCH …/memory/topics`: every note with topic `from` gets topic `to`; a `to` another topic has merges them. */

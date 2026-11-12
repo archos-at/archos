@@ -66,7 +66,7 @@ REFLECTION_SYSTEM_PROMPT = (
     "not shown below, and never invent one.\n\n"
     "EVERY FINDING NAMES ITS TOPIC, in `topic`: the subject it is filed under on its shelf, so the "
     "shelf reads as folders. One to three words in the language the person wrote in, a subject and "
-    'not a kind ("Brandschutz", not "Entscheidung"). Reuse a topic already shown in the memory '
+    'not a kind ("fire safety", not "decision"). Reuse a topic already shown in the memory '
     "below when one fits, in the spelling the memory uses (a line's first quoted tag, or the index "
     "line); an empty string when none does.\n\n"
     "about must be one of: project, person.\n"

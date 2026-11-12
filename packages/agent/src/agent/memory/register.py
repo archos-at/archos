@@ -558,7 +558,7 @@ _SCOPE_DESCRIPTION = (
 )
 _TOPIC_DESCRIPTION = (
     "The subject the note is filed under: one to three words in the person's language, a subject not a "
-    "kind (e.g. 'Brandschutz', not 'Entscheidung'). Reuse a topic already shown in memory when one fits. Empty if none."
+    "kind (e.g. 'fire safety', not 'decision'). Reuse a topic already shown in memory when one fits. Empty if none."
 )
 _SUPERSEDES_DESCRIPTION = (
     "The verbatim text of the memory entry this finding corrects, without its tag and without the "

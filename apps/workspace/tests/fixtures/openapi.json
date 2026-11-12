@@ -1806,7 +1806,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
+                    "description": "The note's topic: one to three words naming its subject (\"fire safety\", not \"decision\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 },
                 "required": [
@@ -2102,7 +2102,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
+                    "description": "The note's topic: one to three words naming its subject (\"fire safety\", not \"decision\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 }
               }
@@ -18200,7 +18200,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
+                    "description": "The note's topic: one to three words naming its subject (\"fire safety\", not \"decision\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 },
                 "required": [
@@ -18437,7 +18437,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
+                    "description": "The note's topic: one to three words naming its subject (\"fire safety\", not \"decision\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 }
               }
@@ -26558,7 +26558,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
+                    "description": "The note's topic: one to three words naming its subject (\"fire safety\", not \"decision\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 },
                 "required": [
@@ -26823,7 +26823,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
+                    "description": "The note's topic: one to three words naming its subject (\"fire safety\", not \"decision\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 }
               }
