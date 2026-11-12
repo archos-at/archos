@@ -133,7 +133,7 @@ export function PageMock({
   kind?: DocumentKind
 }) {
   return (
-    <div className="bg-background h-fit min-h-[320px] w-full max-w-[520px] rounded-surface border p-7 shadow-lg">
+    <div className="bg-background h-fit min-h-[320px] w-full max-w-[520px] rounded-surface p-7 shadow-lg">
       <div className="flex items-baseline justify-between border-b pb-2.5">
         <div className="space-y-1.5">
           {/* The alphas are the point here, not drift: a skeleton paints solid

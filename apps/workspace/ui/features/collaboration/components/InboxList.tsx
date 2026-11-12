@@ -451,7 +451,7 @@ export function InboxList({
             as="ul"
             data-testid="inbox-skeleton"
             aria-busy="true"
-            className="bg-card shadow-xs animate-in fade-in-0 duration-quick ease-out fill-mode-backwards delay-(--motion-quick) motion-reduce:animate-none"
+            className="border-0 bg-card shadow-xs animate-in fade-in-0 duration-quick ease-out fill-mode-backwards delay-(--motion-quick) motion-reduce:animate-none"
           >
             {Array.from({ length: 4 }).map((_, index) => (
               <Item as="li" key={index} className="items-start py-3.5">
@@ -496,7 +496,7 @@ export function InboxList({
                 <SectionLabel as="h3" id={`inbox-section-${key}`} className="mb-2 block px-1">
                   {t(`inbox.groups.${section.group}`)}
                 </SectionLabel>
-                <ItemList as="ul" className="bg-card shadow-xs">
+                <ItemList as="ul" className="border-0 bg-card shadow-xs">
                   {/* Archiving a row is the one action here, and it removes that row —
                       so the list needs an exit, which CSS cannot give it, and `layout`
                       so the rows below close the gap instead of jumping.
