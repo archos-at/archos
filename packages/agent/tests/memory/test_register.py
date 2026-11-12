@@ -192,6 +192,102 @@ async def test_a_personal_finding_without_an_envelope_is_not_saved(monkeypatch):
     insert.assert_not_called()
 
 
+def _personal_routes(monkeypatch, *, forget):
+    """Both personal-memory routes, faked at the transport: the forget answers ``forget``; each call's path."""
+    calls: list[tuple[str, dict]] = []
+
+    class _Response(io.BytesIO):
+        status = 200
+        headers = {"Content-Type": "application/json"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    class _Opener:
+        def open(self, request, timeout=None):  # noqa: ANN001
+            path = request.full_url.split("/api/internal/", 1)[1]
+            calls.append((path, json.loads(request.data.decode("utf-8"))))
+            answer = forget if path.endswith("/forget") else {"item": {"id": "note-2"}, "created": True}
+            return _Response(json.dumps(answer).encode("utf-8"))
+
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "internal-token")
+    monkeypatch.setattr(bff_http, "_opener", _Opener())
+    return calls
+
+
+_LORD = "Mit „Lord“ ansprechen."
+
+
+@pytest.mark.asyncio
+async def test_undoing_a_personal_note_removes_it_and_records_nothing(monkeypatch):
+    _patch_context(monkeypatch)
+    _patch_envelope(monkeypatch)
+    calls = _personal_routes(monkeypatch, forget={"removedId": "note-1", "refused": None})
+
+    result = await _remember(
+        monkeypatch, MagicMock(), scope="personal", kind="preference", content="", supersedes=_LORD
+    )
+
+    assert calls == [("personal-memory/forget", {"content": _LORD})]
+    assert result.startswith("Removed the earlier personal note.")
+
+
+@pytest.mark.asyncio
+async def test_a_personal_correction_removes_the_old_note_before_it_writes_the_new_one(monkeypatch):
+    _patch_context(monkeypatch)
+    _patch_envelope(monkeypatch)
+    calls = _personal_routes(monkeypatch, forget={"removedId": "note-1", "refused": None})
+
+    result = await _remember(
+        monkeypatch,
+        MagicMock(),
+        scope="personal",
+        kind="preference",
+        content="Mit „Meister“ ansprechen.",
+        supersedes=_LORD,
+    )
+
+    assert [path for path, _ in calls] == ["personal-memory/forget", "personal-memory"]
+    assert (
+        result
+        == "Removed the earlier personal note. Recorded preference in personal memory; only this person can read it."
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("refused", "said"), [("not_found", "No personal note says"), ("curated", "wrote or pinned that note")]
+)
+async def test_a_personal_correction_whose_note_stays_writes_nothing(monkeypatch, refused, said):
+    """The bug this guards: a note that contradicts the one it was meant to replace."""
+    _patch_context(monkeypatch)
+    _patch_envelope(monkeypatch)
+    calls = _personal_routes(monkeypatch, forget={"removedId": None, "refused": refused})
+
+    result = await _remember(
+        monkeypatch,
+        MagicMock(),
+        scope="personal",
+        kind="preference",
+        content="Nicht mehr mit „Lord“ ansprechen.",
+        supersedes=_LORD,
+    )
+
+    assert [path for path, _ in calls] == ["personal-memory/forget"]
+    assert said in result and "contradicting note" in result
+
+
+@pytest.mark.asyncio
+async def test_an_empty_content_is_still_refused_without_a_note_to_remove(monkeypatch):
+    _patch_context(monkeypatch)
+    assert await _remember(monkeypatch, MagicMock(), scope="personal", kind="preference", content=" ") == (
+        "Error: content must not be empty."
+    )
+
+
 @pytest.mark.asyncio
 async def test_a_personal_finding_needs_no_project_and_is_never_a_card(monkeypatch):
     from agent.cards.registry import CardRegistry

@@ -49,6 +49,7 @@ from agent.common.bff_http import SignedEnvelope
 from agent.common.json_utils import extract_json
 from agent.common.structured_reply import structured_reply
 from agent.knowledge.personal_memory import VALID_PERSONAL_KINDS
+from agent.knowledge.personal_memory import forget_personal_memory_item
 from agent.knowledge.personal_memory import insert_personal_memory_item
 from agent.knowledge.project_memory import VALID_CONFIDENCES
 from agent.knowledge.project_memory import insert_memory_item
@@ -144,7 +145,9 @@ class _ReflectionFinding(BaseModel):
             "assistant to work on this project."
         )
     )
-    content: str = Field(description="One concise, self-contained sentence.")
+    content: str = Field(
+        description="One concise, self-contained sentence. Empty only to remove the personal note named in supersedes."
+    )
     confidence: Literal["low", "medium", "high"] = Field(description="Confidence in the finding.")
     importance: int = Field(
         ge=1,
@@ -269,7 +272,11 @@ def _content_in_digest(content: str, normalized_digest: str) -> bool:
 
 
 def _person_finding(
-    finding: _ReflectionFinding, *, normalized_personal: str, can_write_personal: bool
+    finding: _ReflectionFinding,
+    *,
+    normalized_personal: str,
+    can_write_personal: bool,
+    personal_entries: frozenset[str] = frozenset(),
 ) -> _ReflectionFinding | None:
     """A finding about the person as it may be written to their personal memory, or None."""
     if not can_write_personal:
@@ -277,14 +284,21 @@ def _person_finding(
         # no personal memory to write to, and the project's is not a fallback.
         logger.info("Memory reflection: dropped a personal finding; no envelope names its owner")
         return None
+    # A quote retires a personal note only when it names one whole note the
+    # model was shown; anything else is dropped from the finding, as for project memory.
+    if finding.supersedes and _normalize(finding.supersedes) not in personal_entries:
+        logger.info("Memory reflection: ignoring a supersedes quote that is not a shown personal note")
+        finding = finding.model_copy(update={"supersedes": ""})
+    if not finding.content:
+        # A removal alone: the person asked to drop a note. Nothing left to drop is nothing to do.
+        return finding if finding.supersedes else None
     if _content_in_digest(finding.content, normalized_personal):
         return None
     # A note about the person is the point, so the contact shapes pass; a secret never does.
     if looks_like_secret(finding.content):
         logger.warning("Memory reflection: dropped a personal %s finding matching a secret pattern", finding.kind)
         return None
-    # Personal memory has no supersede: the quote could only name a project entry.
-    return finding.model_copy(update={"supersedes": ""}) if finding.supersedes else finding
+    return finding
 
 
 def _finding_from_entry(
@@ -294,6 +308,7 @@ def _finding_from_entry(
     digest_entries: frozenset[str],
     normalized_personal: str = "",
     can_write_personal: bool = False,
+    personal_entries: frozenset[str] = frozenset(),
 ) -> _ReflectionFinding | None:
     """One insertable finding from a proposed entry, or None when it does not qualify.
 
@@ -306,14 +321,22 @@ def _finding_from_entry(
         finding = _ReflectionFinding.model_validate(entry)
     except ValidationError:
         return None
+    if finding.about == "person":
+        # Before the digest check: a removal has no content to find there.
+        if finding.content and _content_in_digest(finding.content, normalized_digest):
+            return None
+        return _person_finding(
+            finding,
+            normalized_personal=normalized_personal,
+            can_write_personal=can_write_personal,
+            personal_entries=personal_entries,
+        )
     if not finding.content:
         return None
     # Never re-store something already sitting in the digest we showed the LLM
     # (its `this turn` lines hold what the tool wrote to either memory).
     if _content_in_digest(finding.content, normalized_digest):
         return None
-    if finding.about == "person":
-        return _person_finding(finding, normalized_personal=normalized_personal, can_write_personal=can_write_personal)
     if finding.kind == "profile":
         # Contradicts itself: `profile` is a personal kind. Not guessed either way.
         return None
@@ -357,6 +380,7 @@ def _sanitize_findings(
         "digest_entries": _digest_entry_contents(memory_digest),
         "normalized_personal": _normalize(personal_memory or ""),
         "can_write_personal": can_write_personal,
+        "personal_entries": _digest_entry_contents(personal_memory),
     }
     proposed = (_finding_from_entry(entry, **checks) for entry in raw)
     return [finding for finding in proposed if finding is not None][:MAX_NEW_ITEMS]
@@ -365,8 +389,21 @@ def _sanitize_findings(
 async def _write_personal_finding(
     finding: _ReflectionFinding, *, envelope: SignedEnvelope | None, conversation_id: str | None
 ) -> dict[str, str] | None:
-    """Record one finding about the person in their personal memory, never the project's (ADR-0180)."""
+    """Record one finding about the person in their personal memory, never the project's (ADR-0180).
+
+    A finding that names a note in ``supersedes`` removes it first, and is
+    written only once it is gone: a correction never stands beside the note it
+    contradicts. A finding with no content is that removal alone.
+    """
     if envelope is None:
+        return None
+    if finding.supersedes:
+        forgot = await asyncio.to_thread(forget_personal_memory_item, envelope=envelope, content=finding.supersedes)
+        if forgot.removed_id is None:
+            logger.info("Memory reflection: a personal correction was not written; its note was %s", forgot.refused)
+            return None
+        logger.info("Memory reflection: removed personal note %s", forgot.removed_id)
+    if not finding.content:
         return None
     written = await asyncio.to_thread(
         insert_personal_memory_item,

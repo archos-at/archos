@@ -119,6 +119,16 @@ _PERSONAL_DATA_RESULT = (
     "never recorded."
 )
 _UNKNOWN_PROJECT_RESULT = "Error: unknown project — nothing recorded."
+_PERSONAL_REMOVED_RESULT = "Removed the earlier personal note."
+_PERSONAL_NOT_FOUND_RESULT = (
+    "Error: nothing was changed. No personal note says what 'supersedes' quotes. Quote the note "
+    "VERBATIM from PERSONAL_MEMORY, without its [kind] tag and quotes, and call again. Do not record "
+    "a contradicting note instead."
+)
+_PERSONAL_CURATED_RESULT = (
+    "Not changed: the person wrote or pinned that note themselves, so only they remove or edit it, in "
+    "their personal memory settings. Tell them so; do not record a contradicting note."
+)
 #: Who reads a finding in each scope, said in every success result.
 _READERS = {
     "personal": "only this person can read it",
@@ -383,35 +393,69 @@ def _refusal_before_write(scope: str, kind: str, content: str) -> str | None:
     return None
 
 
-async def _remember_personal(kind: str, content: str) -> str:
-    """Record a finding about the person asking in their personal memory (ADR-0180).
+async def _remember_personal(kind: str, content: str, supersedes: str = "") -> str:
+    """Record, correct or drop a finding about the person asking in their personal memory (ADR-0180).
 
-    Never restricted-folder memory and never a proposal card: one person reads
-    it, the one who was in the turn. Without the turn's envelope there is no
-    owner to write for, and the project's memory is not a fallback.
+    With ``supersedes`` the quoted note is removed first, and only once it is
+    gone is ``content`` written, so a correction never leaves the old note and
+    its contradiction side by side; with ``supersedes`` alone the note is just
+    removed (the person asked to undo it). Never restricted-folder memory and
+    never a proposal card: one person reads it, the one who was in the turn.
+    Without the turn's envelope there is no owner to write for, and the
+    project's memory is not a fallback.
     """
     header, signature = project_context.get_request_envelope_from_context()
     if not header or not signature:
         return _PERSONAL_NO_ENVELOPE_RESULT
+    envelope = SignedEnvelope(header=header, signature=signature)
+    removed = ""
+    if supersedes:
+        refusal = await _forget_personal(envelope, supersedes)
+        if refusal is not None:
+            return refusal
+        removed = _PERSONAL_REMOVED_RESULT
+        if not content:
+            return f"{removed} Tell the person it is gone."
+    if memory_client.turn_is_temporary():
+        return f"{removed} {_TEMPORARY_RESULT}".strip()
     try:
         written = await asyncio.to_thread(
             personal_client.insert_personal_memory_item,
-            envelope=SignedEnvelope(header=header, signature=signature),
+            envelope=envelope,
             kind=kind,
             content=content,
             conversation_id=project_context.get_conversation_id_from_context(),
         )
     except memory_client.TemporaryConversationError:
-        return _TEMPORARY_RESULT
+        return f"{removed} {_TEMPORARY_RESULT}".strip()
     except _WRITE_FAILURES as exc:
         logger.error("Failed to record a personal memory item", exc_info=exc)
-        return _UNAVAILABLE_RESULT
+        return f"{removed} {_UNAVAILABLE_RESULT}".strip()
     if written is None:
-        return _SECRET_RESULT
+        return f"{removed} {_SECRET_RESULT}".strip()
     logger.info("Recorded personal memory item %s (%s, created=%s)", written.id, kind, written.created)
     if not written.created:
-        return f"Personal memory already held this {kind}; it was refreshed. {_READERS['personal'].capitalize()}."
-    return f"Recorded {kind} in personal memory; {_READERS['personal']}."
+        result = f"Personal memory already held this {kind}; it was refreshed. {_READERS['personal'].capitalize()}."
+    else:
+        result = f"Recorded {kind} in personal memory; {_READERS['personal']}."
+    return f"{removed} {result}".strip()
+
+
+async def _forget_personal(envelope: SignedEnvelope, supersedes: str) -> str | None:
+    """Remove the personal note ``supersedes`` quotes; the tool result when it was not removed, else None."""
+    try:
+        outcome = await asyncio.to_thread(
+            personal_client.forget_personal_memory_item, envelope=envelope, content=supersedes
+        )
+    except _WRITE_FAILURES as exc:
+        logger.error("Failed to remove a personal memory item", exc_info=exc)
+        return _UNAVAILABLE_RESULT
+    if outcome.refused == "curated":
+        return _PERSONAL_CURATED_RESULT
+    if outcome.refused == "not_found":
+        return _PERSONAL_NOT_FOUND_RESULT
+    logger.info("Removed personal memory item %s on the agent's correction", outcome.removed_id)
+    return None
 
 
 async def _remember_shared(
@@ -481,7 +525,10 @@ _TOOL_DESCRIPTION = (
     "of the person's message, facts already in the project profile, or secrets (passwords, keys, "
     "account or identity numbers).\n"
     "When a project finding CORRECTS an entry of the PROJECT_MEMORY shown in your context, pass the "
-    "outdated entry's text VERBATIM as 'supersedes', which retires it.\n"
+    "outdated entry's text VERBATIM as 'supersedes', which retires it. The same for PERSONAL_MEMORY "
+    "with scope 'personal': when the person asks you to drop, undo or forget a personal note, pass its "
+    "text as 'supersedes' and leave 'content' empty, which removes it. Never record a note that "
+    "contradicts or negates an earlier one in its place.\n"
     "Only tell the person it was noted when the result says it was recorded."
 )
 
@@ -497,7 +544,8 @@ _CONTENT_DESCRIPTION = (
     "The finding as ONE concise, self-contained sentence that can be understood without this conversation, "
     "in the language the person wrote in. With scope 'personal', never the person's name and never the "
     "third person: only that person reads it, so state the preference or role itself, e.g. "
-    "'Maße immer in Zentimetern.' or 'Im Büro für Brandschutz zuständig.'"
+    "'Maße immer in Zentimetern.' or 'Im Büro für Brandschutz zuständig.' Empty only to remove a personal "
+    "note named in 'supersedes'."
 )
 _CONFIDENCE_DESCRIPTION = "How certain the finding is: 'low', 'medium' or 'high'. Not used with scope 'personal'."
 _SCOPE_DESCRIPTION = (
@@ -507,9 +555,10 @@ _SCOPE_DESCRIPTION = (
     "organization; everyone in the organization reads it."
 )
 _SUPERSEDES_DESCRIPTION = (
-    "The verbatim text of the PROJECT_MEMORY entry this finding corrects, without its "
-    "[kind | confidence | verification] tag and without the surrounding quotes. Empty when the "
-    "finding adds something new. Not used with scope 'personal'."
+    "The verbatim text of the memory entry this finding corrects, without its tag and without the "
+    "surrounding quotes: a PROJECT_MEMORY entry for scope 'project' or 'organization', a "
+    "PERSONAL_MEMORY entry for scope 'personal'. Empty when the finding adds something new. With "
+    "scope 'personal' and an empty 'content', the entry is removed and nothing is recorded."
 )
 
 
@@ -557,21 +606,24 @@ async def project_memory_remember(tool_config: ProjectMemoryRememberConfig, buil
 
     async def _remember(
         kind: Annotated[Kind, Field(description=_KIND_DESCRIPTION)],
-        content: Annotated[str, Field(description=_CONTENT_DESCRIPTION)],
+        content: Annotated[str, Field(description=_CONTENT_DESCRIPTION)] = "",
         confidence: Annotated[Confidence, Field(description=_CONFIDENCE_DESCRIPTION)] = "medium",
         scope: Annotated[Scope, Field(description=_SCOPE_DESCRIPTION)] = "project",
         supersedes: Annotated[str, Field(description=_SUPERSEDES_DESCRIPTION)] = "",
     ) -> str:
         """Record one durable finding in personal, project or organization memory."""
-        content = content.strip()
+        content = content.strip()[: tool_config.max_content_chars]
+        if scope == "personal" and supersedes.strip() and not content:
+            # The person asked to drop a note: nothing is written, so a
+            # temporary conversation may still remove one.
+            return await _remember_personal(kind, content, supersedes.strip())
         if not content:
             return "Error: content must not be empty."
-        content = content[: tool_config.max_content_chars]
         refusal = _refusal_before_write(scope, kind, content)
         if refusal is not None:
             return refusal
         if scope == "personal":
-            return await _remember_personal(kind, content)
+            return await _remember_personal(kind, content, supersedes.strip())
         return await _remember_shared(
             kind=kind,
             content=content,
