@@ -100,11 +100,14 @@ export async function reportBaseKnowledge(session: AuthorizedSession, body: Base
 const contextOf = (session: AuthorizedSession, projectId: string) =>
   knowledgeContextForTurn(session.organizationId, projectId, undefined, null, 'operation')
 
-/** A project's base as the turn reads it, the law it names (`lawOf`), and the newest Steckbrief a person confirmed. Needs project:view. */
-export async function readProjectBase(session: AuthorizedSession, projectId: string): Promise<ProjectBaseView> {
+/**
+ * A project's base as the turn reads it, the law it names (`lawOf`), and the newest Steckbrief a person confirmed;
+ * on `asOf`, resolved on that day instead (a day a question names). Needs project:view.
+ */
+export async function readProjectBase(session: AuthorizedSession, projectId: string, asOf?: string): Promise<ProjectBaseView> {
   await requireProjectAccess(session, projectId, 'project:view')
   const [context, confirmed, records] = await Promise.all([
-    contextForPage(session.organizationId, projectId),
+    contextForPage(session.organizationId, projectId, asOf),
     withTenant({ organizationId: session.organizationId }, () =>
       getDb()
         .select({

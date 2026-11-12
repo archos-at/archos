@@ -28,7 +28,9 @@ in a project the BFF says holds no IFC (no DXF) is not sent them (`dxf_measure`)
 either (`projectModels` on the turn context; unknown keeps them). A handful of
 shards per org, never one per toggle combination. The RIS lookup offers `as_of`
 (ADR-0171) on every turn; the `time-editions` switch that bound a second copy of
-it went with ADR-0175. Anything you add that reads a file, compiles a
+it went with ADR-0175. The turn context's building law resolves on one day (today, or a filing
+day that has come); a day the question names is read through `project-base-get`
+with `asOf`, which the static prompt names, never by resolving the turn twice. Anything you add that reads a file, compiles a
 graph or builds an index belongs in the boot half.
 `packages/agent/tests/agents/piloti/test_build_once.py` counts it.
 
