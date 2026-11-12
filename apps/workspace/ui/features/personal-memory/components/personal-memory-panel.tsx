@@ -123,13 +123,13 @@ export function PersonalMemoryPanel(): JSX.Element {
   /** Read the list again after a topic changed: a renamed, merged or removed topic moves notes out of their folder. */
   const reload = useCallback((): Promise<void> => load({ cancelled: false }), [load])
 
-  /** Put a note the server answered into the list, in the list's order; a note already there is replaced. */
   /** Why a save failed, in the person's language: the refused kind when the server named one, else the generic text. */
   const saveFailure = (error: unknown): string => {
     const kind = refusedKind(error)
     return kind ? t(`refused.${kind}`) : t('errors.saveFailed')
   }
 
+  /** Put a note the server answered into the list, in the list's order; a note already there is replaced. */
   const keep = (note: PersonalMemoryNote): void => {
     setNotes((previous) => inServerOrder([note, ...(previous ?? []).filter((existing) => existing.id !== note.id)]))
   }

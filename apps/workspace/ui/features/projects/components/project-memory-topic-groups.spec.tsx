@@ -9,6 +9,7 @@ import { render, screen, within } from '@/test-utils'
 import { makeMemoryItem } from '@/test-utils/db-fixtures'
 import {
   ProjectMemoryTopicGroups,
+  pickableTopicNames,
   type MemoryItem,
   type ProjectMemoryNoteControls,
 } from './project-memory-topic-groups'
@@ -176,6 +177,69 @@ describe('ProjectMemoryTopicGroups', () => {
     expect(within(restrictedList).getByRole('option', { name: 'Brandschutz' })).toBeInTheDocument()
   })
 
+  test('an office note’s move picker offers only the topics office notes hold, never a project’s', async () => {
+    const office = note({
+      id: 'office',
+      scope: 'organization',
+      projectId: null,
+      content: 'Büro: Die Bauordnung gilt für jedes Projekt.',
+      topic: 'Bauordnung',
+    })
+    const project = note({ id: 'fire', content: 'Fluchtweg offen.', topic: 'Brandschutz' })
+    const shelf = [office, project]
+    render(
+      <ProjectMemoryTopicGroups
+        projectId="p1"
+        items={shelf}
+        allItems={shelf}
+        topics={[
+          { name: 'Bauordnung', count: 1 },
+          { name: 'Brandschutz', count: 1 },
+        ]}
+        readOnly={false}
+        controls={controls()}
+        onChanged={vi.fn()}
+      />
+    )
+
+    const folder = screen
+      .getAllByTestId('topic-folder')
+      .find((element) => within(element).queryByText('Büro: Die Bauordnung gilt für jedes Projekt.'))
+    expect(folder).toBeDefined()
+    await userEvent.click(within(folder!).getByRole('button', { name: 'Move to …' }))
+    await userEvent.clear(await screen.findByRole('combobox', { name: 'Move to …' }))
+
+    const list = await screen.findByRole('listbox', { name: 'Move to …' })
+    expect(within(list).getAllByRole('option').map((option) => option.textContent)).toEqual(['No topic', 'Bauordnung'])
+  })
+
+  test('the rename dialog says a folder with office notes keeps their topic', async () => {
+    const office = note({
+      id: 'office',
+      scope: 'organization',
+      projectId: null,
+      content: 'Büro: Die Bauordnung gilt für jedes Projekt.',
+      topic: 'Bauordnung',
+    })
+    const project = note({ id: 'bau', content: 'Bauantrag eingereicht.', topic: 'Bauordnung' })
+    const shelf = [office, project]
+    render(
+      <ProjectMemoryTopicGroups
+        projectId="p1"
+        items={shelf}
+        allItems={shelf}
+        topics={[{ name: 'Bauordnung', count: 2 }]}
+        readOnly={false}
+        controls={controls()}
+        onChanged={vi.fn()}
+      />
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
+
+    expect(await screen.findByText("The office's notes keep their topic.")).toBeInTheDocument()
+  })
+
   test('the rename dialog merges only into topics open notes hold, never a restricted topic’s name', async () => {
     const open = note({ id: 'fire', content: 'Fluchtweg offen.', topic: 'Brandschutz' })
     const other = note({ id: 'park', content: 'Stellplatz 3.', topic: 'Stellplätze' })
@@ -204,5 +268,41 @@ describe('ProjectMemoryTopicGroups', () => {
     expect(within(options).getByRole('option', { name: 'Stellplätze' })).toBeInTheDocument()
     expect(within(options).queryByRole('option', { name: 'Bauherr' })).not.toBeInTheDocument()
     expect(within(options).queryByRole('option', { name: 'Brandschutz' })).not.toBeInTheDocument()
+  })
+})
+
+describe('pickableTopicNames', () => {
+  const openProject = note({ id: 'a', content: 'a', topic: 'Brandschutz' })
+  const openOffice = note({ id: 'b', content: 'b', scope: 'organization', projectId: null, topic: 'Bauordnung' })
+  const restrictedOffice = restricted({
+    id: 'c',
+    content: 'c',
+    scope: 'organization',
+    projectId: null,
+    topic: 'Vertraulich',
+  })
+  const shelf = [openProject, openOffice, restrictedOffice]
+  const visible = ['Brandschutz', 'Bauordnung', 'Vertraulich']
+
+  test('an open office note takes only the topics open office notes hold', () => {
+    expect(pickableTopicNames(shelf, { scope: 'organization', restricted: false }, visible)).toEqual(['Bauordnung'])
+  })
+
+  test('a restricted office note takes the topics the office notes of the list hold, restricted ones included', () => {
+    expect(pickableTopicNames(shelf, { scope: 'organization', restricted: true }, visible).sort()).toEqual([
+      'Bauordnung',
+      'Vertraulich',
+    ])
+  })
+
+  test('an open project note takes the topics of the open notes of the list, office ones included', () => {
+    expect(pickableTopicNames(shelf, { scope: 'project', restricted: false }, visible).sort()).toEqual([
+      'Bauordnung',
+      'Brandschutz',
+    ])
+  })
+
+  test('a restricted project note takes every topic the reader sees', () => {
+    expect(pickableTopicNames(shelf, { scope: 'project', restricted: true }, visible)).toEqual(visible)
   })
 })

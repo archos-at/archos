@@ -18,21 +18,11 @@
  */
 
 import { formatBoundedDigestWithKept } from '@/lib/knowledge/digest-format'
-import {
-  quoted,
-  TOPIC_INDEX_MAX_CHARS,
-  TOPIC_INDEX_MAX_TOPICS,
-  topicIndexLine as indexLineOf,
-} from '@/lib/knowledge/topic-index'
+import { quoted, topicIndexLine as indexLineOf } from '@/lib/knowledge/topic-index'
 import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import type { DigestItem } from './memory-service'
 
 const DIGEST_HEADER = 'PROJECT_MEMORY v1'
-
-/** The most topics the index names (the bound `topic-index.ts` shares with the personal block). */
-export const DIGEST_TOPIC_INDEX_MAX = TOPIC_INDEX_MAX_TOPICS
-/** The index line's own budget, so long topic names cannot take the room of the notes. */
-export const DIGEST_TOPIC_INDEX_MAX_CHARS = TOPIC_INDEX_MAX_CHARS
 
 /**
  * A topic as the digest holds it: one line, and none of the brackets or bar a

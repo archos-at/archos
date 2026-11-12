@@ -128,6 +128,21 @@ function kindRank(kind: string): number {
   return rank === -1 ? PROJECT_MEMORY_KINDS.length : rank
 }
 
+/**
+ * The topics a note may be moved or added under (ADR-0087, ADR-0180). A restricted note may take any topic
+ * the reader sees. An open note takes only a topic an open note holds, and an office note only a topic
+ * an office note holds: a project's topic name never lands on a note the whole office reads.
+ */
+export function pickableTopicNames(
+  items: readonly MemoryItem[],
+  note: { scope: 'project' | 'organization'; restricted: boolean },
+  visibleTopicNames: readonly string[]
+): string[] {
+  const sameScope = note.scope === 'organization' ? items.filter((item) => item.scope === 'organization') : items
+  if (note.restricted) return note.scope === 'organization' ? distinctTopicNames(sameScope) : [...visibleTopicNames]
+  return distinctTopicNames(sameScope.filter((item) => !item.restrictedFolderIds?.length))
+}
+
 export function ProjectMemoryTopicGroups({
   projectId,
   items,
@@ -150,7 +165,11 @@ export function ProjectMemoryTopicGroups({
     <ProjectMemoryNote
       item={item}
       projectId={projectId}
-      topicNames={item.restrictedFolderIds?.length ? allTopicNames : openTopicNames}
+      topicNames={pickableTopicNames(
+        items,
+        { scope: item.scope, restricted: Boolean(item.restrictedFolderIds?.length) },
+        allTopicNames
+      )}
       allItems={allItems}
       readOnly={readOnly}
       controls={controls}
@@ -162,11 +181,14 @@ export function ProjectMemoryTopicGroups({
   }
   const renderTopicActions = (topic: string | null): ReactNode => {
     if (topic === null || !projectTopics.has(topic)) return null
+    // A rename moves only the project's notes: the office's notes in this folder keep the name.
+    const holdsOfficeNotes = items.some((item) => item.scope === 'organization' && item.topic === topic)
     return (
       <ProjectTopicActions
         projectId={projectId}
         topic={topic}
         mergeTargets={openTopicNames}
+        holdsOfficeNotes={holdsOfficeNotes}
         onChanged={onChanged}
       />
     )

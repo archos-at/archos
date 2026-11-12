@@ -3,10 +3,9 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { TOPIC_INDEX_MAX_CHARS, TOPIC_INDEX_MAX_TOPICS } from '@/lib/knowledge/topic-index'
 import {
-  PERSONAL_DIGEST_INDEX_MAX_CHARS,
   PERSONAL_DIGEST_MAX_CHARS,
-  PERSONAL_DIGEST_MAX_TOPICS,
   renderPersonalMemoryDigest,
   topicIndexLine,
   type PersonalDigestNote,
@@ -33,6 +32,21 @@ describe('renderPersonalMemoryDigest without topics', () => {
       [HEADER, '- [pinned | profile] "Leads the fire-safety reviews."', '- [preference] "Says \\"kurz\\"."'].join('\n')
     )
   })
+
+  it('cuts a shelf with no topic at the first note that does not fit, byte-for-byte as before topics', () => {
+    // Three 600-character notes: two fit the 1462-character budget beside the header, the third does not.
+    const long = (letter: string) => note({ content: letter.repeat(600) })
+    const digest = renderPersonalMemoryDigest([long('a'), long('b'), long('c')], { topics: [], total: 3 })
+
+    expect(digest).toBe(
+      [
+        HEADER,
+        `- [preference] "${'a'.repeat(600)}"`,
+        `- [preference] "${'b'.repeat(600)}"`,
+        '(+1 more personal notes, not shown.)',
+      ].join('\n')
+    )
+  })
 })
 
 describe('renderPersonalMemoryDigest with topics', () => {
@@ -55,7 +69,7 @@ describe('renderPersonalMemoryDigest with topics', () => {
     expect(digest).toBe(
       [
         HEADER,
-        `topics of the person's 3 notes (at most ${PERSONAL_DIGEST_MAX_TOPICS} named): "Brandschutz" (2), "Stellplätze" (1)`,
+        `topics of the person's 3 notes (at most ${TOPIC_INDEX_MAX_TOPICS} named): "Brandschutz" (2), "Stellplätze" (1)`,
         'Topic "Brandschutz":',
         '- [pinned | profile] "Leads the fire-safety reviews."',
         '- [preference] "Answers in German."',
@@ -74,7 +88,7 @@ describe('renderPersonalMemoryDigest with topics', () => {
     expect(digest).toBe(
       [
         HEADER,
-        `topics of the person's 2 notes (at most ${PERSONAL_DIGEST_MAX_TOPICS} named): "X" (1)`,
+        `topics of the person's 2 notes (at most ${TOPIC_INDEX_MAX_TOPICS} named): "X" (1)`,
         'Topic "X":',
         '- [preference] "Note B."',
         'No topic:',
@@ -95,14 +109,14 @@ describe('renderPersonalMemoryDigest with topics', () => {
   })
 
   it('says how many topics the index leaves unnamed, at most twenty named', () => {
-    const topics = Array.from({ length: PERSONAL_DIGEST_MAX_TOPICS + 2 }, (_, index) => ({
+    const topics = Array.from({ length: TOPIC_INDEX_MAX_TOPICS + 2 }, (_, index) => ({
       name: `T${String(index + 1).padStart(2, '0')}`,
       count: 1,
     }))
 
     const line = topicIndexLine({ topics, total: topics.length })
 
-    expect(line).toContain(`"T${String(PERSONAL_DIGEST_MAX_TOPICS).padStart(2, '0')}" (1)`)
+    expect(line).toContain(`"T${String(TOPIC_INDEX_MAX_TOPICS).padStart(2, '0')}" (1)`)
     expect(line).not.toContain('"T21"')
     expect(line).toContain('(+2 more topics, not named)')
   })
@@ -112,7 +126,7 @@ describe('renderPersonalMemoryDigest with topics', () => {
 
     const line = topicIndexLine({ topics, total: 7 }) as string
 
-    expect(line.length).toBeLessThanOrEqual(PERSONAL_DIGEST_INDEX_MAX_CHARS + 30)
+    expect(line.length).toBeLessThanOrEqual(TOPIC_INDEX_MAX_CHARS + 30)
     expect(line).toContain('more topics, not named')
   })
 
@@ -153,6 +167,32 @@ describe('renderPersonalMemoryDigest with topics', () => {
     expect(digest).not.toContain('Topic "B":')
     expect(digest).not.toContain('Short.')
     expect(digest.endsWith('(+2 more personal notes, not shown.)')).toBe(true)
+  })
+
+  it('keeps a pinned note of a later topic within the budget, and cuts an unpinned note of an earlier one', () => {
+    // Repository order is pinned first, then newest. Topic A's group starts with a pinned note, so it
+    // prints first; cutting group by group let A's unpinned note take the room that B's pinned note
+    // needed. Choosing the kept notes in repository order first keeps both pinned notes.
+    const digest = renderPersonalMemoryDigest(
+      [
+        note({ kind: 'profile', pinned: true, content: 'Pinned A.', topic: 'A' }),
+        note({ kind: 'profile', pinned: true, content: `Pinned B ${'b'.repeat(500)}`, topic: 'B' }),
+        note({ content: `Unpinned A ${'a'.repeat(800)}`, topic: 'A' }),
+      ],
+      {
+        topics: [
+          { name: 'A', count: 2 },
+          { name: 'B', count: 1 },
+        ],
+        total: 3,
+      }
+    ) as string
+
+    expect(digest).toContain(`- [pinned | profile] "Pinned B ${'b'.repeat(500)}"`)
+    expect(digest).toContain('Topic "B":')
+    expect(digest).not.toContain('Unpinned A')
+    expect(digest.endsWith('(+1 more personal notes, not shown.)')).toBe(true)
+    expect(digest.length).toBeLessThanOrEqual(PERSONAL_DIGEST_MAX_CHARS)
   })
 
   it('still says the shelf holds notes when not even the first one fits', () => {

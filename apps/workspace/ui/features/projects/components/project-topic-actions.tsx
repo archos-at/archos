@@ -25,6 +25,8 @@ export interface ProjectTopicActionsProps {
   topic: string | null
   /** The topics a rename may merge into: the ones open notes hold, never a restricted topic's name. */
   mergeTargets: readonly string[]
+  /** The folder holds office notes, which a rename leaves under the topic's name. */
+  holdsOfficeNotes?: boolean
   /** Called after the shelf took a change, so the list reloads the groups. */
   onChanged: () => void
 }
@@ -34,6 +36,7 @@ export function ProjectTopicActions({
   projectId,
   topic,
   mergeTargets,
+  holdsOfficeNotes = false,
   onChanged,
 }: ProjectTopicActionsProps): JSX.Element | null {
   const t = useTranslations(memoryTopicsCopy)
@@ -72,6 +75,7 @@ export function ProjectTopicActions({
         open={renaming}
         topic={topic}
         topics={mergeTargets}
+        officeKeepsTopic={holdsOfficeNotes}
         onOpenChange={setRenaming}
         onRename={(to) => change(to)}
       />
@@ -82,7 +86,7 @@ export function ProjectTopicActions({
 export interface ProjectNoteTopicMoveProps {
   projectId: string
   item: Pick<ProjectMemoryItem, 'id' | 'scope' | 'topic'>
-  /** The topics the note may move to: all the reader sees for a restricted note, the open ones for an open note. */
+  /** The topics the note may move to (`pickableTopicNames`): an office note offers only the office's topics. */
   topics: string[]
   /** Called after the note took its new topic. */
   onChanged: () => void

@@ -15,6 +15,8 @@ export const memoryTopics: typeof en.memoryTopics = {
   renamePlaceholder: 'Name des Themas',
   // Unter dem Namensfeld: Ein Name, den schon ein anderes Thema trägt, führt beide zusammen.
   mergeHint: 'Gibt es das Thema schon, werden beide zusammengeführt.',
+  // Unter dem Namensfeld, wenn der Ordner Notizen des Büros hält: Umbenennen lässt sie beim Namen.
+  officeKeepsTopic: 'Notizen des Büros behalten ihr Thema.',
   // Die Aktion, die ein Thema samt allen seinen Notizen entfernt (nur Mein Gedächtnis).
   removeTopic: 'Thema mit allen Notizen entfernen',
   // Vor dem Entfernen gefragt, mit der Zahl der Notizen, die wegfallen.

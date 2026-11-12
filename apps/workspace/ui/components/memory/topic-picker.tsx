@@ -42,7 +42,10 @@ export interface TopicPickerProps {
   'data-testid'?: string
 }
 
-type TopicFieldProps = Omit<TopicPickerProps, 'compact'>
+type TopicFieldProps = Omit<TopicPickerProps, 'compact'> & {
+  /** Whether leaving the field takes what is typed. The compact picker says no: a click away keeps the note's topic. */
+  commitOnBlur?: boolean
+}
 
 /** The topic a raw entry means on this shelf, or null when it is too long to be one. */
 function topicFor(raw: string, topics: readonly string[]): { topic: string | null } | null {
@@ -86,6 +89,7 @@ function CompactTopicPicker({
           }}
           label={label}
           id={id}
+          commitOnBlur={false}
         />
       </PopoverContent>
     </Popover>
@@ -99,6 +103,7 @@ function TopicField({
   disabled = false,
   label,
   id,
+  commitOnBlur,
   'data-testid': testId,
 }: TopicFieldProps): JSX.Element {
   const t = useTranslations(memoryTopicsCopy)
@@ -145,6 +150,7 @@ function TopicField({
         options={options}
         onPick={(option) => apply(option.value === NO_TOPIC ? null : option.value)}
         onCommit={commit}
+        commitOnBlur={commitOnBlur}
         listLabel={label ?? t('filterLabel')}
         aria-label={label ?? t('filterLabel')}
         placeholder={value === null ? noTopicLabel : t('newTopic')}

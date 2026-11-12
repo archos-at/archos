@@ -18,6 +18,7 @@ vi.mock('@/lib/projects/office-memory-topics', () => ({
   withOfficeTopic: vi.fn(async (_organizationId: string, input: unknown) => input),
 }))
 
+import { makeMemoryItem } from '@/test-utils/db-fixtures'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import { listOrganizationMemory } from '@/lib/projects/memory-service'
@@ -49,6 +50,22 @@ describe('GET /api/organization/memory', () => {
     await GET(new Request('https://grid.test/api/organization/memory'), context)
 
     expect(listOrganizationMemory).toHaveBeenCalledWith('org_1', expect.objectContaining({ sourceConversationId: undefined }))
+  })
+
+  it('filters to one topic after the shelf is read, and pages the topic’s notes, not the shelf', async () => {
+    vi.mocked(listOrganizationMemory).mockResolvedValue([
+      makeMemoryItem({ id: 'a', topic: 'Brandschutz' }),
+      makeMemoryItem({ id: 'b', topic: null }),
+      makeMemoryItem({ id: 'c', topic: 'Brandschutz' }),
+    ])
+
+    const onTopic = await GET(new Request('https://grid.test/api/organization/memory?topic=brandschutz&limit=1'), context)
+
+    expect(listOrganizationMemory).toHaveBeenLastCalledWith('org_1', { includeArchived: false, sourceConversationId: undefined, page: undefined })
+    expect(await onTopic.json()).toMatchObject({ items: [{ id: 'a' }], nextCursor: '1' })
+
+    const noTopic = await GET(new Request('https://grid.test/api/organization/memory?topic='), context)
+    expect(await noTopic.json()).toMatchObject({ items: [{ id: 'b' }], nextCursor: null })
   })
 
   it('answers the office topics over the whole shelf, not the page', async () => {

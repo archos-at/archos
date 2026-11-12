@@ -6,7 +6,7 @@
  * A shelf with no topic at all renders exactly as it did before topics: one line
  * per note under the header. Once any note has a topic, the block opens with the
  * index (every topic of the person's notes and how many each holds, at most
- * {@link PERSONAL_DIGEST_MAX_TOPICS} named), then one group per topic, in the
+ * `TOPIC_INDEX_MAX_TOPICS` (`bff/knowledge/topic-index.ts`) named), then one group per topic, in the
  * order each topic's first note appears in the repository's order (pinned first),
  * and the notes with no topic last.
  *
@@ -16,12 +16,7 @@
  */
 
 import { formatBoundedDigestWithKept, type DigestLineItem } from '@/lib/knowledge/digest-format'
-import {
-  quoted,
-  TOPIC_INDEX_MAX_CHARS,
-  TOPIC_INDEX_MAX_TOPICS,
-  topicIndexLine as indexLineOf,
-} from '@/lib/knowledge/topic-index'
+import { quoted, topicIndexLine as indexLineOf } from '@/lib/knowledge/topic-index'
 import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 
 /** The header the agent's prompt names; the version moves when the line format does. */
@@ -31,9 +26,6 @@ export const PERSONAL_DIGEST_MAX_ITEMS = 20
 /** The block's character budget, footer included. */
 export const PERSONAL_DIGEST_MAX_CHARS = 1500
 /** The most topics the index names (the bound `topic-index.ts` shares with the project digest). */
-export const PERSONAL_DIGEST_MAX_TOPICS = TOPIC_INDEX_MAX_TOPICS
-/** The index line's own budget, so long topic names cannot take the room of the notes. */
-export const PERSONAL_DIGEST_INDEX_MAX_CHARS = TOPIC_INDEX_MAX_CHARS
 
 /** A note as the block needs it: what it says, its kind, whether it is pinned, and its topic. */
 export interface PersonalDigestNote {
@@ -87,9 +79,13 @@ function itemOf(note: PersonalDigestNote): DigestLineItem {
 
 /**
  * The block as the agent reads it, or null when the shelf has no note to show.
- * Notes are given in the repository's order (pinned first, then newest); a cut
- * stops at the first note that does not fit, as it always has, and the footer
- * counts every note the block leaves out.
+ *
+ * The notes KEPT are chosen first, in the repository's order (pinned first, then
+ * newest): the longest run of them whose whole block (header, index, headings and
+ * lines) fits the budget. A note that does not fit ends the run, as it always has.
+ * Only then are the kept notes grouped by topic for printing, so a topic's heading
+ * can never take the room of a pinned note that came earlier. The footer counts
+ * every note the block leaves out.
  */
 export function renderPersonalMemoryDigest(
   notes: readonly PersonalDigestNote[],
@@ -113,24 +109,31 @@ function flatBody(notes: readonly PersonalDigestNote[], budget: number): { text:
 }
 
 /**
- * The index, then one group per topic. A group is rendered by the shared
- * formatter under its heading; the first group that loses a note ends the block,
- * so the cut keeps the same priority as the flat block.
+ * The longest run of notes, in repository order, whose grouped block fits the
+ * budget. Grouping only ever adds text (a heading per topic), so a shorter run
+ * that fits never becomes a longer one that does not.
  */
 function groupedBody(
   notes: readonly PersonalDigestNote[],
   header: string,
   budget: number
 ): { text: string; kept: number } {
-  let text = header
   let kept = 0
-  for (const group of groupNotesByTopic(notes)) {
-    const room = budget - text.length - 1
-    const piece = formatBoundedDigestWithKept(headingOf(group.topic), group.notes.map(itemOf), room)
-    if (!piece.digest) break
-    text = `${text}\n${piece.digest}`
-    kept += piece.kept.length
-    if (piece.kept.length < group.notes.length) break
+  while (kept < notes.length && groupedText(header, notes.slice(0, kept + 1)).length <= budget) {
+    kept += 1
   }
-  return { text, kept }
+  return { text: groupedText(header, notes.slice(0, kept)), kept }
+}
+
+/** The header, then one group per topic in the order of its first note, the notes with no topic last. */
+function groupedText(header: string, notes: readonly PersonalDigestNote[]): string {
+  const pieces = groupNotesByTopic(notes).flatMap((group) => {
+    const { digest } = formatBoundedDigestWithKept(
+      headingOf(group.topic),
+      group.notes.map(itemOf),
+      Number.POSITIVE_INFINITY
+    )
+    return digest ? [digest] : []
+  })
+  return [header, ...pieces].join('\n')
 }

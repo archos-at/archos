@@ -110,6 +110,31 @@ describe('ProjectTopicActions', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
     expect(onChanged).not.toHaveBeenCalled()
   })
+
+  test('a folder holding office notes tells the rename dialog they keep their topic', async () => {
+    render(
+      <ProjectTopicActions
+        projectId={PROJECT}
+        topic="Brandschutz"
+        mergeTargets={[]}
+        holdsOfficeNotes
+        onChanged={vi.fn()}
+      />
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
+
+    expect(await screen.findByText("The office's notes keep their topic.")).toBeInTheDocument()
+  })
+
+  test('a folder of project notes only says nothing about office notes', async () => {
+    render(<ProjectTopicActions projectId={PROJECT} topic="Brandschutz" mergeTargets={[]} onChanged={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
+
+    await screen.findByRole('dialog')
+    expect(screen.queryByText("The office's notes keep their topic.")).not.toBeInTheDocument()
+  })
 })
 
 describe('ProjectNoteTopicMove', () => {

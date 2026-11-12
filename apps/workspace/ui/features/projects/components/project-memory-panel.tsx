@@ -6,9 +6,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Brain, Plus, Users } from 'lucide-react'
 import { MemoryListSkeleton } from '@/components/memory/memory-note-parts'
+import { TopicPicker } from '@/components/memory/topic-picker'
 import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import {
   ProjectMemoryTopicGroups,
+  pickableTopicNames,
   type MemoryItem,
   type ProjectMemoryNoteControls,
 } from './project-memory-topic-groups'
@@ -31,6 +33,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
+import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
 import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
 import { noteRefusalKind, type NoteRefusalKind } from '@/lib/knowledge/note-refusal'
 import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
@@ -93,6 +96,7 @@ export function ProjectMemoryPanel({
 }: ProjectMemoryPanelProps): JSX.Element {
   const t = useTranslations(projectsCopy)
   const tNote = useTranslations(personalMemoryCopy)
+  const tTopic = useTranslations(memoryTopicsCopy)
   const refused = (kind: NoteRefusalKind): string => tNote(`refused.${kind}`)
   const kindLabels = useMemoryKindLabels()
   const [items, setItems] = useState<MemoryItem[] | null>(null)
@@ -109,6 +113,7 @@ export function ProjectMemoryPanel({
   const [addKind, setAddKind] = useState<ProjectMemoryKind>('decision')
   const [addScope, setAddScope] = useState<'project' | 'organization'>('project')
   const [addContent, setAddContent] = useState('')
+  const [addTopic, setAddTopic] = useState<string | null>(null)
   const [addBusy, setAddBusy] = useState(false)
 
   const baseUrl = `/api/projects/${projectId}/memory`
@@ -226,6 +231,12 @@ export function ProjectMemoryPanel({
     }
   }
 
+  const closeAdd = () => {
+    setAdding(false)
+    setAddContent('')
+    setAddTopic(null)
+  }
+
   const submitAdd = async () => {
     const content = addContent.trim()
     if (!content) return
@@ -235,14 +246,13 @@ export function ProjectMemoryPanel({
         addScope === 'organization' ? orgUrl : baseUrl,
         {
           method: 'POST',
-          body: JSON.stringify({ kind: addKind, content }),
+          body: JSON.stringify({ kind: addKind, content, topic: addTopic }),
         },
         t,
         refused
       )
       setItems((prev) => (prev ? [item, ...prev] : [item]))
-      setAddContent('')
-      setAdding(false)
+      closeAdd()
       toast.success(t('memory.added'))
     } catch (err) {
       setError(err instanceof Error ? err.message : t('memory.errors.addFailed'))
@@ -280,6 +290,12 @@ export function ProjectMemoryPanel({
     onAskRemove: (id) => setConfirmingDeleteId(id),
   }
   const confirmingDeleteItem = items?.find((it) => it.id === confirmingDeleteId) ?? null
+  // A new note takes an open topic, as a move does: an office note only the office's topics.
+  const addTopicNames = pickableTopicNames(
+    visible,
+    { scope: addScope, restricted: false },
+    topics.map((entry) => entry.name)
+  )
 
   return (
     // `min-w-0`: the panel sits in a grid cell on the settings page, and a grid
@@ -357,8 +373,7 @@ export function ProjectMemoryPanel({
                 onKeyDown={(event) => {
                   if (event.key === 'Escape') {
                     event.preventDefault()
-                    setAdding(false)
-                    setAddContent('')
+                    closeAdd()
                   }
                 }}
                 placeholder={t('memory.addPlaceholder')}
@@ -366,14 +381,21 @@ export function ProjectMemoryPanel({
                 autoFocus
               />
             </Field>
+            <Field>
+              <FieldLabel htmlFor="memory-add-topic">{tTopic('filterLabel')}</FieldLabel>
+              <TopicPicker
+                id="memory-add-topic"
+                topics={addTopicNames}
+                value={addTopic}
+                onChange={setAddTopic}
+                disabled={addBusy}
+              />
+            </Field>
             <div className="flex justify-end gap-2">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setAdding(false)
-                  setAddContent('')
-                }}
+                onClick={closeAdd}
                 disabled={addBusy}
               >
                 {t('memory.cancel')}

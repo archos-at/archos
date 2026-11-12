@@ -103,4 +103,14 @@ describe('TopicPicker', () => {
     expect(onChange).toHaveBeenCalledExactlyOnceWith('Stellplätze')
     expect(screen.queryByRole('combobox', { name: 'Topic' })).not.toBeInTheDocument()
   })
+
+  test('compact: half-typed text takes nothing when the field is left by a click away', async () => {
+    const onChange = vi.fn()
+    render(<TopicPicker topics={TOPICS} value={null} onChange={onChange} compact />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Move to …' }))
+    await userEvent.type(field(), 'Stell')
+    await userEvent.click(document.body)
+    expect(onChange).not.toHaveBeenCalled()
+  })
 })

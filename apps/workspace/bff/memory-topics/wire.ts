@@ -45,5 +45,3 @@ export const memoryTopicQueryField = z
   .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
   .optional()
   .describe('Only this topic. Empty: no topic.')
-
-export type MemoryTopicRenameInput = z.infer<typeof memoryTopicRenameSchema>

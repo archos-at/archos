@@ -2,7 +2,8 @@
  * @vitest-environment node
  */
 import { describe, expect, it } from 'vitest'
-import { DIGEST_TOPIC_INDEX_MAX, formatTopicDigest, topicIndexLine } from './memory-digest'
+import { TOPIC_INDEX_MAX_TOPICS } from '@/lib/knowledge/topic-index'
+import { formatTopicDigest, topicIndexLine } from './memory-digest'
 import type { DigestItem } from './memory-service'
 
 const note = (overrides: Partial<DigestItem> = {}): DigestItem => ({
@@ -105,14 +106,14 @@ describe('formatTopicDigest', () => {
   })
 
   it('names at most twenty topics and says how many it left out', () => {
-    const items = Array.from({ length: DIGEST_TOPIC_INDEX_MAX + 2 }, (_, index) =>
+    const items = Array.from({ length: TOPIC_INDEX_MAX_TOPICS + 2 }, (_, index) =>
       note({ content: `note ${index}`, topic: `T${String(index).padStart(2, '0')}` })
     )
     const index = (formatTopicDigest(items, 0, BUDGET) as string).split('\n')[1]
 
     expect(index.startsWith(INDEX_HEAD)).toBe(true)
     expect(index.endsWith(', (+2 more topics, not named)')).toBe(true)
-    expect(index.split(' (1)').length - 1).toBe(DIGEST_TOPIC_INDEX_MAX)
+    expect(index.split(' (1)').length - 1).toBe(TOPIC_INDEX_MAX_TOPICS)
   })
 
   it('does not name a topic whose note the budget left out', () => {
@@ -200,7 +201,7 @@ describe("formatTopicDigest with the shelf's open topics", () => {
   })
 
   it('names at most twenty shelf topics and counts the rest in the tail', () => {
-    const shelf = Array.from({ length: DIGEST_TOPIC_INDEX_MAX + 5 }, (_, index) => ({
+    const shelf = Array.from({ length: TOPIC_INDEX_MAX_TOPICS + 5 }, (_, index) => ({
       name: `T${String(index).padStart(2, '0')}`,
       count: 1,
     }))
@@ -208,7 +209,7 @@ describe("formatTopicDigest with the shelf's open topics", () => {
     const index = digest.split('\n')[1]
 
     expect(index.endsWith(', (+5 more topics, not named)')).toBe(true)
-    expect(index.split(' (1)').length - 1).toBe(DIGEST_TOPIC_INDEX_MAX)
+    expect(index.split(' (1)').length - 1).toBe(TOPIC_INDEX_MAX_TOPICS)
     expect(digest.length).toBeLessThanOrEqual(BUDGET)
   })
 

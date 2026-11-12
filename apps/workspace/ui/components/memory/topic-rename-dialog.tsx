@@ -46,6 +46,8 @@ export interface TopicRenameDialogProps {
   topic: string
   /** The merge targets the field offers. The caller passes only what the reader may see here; `topic` itself is left out. */
   topics: readonly string[]
+  /** The shelf keeps some notes under the topic's name: the office's, which a project's rename leaves alone. */
+  officeKeepsTopic?: boolean
   onOpenChange: (open: boolean) => void
   /**
    * Renames the topic to `to`; a name another topic already has merges the notes into it.
@@ -59,6 +61,7 @@ export function TopicRenameDialog({
   open,
   topic,
   topics,
+  officeKeepsTopic = false,
   onOpenChange,
   onRename,
 }: TopicRenameDialogProps): JSX.Element {
@@ -87,6 +90,7 @@ export function TopicRenameDialog({
         <RenameForm
           topic={topic}
           topics={topics}
+          officeKeepsTopic={officeKeepsTopic}
           pending={pending}
           onCancel={() => onOpenChange(false)}
           onSubmit={async (to) => {
@@ -101,6 +105,7 @@ export function TopicRenameDialog({
 interface RenameFormProps {
   topic: string
   topics: readonly string[]
+  officeKeepsTopic: boolean
   pending: boolean
   onCancel: () => void
   /** Hands over the normalized name; the form does nothing else on a save. */
@@ -108,7 +113,7 @@ interface RenameFormProps {
 }
 
 /** The form inside the dialog. It is unmounted when the dialog closes, so each opening starts from the topic's name. */
-function RenameForm({ topic, topics, pending, onCancel, onSubmit }: RenameFormProps): JSX.Element {
+function RenameForm({ topic, topics, officeKeepsTopic, pending, onCancel, onSubmit }: RenameFormProps): JSX.Element {
   const t = useTranslations(memoryTopicsCopy)
   const tCommon = useTranslations(commonCopy)
   const inputId = useId()
@@ -128,6 +133,7 @@ function RenameForm({ topic, topics, pending, onCancel, onSubmit }: RenameFormPr
       <DialogHeader>
         <DialogTitle>{t('rename')}</DialogTitle>
         <DialogDescription>{t('mergeHint')}</DialogDescription>
+        {officeKeepsTopic && <p className="text-muted-foreground text-sm">{t('officeKeepsTopic')}</p>}
       </DialogHeader>
       <form
         onSubmit={(event) => {

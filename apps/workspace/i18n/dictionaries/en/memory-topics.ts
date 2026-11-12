@@ -16,6 +16,8 @@ export const memoryTopics = {
   renamePlaceholder: 'Topic name',
   // Shown under the rename field: a name another topic already has merges the two.
   mergeHint: 'If that topic exists, the two are merged.',
+  // Shown in the rename dialog when the folder holds office notes: a rename leaves them under the topic's name.
+  officeKeepsTopic: "The office's notes keep their topic.",
   // The action on a topic that removes the topic and every note on it (personal shelf only).
   removeTopic: 'Remove topic and all its notes',
   // Asked before the removal, with the count of notes it takes away.

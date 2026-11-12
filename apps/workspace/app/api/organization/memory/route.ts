@@ -15,22 +15,28 @@ import { createOrgMemorySchema } from '@/lib/organizations/organization-wire'
 import { offsetPageOf, nextOffsetCursor } from '@/lib/api/offset-page'
 import { listOrganizationMemoryQuerySchema, toMemoryWireItem } from '@/lib/projects/project-memory-wire'
 import { officeTopicsOf } from '@/lib/projects/office-memory-topics'
+import { pageOfTopic } from '@/lib/memory-topics/page'
 
 export const GET = apiRoute(
   async ({ session, request }) => {
     const query = parseQuery(request, listOrganizationMemoryQuerySchema)
     const page = offsetPageOf(query)
+    // A topic's notes are filtered after the shelf is read, so the page is cut from them: the shelf is read whole.
     const fetched = await listOrganizationMemory(session.organizationId, {
       includeArchived: query.includeArchived === 'true',
       // The office's notes written from one conversation: the ids an answer's „noted“ chip may offer to take back.
       sourceConversationId: query.conversationId,
-      page,
+      page: query.topic === undefined ? page : undefined,
     })
+    const listed =
+      query.topic === undefined
+        ? { items: fetched.slice(0, page.limit), nextCursor: nextOffsetCursor(page, fetched.length) }
+        : pageOfTopic(fetched, query.topic, page)
     // `topics`: the office shelf's topics with how many active notes each holds, over the whole shelf, not this page.
     const topics = await officeTopicsOf(session.organizationId)
     return {
-      items: fetched.slice(0, page.limit).map(toMemoryWireItem),
-      nextCursor: nextOffsetCursor(page, fetched.length),
+      items: listed.items.map(toMemoryWireItem),
+      nextCursor: listed.nextCursor,
       topics,
     }
   },

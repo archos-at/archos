@@ -152,4 +152,31 @@ describe('ProjectMemoryPanel', () => {
       await screen.findByText('Not saved: a note others read may not hold a phone number. Leave it out and save again.')
     ).toBeInTheDocument()
   })
+
+  test('a new note is filed under the open topic picked for it', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === 'POST'
+        ? Response.json({ item: wire({ id: 'new', content: 'Brandschutzkonzept abgestimmt.', topic: 'Brandschutz' }) })
+        : Response.json({
+            topics: [{ name: 'Brandschutz', count: 1 }],
+            items: [wire({ id: 'fire', content: 'Fluchtweg Treppenhaus 2 offen.', topic: 'Brandschutz' })],
+          })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ProjectMemoryPanel projectId="p1" />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Add note' }))
+    await userEvent.type(screen.getByLabelText('Add note'), 'Brandschutzkonzept abgestimmt.')
+    await userEvent.type(screen.getByRole('combobox', { name: 'Topic' }), 'brand')
+    await userEvent.click(screen.getByRole('option', { name: 'Brandschutz' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('Brandschutzkonzept abgestimmt.')
+    const post = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'POST')
+    expect(JSON.parse(String((post?.[1] as RequestInit | undefined)?.body))).toEqual({
+      kind: 'decision',
+      content: 'Brandschutzkonzept abgestimmt.',
+      topic: 'Brandschutz',
+    })
+  })
 })

@@ -35,7 +35,7 @@ import {
   touchPersonalMemory,
   updatePersonalMemory,
 } from './repository'
-import { PERSONAL_DIGEST_MAX_TOPICS } from './digest'
+import { TOPIC_INDEX_MAX_TOPICS } from '@/lib/knowledge/topic-index'
 import {
   PERSONAL_DIGEST_MAX_CHARS,
   PERSONAL_DIGEST_MAX_ITEMS,
@@ -446,7 +446,7 @@ describe('buildPersonalMemoryDigest', () => {
     expect(await buildPersonalMemoryDigest(OWNER)).toBe(
       [
         PERSONAL_MEMORY_DIGEST_HEADER,
-        `topics of the person's 2 notes (at most ${PERSONAL_DIGEST_MAX_TOPICS} named): "Brandschutz" (1)`,
+        `topics of the person's 2 notes (at most ${TOPIC_INDEX_MAX_TOPICS} named): "Brandschutz" (1)`,
         'Topic "Brandschutz":',
         '- [pinned | profile] "Leads the fire-safety reviews."',
         'No topic:',

@@ -11,7 +11,8 @@ import { distinctTopicNames, resolveTopic } from './topic'
  * One page of a list's visible items, filtered to a topic: the items of that
  * topic in the order given, then the page. The filter runs after visibility, on
  * the items the reader may see; a topic only restricted notes hold selects nothing.
- * `topic` is the query's value; null (no topic) selects the notes with no topic.
+ * `topic` is the query's text; the empty string (no topic, as `resolveTopic` reads it)
+ * selects the notes with no topic.
  */
 export function pageOfTopic<T extends { topic: string | null }>(
   items: readonly T[],

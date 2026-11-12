@@ -105,4 +105,16 @@ describe('TopicRenameDialog', () => {
     expect(props.onOpenChange).toHaveBeenCalledWith(false)
     expect(props.onRename).not.toHaveBeenCalled()
   })
+
+  test('a folder with office notes says the rename leaves them under their topic', () => {
+    renderDialog({ officeKeepsTopic: true })
+
+    expect(screen.getByText("The office's notes keep their topic.")).toBeInTheDocument()
+  })
+
+  test('without office notes in the folder the dialog says nothing about them', () => {
+    renderDialog()
+
+    expect(screen.queryByText(/office's notes keep/)).not.toBeInTheDocument()
+  })
 })
