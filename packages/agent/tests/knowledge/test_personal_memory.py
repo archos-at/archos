@@ -69,6 +69,19 @@ def test_the_note_is_posted_with_the_envelope_and_names_no_owner(route):
     assert seen["headers"][bff_http.REQUEST_CONTEXT_SIGNATURE_HEADER.lower()] == "env-signature"
 
 
+def test_the_topic_is_sent_trimmed(route):
+    seen = route({"item": {"id": "n1"}, "created": True})
+    _write(topic=" Brandschutz ")
+    assert seen["payload"]["topic"] == "Brandschutz"
+
+
+@pytest.mark.parametrize("topic", [None, "", "T" * 41])
+def test_a_topic_that_is_absent_empty_or_too_long_is_not_sent(route, topic):
+    seen = route({"item": {"id": "n1"}, "created": True})
+    assert _write(topic=topic) is not None
+    assert "topic" not in seen["payload"]
+
+
 def test_a_refreshed_note_says_it_was_not_created(route):
     route({"item": {"id": "note-1"}, "created": False})
     assert _write(provenance_type="distillation").created is False

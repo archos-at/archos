@@ -151,7 +151,7 @@
     "packages/agent/src/agent/common/citation_events.py::build_turn_events": 108,
     "packages/agent/src/agent/knowledge/inventory.py::render_inventory_block": 140,
     "packages/agent/src/agent/knowledge/norm_store.py::NormRegistryStore.put": 64,
-    "packages/agent/src/agent/knowledge/project_memory.py::insert_memory_item": 67,
+    "packages/agent/src/agent/knowledge/project_memory.py::insert_memory_item": 65,
     "packages/agent/src/agent/observability/otel_header_redaction_exporter.py::otelcollector_redaction_telemetry_exporter": 128,
     "packages/agent/src/agent/stages/runner.py::_run_stage": 69,
     "packages/agent/src/agent/tokenomics/nat_adapter.py::_parse_request": 128,

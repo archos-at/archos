@@ -63,6 +63,10 @@ REFLECTION_SYSTEM_PROMPT = (
     "obsolete: a finding that adds detail alongside an entry, or covers a different aspect of "
     "the same topic, must leave `supersedes` as an empty string. Never quote an entry that is "
     "not shown below, and never invent one.\n\n"
+    "EVERY FINDING NAMES ITS TOPIC, in `topic`: the subject it is filed under on its shelf, so the "
+    "shelf reads as folders. One to three words in the language the person wrote in, a subject and "
+    'not a kind ("Brandschutz", not "Entscheidung"). Reuse a topic already shown in the memory '
+    "below when one fits; an empty string when none does.\n\n"
     "about must be one of: project, person.\n"
     "kind must be one of: decision, constraint, open_question, derived_fact, preference, profile "
     "(profile only with about: person).\n"
@@ -73,11 +77,12 @@ REFLECTION_SYSTEM_PROMPT = (
     "answers.\n"
     "supersedes is the verbatim content of the memory entry being replaced, or an empty string: "
     "a project memory entry with about: project, a personal memory entry with about: person.\n"
+    "topic is one to three words naming the subject, or an empty string.\n"
     "When the person asks to drop, undo or forget one of their personal notes, return a finding "
     "with about: person, that note VERBATIM in supersedes and an EMPTY content: the note is "
     'removed. Never record a note that negates an earlier one ("no longer X") in its place.\n\n'
     f"Return AT MOST {MAX_NEW_ITEMS} findings. If nothing qualifies, return an empty list — "
     "that is the common and correct outcome. Respond with ONLY a JSON object of the form: "
     '{"findings": [{"about": "...", "kind": "...", "content": "...", "confidence": "...", "importance": 5, '
-    '"supersedes": "..."}]}'
+    '"supersedes": "...", "topic": "..."}]}'
 )

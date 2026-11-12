@@ -100,6 +100,11 @@ includes the restricted digest lines EARLIER turns were shown
 reader of restricted evidence reads that record too, or a note that left the
 re-ranked digest is filed open.
 
+**A note may carry a topic, the subject it is filed under on its shelf.** The
+agent reuses a topic the shelf already shows, the client drops one longer than
+40 characters (`memory_topic`), and the server normalizes it against the shelf's
+topics, so a spelling in another case lands in the existing topic.
+
 **A supersede must quote one COMPLETE entry of the digest the model was
 shown.** The frontend resolves supersedes fuzzily (≥0.7 Jaccard), so a
 truncated or paraphrased quote would retire an entry nobody named. Reflection

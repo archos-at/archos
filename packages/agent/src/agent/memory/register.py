@@ -393,7 +393,7 @@ def _refusal_before_write(scope: str, kind: str, content: str) -> str | None:
     return None
 
 
-async def _remember_personal(kind: str, content: str, supersedes: str = "") -> str:
+async def _remember_personal(kind: str, content: str, supersedes: str = "", topic: str = "") -> str:
     """Record, correct or drop a finding about the person asking in their personal memory (ADR-0180).
 
     With ``supersedes`` the quoted note is removed first, and only once it is
@@ -425,6 +425,7 @@ async def _remember_personal(kind: str, content: str, supersedes: str = "") -> s
             kind=kind,
             content=content,
             conversation_id=project_context.get_conversation_id_from_context(),
+            topic=topic,
         )
     except memory_client.TemporaryConversationError:
         return f"{removed} {_TEMPORARY_RESULT}".strip()
@@ -459,7 +460,7 @@ async def _forget_personal(envelope: SignedEnvelope, supersedes: str) -> str | N
 
 
 async def _remember_shared(
-    *, kind: str, content: str, confidence: str, scope: str, supersedes: str, judge_llm: Any
+    *, kind: str, content: str, confidence: str, scope: str, supersedes: str, topic: str, judge_llm: Any
 ) -> str:
     """Record a finding in project or organization memory, restricted when the turn's evidence says so."""
     if drew_on_other_projects():
@@ -500,6 +501,7 @@ async def _remember_shared(
             restricted_collections=restriction,
             # Audited by the BFF with the item it was about (AI Act).
             restriction_judge=decision.judge.as_payload() if decision.judge else None,
+            topic=topic,
         )
     except _WRITE_FAILURES as exc:
         return await _write_failed(
@@ -553,6 +555,10 @@ _SCOPE_DESCRIPTION = (
     "'personal': about the person asking; only that person reads it. 'project': about the current "
     "project; the project's members read it. 'organization': holds for every project of the "
     "organization; everyone in the organization reads it."
+)
+_TOPIC_DESCRIPTION = (
+    "The subject the note is filed under: one to three words in the person's language, a subject not a "
+    "kind (e.g. 'Brandschutz', not 'Entscheidung'). Reuse a topic already shown in memory when one fits. Empty if none."
 )
 _SUPERSEDES_DESCRIPTION = (
     "The verbatim text of the memory entry this finding corrects, without its tag and without the "
@@ -610,6 +616,7 @@ async def project_memory_remember(tool_config: ProjectMemoryRememberConfig, buil
         confidence: Annotated[Confidence, Field(description=_CONFIDENCE_DESCRIPTION)] = "medium",
         scope: Annotated[Scope, Field(description=_SCOPE_DESCRIPTION)] = "project",
         supersedes: Annotated[str, Field(description=_SUPERSEDES_DESCRIPTION)] = "",
+        topic: Annotated[str, Field(description=_TOPIC_DESCRIPTION)] = "",
     ) -> str:
         """Record one durable finding in personal, project or organization memory."""
         content = content.strip()[: tool_config.max_content_chars]
@@ -623,13 +630,14 @@ async def project_memory_remember(tool_config: ProjectMemoryRememberConfig, buil
         if refusal is not None:
             return refusal
         if scope == "personal":
-            return await _remember_personal(kind, content, supersedes.strip())
+            return await _remember_personal(kind, content, supersedes.strip(), topic)
         return await _remember_shared(
             kind=kind,
             content=content,
             confidence=confidence,
             scope=scope,
             supersedes=supersedes.strip(),
+            topic=topic,
             judge_llm=base_judge,
         )
 
