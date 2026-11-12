@@ -32,6 +32,7 @@ from agent.knowledge.law_lookup.passages import build_passages
 from agent.knowledge.law_lookup.picker import make_picker
 from agent.knowledge.law_lookup.planner import make_planner
 from agent.knowledge.law_lookup.render import format_passages
+from agent.knowledge.law_lookup.render import unread_versions
 from agent.knowledge.law_lookup.source import LawSource
 from agent.knowledge.law_lookup.source import law_source
 from agent.knowledge.law_lookup.telemetry import capture_passages
@@ -188,15 +189,23 @@ class _Lookup:
         outcome = ActionOutcome()
         row = ActionRow("law", query=question, target=(instrument or "").strip())
         try:
-            result = await self._answer(bound, question, jurisdiction, instrument, application, outcome, as_of)
+            result = await self._answer(bound, question, jurisdiction, instrument, application, outcome, as_of, note)
         except BaseException:
             row.finish("error")
             raise
         outcome.settle(row)
-        return f"{note}\n{result}" if note else result
+        return result
 
     async def _answer(
-        self, bound: _Bound, question, jurisdiction, instrument, application, outcome: ActionOutcome, as_of: str
+        self,
+        bound: _Bound,
+        question,
+        jurisdiction,
+        instrument,
+        application,
+        outcome: ActionOutcome,
+        as_of: str,
+        note: str,
     ) -> str:
         law, tool = bound.law, self.config.tool_name
         address = parse_address(question, instrument, jurisdiction, law)
@@ -214,12 +223,14 @@ class _Lookup:
         ingested = await ingest_documents(documents, self.config.ingest_into_knowledge, law, self.ttl)
         emit_lookup_span(question, address, trace, passages, tool)
         outcome.hits = len(passages)
+        # The call's notes go INSIDE the rendered block: its records are filed under the text it renders, and a
+        # line put before it afterwards loses them (``grounding_block.get_grounding_block``). A miss files none.
+        notes = [line for line in (note, today_note(as_of, now) if current else "") if line]
         if not passages:
-            result = miss_message(question, address, trace, law)
-        else:
-            capture_passages(passages)
-            result = format_passages(passages, ingested, address, law, tool)
-        return f"{today_note(as_of, now)}\n{result}" if current else result
+            return "\n".join([*notes, miss_message(question, address, trace, law)])
+        capture_passages(passages)
+        notes += unread_versions(trace, law)
+        return format_passages(passages, ingested, address, law, tool, notes)
 
 
 async def _resolve_llms(tool_config: LawLookupToolConfig, builder: Builder):

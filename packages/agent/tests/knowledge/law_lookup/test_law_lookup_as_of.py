@@ -340,3 +340,50 @@ async def test_a_version_of_the_day_read_without_an_answer_is_not_called_missing
     assert portal.documents_requested == [OLD_60]
     assert "1 Statutes version document(s) of that day were read and none answered" in output
     assert "no Statutes version document of that day was found" not in output
+
+
+# CodeRabbit on #1717: the block's records are filed under the exact text it renders. The day's note, put before
+# the block afterwards, changed that text, so the citation layer lost the records (work, edition, public address)
+# and fell back to parsing. The note is inside the block now.
+@pytest.mark.asyncio
+async def test_the_note_of_a_day_read_as_today_keeps_the_answers_records():
+    from agent.common.grounding_block import begin_grounding_capture
+    from agent.common.grounding_block import end_grounding_capture
+    from agent.common.grounding_block import get_grounding_block
+
+    token = begin_grounding_capture()
+    try:
+        output = await _ask_on(
+            _regional_versions(*_ALL_VERSIONS), catalog=[_regional_code()], **_REGIONAL_ARGS, as_of="2026-11-12"
+        )
+        block = get_grounding_block(output)
+    finally:
+        end_grounding_capture(token)
+
+    assert block is not None and block.hits
+    assert block.preamble.startswith("as_of 2026-11-12 is today")
+
+
+# CodeRabbit on #1717: on a past day each provision is a document of its own, and a call reads only two. A third
+# addressed provision's version was found and silently left unread; the answer names it now.
+@pytest.mark.asyncio
+async def test_a_past_days_version_found_and_not_read_is_named():
+    portal = _regional_versions(*_ALL_VERSIONS)
+    old_62 = f"https://{xa.DOCS}/documents/regional/XAR62-2015.html"
+    old_63 = f"https://{xa.DOCS}/documents/regional/XAR63-2015.html"
+    portal.answer = lambda params: (
+        xa.search_answer(
+            *_ALL_VERSIONS,
+            _regional_hit(old_62, "§ 62", "2015-01-01", "2020-12-31"),
+            _regional_hit(old_63, "§ 63", "2015-01-01", "2020-12-31"),
+        )
+        if "q" not in params
+        else xa.search_answer()
+    )
+    for url, number in ((old_62, 62), (old_63, 63)):
+        portal.set_text(url, REGIONAL, f"§ {number}. (1) Provision {number} (2015).")
+    args = {**_REGIONAL_ARGS, "instrument": f"§§ 61, 62 and 63 {REGIONAL}"}
+    output = await _ask_on(portal, **args, as_of="2019-06-01")
+
+    assert len(portal.documents_requested) == 2
+    assert "Versions of 2019-06-01 found and not read in this call: § 63." in output

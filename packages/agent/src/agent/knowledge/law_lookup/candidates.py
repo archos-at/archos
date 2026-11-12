@@ -51,6 +51,7 @@ class Candidate:
     territory: str = ""
     origin: str = ""  # "address" | "catalog" | "live"
     version_date: str = ""
+    provision: str = ""  # the provision a version document holds, as the hit states it (``Engine.provision_field``)
     unavailable: str = ""  # why there is no full text, stated verbatim to the model
 
     @property
@@ -208,6 +209,7 @@ def candidate_from_hit(hit, law: LawSource, *, whole_law: bool = True) -> Candid
         territory=hit.metadata.get(engine.territory_field, "") if engine.territory_field else "",
         origin="live",
         version_date="" if reads_today else own_date,
+        provision=hit.metadata.get(engine.provision_field, "") if engine.provision_field else "",
     )
 
 
