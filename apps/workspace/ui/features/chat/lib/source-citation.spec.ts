@@ -190,6 +190,24 @@ describe('toTechnicalText', () => {
     expect(toTechnicalText(live, NOW)).toBe(toTechnicalText(law, NOW))
   })
 
+  test('a recorded text whose edition label repeats the designation names it once', () => {
+    const recorded = refFor({
+      id: 'c12',
+      content: '',
+      timestamp: NOW,
+      title: 'xa-reg-305-text-0a1b2c3d4e5f.pdf',
+      fileName: 'xa-reg-305-text-0a1b2c3d4e5f.pdf',
+      kind: 'building_law',
+      lane: 'building_law_base',
+      origin: 'kb',
+      number: 12,
+      isCited: true,
+      line: { edition_id: 'edition:xa-reg-305', designation: 'Regulation 305/2011', edition_label: 'Regulation 305/2011' },
+    })
+    expect(recorded.document.title).toBe('Regulation 305/2011')
+    expect(toCslItem(recorded, NOW).title).toBe('Regulation 305/2011')
+  })
+
   test('a recorded text whose work names no issuer keeps the publisher its lane gives', () => {
     const recorded = refFor({
       id: 'c11',

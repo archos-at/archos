@@ -108,7 +108,8 @@ const FILE_NAME = /^\S*\.\w{2,5}$/
 export function recordedName(source: { title?: string | null; fileName?: string | null; line?: CitedSource['line'] }): string | undefined {
   const line = source.line
   if (!line?.edition_id || !line.designation) return undefined
-  const named = [line.designation, line.edition_label].filter(Boolean).join(', ')
+  // A label that repeats the designation (a regulation's number is both) is said once.
+  const named = line.edition_label && line.edition_label !== line.designation ? `${line.designation}, ${line.edition_label}` : line.designation
   const title = source.title?.trim() ?? ''
   const ownTitle = title !== '' && title !== named && title !== source.fileName?.trim() && !FILE_NAME.test(title)
   return ownTitle ? undefined : named
