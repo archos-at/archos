@@ -26,6 +26,7 @@ import { STALE_VECTOR, backfillAfterRecall, embedStoredNote } from './memory-emb
 import { refuseStatusMove, statusMayBecome, supersedable } from './memory-status'
 import { RECALL_CANDIDATE_LIMIT, selectRecallCandidates, type DigestTiming } from './memory-recall'
 import { formatTopicDigest } from './memory-digest'
+import { restatedTopicSet } from './memory-refresh-topic'
 import { projectTopicsOf } from './memory-topics'
 import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import { maskChatText } from '@/lib/upload-screening/service'
@@ -508,6 +509,7 @@ async function refreshDuplicate(
     .update(projectMemory)
     .set({
       ...(rewrite ? { content: values.content, ...STALE_VECTOR } : {}),
+      ...restatedTopicSet(values.topic),
       confidence: best,
       lastReferencedAt: new Date(),
       updatedAt: new Date(),
