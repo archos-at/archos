@@ -7,7 +7,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { proposedRecordSchema } from './wire'
-import { type DatedPlatformEdition, type KnownCapture, type KnownRecord, type Problem, validateProposal } from './validate'
+import { type DatedPlatformEdition, type KnownCapture, type KnownRecord, type Problem, NO_COVERAGE_WARNING, releaseWarnings, validateProposal } from './validate'
+import { bodyOf, claimsOf, recordIdOf } from './records'
 
 const CAPTURE = '6f0c1a7e-2b7d-4c55-9a3e-6d1f0b2a9c11'
 const UPLOAD = '7a1d2b8f-3c8e-4d66-8b4f-7e2a1c3b0d22'
@@ -317,5 +318,30 @@ describe('validateProposal', () => {
       expect(validateProposal(parse([golden()]), 'AT', KNOWN, CAPTURES).map((p) => p.code)).toEqual(['KC-6'])
       expect(validateProposal(parse([golden({ citations: cited() })]), 'AT', KNOWN, CAPTURES)).toEqual([])
     })
+  })
+})
+
+describe('releaseWarnings', () => {
+  /** A territory as a request holds it: its newest revision's claims, read from the body its proposal writes. */
+  const territory = (values: Record<string, unknown>) => {
+    const [record] = parse([{ type: 'territory', id: 'XA', kind: 'country', name: 'Xanadu', parents: [], citations: cited(), ...values }])
+    return { type: 'territory' as const, recordId: recordIdOf(record), claims: claimsOf(bodyOf(record)) }
+  }
+
+  it('warns, and refuses nothing, when the country’s own territory states no coverage', () => {
+    expect(releaseWarnings('XA', [territory({})])).toEqual([{ code: 'country_states_no_coverage', recordId: 'XA', detail: NO_COVERAGE_WARNING }])
+    expect(NO_COVERAGE_WARNING).toBe('the country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one')
+  })
+
+  it('is quiet when the country states a coverage, for a subdivision, a union, or a request without the country', () => {
+    expect(releaseWarnings('XA', [territory({ coverageLevel: 'core' })])).toEqual([])
+    expect(releaseWarnings('XA', [territory({ id: 'XA-1', kind: 'state', parents: [{ id: 'XA', validFrom: null, validTo: null }] })])).toEqual([])
+    expect(releaseWarnings('XU', [territory({ id: 'XU', kind: 'union' })])).toEqual([])
+    expect(releaseWarnings('XA', [])).toEqual([])
+  })
+
+  it('is quiet when a region of the request states the coverage the country leaves open', () => {
+    const region = territory({ id: 'XA-1', kind: 'state', parents: [{ id: 'XA', validFrom: null, validTo: null }], coverageLevel: 'core' })
+    expect(releaseWarnings('XA', [territory({}), region])).toEqual([])
   })
 })
