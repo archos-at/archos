@@ -1401,6 +1401,14 @@
         },
         {
           "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "When you ask since when a guideline has been binding at your project's site, the answer now gives the date from the platform's reviewed records, the same date the citation shows. It no longer looks the date up on the web and cites a newsletter for it.",
+            "de": "Wenn Sie fragen, seit wann eine Richtlinie am Projektstandort verbindlich ist, nennt die Antwort jetzt das Datum aus den geprüften Datensätzen der Plattform – dasselbe Datum wie in der Quellenangabe. Sie sucht das Datum nicht mehr im Web und belegt es mit einem Newsletter."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "building-law",
           "text": {
             "en": "An answer that names which edition of a guideline applies at your site, and since when, is no longer rated low confidence just for that statement. The confidence check now reads the same record of what applies at the site that the answer was written from.",

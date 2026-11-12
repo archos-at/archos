@@ -5048,6 +5048,10 @@
     "de": "Wenn Sie fragen, wie etwas früher gelöst wurde, zeigt Piloti jetzt zuerst frühere Projekte, die zu Ihrer Frage passen – nicht nur jene, die Ihrem Gebäude am ähnlichsten sind – und stellt Passagen, die eine Lösung zeigen, an den Anfang."
   },
   {
+    "en": "When you ask since when a guideline has been binding at your project's site, the answer now gives the date from the platform's reviewed records, the same date the citation shows. It no longer looks the date up on the web and cites a newsletter for it.",
+    "de": "Wenn Sie fragen, seit wann eine Richtlinie am Projektstandort verbindlich ist, nennt die Antwort jetzt das Datum aus den geprüften Datensätzen der Plattform – dasselbe Datum wie in der Quellenangabe. Sie sucht das Datum nicht mehr im Web und belegt es mit einem Newsletter."
+  },
+  {
     "en": "When you ask to see a model, a room or a storey, the 3D view now stays in the answer instead of disappearing as the answer finishes. Asking to open a model now keeps the tiles to choose from.",
     "de": "Wenn Sie sich ein Modell, einen Raum oder ein Geschoss anzeigen lassen, bleibt die 3D-Ansicht jetzt in der Antwort, statt mit deren Abschluss zu verschwinden. Wenn Sie darum bitten, ein Modell zu öffnen, bleiben die Kacheln zur Auswahl sichtbar."
   },
