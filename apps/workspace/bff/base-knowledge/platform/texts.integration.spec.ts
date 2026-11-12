@@ -45,6 +45,8 @@ const corpus = vi.hoisted(() => ({
   bytes: new Map<string, Buffer>(),
   marks: {} as Record<string, unknown>,
   countries: new Map<string, string>(),
+  /** The display title the indexing job stamped, by file name. */
+  titles: new Map<string, string | null>(),
   answers: true,
 }))
 
@@ -64,7 +66,18 @@ vi.mock('@/lib/authz/platform', async (importOriginal) => {
 vi.mock('@/lib/knowledge/service', () => ({
   getKnowledgeBaseStatus: async () => {
     if (!corpus.answers) throw new Error('Knowledge backend unreachable')
-    return { files: [...corpus.files].map(([fileName, currentSha256]) => ({ fileName, state: 'pending', currentSha256, countryId: corpus.countries.get(fileName) ?? null })) }
+    return {
+      files: [...corpus.files].map(([fileName, currentSha256]) => ({
+        fileName,
+        state: 'pending',
+        currentSha256,
+        countryId: corpus.countries.get(fileName) ?? null,
+        displayTitle: corpus.titles.get(fileName) ?? null,
+      })),
+    }
+  },
+  updateKnowledgeBaseDisplayTitle: async (fileName: string, title: string | null) => {
+    corpus.titles.set(fileName, title)
   },
   uploadKnowledgeBaseDocument: async (file: File) => {
     const bytes = Buffer.from(await file.arrayBuffer())
@@ -310,6 +323,8 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       await indexing.runPlatformTextIndex(fixed.platformOrg, { runId: outcome.indexRuns[0] as string }, { last: true })
       expect((await indexing.readIndexStatus(id)).texts).toMatchObject([{ corpusFile: name, state: 'queued', failure: null }])
       expect(corpus.marks[name]).toMatchObject({ countryId: 'AT', editionId: `edition:${key('published-rl-1-2019')}` })
+      // A citation of it is named by its records, not by its file name.
+      expect(corpus.titles.get(name)).toBe('OIB-Richtlinie 1, April 2019')
     })
   })
 
