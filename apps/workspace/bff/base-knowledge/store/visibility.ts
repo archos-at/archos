@@ -9,7 +9,7 @@
  *   entitled to (`knowledge_country_entitled`, the `EU` pack following an
  *   entitled member), or one a released relation reaches from such a record
  *   (`knowledge_reached_ids()`: a DIN edition a Land law makes binding). The
- *   reach is one set per query (migration 0236): the per-row walk of 0211 cost
+ *   reach is a set built once per subplan (migration 0236): the per-row walk of 0211 cost
  *   an office entitled to little of the corpus seconds per read.
  *
  * Every read of base knowledge for an office (the chain, the time path, the

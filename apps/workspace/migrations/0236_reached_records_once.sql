@@ -1,5 +1,5 @@
--- Which platform records a released relation reaches, computed once per query
--- instead of once per row.
+-- Which platform records a released relation reaches, computed as one set per
+-- subplan instead of once per row.
 --
 -- 0211 made a platform record readable when the office is entitled to its
 -- country OR `knowledge_reached_by_relation(id)`: a recursive walk BACK from
@@ -13,8 +13,14 @@
 --
 -- `knowledge_reached_ids()` walks FORWARD once, from every record the office
 -- is entitled to, and returns the set; an uncorrelated `id IN (SELECT ...)` is
--- a hashed subplan Postgres builds at most once per query, and only when a row
--- is not entitled (the OR short-circuits for the rest). The set is exactly the
+-- a hashed subplan Postgres builds at most once where it appears, and only
+-- when a row is not entitled (the OR short-circuits for the rest). A query names
+-- the records more than once (the policy, `recordReadable`, each revision
+-- policy's EXISTS), so it may build the set two to four times: still a handful,
+-- where the per-row walk ran once per hidden row. The walk now starts from
+-- everything the office is entitled to, so its cost follows the entitled
+-- corpus; measured 2026-11-12 on the AT and EU packs, an Austrian office's
+-- chain reads took as long as before (1.3 s and 3.9 s in the chain spec). The set is exactly the
 -- records `knowledge_reached_by_relation` answers true for: the same edges
 -- (an edition and its work at the same depth; a released platform
 -- `makes_binding`, `deviates_from` or `interprets` relation one step further),

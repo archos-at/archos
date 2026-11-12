@@ -2519,7 +2519,7 @@ Reads: an office reads a platform record once it has a head and
 `knowledge_country_entitled(country_id)` (its home country or an
 `organization_countries` row) or a released platform relation reaches it from
 one it may read (`id IN (SELECT knowledge_reached_ids())`, one forward walk per
-query since 0236; 0211's per-row `knowledge_reached_by_relation` stays defined
+subplan since 0236; 0211's per-row `knowledge_reached_by_relation` stays defined
 as its oracle), and a platform revision or body once
 `knowledge_revision_released(revision_id)` (ever released to stable) and its
 record is readable. Both are `SECURITY DEFINER`. `scripts/rls-test-db.sh`

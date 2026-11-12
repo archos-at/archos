@@ -4342,7 +4342,7 @@ check_in tz_0235 "SELECT count(*) FROM information_schema.columns WHERE table_na
 echo "==> 0235 territory zone and its down migration verified"
 
 # ---------------------------------------------------------------------------
-# Migration 0236: the records policy reads the reach as one set per query
+# Migration 0236: the records policy reads the reach as one set
 # (`knowledge_reached_ids()`), not 0211's per-row walk. The down restores 0228's
 # policy and drops the function (lossless; the per-row function stays defined
 # throughout), and 0236 applies again. That the set answers what the walk

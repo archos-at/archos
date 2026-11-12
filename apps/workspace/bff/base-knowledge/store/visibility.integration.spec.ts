@@ -154,7 +154,7 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     }
   })
 
-  // Migration 0236 reads the reach as one set per query; 0211's per-row walk stays defined, and is the oracle:
+  // Migration 0236 reads the reach as one set; 0211's per-row walk stays defined, and is the oracle:
   // for every office, every platform record is in the set exactly where the walk answers true.
   it('reads the reach as one set that answers what the per-row walk answers, for every office', async () => {
     const offices = (

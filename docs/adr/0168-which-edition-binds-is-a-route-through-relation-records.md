@@ -82,7 +82,8 @@ record); a rollback of the relation withdraws it. Amended 2026-11-12 (migration
 of the corpus ran the walk once per hidden platform row, again inside each
 revision table's policy, and paid seconds per read. The policy and
 `recordReadable` now read `knowledge_reached_ids()`, the same reach walked
-forward once per query from the records the office is entitled to;
+forward from the records the office is entitled to, once per subplan
+that needs it (two to four in a query) rather than once per hidden row;
 `visibility.integration.spec.ts` holds it to the per-row walk.
 
 **Austria is pack 1, the EU pack 0.** `configs/knowledge-packs/{eu,at}.json`
