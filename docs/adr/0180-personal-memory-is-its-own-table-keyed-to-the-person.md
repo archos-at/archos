@@ -314,3 +314,45 @@ member-removal path (the `user` purger ADR-0011 leaves open), that path must
 call `deleteAllPersonalMemory` for the person in each organization, and
 `user_preferences` needs the same. Until then this record's driver about
 erasure is met by the store's shape and by nothing that runs.
+
+## Amendment (2026-11-12): topics
+
+The three shelves say who reads a note. A **topic** says what the note is about:
+"Brandschutz", "Stellplätze", "Bauherr". Every note on the personal shelf and on
+the project shelf may carry one, and the screens show a shelf as folders by topic.
+The shelf is still the reader's, so a topic never crosses a shelf: "Brandschutz"
+on Mein Gedächtnis and "Brandschutz" on a project shelf are two topics.
+
+- **A column, not a table.** `topic` is a nullable text column on
+  `personal_memory` and `project_memory` (migration `0237_memory_topics`), with a
+  CHECK of 1 to 40 characters without outer spaces. No topics table, no foreign
+  key, no new row-level-security policy: the note's policy covers its topic, so a
+  topic a reader may not see is not shown to them. A table would give a topic its
+  own rows to share and secure, which is the cost this avoids. `null` is "no topic".
+- **One normal form.** `bff/memory-topics/topic.ts` is the only place that trims,
+  folds the Unicode form (NFC) and counts. `resolveTopic` returns the spelling the
+  shelf already has when one matches case-insensitively (German rules), so
+  "brandschutz" lands in "Brandschutz". Every write goes through it: create,
+  update, rename, the agent's `remember` tool and the reflection.
+- **Counts come from the notes the reader sees.** A list answers
+  `topics: { name, count }[]`, counted in TypeScript over the items the reader may
+  see, most notes first. Never counted in SQL over the table: a restricted note's
+  topic must not reveal the note to a reader who may not see it. The project
+  shelf's count covers the whole shelf the reader sees, not only the page.
+- **Rename, merge, ungroup on both shelves; removal only on the personal shelf.**
+  `PATCH …/memory/topics` moves the notes on one topic to another; a name another
+  topic already has merges the two, and `null` ungroups. The personal shelf also
+  has `DELETE …/memory/topics`, which removes every note of the person on a topic,
+  for good, because those notes are the person's own. The team shelf has no
+  removal of a topic: a team's notes are removed one by one, as before.
+- **The agent files notes under topics and reads them through an index.** The
+  `remember` tool and the reflection carry an optional `topic`, one to three words
+  naming a subject ("Brandschutz", not "Entscheidung"), reusing a topic the shelf
+  already shows. The personal block and the project digest open with a bounded
+  topic index and group their lines by topic. A shelf without any topic is
+  rendered exactly as before.
+
+Not done: a topic cannot be ordered or coloured by hand; a topic is not a
+shelf of its own, so one name on two shelves is two topics; a person cannot
+rename a topic on the team shelf from the personal one; the topic a model picks
+is not reviewed by a person beyond what reflection already does for the note.

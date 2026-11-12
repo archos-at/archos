@@ -9,8 +9,9 @@
 -- can see on it, computed in the BFF (`bff/memory-topics/topic.ts`), so the
 -- database never counts notes a reader may not see.
 --
--- The CHECK holds what `normalizeTopic` writes: trimmed, 1 to 40 characters,
--- with the inner whitespace already collapsed to one space. Dropped and added
+-- The CHECK holds that a topic is trimmed and 1 to 40 characters long. It does
+-- not look at the inner whitespace: `normalizeTopic` (`bff/memory-topics/topic.ts`)
+-- collapses that before any write, and the database takes it as given. Dropped and added
 -- again, so the statement applies twice. Additive only: nothing is dropped,
 -- renamed or made NOT NULL.
 ALTER TABLE "personal_memory" ADD COLUMN IF NOT EXISTS "topic" text;

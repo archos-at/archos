@@ -4376,7 +4376,7 @@ echo "==> 0236 sets read once and its down migration verified"
 # ---------------------------------------------------------------------------
 echo "==> verifying the 0237 memory topics and their down migration on mt_0237"
 migrate_before mt_0237 0237_memory_topics
-sql_in mt_0237 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0237', 'user_a', 'preference', 'Answers in short paragraphs.')"
+sql_in mt_0237 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content, content_key) VALUES ('org_0237', 'user_a', 'preference', 'Answers in short paragraphs.', 'answers in short paragraphs')"
 sql_in mt_0237 <<<"INSERT INTO project_memory (scope, organization_id, kind, content) VALUES ('organization', 'org_0237', 'decision', 'Bauanträge gehen digital ein.')"
 apply_in mt_0237 0237_memory_topics.sql
 apply_in mt_0237 0237_memory_topics.sql   # up twice: idempotent

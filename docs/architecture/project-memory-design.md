@@ -730,4 +730,26 @@ differs.
 6. Taxonomy → **5 sharp kinds** (`decision | constraint | open_question | derived_fact | preference`); `observation` dropped as a noise bucket. The taxonomy itself is a quality filter.
 7. Graduation into the structured profile → **propose, never auto-apply**. Memory capture is silent, but crossing into the higher-trust profile (which drives compliance logic) goes through the existing `ProjectProfilePatchCard` accept flow.
 8. Sequencing vs the base-agent refactor → **do the base-agent refactor first** so memory-read lives in one shared place.
-```
+
+## 12. Topics (ADR-0180 amendment, 2026-11-12)
+
+A note may carry a topic: a short text that says what it is about ("Brandschutz",
+"Stellplätze"), and the shelf shows its notes as folders by topic. A topic is a
+nullable column on `project_memory`, not a table of its own, so it has no rows to
+share or secure: the note's row-level security covers it, and a topic a reader
+cannot see is not listed to them. The decision and its reasons are in
+[ADR-0180](../adr/0180-personal-memory-is-its-own-table-keyed-to-the-person.md#amendment-2026-11-12-topics).
+
+- **Counts come from the notes the reader sees.** The list's `topics` is counted in
+  TypeScript over the notes the reader may see on the whole shelf, never in SQL over
+  the table, so a restricted note's topic does not reveal the note (ADR-0087).
+- **The team shelf renames, merges and ungroups a topic, but does not remove one.**
+  A team's notes are removed one by one, as before. The personal shelf can remove a
+  topic with all its notes. The organization (office) shelf follows the team shelf's
+  rules, resolved in `bff/projects/office-memory-topics.ts`.
+- **The digest shows topics.** Each printed note carries its topic as the first tag
+  of its line, and the digest opens with an index of the topics of the notes it
+  prints: at most 20 named, the rest counted and said so. A shelf with no topic
+  prints exactly as before.
+- **Not done.** A topic cannot be ordered or coloured by hand, and one name on the
+  personal and the project shelf is two topics.

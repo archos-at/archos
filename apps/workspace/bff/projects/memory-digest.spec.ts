@@ -16,6 +16,7 @@ const note = (overrides: Partial<DigestItem> = {}): DigestItem => ({
 })
 
 const HEADER_LINE = 'PROJECT_MEMORY v1'
+const INDEX_HEAD = "topics of the project's notes shown here (at most 20 named):"
 const BUDGET = 1800
 
 describe('formatTopicDigest', () => {
@@ -24,7 +25,7 @@ describe('formatTopicDigest', () => {
     expect(formatTopicDigest([note({ content: '  \n ' })], 0, BUDGET)).toBeNull()
   })
 
-  it('opens with the topic index right after the header, then one line per note with its topic first', () => {
+  it('opens with the topic index right after the header, then one line per note with its quoted topic first', () => {
     const digest = formatTopicDigest(
       [
         note({ content: 'EI 90 im Treppenhaus', topic: 'Brandschutz' }),
@@ -37,14 +38,14 @@ describe('formatTopicDigest', () => {
     expect(digest).toBe(
       [
         HEADER_LINE,
-        'Themen im Projektgedächtnis (höchstens 20): Brandschutz (1), Stellplätze (1)',
-        '- [Brandschutz | derived_fact | medium | unverified] "EI 90 im Treppenhaus"',
-        '- [Stellplätze | preference | medium | unverified] "Stellplatzschlüssel 1 je Wohnung"',
+        `${INDEX_HEAD} "Brandschutz" (1), "Stellplätze" (1)`,
+        '- ["Brandschutz" | derived_fact | medium | unverified] "EI 90 im Treppenhaus"',
+        '- ["Stellplätze" | preference | medium | unverified] "Stellplatzschlüssel 1 je Wohnung"',
       ].join('\n')
     )
   })
 
-  it('keeps a note without a topic as before: no topic tag, and no name in the index', () => {
+  it('keeps a shelf with no topic byte-identical: no index, no topic tag', () => {
     const digest = formatTopicDigest([note({ content: 'roof load', topic: null })], 0, BUDGET)
 
     expect(digest).toBe([HEADER_LINE, '- [derived_fact | medium | unverified] "roof load"'].join('\n'))
@@ -68,17 +69,19 @@ describe('formatTopicDigest', () => {
     )
 
     expect(digest?.split('\n').slice(2)).toEqual([
-      '- [Einheiten | org-wide | preference | high | user_confirmed] "prefer metric units"',
-      '- [Honorar | restricted | derived_fact | medium | unverified] "Honorar pauschal"',
+      '- ["Einheiten" | org-wide | preference | high | user_confirmed] "prefer metric units"',
+      '- ["Honorar" | restricted | derived_fact | medium | unverified] "Honorar pauschal"',
     ])
   })
 
-  it('cleans brackets, bars and quotes out of a topic so it cannot close its tag or forge a line', () => {
+  it('cleans brackets and bars out of a topic and escapes its quotes, so it cannot close its tag or forge a line', () => {
     const digest = formatTopicDigest([note({ topic: 'Bau] "x | y' })], 0, BUDGET)
     const lines = (digest as string).split('\n')
 
-    expect(lines[1]).toBe('Themen im Projektgedächtnis (höchstens 20): Bau x y (1)')
-    expect(lines[2]).toBe('- [Bau x y | derived_fact | medium | unverified] "the roof load is 2 kN/m2"')
+    expect(lines[1]).toBe(`${INDEX_HEAD} "Bau \\"x y" (1)`)
+    expect(lines[2]).toBe(
+      '- ["Bau \\"x y" | derived_fact | medium | unverified] "the roof load is 2 kN/m2"'
+    )
     for (const line of lines.slice(2)) {
       expect(line).toMatch(/^- \[[^\]]+\] ".*"$/)
     }
@@ -97,24 +100,24 @@ describe('formatTopicDigest', () => {
     )
 
     expect((digest as string).split('\n')[1]).toBe(
-      'Themen im Projektgedächtnis (höchstens 20): Brandschutz (2), Bauherr (1), Stellplätze (1)'
+      `${INDEX_HEAD} "Brandschutz" (2), "Bauherr" (1), "Stellplätze" (1)`
     )
   })
 
   it('names at most twenty topics and says how many it left out', () => {
     const items = Array.from({ length: DIGEST_TOPIC_INDEX_MAX + 2 }, (_, index) =>
-      note({ content: `note ${index}`, topic: `Thema ${String(index).padStart(2, '0')}` })
+      note({ content: `note ${index}`, topic: `T${String(index).padStart(2, '0')}` })
     )
     const index = (formatTopicDigest(items, 0, BUDGET) as string).split('\n')[1]
 
-    expect(index.startsWith('Themen im Projektgedächtnis (höchstens 20): ')).toBe(true)
-    expect(index.endsWith(', … (+2 weitere)')).toBe(true)
+    expect(index.startsWith(INDEX_HEAD)).toBe(true)
+    expect(index.endsWith(', (+2 more topics, not named)')).toBe(true)
     expect(index.split(' (1)').length - 1).toBe(DIGEST_TOPIC_INDEX_MAX)
   })
 
   it('does not name a topic whose note the budget left out', () => {
-    // One long note fills the budget; the second note's topic would fit beside it
-    // only without the index, and the index is counted first.
+    // One long note fills the budget. The second note fits beside it only if the
+    // index is left out, so the index must be written from the note that printed.
     const long = 'x'.repeat(1600)
     const digest = formatTopicDigest(
       [note({ content: long, topic: 'Brandschutz' }), note({ content: 'roof load', topic: 'Geheim' })],
@@ -123,7 +126,8 @@ describe('formatTopicDigest', () => {
     ) as string
 
     expect(digest).not.toContain('Geheim')
-    expect(digest.split('\n')[1]).toBe('Themen im Projektgedächtnis (höchstens 20): Brandschutz (1)')
+    expect(digest.split('\n')[1]).toBe(`${INDEX_HEAD} "Brandschutz" (1)`)
+    expect(digest.length).toBeLessThanOrEqual(BUDGET)
   })
 
   it('counts the index against the budget, and stays within it', () => {
@@ -133,14 +137,15 @@ describe('formatTopicDigest', () => {
     const digest = formatTopicDigest(items, 0, BUDGET) as string
 
     expect(digest.length).toBeLessThanOrEqual(BUDGET)
-    const printedLines = digest.split('\n').filter((line) => line.startsWith('- ['))
-    const index = digest.split('\n')[1]
-    // Every printed note is named in the index, and no note past the cut is.
+    const lines = digest.split('\n')
+    const printedLines = lines.filter((line) => line.startsWith('- ['))
     expect(printedLines.length).toBeGreaterThan(0)
     expect(printedLines.length).toBeLessThan(items.length)
+    // Every printed note's topic is named in the index.
     for (const line of printedLines) {
-      const topic = line.slice(3, line.indexOf(' | '))
-      expect(index).toContain(topic)
+      // The quoted topic, from its opening quote to its closing one.
+      const topic = line.slice(3, line.indexOf('" | ') + 1)
+      expect(lines[1]).toContain(topic)
     }
   })
 
