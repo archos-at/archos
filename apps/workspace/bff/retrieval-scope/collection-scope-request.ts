@@ -1,5 +1,4 @@
 import { findProjectCollectionName } from '@/lib/projects/repository'
-import { loadProjectSiteCountry } from '@/lib/project-profile/prompt-view'
 import { findUserPreferencesForSession } from '@/lib/user-preferences/repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
@@ -293,10 +292,6 @@ export async function buildCollectionScopeFromRequest(
         )
       : []
 
-  // The Austrian corpus is Austria's law: a project placed elsewhere, or not
-  // placed at all, does not search it (ADR-0158). A turn with no project does.
-  const includeBase = !projectId || (await loadProjectSiteCountry(projectId, session?.organizationId)) === 'at'
-
   const shelfByCollection = new Map<string, CollectionShelf>()
   // The base knowledge corpus, and nothing else, is `base`.
   shelfByCollection.set(baseCollection, 'base')
@@ -314,11 +309,14 @@ export async function buildCollectionScopeFromRequest(
     officeShelfCollectionName: officeShelfCollection,
     baseCollection,
     restrictedCollections,
-    includeBase,
   } satisfies ScopeContext)
 
   // The countries the office may read of the base corpus (ADR-0173), signed onto its entry;
-  // an office entitled to nothing reads none of it (ADR-0175). A request with no organization (an
+  // an office entitled to nothing reads none of it (ADR-0175). The entry is in every scope, a
+  // project's too, whatever its site: which of those countries a turn or a run reads is its
+  // knowledge context's to say (`knowledge_context.corpus_countries`), never the project's site
+  // here. An unplaced project reads the office's countries as information (gate `site_unknown`);
+  // leaving the entry out made its answer say a released text could not be read (2026-11-12). A request with no organization (an
   // anonymous deployment) is signed an empty list, never no field: the agent tier reads a base entry
   // without `countries` as "says nothing" and refuses it too, but the signature should say it out loud.
   const corpusCountries =

@@ -655,10 +655,15 @@ Every backend call carries a base64url `X-Grid-Collection-Scope` header =
 `apps/workspace/bff/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
 RAG multi-tenant boundary. Note `resolveProjectCollectionName` short-circuits to
 no project scope when `session.organizationId` is falsy (anonymous /
-`REQUIRE_AUTH=false`). `oib_knowledge` is in it only for a turn without a
-project or a project placed in Austria (`loadProjectSiteCountry`, ADR-0158); the
-knowledge layer's `scoped_collections_for_site` holds the same rule for a scope
-nobody stated, and RIS is a switched-off source for such a project.
+`REQUIRE_AUTH=false`). `oib_knowledge` is in every scope, whatever the project's
+site, its entry signed with the office's corpus countries (`base-entry.ts`). Which
+of them a read sees is the knowledge context's to say (ADR-0173): a turn's or a
+run's narrows the list (`knowledge_context.corpus_countries`), so an unplaced project
+(`site_unknown`) reads the office's countries as information and a project placed in
+a country the office does not hold reads none (`scoped_collections_for_site` drops the
+base collection). A door call binds no context and reads the signed list. Until
+2026-11-12 the scope left the corpus out of any project not placed in Austria, and an
+unplaced project's answer said a released OIB text could not be read.
 
 The signed header is the **authorization ceiling**, not the turn's search set.
 The client states **intent** on the user message — `focus_file_name`,

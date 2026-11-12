@@ -25,8 +25,6 @@ vi.mock('@/lib/projects/repository', () => ({
   findProjectCollectionName: vi.fn(),
   findProjectTenancy: vi.fn(async () => ({ organizationId: 'org-1', deletedAt: null, status: 'active' })),
 }))
-// An Austrian project: the base corpus is in its scope (ADR-0158).
-vi.mock('@/lib/project-profile/prompt-view', () => ({ loadProjectSiteCountry: vi.fn(async () => 'at') }))
 vi.mock('@/lib/user-preferences/repository', () => ({ findUserPreferencesForSession: vi.fn() }))
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
 vi.mock('@/lib/sharing/repository', () => ({ countGrantsForResource: vi.fn() }))
