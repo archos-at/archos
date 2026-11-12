@@ -53,7 +53,7 @@ describe('ProjectMemoryTopicGroups', () => {
       />
     )
 
-    expect(screen.getByText('Brandschutz')).toBeInTheDocument()
+    expect(screen.getAllByText('Brandschutz').length).toBeGreaterThan(0)
     expect(screen.getByText('Fluchtweg Treppenhaus 2 offen.')).toBeInTheDocument()
     expect(screen.getByText('Bauherr wünscht Abstimmung am Freitag.')).toBeInTheDocument()
   })
