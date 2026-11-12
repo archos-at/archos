@@ -660,10 +660,11 @@ SELECT pg_size_pretty(pg_relation_size('document_versions')) AS heap,
        (SELECT reltuples::bigint FROM pg_class WHERE relname = 'document_versions') AS rows;
 ```
 
-The lock lasts as long as the index build. To know it rather than guess, time
-the same build on a restored copy (`\timing`, then the `CREATE UNIQUE INDEX`
-below without `CONCURRENTLY`). A pause of a few seconds needs nothing more.
-Longer, build the index online first, outside any transaction, as the owner:
+The lock lasts from the index build until the last pending migration commits,
+so its length is the index build plus every migration after 0196 in the same
+batch. To know it rather than guess, time the whole `drizzle-kit migrate` on a
+restored copy. A pause of a few seconds needs nothing more. Longer, build the
+index online first, outside any transaction, as the owner:
 
 ```sql
 CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key"
@@ -672,8 +673,9 @@ CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_
 SELECT indisvalid FROM pg_index WHERE indexrelid = 'document_versions_id_project_id_key'::regclass;
 ```
 
-0196 then adopts it (`ADD CONSTRAINT … UNIQUE USING INDEX`), which takes the
-lock only for a catalog change. Either way, deploy outside office hours: the
+0196 then adopts it (`ADD CONSTRAINT … UNIQUE USING INDEX`): the build no
+longer counts, but the lock taken for that catalog change is still held until
+the batch commits. Either way, deploy outside office hours: the
 migrate Job runs before the new pods take traffic, and a document request that
 waits on the lock times out at Envoy after its route timeout.
 

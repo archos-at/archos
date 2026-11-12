@@ -69,9 +69,11 @@ Check it with the "before" column of
 [dev-acceptance.md](../design/international/dev-acceptance.md) on prod right
 after A (Phase 1, step 12).
 
-If the owner chooses one promotion instead, run Phase 0, then Phase 1 with the
-develop sha of Phase 3, then Phase 3 from its step 5. Every risk below then
-lands in one window.
+If the owner chooses one promotion instead, run Phase 0 and all of Phase 2
+first (Austria stable on dev, both bundles exported), then Phase 1 with the
+develop sha of Phase 3, then Phase 3 from its step 6. Phase 1 step 12's law
+check does not hold on that sha: replace it with Phase 3 step 7's "before"
+acceptance. Every risk below then lands in one window.
 
 ## Phase 0: before any promotion
 
@@ -359,6 +361,11 @@ recreates them empty. The `app` dump above keeps them.
    including `conversations` (0230) and `llm_usage_events` (0220) under the
    batch lock.
 3. Promotion PR as in Phase 1 step 2, with the new sha. The same pin check.
+   That recipe takes develop's `Pulumi.prod.yaml` and drops prod's, so carry
+   over every line A's promotion set differently from develop (for example
+   `mcpGatewayEnabled: "false"`): compare
+   `git diff origin/prod <new sha> -- deploy/pulumi/Pulumi.prod.yaml` before the
+   commit, and keep prod's value on each line that is not the pin.
 4. Manual preview. Expect the public-source fetcher (new Deployment, private
    image with the pull secret) and no surprise.
 5. Deploy early on a working day, with the reviewer ready. From here until
