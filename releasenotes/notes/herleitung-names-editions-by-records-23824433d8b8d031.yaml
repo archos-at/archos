@@ -1,0 +1,8 @@
+---
+# area: answers
+fixes:
+  - >
+    The last card of an answer's derivation now names the binding edition of a
+    guideline together with the regulation that makes it binding, and says a
+    paragraph or a table as written with its page, instead of a file name or
+    „Pkt. § 1“.

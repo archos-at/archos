@@ -1709,6 +1709,8 @@ export const chat = {
         open: 'Open',
         clause: 'Sec.\u00A0{clause}',
         page: 'p.\u00A0{page}',
+        // An edition an act declares binding here: the act as its records name it.
+        through: '{name} (binding through {act})',
         // From a call without a hit: where it looked and for what. Never "No information found".
         openNoHitIn: 'Cannot be judged: the search in {target} for “{query}” found no passage.',
         openNoHitShelf: 'Cannot be judged: the search {shelf} for “{query}” found no passage.',

@@ -52,13 +52,19 @@ const SHELF_KEYS: Record<string, string> = {
   session: 'session',
 }
 
-/** „Pkt. 3.1.1“ or „S. 7“: the address of one passage. */
+/**
+ * „Pkt. 3.1.1“, „§ 1“, „Tabelle 3, S. 10“ or „S. 7“: the address of one passage.
+ * Only a numbered point is called one, and it is address enough; a clause that
+ * names its own kind (a paragraph sign, a table, a heading) is said as it is
+ * written, never „Pkt. § 1“, and keeps its page, which a table's name does not
+ * replace.
+ */
 export const locusLabel = (t: Translator, locus: CitationLocus): string | undefined => {
   const clause = locus.clause?.trim()
-  if (clause) return /^pkt/i.test(clause) ? clause : t('thinking.node.basis.clause', { clause })
-  return typeof locus.page === 'number'
-    ? t('thinking.node.basis.page', { page: locus.page })
-    : undefined
+  const page = typeof locus.page === 'number' ? t('thinking.node.basis.page', { page: locus.page }) : undefined
+  if (!clause) return page
+  if (/^\d/.test(clause)) return t('thinking.node.basis.clause', { clause })
+  return [clause, page].filter(Boolean).join(', ')
 }
 
 /**
@@ -93,8 +99,28 @@ export const cardName = (doc: CitedDocument): string => {
     .join(', ')
 }
 
+/**
+ * The act that declares a cited edition binding where the project is, as its
+ * records name it: the provision („StBTV 2020“), with the act's designation in
+ * front when the provision does not already say it („WBTV, LGBl. 26/2026“).
+ * Undefined unless the records state a binding role through an act: law in its
+ * own territory has no route, and a text read for reference has no role.
+ */
+export const adoptingAct = (doc: Pick<CitedDocument, 'line'>): string | undefined => {
+  const line = doc.line
+  if (line?.role !== 'binding' || !line.route) return undefined
+  const designation = line.route.designation?.trim()
+  const provision = line.route.provision?.trim()
+  if (!provision) return designation || undefined
+  if (!designation || provision.includes(designation)) return provision
+  return `${designation}, ${provision}`
+}
+
+/** One line of „Grundlagen“: the edition, the act it is binding through, then the passage. */
 const basisLine = (t: Translator, doc: CitedDocument): BasisLine => {
-  const text = [cardName(doc), documentLocation(t, doc)].filter(Boolean).join(', ')
+  const act = adoptingAct(doc)
+  const name = act ? t('thinking.node.basis.through', { name: cardName(doc), act }) : cardName(doc)
+  const text = [name, documentLocation(t, doc)].filter(Boolean).join(', ')
   return { numbers: citationNumbers(doc), text }
 }
 
