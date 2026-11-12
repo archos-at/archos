@@ -80,6 +80,10 @@ describe.skipIf(!url)('project memory topics against live Postgres', () => {
       await db.execute(sql`
         insert into project_memory (scope, project_id, organization_id, kind, content, topic, restricted_folder_ids)
         values ('project', ${projectId}::uuid, ${ORG}, 'decision', 'Restricted: the fee agreement caps the scope.', 'Brandschutz', array[${folderId}::uuid])`)
+      // An office note the project's list shows too: its topic counts on the project shelf, and a rename of the project's topics leaves it alone.
+      await db.execute(sql`
+        insert into project_memory (scope, project_id, organization_id, kind, content, topic)
+        values ('organization', null, ${ORG}, 'constraint', 'Office: the building code applies to every project.', 'Bauordnung')`)
     })
   })
 

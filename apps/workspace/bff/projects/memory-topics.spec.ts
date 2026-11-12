@@ -25,6 +25,7 @@ vi.mock('drizzle-orm', async (importOriginal) => {
   return {
     ...actual,
     and: (...conditions: unknown[]) => ({ conditions }),
+    or: (...conditions: unknown[]) => ({ or: conditions }),
     inArray: (_column: unknown, ids: string[]) => ({ ids }),
     eq: (column: { name: string }, value: unknown) => ({ column: column.name, value }),
   }
@@ -65,7 +66,12 @@ vi.mock('@/lib/db', () => ({
   }),
 }))
 
-import { isRestrictedShelfNote, renameProjectShelfTopic, resolveProjectTopicForWrite } from './memory-topics'
+import {
+  isRestrictedShelfNote,
+  projectTopicsOf,
+  renameProjectShelfTopic,
+  resolveProjectTopicForWrite,
+} from './memory-topics'
 import { listProjectMemory } from './memory-service'
 
 const PROJECT = 'proj_1'
@@ -103,6 +109,25 @@ beforeEach(() => {
   h.rows = []
   h.sets = []
   h.updatedIds = []
+})
+
+describe('projectTopicsOf', () => {
+  it('counts the topics of the notes the list shows: the restricted ones only for a reader cleared for them', async () => {
+    h.rows = [
+      { topic: 'Brandschutz', restrictedFolderIds: null },
+      { topic: 'Bauordnung', restrictedFolderIds: null },
+      { topic: 'Brandschutz', restrictedFolderIds: [CONTRACTS] },
+    ]
+
+    await expect(projectTopicsOf(PROJECT, ORG, [])).resolves.toEqual([
+      { name: 'Bauordnung', count: 1 },
+      { name: 'Brandschutz', count: 1 },
+    ])
+    await expect(projectTopicsOf(PROJECT, ORG, [CONTRACTS])).resolves.toEqual([
+      { name: 'Brandschutz', count: 2 },
+      { name: 'Bauordnung', count: 1 },
+    ])
+  })
 })
 
 describe('renameProjectShelfTopic', () => {

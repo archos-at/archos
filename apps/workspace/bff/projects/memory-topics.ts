@@ -12,7 +12,7 @@
  */
 
 import 'server-only'
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { projectMemory } from '@/lib/db/schema/project-memory'
 import {
@@ -29,9 +29,11 @@ function namesOf(topics: readonly (string | null)[]): string[] {
 }
 
 /**
- * The topic of every project note the reader may see on the shelf: the rows the
- * list shows by default (project scope, active, the folders `readable` clears).
- * Only the topic column is read; the rows are counted in TypeScript.
+ * The topic of every note the list shows the reader on this project's shelf: the
+ * project's own notes and the office's, active, under the list's visibility (the
+ * folders `readable` clears). Only the topic column is read; the rows are counted
+ * in TypeScript. The office notes count here too, so a topic only an office note
+ * holds still has its folder and its count.
  */
 async function shelfTopicRows(
   projectId: string,
@@ -43,8 +45,10 @@ async function shelfTopicRows(
     .from(projectMemory)
     .where(
       and(
-        eq(projectMemory.scope, 'project'),
-        eq(projectMemory.projectId, projectId),
+        or(
+          and(eq(projectMemory.scope, 'project'), eq(projectMemory.projectId, projectId)),
+          and(eq(projectMemory.scope, 'organization'), isNull(projectMemory.projectId))
+        ),
         eq(projectMemory.organizationId, organizationId),
         eq(projectMemory.status, 'active'),
         memoryVisibleTo(readable)

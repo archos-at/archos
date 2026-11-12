@@ -2,10 +2,13 @@
  * The project memory digest's text, grouped by topic (ADR-0180, topics amendment).
  *
  * Every printed note carries its topic as the first tag of its line, and the
- * digest opens, right after its header, with an index of the topics of the notes
- * it prints. The index is built from the PRINTED notes and never from the recall
- * window: a restricted note the digest leaves out (its folders not admitted for
- * this turn, or past the character budget) names no topic here.
+ * digest opens, right after its header, with a bounded index of the topics the
+ * agent may file under: the shelf's OPEN topics (the caller passes them, the
+ * project's notes and the office's open notes), plus the topics of the restricted
+ * notes the caller admitted and printed this turn. A restricted note that is left
+ * out (its folders not admitted for this turn, or past the character budget)
+ * names no topic here, and an open topic is named even when none of its notes
+ * prints. Without the shelf's topics the index counts the printed notes.
  *
  * English, because the agent reads it; topic names are the office's own words,
  * quoted the way `bff/knowledge/digest-format.ts` quotes text, and quoted the
@@ -15,7 +18,7 @@
  */
 
 import { formatBoundedDigestWithKept } from '@/lib/knowledge/digest-format'
-import { summarizeTopics } from '@/lib/memory-topics/topic'
+import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import type { DigestItem } from './memory-service'
 
 const DIGEST_HEADER = 'PROJECT_MEMORY v1'
@@ -40,11 +43,31 @@ function cleanTopic(topic: string | null | undefined): string | null {
   return clean === '' ? null : clean
 }
 
-/** The index line for these notes (the ones the digest prints); null when none of them has a topic. */
-export function topicIndexLine(items: readonly { topic?: string | null }[]): string | null {
-  const topics = summarizeTopics(items.map((item) => ({ topic: cleanTopic(item.topic) })))
+/**
+ * The topics the index names, most notes first. With the shelf's open topics,
+ * the count is those plus the printed restricted notes (already admitted by the
+ * caller); without them, every printed note counts.
+ */
+function indexedTopics(items: readonly DigestItem[], shelf: readonly MemoryTopicCount[] | undefined): MemoryTopicCount[] {
+  const counts = new Map<string, number>()
+  const add = (topic: string | null | undefined, count: number) => {
+    const name = cleanTopic(topic)
+    if (name) counts.set(name, (counts.get(name) ?? 0) + count)
+  }
+  for (const { name, count } of shelf ?? []) add(name, count)
+  for (const item of items) {
+    if (!shelf || (item.restrictedFolderIds?.length ?? 0) > 0) add(item.topic, 1)
+  }
+  return [...counts]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'de'))
+}
+
+/** The index line for these notes and the shelf's open topics; null when neither has a topic. */
+export function topicIndexLine(items: readonly DigestItem[], shelf?: readonly MemoryTopicCount[]): string | null {
+  const topics = indexedTopics(items, shelf)
   if (topics.length === 0) return null
-  const head = `topics of the project's notes shown here (at most ${DIGEST_TOPIC_INDEX_MAX} named):`
+  const head = `topics of the project's memory, bounded (at most ${DIGEST_TOPIC_INDEX_MAX} named):`
   const parts: string[] = []
   let used = head.length
   for (const { name, count } of topics.slice(0, DIGEST_TOPIC_INDEX_MAX)) {
@@ -59,8 +82,8 @@ export function topicIndexLine(items: readonly { topic?: string | null }[]): str
 }
 
 /** The header of a digest over these notes: the header, then the index when there is one. */
-function headerFor(items: readonly { topic?: string | null }[]): string {
-  const index = topicIndexLine(items)
+function headerFor(items: readonly DigestItem[], shelf: readonly MemoryTopicCount[] | undefined): string {
+  const index = topicIndexLine(items, shelf)
   return index ? `${DIGEST_HEADER}\n${index}` : DIGEST_HEADER
 }
 
@@ -85,13 +108,17 @@ function tagsOf(item: DigestItem): string[] {
  * The notes that fit without the index are the first candidates. The index is
  * then written from the notes kept, and when it does not fit beside them the
  * last note is dropped and the index written again, until the text is within
- * the budget. The index is always written from exactly the notes that print,
- * so a restricted note the budget left out names no topic.
+ * the budget. The restricted part of the index is always written from exactly
+ * the notes that print, so a restricted note the budget left out names no topic.
  */
-function fitTopicDigest<T extends DigestItem & { tags: string[] }>(lines: T[], maxChars: number): string | null {
+function fitTopicDigest<T extends DigestItem & { tags: string[] }>(
+  lines: T[],
+  maxChars: number,
+  shelf: readonly MemoryTopicCount[] | undefined
+): string | null {
   let kept = formatBoundedDigestWithKept(DIGEST_HEADER, lines, maxChars).kept
   while (kept.length > 0) {
-    const digest = formatBoundedDigestWithKept(headerFor(kept), kept, Number.POSITIVE_INFINITY).digest
+    const digest = formatBoundedDigestWithKept(headerFor(kept, shelf), kept, Number.POSITIVE_INFINITY).digest
     if (digest && digest.length <= maxChars) return digest
     kept = kept.slice(0, -1)
   }
@@ -101,12 +128,19 @@ function fitTopicDigest<T extends DigestItem & { tags: string[] }>(lines: T[], m
 /**
  * The digest text for `items` (in print order): the header, the topic index,
  * then one line per note, with the omitted-notes notice when `omitted` is set.
- * Null when no note prints.
+ * `shelf` is the shelf's open topics (`projectTopicsOf` with no clearance); the
+ * caller passes only the restricted notes it admitted. Null when no note prints.
  */
-export function formatTopicDigest(items: readonly DigestItem[], omitted: number, maxChars: number): string | null {
+export function formatTopicDigest(
+  items: readonly DigestItem[],
+  omitted: number,
+  maxChars: number,
+  shelf?: readonly MemoryTopicCount[]
+): string | null {
   const digest = fitTopicDigest(
     items.map((item) => ({ ...item, tags: tagsOf(item) })),
-    maxChars
+    maxChars,
+    shelf
   )
   if (!digest) return null
   // A cap says so in the text the MODEL reads, not only in the operator's log
