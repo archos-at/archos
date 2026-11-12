@@ -29,12 +29,11 @@ const repository = vi.hoisted(() => ({
 }))
 vi.mock('./repository', () => repository)
 
-// OIB rules judge only a project placed in Austria (ADR-0169); one in no project gets no verdicts.
-vi.mock('@/lib/projects/repository', async () => {
-  const { placedProfile } = await import('@/lib/project-intake/setup-countries.fixtures')
-  return { findProjectProfileInOrg: vi.fn(async () => ({ profile: placedProfile({ country: 'at' }) })) }
+// A rule gives a verdict only where its edition binds at the project's site; here the fire rule's does.
+vi.mock('@/lib/base-knowledge/context/service', async () => {
+  const { contextAt, contextUse } = await import('./rule-basis.fixtures')
+  return { contextForPage: vi.fn(async () => contextAt('AT-9', 'core', [contextUse('OIB-Richtlinie 2', 'Ausgabe Mai 2023')])) }
 })
-vi.mock('@/lib/project-intake/repository', () => ({ findProjectIntake: vi.fn(async () => null) }))
 
 const { bimQuerySchema, runBimQuery } = await import('./query')
 

@@ -261,7 +261,7 @@ export const SimilarPassagesPanel: FC<SimilarPassagesPanelProps> = ({
             data-testid="similar-passages-error"
             action={
               state.failure === 'held' ? undefined : (
-                <Button type="button" variant="outline" size="sm" onClick={retry}>
+                <Button type="button" variant="secondary" size="sm" onClick={retry}>
                   {t('similar.retry')}
                 </Button>
               )

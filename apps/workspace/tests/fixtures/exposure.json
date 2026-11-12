@@ -2660,6 +2660,16 @@
    },
    "reason": null
   },
+  "base-knowledge-bulk": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "base-knowledge-check-record": {
    "kind": "catalog",
    "domain": "knowledge",
@@ -2680,7 +2690,37 @@
    "withheld": null,
    "reason": "which documents the office relies on in its answers is the person’s decision; the agent proposes, the person confirms"
   },
+  "base-knowledge-edition-add": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "base-knowledge-edition-as-of": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-folder-create": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-folder-list": {
    "kind": "catalog",
    "domain": "knowledge",
    "sensitivity": null,

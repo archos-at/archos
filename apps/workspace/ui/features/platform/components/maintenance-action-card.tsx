@@ -198,7 +198,7 @@ export function MaintenanceActionCard<R>({
           </div>
           <CardAction className="flex flex-col items-start gap-1.5 sm:items-end">
             <Button
-              variant={danger ? 'destructive' : 'outline'}
+              variant={danger ? 'destructive' : 'secondary'}
               size="sm"
               onClick={() => setIsOpen(true)}
               disabled={isRunning || !canRun}

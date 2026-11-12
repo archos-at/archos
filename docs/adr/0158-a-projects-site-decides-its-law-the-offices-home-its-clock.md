@@ -64,7 +64,15 @@ cannot present a law the project's facts do not support.
   not state (`scoped_collections_for_site`), round 0 prefetches no OIB family,
   and RIS joins the turn's switched-off sources (the chat agent refuses the call, deep
   research is not offered the tool). A question about Austrian law in general is
-  asked outside the project.
+  asked outside the project. (Amended by [ADR-0173](0173-a-turn-learns-its-country-coverage-and-editions-from-one-knowledge-context.md)
+  and [ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md):
+  the knowledge context decides which countries of the base corpus a turn or a run
+  reads, and an unplaced project, gate `site_unknown`, reads the office's entitled
+  countries as information, with no edition binding. The base corpus is in every
+  collection scope since 2026-11-12: the site check in `collection-scope-request.ts`
+  and `jobs/run-context.ts` that this bullet introduced outlived the cut-over, left an
+  unplaced project with no corpus at all, and its answer said a released OIB text
+  could not be read.)
 - **Land from the postal code.** With address search off (ADR-0159), the
   Postleitzahl and place of a typed Austrian address suggest the Land
   (`bff/project-profile/postal-place.ts`, a GeoNames table shipped with the code),
@@ -113,9 +121,9 @@ cannot present a law the project's facts do not support.
 - `packages/agent/tests/common/test_country_profile.py` (`TestResolveSite`, the
   notes, the doctrine abroad) and `apps/workspace/bff/project-profile/site.spec.ts`
   hold the two twins to the same cases.
-- `test_scope_for_site.py`, `TestAustrianCorpus` and the scope spec
-  (`collection-scope-request.shelf.spec.ts`) fail when the base corpus or RIS
-  reaches a project abroad or unplaced; `postal-place.spec.ts` and
+- The scope spec (`collection-scope-request.shelf.spec.ts`) fails when the base
+  corpus is left out of a project's scope, and `test_knowledge_context.py` when a
+  read sees a country its knowledge context does not name (amended, see Retrieval); `postal-place.spec.ts` and
   `intake-seed.spec.ts` hold the postal-code suggestion, Swiss codes included.
 - `test_applicability.py` and the jurisdiction section of
   `test_turn_context_message.py` fail when OIB verdicts reach a project abroad

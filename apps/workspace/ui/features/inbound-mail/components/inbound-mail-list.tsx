@@ -367,7 +367,7 @@ function ListBody({
           <Collapsible key="quiet" open={quietOpen} onOpenChange={onQuietOpenChange} asChild>
             <section data-testid="quiet-group">
               <CollapsibleTrigger
-                className="text-muted-foreground hover:bg-accent flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium outline-none transition-colors duration-snap ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none pointer-coarse:min-h-11"
+                className="text-muted-foreground hover:bg-hover flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium outline-none transition-colors duration-snap ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none pointer-coarse:min-h-11"
                 data-testid="quiet-group-toggle"
               >
                 <ChevronDown className={cn('size-3.5 transition-transform duration-quick ease-out motion-reduce:transition-none', !quietOpen && '-rotate-90')} aria-hidden />

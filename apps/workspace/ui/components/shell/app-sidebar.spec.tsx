@@ -6,7 +6,7 @@ import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useShellOverlays } from './shell-overlays'
 import { I18nProvider } from '@/i18n'
 import { AppSidebar, railActivePillId } from './app-sidebar'
-import { RailChatsSource, type RailChats } from './rail-chats'
+import { RECENT_CHATS_COLLAPSED_STORAGE_KEY, RailChatsSource, type RailChats } from './rail-chats'
 import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -197,7 +197,7 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     // Chat · Files · Automation* · Overview, then Archiv* · Suche · Inbox*,
     // per `project-sections.ts`. Automation is absent here because `showSkills`
     // is off.
-    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Search', 'Inbox'])
+    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Office standards', 'Search', 'Inbox'])
   })
 })
 
@@ -370,7 +370,8 @@ describe('AppSidebar - active state', () => {
     expect(pill).toHaveClass('bg-sheet', 'shadow-xs')
     // The edge is the shadow's ring, never a border: a border would move the row's content by 1px.
     expect(pill.className).not.toMatch(/\bborder\b|\bborder-/)
-    expect(pill.closest('a')).toHaveClass('font-semibold')
+    // Ink at 500, a step over the rows' muted 440; 600 read as too heavy (2026-11-11).
+    expect(pill.closest('a')).toHaveClass('text-foreground', 'font-medium')
   })
 
   test('a preview can pin the route the rail lights', () => {
@@ -436,7 +437,7 @@ describe('AppSidebar - the org doorways stay reachable from inside a project', (
 
 // None of the pilot offices found the chat history (2026-11-10): its one door was a glyph in the chat's toolbar.
 // The project's last chats stand under „Chat“ in the rail, the open one as the current place.
-describe('AppSidebar - the project’s last chats under „Chat“', () => {
+describe('AppSidebar - the project’s last chats under the sections', () => {
   const chats = (over: Partial<RailChats> = {}): RailChats => ({
     items: [
       { id: 'c1', title: 'Rettungswege Bürogebäude GK4 Wien', href: '/app/projects/p1/chat?session=c1', current: false },
@@ -454,17 +455,37 @@ describe('AppSidebar - the project’s last chats under „Chat“', () => {
       </RailChatsSource>
     )
 
-  test('lists them right under „Chat“, newest first, and „All chats“ last', () => {
+  test('lists them under the sections, headed „Recent chats“, newest first, and „All chats“ last', () => {
     renderWith(chats())
     const list = screen.getByRole('list', { name: 'Recent chats' })
     const links = within(list).getAllByRole('link')
+    // „All chats“ ends the scroll, after the last chat (2026-11-11).
     expect(links.map((link) => link.textContent)).toEqual(['Rettungswege Bürogebäude GK4 Wien', 'Fluchtweglänge im Erdgeschoss', 'All chats'])
     expect(links[0]).toHaveAttribute('href', '/app/projects/p1/chat?session=c1')
     expect(links[2]).toHaveAttribute('href', '/app/projects/p1/chat')
-    // In the sections' list, between „Chat“ and „Files“.
-    const sections = within(screen.getByLabelText('Project sections')).getAllByRole('link').map((link) => link.textContent)
-    expect(sections.indexOf('Chat')).toBeLessThan(sections.indexOf('Rettungswege Bürogebäude GK4 Wien'))
-    expect(sections.indexOf('All chats')).toBeLessThan(sections.indexOf('Files'))
+    // A list of its own after the sections (2026-11-11), not rows nested under „Chat“.
+    const sectionsNav = screen.getByLabelText('Project sections')
+    expect(within(sectionsNav).queryByText('Rettungswege Bürogebäude GK4 Wien')).toBeNull()
+    expect(sectionsNav.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Recent chats' })).toBeInTheDocument()
+  })
+
+  test('the heading folds the list away and back, and the browser remembers it', async () => {
+    window.localStorage.removeItem(RECENT_CHATS_COLLAPSED_STORAGE_KEY)
+    const user = userEvent.setup()
+    const { unmount } = renderWith(chats())
+    const toggle = screen.getByRole('button', { name: 'Recent chats' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('link', { name: 'Fluchtweglänge im Erdgeschoss' })).toBeNull()
+    expect(window.localStorage.getItem(RECENT_CHATS_COLLAPSED_STORAGE_KEY)).toBe('1')
+    unmount()
+    renderWith(chats())
+    expect(await screen.findByRole('button', { name: 'Recent chats', expanded: false })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Recent chats' }))
+    expect(screen.getByRole('link', { name: 'Fluchtweglänge im Erdgeschoss' })).toBeInTheDocument()
+    window.localStorage.removeItem(RECENT_CHATS_COLLAPSED_STORAGE_KEY)
   })
 
   test('a title stays on one line, whole in its tooltip', () => {
@@ -483,7 +504,7 @@ describe('AppSidebar - the project’s last chats under „Chat“', () => {
     expect(pills[0]!.closest('a')).toBe(open)
     const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')
     expect(chat).not.toHaveAttribute('aria-current')
-    expect(chat).toHaveClass('font-semibold')
+    expect(chat).toHaveClass('text-foreground', 'font-medium')
   })
 
   test('with no chat open, „Chat“ stays the current place', () => {

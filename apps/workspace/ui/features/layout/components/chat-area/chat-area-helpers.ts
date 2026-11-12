@@ -1,6 +1,6 @@
 import type { ChatMessage } from '@/features/chat/types'
 import type { ThinkingEnding } from '@/features/chat/components/ChatThinking'
-import type { TurnView } from '@/features/chat/lib/turn-fold'
+import type { TurnView } from '@/lib/turns/turn-fold'
 import { motionQuickExit } from '@/components/motion'
 
 /** How much of an answer the settle announcement reads out. */

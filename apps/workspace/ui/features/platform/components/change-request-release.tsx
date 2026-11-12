@@ -139,25 +139,31 @@ export function ReleaseBar({ view, canManage, onChanged, className }: { view: Ch
   return (
     <>
       <div className={cn('flex flex-wrap items-center justify-end gap-3', className)} data-testid="release-bar">
+        {/* A warning refuses nothing: the reviewer reads it before approving or publishing. */}
+        {(view.warnings ?? []).map((warning) => (
+          <p key={warning.code} className="text-warning w-full text-sm" data-testid={`change-request-warning-${warning.code}`}>
+            {t(`countryKnowledge.warnings.${warning.code}`)}
+          </p>
+        ))}
         {primary?.why ? <p className="text-muted-foreground mr-auto text-sm">{primary.why}</p> : null}
         {canReview ? (
           <>
-            <Button variant="outline" disabled={busy} onClick={() => setConfirming('dispute')} data-testid="second-review-dispute">
+            <Button variant="secondary" disabled={busy} onClick={() => setConfirming('dispute')} data-testid="second-review-dispute">
               {t('countryKnowledge.steps.dispute')}
             </Button>
-            <Button variant={primary ? 'outline' : 'default'} disabled={busy || open > 0 || wrong > 0} onClick={() => setConfirming('confirm')} data-testid="second-review-confirm">
+            <Button variant={primary ? 'secondary' : 'default'} disabled={busy || open > 0 || wrong > 0} onClick={() => setConfirming('confirm')} data-testid="second-review-confirm">
               {t('countryKnowledge.steps.confirm')}
             </Button>
           </>
         ) : null}
         {view.status === 'submitted' && wrong > 0 ? (
-          <Button variant="outline" disabled={busy} onClick={() => setConfirming('reject')}>
+          <Button variant="secondary" disabled={busy} onClick={() => setConfirming('reject')}>
             {t('countryKnowledge.steps.reject')}
           </Button>
         ) : null}
         {primary ? (
           <Button
-            variant={primary.step === 'rollback' ? 'outline' : 'default'}
+            variant={primary.step === 'rollback' ? 'secondary' : 'default'}
             disabled={busy || !primary.enabled}
             onClick={() => setConfirming(primary.step)}
             className={cn(primary.step === 'rollback' && 'text-destructive')}

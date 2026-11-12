@@ -79,7 +79,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
     >
       <header className="flex flex-col gap-2" data-testid="mail-header">
         {/* 16px on a phone, under the page's own title, which it must not outrank; 18px on a desk. */}
-        <h2 className="text-section sm:text-pane-title [overflow-wrap:anywhere]" title={view.subject ?? undefined} /* the pane title, 20/28/600; 16/24/600 on a phone */>
+        <h2 className="text-section font-medium sm:text-pane-title [overflow-wrap:anywhere]" title={view.subject ?? undefined} /* the pane title, 18/26/500; 16/24/500 on a phone */>
           {subject}
         </h2>
         {/* Who on the first line; how far the domain is confirmed, when it arrived and the way to the rest on the second,

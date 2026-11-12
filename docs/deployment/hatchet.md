@@ -213,10 +213,12 @@ What the engine does, and what stayed ours:
   header of `folder_cards/workflow.py`. Sharing the standard slots was
   rejected on the numbers: one build per organisation, so two organisations'
   builds would hold every upload of a two-slot pod for up to half an hour.
-* **Scaling.** KEDA counts `ingest-document` only. A stack whose
-  `ingestWorkerMinReplicas` is 0 (dev) builds cards while an ingest pod is up
-  and not otherwise, as it did when the builder was a loop in that pod: a sweep
-  that finds no worker within 50 s is dropped, and the dirty set waits.
+* **Scaling.** KEDA counts `ingest-document` only. Every stack keeps at
+  least one ingest pod (`ingestWorkerMinReplicas` ≥ 1, held by
+  `ingest-worker.spec.ts`): at zero no worker registers the workflow, the base
+  corpus's jobs are refused before they reach the backlog, and nothing ever
+  scales the tier up (the AT publish on dev, 2026-11-12). The card builder
+  runs while that pod is up.
 
 To see what waits: `SELECT collection, count(*), min(dirty_since) FROM
 folder_card_queue GROUP BY 1` in the agent database, and the runs of

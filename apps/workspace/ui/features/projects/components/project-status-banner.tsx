@@ -105,7 +105,7 @@ function StatusBanner({
           {canChangeStatus && (
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={controls.pending}
               onClick={paused ? controls.resume : controls.requestReopen}
             >

@@ -21,6 +21,8 @@ vi.mock('@/lib/auth/require-auth', () => ({
 }))
 
 vi.mock('@/lib/office-shelf/service', () => ({ listOfficeShelf: vi.fn() }))
+// Which rows are the office's standards (ADR-0163): one read per page, by document id.
+vi.mock('@/lib/base-knowledge/store/repository', () => ({ entryIdsForDocuments: vi.fn(async (_org: string, ids: string[]) => new Map(ids.map((id) => [id, 'work_1']))) }))
 vi.mock('@/lib/documents/lifecycle', () => ({
   summarizeDocumentVersions: vi.fn().mockResolvedValue(new Map([['d1', { versionCount: 2, state: 'published' }]])),
 }))
@@ -71,7 +73,7 @@ describe('GET /api/documents?scope=office_shelf', () => {
     // row must be that, folderId, originPath, authoredBy, lifecycle,
     // versionState/versionCount and contentHash included.
     const expected = JSON.parse(
-      JSON.stringify(toDocumentWireRow(LISTED, { versionCount: 2, state: 'published' })),
+      JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 2, state: 'published' }), baseKnowledgeEntryId: 'work_1' }),
     )
     expect(body.documents[0]).toEqual(expected)
     expect(body.documents[0]).toMatchObject({

@@ -95,7 +95,7 @@ export function BuildingStage({
   return (
     <div className="space-y-4">
       {buildings.map((bw, index) => (
-        <div key={bw.id} className="bg-card overflow-hidden rounded-surface border shadow-xs">
+        <div key={bw.id} className="bg-card overflow-hidden rounded-surface shadow-xs">
           <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2.5">
             <Badge variant="default" className="font-mono">
               {buildingTag(bw.id)}
@@ -194,7 +194,7 @@ export function BuildingStage({
               <button data-attr="project-add-building"
                 type="button"
                 onClick={onAddBuilding}
-                className="border-border text-muted-foreground hover:border-primary/60 hover:bg-primary/5 hover:text-primary inline-flex w-full items-center justify-center gap-2 rounded-control border border-dashed py-2.5 font-mono text-xs pointer-coarse:min-h-11 transition-colors duration-quick ease-out motion-reduce:transition-none"
+                className="border-border text-muted-foreground hover:border-primary/60 hover:bg-hover hover:text-primary inline-flex w-full items-center justify-center gap-2 rounded-control border border-dashed py-2.5 font-mono text-xs pointer-coarse:min-h-11 transition-colors duration-quick ease-out motion-reduce:transition-none"
               >
                 <Plus className="size-4" aria-hidden />
                 {t('intake.building.add')}

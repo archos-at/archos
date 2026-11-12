@@ -57,6 +57,7 @@ const REQUEST = {
   approvals: [],
   releases: [],
   sourcesUnchecked: true,
+  warnings: [],
   captures: [
     {
       captureId: 'cap-ma37',
@@ -181,6 +182,7 @@ const DRAFT = {
   status: 'draft',
   submittedAt: null,
   sourcesUnchecked: false,
+  warnings: [],
   revisions: [manifestation('d1', 'at-oib-rl-1-2019-text', 'oib-rl-1-2019.pdf'), manifestation('d2', 'at-oib-rl-2-2019-text', null)],
   texts: [
     {

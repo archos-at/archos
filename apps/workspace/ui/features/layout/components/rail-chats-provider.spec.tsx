@@ -1,11 +1,11 @@
 /**
- * The rail's last chats are the history sheet's own rows for the project the page is in: five, newest first, the
+ * The rail's last chats are the history sheet's own rows for the project the page is in: up to `RAIL_CHAT_LIMIT`, newest first, the
  * open one current only on the chat route, and a row on the chat route switches the thread the store shows.
  */
 
 import { render, screen } from '@/test-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { useRailChats } from '@/components/shell/rail-chats'
+import { RAIL_CHAT_LIMIT, useRailChats } from '@/components/shell/rail-chats'
 import { useChatStore } from '@/features/chat/store'
 import type { Conversation } from '@/features/chat/types'
 import { useLayoutStore } from '../store'
@@ -62,12 +62,20 @@ describe('RailChatsProvider', () => {
     useLayoutStore.setState({ isSessionsPanelOpen: false })
   })
 
-  test('the page’s project, the reader’s own chats, five, newest first', () => {
+  test('the page’s project, the reader’s own chats, newest first', () => {
     show('/app/projects/p1/files')
-    expect(captured?.items.map((item) => item.id)).toEqual(['untitled', 'c7', 'c6', 'c5', 'c4'])
+    expect(captured?.items.map((item) => item.id)).toEqual(['untitled', 'c7', 'c6', 'c5', 'c4', 'c3', 'c2', 'c1'])
     expect(captured?.items[0]?.title).toBe('Untitled chat')
     expect(captured?.items[1]?.href).toBe('/app/projects/p1/chat?session=c7')
     expect(captured?.allHref).toBe('/app/projects/p1/chat')
+  })
+
+  test('lists at most RAIL_CHAT_LIMIT, the newest', () => {
+    const many = Array.from({ length: RAIL_CHAT_LIMIT + 5 }, (_, i) => conversation(`m${i}`, day(i + 1)))
+    useChatStore.setState({ conversations: many })
+    show('/app/projects/p1/files')
+    expect(captured?.items).toHaveLength(RAIL_CHAT_LIMIT)
+    expect(captured?.items[0]?.id).toBe(`m${RAIL_CHAT_LIMIT + 4}`)
   })
 
   test('the open chat is current on the chat route only', () => {

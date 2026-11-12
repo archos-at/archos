@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import {
   Archive,
+  Library,
   BookOpenCheck,
   ClipboardList,
   Bell,
@@ -57,6 +58,7 @@ export type ProjectSectionKey =
   | 'files'
   | 'knowledge'
   | 'officeShelf'
+  | 'baseKnowledge'
   | 'search'
   | 'inbox'
   | 'intake'
@@ -201,6 +203,22 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     inRail: true,
     inPalette: true,
     shortcutKey: 'a',
+    group: 'org',
+  },
+  {
+    // The office's standards (ADR-0163): office shelf documents with an entry,
+    // in a root folder of their own. Its own doorway beside the Büroablage, so a
+    // standard is not one file among many there.
+    key: 'baseKnowledge',
+    segment: null,
+    href: '/app/base-knowledge',
+    icon: Library,
+    i18nKey: 'baseKnowledge',
+    gate: 'canAccessOfficeShelf',
+    inRail: true,
+    inPalette: true,
+    // `g n`: Normen, the first thing an office keeps here.
+    shortcutKey: 'n',
     group: 'org',
   },
   {

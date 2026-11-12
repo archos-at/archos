@@ -1331,7 +1331,13 @@ door and the A2A door alike: the answer's directive fences, `[[card:N]]`
 markers and `:project[key]` bindings go through the same projection as the copy
 button (`stripDirectives`), a binding printing the project's value, and the
 verifier's German labels become English ones. The stored message keeps the
-dialect; the chat renders it.
+dialect; the chat renders it. `conversation-message-list` gives every
+assistant message's `content` through the same projection when an agent reads
+it (`conversations/messages-for-agent.ts`, on `actingReaderIsAgent()`), so an
+answer read back from its thread is the text `agent-ask-get` gave; before that
+a door-asked answer reached the agent with a literal `[[card:1]]` naming a
+card the list does not even carry without `include=metadata`. The browser
+reads the same route as a person and keeps the dialect.
 
 **The wait, on the 2026-07-28 era** (`ask-calls.ts`). The ask is the one door
 call whose wait is ours; `task-run-start`, the uploads and `document-reingest`

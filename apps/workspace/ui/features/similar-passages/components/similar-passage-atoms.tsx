@@ -105,7 +105,7 @@ export const SimilarPassageButton = forwardRef<
         FOCUS_RING,
         current
           ? 'border-border bg-accent/70'
-          : 'border-transparent hover:bg-accent/40',
+          : 'border-transparent hover:bg-hover',
         className
       )}
       {...props}

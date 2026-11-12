@@ -39,7 +39,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { useLocale, useTranslations } from '@/i18n'
 import { bimCopy } from '@/i18n/namespaces/bim'
-import { rulesWithOpenWork } from '@/lib/bim/rules'
+import { hasOpenWork, rulesWithOpenWork } from '@/lib/bim/rules'
 import type { BimComplianceSummary, BimRuleResultWithConfirmation } from '@/lib/bim/rules'
 import { buildModelHref } from '../lib/model-link'
 import type { BimRuleFactKey } from '../hooks/use-bim-model'
@@ -176,7 +176,7 @@ export function IfcCompliancePanel({
           {t('compliance.title')}
         </h2>
         {bcfHref && openWork > 0 && (
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="secondary" size="sm">
             {/* `download` without a value: the filename comes from the
                 response's Content-Disposition, which is the only place that
                 knows which revision was exported. */}
@@ -373,7 +373,8 @@ function RuleRow({
   const t = useTranslations(bimCopy)
   const checked = rule.passed + rule.failed + rule.undecidable
 
-  const { Icon, tone } = !rule.applicable
+  // A hint judges nothing: it reads as a rule that stood down, not as missing data.
+  const { Icon, tone } = !rule.applicable || rule.hint
     ? { Icon: MinusCircle, tone: 'text-muted-foreground' }
     : rule.failed > 0
       ? { Icon: AlertTriangle, tone: 'text-destructive' }
@@ -405,6 +406,7 @@ function RuleRow({
           {/* The threshold, always — the architect checks the rule, not only
               the verdict. */}
           <p className="text-xs text-muted-foreground">{rule.thresholdDe}</p>
+          {rule.hint && <p className="text-xs text-muted-foreground">{rule.hint}</p>}
 
           {!rule.applicable ? (
             // A rule that stood down says why. Hiding it would make an
@@ -443,9 +445,7 @@ function RuleRow({
                 tone="text-warning"
                 onShowElements={onShowElements}
               />
-              {rule.truncated && (
-                <p className="text-xs text-muted-foreground">{t('compliance.truncated')}</p>
-              )}
+              {rule.truncated && <p className="text-xs text-muted-foreground">{t('compliance.truncated')}</p>}
             </>
           )}
 
@@ -522,9 +522,10 @@ function Confirmation({
   /** Withdrawing is destructive and irreversible, so it asks first. */
   const [confirmingWithdraw, setConfirmingWithdraw] = useState(false)
 
-  // Nothing to confirm on a rule that stood down or that the model settled
-  // cleanly — offering a signature there would invite one nobody needs.
-  const needsHuman = rule.applicable && (rule.failed > 0 || rule.undecidable > 0)
+  // Nothing to confirm on a rule that stood down, that the model settled
+  // cleanly or that is a hint — offering a signature there would invite one
+  // nobody needs, and one on a hint would outlive the hint.
+  const needsHuman = hasOpenWork(rule)
   if (!needsHuman && !rule.confirmation) return null
 
   const submit = async (): Promise<void> => {

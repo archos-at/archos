@@ -135,6 +135,8 @@ export function proposeFromReading(reading: DocumentReading, subdivisions: Subdi
     designation: designation?.designation ?? null,
     editionLabel: edition.label ?? 'unbekannt',
     issuedOn: edition.issuedOn,
+    inForceFrom: null,
+    inForceTo: null,
     territoryIds: readTerritories(kind, reading, addressees, subdivisions),
     issuer: issuerOf(designation, addressees),
     addressees,

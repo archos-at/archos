@@ -84,7 +84,7 @@ export function NoticeCard({
           }}
           onInteractOutside={(event) => event.preventDefault()}
           className={cn(
-            'bg-popover text-popover-foreground rounded-surface fixed z-50 border p-5 shadow-lg',
+            'bg-popover text-popover-foreground rounded-surface fixed z-50 p-5 shadow-lg',
             // The bottom-right corner on a wide screen. On a phone the bottom is the tab bar's and
             // the thumb's, so the card hangs below the header, full width less the gutters.
             'md:right-4 md:bottom-4 md:w-[min(24rem,calc(100vw-2rem))]',
@@ -109,7 +109,7 @@ export function NoticeCard({
                 type="button"
                 onClick={() => onClose('close_button')}
                 aria-label={closeLabel}
-                className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/60 touch-target rounded-control duration-quick -m-1.5 flex size-7 shrink-0 items-center justify-center transition-colors ease-out focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none"
+                className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring/60 touch-target rounded-control duration-quick -m-1.5 flex size-7 shrink-0 items-center justify-center transition-colors ease-out focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none"
               >
                 <X className="size-3.5" aria-hidden />
               </button>

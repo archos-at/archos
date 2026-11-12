@@ -199,8 +199,8 @@ function ChangeRowButton({
         onBlur={() => preview(null)}
         onClick={() => onShow(number)}
         className={cn(
-          'duration-quick flex w-full items-start gap-2 rounded-control p-2 text-left text-sm transition-colors ease-out hover:bg-accent pointer-coarse:min-h-11',
-          isActive && 'bg-accent',
+          'duration-quick flex w-full items-start gap-2 rounded-control p-2 text-left text-sm transition-colors ease-out hover:bg-hover pointer-coarse:min-h-11',
+          isActive && 'bg-selected hover:bg-selected',
         )}
       >
         <ChangeBadge number={number} active={isActive} className="mt-px" />

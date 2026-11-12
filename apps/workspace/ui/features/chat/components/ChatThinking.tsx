@@ -2,7 +2,10 @@
  * ChatThinking — the collapsible Herleitung panel.
  *
  * Folded: the status glyph, „Herleitung · 2 Schritte · 3 Quellen zitiert“ and
- * at most one warning, the worst there is (a failed call, else an open point).
+ * at most one warning, the worst there is (the answer check's worst finding,
+ * else a failed call, else an open point). The glyph is a warning only for a
+ * finding that sinks the answer; an uncited answer that asks the reader back
+ * is „Rückfrage“. The mapping: `lib/derivation-header.ts`.
  * Expanded: the graph (`ReasoningFlow`) — the question, each step with one row
  * per call, the sources each step returned, and „Grundlagen · Entwurf“ — plus
  * the technical step tail when the reader opted in. Two turns need no panel: one
@@ -35,6 +38,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   CircleArrowRight,
+  CircleHelp,
   CircleMinus,
   CircleSlash,
   Circle,
@@ -75,6 +79,16 @@ import { answerSourceAnchorPrefix, citationNumbers, isCited } from '../lib/citat
 import { CitationScope } from './CitationScope'
 import { CitationMarkers } from './CitationMarker'
 import { documentEdition, documentShortName } from '../lib/document-names'
+import type { ConfidenceCheck } from '@/lib/conversations/confidence-check'
+import {
+  type HeaderStatus,
+  type ThinkingEnding,
+  answerAsksBack,
+  headerStatus,
+  headerWarning,
+  isSettledAnswer,
+  worstFinding,
+} from '../lib/derivation-header'
 
 /**
  * How a turn ended that has no answer of its own to be „Fertig" with: it
@@ -82,7 +96,7 @@ import { documentEdition, documentShortName } from '../lib/document-names'
  * (`handed_off`, the work has only begun, in the run block below), or Piloti
  * did not take it on (`refused`, said by the banner below).
  */
-export type ThinkingEnding = 'failed' | 'handed_off' | 'refused'
+export type { ThinkingEnding }
 
 export interface ChatThinkingProps {
   /** Array of thinking steps to display */
@@ -134,6 +148,17 @@ export interface ChatThinkingProps {
   answerConfidence?: 'low' | 'medium' | 'high'
   /** The turn's structured citations, if any (assessment node). */
   citations?: CitationSource[]
+  /**
+   * The answer check stored with the answer (ADR-0139). Its worst finding is
+   * the settled header's warning; one that sinks the answer (a contradiction,
+   * or a low level) also turns the green check into a warning glyph.
+   */
+  confidenceCheck?: ConfidenceCheck
+  /**
+   * The answer's text. Read only for whether it ends by asking the reader
+   * back, which is its own settled state (`lib/derivation-header`).
+   */
+  answerText?: string
   /**
    * The id of the turn's answer message. Its `[N]` anchors are named after it
    * (`answerSourceAnchorPrefix`), and the Herleitung's markers use the same
@@ -251,17 +276,6 @@ const useThrottledText = (text: string, gapMs: number): string => {
   return shown
 }
 
-type HeaderStatus =
-  | 'live'
-  | 'waiting'
-  | 'recovering'
-  | 'interrupted'
-  | 'stopped'
-  | 'failed'
-  | 'handedOff'
-  | 'refused'
-  | 'done'
-
 const ChatThinkingView: FC<ChatThinkingProps> = ({
   steps,
   isThinking = true,
@@ -276,6 +290,8 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
   userQuestion = '',
   answerConfidence,
   citations,
+  confidenceCheck,
+  answerText,
   answerId,
   escalationReason,
   retrievalLedger,
@@ -433,23 +449,17 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
       ? t('thinking.derivationSummaryWithSources', { count: sourceCount })
       : t('thinking.derivationSummary'))
 
-  const status: HeaderStatus = isThinking
-    ? 'live'
-    : isWaiting
-      ? 'waiting'
-      : isInterrupted && isRecoveryPending
-        ? 'recovering'
-        : isInterrupted
-          ? 'interrupted'
-          : isStopped
-            ? 'stopped'
-            : endedAs === 'failed'
-              ? 'failed'
-              : endedAs === 'handed_off'
-              ? 'handedOff'
-              : endedAs === 'refused'
-                ? 'refused'
-                : 'done'
+  const worst = worstFinding(confidenceCheck)
+  const status = headerStatus({
+    isThinking,
+    isWaiting,
+    isInterrupted,
+    isRecoveryPending,
+    isStopped,
+    endedAs,
+    asksBack: answerAsksBack(answerText, citedCount),
+    worst,
+  })
   // The phase in words, for the screen reader's name and the ending's word.
   const statusLabel: Record<HeaderStatus, string> = {
     live: answering ? t('thinking.working') : t('thinking.inProgress'),
@@ -460,6 +470,8 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
     failed: t('thinking.failed'),
     handedOff: t('thinking.handedOff'),
     refused: t('thinking.refused'),
+    askedBack: t('thinking.askedBack'),
+    flagged: t('thinking.flagged'),
     done: t('thinking.done'),
   }
   // The label is the activity while Piloti works toward an answer, and the
@@ -479,29 +491,18 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
     : countParts
       ? `summary:${countParts.before}#${countParts.after}`
       : `summary:${label}`
-  // The one warning a settled header carries: the worst there is. A failed
-  // call outranks a search that found nothing (an open point).
-  const warning =
-    status !== 'done'
-      ? null
-      : overview.failed > 0
-        ? {
-            kind: 'failed' as const,
-            count: overview.failed,
-            text: t('thinking.derivationWarning.failed', { count: overview.failed }),
-          }
-        : overview.open > 0
-          ? {
-              kind: 'open' as const,
-              count: overview.open,
-              text: t('thinking.derivationWarning.open', { count: overview.open }),
-            }
-          : null
+  // The one warning a settled header carries: the worst there is. A finding of
+  // the answer check outranks a failed call, which outranks an open point.
+  const pill = headerWarning(status, worst, overview)
+  const warning = pill && {
+    ...pill,
+    text: t(`thinking.derivationWarning.${pill.kind}`, { count: pill.count }),
+  }
   // The phase in a word: what the trigger is named by and what is announced.
   const phaseWord = statusLabel[status]
   // An ending that is not „done" says so in a word on the right, beside the
   // figure, where it moves nothing on the left.
-  const endingWord = status === 'live' || status === 'done' ? null : statusLabel[status]
+  const endingWord = status === 'live' || status === 'done' || status === 'flagged' ? null : statusLabel[status]
 
   // The figure ticks while the turn works and FREEZES when it ends — on the
   // answer's own duration when the footer has one — instead of vanishing.
@@ -540,28 +541,33 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
   // Two turns need no graph. One that looked nothing up says so in one line;
   // one that made a single call is that call, and the header is the Herleitung.
   // Neither opens: there is nothing behind it.
-  if (
-    status === 'done' &&
-    !overview.researched &&
-    !escalationReason?.trim() &&
-    !showTechnicalSteps
-  ) {
+  // A turn whose ledger names what it read researched, even when none of its
+  // steps was kept (a reload): „Ohne Recherche" there contradicted the record.
+  const researched = overview.researched || (retrievalLedger?.length ?? 0) > 0
+  // Its one line carries the pill too: „Ohne Recherche beantwortet · 2 Aussagen ohne Beleg“.
+  if (isSettledAnswer(status) && !researched && !escalationReason?.trim() && !showTechnicalSteps) {
+    const askedBack = status === 'askedBack'
+    const Glyph = askedBack ? CircleHelp : status === 'flagged' ? TriangleAlert : CircleMinus
+    const tone = askedBack ? 'text-brand' : status === 'flagged' ? 'text-warning' : 'text-muted-foreground'
     return (
       <div
-        data-testid="derivation-no-research"
+        data-testid={askedBack ? 'derivation-asked-back' : 'derivation-no-research'}
         className="bg-muted w-full rounded-surface px-4 py-3 shadow-xs"
       >
         <p className="text-foreground flex min-h-6 items-center gap-2 text-sm font-medium">
-          <CircleMinus aria-hidden className="text-muted-foreground size-5 shrink-0" />
-          {t('thinking.noResearch')}
+          <Glyph aria-hidden className={cn('size-5 shrink-0', tone)} />
+          {t(askedBack ? 'thinking.askedBackHeadline' : 'thinking.noResearch')}
+          {warning && JOIN + warning.text}
         </p>
         <p className="text-muted-foreground pl-7 text-[13px] leading-[19px]">
-          {t('thinking.noResearchNote')}
+          {t(askedBack ? 'thinking.askedBackNote' : 'thinking.noResearchNote')}
         </p>
       </div>
     )
   }
-  if (status === 'done' && overview.single && !showTechnicalSteps) {
+  // A single call keeps its one line only for a plain „done“: a finding or a
+  // Rückfrage gets the full header, where its glyph and pill have room.
+  if (status === 'done' && !worst && overview.single && !showTechnicalSteps) {
     const call = overview.single
     const parts = workParts(t, call.action)
     const card = sourceCards[0]
@@ -693,7 +699,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
                   data-testid="derivation-warning"
                   className="bg-card text-foreground inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-px text-[13px] font-medium"
                 >
-                  {warning.kind === 'failed' ? (
+                  {warning.kind !== 'open' ? (
                     <TriangleAlert aria-hidden strokeWidth={2.4} className="size-3" />
                   ) : (
                     <Circle aria-hidden strokeWidth={2.4} className="size-3" />
@@ -997,7 +1003,7 @@ const StatusIcon = forwardRef<HTMLSpanElement, StatusIconProps>(function StatusI
   { status, t, enter, leave },
   ref
 ) {
-  const settled = status === 'done'
+  const settled = isSettledAnswer(status)
   // The check's pop: a spring on scale only, its opacity on the quick tween
   // (opacity has nothing to overshoot), both instant under reduced motion.
   const iconSwap = useIconSwapTransition()
@@ -1010,6 +1016,8 @@ const StatusIcon = forwardRef<HTMLSpanElement, StatusIconProps>(function StatusI
     failed: <AlertTriangle className="size-5" aria-hidden="true" />,
     handedOff: <CircleArrowRight className="size-5" aria-hidden="true" />,
     refused: <CircleMinus className="size-5" aria-hidden="true" />,
+    askedBack: <CircleHelp className="size-5" aria-hidden="true" />,
+    flagged: <TriangleAlert className="size-5" aria-hidden="true" />,
     done: <CheckCircle2 className="size-5" aria-hidden="true" />,
   }
   const tone: Record<HeaderStatus, string> = {
@@ -1021,6 +1029,8 @@ const StatusIcon = forwardRef<HTMLSpanElement, StatusIconProps>(function StatusI
     failed: 'text-warning',
     handedOff: 'text-brand',
     refused: 'text-muted-foreground',
+    askedBack: 'text-brand',
+    flagged: 'text-warning',
     done: 'text-success',
   }
   return (

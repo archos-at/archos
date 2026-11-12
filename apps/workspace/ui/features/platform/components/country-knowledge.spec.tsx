@@ -431,6 +431,20 @@ describe('CountryKnowledge', () => {
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled()
   })
 
+  test('shows the reviewer a request that leaves its country without coverage, before approving, and still offers the step', async () => {
+    const warnings = [{ code: 'country_states_no_coverage', recordId: 'AT', detail: 'the country states no coverage' }]
+    serve(200, { ...REQUEST, warnings } as typeof REQUEST)
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    await user.click(await screen.findByRole('button', { name: 'All correct' }))
+    expect(await screen.findByTestId('change-request-warning-country_states_no_coverage')).toHaveTextContent(
+      'The country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one.'
+    )
+    // A warning refuses nothing: the approval stays the reviewer's.
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled()
+  })
+
   test('offers no approval alone once the request is approved as domain expert', async () => {
     viewer.id = 'u'
     serve(200, { ...REQUEST, approvals: [{ approver: 'u', role: 'domain_expert', decisionSource: 'app', decidedAt: '2026-11-10T00:00:00Z', overrideReason: 'x'.repeat(25) }] } as typeof REQUEST)

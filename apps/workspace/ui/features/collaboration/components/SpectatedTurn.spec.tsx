@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { render, screen, waitFor } from '@/test-utils'
-import { initialTurnView, type KeyedCard, type TurnView } from '@/features/chat/lib/turn-fold'
+import { initialTurnView, type KeyedCard, type TurnView } from '@/lib/turns/turn-fold'
 import { eventOf, frameOf } from '@/test-utils/wire-v2-fixtures'
 import { foldSpectatedEvent } from '../lib/spectator-frames'
 import { SpectatedTurn } from './SpectatedTurn'

@@ -58,7 +58,7 @@ export function ProjectReindexCard({ projectId }: ProjectReindexCardProps): JSX.
         description={t('project.documents.indexDescription')}
         action={
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => setConfirming(true)}
             disabled={isReindexing}

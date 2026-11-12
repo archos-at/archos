@@ -55,6 +55,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { SECTION_READING_COLUMN } from '@/components/shell/section-layout'
+import { cn } from '@/lib/utils'
 import { useTranslations } from '@/i18n'
 import { tasksCopy } from '@/i18n/namespaces/tasks'
 import { useSwapFade } from '@/hooks/use-swap-fade'
@@ -102,7 +104,7 @@ export function TaskList({
 
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-3xl p-4 md:p-6" data-testid="task-list-loading">
+      <div className={cn(SECTION_READING_COLUMN, 'py-4 md:py-6')} data-testid="task-list-loading">
         <div className="flex flex-col gap-3" aria-hidden="true">
           {[0, 1, 2, 3].map((row) => (
             <div key={row} className="bg-muted/50 rounded-lg border p-3">
@@ -118,7 +120,7 @@ export function TaskList({
 
   if (failed) {
     return (
-      <div className="mx-auto w-full max-w-3xl p-4 md:p-6">
+      <div className={cn(SECTION_READING_COLUMN, 'py-4 md:py-6')}>
         <EmptyState
           icon={CircleDashed}
           tone="destructive"
@@ -126,7 +128,7 @@ export function TaskList({
           description={t('list.errorDescription')}
           action={
             onRetry ? (
-              <Button variant="outline" size="sm" onClick={onRetry}>
+              <Button variant="secondary" size="sm" onClick={onRetry}>
                 {t('list.retry')}
               </Button>
             ) : undefined
@@ -137,7 +139,7 @@ export function TaskList({
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl p-4 pt-3 md:p-6" data-testid="task-list">
+    <div className={cn(SECTION_READING_COLUMN, 'pb-4 pt-3 md:py-6')} data-testid="task-list">
       {/* Counts on the chips, not only in the list: the number is the point of
           `unreviewed`, and a filter a reader has to click to discover is empty
           costs them a click to learn nothing. A zero count still renders — an
@@ -185,7 +187,7 @@ export function TaskList({
             description={filter === 'all' ? t('list.emptyDescription') : undefined}
             action={
               filter === 'all' ? undefined : (
-                <Button variant="outline" size="sm" onClick={() => onFilterChange('all')}>
+                <Button variant="secondary" size="sm" onClick={() => onFilterChange('all')}>
                   {t('filters.showAll')}
                 </Button>
               )

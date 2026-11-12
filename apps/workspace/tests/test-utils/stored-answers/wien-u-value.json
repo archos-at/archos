@@ -1,0 +1,91 @@
+{
+  "$comment": "A stored building-law answer as conversation-message-list returned it on dev (2026-11-12, s_a8efbc07): both citations are one corpus text named by its file, whose records carry designation, edition label and the adopting act (a gazette number); two confidence findings. Author fields dropped, snippets shortened. Read by /dev/derivation-records and its spec.",
+  "question": {
+    "id": "0207a52b-e9bf-4096-af83-773b9fb09b4c",
+    "role": "user",
+    "content": "Welcher maximale U-Wert gilt für Außenwände beim Neubau eines Wohngebäudes in diesem Projekt? Welche Ausgabe der OIB-Richtlinie 6 ist hier verbindlich?",
+    "createdAt": "2026-11-12T08:02:33.242Z",
+    "metadata": { "messageType": "user" }
+  },
+  "answer": {
+    "id": "b60b5c41-b6e6-579a-b22f-e7a0d3b7cb94",
+    "role": "assistant",
+    "content": "Für Außenwände gegen Außenluft beträgt der maximale U-Wert beim Neubau konditionierter Wohnräume **0,35 W/(m²K)** [1].\n\nFür Wien ist laut hinterlegtem Rechtsstand die **OIB-Richtlinie 6, Ausgabe September 2025**, über die Wiener Bautechnikverordnung verbindlich [2]. Diese Zuordnung wurde jedoch nicht an der Verordnungsquelle überprüft; eine RIS-Fassung zum angegebenen Stichtag war nicht abrufbar.\n\nDas Projekt ist als **Umbau**, nicht als Neubau erfasst. Für die tatsächlichen Maßnahmen sind daher die Renovierungsanforderungen und gegebenenfalls Übergangsbestimmungen gesondert zu prüfen.\n\n## Quellen\n- [1] [KB] oib-rl-6-2025-text-bc35d3dee230.pdf, p.9\n- [2] [KB] oib-rl-6-2025-text-bc35d3dee230.pdf, p.1\n",
+    "createdAt": "2026-11-12T08:03:01.176Z",
+    "metadata": {
+      "messageType": "agent_response",
+      "citations": {
+        "v": 1,
+        "sources": [
+          {
+            "kind": "building_law", "lane": "building_law_base", "page": 9, "role": "binding", "tool": "knowledge_search", "as_of": "2026-11-12",
+            "route": { "work_id": "work:wbtv", "provision": "LGBl. 26/2026", "designation": "WBTV" },
+            "score": 0.710099, "shelf": "base", "title": "oib-rl-6-2025-text-bc35d3dee230.pdf", "clause": "Anforderungen an wärmeübertragende Bauteile › U-Wert Bauteil [W/m²K]", "number": 1, "origin": "kb",
+            "content": "[KB] oib-rl-6-2025-text-bc35d3dee230.pdf, p.9",
+            "snippet": "| Bauteil |  | U-Wert [W/m²K] |\n|---|---|---|\n| 1 | WÄNDE gegen Außenluft (1) | 0,35 |",
+            "work_id": "work:oib-rl-6", "language": "de", "file_name": "oib-rl-6-2025-text-bc35d3dee230.pdf", "freshness": "check_due", "collection": "oib_knowledge",
+            "edition_id": "edition:oib-rl-6-2025", "lane_label": "Basisdokument", "role_since": "2026-07-15", "designation": "OIB-Richtlinie 6",
+            "document_id": "doc:oib_knowledge:oib-rl-6-2025-text-bc35d3dee230.pdf", "role_labels": ["check_overdue", "unchecked_since"],
+            "source_type": "knowledge_layer", "text_status": "authentic", "citation_key": "oib-rl-6-2025-text-bc35d3dee230.pdf, p.9",
+            "edition_label": "Ausgabe 2025", "binding_status": "declared_binding"
+          },
+          {
+            "kind": "building_law", "lane": "building_law_base", "page": 1, "role": "binding", "tool": "knowledge_search", "as_of": "2026-11-12",
+            "route": { "work_id": "work:wbtv", "provision": "LGBl. 26/2026", "designation": "WBTV" },
+            "score": 0.6156906, "shelf": "base", "title": "oib-rl-6-2025-text-bc35d3dee230.pdf", "clause": "OIB-330.6-138/25 SEPTEMBER 2025", "number": 2, "origin": "kb",
+            "content": "[KB] oib-rl-6-2025-text-bc35d3dee230.pdf, p.1",
+            "snippet": "OIB-330.6-138/25 SEPTEMBER 2025\n\nOIB-Richtlinie 6 Ausgabe September 2025",
+            "work_id": "work:oib-rl-6", "language": "de", "file_name": "oib-rl-6-2025-text-bc35d3dee230.pdf", "freshness": "check_due", "collection": "oib_knowledge",
+            "edition_id": "edition:oib-rl-6-2025", "lane_label": "Basisdokument", "role_since": "2026-07-15", "designation": "OIB-Richtlinie 6",
+            "document_id": "doc:oib_knowledge:oib-rl-6-2025-text-bc35d3dee230.pdf", "role_labels": ["check_overdue", "unchecked_since"],
+            "source_type": "knowledge_layer", "text_status": "authentic", "citation_key": "oib-rl-6-2025-text-bc35d3dee230.pdf, p.1",
+            "edition_label": "Ausgabe 2025", "binding_status": "declared_binding"
+          }
+        ]
+      },
+      "provenance": {
+        "confidenceCheck": {
+          "level": "medium", "status": "judged",
+          "findings": [
+            { "reason": "Die Quellen belegen die Ausgabe September 2025, aber keine Wiener Bautechnikverordnung und nicht, dass gerade diese Ausgabe in Wien verbindlich ist.", "source": "[2] oib-rl-6-2025-text-bc35d3dee230.pdf, p.1", "problem": "unbacked", "statement": "Für Wien ist die OIB-Richtlinie 6, Ausgabe September 2025, über die Wiener Bautechnikverordnung verbindlich." },
+            { "reason": "Der Projektkontext erfasst das Vorhaben als Umbau; die zitierte Renovierungspassage stammt jedoch aus der Ausgabe Mai 2023.", "source": "oib-rl_6_ausgabe_mai_2023.pdf, p.8", "problem": "unbacked", "statement": "Für die tatsächlichen Maßnahmen sind die Renovierungsanforderungen und gegebenenfalls Übergangsbestimmungen gesondert zu prüfen." }
+          ]
+        },
+        "retrievalLedger": [
+          {
+            "key": "status.retrieval.withQuery", "hits": 29, "index": 0, "query": "Welcher maximale U-Wert gilt fü…", "tools": ["knowledge_search", "knowledge_search"], "corpora": ["knowledge"], "documents": 12,
+            "docs": [
+              { "name": "oib-rl_6_ausgabe_mai_2023.pdf", "shelf": "base", "title": "OIB-Richtlinie 6, Ausgabe Mai 2023", "detail": "Pkt. 4.4.1 p.7", "repeat": false },
+              { "name": "oib-rl-6-2019-text-728cba346629.pdf", "shelf": "base", "detail": "Pkt. 4.4 p.7", "repeat": false },
+              { "name": "oib-rl-6-2023-text-5f3b5c6568db.pdf", "shelf": "base", "detail": "Pkt. OIB-330.6-036/23 MAI 2023 p.1", "repeat": false },
+              { "name": "oib-rl-6-erlaeuterungen-2025-text-2dadb8409815.pdf", "shelf": "base", "detail": "Pkt. Zu Punkt 0: Vorbemerkungen p.7", "repeat": false },
+              { "name": "oib-rl_6-leitfaden_ausgabe_mai_2023.pdf", "shelf": "base", "title": "OIB-Richtlinie 6 – Leitfaden, Ausgabe Mai 2023", "detail": "Pkt. 4.3.2 p.11", "repeat": false },
+              { "name": "Übersicht_Baurecht_Wien.jpg", "shelf": "office_shelf", "detail": "p.1", "repeat": false },
+              { "name": "Planungsbericht_2024-118_LPH5_RevC.pdf", "shelf": "office_shelf", "detail": "p.1", "repeat": false },
+              { "name": "023-01 ANS_N-Ansicht Nord-Ost.pdf", "shelf": "office_shelf", "detail": "p.1", "repeat": false },
+              { "name": "oib-rl-6-2025-text-bc35d3dee230.pdf", "shelf": "base", "detail": "Pkt. OIB-330.6-138/25 SEPTEMBER 2025 p.1", "repeat": false },
+              { "name": "oib-rl-6-2015-text-e7e0e19b89e4.pdf", "shelf": "base", "detail": "Pkt. OIB-330.6-009/15 MÄRZ 2015 p.1", "repeat": false }
+            ],
+            "newDocs": ["oib-rl_6_ausgabe_mai_2023.pdf", "oib-rl-6-2019-text-728cba346629.pdf", "oib-rl-6-2023-text-5f3b5c6568db.pdf", "oib-rl-6-erlaeuterungen-2025-text-2dadb8409815.pdf", "oib-rl_6-leitfaden_ausgabe_mai_2023.pdf", "Übersicht_Baurecht_Wien.jpg", "Planungsbericht_2024-118_LPH5_RevC.pdf", "023-01 ANS_N-Ansicht Nord-Ost.pdf", "oib-rl-6-2025-text-bc35d3dee230.pdf", "oib-rl-6-2015-text-e7e0e19b89e4.pdf"]
+          },
+          {
+            "key": "status.retrieval.withQuery", "hits": 25, "index": 1, "query": "Welche Fassung der OIB-Richtlin…", "tools": ["read_file", "law_lookup", "knowledge_search"], "reason": "Ich prüfe den Neubau-Grenzwert in der Ausgabe 2025.", "corpora": ["knowledge", "ris"], "documents": 4,
+            "docs": [
+              { "name": "oib-rl-6-2025-text-bc35d3dee230.pdf", "shelf": "base", "detail": "p.9", "repeat": false },
+              { "name": "oib-rl-6-2025-text-bc35d3dee230.pdf", "shelf": "base", "detail": "Pkt. 4.5 p.9", "repeat": false },
+              { "name": "oib-zitierte-normen-2025-text-b85402335320.pdf", "shelf": "base", "detail": "Pkt. Teil 2 p.5", "repeat": false },
+              { "name": "oib-rl-6-erlaeuterungen-2025-text-2dadb8409815.pdf", "shelf": "base", "detail": "p.15", "repeat": false },
+              { "name": "oib-rl-6-leitfaden-2025-text-dccd48b7e4ee.pdf", "shelf": "base", "detail": "Pkt. -Leitfaden › Energietechnisches Verhalten von Gebäuden p.3", "repeat": false }
+            ],
+            "newDocs": ["oib-rl-6-2025-text-bc35d3dee230.pdf", "oib-zitierte-normen-2025-text-b85402335320.pdf", "oib-rl-6-erlaeuterungen-2025-text-2dadb8409815.pdf", "oib-rl-6-leitfaden-2025-text-dccd48b7e4ee.pdf"]
+          }
+        ],
+        "routingDecision": "shallow",
+        "skillsActivated": ["thermal-protection"],
+        "answerConfidence": "medium",
+        "answerConfidenceReason": "Neubauwert aus der Richtlinie belegt; Verbindlicherklärung und Übergangsrecht nicht an der Verordnungsquelle geprüft",
+        "answerConfidenceVersion": 2
+      }
+    }
+  }
+}

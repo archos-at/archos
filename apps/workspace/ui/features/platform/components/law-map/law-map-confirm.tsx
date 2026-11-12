@@ -110,7 +110,7 @@ export function ConfirmBar({ unit, context, yes }: { unit: ReviewUnit; context: 
         <div className="flex flex-col gap-2">
           <Textarea value={wrong} onChange={(event) => setWrong(event.target.value)} placeholder={t('wrongPlaceholder')} aria-label={t('wrongPlaceholder')} rows={2} />
           <div className="flex flex-wrap items-center gap-3">
-            <Button size="sm" variant="outline" disabled={busy || wrong.trim().length === 0} onClick={() => void send('rejected', wrong.trim())}>
+            <Button size="sm" variant="secondary" disabled={busy || wrong.trim().length === 0} onClick={() => void send('rejected', wrong.trim())}>
               {t('sendBack')}
             </Button>
             <Button size="sm" variant="link" disabled={busy} onClick={() => setWrong(null)}>

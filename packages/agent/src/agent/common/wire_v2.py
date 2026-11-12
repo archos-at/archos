@@ -440,7 +440,10 @@ class TurnResult(_Model):
     answer_meta: dict[str, Any] | None = None
     answer_confidence: Literal["low", "medium", "high"] | None = None
     answer_confidence_reason: str | None = Field(default=None, max_length=300)
-    answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled"] | None = None
+    #: Read leniently by the client (``x-unknown-as-null``): a reason an older bundle does not know is null there.
+    answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled", "open_point"] | None = (
+        Field(default=None, json_schema_extra={"x-unknown-as-null": True})
+    )
     routing_decision: Literal["meta", "shallow", "deep", "error"] | None = None
     escalation_reason: str | None = None
     citations_removed: CitationsRemoved | None = None
@@ -1121,14 +1124,8 @@ _EVENT_OF_BODY: dict[type[BaseModel], type[Envelope]] = {
 
 def stamp(body: EventBody, *, conversation_id: str, turn_id: str, seq: int, ts: int) -> Envelope:
     """The event the socket sends for ``body``: the body under this turn's envelope."""
-    event_type = _EVENT_OF_BODY[type(body)]
-    return event_type(
-        conversation_id=conversation_id,
-        turn_id=turn_id,
-        seq=seq,
-        ts=ts,
-        **{name: getattr(body, name) for name in type(body).model_fields},
-    )
+    fields = {name: getattr(body, name) for name in type(body).model_fields}
+    return _EVENT_OF_BODY[type(body)](conversation_id=conversation_id, turn_id=turn_id, seq=seq, ts=ts, **fields)
 
 
 def to_frame(event: Envelope | Hello) -> dict[str, Any]:

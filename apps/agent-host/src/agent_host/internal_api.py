@@ -1,4 +1,4 @@
-"""The backend's writes into the BFF's internal API: a message row, a run's report, a turn's outcome.
+"""The backend's writes into the BFF's internal API: a message row, a turn's steps, a run's report, its outcome.
 
 Python never touches the database (``app`` is single-writer); every write
 goes over the internal HTTP API with the shared ``INTERNAL_API_TOKEN``.
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -205,6 +206,47 @@ async def post_internal_run_report(
     except Exception:  # noqa: BLE001 — the write happened; a missing id costs only the ledger's link
         message_id = None
     return message_id if isinstance(message_id, str) else ""
+
+
+def turn_steps_path(conversation_id: str, turn_id: str) -> str:
+    """The internal route that stores a turn's Herleitung on its question (the turn's id is the question's)."""
+    return f"/api/internal/conversations/{conversation_id}/messages/{turn_id}/steps"
+
+
+async def post_internal_turn_steps(
+    conversation_id: str, organization_id: str | None, turn_id: str, frames: Sequence[dict[str, Any]]
+) -> bool:
+    """Hand a finished turn's step frames to the BFF, which folds them onto the question. Fail-soft.
+
+    ``PUT /api/internal/conversations/{id}/messages/{turn_id}/steps`` with
+    ``{organizationId, frames}``: the frames as the socket sent them, the ones
+    ``turn_record.touches_steps`` keeps. The BFF folds them with the browser's
+    fold and stores ``provenance.thinkingSteps`` on the question, replacing
+    what is there, so a browser that also stored them leaves one copy
+    (``apps/workspace/bff/turns/turn-steps.ts``). Sent after the answer row,
+    once per turn, in a task of its own that a headless turn's outcome does not
+    wait on, scoped by organization like that row. Retried briefly
+    (``internal_retry``); a 404 (no such question, or an older BFF) is final.
+    """
+    base_url = internal_base_url()
+    headers = internal_headers()
+    if not base_url or headers is None or not organization_id:
+        logger.warning("Cannot store the Herleitung of turn %s: no internal API or organization", turn_id)
+        return False
+    url = f"{base_url.rstrip('/')}{turn_steps_path(conversation_id, turn_id)}"
+    payload = {"organizationId": organization_id, "frames": list(frames)}
+
+    async def _send() -> httpx.Response:
+        async with httpx.AsyncClient(timeout=_PERSIST_TIMEOUT_SECONDS) as client:
+            return await client.put(url, json=payload, headers=headers)
+
+    response = await send_with_retry(_send, label=f"Herleitung of turn {turn_id}")
+    if response is None or response.status_code not in (200, 201):
+        status = "no response" if response is None else f"HTTP {response.status_code}"
+        logger.warning("Storing the Herleitung of turn %s failed: %s", turn_id, status)
+        return False
+    logger.info("Stored the Herleitung of turn %s of conversation %s", turn_id, conversation_id)
+    return True
 
 
 #: The outcome notice is small and sent after the answer is out: a short timeout

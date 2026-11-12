@@ -43,7 +43,7 @@ import { Ruler } from 'lucide-react'
 import { SourcePreviewChip } from '../SourcePreview'
 import { CitationMarkers } from '../CitationMarker'
 import { documentEdition, documentShortName } from '../../lib/document-names'
-import { documentLocation } from '../../lib/derivation-basis'
+import { documentLocation, documentLocationDetail } from '../../lib/derivation-basis'
 
 /** Provenance icon per signal — mirrors SourceSignalChip so they never drift. */
 const SIGNAL_ICON: Record<SourceSignal, LucideIcon> = {
@@ -183,6 +183,9 @@ export const SourceCard: FC<{
         : pages.length === 1
           ? t('answerSources.page', { page: pages[0]! })
           : t('answerSources.pages', { pages: pages.join(', ') })
+  // The card says where at a glance; which page carries which [N], and the
+  // heading around it, is there for the reader who stops on the place.
+  const locationDetail = loci ? undefined : documentLocationDetail(t, doc)
 
   return (
     <div
@@ -224,10 +227,11 @@ export const SourceCard: FC<{
           // rather than spill past a narrow column (design-language
           // §Typography); `break-word` is the last resort for a word the
           // dictionary does not know, never a mid-syllable cut by default.
-          'bg-card relative min-w-0 flex-1 rounded-surface border px-3 py-2.5 shadow-xs hyphens-auto [overflow-wrap:break-word] [hyphenate-limit-chars:10_4_4]',
-          !used && !live && 'border-dashed',
+          'bg-card relative min-w-0 flex-1 rounded-surface px-3 py-2.5 shadow-xs hyphens-auto [overflow-wrap:break-word] [hyphenate-limit-chars:10_4_4]',
+          // An uncited source is a dashed outline, not a sheet: a border of its own in place of the shadow's ring.
+          !used && !live && 'border border-dashed shadow-none',
           !used && !live && link !== 'receded' && UNCITED_DIM,
-          link === 'selected' && 'border-foreground ring-foreground ring-1'
+          link === 'selected' && 'ring-foreground ring-1'
         )}
       >
         {/* The keyboard's way to the card's own toggle: a real button under the
@@ -263,7 +267,10 @@ export const SourceCard: FC<{
         {(location || allRepeat || numbers.length > 0) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[13px] leading-[19px]">
             {location && (
-              <span className="bg-muted text-foreground rounded-control px-1.5 tabular-nums">
+              <span
+                className="bg-muted text-foreground rounded-control px-1.5 tabular-nums"
+                title={locationDetail}
+              >
                 {loci ? (
                   <RoundLoci
                     loci={loci}
@@ -337,7 +344,7 @@ export const BareSourceCard: FC<{ name: string; loci?: RoundLocus[]; workspace?:
     <div role="listitem" data-source-card className="flex min-w-0 flex-col">
       <div
         className={cn(
-          'bg-card min-w-0 flex-1 rounded-surface border border-dashed px-3 py-2.5 shadow-xs',
+          'bg-card min-w-0 flex-1 rounded-surface border border-dashed px-3 py-2.5',
           UNCITED_DIM
         )}
       >

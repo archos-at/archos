@@ -134,11 +134,11 @@ export function ManifestationText({ requestId, countryId, recordId, text, canAtt
                 event.target.value = ''
               }}
             />
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => picker.current?.click()}>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => picker.current?.click()}>
               <Upload aria-hidden />
               {t(text ? 'countryKnowledge.text.replace' : 'countryKnowledge.text.upload')}
             </Button>
-            <Button size="sm" variant="outline" disabled={busy} aria-expanded={fromUrl} onClick={() => setFromUrl((open) => !open)}>
+            <Button size="sm" variant="secondary" disabled={busy} aria-expanded={fromUrl} onClick={() => setFromUrl((open) => !open)}>
               <Link2 aria-hidden />
               {t('countryKnowledge.text.fromUrl')}
             </Button>

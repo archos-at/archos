@@ -517,6 +517,15 @@ describe('IfcComplianceCard', () => {
     await waitFor(() => expect(queriedOps(fetchMock)).toEqual(['compliance']))
   })
 
+  it('says a hint as the records word it, in place of counts that would read as missing data', async () => {
+    const hint = 'Hinweis: Schwellwerte aus Ausgabe Mai 2023; am Standort gilt Ausgabe April 2019 über StBTV'
+    const [fire, room] = COMPLIANCE.compliance
+    stubFetch({ models: MODELS, query: { compliance: [{ ...fire, hint }, room] } })
+    render(<IfcComplianceCard title="Anforderungen" modelFile="haus-a_v2.ifc" ruleIds={[]} note={null} projectId="p1" />)
+    expect(await screen.findByText(hint)).toBeInTheDocument()
+    expect(screen.queryByText(/34 not decidable/)).not.toBeInTheDocument()
+  })
+
   it('narrows to the requirements the answer is about', async () => {
     stubFetch({ models: MODELS, query: COMPLIANCE })
     render(

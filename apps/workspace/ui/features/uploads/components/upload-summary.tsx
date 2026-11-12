@@ -217,7 +217,7 @@ export function UploadSummaryBody({ state, retry }: { state: UploadSummaryState;
           <AlertTitle>{t('summary.error.title')}</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-3">
             {t('summary.error.description')}
-            <Button variant="outline" size="sm" onClick={retry}>
+            <Button variant="secondary" size="sm" onClick={retry}>
               {tCommon('actions.retry')}
             </Button>
           </AlertDescription>

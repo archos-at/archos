@@ -7,7 +7,7 @@ import type { ChatMessage } from '@/features/chat/types'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
 import type { UseSpectatedTurnOptions } from '@/features/collaboration/hooks/use-spectated-turn'
-import { initialTurnView, type TurnView } from '@/features/chat/lib/turn-fold'
+import { initialTurnView, type TurnView } from '@/lib/turns/turn-fold'
 import { useAnswerRevealStore } from '@/features/chat/stores/answer-reveal-store'
 import { RESTORING_NOTE_AFTER_MS, watchRestoring } from '@/features/chat/connection-restoring'
 

@@ -254,12 +254,12 @@ export const LlmCredentialsCard: FC = () => {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={handleVerify} disabled={busy}>
+              <Button size="sm" variant="secondary" onClick={handleVerify} disabled={busy}>
                 <ShieldCheck className="size-3.5" aria-hidden /> {t('byok.verify')}
               </Button>
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 onClick={() => setRevokeOpen(true)}
                 disabled={busy}
               >

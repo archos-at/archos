@@ -26,7 +26,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createRetryLadder } from '@/shared/utils/backoff'
 import { parseWireEvent } from '@/adapters/api/wire-v2'
-import type { TurnView } from '@/features/chat/lib/turn-fold'
+import type { TurnView } from '@/lib/turns/turn-fold'
 import { foldSpectatedEvent, hasSomethingToShow } from '../lib/spectator-frames'
 
 export interface UseSpectatedTurnOptions {

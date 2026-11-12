@@ -108,6 +108,27 @@ function mapFile(entry: BackendFileEntry): KnowledgeFile {
  * authenticated user may see it — the corpus is the shared, non-tenant
  * regulatory knowledge every chat answer is grounded on.
  */
+/** Longest backend reason a failure carries; the rest is in the backend's log. */
+const BACKEND_REASON_CHARS = 300
+
+/**
+ * A non-OK backend answer as an error whose message says why: the backend's
+ * own `detail` (FastAPI's error body), so an index run records "returned 500:
+ * QueueUnavailable: …" and not a bare status (the AT publish of 2026-11-12).
+ */
+async function backendFailure(res: Response): Promise<UpstreamError> {
+  const text = await res.text().catch(() => '')
+  let reason = text
+  try {
+    const detail = (JSON.parse(text) as { detail?: unknown })?.detail
+    if (typeof detail === 'string') reason = detail
+  } catch {
+    // Not JSON: the body as it came.
+  }
+  reason = reason.replace(/\s+/g, ' ').trim().slice(0, BACKEND_REASON_CHARS)
+  return new UpstreamError(reason ? `Knowledge backend returned ${res.status}: ${reason}` : `Knowledge backend returned ${res.status}`)
+}
+
 export async function getKnowledgeBaseStatus(): Promise<KnowledgeBaseStatus> {
   let res: Response
   try {
@@ -117,9 +138,7 @@ export async function getKnowledgeBaseStatus(): Promise<KnowledgeBaseStatus> {
   } catch (error) {
     throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
 
   const body = await res.json().catch(() => {
     throw new UpstreamError('Knowledge backend returned malformed JSON')
@@ -320,9 +339,7 @@ export async function updateKnowledgeBaseDocClass(fileName: string, docClass: st
   if (res.status === 404) {
     throw new NotFoundError('No summary found for that document')
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
 }
 
 /**
@@ -349,9 +366,7 @@ export async function updateKnowledgeBaseDisplayTitle(
   if (res.status === 404) {
     throw new NotFoundError('No summary found for that document')
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
 }
 
 /**
@@ -374,9 +389,7 @@ export async function deleteKnowledgeBaseDocument(fileName: string): Promise<voi
   if (res.status === 404) {
     throw new NotFoundError('No base-corpus document with that name')
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
 }
 
 export interface KnowledgeSyncResult {
@@ -398,9 +411,7 @@ export async function syncKnowledgeBase(): Promise<KnowledgeSyncResult> {
   } catch (error) {
     throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
   const body = await res.json().catch(() => ({}))
   return {
     filesAdded: asCount(body?.files_added),
@@ -462,9 +473,7 @@ export async function reingestKnowledgeBaseDocuments(
   } catch (error) {
     throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
   const body = await res.json().catch(() => ({}))
   const queued: string[] = Array.isArray(body?.queued) ? body.queued.map(String) : []
   // A release mark must land as released: a backend from before the flag records the country and leaves a

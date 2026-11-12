@@ -238,6 +238,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/changes/repository.integration.spec.ts \
     bff/push/repository.integration.spec.ts \
     bff/agent-asks/repository.integration.spec.ts \
+    bff/turns/turn-steps.integration.spec.ts \
     bff/residency/processing-policy.integration.spec.ts \
     bff/inbox/repository.integration.spec.ts \
     bff/project-experience/readable-files.integration.spec.ts \
@@ -266,6 +267,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/mail-thread/follow.integration.spec.ts \
     bff/mail-thread/archive.integration.spec.ts \
     bff/base-knowledge/store/repository.integration.spec.ts \
+    bff/base-knowledge/store/office-editions.integration.spec.ts \
     bff/base-knowledge/store/rulesets.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \

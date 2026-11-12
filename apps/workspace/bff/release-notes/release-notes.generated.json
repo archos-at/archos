@@ -193,6 +193,22 @@
         },
         {
           "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Your office's standards, commentaries and directives now have a place of their own beside the Büroablage, with folders, filters for what still needs confirming or checking, and a page per standard. You find a standard and its state in seconds, and the Büroablage marks these files as Grundlage.",
+            "de": "Die Normen, Kommentare und Richtlinien Ihres Büros haben nun neben der Büroablage einen eigenen Bereich – mit Ordnern, Filtern für noch zu bestätigende oder zu prüfende Inhalte und einer Seite pro Norm. Sie finden eine Norm und ihren Status in Sekunden; in der Büroablage sind diese Dateien als Grundlage gekennzeichnet."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "A newer edition of a standard is added beside the earlier one, and answers use the edition that applied when the project was filed. Running projects keep their edition, by the same rule as the standards the platform holds.",
+            "de": "Eine neuere Ausgabe einer Norm wird neben der bisherigen ergänzt; Antworten beziehen sich auf die Ausgabe, die bei Einreichung des Projekts galt. Laufende Projekte behalten ihre Ausgabe – nach derselben Regel wie die von der Plattform geführten Normen."
+          }
+        },
+        {
+          "section": "features",
           "area": "building-law",
           "text": {
             "en": "When you create a project you can state its country and, in Austria, its Bundesland. Left empty, the postal code of an Austrian address suggests the Bundesland, and you confirm it during setup.",
@@ -349,6 +365,14 @@
           "text": {
             "en": "Questions about an older submission can be answered with the law that applied then: give a procedure's filing and decision dates (or a date) and the answer names the edition in force, follows the Land's reference date and transitional rules, and says which date is still missing instead of assuming today. The law lookup can read the version of a past day from RIS.",
             "de": "Fragen zu einer älteren Einreichung lassen sich mit dem damals geltenden Recht beantworten: Geben Sie das Einreichungs- und Entscheidungsdatum eines Verfahrens oder ein einzelnes Datum an. Die Antwort nennt die geltende Fassung, berücksichtigt den maßgeblichen Stichtag des Landes und die Übergangsbestimmungen und weist darauf hin, welches Datum noch fehlt, statt das heutige Datum anzunehmen. Die Rechtssuche kann die an einem vergangenen Tag geltende Fassung aus dem RIS abrufen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "general",
+          "text": {
+            "en": "On the website's home page, the feld72 quote is new and stands beside a photo of the whole feld72 team, credited to its photographer, and the founders row now says who the three people are. Large retina screens and phones can now be sent larger images, so screenshots and photos stay sharp there once their full-size originals are in.",
+            "de": "Auf der Startseite ist das Zitat von feld72 neu und steht neben einem Foto des gesamten feld72-Teams mit Fotograf:innen-Credit; in der Gründer:innen-Zeile steht nun, wer die drei Personen sind. Große Retina-Displays und Smartphones können nun größere Bilder erhalten, damit Screenshots und Fotos scharf bleiben, sobald die Originale in voller Größe vorliegen."
           }
         },
         {
@@ -569,6 +593,38 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Rows, buttons and menu entries now darken by the same single step when you point at them, everywhere in the app. The entry under the pointer no longer looks like the one that is open, and the three-dot button of a file shows when you point at it.",
+            "de": "Zeilen, Schaltflächen und Menüeinträge werden jetzt überall in der App beim Darüberfahren um genau eine Stufe dunkler. Der Eintrag unter dem Mauszeiger sieht nicht mehr wie der geöffnete Eintrag aus, und die Drei-Punkte-Schaltfläche einer Datei wird beim Darüberfahren angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The tabs of the project settings now look and work like the tabs of the files page: a grey track with the open tab in white. A tab or a view you point at darkens, where only its lettering changed before.",
+            "de": "Die Tabs der Projekteinstellungen sehen jetzt aus und funktionieren wie die Tabs auf der Dateiseite: mit einer grauen Leiste und dem aktiven Tab in Weiß. Wenn Sie mit der Maus über einen Tab oder eine Ansicht fahren, wird dieser bzw. diese dunkler; bisher änderte sich nur die Schriftfarbe."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Every white button now has one look and darkens when you point at it. Cards and folders darken too instead of lifting, and a file tile answers with the edge of its preview, with no grey laid behind it.",
+            "de": "Alle weißen Buttons haben jetzt ein einheitliches Erscheinungsbild und werden dunkler, wenn Sie mit dem Mauszeiger darauf zeigen. Auch Karten und Ordner werden dunkler statt angehoben; bei Dateikacheln wird der Rand der Vorschau hervorgehoben, ohne grauen Hintergrund."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The frame that shows where the keyboard is, and the border of a text field you click into, are now a mid grey where they were almost black. Fields, checkboxes and switches also answer when you point at them.",
+            "de": "Der Rahmen für den Tastaturfokus und der Rahmen eines Textfelds, das Sie anklicken, sind jetzt mittelgrau statt fast schwarz. Felder, Kontrollkästchen und Schalter reagieren jetzt auch, wenn Sie mit dem Mauszeiger darauf zeigen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "building-law",
           "text": {
             "en": "A project's setup now shows the law that applies at its site, each code and guideline with the edition that binds there, the same law the chat answers with. Where no law can be named yet, it says why: no site, or a country your office has not enabled.",
@@ -593,6 +649,14 @@
         },
         {
           "section": "improvements",
+          "area": "bim",
+          "text": {
+            "en": "The model check now gives a pass or a fail only where the edition its threshold comes from applies at your project's site. Elsewhere it shows the value it read as a note, says which edition applies there instead, and puts nothing on the list of properties to add in your CAD model or up for confirmation in the Prüfbuch.",
+            "de": "Der Modellcheck liefert nur dort ein positives oder negatives Ergebnis, wo die Ausgabe, aus der der Grenzwert stammt, am Standort Ihres Projekts gilt. Andernorts zeigt er den ausgelesenen Wert als Hinweis an, nennt die dort stattdessen geltende Ausgabe und nimmt keine Eigenschaften in die Liste auf, die Sie Ihrem CAD-Modell hinzufügen oder im Prüfbuch bestätigen müssen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "building-law",
           "text": {
             "en": "Answers can now quote the edition of an OIB guideline that actually binds in your Land: the April 2019 guidelines in Burgenland, Steiermark and Vorarlberg, and the 2019, 2025 and 2015 editions of OIB-RL 6 where a Land still applies them.",
@@ -605,6 +669,22 @@
           "text": {
             "en": "A guideline written only for some buildings, such as a garage or a high-rise, can now say so, and is then named only for the buildings it is for, in the setup and in the chat alike. Where a deciding fact is still missing it reads „zu prüfen“ and names it; where it applies it says why and opens its text.",
             "de": "Eine Richtlinie, die nur für bestimmte Gebäude wie Garagen oder Hochhäuser gilt, kann das jetzt angeben und wird dann sowohl in der Einrichtung als auch im Chat nur für die Gebäude angezeigt, für die sie gilt. Fehlt noch eine entscheidende Angabe, steht dort „zu prüfen“ und die fehlende Angabe wird genannt; gilt die Richtlinie, wird erklärt, warum, und ihr Text geöffnet."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Cards, menus, popovers, dialogs and notices across the app draw one thin edge again instead of two lines on top of each other, so pages such as the project overview, the chat and the settings look calmer.",
+            "de": "Karten, Menüs, Popovers, Dialoge und Hinweise zeigen appweit wieder nur eine dünne Linie statt zweier übereinanderliegender Linien, sodass Seiten wie die Projektübersicht, der Chat und die Einstellungen ruhiger wirken."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Every page in a project now opens the same way: the project's name, the page's title, its tabs and a line, on the same edge as the content below. The office filing looks and navigates like a project's files, with the open folder named at the top and a way back up.",
+            "de": "Jede Seite in einem Projekt öffnet sich jetzt auf dieselbe Weise: mit dem Projektnamen, dem Seitentitel, den Tabs und einer Linie, die mit dem darunterliegenden Inhalt bündig abschließt. Die Büroablage sieht aus und funktioniert wie die Dateien eines Projekts: Der geöffnete Ordner wird oben angezeigt, und Sie können zur übergeordneten Ebene zurückkehren."
           }
         },
         {
@@ -769,6 +849,30 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The sidebar inside a project reads lighter again: smaller, quieter text, a thin line along its edge, and more room between the office's places and your name at the bottom.",
+            "de": "Die Sidebar innerhalb eines Projekts wirkt wieder leichter: mit kleinerer, dezenterer Schrift, einer dünnen Linie am Rand und mehr Abstand zwischen den Bürobereichen und Ihrem Namen am unteren Rand."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Your ten most recent chats now stand under „Letzte Chats“ below the project's sections, while the sections above and the office's places below stay where they are; „Alle Chats“ at the end of the list opens the whole chat history, and a click on „Letzte Chats“ folds the list away.",
+            "de": "Ihre zehn letzten Chats finden Sie jetzt unter „Letzte Chats“ unterhalb der Projektbereiche; die Bereiche darüber und die Standorte des Büros darunter bleiben an ihrem Platz. „Alle Chats“ am Ende der Liste öffnet den gesamten Chatverlauf, und ein Klick auf „Letzte Chats“ klappt die Liste ein."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The project list that opens from the project's name is as wide as the sidebar's button instead of running past its edge.",
+            "de": "Die über den Projektnamen geöffnete Projektliste ist nun so breit wie die Schaltfläche in der Seitenleiste und ragt nicht mehr über deren Rand hinaus."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "collaboration",
           "text": {
             "en": "The inbox opens in one movement. It used to slide up twice, and its placeholder now has the shape of the list that replaces it.",
@@ -805,6 +909,14 @@
           "text": {
             "en": "Neuerungen is easier to read: each week shows its dates, its summary and how many changes it holds, and opens on demand. Inside a week the changes are grouped by area, and a single fix now reads \"1 fix\".",
             "de": "Neuerungen ist übersichtlicher: Jede Woche zeigt ihre Datumsangaben, ihre Zusammenfassung und die Anzahl der enthaltenen Änderungen und lässt sich bei Bedarf aufklappen. Innerhalb einer Woche sind die Änderungen nach Bereichen gruppiert, und ein einzelner Fix wird jetzt als „1 fix“ angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "An agent you connect that reads one of your conversations back now gets each answer as plain text, the same as when it asked the question itself. Before, it saw placeholders such as [[card:1]] where the chat shows a card, and project values as their internal names.",
+            "de": "Ein Agent, den Sie anbinden und der eine Ihrer Unterhaltungen ausliest, erhält jetzt jede Antwort als Klartext – genauso, wie wenn er die Frage selbst gestellt hätte. Bisher sah er Platzhalter wie [[card:1]], wo der Chat eine Karte anzeigt, und Projektwerte unter ihren internen Namen."
           }
         },
         {
@@ -881,10 +993,26 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A guideline the platform holds as a released edition is now cited by its name and edition, such as „OIB-Richtlinie 6, Ausgabe März 2015“, with the body that issues it as publisher, instead of by its file name with the federal legal database as its source. This holds wherever the records of the site state its coverage.",
+            "de": "Eine Richtlinie, die auf der Plattform als veröffentlichte Ausgabe hinterlegt ist, wird nun mit ihrem Namen und ihrer Ausgabe zitiert, etwa als „OIB-Richtlinie 6, Ausgabe März 2015“, wobei die herausgebende Stelle als Herausgeber angegeben wird, statt mit ihrem Dateinamen und der Bundesrechtsdatenbank als Quelle. Dies gilt überall dort, wo die Datensätze der Website ihren Geltungsbereich ausweisen."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "Asking for a room's clear height in an IFC model now gives the measured height again, instead of saying the calculation failed.",
             "de": "Bei der Abfrage der lichten Höhe eines Raums in einem IFC-Modell wird wieder die gemessene Höhe ausgegeben, statt dass ein Berechnungsfehler gemeldet wird."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "An answer that itself says something it relies on is still open or not checked, such as which edition binds at the site, no longer shows high confidence beside that remark: it shows medium, and the chip says why.",
+            "de": "Eine Antwort, die selbst darauf hinweist, dass eine ihrer Grundlagen noch offen oder ungeprüft ist – etwa welche Fassung am Standort maßgeblich ist –, wird neben diesem Hinweis nicht mehr mit hoher, sondern mit mittlerer Konfidenz angezeigt; der Chip nennt den Grund."
           }
         },
         {
@@ -945,6 +1073,14 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "When you ask which edition of a guideline or standard applied at your project's site on a particular day, for example for a submission on 1 October, the assistant now names the edition that was binding there on that day and says which day it means. Before, it named only today's edition and called the earlier one undeterminable.",
+            "de": "Wenn Sie fragen, welche Fassung einer Richtlinie oder Norm am Standort Ihres Projekts an einem bestimmten Tag galt, etwa bei einer Einreichung am 1. Oktober, nennt der Assistent nun die an diesem Tag dort verbindliche Fassung und gibt an, auf welchen Tag er sich bezieht. Bisher nennt er nur die aktuelle Fassung und erklärt die frühere für nicht bestimmbar."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "The U-value and sound insulation checks no longer treat a wall or slab without a readable IsExternal value as internal. The Prüfbuch now shows it as not decidable, and Was dem Modell fehlt lists the missing value.",
@@ -973,6 +1109,46 @@
           "text": {
             "en": "A file whose reading you stopped no longer reappears as failed after you reload the page.",
             "de": "Eine Datei, deren Einlesen Sie abgebrochen haben, wird nach dem Neuladen der Seite nicht mehr als fehlgeschlagen angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The Herleitung under an answer stays inside its panel when the chat comes back into view or the page is captured whole. Before, its question, source cards and Grundlagen could run past the right edge and lose their last words.",
+            "de": "Die Herleitung unter einer Antwort bleibt in ihrem Panel, wenn der Chat wieder in den sichtbaren Bereich kommt oder die gesamte Seite erfasst wird. Zuvor konnten ihre Frage, Quellenkarten und Grundlagen über den rechten Rand hinausragen, sodass die letzten Wörter abgeschnitten wurden."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "An answer to a question asked by a connected agent, woken by a reply, or still running when you closed the chat now shows its steps after a reload, like an answer you watched arrive. An answer that failed or was handed to a run still shows none.",
+            "de": "Eine Antwort auf eine Frage eines verbundenen Agenten zeigt nach einem erneuten Laden jetzt ihre Schritte an, wenn der Agent durch eine Antwort geweckt wurde oder beim Schließen des Chats noch lief – wie eine Antwort, deren Eintreffen Sie live mitverfolgt haben. Bei fehlgeschlagenen Antworten oder Antworten, die an einen Run übergeben wurden, werden weiterhin keine Schritte angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The line above an answer now names what the answer's own check could not back, such as two statements without a source, and shows a warning instead of the green check when that sinks the answer. An answer that cites nothing and asks you something reads as a question back, no longer as answered without research.",
+            "de": "Die Zeile über einer Antwort nennt jetzt, was die eigene Prüfung der Antwort nicht belegen konnte, etwa zwei Aussagen ohne Quelle, und zeigt eine Warnung statt des grünen Häkchens, wenn das die Antwort entkräftet. Eine Antwort, die nichts zitiert und Ihnen eine Frage stellt, wirkt nun wie eine Rückfrage und nicht mehr wie eine ohne Recherche beantwortete Frage."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The last card of an answer's derivation now names the binding edition of a guideline together with the regulation that makes it binding, and says a paragraph or a table as written with its page, instead of a file name or „Pkt. § 1“.",
+            "de": "Die letzte Karte in der Herleitung einer Antwort nennt jetzt die verbindliche Ausgabe einer Richtlinie sowie die Verordnung, die sie verbindlich macht, und führt einen Paragraphen oder eine Tabelle in der Originalschreibweise samt Seitenzahl an – statt eines Dateinamens oder „Pkt. § 1“."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A source card in the derivation names only what a reader would write down, a point, a paragraph or a table, and the pages to open („Tabelle 3 · S. 7–8“). Section headings and which page carries which citation show on hover.",
+            "de": "Eine Quellenkarte in der Herleitung nennt nur, was Leser:innen notieren würden: einen Punkt, einen Absatz oder eine Tabelle sowie die aufzuschlagenden Seiten („Tabelle 3 · S. 7–8“). Abschnittsüberschriften und welche Seite welches Zitat enthält, werden bei Hover angezeigt."
           }
         },
         {
@@ -1053,6 +1229,14 @@
           "text": {
             "en": "Answers no longer cite a law from a website that only republishes it, or from a page served without encryption: the text is read from the official legal database or the knowledge base. An answer that still rests on a web page for a rule gets a lower confidence.",
             "de": "Antworten zitieren Gesetze nicht mehr von Websites, die diese lediglich wiederveröffentlichen, oder von unverschlüsselten Seiten: Der Text stammt aus der offiziellen Rechtsdatenbank oder der Wissensdatenbank. Antworten, die sich weiterhin bei einer Regel auf eine Webseite stützen, erhalten eine niedrigere Konfidenz."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A law looked up in its current consolidated version is no longer labelled with the date of an older version of the paragraph.",
+            "de": "Ein Gesetz, das in seiner aktuellen konsolidierten Fassung abgerufen wird, ist nicht mehr mit dem Datum einer älteren Fassung des Paragraphen gekennzeichnet."
           }
         },
         {
@@ -1185,6 +1369,14 @@
         },
         {
           "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "A project you set up yourself now keeps the country and Bundesland it was created with. Before, they were dropped and the first question asked for the Land again; an agent creating a project through the agent door hit the same gap.",
+            "de": "Ein Projekt, das Sie selbst anlegen, behält jetzt das Land und Bundesland, mit denen es erstellt wurde. Bisher gingen diese Angaben verloren und in der ersten Frage wurde erneut nach dem Land gefragt; bei Projekten, die ein Agent über den Agentenzugang anlegt, trat dieselbe Lücke auf."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "After you upload a corrected IFC file under the same name, the Prüfbuch now judges the new file as soon as it has been read. It could keep showing the previous file's results for up to an hour longer.",
@@ -1201,6 +1393,14 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A building-law text from a country release is now cited by its name, for example \"OIB-Richtlinie 4, Ausgabe Mai 2023\", instead of by its stored file name. The name comes from the work and edition the release reviewed, and a title someone set by hand is kept.",
+            "de": "Ein baurechtlicher Text aus einem Länder-Release wird nun mit seinem Namen zitiert, zum Beispiel „OIB-Richtlinie 4, Ausgabe Mai 2023“, statt mit seinem gespeicherten Dateinamen. Der Name stammt aus dem Werk und der Ausgabe, die im Release geprüft wurden; ein manuell festgelegter Titel bleibt erhalten."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "collaboration",
           "text": {
             "en": "Switching the inbox filter no longer shows the previous filter's rows for a moment, and a failed background refresh keeps the list on screen.",
@@ -1213,6 +1413,30 @@
           "text": {
             "en": "The Subprocessors page is corrected after a full review: the hosting provider appears under its current company name, sign-in is shown to also send invitation e-mails and to keep an office's own AI keys, and address search is marked optional. Session recording is no longer called sampled.",
             "de": "Die Seite „Subprocessors“ ist nach einer vollständigen Überprüfung korrigiert: Der Hosting-Anbieter erscheint unter seinem aktuellen Unternehmensnamen, beim Login ist nun auch angegeben, dass Einladungs-E-Mails versendet und die eigenen KI-Schlüssel eines Büros gespeichert werden, und die Adresssuche ist als optional gekennzeichnet. Die Sitzungsaufzeichnung wird nicht mehr als stichprobenbasiert bezeichnet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "In a project whose site is not set yet, the assistant now searches the building-law texts your office holds, quotes them as information and asks for the site before naming the edition that applies. It no longer says a guideline's text could not be read when the text is there.",
+            "de": "In einem Projekt, dessen Standort noch nicht festgelegt ist, durchsucht der Assistent jetzt die in Ihrem Büro hinterlegten baurechtlichen Texte, zitiert sie als Information und fragt nach dem Standort, bevor er die geltende Fassung nennt. Er behauptet nicht mehr, der Text einer Richtlinie sei nicht lesbar, wenn er vorliegt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "When you ask since when a guideline has been binding at your project's site, the answer now gives the date from the platform's reviewed records, the same date the citation shows. It no longer looks the date up on the web and cites a newsletter for it.",
+            "de": "Wenn Sie fragen, seit wann eine Richtlinie am Projektstandort verbindlich ist, nennt die Antwort jetzt das Datum aus den geprüften Datensätzen der Plattform – dasselbe Datum wie in der Quellenangabe. Sie sucht das Datum nicht mehr im Web und belegt es mit einem Newsletter."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "An answer that names which edition of a guideline applies at your site, and since when, is no longer rated low confidence just for that statement. The confidence check now reads the same record of what applies at the site that the answer was written from.",
+            "de": "Eine Antwort, die angibt, welche Ausgabe einer Richtlinie an Ihrem Standort gilt und seit wann, wird nicht mehr allein für diese Aussage mit geringer Konfidenz bewertet. Die Konfidenzprüfung greift jetzt auf denselben Datensatz zu, der festhält, was an dem Standort gilt, auf dessen Grundlage die Antwort erstellt wurde."
           }
         },
         {

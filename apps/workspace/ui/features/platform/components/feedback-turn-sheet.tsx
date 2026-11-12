@@ -157,7 +157,7 @@ export function FeedbackTurnSheet({
 
             {turn.langfuseTraceUrl ? (
               <SheetFooter>
-                <Button asChild variant="outline">
+                <Button asChild variant="secondary">
                   <a href={turn.langfuseTraceUrl} target="_blank" rel="noopener noreferrer">
                     <ExternalLink aria-hidden />
                     {t('answerFeedback.openInLangfuse')}

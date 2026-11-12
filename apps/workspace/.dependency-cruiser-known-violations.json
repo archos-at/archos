@@ -2520,24 +2520,6 @@
   {
     "type": "dependency",
     "from": "ui/features/collaboration/components/SpectatedTurn.tsx",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/collaboration/components/SpectatedTurn.tsx",
     "to": "ui/features/chat/lib/wire-citation.ts",
     "unresolvedTo": "@/features/chat/lib/wire-citation",
     "dependencyTypes": [
@@ -2597,41 +2579,6 @@
       "aliased-tsconfig-paths",
       "local",
       "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/collaboration/hooks/use-spectated-turn.ts",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/collaboration/lib/spectator-frames.ts",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
       "import"
     ],
     "rule": {
@@ -3016,24 +2963,6 @@
   {
     "type": "dependency",
     "from": "ui/features/documents/hooks/use-canvas-ask.ts",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/documents/hooks/use-canvas-ask.ts",
     "to": "ui/features/chat/stores/messages-store.ts",
     "unresolvedTo": "@/features/chat/stores/messages-store",
     "dependencyTypes": [
@@ -3121,23 +3050,6 @@
     "from": "ui/features/documents/lib/canvas-turn-client.ts",
     "to": "ui/features/chat/lib/canvas-bridge.ts",
     "unresolvedTo": "@/features/chat/lib/canvas-bridge",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/documents/lib/canvas-turn-client.ts",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",
@@ -3346,24 +3258,6 @@
     "from": "ui/features/layout/components/chat-area/chat-area-helpers.ts",
     "to": "ui/features/chat/components/ChatThinking.tsx",
     "unresolvedTo": "@/features/chat/components/ChatThinking",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/layout/components/chat-area/chat-area-helpers.ts",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",
@@ -6325,23 +6219,6 @@
     "from": "bff/conversations/conversation-wire.ts",
     "to": "ui/features/cards/card-decision.ts",
     "unresolvedTo": "@/features/cards/card-decision",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "lib-imports-ui"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "bff/conversations/stopped-cut.ts",
-    "to": "ui/features/chat/lib/stopped-answer.ts",
-    "unresolvedTo": "@/features/chat/lib/stopped-answer",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",

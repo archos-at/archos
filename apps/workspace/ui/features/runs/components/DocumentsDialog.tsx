@@ -215,7 +215,7 @@ export const DocumentsDialog: FC<DocumentsDialogProps> = (props) => {
                 ) : (
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     className="h-7 gap-1 px-2 text-xs"
                     onClick={() => {
                       void props.onAdd(doc)

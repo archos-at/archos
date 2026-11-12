@@ -252,10 +252,12 @@ class ConversationState(BaseModel):
     # the wire never narrates an escalation that did not occur.
     escalation_reason: str | None = None
     # Present only when the self-reported confidence was downgraded
-    # (``markers.CappedReason`` says which rule produces which). Five causes:
+    # (``markers.CappedReason`` says which rule produces which). The causes:
     #   "ungrounded"              nothing verified and nothing measured.
     #   "quote_unverified"        a quoted span matched no retrieved passage.
     #   "law_unsettled"           rests on building law the records do not settle (ADR-0175).
+    #   "open_point"              the answer itself names an open point (its prose,
+    #                             its confidence reason, or a self-report below high).
     #   "normative_claim_uncited" the answer WAS measurement-grounded but also
     #                             asserts something normative with no verified
     #                             citation — the mixed case, held at "low" and
@@ -270,6 +272,7 @@ class ConversationState(BaseModel):
             "ungrounded",
             "quote_unverified",
             "law_unsettled",
+            "open_point",
             "normative_claim_uncited",
             "measurement_only",
             "citation_fallback",

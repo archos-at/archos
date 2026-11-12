@@ -53,8 +53,8 @@ wheels/
 MANIFEST
 
 # Virtual Environment
-.venv/
-venv/
+.venv
+venv
 ENV/
 /env/
 
@@ -173,3 +173,6 @@ coverage-aiqapi.xml
 # A local copy of the OIB corpus for the evals and tests; see data/oib/README.md
 data/oib/*.pdf
 .testmondata*
+
+# Stored answers saved locally for /dev/derivation-records?id= (real conversation data, never committed)
+apps/workspace/public/dev-stored-answers/

@@ -126,6 +126,8 @@ class EditionUse:
     corpus_files: tuple[str, ...] = ()
     designation: str | None = None
     edition_label: str | None = None
+    #: Who issues the work, as its record names it: the publisher a citation of the edition's text names.
+    issuer: str | None = None
     #: The work's identifiers at its source: what a passage read live there is matched by (:func:`use_for_source_ref`).
     source_refs: tuple[SourceRef, ...] = ()
     #: Whether the edition's own scope (``applicability``) leaves it open for this project: a person's check
@@ -290,6 +292,7 @@ def _use(raw: object) -> EditionUse | None:
         corpus_files=_strings(raw.get("corpusFiles")),
         designation=_text(raw.get("designation")),
         edition_label=_text(raw.get("editionLabel")),
+        issuer=_text(raw.get("issuer")),
         source_refs=_source_refs(raw.get("sourceRefs")),
         scope_unsettled=_scope_unsettled(raw.get("applicability")),
         date=_day(raw.get("date")),

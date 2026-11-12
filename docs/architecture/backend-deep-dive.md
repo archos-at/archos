@@ -123,8 +123,11 @@ field at its default, and each is reset at the turn boundary in
   workspace records from `common/workspace_records.py`, the profile and the
   inventory, measurements, readings, and what the quote check found), and
   returns a level and the statements it found unbacked or contradicted
-  (`TurnResult.confidence_check`). The quote gate below is the one rule on top;
-  the self-report sets no level. A check that cannot run surfaces no level.
+  (`TurnResult.confidence_check`). Three caps sit on top, in this order: the
+  quote gate below (medium under a verified citation, low without one), the law
+  gate (`"law_unsettled"`, at most medium), and the answer's own ceiling
+  (`"open_point"`: medium for an open point it names, never above its
+  self-report). A check that cannot run surfaces no level.
   Deep research keeps rule 1, the answer-level floors described in the rest of
   this entry.
   - `"ungrounded"` — rule 1: citation verification left the report without
@@ -135,6 +138,16 @@ field at its default, and each is reset at the turn boundary in
     registry's captured `chunk_text`, fail-open; the offending span is annotated
     inline with `[nicht wörtlich in der Quelle belegt]` and the answer is never
     otherwise altered).
+  - `"law_unsettled"` — the answer rests on building law the turn's records do
+    not settle (ADR-0139's amendment of 2026-11-10, `common/law_gate.py`).
+  - `"open_point"` — the answer's own words hold it lower: the check read an
+    open point its main point depends on, in its prose or its confidence reason
+    (`Check.open_points`, scored as `confidence-open-points`; at most "medium"),
+    or the answer rated itself lower (at most its own level: the self-report is
+    a ceiling the check never raises). The grader grades whether the evidence backs each
+    statement, and „die Bindung ist nicht an der Quelle geprüft" is backed by a
+    record that says so, so the level alone read such an answer "high" beside a
+    reason naming the gap (golden case `at-a6`, 2026-11-12).
   - `"normative_claim_uncited"` / `"measurement_only"` — no longer produced;
     they named rule 1's measurement branches for chat, which the answer check
     replaced (ADR-0139). Stored turns still carry the tokens.
@@ -655,10 +668,16 @@ Every backend call carries a base64url `X-Grid-Collection-Scope` header =
 `apps/workspace/bff/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
 RAG multi-tenant boundary. Note `resolveProjectCollectionName` short-circuits to
 no project scope when `session.organizationId` is falsy (anonymous /
-`REQUIRE_AUTH=false`). `oib_knowledge` is in it only for a turn without a
-project or a project placed in Austria (`loadProjectSiteCountry`, ADR-0158); the
-knowledge layer's `scoped_collections_for_site` holds the same rule for a scope
-nobody stated, and RIS is a switched-off source for such a project.
+`REQUIRE_AUTH=false`). `oib_knowledge` is in every scope, whatever the project's
+site. Its entry is signed with the countries the request may read (`base-entry.ts`):
+the office's corpus countries, and for a project those of them its own knowledge
+context reads (`projectCorpusCountries`, ADR-0173 `retrieval.countries`). So an unplaced
+project (`site_unknown`) reads the office's countries as information and a project
+placed in a country the office does not hold reads none, on every path: a turn or run
+that binds its context narrows again (`knowledge_context.corpus_countries`), and a door,
+proxy or job read that binds none reads the signed, already narrowed list. Until
+2026-11-12 the scope left the corpus out of any project not placed in Austria, and an
+unplaced project's answer said a released OIB text could not be read.
 
 The signed header is the **authorization ceiling**, not the turn's search set.
 The client states **intent** on the user message — `focus_file_name`,
@@ -1587,7 +1606,7 @@ question about a small part of it.
 | Path | Was | Is | How |
 |---|---|---|---|
 | `compliance` (first request) | ~1.5 s, ~60 MB of JSON parsed on the event loop | ~0.3 s | `bim_models.rule_inputs` — the thirteen keys the catalogue reads, pruned at extraction time (`lib/bim/rule-inputs.ts`). 1 409 → 219 bytes per element. |
-| `compliance` (repeat) | ~1.5 s again | ~0 | A 64-entry, 1 h memo keyed by model id + `updated_at` + Gebäudeklasse + Hauptnutzung (`lib/bim/compliance-cache.ts`). A re-upload keeps the model id and moves `updated_at` with the elements, so the key is the whole input. |
+| `compliance` (repeat) | ~1.5 s again | ~0 | A 64-entry, 1 h memo keyed by model id + `updated_at` + Gebäudeklasse + Hauptnutzung + the rules' basis at the site (`lib/bim/compliance-cache.ts`, `basisKey` in `lib/bim/rule-basis.ts`). A re-upload keeps the model id and moves `updated_at` with the elements, so the key is the whole input. The basis comes from the project's knowledge context (`contextForPage`), so every `complianceRun`, a memo hit included, first pays that context's input reads: five small queries (office countries, project profile, office time zone, records stamp, pack sequences), and the graph and sources only on a context-cache miss. |
 | a filtered element page, 1 match | 6 474 ms | **9 ms** | `bim_elements.search_keys` + its GIN index, AND-ed in as a pre-filter (0038). |
 | a filtered element page, 50 000 matches | 1 277 ms | **315 ms** | The pre-filter DROPPED, and `(model_id, ifc_type, express_id)` walked in order until the page is full (0039). |
 | `properties` | past the 30 s timeout → **HTTP 500** | ~0.6 s | A scan bounded at ~5 000 elements, stratified by IFC type, reported as a sample. |

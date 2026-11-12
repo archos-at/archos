@@ -1671,10 +1671,24 @@ export const chat: typeof en.chat = {
     derivationWarning: {
       failed: '{count, plural, one {#\u00A0Abruf fehlgeschlagen} other {#\u00A0Abrufe fehlgeschlagen}}',
       open: '{count, plural, one {#\u00A0Punkt offen} other {#\u00A0Punkte offen}}',
+      // Was die Belegpr\u00FCfung der Antwort fand (ADR-0139): schwerer als jeder Abruf,
+      // denn es betrifft die Antwort selbst.
+      unbacked: '{count, plural, one {#\u00A0Aussage ohne Beleg} other {#\u00A0Aussagen ohne Beleg}}',
+      contradicted:
+        '{count, plural, one {#\u00A0Aussage widerspricht der Quelle} other {#\u00A0Aussagen widersprechen der Quelle}}',
     },
     // Ein Zug ohne jede Recherche: eine Zeile, nichts zum Aufklappen.
     noResearch: 'Ohne Recherche beantwortet',
     noResearchNote: 'Allgemeines Fachwissen, keine Quelle zitiert',
+    // Die Antwort endet mit einer Frage an die Lesenden: nicht \u201EFertig\u201C.
+    // `askedBack` steht rechts in der Kopfzeile, die zwei Zeilen darunter
+    // stehen f\u00FCr einen Zug ohne Recherche.
+    askedBack: 'R\u00FCckfrage',
+    // F\u00FCr Screenreader: fertig, aber die Belegpr\u00FCfung fand eine Aussage, die die
+    // Antwort tr\u00E4gt und nicht belegt ist (oder der Quelle widerspricht).
+    flagged: 'Mit Hinweis',
+    askedBackHeadline: 'R\u00FCckfrage gestellt',
+    askedBackNote: 'F\u00FCr eine belegte Antwort fehlt noch eine Angabe von Ihnen',
     // Ein Zug mit genau einem Aufruf: die Kopfzeile ist die Herleitung.
     singleCited: 'zitiert {markers}',
     derivationSummary: 'Herleitung',
@@ -1728,6 +1742,19 @@ export const chat: typeof en.chat = {
         open: 'Offen',
         clause: 'Pkt.\u00A0{clause}',
         page: 'S.\u00A0{page}',
+        pages: 'S.\u00A0{pages}',
+        more: '+{count} weitere',
+        // Eine Ausgabe, die ein Rechtsakt hier für verbindlich erklärt: der Akt, wie ihn die Daten nennen.
+        binding: 'verbindlich über {act}',
+        bindingSince: 'verbindlich über {act} seit {since}',
+        // Der Weg stammt aus dem Datensatz der Plattform, der noch nie an der Rechtsquelle geprüft wurde.
+        unchecked: 'laut Plattformdaten, noch nie an der Quelle geprüft',
+        // Geprüft, aber die nächste Prüfung ist fällig: der Tag der letzten.
+        checkedOn: 'laut Plattformdaten, zuletzt am {date} an der Quelle geprüft',
+        // Aus einer amtlichen Quelle gelesen, die niemand kuratiert hat.
+        uncurated: 'amtliche Quelle, nicht kuratiert',
+        withRecord: '{name} ({record})',
+        date: '{day}.{month}.{year}',
         // Aus einem Aufruf ohne Treffer: wo gesucht wurde und wonach. Nie „Keine Informationen gefunden“.
         openNoHitIn: 'Nicht beurteilbar, weil die Suche in {target} nach „{query}“ keine Fundstelle ergab.',
         openNoHitShelf: 'Nicht beurteilbar, weil die Suche {shelf} nach „{query}“ keine Fundstelle ergab.',
@@ -2163,6 +2190,8 @@ export const chat: typeof en.chat = {
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
       lawUnsettled:
         'Mittlere Sicherheit: die Antwort stützt sich auf Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
+      openPoint:
+        'Begrenzt durch die Antwort selbst: einen offenen Punkt, den sie nennt, oder ihre eigene niedrigere Einschätzung.',
       // Die Messung belegt die Zahl, nicht die Rechtsaussage daneben — deshalb
       // bleibt die gemischte Antwort auf „gering", und der Tooltip sagt warum.
       normativeClaimUncited:
@@ -2196,6 +2225,11 @@ export const chat: typeof en.chat = {
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist deshalb begrenzt.',
       lawUnsettled:
         'Welche Fassung hier verbindlich ist, steht für diesen Standort noch nicht geprüft fest; die Einschätzung ist deshalb höchstens mittel.',
+      // Die Prüfung liest, ob die Quellen jede Aussage stützen. Sagt die Antwort
+      // selbst, dass etwas offen ist, oder schätzt sie sich niedriger ein, hebt
+      // die Prüfung sie nicht darüber.
+      openPoint:
+        'Begrenzt durch die Antwort selbst: einen offenen Punkt, den sie nennt, oder ihre eigene niedrigere Einschätzung. Die Prüfung hebt die Stufe nicht darüber.',
       unavailable: 'Belegprüfung nicht verfügbar',
       unavailableTooltip:
         'Die Belegprüfung konnte für diese Antwort nicht laufen. {productName} zeigt deshalb keine Einschätzung; die Antwort selbst ist unverändert.',
@@ -2217,6 +2251,7 @@ export const chat: typeof en.chat = {
           'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
         lawUnsettled:
           'Begrenzt durch Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
+        openPoint: 'Begrenzt durch die Antwort selbst: einen offenen Punkt, den sie nennt, oder ihre eigene Einschätzung.',
         // Ein Eintrag im Arbeitsbereich oder eine Messung belegt Fakten über
         // das Büro und das Gebäude, nie eine Aussage über das Recht.
         normativeClaimUncited:
