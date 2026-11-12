@@ -246,7 +246,7 @@ primitive:
 > `user_message`'s `message_id`, which the agent tier makes the `turn_id`, and
 > the answer's row id is `uuid5(grid:assistant:<conversation>:<turn>)`, which
 > `RUN_STARTED` names. A stage event carries the `turn_id` and folds into the
-> turn's view like every other event (`features/chat/lib/turn-fold.ts`).
+> turn's view like every other event (`bff/turns/turn-fold.ts`).
 
 The agent tier's only handle on the turn is the third one — the agent runtime (NeMo Agent Toolkit, a third-party library) stores it as
 `self._message_parent_id` (`nat/front_ends/fastapi/message_handler.py:125`).
@@ -682,7 +682,7 @@ means `FollowUpsCard.tsx` renders either source unchanged, and the migration in
 
 ### 4.3 Client behaviour, normatively
 
-1. The turn fold (`foldTurnEvent`, `features/chat/lib/turn-fold.ts`) stores
+1. The turn fold (`foldTurnEvent`, `bff/turns/turn-fold.ts`) stores
    each stage event under `stages[stage]` of the turn's view. It is folded like
    any other event: a stage arrives *by definition* after the turn stopped
    streaming, and the fold has no streaming guard to route around.

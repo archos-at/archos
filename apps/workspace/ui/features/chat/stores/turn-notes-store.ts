@@ -41,7 +41,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { create } from 'zustand'
 import { useChatStore } from '../store'
 import type { PersonalTurnNote, TurnMemoryItem } from '../lib/turn-memory'
-import type { TurnView } from '../lib/turn-fold'
+import type { TurnView } from '@/lib/turns/turn-fold'
 
 /** One of the reader's personal notes of a conversation, with the answer it was saved under. */
 export interface ConversationPersonalNote extends PersonalTurnNote {

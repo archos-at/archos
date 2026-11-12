@@ -90,7 +90,7 @@ import {
 } from '../lib/canvas-bridge'
 import { STAGE_COUNT } from '../lib/turn-projection'
 import { runErrorCard, type RunErrorCard } from '../lib/run-error'
-import { isSteerRead, type TurnView } from '../lib/turn-fold'
+import { isSteerRead, type TurnView } from '@/lib/turns/turn-fold'
 import {
   dropViewerActions,
   newViewerActions,

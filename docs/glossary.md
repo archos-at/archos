@@ -171,7 +171,7 @@ replaced `agent_capability_missing`.
 |---|---|---|
 | Chat wire v2 | The WebSocket protocol of a turn: typed events stamped `(turn_id, seq)`, closed by `RUN_FINISHED` with the authoritative result | [`docs/api/websocket-protocol.md`](api/websocket-protocol.md) |
 | `attach` | The client message that re-registers a socket to a turn from a sequence number, replaying what it missed; sent on reconnect and reload | [`docs/api/websocket-protocol.md`](api/websocket-protocol.md) |
-| `foldTurnEvent` | The one pure function that turns a wire event into the turn's view state, shared by the live socket, the replay and the spectator stream | [`apps/workspace/ui/features/chat/lib/turn-fold.ts`](../apps/workspace/ui/features/chat/lib/turn-fold.ts) |
+| `foldTurnEvent` | The one pure function that turns a wire event into the turn's view state, shared by the live socket, the replay and the spectator stream | [`apps/workspace/bff/turns/turn-fold.ts`](../apps/workspace/bff/turns/turn-fold.ts) |
 | A2UI | The rendering layer every card is drawn through; its catalog is generated from the backend's card schema (`npm run generate:cards`) | [`docs/architecture/cards.md`](architecture/cards.md) |
 | System card | A card type only a tool may emit (`memory_proposal`, `document_draft`, `task_created`, …); the model may not fabricate one | [`docs/architecture/cards.md`](architecture/cards.md) |
 

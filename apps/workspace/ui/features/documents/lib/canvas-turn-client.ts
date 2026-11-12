@@ -42,7 +42,7 @@ import {
   type TurnSocketStatus,
 } from '@/adapters/api/turn-socket'
 import type { ClientMessage, WireEvent } from '@/adapters/api/wire-v2'
-import { foldTurnEvent, initialTurnView, isSteerRead, stopTurnView, type TurnView } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvent, initialTurnView, isSteerRead, stopTurnView, type TurnView } from '@/lib/turns/turn-fold'
 import { clampFocusRegion, type CanvasFocusRegion } from '@/features/chat/lib/canvas-bridge'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import type { ChatEffort } from '@/lib/reasoning-settings/catalog'

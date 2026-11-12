@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CONNECTION_WAIT_NOTE_AFTER_MS } from '@/adapters/api/connection-wait'
 import type { TurnSocket, TurnSocketOptions } from '@/adapters/api/turn-socket'
 import type { ClientMessage } from '@/adapters/api/wire-v2'
-import type { TurnView } from '@/features/chat/lib/turn-fold'
+import type { TurnView } from '@/lib/turns/turn-fold'
 import { eventOf, frameOf } from '@/test-utils/wire-v2-fixtures'
 import { CANVAS_ACK_TIMEOUT_MS, CanvasTurnError, canvasDegradations, createCanvasTurnClient } from './canvas-turn-client'
 

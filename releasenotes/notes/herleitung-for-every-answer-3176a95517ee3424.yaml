@@ -1,0 +1,7 @@
+---
+# area: answers
+fixes:
+  - >
+    An answer to a question asked by a connected agent, woken by a reply, or
+    still running when you closed the chat now keeps how it was worked out:
+    after a reload it shows its steps like every other answer.

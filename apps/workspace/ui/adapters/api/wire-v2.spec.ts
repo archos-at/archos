@@ -18,7 +18,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { foldTurnEvents } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import { MAX_VIEWER_PASSAGE_CHARS, clientMessageSchema, parseHello, parseWireEvent, type WireEvent } from './wire-v2'
 import { viewerActionArgsSchema } from './wire-v2.generated'
 

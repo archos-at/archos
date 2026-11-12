@@ -18,7 +18,7 @@
 
 import { replaceEqualDeep } from '@tanstack/react-query'
 import { v4 as uuidv4 } from 'uuid'
-import type { StageId, TurnView } from './turn-fold'
+import type { StageId, TurnView } from '@/lib/turns/turn-fold'
 import type { ChatMessage } from '../types'
 import { citationsFromWireList } from './wire-citation'
 import { reconcileCardInteractions } from '@/features/cards/card-decision'

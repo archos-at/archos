@@ -330,7 +330,7 @@ See `.env.example` for the full list of available frontend variables.
 ## API Communication
 
 A question is asked over one WebSocket per conversation, chat wire v2: `ui/adapters/api/turn-socket.ts`
-connects, `adapters/api/wire-v2.ts` parses every event and `features/chat/lib/turn-fold.ts` folds it. The backend
+connects, `adapters/api/wire-v2.ts` parses every event and `bff/turns/turn-fold.ts` folds it. The backend
 serves no HTTP route that runs a turn. Protocol: [`docs/api/websocket-protocol.md`](../../docs/api/websocket-protocol.md).
 
 Deep-research runs stream their own events over Server-Sent Events, through the same-origin job proxy

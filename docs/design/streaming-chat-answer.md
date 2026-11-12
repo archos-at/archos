@@ -12,7 +12,7 @@ storage rules are unchanged by it. Streaming is the default delivery; there is
 no runtime flag beyond the platform switch below.
 **Related:** the per-turn chat path (`agents/piloti/conversation_register.py`,
 `note_settled_replaced`), the chat socket (`apps/agent-host/src/agent_host/chat_socket.py`),
-the turn fold (`apps/workspace/ui/features/chat/lib/turn-fold.ts`) and the chat
+the turn fold (`apps/workspace/bff/turns/turn-fold.ts`) and the chat
 store. Live prose: `common/answer_prose_stream.py` and
 `agents/piloti/answer_pipeline.py` (`LiveAnswer`, `settle_streamed_citations`).
 The events themselves: [`websocket-protocol.md`](../api/websocket-protocol.md).
@@ -801,7 +801,7 @@ Stop keeps what was on screen at the press. The rule of what that is has one
 copy per language and three writers (the agent tier, the asker's browser and
 the BFF), held to the same cases by `contracts/wire/v2/stopped-cases.jsonl`:
 [chat wire v2, Cancel](chat-wire-v2.md#c-the-route-and-the-handler) and
-`features/chat/lib/stopped-answer.ts`. In short: the shown code points, a
+`bff/turns/stopped-answer.ts`. In short: the shown code points, a
 marker cut in half dropped, a streamed `[N]` dropped and a settled one kept
 with its source, and only the cards whose place was shown.
 
@@ -1017,7 +1017,7 @@ as it does on a desk.
 - Fold: every fixture turn folds to the expected view; a duplicate `seq` keeps
   identity and a gap is flagged; snapshot, retraction and terminal
   replacement; a card before its marker; a spectator starting mid-turn
-  (`apps/workspace/ui/features/chat/lib/turn-fold.spec.ts`).
+  (`apps/workspace/bff/turns/turn-fold.spec.ts`).
 - Frontend: the whole-answer affordances (copy, unclaimed cards) wait for
   `isStreaming` to clear (`AgentResponse.spec.tsx`, "a streaming answer");
   `stable-overrides.spec.tsx` (a drawn diagram and an arrived card survive the

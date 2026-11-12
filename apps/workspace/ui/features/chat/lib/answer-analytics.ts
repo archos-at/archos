@@ -13,7 +13,7 @@
  */
 
 import type { ChatMessage } from '../types'
-import type { TurnView } from './turn-fold'
+import type { TurnView } from '@/lib/turns/turn-fold'
 
 export type AnswerOutcome = 'ok' | 'handed_off' | 'refused' | 'aborted' | 'error'
 
