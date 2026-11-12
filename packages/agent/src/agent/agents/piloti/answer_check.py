@@ -27,8 +27,10 @@ from agent.common import content_to_text
 from agent.common.claim_judge import Evidence
 from agent.common.claim_judge import JudgeFn
 from agent.common.claim_judge import Passage
+from agent.common.claim_judge import Unavailable
 from agent.common.workspace_records import records_from_messages
 from agent.observability.langfuse_scores import answer_check_scores
+from agent.observability.langfuse_scores import answer_check_unavailable_scores
 from agent.observability.langfuse_scores import emit_scores
 
 #: A trailing reference list, in the headings this agent and the models it runs
@@ -184,17 +186,28 @@ async def check_answer(
 ) -> tuple[dict[str, Any] | None, tuple[str, ...]]:
     """One judge call on an answer that graded itself (``self_report``), read with its confidence ``reason``.
 
-    The check wire-ready (``unavailable`` without a judge or a usable reply) and the open points the answer
-    names, which cap its level (``markers.surface_checked_confidence``); ``(None, ())`` when it graded
-    nothing. Scored.
+    The check wire-ready (``unavailable`` with its reason without a judge or a usable reply) and the open
+    points the answer names, which cap its level (``markers.surface_checked_confidence``); ``(None, ())``
+    when it graded nothing. Scored, and an unavailable check's cause is the trace's
+    ``answer_check_unavailable``.
     """
+    from agent.observability.langfuse_trace_attributes import record_trace_metadata
+
     if self_report is None:
         return None, ()
     check = check or TurnCheck()
-    result = await check.judge(evidence_for(answered, check.context, reason)) if check.judge is not None else None
-    level, open_points = (result.level, result.open_points) if result is not None else (None, ())
-    emit_scores(answer_check_scores(level, open_points), writer="piloti")
-    if result is None:
-        return {"status": "unavailable"}, ()
-    wire = {"status": "judged", "level": result.level, "findings": [f.to_wire() for f in result.findings]}
-    return wire, result.open_points
+    no_judge = Unavailable("no_judge")
+    evidence = evidence_for(answered, check.context, reason)
+    result = await check.judge(evidence) if check.judge is not None else no_judge
+    if isinstance(result, Unavailable):
+        unavailable = result.to_wire()
+        scores = [*answer_check_scores(None), *answer_check_unavailable_scores(unavailable)]
+        record_trace_metadata(answer_check_unavailable=result.cause, answer_check_truncated=result.truncated or None)
+        wire: dict[str, Any] = {"status": "unavailable", "unavailable_reason": unavailable}
+        open_points: tuple[str, ...] = ()
+    else:
+        scores = answer_check_scores(result.level, result.open_points)
+        wire = {"status": "judged", "level": result.level, "findings": [f.to_wire() for f in result.findings]}
+        open_points = result.open_points
+    emit_scores(scores, writer="piloti")
+    return wire, open_points

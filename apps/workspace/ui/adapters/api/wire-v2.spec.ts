@@ -156,6 +156,15 @@ describe('chat wire v2 frames from a newer server', () => {
     expect(event.result).not.toHaveProperty('answer_digest')
   })
 
+  it('settles on an unavailable check whose reason names a cause this bundle does not know', () => {
+    const raw = structuredClone(byType('RUN_FINISHED'))
+    const reason = { cause: 'a_cause_a_later_release_adds', elapsed_ms: 12000, extra_key: 1 }
+    ;(raw.result as Raw).confidence_check = { status: 'unavailable', unavailable_reason: reason }
+    const event = parseWireEvent(raw)
+    if (event?.type !== 'RUN_FINISHED') throw new Error('an unknown cause must not drop the RUN_FINISHED')
+    expect(event.result.confidence_check).toEqual({ status: 'unavailable', level: null, unavailable_reason: null })
+  })
+
   it('strips a raw payload off a step, so no tool text reaches the fold', () => {
     const event = parseWireEvent(byType('STEP_FINISHED', undefined, 'tool'))
     if (event?.type !== 'STEP_FINISHED') throw new Error('a step with an extra key must parse')

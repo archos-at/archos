@@ -102,7 +102,12 @@ amendment of 2026-11-12, which makes it a ceiling the check may not raise).
 
 **No check, no level**: no model, a timeout, an error or an unreadable reply
 gives `confidence_check: {"status": "unavailable"}`, no `answer_confidence`,
-and the chip „Belegprüfung nicht verfügbar".
+and the chip „Belegprüfung nicht verfügbar". Since 2026-11-12 the check also
+carries `unavailable_reason` (`claim_judge.Unavailable`): which of those it was
+(`no_judge`, `timeout`, `error`, `unparseable`, `no_reply`), whether the reply
+stopped at the output budget, the call's elapsed ms and the characters of
+evidence and answer. A quarter of the dev golden answers came back unavailable
+and nothing said why; the reader still sees no level.
 
 **Deleted**: the per-sentence classification (`common/claim_provenance.py`),
 the kind and support aggregation, the claims ceiling, the normative net

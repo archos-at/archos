@@ -39,6 +39,48 @@ describe('sanitizeConfidenceCheck', () => {
     })
   })
 
+  test('keeps why an unavailable check gave no level, from the wire and from stored provenance', () => {
+    const wire = {
+      status: 'unavailable',
+      unavailable_reason: {
+        cause: 'unparseable',
+        finish_reason: 'length',
+        truncated: true,
+        elapsed_ms: 9100,
+        evidence_chars: 58000,
+        answer_chars: 2400,
+      },
+    }
+    const stored = {
+      status: 'unavailable',
+      findings: [],
+      unavailableReason: {
+        cause: 'unparseable',
+        finishReason: 'length',
+        truncated: true,
+        elapsedMs: 9100,
+        evidenceChars: 58000,
+        answerChars: 2400,
+      },
+    }
+    expect(sanitizeConfidenceCheck(wire)).toEqual(stored)
+    expect(sanitizeConfidenceCheck(stored)).toEqual(stored)
+    expect(
+      sanitizeConfidenceCheck({ status: 'unavailable', unavailable_reason: { cause: 'error', error_type: 'x'.repeat(500) } })
+        ?.unavailableReason?.errorType
+    ).toHaveLength(100)
+  })
+
+  test('an unknown cause, or a reason on a judged check, is dropped', () => {
+    expect(sanitizeConfidenceCheck({ status: 'unavailable', unavailable_reason: { cause: 'gremlins' } })).toEqual({
+      status: 'unavailable',
+      findings: [],
+    })
+    expect(
+      sanitizeConfidenceCheck({ status: 'judged', level: 'high', unavailable_reason: { cause: 'timeout' } })
+    ).toEqual({ status: 'judged', level: 'high', findings: [] })
+  })
+
   test('anything else is no check', () => {
     expect(sanitizeConfidenceCheck(null)).toBeUndefined()
     expect(sanitizeConfidenceCheck({ status: 'maybe' })).toBeUndefined()

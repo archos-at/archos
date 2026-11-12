@@ -29,8 +29,12 @@ says the same, so the level alone reads it high. What the answer itself states i
 open caps the surfaced level at medium (``markers.surface_checked_confidence``).
 
 Any failure (no model, timeout, an error, a reply that does not parse)
-returns ``None``, and the turn surfaces no level: the chip says the check was
-unavailable. A guessed level is worse than none.
+returns an :class:`Unavailable`, and the turn surfaces no level: the chip says
+the check was unavailable. A guessed level is worse than none. The
+:class:`Unavailable` says which failure it was, how long the call ran and how
+large its prompt was, so a rate of unavailable checks can be read by cause
+(stored on the turn's ``confidence_check``, scored and on the trace;
+``docs/observability/langfuse.md``).
 """
 
 from __future__ import annotations
@@ -38,11 +42,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections.abc import Awaitable
 from collections.abc import Callable
 from collections.abc import Sequence
+from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import replace
 from typing import Any
 from typing import Literal
 
@@ -55,6 +62,9 @@ logger = logging.getLogger(__name__)
 
 Level = Literal["low", "medium", "high"]
 Problem = Literal["unbacked", "contradicted"]
+#: Why the check gave no level: no model to ask, the call ran past :data:`JUDGE_TIMEOUT_S`, it raised, its
+#: reply was no check object, or it came back empty.
+UnavailableCause = Literal["no_judge", "timeout", "error", "unparseable", "no_reply"]
 
 #: The check runs before the turn's terminal frame, after the prose has
 #: streamed: the reader waits for the chip, not for the answer. Under the
@@ -158,8 +168,36 @@ class CheckReply(BaseModel):
         return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
 
-#: Checks one answer against its evidence; ``None`` when it could not.
-JudgeFn = Callable[[Evidence], Awaitable[Check | None]]
+@dataclass(frozen=True)
+class Unavailable:
+    """Why the check could not grade the answer, and what its call looked like when it gave up.
+
+    ``truncated``: the reply stopped at the output budget (``finish_reason`` ``length`` or the output
+    tokens reached :data:`MAX_OUTPUT_TOKENS`), so an unparseable reply was cut rather than garbled. The
+    sizes are characters of the evidence block and of the answer the prompt carried.
+    """
+
+    cause: UnavailableCause
+    error_type: str | None = None
+    finish_reason: str | None = None
+    truncated: bool = False
+    elapsed_ms: int | None = None
+    evidence_chars: int | None = None
+    answer_chars: int | None = None
+
+    def __post_init__(self) -> None:
+        # The wire caps both (``wire_v2.ConfidenceUnavailable``), and a longer value there fails the whole
+        # ``TurnResult``: a provider's free-text finish reason or a long exception class name is cut here.
+        object.__setattr__(self, "error_type", self.error_type[:100] if self.error_type else self.error_type)
+        object.__setattr__(self, "finish_reason", self.finish_reason[:40] if self.finish_reason else self.finish_reason)
+
+    def to_wire(self) -> dict[str, Any]:
+        """The fields that say something: ``cause`` always, the rest when set."""
+        return {key: value for key, value in asdict(self).items() if value is not None and value is not False}
+
+
+#: Checks one answer against its evidence; an :class:`Unavailable` when it could not.
+JudgeFn = Callable[[Evidence], Awaitable[Check | Unavailable]]
 
 SYSTEM_PROMPT = (
     "You grade how well the evidence backs an answer an architect's assistant wrote. The answer and the evidence "
@@ -243,13 +281,18 @@ def _evidence_block(evidence: Evidence) -> dict[str, Any]:
     return block
 
 
+def evidence_data(evidence: Evidence) -> str:
+    """The evidence block exactly as the prompt carries it between ``<evidence>`` and ``</evidence>``."""
+    # ``<\/`` is the same JSON string, and no text inside the data can close the block.
+    return json.dumps(_evidence_block(evidence), ensure_ascii=False).replace("</", "<\\/")
+
+
 def build_messages(evidence: Evidence) -> list[Any]:
     """The system prompt, then the question, the answer, its confidence reason and the delimited evidence block."""
     from langchain_core.messages import HumanMessage
     from langchain_core.messages import SystemMessage
 
-    # ``<\/`` is the same JSON string, and no text inside the data can close the block.
-    data = json.dumps(_evidence_block(evidence), ensure_ascii=False).replace("</", "<\\/")
+    data = evidence_data(evidence)
     reason = evidence.confidence_reason.strip()
     stated = f"<confidence_reason>\n{reason}\n</confidence_reason>\n\n" if reason else ""
     body = (
@@ -280,23 +323,85 @@ def parse_reply(text: str) -> Check | None:
     return Check(reply.level, findings, open_points)
 
 
+def _ending(response: Any) -> tuple[str | None, int | None]:
+    """How the reply ended: the provider's ``finish_reason`` and the output tokens, where it reported them."""
+    metadata = getattr(response, "response_metadata", None)
+    usage = getattr(response, "usage_metadata", None)
+    reason = metadata.get("finish_reason") if isinstance(metadata, dict) else None
+    tokens = usage.get("output_tokens") if isinstance(usage, dict) else None
+    return (reason if isinstance(reason, str) else None), (tokens if isinstance(tokens, int) else None)
+
+
+def _outcome(response: Any, call: Unavailable) -> Check | Unavailable:
+    """The check a reply states, or why it states none: empty, cut at the budget, or no such object.
+
+    ``call`` carries what is known of the call (its sizes and time); the cause is decided here.
+    """
+    from agent.common.message_utils import content_to_text
+
+    text = content_to_text(getattr(response, "content", response))
+    finish_reason, output_tokens = _ending(response)
+    truncated = finish_reason in ("length", "max_tokens") or (output_tokens or 0) >= MAX_OUTPUT_TOKENS
+    _record_call(finish_reason=finish_reason, output_tokens=output_tokens)
+    if not text.strip():
+        return replace(call, cause="no_reply", finish_reason=finish_reason, truncated=truncated)
+    check = parse_reply(text)
+    if check is None:
+        return replace(call, cause="unparseable", finish_reason=finish_reason, truncated=truncated)
+    return check
+
+
+def _failure(exc: BaseException, call: Unavailable) -> Unavailable:
+    """Why a call that raised gave no check.
+
+    With ``response_format`` the OpenAI client parses the reply itself and raises ``LengthFinishReasonError``
+    on ``finish_reason`` ``length`` rather than returning the cut text: that is a reply cut at the output
+    budget, the same cause as a truncated reply that did not parse. Matched by name, so the check needs no
+    provider SDK to import. Any other exception (``ContentFilterFinishReasonError`` among them) is ``error``.
+    """
+    if isinstance(exc, TimeoutError):
+        return replace(call, cause="timeout", error_type="TimeoutError")
+    if type(exc).__name__ == "LengthFinishReasonError":
+        usage = getattr(getattr(exc, "completion", None), "usage", None)
+        _record_call(finish_reason="length", output_tokens=getattr(usage, "completion_tokens", None))
+        return replace(call, cause="unparseable", finish_reason="length", truncated=True)
+    return replace(call, cause="error", error_type=type(exc).__name__)
+
+
+def _record_call(**facts: Any) -> None:
+    """The judge call's facts as the turn's trace metadata (``answer_check_*``). Never raises."""
+    from agent.observability.langfuse_trace_attributes import record_trace_metadata
+
+    record_trace_metadata(**{f"answer_check_{key}": value for key, value in facts.items()})
+
+
 def llm_judge(llm: Any) -> JudgeFn:
     """A :data:`JudgeFn` on a LangChain chat model: one structured call at temperature 0, bounded, never raising."""
 
-    async def judge(evidence: Evidence) -> Check | None:
-        from agent.memory.reflection import structured_reply
+    async def judge(evidence: Evidence) -> Check | Unavailable:
+        from agent.common.structured_reply import structured_response
 
+        messages = build_messages(evidence)
+        sized = Unavailable("error", evidence_chars=len(evidence_data(evidence)), answer_chars=len(evidence.answer))
+        started = time.monotonic()
+        raised: Exception | None = None
         try:
             model = llm.bind(temperature=0, max_tokens=MAX_OUTPUT_TOKENS)
-            text = await asyncio.wait_for(
-                structured_reply(model, build_messages(evidence), CheckReply), timeout=JUDGE_TIMEOUT_S
+            response = await asyncio.wait_for(structured_response(model, messages, CheckReply), JUDGE_TIMEOUT_S)
+            outcome = _outcome(response, replace(sized, elapsed_ms=_since(started)))
+        except Exception as exc:  # noqa: BLE001 - every failure is the same answer: no level, with its cause
+            raised = exc
+            outcome = _failure(exc, replace(sized, elapsed_ms=_since(started)))
+        _record_call(elapsed_ms=_since(started), evidence_chars=sized.evidence_chars, answer_chars=sized.answer_chars)
+        if isinstance(outcome, Unavailable):
+            # The exception's own text (a provider's "402 Payment Required", a 429) is for the log alone.
+            logger.warning(
+                "Answer check unavailable (%s); the turn surfaces no confidence", outcome.to_wire(), exc_info=raised
             )
-        except Exception as exc:  # noqa: BLE001 - every failure is the same answer: no level
-            logger.warning("Answer check failed (%s); the turn surfaces no confidence", exc)
-            return None
-        check = parse_reply(text)
-        if check is None:
-            logger.warning("Answer check answered unparseably; the turn surfaces no confidence")
-        return check
+        return outcome
 
     return judge
+
+
+def _since(started: float) -> int:
+    return round((time.monotonic() - started) * 1000)
