@@ -288,7 +288,7 @@ function OpenInWorkspace({ href, label }: { href: string; label: string }): JSX.
   return (
     <Link
       href={href}
-      className="inline-flex shrink-0 items-center justify-center gap-1.5 self-center rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors duration-quick ease-out hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-target"
+      className="inline-flex shrink-0 items-center justify-center gap-1.5 self-center rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors duration-quick ease-out hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch-target"
     >
       {label}
       <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />

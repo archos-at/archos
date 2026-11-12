@@ -19,6 +19,8 @@ vi.mock('@/lib/auth/require-auth', () => ({
 
 const service = vi.hoisted(() => ({ getProjectMemoryPage: vi.fn(), addProjectMemoryItem: vi.fn() }))
 vi.mock('@/lib/projects/service', () => service)
+const access = vi.hoisted(() => ({ canWriteProjectMemory: vi.fn() }))
+vi.mock('@/lib/projects/settings-access', () => access)
 
 import { GET, POST } from './route'
 
@@ -32,7 +34,26 @@ const embedded = () =>
 const ctx = { params: Promise.resolve({ id: 'proj-1' }) }
 
 describe('project memory routes', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    access.canWriteProjectMemory.mockResolvedValue(false)
+  })
+
+  it('says with the list whether the caller may edit and remove the notes', async () => {
+    service.getProjectMemoryPage.mockResolvedValue({ items: [embedded()], nextCursor: null })
+    const address = 'https://grid.example/api/projects/proj-1/memory?conversationId=s_1&limit=200'
+
+    expect((await (await GET(new Request(address), ctx)).json()).canWrite).toBe(false)
+    access.canWriteProjectMemory.mockResolvedValue(true)
+    expect((await (await GET(new Request(address), ctx)).json()).canWrite).toBe(true)
+
+    expect(access.canWriteProjectMemory).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user_1' }), 'proj-1')
+    expect(service.getProjectMemoryPage).toHaveBeenCalledWith(
+      expect.anything(),
+      'proj-1',
+      expect.objectContaining({ sourceConversationId: 's_1', page: { limit: 200, offset: 0 } })
+    )
+  })
 
   it('lists items without embedding fields', async () => {
     service.getProjectMemoryPage.mockResolvedValue({ items: [embedded()], nextCursor: null })

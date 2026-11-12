@@ -69,6 +69,7 @@ import { browserPageLifecycle, isActive, sleptThrough, type PageLifecycle } from
 import { turnSocketMachine, type TurnSocketEvent, type TurnSocketStatus } from './turn-socket-machine'
 import { WIRE_VERSION, parseHello, parseWireEvent, type ClientMessage, type WireEvent } from './wire-v2'
 
+export { DIAL_TIMEOUT_MS } from './turn-socket-machine'
 export type { TurnSocketStatus } from './turn-socket-machine'
 
 /** A turn still running, and the last seq its view folded. */
@@ -147,6 +148,18 @@ export interface TurnSocket {
  * rung of the ladder rather than a turn.
  */
 export const HELLO_TIMEOUT_MS = 5_000
+
+/**
+ * How long an attempt's preparation may take: the auth refresh, which is one
+ * request to the identity service, and the socket's address. Ten seconds is
+ * twice what the backend's health check is given for one request
+ * (`checkBackendHealth`), because this one may cross to a third party from a
+ * phone on site. A preparation that has not answered by then failed like one
+ * that threw; before, it held the status at `connecting` for good. A server
+ * caller has no auth refresh and a fixed address: its preparation is over in
+ * the same tick and never meets this.
+ */
+export const PREPARE_TIMEOUT_MS = 10_000
 
 /**
  * `message` as the server whose hello said `accepts` can read it: an optional
@@ -407,14 +420,33 @@ export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
    * Refresh auth and build the URL, then tell the machine, which opens the
    * socket in the same step. It never rejects: an attempt the ladder starts
    * has no caller, and a failure is the machine's to count and to announce.
+   * It always answers: a preparation still silent after
+   * {@link PREPARE_TIMEOUT_MS} is abandoned, and what it says later reaches
+   * nobody, so it opens nothing and no later connect adopts it.
    */
   const prepare = async (): Promise<void> => {
-    let url: string
-    try {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const overdue = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), PREPARE_TIMEOUT_MS)
+    })
+    const address = (async () => {
       await options.refreshAuth?.().catch(() => undefined)
-      url = await urlOf()
+      return urlOf()
+    })()
+    let url: string | null
+    try {
+      url = await Promise.race([address, overdue])
     } catch (error) {
       warnOnce(`could not prepare an attempt: ${String(error)}`)
+      actor.send({ type: 'PREPARE_FAILED' })
+      return
+    } finally {
+      clearTimeout(timer)
+    }
+    if (url === null) {
+      // The abandoned preparation may still throw: nobody is left to hear it.
+      address.catch(() => undefined)
+      warnOnce('an attempt was not prepared within the timeout')
       actor.send({ type: 'PREPARE_FAILED' })
       return
     }

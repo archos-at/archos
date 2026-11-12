@@ -11,13 +11,34 @@
  *
  * A record's fixtures carry their recorded responses inline (a repository
  * record keeps them as files beside it), so `platform-knowledge-source-test`
- * proves the record with no live call. A binary body (a `pdf_document`
- * source's PDF) is carried as base64, within the same length.
+ * proves the record with no live call. A small binary body is carried as
+ * base64, within the same length.
+ *
+ * A published document does not fit that length (a PDF is megabytes), so a
+ * `pdf_document` fixture names the response the platform recorded itself: a
+ * `fetched` citation capture of the URL (`{captureId}`), whose bytes, sha256
+ * and time are the platform's own. The record keeps the capture's id; the kit
+ * hands the capture's text to the check (`platform/source-checks.ts`).
  */
 
 import { z } from 'zod'
 import { SOURCE_FORMATS, SOURCE_PROTOCOLS } from '@/shared/vocabularies.generated'
 import { LICENCE_CLASSES, MONITOR_KINDS, SOURCE_DATA_FLOWS } from './vocab'
+
+/** The key a work's own designation is stored under beside its identifiers (`records.ts`): never a scheme. */
+export const DESIGNATION_KEY = 'designation'
+
+/**
+ * The name of an identifier scheme (`eli`, a law number in a source's links):
+ * an open word, never a list in code. A source record declares how its
+ * addresses state each scheme (`identifiers` below) and a work record carries
+ * its value under the same word, so a scheme means something exactly where a
+ * source record names it (ADR-0174, `docs/design/citations.md`).
+ */
+export const identifierSchemeSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9_]{0,39}$/)
+  .refine((scheme) => scheme !== DESIGNATION_KEY, 'the designation is the work’s own field, not a scheme')
 
 /**
  * The access types and format engines a source record may name. Their one list is the Python
@@ -113,15 +134,40 @@ const recordedResponseSchema = z
     message: 'a base64 body is standard padded base64 (RFC 4648), with no line breaks',
   })
 
+/**
+ * One response the platform recorded itself: a citation capture of the URL, taken through this source with
+ * `platform-knowledge-citation-capture {basis: "fetched"}`. Nobody pastes a document's bytes.
+ */
+const capturedResponseSchema = z
+  .object({
+    captureId: z
+      .uuid()
+      .nullable()
+      .describe(
+        'The id of a fetched capture of this URL, in this change request, through this source. null while it is not ' +
+          'taken: the draft is written so its hosts can be fetched, and validate fails until the record names the capture.',
+      ),
+  })
+  .strict()
+
+export type SourceFixtureResponse = z.infer<typeof recordedResponseSchema> | z.infer<typeof capturedResponseSchema>
+
+/** Whether a fixture's response is a capture the platform took, not a body the proposer wrote. */
+export const isCapturedResponse = (response: SourceFixtureResponse): response is z.infer<typeof capturedResponseSchema> => 'captureId' in response
+
 export const sourceFixtureSchema = z
   .object({
     name: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,59}$/),
     operation: z.string().regex(/^[a-z_]{1,40}$/).describe('The access type operation, e.g. document, search, features.'),
     args: argsSchema.default({}),
     responses: z
-      .record(z.url().max(2000), recordedResponseSchema)
+      .record(z.url().max(2000), z.union([recordedResponseSchema, capturedResponseSchema]))
       .refine((responses) => Object.keys(responses).length > 0, 'a fixture records at least one response')
-      .describe('Every URL the operation requests, with the response recorded for it.'),
+      .describe(
+        'Every URL the operation requests, with the response recorded for it: `{contentType, body, encoding}` for a ' +
+          'small text or JSON response you copied, or `{captureId}` for a document the platform captured (a PDF: ' +
+          'format pdf_document reads the capture’s pages).',
+      ),
     expect: z
       .record(z.string().regex(/^[a-z_]{1,30}$/), z.unknown())
       .describe('What the engine must make of it: title, min_passages, anchors, contains, version (as public_sources.fixtures reads them).'),
@@ -165,10 +211,22 @@ export const sourceRecordFields = {
   protocol: z.enum(SOURCE_PROTOCOLS),
   format: z.enum(SOURCE_FORMATS),
   hosts: z.array(hostSchema).min(1).max(20).describe('Every host it may reach. Usable by this request’s tests for 24 hours, by everyone once published.'),
+  copyHosts: z
+    .array(hostSchema)
+    .max(20)
+    .default([])
+    // A web hit on one is a copy: withheld where the source can be read, labelled where not (web_sources.py).
+    .describe('Sites that republish its texts: never fetched, never one of hosts.'),
   dataFlow: z
     .enum(SOURCE_DATA_FLOWS)
     .default('public_only')
     .describe('site_keyed when a site point (a bbox, a coordinate) is sent: publishing it needs a privacy reviewer.'),
+  identifiers: z
+    .record(identifierSchemeSchema, z.object({ query: z.string().min(1).max(80) }).strict())
+    .default({})
+    .describe(
+      'How a work’s identifier is read from the address of a passage at this source, by the scheme the knowledge records name it under: {"<scheme>": {"query": "<query parameter>"}}. A cited passage finds its work, and so its role, by it.',
+    ),
   terms: sourceTermsSchema,
   monitor: sourceMonitorSchema.default({ kind: 'none', intervalHours: 24 }),
   access: z.record(z.string(), z.unknown()).describe('The protocol’s configuration (see public_sources.access).'),
@@ -177,14 +235,20 @@ export const sourceRecordFields = {
     .optional()
     .describe('For a keyed source: where its key goes. The key itself is set with platform-knowledge-source-credential-set, never here.'),
   fixtures: z.array(sourceFixtureSchema).min(1).max(10).describe('Recorded exchanges that prove the record with no live call.'),
+  lookup: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe(
+      'How a law lookup reads this source, in snake case (see public_sources.lookup): the language, the locus grammar of its texts, the collections its search offers, the territory filter and the wording. Without it, no lookup reads the source.',
+    ),
 }
 
 export type SourceRecordValues = z.infer<z.ZodObject<typeof sourceRecordFields>>
 
 /**
  * The record as `public_sources.source.Source` reads it: snake case, the key
- * as its id, the recorded responses inline. What the body's `config` keeps and
- * what the api tier validates, tests and fetches with.
+ * as its id, the recorded responses inline or by their capture's id. What the
+ * body's `config` keeps and what the api tier validates, tests and fetches with.
  */
 export function sourceConfigOf(record: SourceRecordValues): Record<string, unknown> {
   return {
@@ -194,7 +258,9 @@ export function sourceConfigOf(record: SourceRecordValues): Record<string, unkno
     protocol: record.protocol,
     format: record.format,
     hosts: record.hosts,
+    ...((record.copyHosts ?? []).length > 0 ? { copy_hosts: record.copyHosts } : {}),
     data_flow: record.dataFlow,
+    ...(Object.keys(record.identifiers ?? {}).length > 0 ? { identifiers: record.identifiers } : {}),
     terms: { url: record.terms.url, licence: record.terms.licence, attribution: record.terms.attribution, checked: record.terms.checked },
     monitor: {
       kind: record.monitor.kind,
@@ -204,12 +270,18 @@ export function sourceConfigOf(record: SourceRecordValues): Record<string, unkno
     ...(record.credential ? { credential: record.credential } : {}),
     access: record.access,
     engine: record.engine,
+    ...(record.lookup ? { lookup: record.lookup } : {}),
     fixtures: record.fixtures.map((fixture) => ({
       name: fixture.name,
       operation: fixture.operation,
       args: fixture.args,
       responses: Object.fromEntries(
-        Object.entries(fixture.responses).map(([url, response]) => [url, { content_type: response.contentType, text: response.body, encoding: response.encoding }]),
+        Object.entries(fixture.responses).map(([url, response]) => [
+          url,
+          isCapturedResponse(response)
+            ? { capture_id: response.captureId }
+            : { content_type: response.contentType, text: response.body, encoding: response.encoding },
+        ]),
       ),
       expect: fixture.expect,
     })),

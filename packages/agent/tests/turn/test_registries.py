@@ -48,6 +48,20 @@ class TestTurnRegistries:
         await _settle()
         assert persisted == ["conv-1"]
 
+    async def test_the_notes_the_turn_created_and_its_answer_are_on_the_log(self, persisted):
+        """What the noted chip is told (ADR-0180): the shared notes by id, and the answer a personal one names."""
+        from agent.knowledge import project_memory as pm
+
+        payload = {"scope": "project", "kind": "decision", "content": "Flachdach."}
+        async with turn_registries("conv-6", SourceRegistry(), answer_message_id="answer-1") as registries:
+            assert pm.turn_answer_message() == "answer-1"
+            pm._record_write({"item": {"id": "n-1"}, "created": True}, payload)
+        assert pm.turn_answer_message() is None
+        assert registries.memory_notes == (
+            pm.TurnMemoryNote(id="n-1", kind="decision", content="Flachdach.", scope="project"),
+        )
+        await _settle()
+
     async def test_the_registrys_collections_are_read_back_at_exit(self, persisted):
         """ADR-0087: the memory restriction decision reads what the conversation read."""
         from agent.citations.entries import SourceEntry

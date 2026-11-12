@@ -71,7 +71,7 @@ const BOUNDARY_MIGRATIONS = [
   '0082_document_versions.sql',
   // Collapses jobs/job_runs/tasks into task_definitions + task_runs
   // (follow-up to PR #659). Both tables are project-scoped tenant data; the
-  // old three keep their 0043/0075 entries until a later migration drops them.
+  // old three kept their 0043/0075 entries until 0226 dropped them.
   '0086_task_definitions.sql',
   // Adds organization_instructions — one standing instruction block per tenant,
   // sent to the agent on every turn. Keyed directly by the organization, so it
@@ -249,6 +249,16 @@ const BOUNDARY_MIGRATIONS = [
   // Adds knowledge_second_reviews, one second review per role approved alone
   // (ADR-0176), platform-private like the change-request tables.
   '0214_knowledge_approve_alone.sql',
+  // Drops jobs, job_runs and tasks, which 0086 copied into task_definitions
+  // and task_runs. Their 0043 and 0075 lines then secure tables that are gone.
+  '0226_drop_dead_scheduler_schema.sql',
+  // Adds golden cases as platform records and the golden runs that score them (ADR-0165
+  // amendment): the case's body, layered like every revision body, and the run and its cases,
+  // platform-private like the change-request tables (`secure_table(t, 'false')`).
+  '0228_golden_cases.sql',
+  // Adds personal_memory (ADR-0180), keyed to the person as user_preferences
+  // is: `organization_id = current_org() AND user_id = current_user_id()`.
+  '0229_personal_memory.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

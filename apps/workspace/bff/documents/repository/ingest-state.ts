@@ -1,26 +1,30 @@
 /** Stuck, transient, failed and just-finished ingest documents. */
 
 import 'server-only'
-import { and, asc, eq, getTableColumns, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, eq, getTableColumns, inArray, isNull, like, lt, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { columnStatuses, IN_FLIGHT_DOCUMENT_STATUSES } from '../document-status'
+import { INTERRUPTED_REASON_PREFIX } from '../lost-job'
 import { documentShelf } from '../shelf'
 import { publishShelfChanged } from '../shelf-live'
 import { bffJobQueue } from '@/lib/db/schema/bff-job-queue'
 import { documents, type Document } from '@/lib/db/schema/documents'
-import { statusAccepts } from './mutations'
+import { statusAccepts, unchangedSinceDispatch, type DispatchStart } from './mutations'
+import { BACKGROUND_JOB_METADATA_FIELD, type LocalWorkOwnership } from '../local-work-ownership'
 
 /**
- * The in-flight documents dispatched as the ingest jobs `jobIds`, in every
+ * The documents the ingest jobs `jobIds` can still settle, in every
  * organization: the settle push (`/api/internal/ingest/settled`) names jobs,
- * not documents or tenants. Discovery only, under platform access; the caller
- * reconciles each row inside its own organization. A job id no row carries
- * finds nothing, and a row that already came to rest is not in flight, so a
- * second push for the same job finds nothing either. Bounded by the ids: one
- * dispatch records one job id on one row (`setDocumentIngestJob`).
+ * not documents or tenants. In flight, or `failed` as `interrupted:` (a verdict
+ * about a job whose owner went silent, which the job's own end overrules,
+ * `lost-job.ts`). Discovery only, under platform access; the caller reconciles
+ * each row inside its own organization. A job id no row carries finds nothing,
+ * and a row that came to rest any other way is not found, so a second push for
+ * the same job changes nothing. Bounded by the ids: one dispatch records one
+ * job id on one row (`setDocumentIngestJob`).
  */
-export async function listInFlightDocumentsForIngestJobs(jobIds: readonly string[]): Promise<Document[]> {
+export async function listSettleableDocumentsForIngestJobs(jobIds: readonly string[]): Promise<Document[]> {
   if (jobIds.length === 0) return []
   const db = getDb()
   return withPlatformAccess('settle push: finding the documents of ingest jobs that ended', () =>
@@ -29,7 +33,10 @@ export async function listInFlightDocumentsForIngestJobs(jobIds: readonly string
       .from(documents)
       .where(
         and(
-          inArray(documents.status, columnStatuses(IN_FLIGHT_DOCUMENT_STATUSES)),
+          or(
+            inArray(documents.status, columnStatuses(IN_FLIGHT_DOCUMENT_STATUSES)),
+            and(eq(documents.status, 'failed'), like(documents.errorMessage, `${INTERRUPTED_REASON_PREFIX}%`)),
+          ),
           inArray(sql`${documents.metadata} ->> 'ingestJobId'`, [...jobIds]),
         ),
       )
@@ -49,7 +56,7 @@ export interface StuckProcessingDocument {
 }
 
 /**
- * Documents at `processing` since before `before` whose job is gone or dead,
+ * Documents at `processing` since before `stranded` whose job is gone or dead,
  * oldest first. Platform scope by nature: the caller is a sweep over every
  * organization, and acts on each row inside its own.
  *
@@ -60,9 +67,13 @@ export interface StuckProcessingDocument {
  * job again; a job queued for it here would only parse or convert a document
  * nobody may see. Once restored, a row that job never reached (it died, or its
  * requester lost access) is found here like any other.
+ *
+ * `{ deadJobId }` in place of the date asks for one dead job's rows however
+ * briefly they have waited: what the job's own run fails the moment it gives
+ * up (`failDocumentsOfDeadJob`), the same rows the sweep would reach later.
  */
 export async function listStuckProcessingDocuments(
-  before: Date,
+  stranded: Date | { deadJobId: string },
   limit: number,
 ): Promise<StuckProcessingDocument[]> {
   const db = getDb()
@@ -83,7 +94,7 @@ export async function listStuckProcessingDocuments(
       .where(
         and(
           eq(documents.status, 'processing'),
-          lt(documents.updatedAt, before),
+          stranded instanceof Date ? lt(documents.updatedAt, stranded) : eq(bffJobQueue.jobId, stranded.deadJobId),
           or(isNull(bffJobQueue.jobId), eq(bffJobQueue.status, 'dead')),
           sql`NOT EXISTS (SELECT 1 FROM project_folders f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL)`,
         ),
@@ -100,27 +111,29 @@ export async function listStuckProcessingDocuments(
   }))
 }
 
-/**
- * What local work knows of the row it was started for: the bytes it reads, the
- * queue job it is. Either, or both.
- */
-export interface LocalWorkOwnership {
-  storageKey?: string
-  backgroundJobId?: string | null
-}
+export type { LocalWorkOwnership } from '../local-work-ownership'
 
 /**
- * The row is still that work's: at `processing` (every other writer moves it
- * off, and a new round of local work renames the job and, for new bytes, the
- * key). The predicate `jobStillOwnsRow` asks before the work, as the write's
- * own WHERE after it.
+ * `localWorkOwnsRow` (`../local-work-ownership`) as SQL: the predicate
+ * `jobStillOwnsRow` asks before the work, as the write's own WHERE after it.
+ * `local-work-ownership.integration.spec.ts` holds the two to the same answer.
  */
-function stillOwnedBy(owned: LocalWorkOwnership): SQL | undefined {
+export function stillOwnedBy(owned: LocalWorkOwnership): SQL | undefined {
+  const named = sql`${documents.metadata} ->> ${BACKGROUND_JOB_METADATA_FIELD}::text`
+  const jobId = owned.backgroundJobId
   return and(
     eq(documents.status, 'processing'),
     ...(owned.storageKey ? [eq(documents.storageKey, owned.storageKey)] : []),
-    ...(owned.backgroundJobId ? [sql`${documents.metadata} ->> 'bffJobId' = ${owned.backgroundJobId}`] : []),
+    // Without `unnamedCounts` a row that names no job compares NULL, which is no match.
+    ...(jobId ? [owned.unnamedCounts ? sql`coalesce(${named}, ${jobId}) = ${jobId}` : sql`${named} = ${jobId}`] : []),
   )
+}
+
+/** The rows a failure may land on, by who reports it: local work, a dispatch, or a caller that has just read the row. */
+function failureLandsOn(from: LocalWorkOwnership | DispatchStart | undefined): SQL | undefined {
+  if (!from) return statusAccepts('fail')
+  if ('ingestJobId' in from) return and(statusAccepts('fail'), unchangedSinceDispatch(from))
+  return stillOwnedBy(from)
 }
 
 /**
@@ -143,13 +156,22 @@ function stillOwnedBy(owned: LocalWorkOwnership): SQL | undefined {
  * its last attempt failed a row a person had archived or re-read meanwhile:
  * the document read `failed` although its bytes were indexed, or the job for
  * its new bytes found the row no longer `processing` and left without reading
- * them. Returns whether the row took the failure.
+ * them.
+ *
+ * A dispatch reports late too: the backend may take twenty seconds to not
+ * answer, and by then a second dispatch may have put the row in flight under
+ * its own job, or a re-upload replaced the bytes. It passes what it read of
+ * the row before it asked ({@link DispatchStart}), and its failure lands only
+ * on the row as it found it. Without that the row read `failed` beside a live
+ * job, and nothing asked about it again: the settle push and the sweeps select
+ * rows in flight. A row with nothing newer on it takes the failure as before,
+ * whatever its state. Returns whether the row took the failure.
  */
 export async function markDocumentIngestFailed(
   documentId: string,
   organizationId: string,
   errorMessage: string,
-  owned?: LocalWorkOwnership,
+  from?: LocalWorkOwnership | DispatchStart,
 ): Promise<boolean> {
   const db = getDb()
   const [row] = await withTenant({ organizationId }, () =>
@@ -160,7 +182,7 @@ export async function markDocumentIngestFailed(
         and(
           eq(documents.id, documentId),
           eq(documents.organizationId, organizationId),
-          owned ? stillOwnedBy(owned) : statusAccepts('fail'),
+          failureLandsOn(from),
         ),
       )
       .returning({ projectId: documents.projectId, scope: documents.scope }),
@@ -219,10 +241,12 @@ export async function findIngestAnnouncementFacts(
 
 /**
  * Documents the backend took (`pending`, with a job id) and nobody has asked about
- * since `before`, oldest first, across every organization. Reconciliation is pull-only
- * (the backend pushes no result back), so a row whose office closed the tab, and which
- * no open upload batch names, stayed `pending` until somebody next read its shelf:
- * hours, or days. The caller reconciles each row inside its own organization.
+ * since `before`, oldest first, across every organization. The backend writes no
+ * result into Postgres; the worker's settle push (`../settle-push`) asks the reconcile
+ * to look when a job ends, and it is best effort. A row whose push was lost, whose
+ * office closed the tab and which no open upload batch names would stay `pending`
+ * until somebody next read its shelf: hours, or days, before this sweep.
+ * The caller reconciles each row inside its own organization.
  */
 export async function listStalePendingDocuments(before: Date, limit: number): Promise<Document[]> {
   const db = getDb()

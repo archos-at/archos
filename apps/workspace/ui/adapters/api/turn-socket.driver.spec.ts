@@ -2,12 +2,19 @@
  * @vitest-environment node
  */
 /**
- * Three seams between the driver and its statechart that `turn-socket.spec.ts`
- * does not reach: a preparation that outlives a close, a socket that cannot be
- * constructed, and a caller's callback that throws inside a machine step.
+ * The seams between the driver and its statechart that `turn-socket.spec.ts`
+ * does not reach: a preparation that outlives a close, one that never answers,
+ * a socket that cannot be constructed or never opens, and a caller's callback
+ * that throws inside a machine step.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createTurnSocket, type TurnSocketOptions, type WebSocketLike } from './turn-socket'
+import {
+  DIAL_TIMEOUT_MS,
+  PREPARE_TIMEOUT_MS,
+  createTurnSocket,
+  type TurnSocketOptions,
+  type WebSocketLike,
+} from './turn-socket'
 import { getWebSocketUrl } from './config'
 
 vi.mock('./config', () => ({ getWebSocketUrl: vi.fn() }))
@@ -132,6 +139,78 @@ describe('the driver and its statechart', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     process.off('unhandledRejection', unhandled)
     expect(unhandled).not.toHaveBeenCalled()
+  })
+
+  it('takes the ladder when a preparation never answers, and its late answer opens nothing', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    let release: () => void = () => undefined
+    const refreshAuth = vi
+      .fn<() => Promise<void>>()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => (release = resolve)))
+      .mockResolvedValue(undefined)
+    const { socket, sockets, statuses } = setup({ refreshAuth, ladder: { delaysMs: [100, 100] } })
+    const connected = socket.connect()
+    await vi.advanceTimersByTimeAsync(PREPARE_TIMEOUT_MS - 1)
+    expect(statuses).toEqual(['connecting'])
+    await vi.advanceTimersByTimeAsync(1)
+    // The promise every caller drops is over with the attempt, not with the hung refresh.
+    await expect(connected).resolves.toBeUndefined()
+    expect(statuses).toEqual(['connecting', 'reconnecting'])
+    await vi.advanceTimersByTimeAsync(100)
+    expect(statuses).toEqual(['connecting', 'reconnecting', 'connecting'])
+    expect(refreshAuth).toHaveBeenCalledTimes(2)
+    expect(sockets).toHaveLength(1)
+    // The abandoned refresh answers at last: no second socket, no status.
+    release()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(sockets).toHaveLength(1)
+    expect(statuses).toEqual(['connecting', 'reconnecting', 'connecting'])
+  })
+
+  it('does not adopt an abandoned preparation when a connect follows a close', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    let release: () => void = () => undefined
+    const refreshAuth = vi
+      .fn<() => Promise<void>>()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => (release = resolve)))
+      .mockResolvedValue(undefined)
+    const { socket, sockets, statuses } = setup({ refreshAuth })
+    void socket.connect()
+    socket.close()
+    await vi.advanceTimersByTimeAsync(PREPARE_TIMEOUT_MS)
+    expect(statuses).toEqual(['connecting', 'closed'])
+    await socket.connect()
+    expect(statuses).toEqual(['connecting', 'closed', 'connecting'])
+    expect(refreshAuth).toHaveBeenCalledTimes(2)
+    expect(sockets).toHaveLength(1)
+    release()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(sockets).toHaveLength(1)
+  })
+
+  it('takes the ladder when a socket never opens, and closes the one it gave up on', async () => {
+    vi.useFakeTimers()
+    const closed: number[] = []
+    const made = setup()
+    const { socket, statuses } = setup({
+      ladder: { delaysMs: [100, 100] },
+      createWebSocket: () => {
+        const index = made.sockets.length
+        return { ...made.createWebSocket(), close: () => void closed.push(index) }
+      },
+    })
+    await socket.connect()
+    await vi.advanceTimersByTimeAsync(DIAL_TIMEOUT_MS - 1)
+    expect(statuses).toEqual(['connecting'])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(statuses).toEqual(['connecting', 'reconnecting'])
+    expect(closed).toEqual([0])
+    await vi.advanceTimersByTimeAsync(100)
+    expect(statuses).toEqual(['connecting', 'reconnecting', 'connecting'])
+    expect(made.sockets).toHaveLength(2)
+    socket.close()
   })
 
   it('keeps running when a status callback throws, and reports the error as uncaught', async () => {

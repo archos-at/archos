@@ -19,12 +19,20 @@
 import 'server-only'
 import { desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
+import { NotFoundError } from '@/lib/api/errors'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { knowledgeIndexRuns } from '@/lib/db/schema/knowledge-platform'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
-import { getKnowledgeBaseStatus, markCorpusFileCountry, reingestKnowledgeBaseDocuments, type CorpusFileMark } from '@/lib/knowledge/service'
+import {
+  getKnowledgeBaseStatus,
+  reingestKnowledgeBaseDocuments,
+  updateKnowledgeBaseDisplayTitle,
+  withdrawCorpusFile,
+  type CorpusFileMark,
+} from '@/lib/knowledge/service'
+import { releasedTextTitle } from './text-title'
 import type { IndexStatusView } from './wire'
 
 const REASON = 'platform base knowledge: indexing runs'
@@ -68,29 +76,80 @@ export async function enqueueIndexRuns(
   return { enqueued: runIds.length - failed, failed }
 }
 
-/** What a run indexes: the country and edition of the copy (its revision's edition, its record's country) and the bytes the revision names. */
-async function releasedTextOf(revisionId: string): Promise<{ mark: CorpusFileMark; sha256: string | null } | null> {
+interface ReleasedText {
+  mark: CorpusFileMark
+  sha256: string | null
+  /** The name the records give the text: the work's designation (or its title) and the edition's label. */
+  title: string | null
+}
+
+/**
+ * What a run indexes: the country and edition of the copy (its revision's edition, its record's country), the bytes the
+ * revision names, and the title its edition and work give it.
+ */
+async function releasedTextOf(revisionId: string): Promise<ReleasedText | null> {
   const rows = await withPlatformAccess(REASON, () =>
-    getDb().execute<{ edition_id: string | null; country_id: string | null; sha256: string | null }>(sql`
-      SELECT m.edition_id, r.country_id, m.sha256
-      FROM knowledge_manifestation_revisions m JOIN knowledge_records r ON r.id = m.record_id
+    getDb().execute<{
+      edition_id: string | null
+      country_id: string | null
+      sha256: string | null
+      label: string | null
+      designation: string | null
+      work_title: string | null
+    }>(sql`
+      SELECT m.edition_id, r.country_id, m.sha256, e.label, w.identifiers ->> 'designation' AS designation, w.title AS work_title
+      FROM knowledge_manifestation_revisions m
+      JOIN knowledge_records r ON r.id = m.record_id
+      LEFT JOIN knowledge_records er ON er.id = m.edition_id AND er.organization_id IS NULL
+      LEFT JOIN knowledge_edition_revisions e ON e.revision_id = er.head_revision_id
+      LEFT JOIN knowledge_records wr ON wr.id = e.work_id AND wr.organization_id IS NULL
+      LEFT JOIN knowledge_work_revisions w ON w.revision_id = wr.head_revision_id
       WHERE m.revision_id = ${revisionId} AND r.organization_id IS NULL`),
   )
   const row = rows[0]
-  return row ? { mark: { countryId: row.country_id, editionId: row.edition_id }, sha256: row.sha256 } : null
+  if (!row) return null
+  return {
+    mark: { countryId: row.country_id, editionId: row.edition_id },
+    sha256: row.sha256,
+    title: releasedTextTitle(row.designation, row.work_title, row.label),
+  }
 }
 
 const REATTACH = 'attach the text again in a new change request for this manifestation'
 
-/** Why the corpus's file is not the one the released revision names; null when it is. Throws when the corpus does not answer. */
-async function otherBytes(corpusFile: string, reviewed: string | null | undefined): Promise<string | null> {
-  if (!reviewed) return `the released revision keeps no hash of ${corpusFile}, so the reviewed bytes cannot be told from others; ${REATTACH}`
-  const held = (await getKnowledgeBaseStatus()).files.find((file) => file.fileName === corpusFile && file.state !== 'removed')
-  if (!held) return `the base corpus no longer holds ${corpusFile}; ${REATTACH}`
+type HeldFile = Awaited<ReturnType<typeof getKnowledgeBaseStatus>>['files'][number]
+
+/** The corpus's entry for the file and why it is not the one the released revision names (null when it is). Throws when the corpus does not answer. */
+async function heldBytes(corpusFile: string, reviewed: string | null | undefined): Promise<{ held: HeldFile | null; refusal: string | null }> {
+  if (!reviewed) return { held: null, refusal: `the released revision keeps no hash of ${corpusFile}, so the reviewed bytes cannot be told from others; ${REATTACH}` }
+  const held = (await getKnowledgeBaseStatus()).files.find((file) => file.fileName === corpusFile && file.state !== 'removed') ?? null
+  if (!held) return { held, refusal: `the base corpus no longer holds ${corpusFile}; ${REATTACH}` }
   if (held.currentSha256 !== reviewed) {
-    return `the base corpus keeps other bytes as ${corpusFile} than the ones that were reviewed (sha256 ${reviewed.slice(0, 12)}…); nothing was indexed; ${REATTACH}`
+    return {
+      held,
+      refusal: `the base corpus keeps other bytes as ${corpusFile} than the ones that were reviewed (sha256 ${reviewed.slice(0, 12)}…); nothing was indexed; ${REATTACH}`,
+    }
   }
-  return null
+  return { held, refusal: null }
+}
+
+/**
+ * Give a released text the title its records name, unless it has one. A text's file is named
+ * `<manifestationKey>-<12 hex>.pdf`, which no title guess reads, so without this every citation of it shows that
+ * name. Answers false when the corpus has no row for the file yet (an ingest that never wrote one): the run is
+ * retried, after the re-ingest it queues has written the row. Any other failure is logged and the run goes on: the
+ * title is a label, the chunks are what answer.
+ */
+async function stampTitle(held: HeldFile, title: string | null): Promise<boolean> {
+  if (!title || held.displayTitle) return true
+  try {
+    await updateKnowledgeBaseDisplayTitle(held.fileName, title)
+    return true
+  } catch (error) {
+    if (error instanceof NotFoundError) return false
+    console.error('[base-knowledge] the title of a released text was not set', { corpusFile: held.fileName, error })
+    return true
+  }
 }
 
 /** The job's step: hand the file to the corpus and record what it answered. Throws to be retried. */
@@ -107,15 +166,22 @@ export async function runPlatformTextIndex(
     // The country and edition the text belongs to ride on every chunk (ADR-0173): the turn's gate filters by them.
     const released = await releasedTextOf(run.revisionId)
     // The reviewed bytes are the published bytes: other bytes are never marked with the country.
-    const refusal = await otherBytes(run.corpusFile, released?.sha256)
-    if (refusal) {
-      await markRun(run.id, 'failed', refusal)
+    const { held, refusal } = await heldBytes(run.corpusFile, released?.sha256)
+    if (refusal || !held) {
+      await markRun(run.id, 'failed', refusal ?? `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
       return
     }
+    // Before the re-ingest: it keeps a stored title, so the chunks it writes carry this one.
+    const titled = await stampTitle(held, released?.title ?? null)
     const result = await reingestKnowledgeBaseDocuments([run.corpusFile], released ? { [run.corpusFile]: released.mark } : {})
     if (result.unknown.includes(run.corpusFile) || !result.queued.includes(run.corpusFile)) {
       await markRun(run.id, 'failed', `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
       return
+    }
+    if (!titled) {
+      // The re-ingest just queued writes the row; the retry stamps it. The last attempt indexes without a title.
+      if (!attempt.last) throw new Error(`the base corpus has no row for ${run.corpusFile} to title yet`)
+      console.error('[base-knowledge] a released text was indexed without its title', { corpusFile: run.corpusFile })
     }
     await markRun(run.id, 'queued', null)
   } catch (error) {
@@ -150,17 +216,13 @@ export async function readIndexStatus(changeRequestId: string): Promise<IndexSta
   }
 }
 
-/** A base-corpus file a rollback left unreleased (ADR-0173): its chunks are marked so no office reads them. */
+/**
+ * A base-corpus file a rollback left unreleased (ADR-0173): its chunks and corpus row are marked
+ * `released: false`, which every base-corpus read filters out (`vector_store.scope.corpus_country_condition`);
+ * only a re-release, whose indexing job marks it released, reads it again.
+ */
 export const platformTextDeindexPayloadSchema = z.object({ corpusFile: z.string().min(1).max(260) })
 export type PlatformTextDeindexPayload = z.infer<typeof platformTextDeindexPayloadSchema>
-
-/**
- * The country no office is entitled to (ISO 3166-1 user-assigned `ZZ`): a chunk
- * marked with it is filtered out of every base-corpus read (`vector_store.scope.scope_filter`).
- * The mark also lands on the file's corpus row, so a re-ingest stamps it again; only a
- * re-release, whose indexing job sends the country, reads it again.
- */
-export const UNRELEASED_COUNTRY = 'ZZ'
 
 /** Enqueue the de-index of each file a rollback left unreleased; a failure is logged, the rollback stands. */
 export async function enqueueDeindex(platformOrganizationId: string | null, corpusFiles: readonly string[]): Promise<number> {
@@ -177,7 +239,7 @@ export async function enqueueDeindex(platformOrganizationId: string | null, corp
   return failed
 }
 
-/** The job's step: unless a release names the file again, mark its chunks for no country. Throws to be retried. */
+/** The job's step: unless a release names the file again, withdraw it. Throws to be retried. */
 export async function runPlatformTextDeindex(_organizationId: string, payload: PlatformTextDeindexPayload): Promise<void> {
   const [still] = await withPlatformAccess(REASON, () =>
     getDb().execute<{ n: number }>(sql`
@@ -185,5 +247,5 @@ export async function runPlatformTextDeindex(_organizationId: string, payload: P
       WHERE r.organization_id IS NULL AND h.corpus_file = ${payload.corpusFile} LIMIT 1`),
   )
   if (still) return
-  await markCorpusFileCountry(payload.corpusFile, UNRELEASED_COUNTRY)
+  await withdrawCorpusFile(payload.corpusFile)
 }

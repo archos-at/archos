@@ -27,7 +27,8 @@ import {
 import { getOrgInstructions } from '@/lib/org-instructions/service'
 import { retentionDaysFromSettings } from '@/lib/download-log/kinds'
 import { OfficeConventionsCard } from '@/features/organization/components/office-conventions-card'
-import { BaseKnowledgeCard } from '@/features/organization/components/base-knowledge-card'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 import { DownloadLogRetentionForm } from '@/features/organization/components/download-log-retention-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -258,8 +259,12 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
             </CardTitle>
             <CardDescription>{t('baseKnowledge.description')}</CardDescription>
           </CardHeader>
+          {/* The standards have a place of their own now, beside the Büroablage;
+              a settings card was where nobody looked for documents. */}
           <CardContent>
-            <BaseKnowledgeCard />
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/app/base-knowledge">{t('baseKnowledge.open')}</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>

@@ -23,6 +23,7 @@
  * "EndNote/Zotero (.ris)" so nobody has to guess which one they are copying.
  */
 
+import type { CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
 import type { CitationRef } from './citations'
 import { toCslItem, toCslJson, toTechnicalTextList, toQuoteList } from './source-citation'
 
@@ -59,12 +60,13 @@ const SERVER_RENDERED = new Set<CitationFormat>(['apa', 'bibtex', 'ris'])
 export const renderCitations = async (
   refs: CitationRef[],
   format: CitationFormat,
-  now: Date
+  now: Date,
+  styles?: CitationStylePayload
 ): Promise<string> => {
   if (refs.length === 0) return ''
-  if (format === 'quotes') return toQuoteList(refs, now)
-  if (format === 'csl-json') return toCslJson(refs, now)
-  if (!SERVER_RENDERED.has(format)) return toTechnicalTextList(refs, now)
+  if (format === 'quotes') return toQuoteList(refs, now, styles)
+  if (format === 'csl-json') return toCslJson(refs, now, styles)
+  if (!SERVER_RENDERED.has(format)) return toTechnicalTextList(refs, now, styles)
 
   try {
     const response = await fetch('/api/citations/format', {
@@ -72,15 +74,15 @@ export const renderCitations = async (
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         format,
-        items: refs.map((ref) => toCslItem(ref, now)),
+        items: refs.map((ref) => toCslItem(ref, now, styles)),
       }),
     })
-    if (!response.ok) return toTechnicalTextList(refs, now)
+    if (!response.ok) return toTechnicalTextList(refs, now, styles)
     const data = (await response.json()) as { text?: unknown }
     return typeof data.text === 'string' && data.text.trim()
       ? data.text
-      : toTechnicalTextList(refs, now)
+      : toTechnicalTextList(refs, now, styles)
   } catch {
-    return toTechnicalTextList(refs, now)
+    return toTechnicalTextList(refs, now, styles)
   }
 }

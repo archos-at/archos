@@ -156,6 +156,7 @@ export const chat = {
       tooLarge: 'The recording is too large to transcribe.',
       notConfigured: 'Voice input is not available right now.',
       failed: 'The recording could not be transcribed. Your message is unchanged.',
+      notSaved: 'The recording could not be saved. Please dictate it again.',
     },
   },
   // Source-preset shortcut chips under the composer (empty thread).
@@ -558,6 +559,18 @@ export const chat = {
       // its quantity, value, limit and outcome.
       recomputed: 'Recomputed. {checks}',
       checkSpoken: '{name}: {value}, limit {bound}, {verdict}.',
+      // As checkSpoken, where a hint stands in for the verdict; {reason} ends in a full stop.
+      checkHeldSpoken: '{name}: {value}, limit {bound}, hint: {reason}',
+      // In place of a verdict, where the edition the limits come from does not
+      // apply at the site, or nobody has reviewed which one does.
+      hold: {
+        label: 'Hint',
+        otherEdition: 'Values from {edition}; at the site, {binding} applies. So no verdict.',
+        notBinding: 'Values from {edition}; this rule set does not bind at the site. So no verdict.',
+        unsettled: 'Values from {edition}; which edition applies at the site has not been reviewed yet. So no verdict.',
+        siteUnknown: 'Values from {edition}; which edition applies at the site is not known. So no verdict.',
+        unavailable: 'Values from {edition}; which edition applies at the site could not be read just now. So no verdict.',
+      },
       component: {
         external_wall: 'External wall against outside air',
         roof_or_ceiling_to_outside_air: 'Ceiling or roof slope against outside air',
@@ -791,6 +804,8 @@ export const chat = {
       failed: 'Nothing could be applied. Nothing was changed.',
       applyError: 'Could not be applied.',
       dismissError: 'Could not be discarded.',
+      temporaryConversation:
+        'Not kept: this chat is temporary, so {productName} keeps nothing from it. The note can be applied once “Temporary” is switched off.',
       decidedBy: {
         applied: 'Applied by {name} · {when}',
         partially_applied: 'Applied by {name} · {when}',
@@ -1205,13 +1220,8 @@ export const chat = {
     savedProject: 'Saved to this project’s memory.',
     dismissed: 'Not saved.',
     error: 'Could not save the finding',
-    kind: {
-      decision: 'Decision',
-      constraint: 'Constraint',
-      open_question: 'Open question',
-      derived_fact: 'Derived fact',
-      preference: 'Preference',
-    },
+    temporaryConversation:
+      'Not saved: this chat is temporary, so {productName} keeps nothing from it. You can save once “Temporary” is switched off.',
   },
   thinking: {
     // One row per document Piloti looked at (ADR-0128); its thumbnails open the place.
@@ -2029,25 +2039,72 @@ export const chat = {
   memory: {
     noted: '{productName} noted',
     notedAria: '{productName} noted {count, plural, one {# item} other {# items}}',
-    addedToMemory: 'Added to project memory',
+    // The panel's title names the memory the turn's notes went into; `mixed`
+    // when they went into more than one.
+    addedTo: {
+      project: 'Added to project memory',
+      organization: 'Added to office memory',
+      personal: 'Added to your memory',
+      mixed: 'Added to memory',
+    },
     updated: 'Memory updated',
     updatedAria:
       '{productName} updated its memory: {count, plural, one {# item} other {# items}}, {corrected} of them corrected',
-    updatedInMemory: 'Project memory updated',
+    updatedIn: {
+      project: 'Project memory updated',
+      organization: 'Office memory updated',
+      mixed: 'Memory updated',
+    },
     correctedLabel: 'Corrected',
     replaced: 'Replaces:',
-    manageHint: 'You can manage and delete these entries in the project memory.',
-    kinds: {
-      decision: 'Decision',
-      constraint: 'Constraint',
-      open_question: 'Open question',
-      derived_fact: 'Fact',
-      preference: 'Preference',
+    manageHint: 'You can manage and delete these notes in the project memory.',
+    // The hint as a door: leads to the project's memory (Settings → Memory).
+    manageLink: 'Manage in project memory',
+    // The same door for the reader's own notes („My memory“).
+    manageLinkPersonal: 'Manage in My memory',
+    // Taking a note back where it is shown (ADR-0180). It deletes the note.
+    remove: 'Remove',
+    removeAria: 'Remove note: {note}',
+    removing: 'Removing …',
+    removed: 'Removed. The note is deleted.',
+    // The note was already removed, dismissed or replaced somewhere else.
+    gone: 'No longer in memory.',
+    removeFailed: 'Could not be removed.',
+    removeRetry: 'Try again',
+    // A note that replaced an earlier one is not taken back here: the earlier one would stay retired.
+    replacedNotRemovable: 'Replaced an earlier note, so it cannot be taken back here.',
+    openMemory: 'Open memory',
+    // Who reads a note follows from where it is kept (ADR-0180): mine, project or office.
+    audience: {
+      personal: 'Only you',
+      project: 'Read by the project team',
+      // Project memory that draws on a restricted folder (ADR-0087).
+      restricted: 'Read by those who may read the folder',
+      organization: 'Read by everyone in the office',
     },
     provenance: {
       distillation: 'added after the response',
       inTurn: 'noted during the response',
     },
+  },
+  // Temporary chat (ADR-0180): nothing from it goes into any memory.
+  temporary: {
+    label: 'Temporary',
+    switchOn: 'Turn on temporary chat',
+    switchOff: 'Turn off temporary chat',
+    switchOnTitle: 'Turn on temporary chat: {productName} keeps nothing from this chat.',
+    switchOffTitle:
+      'Turn off temporary chat: from now on {productName} can keep things again. What was said so far stays out.',
+    statement: 'Temporary chat. {productName} keeps nothing from this chat.',
+    // Until the server has confirmed the switch: never „keeps nothing“ before it holds.
+    turningOn: 'Turning on temporary chat …',
+    turningOff: 'Turning off temporary chat …',
+    ownerOnly: 'Only the owner of the chat can change this.',
+    switchFailed: 'The setting was not saved. Try again.',
+  },
+  // Who reads the chat: the line under the composer.
+  privacy: {
+    onlyYou: 'Only you see this chat until you share it.',
   },
   confidence: {
     label: 'Confidence: {level}',

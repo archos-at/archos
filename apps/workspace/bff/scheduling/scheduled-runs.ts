@@ -9,6 +9,13 @@
  * time, and every write that moves `next_run_at` (create, edit, pause, delete,
  * a fire, a re-arm) replaces it through {@link syncScheduledRun}.
  *
+ * Replaced, not rescheduled. The SDK's `scheduled.update` moves a pending run's
+ * `triggerAt` and nothing else (tried on engine v0.114.2, 2026-11-11): the run
+ * keeps its input, so it would fire with the old `due_at`, which the fire
+ * compares with `next_run_at` and answers `not-due`. And the commonest caller,
+ * a fire, holds the id of the run that just fired, which the engine no longer
+ * has (404 on get, update and delete alike).
+ *
  * A Hatchet call that fails is logged, never thrown: the definition was saved,
  * and the repair sweep (`./fire-definition.ts`, `repairSchedules`) gives
  * any row that passes its due time without a fire, or has none, a scheduled run.
@@ -38,11 +45,16 @@ type ScheduledDefinition = Pick<TaskDefinition, 'id' | 'organizationId' | 'enabl
 
 const LOG = '[scheduling]'
 
-/** Delete a scheduled run; one that already fired or is gone is not an error worth more than a line. */
+/** The engine's answer for a scheduled run it no longer has: one that fired, or was deleted. */
+const isNotFound = (error: unknown): boolean => (error as { response?: { status?: number } } | null)?.response?.status === 404
+
+/** Delete a scheduled run. One that is already gone is what was asked for; any other failure is a line, never a throw. */
 async function deleteScheduledRun(scheduledRunId: string): Promise<void> {
   try {
     await hatchetClient().scheduled.delete(scheduledRunId)
   } catch (error) {
+    // Every fire lands here: it re-arms the definition holding the id of the run that just fired.
+    if (isNotFound(error)) return
     // A leftover run is harmless: its fire finds `next_run_at` moved and records nothing.
     console.warn(`${LOG} could not delete scheduled run ${scheduledRunId}:`, error instanceof Error ? error.message : error)
   }

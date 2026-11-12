@@ -376,12 +376,14 @@ describe('deviations, precedence and packs', () => {
     expect(roleOf(resolveChain(future, 'AT-6', '2026-11-10'), 'edition:oib-rl-2-2023')).toBe('guidance')
   })
 
-  it('says when it left uses out, so a caller fails closed', () => {
+  it('resolves every use however many there are: no count withholds the law', () => {
     const many: unknown[] = [territory('AT', 'country'), work('law', 'statute', ['AT'])]
-    for (let index = 0; index < 45; index++) many.push(work(`std-${index}`, 'technical_standard', ['AT']), edition(`std-${index}-e`, `std-${index}`, '2020-01-01'))
+    for (let index = 0; index < 45; index++) {
+      many.push(work(`std-${index}`, 'technical_standard'), edition(`std-${index}-e`, `std-${index}`, '2020-01-01'))
+      many.push(binds(`lists-${index}`, 'work:law', `edition:std-${index}-e`))
+    }
     const resolved = resolveChain(graphFromProposals(parse(many)), 'AT', '2026-11-10')
-    expect(resolved.truncated).toBe(true)
-    expect(resolveChain(graph, 'AT-9', '2026-11-10').truncated).toBe(false)
+    expect(resolved.uses.filter((use) => use.role === 'binding' && use.workId.startsWith('work:std-'))).toHaveLength(45)
   })
 
   it('stops a cycle and follows a route no deeper than its limit', () => {

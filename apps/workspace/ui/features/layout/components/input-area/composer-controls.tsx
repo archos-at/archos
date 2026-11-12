@@ -4,6 +4,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from '@/components/motion'
 import { EffortDial } from '@/features/chat/components/effort-dial'
+import { TemporaryChatToggle } from '@/features/chat/conversation-privacy'
 
 import { DictationButton } from '@/features/dictation'
 import { ComposerAttach } from '../ComposerAttach'
@@ -114,6 +115,16 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
                 <span className="text-xs font-medium">{controller.attachedFilesCount}</span>
               </Button>
             )}
+
+            {/* Whether anything from this chat is kept (ADR-0180), beside the
+                        other per-chat setting. Also while the agent waits for an
+                        answer to its own question: the chat is the same, and a
+                        person who decides then that nothing should be kept must
+                        find the switch where it always is. */}
+            <TemporaryChatToggle
+              conversationId={controller.currentConversationId}
+              disabled={controller.cannotContribute}
+            />
 
             {/* How hard Piloti thinks, for this chat. A HITL response is
                         not a question, so the dial has nothing to say there. It is

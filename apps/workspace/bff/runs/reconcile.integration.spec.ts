@@ -173,7 +173,7 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
   })
 
   it('closes a run once: the second closer, and another organization, get nothing', async () => {
-    const patch = { status: 'failed' as const, error: 'reconciled', finishedAt: new Date() }
+    const patch = { status: 'failed' as const, error: 'reconciled' }
 
     const foreign = await withTenant({ organizationId: OTHER_ORG }, () =>
       repository.closeActiveRun(ids.stale, OTHER_ORG, patch),
@@ -220,7 +220,7 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
 
     // The ghost reaper's report: the row closes, the block hears nothing.
     await withTenant({ organizationId: ORG }, () =>
-      repository.closeActiveRun(ids.ghost, ORG, { status: 'failed', error: 'Job timed out', finishedAt: new Date() }),
+      repository.closeActiveRun(ids.ghost, ORG, { status: 'failed', error: 'Job timed out' }),
     )
 
     const claimed = await withPlatformAccess('test: heal claim', () => repository.claimClosedRunsToHeal(500))
@@ -252,5 +252,120 @@ describe.skipIf(!url)('run reconciler SQL against live Postgres (migration 0096)
     expect(await withTenant({ organizationId: ORG }, () => runs.settleRunLedger(ghost, { status: 'success' }))).toBe(
       false,
     )
+  })
+
+  /** A run with its message in a thread of its own, as a submit leaves it. */
+  async function seedRunWithBlock(name: string, status: 'queued' | 'running') {
+    const { insertConversation } = await import('@/lib/conversations/repository')
+    const runs = await import('@/lib/runs/service')
+    const conversationId = `s_conv_${name}_${STAMP}`
+    await withTenant({ organizationId: ORG }, () =>
+      insertConversation({ id: conversationId, organizationId: ORG, createdBy: USER, title: name, projectId: PROJECT }),
+    )
+    await seedRun(name, ORG, PROJECT, { status, startedAt: minutesAgo(5), createdAt: minutesAgo(5) })
+    await withTenant({ organizationId: ORG }, async () => {
+      const message = await runs.createRunMessage(conversationId, ids[name], { at: minutesAgo(5) })
+      await repository.updateRun(ids[name], ORG, { conversationId, runMessageId: message.id })
+    })
+  }
+
+  it('the kill switch’s claim leaves out a run whose block already reads done', async () => {
+    const runs = await import('@/lib/runs/service')
+    const { claimRunsToInterrupt } = await import('@/lib/tasks/run-moves')
+    // The worker stored its report and said so on the block; only its outcome
+    // report, which closes the row, has not arrived.
+    await seedRunWithBlock('reported', 'running')
+    await runs.applyRunLedgerOp(ids.reported, { op: 'finish', result: { filedAt: new Date().toISOString() } })
+    await seedRunWithBlock('working', 'running')
+    await runs.applyRunLedgerOp(ids.working, {
+      op: 'append',
+      phases: [{ phase: 'researching', startedAt: minutesAgo(4).toISOString() }],
+    })
+    await seedRun('blockless', ORG, PROJECT, { status: 'queued', startedAt: null, createdAt: minutesAgo(1) })
+
+    const claimed = await withPlatformAccess('test: kill claim', () => claimRunsToInterrupt(500))
+    const names = ours(claimed).map((row) => nameOf(row.id))
+
+    expect(names).toEqual(expect.arrayContaining(['working', 'blockless']))
+    expect(names).not.toContain('reported')
+    // Not stamped either: the reconciler finds it by its own age and closes it
+    // from the job store when the worker's report never comes.
+    const [reported] = ours(
+      await withPlatformAccess('test: reconcile claim', () =>
+        repository.claimRunsToReconcile(new Date(Date.now() + 60_000), 500),
+      ),
+    ).filter((row) => row.id === ids.reported)
+    expect(reported?.status).toBe('running')
+  })
+
+  it('a submit records its job on any row, and moves the status only from queued to running', async () => {
+    const { recordSubmission } = await import('@/lib/tasks/run-moves')
+    const submission = (name: string, status: 'queued' | 'running') => ({
+      status,
+      backendJobId: `job_submitted_${name}_${STAMP}`,
+      conversationId: null,
+      runMessageId: null,
+    })
+    const record = (name: string, status: 'queued' | 'running', organizationId = ORG) =>
+      withTenant({ organizationId }, () => recordSubmission(ids[name], organizationId, submission(name, status)))
+
+    // The kill switch closed the queued row while the submit was out.
+    await seedRun('killed', ORG, PROJECT, { status: 'queued', startedAt: null, createdAt: minutesAgo(1) })
+    await withTenant({ organizationId: ORG }, () =>
+      repository.closeActiveRun(ids.killed, ORG, { status: 'interrupted', error: 'Abgebrochen.' }),
+    )
+    const killed = await record('killed', 'running')
+    expect(killed).toMatchObject({ status: 'interrupted', error: 'Abgebrochen.', startedAt: null })
+    expect(killed?.backendJobId).toBe(`job_submitted_killed_${STAMP}`)
+
+    // The worker's first flush started the run before the submit returned `queued`.
+    const startedAt = minutesAgo(1)
+    await seedRun('flushed', ORG, PROJECT, { status: 'running', startedAt, createdAt: minutesAgo(2) })
+    const flushed = await record('flushed', 'queued')
+    expect(flushed).toMatchObject({ status: 'running', backendJobId: `job_submitted_flushed_${STAMP}` })
+    expect(flushed?.startedAt?.getTime()).toBe(startedAt.getTime())
+
+    // The ordinary case: a queued row whose job started at once.
+    await seedRun('taken', ORG, PROJECT, { status: 'queued', startedAt: null, createdAt: minutesAgo(1) })
+    const taken = await record('taken', 'running')
+    expect(taken?.status).toBe('running')
+    expect(taken?.startedAt).toBeInstanceOf(Date)
+
+    // And one the backend queued stays queued and unstarted.
+    await seedRun('held', ORG, PROJECT, { status: 'queued', startedAt: null, createdAt: minutesAgo(1) })
+    expect(await record('held', 'queued')).toMatchObject({ status: 'queued', startedAt: null })
+
+    expect(await record('held', 'running', OTHER_ORG)).toBeNull()
+  })
+
+  it('heals a run closed by a pod whose clock lags the database’s', async () => {
+    // The claim stamps `reconcile_checked_at` with the database's clock. The
+    // close used to stamp `finished_at` with the pod's, so behind a lagging pod
+    // the run ended "before" it was last looked at and the heal never took it.
+    await seedRun('lagging', ORG, PROJECT, { status: 'running', startedAt: minutesAgo(30), createdAt: minutesAgo(30) })
+    await withTenant({ organizationId: ORG }, () =>
+      repository.updateRun(ids.lagging, ORG, { runMessageId: '0c0c0c0c-0000-4000-8000-0000000000aa' }),
+    )
+    await withPlatformAccess('test: the reconciler looks at it', () =>
+      repository.claimRunsToReconcile(new Date(Date.now() + 60_000), 500),
+    )
+
+    const realNow = Date.now()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(realNow - 60 * 60_000))
+    let closed: Awaited<ReturnType<typeof repository.closeActiveRun>>
+    try {
+      closed = await withTenant({ organizationId: ORG }, () =>
+        repository.closeActiveRun(ids.lagging, ORG, { status: 'failed', error: 'Job timed out' }),
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+
+    // A date for every reader of the returned row, and the database's.
+    expect(closed?.finishedAt).toBeInstanceOf(Date)
+    expect(Math.abs((closed?.finishedAt as Date).getTime() - realNow)).toBeLessThan(60_000)
+    const healable = await withPlatformAccess('test: heal claim', () => repository.claimClosedRunsToHeal(500))
+    expect(ours(healable).map((row) => nameOf(row.id))).toContain('lagging')
   })
 })

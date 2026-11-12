@@ -39,7 +39,7 @@ and it fails the same way.
 
 The upload sweep settles open batches, and by default only those created in the last
 7 days. `?windowDays=N` (1 to 60) widens the look-back for this one run, so a batch
-that aged out while stuck is included. The scheduler never sends it.
+that aged out while stuck is included. The every-minute `upload-sweep` cron task never looks back that far.
 
 ```bash
 kubectl -n grid exec deploy/frontend -c frontend -- node -e '

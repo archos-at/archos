@@ -1218,10 +1218,10 @@ devices with notifications on, one notification per person for the morning's
 reminders however many marks are due (above); the type's mail after two hours
 unread waits for the ADR-0035 sender, like every other mail.
 
-- **When.** At 06:45 in Vienna: the `frist-reminder` Hatchet task runs at
-  minute 45 of every UTC hour and only the run that is 06:45 in Vienna calls
-  `enqueueDueReminders` (`apps/workspace/bff/scheduling/office-clock.ts`), so
-  it stays on 06:45 across daylight saving. A day whose 06:45 run never ran is
+- **When.** At 06:45 in Vienna: the `frist-reminder` Hatchet task's cron names
+  the zone (`CRON_TZ=Europe/Vienna 45 6 * * *`,
+  `apps/workspace/bff/scheduling/tasks.ts`), so the engine keeps it on 06:45
+  across daylight saving, and each run calls `enqueueDueReminders`. A day whose 06:45 run never ran is
   not caught up later; the next morning's reminder includes the overdue marks.
   A failed post retries in an hour, but never past the office's midnight: a
   retry that would fall on the next day waits for its 06:45 instead.

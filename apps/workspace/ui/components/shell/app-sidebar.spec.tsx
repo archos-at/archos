@@ -197,7 +197,7 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     // Chat · Files · Automation* · Overview, then Archiv* · Suche · Inbox*,
     // per `project-sections.ts`. Automation is absent here because `showSkills`
     // is off.
-    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Search', 'Inbox'])
+    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Office standards', 'Search', 'Inbox'])
   })
 })
 

@@ -1,0 +1,44 @@
+-- 0226: drop what the scheduler before 0086 left behind. None of the three
+-- tables has a reader or a writer anywhere in the repository (TypeScript, the
+-- plain-JS workers and purger, Python, scripts, raw SQL), and none in the
+-- release production runs.
+--
+-- `jobs`, `job_runs` (0041, renamed by 0043) and `tasks` (0075) were the
+-- model before 0086: a timer, its fires, and the delegated work. 0086 copied
+-- every row into `task_definitions` and `task_runs`, reusing the ids (a job's
+-- definition has the job's id, a job-spawned run the `job_runs` id, a
+-- delegated task's definition and run the task's id), and repointed
+-- `conversations.job_id` to `task_definitions`. Its text promised that "0087
+-- drops the old tables"; 0087 became something else and no migration did.
+-- Since the release that shipped 0086 nothing has written or read them; the
+-- last code that named one was a lookup with no caller. This is that drop.
+--
+-- What 0086 did not carry is nothing a writer ever produced: `tasks.budget_usd`
+-- was never written, `tasks.deadline_at` only by a delegated task (it is the
+-- definition's `due_at`), and `job_runs.detail` is the run's `error` wherever
+-- no task recorded one. A conversation link the stricter composite foreign key
+-- on `task_runs` could not validate was dropped by 0086 itself.
+--
+-- No other table references the three (the foreign keys among them go with
+-- them; `tasks` first, then `job_runs`, then `jobs`). The data migrations that
+-- kept rewriting their rows after 0086 (0164, 0167, 0169, 0187) still apply:
+-- they run before this one.
+--
+-- `bff_job_lane_turns` (0104) is NOT dropped here, though nothing on this tree
+-- reads or writes it since the BFF's jobs moved to Hatchet (ADR-0150). The
+-- release production runs is from before that move: its claim SQL
+-- (`workers/job-queue.js`) joins the table and upserts into it on every claim.
+-- A migration runs before the new pods are ready and stays applied through a
+-- rollback (docs/deployment/rollback.md), so dropping it now would break
+-- production's old pods during the rollout of its first Hatchet release, and a
+-- rollback to the release before it. It goes in the release after production
+-- has cut over to Hatchet, together with the retired claim queues
+-- (docs/audit/hatchet-use-2026-11.md, "After production's cutover").
+--
+-- Lossy: the down recreates the three tables empty, secured as they were.
+-- Their rows live on in `task_definitions` and `task_runs`.
+DROP TABLE IF EXISTS "tasks";
+--> statement-breakpoint
+DROP TABLE IF EXISTS "job_runs";
+--> statement-breakpoint
+DROP TABLE IF EXISTS "jobs";

@@ -28,6 +28,7 @@ import { HIGHLIGHT_OUTLINE_INSET } from '@/components/ui/highlight'
 import { ROW_REVEAL, TABLE_ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import { FileName } from './file-name'
 import { OpenMarksChip } from './open-marks-chip'
+import { BaseKnowledgeChip } from './base-knowledge-chip'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 /**
@@ -391,7 +392,7 @@ const FileListRowItem = memo(function FileListRowItem({
         'group/row cursor-pointer border-b-0 focus-visible:outline-none [--row-end:8px] [--row-lead:50px]', TABLE_ROW_HAIRLINE,
         lit && HIGHLIGHT_OUTLINE_INSET,
         'transition-colors duration-snap ease-out motion-reduce:transition-none',
-        isSelected || checked ? 'bg-accent hover:bg-accent data-[state=selected]:bg-accent' : 'hover:bg-desk',
+        isSelected || checked ? 'bg-selected hover:bg-selected data-[state=selected]:bg-selected' : 'hover:bg-hover',
         'focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50'
       )}
     >
@@ -420,6 +421,7 @@ const FileListRowItem = memo(function FileListRowItem({
             <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[13px] font-medium leading-5 text-foreground" /* 13px, a 20px line a chip fits */>
               <FileName text={documentDisplayName(file)} className="flex-1" /* the line's width, then the chips: as wide as its own text it measured itself to nothing */ />
               <RevisionCount file={file} />
+              <BaseKnowledgeChip file={file} className="self-center" />
               {file.status && !isCitableStatus(file.status) && (
                 <DocumentStatusBadge status={file.status} queueAhead={file.queueAhead} className="h-5 shrink-0 self-center px-2 py-0" /* 20px, the open-marks chip's: a 22px badge made its row 42 */ />
               )}

@@ -69,7 +69,7 @@ export interface DiscussDocumentButtonProps {
   file?: FileItem
   /** Hover/AT text saying something true about this document, when there is any. */
   hint?: string
-  variant?: 'default' | 'outline' | 'ghost'
+  variant?: 'default' | 'secondary' | 'ghost'
   size?: 'sm' | 'default'
   /** Icon-led, for a dense row (the inbox) where the label alone reads as chrome. */
   withIcon?: boolean

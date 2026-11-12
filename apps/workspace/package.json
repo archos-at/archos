@@ -144,6 +144,7 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "roughjs": "^4.6.6",
+    "safe-regex2": "5.0.0",
     "server-only": "^0.0.1",
     "sonner": "^2.0.7",
     "structured-headers": "2.1.1",

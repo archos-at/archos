@@ -18,14 +18,17 @@ import re
 from pathlib import Path
 from typing import Any
 
-from agent.citations.roles import SOURCE_REF_SCHEMES
 from agent.common.knowledge_context import EDITION_ROLES
+from agent.common.knowledge_context import FRESHNESS
 from agent.common.knowledge_context import GATE_STATES
 from agent.common.knowledge_context import MAX_TEXT_CHARS
 from agent.common.knowledge_context import QUALIFIERS
 from agent.common.knowledge_context import ROUTE_VIAS
+from agent.common.knowledge_context import TEXT_STATUSES
+from agent.common.knowledge_context import USE_LABELS
 from agent.common.knowledge_context import EditionUse
 from agent.common.knowledge_context import KnowledgeContext
+from agent.common.knowledge_context import UseRoute
 
 ROOT = Path(__file__).parents[4]
 SCHEMA = json.loads(
@@ -39,7 +42,10 @@ READ_ENUMS: dict[str, tuple[str, ...]] = {
     "/properties/uses/items/properties/role": EDITION_ROLES,
     "/properties/uses/items/properties/via": ROUTE_VIAS,
     "/properties/uses/items/properties/qualifier/anyOf/0": QUALIFIERS,
-    "/properties/uses/items/properties/sourceRefs/items/properties/scheme": SOURCE_REF_SCHEMES,
+    "/properties/uses/items/properties/textStatus/anyOf/0": TEXT_STATUSES,
+    # What a citation's status line states (design §6.7): kept on the use and sent on the citation wire.
+    "/properties/uses/items/properties/freshness": FRESHNESS,
+    "/properties/uses/items/properties/labels/items": USE_LABELS,
 }
 
 #: Each enum the agent does not read yet, and why. Moving one to ``READ_ENUMS`` is the decision this file asks for.
@@ -57,9 +63,7 @@ UNREAD_ENUMS: dict[str, str] = {
     "/properties/undetermined/items/properties/reason": (
         "kept as a token in the trace metadata; the chain text words each reason"
     ),
-    "/properties/uses/items/properties/freshness": "the chain text states it, and the role already carries it",
     "/properties/uses/items/properties/connectsBy/items": "the chain text states it, and the role already carries it",
-    "/properties/uses/items/properties/labels/items": "the chain text states each",
     "/properties/uses/items/properties/applicability/anyOf/0/properties/verdict": (
         "read as settled (applies, no open fact) or not: every other verdict, an unknown one included, is unsettled"
     ),
@@ -77,19 +81,18 @@ READ_KEYS: dict[str, str] = {
     "updatedSinceLastAnswer": "updated_since_last_answer",
     "text": "text",
     "undetermined": "undetermined",
+    "sources": "sources",
+    "sourcesDropped": "sources_dropped",
 }
 
 #: The context's properties the agent ignores, and why.
 IGNORED_KEYS: dict[str, str] = {}
 
-#: The use properties the agent ignores, and why; the rest are ``EditionUse``'s fields, camel-cased.
+#: The use properties the agent drops, and why; the rest are ``EditionUse``'s fields, camel-cased. A
+#: citation states its edition, role, route and dates from the use (``citations/roles.role_fields``), so a
+#: property dropped here is one no citation can ever show: name the reason.
 IGNORED_USE_KEYS: dict[str, str] = {
-    "date": "the context's own date holds for every use",
-    "freshness": "stated in the chain text; the role already carries its correction",
-    "lastCheckedAt": "stated in the chain text",
     "connectsBy": "stated in the chain text; the role already carries its correction",
-    "labels": "stated in the chain text",
-    "sourceUrl": "where a person opens the edition's text; a citation links its own passage",
 }
 
 #: EditionUse fields read from a use key of another name, and the key (ADR-0178: null, the edition states no scope).
@@ -132,6 +135,17 @@ def test_every_property_of_a_use_is_read_or_named_as_ignored() -> None:
     read = {DERIVED_USE_FIELDS.get(field.name, _camel(field.name)) for field in dataclasses.fields(EditionUse)}
     sent = set(CONTEXT["properties"]["uses"]["items"]["properties"])
     assert sorted(sent) == sorted(read | set(IGNORED_USE_KEYS))
+
+
+def test_a_property_is_either_read_or_dropped_never_both() -> None:
+    """A key left on the drop list after ``EditionUse`` learned it would hide the next one dropped by mistake."""
+    read = {DERIVED_USE_FIELDS.get(field.name, _camel(field.name)) for field in dataclasses.fields(EditionUse)}
+    assert not read & set(IGNORED_USE_KEYS)
+
+
+def test_every_property_of_a_route_is_read() -> None:
+    route = CONTEXT["properties"]["uses"]["items"]["properties"]["route"]["anyOf"][0]
+    assert sorted(route["properties"]) == sorted(_camel(field.name) for field in dataclasses.fields(UseRoute))
 
 
 def test_the_agent_keeps_the_whole_chain_text_the_bff_may_send() -> None:

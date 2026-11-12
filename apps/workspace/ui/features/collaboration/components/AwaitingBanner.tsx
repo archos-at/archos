@@ -302,7 +302,7 @@ export function AwaitingBanner({
                 composer's own `@` is the right tool then. */}
             {awaitingMe && onAskBack && single?.requestedBy && (
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className="h-8 gap-1.5"
                 onClick={() => onAskBack(single.requestedBy!)}
@@ -313,7 +313,7 @@ export function AwaitingBanner({
             )}
             {onAskAgent && (
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className="h-8 gap-1.5"
                 onClick={onAskAgent}

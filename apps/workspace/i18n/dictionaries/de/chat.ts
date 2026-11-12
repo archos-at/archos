@@ -154,6 +154,7 @@ export const chat: typeof en.chat = {
       tooLarge: 'Die Aufnahme ist zu groß zum Verschriftlichen.',
       notConfigured: 'Spracheingabe ist gerade nicht verfügbar.',
       failed: 'Die Aufnahme konnte nicht verschriftlicht werden. Ihre Nachricht ist unverändert.',
+      notSaved: 'Die Aufnahme konnte nicht gespeichert werden. Bitte sprechen Sie es noch einmal ein.',
     },
   },
   // Der Reiter einer Quellenkarte in der Herleitung: die grobe Ebene, wenn der
@@ -557,6 +558,20 @@ export const chat: typeof en.chat = {
       // Beurteilung mit Größe, Wert, Grenzwert und Ergebnis.
       recomputed: 'Neu berechnet. {checks}',
       checkSpoken: '{name}: {value}, Grenzwert {bound}, {verdict}.',
+      // Wie checkSpoken, wo statt einer Beurteilung ein Hinweis steht; {reason} endet mit Punkt.
+      checkHeldSpoken: '{name}: {value}, Grenzwert {bound}, Hinweis: {reason}',
+      // Statt einer Beurteilung, wo die Ausgabe, aus der die Grenzwerte stammen,
+      // am Standort nicht gilt oder niemand geprüft hat, welche gilt.
+      hold: {
+        label: 'Hinweis',
+        otherEdition: 'Werte aus {edition}; am Standort gilt {binding}. Darum keine Beurteilung.',
+        notBinding: 'Werte aus {edition}; am Standort ist dieses Regelwerk nicht verbindlich. Darum keine Beurteilung.',
+        unsettled:
+          'Werte aus {edition}; welche Ausgabe am Standort gilt, ist noch nicht geprüft. Darum keine Beurteilung.',
+        siteUnknown: 'Werte aus {edition}; welche Ausgabe am Standort gilt, ist nicht bekannt. Darum keine Beurteilung.',
+        unavailable:
+          'Werte aus {edition}; welche Ausgabe am Standort gilt, konnte gerade nicht gelesen werden. Darum keine Beurteilung.',
+      },
       component: {
         external_wall: 'Außenwand gegen Außenluft',
         roof_or_ceiling_to_outside_air: 'Decke oder Dachschräge gegen Außenluft',
@@ -796,6 +811,8 @@ export const chat: typeof en.chat = {
       failed: 'Nichts konnte übernommen werden. Es wurde nichts geändert.',
       applyError: 'Konnte nicht übernommen werden.',
       dismissError: 'Konnte nicht verworfen werden.',
+      temporaryConversation:
+        'Nicht gemerkt: Dieser Chat ist temporär, {productName} merkt sich daraus nichts. Die Notiz lässt sich übernehmen, sobald „Temporär“ ausgeschaltet ist.',
       decidedBy: {
         applied: 'Übernommen von {name} · {when}',
         partially_applied: 'Übernommen von {name} · {when}',
@@ -1207,13 +1224,8 @@ export const chat: typeof en.chat = {
     savedProject: 'Im Gedächtnis dieses Projekts gespeichert.',
     dismissed: 'Nicht gespeichert.',
     error: 'Erkenntnis konnte nicht gespeichert werden',
-    kind: {
-      decision: 'Entscheidung',
-      constraint: 'Vorgabe',
-      open_question: 'Offene Frage',
-      derived_fact: 'Abgeleiteter Fakt',
-      preference: 'Präferenz',
-    },
+    temporaryConversation:
+      'Nicht gespeichert: Dieser Chat ist temporär, {productName} merkt sich daraus nichts. Speichern geht, sobald „Temporär“ ausgeschaltet ist.',
   },
   thinking: {
     // Eine Zeile je Dokument, das Piloti angesehen hat (ADR-0128); die
@@ -2052,27 +2064,74 @@ export const chat: typeof en.chat = {
   memory: {
     noted: '{productName} hat sich gemerkt',
     notedAria: '{productName} hat sich {count, plural, one {# Notiz} other {# Notizen}} gemerkt',
-    addedToMemory: 'In das Projektgedächtnis aufgenommen',
+    // Die Überschrift nennt das Gedächtnis, in das die Notizen kamen; „mixed“,
+    // wenn sie in mehr als eines kamen.
+    addedTo: {
+      project: 'In das Projektgedächtnis aufgenommen',
+      organization: 'In das Gedächtnis des Büros aufgenommen',
+      personal: 'In Ihr Gedächtnis aufgenommen',
+      mixed: 'In das Gedächtnis aufgenommen',
+    },
     // Mindestens eine Notiz hat eine frühere ersetzt (`supersedes`): das
     // wichtigere Ereignis, daher eigenes Wort und eigenes Symbol am Chip.
     updated: 'Gedächtnis aktualisiert',
     updatedAria:
       '{productName} hat das Gedächtnis aktualisiert: {count, plural, one {# Notiz} other {# Notizen}}, davon {corrected} korrigiert',
-    updatedInMemory: 'Projektgedächtnis aktualisiert',
+    updatedIn: {
+      project: 'Projektgedächtnis aktualisiert',
+      organization: 'Gedächtnis des Büros aktualisiert',
+      mixed: 'Gedächtnis aktualisiert',
+    },
     correctedLabel: 'Korrigiert',
     replaced: 'Ersetzt:',
-    manageHint: 'Diese Einträge können Sie im Projektgedächtnis verwalten und löschen.',
-    kinds: {
-      decision: 'Entscheidung',
-      constraint: 'Vorgabe',
-      open_question: 'Offene Frage',
-      derived_fact: 'Fakt',
-      preference: 'Präferenz',
+    manageHint: 'Diese Notizen können Sie im Projektgedächtnis verwalten und löschen.',
+    // Der Hinweis als Tür: führt zum Gedächtnis des Projekts (Einstellungen → Gedächtnis).
+    manageLink: 'Im Projektgedächtnis verwalten',
+    // Dieselbe Tür für die eigenen Notizen („Mein Gedächtnis“).
+    manageLinkPersonal: 'In „Mein Gedächtnis“ verwalten',
+    // Eine Notiz dort zurücknehmen, wo sie gezeigt wird (ADR-0180). Das löscht sie.
+    remove: 'Entfernen',
+    removeAria: 'Notiz entfernen: {note}',
+    removing: 'Wird entfernt …',
+    removed: 'Entfernt. Die Notiz ist gelöscht.',
+    // Die Notiz wurde bereits an anderer Stelle entfernt, verworfen oder ersetzt.
+    gone: 'Nicht mehr im Gedächtnis.',
+    removeFailed: 'Konnte nicht entfernt werden.',
+    removeRetry: 'Erneut versuchen',
+    // Eine Notiz, die eine frühere ersetzt hat, wird hier nicht zurückgenommen: die frühere bliebe ersetzt.
+    replacedNotRemovable: 'Hat eine frühere Notiz ersetzt und lässt sich hier nicht zurücknehmen.',
+    openMemory: 'Gedächtnis öffnen',
+    // Wer eine Notiz liest, folgt aus ihrem Ort (ADR-0180): eigenes Gedächtnis, Projekt oder Büro.
+    audience: {
+      personal: 'Nur Sie',
+      project: 'Liest das Projektteam',
+      // Projektgedächtnis, das auf einem eingeschränkten Ordner beruht (ADR-0087).
+      restricted: 'Liest, wer den Ordner lesen darf',
+      organization: 'Lesen alle im Büro',
     },
     provenance: {
       distillation: 'nach der Antwort ergänzt',
       inTurn: 'während der Antwort notiert',
     },
+  },
+  // Temporärer Chat (ADR-0180): aus ihm kommt nichts in ein Gedächtnis.
+  temporary: {
+    label: 'Temporär',
+    switchOn: 'Temporären Chat einschalten',
+    switchOff: 'Temporären Chat ausschalten',
+    switchOnTitle: 'Temporären Chat einschalten: {productName} merkt sich aus diesem Chat nichts.',
+    switchOffTitle:
+      'Temporären Chat ausschalten: Ab jetzt kann {productName} sich wieder etwas merken. Was bisher gesagt wurde, bleibt außen vor.',
+    statement: 'Temporärer Chat. {productName} merkt sich aus diesem Chat nichts.',
+    // Solange der Server die Umstellung noch nicht bestätigt hat: nie „merkt sich nichts“, bevor es stimmt.
+    turningOn: 'Temporärer Chat wird eingeschaltet …',
+    turningOff: 'Temporärer Chat wird ausgeschaltet …',
+    ownerOnly: 'Das kann nur ändern, wem der Chat gehört.',
+    switchFailed: 'Die Einstellung wurde nicht gespeichert. Versuchen Sie es noch einmal.',
+  },
+  // Wer den Chat liest: die Zeile unter dem Eingabefeld.
+  privacy: {
+    onlyYou: 'Nur Sie sehen diesen Chat, bis Sie ihn teilen.',
   },
   confidence: {
     label: 'Einschätzung: {level}',

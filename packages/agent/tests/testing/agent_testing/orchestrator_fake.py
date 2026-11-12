@@ -63,6 +63,9 @@ class FakeWorkflow:
     def task(self, **options):
         return self._declare(options, on_failure=False)
 
+    def durable_task(self, **options):
+        return self._declare(options, on_failure=False)
+
     def on_failure_task(self, **options):
         return self._declare(options, on_failure=True)
 
@@ -96,6 +99,7 @@ class FakeWorker:
     workflows: list[Any]
     lifespan: Any
     labels: dict[str, Any] = field(default_factory=dict)
+    durable_slots: int | None = None
     started: bool = False
 
     def start(self) -> None:
@@ -146,7 +150,7 @@ class FakeHatchet:
         return workflow
 
     def worker(self, name, slots=None, durable_slots=None, labels=None, workflows=None, lifespan=None):
-        worker = FakeWorker(name, slots, list(workflows or []), lifespan, dict(labels or {}))
+        worker = FakeWorker(name, slots, list(workflows or []), lifespan, dict(labels or {}), durable_slots)
         self.workers.append(worker)
         return worker
 

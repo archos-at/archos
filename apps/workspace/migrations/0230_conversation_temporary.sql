@@ -1,0 +1,13 @@
+-- A conversation can be temporary: nothing from it is kept (ADR-0180, rule 2).
+--
+-- A person could not say "do not keep anything from this chat", so they asked
+-- elsewhere rather than risk a wrong question landing in the project's memory.
+-- The flag is on the conversation. The single writer of memory refuses a write
+-- that names a temporary conversation (`requireConversationKeepsMemory`,
+-- called by `POST /api/internal/memory` and `POST /api/internal/personal-memory`),
+-- so it holds whatever the agent does. Reading is untouched: a temporary
+-- conversation is still given what is already known.
+--
+-- NOT NULL with a default, so every existing conversation keeps memory as
+-- before. PostgreSQL stores the default in the catalog; no row is rewritten.
+ALTER TABLE "conversations" ADD COLUMN IF NOT EXISTS "temporary" boolean DEFAULT false NOT NULL;

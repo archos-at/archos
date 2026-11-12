@@ -234,7 +234,7 @@ describe("gotenberg", () => {
 
   it("matches the Compose services, image and flags", async () => {
     const { GOTENBERG } = await import("../constants");
-    for (const file of ["docker-compose.yaml", "docker-compose.coolify.yaml"]) {
+    for (const file of ["docker-compose.yaml"]) {
       const svc = composeService(file);
       expect(svc.image, file).toBe(cfgImage);
       expect(svc.command, file).toEqual([...GOTENBERG.args]);

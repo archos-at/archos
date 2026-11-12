@@ -38,6 +38,8 @@ const VALUES = {
   designation: 'ÖNORM B 1600:2017',
   editionLabel: '2017-04-01',
   issuedOn: '2017-04-01',
+  inForceFrom: null,
+  inForceTo: null,
   territoryIds: [],
   issuer: 'Austrian Standards',
   addressees: [],

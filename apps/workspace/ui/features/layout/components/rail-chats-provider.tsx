@@ -54,6 +54,7 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
         title: row.contentLocked ? tCollab('rightsLost.neutralTitle') : row.title.trim() || t('sessionsPanel.untitledSession'),
         href: `${chatHref}?session=${encodeURIComponent(row.id)}`,
         current: onChatRoute && row.id === openId,
+        temporary: row.temporary,
       })),
       allHref: chatHref,
       onOpen,

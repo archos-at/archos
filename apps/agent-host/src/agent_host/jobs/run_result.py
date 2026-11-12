@@ -23,6 +23,19 @@ ANSWER_CONFIDENCE_FIELDS = (
     "answer_confidence_capped_reason",
 )
 
+#: Where a run's ``usage_context`` says its conversation is temporary (ADR-0180
+#: rule 2). Written by the submit route from the BFF's ``temporary_conversation``,
+#: read by the worker; a top-level key beside ``identity``, present only when true.
+TEMPORARY_CONVERSATION_KEY = "temporary_conversation"
+
+#: The name of the skip, as the chat path's reflection gate names its own.
+TEMPORARY_CONVERSATION_SKIP = "temporary_conversation"
+
+
+def is_temporary_conversation(usage_context: dict | None) -> bool:
+    """Whether the run was submitted from a temporary conversation. Pure; only a literal True counts."""
+    return (usage_context or {}).get(TEMPORARY_CONVERSATION_KEY) is True
+
 
 def mark_degraded(transparency: dict[str, Any], reason: str) -> None:
     """Add one degraded-reason token to an answer's transparency, in place.

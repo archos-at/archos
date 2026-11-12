@@ -48,7 +48,7 @@ export const derivedReason = (citation: string): string => `Abgeleitet: ${citati
  */
 export function classificationFor(
   profile: ProjectProfile,
-  options: SetupScopeOptions = {}
+  options: SetupScopeOptions
 ): BuildingClassification | null {
   if (options.lawWithheld) return null
   return buildingClassificationOf(setupScopeOf(profile, options))
@@ -114,7 +114,7 @@ export function deriveForBuilding(
 export function deriveAll(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
-  options: SetupScopeOptions = {}
+  options: SetupScopeOptions
 ): DerivationView[] {
   const classification = classificationFor(profile, options)
   if (!classification) return []
@@ -169,7 +169,7 @@ export function withDerivedClass(
   definition: ProjectIntakeDefinition,
   buildingId: string,
   now: string,
-  options: SetupScopeOptions = {}
+  options: SetupScopeOptions
 ): { profile: ProjectProfile; changed: boolean } {
   const key = buildingClassKey(buildingId)
   // A class binds only where the site's own record defines it, and an unplaced project is in no country yet: none is written.

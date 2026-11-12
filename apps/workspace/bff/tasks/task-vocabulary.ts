@@ -1,7 +1,7 @@
 /**
  * The task vocabularies, free of drizzle.
  *
- * `db/schema/tasks.ts` is where these belong by subject and the wrong place to
+ * `db/schema/task-model.ts` is where these belong by subject and the wrong place to
  * import them FROM: a client component that wants to label a status must not
  * drag the schema — and therefore the database — into the browser bundle
  * (`server-component-db-access.spec.ts` is what fails when it does). Same
@@ -98,10 +98,11 @@ export type TaskRunStatus = (typeof TASK_RUN_STATUSES)[number]
  * worker's first flush starts a queued run (`markRunStarted`). An ending is
  * written once, from a live state, by compare-and-set (`closeActiveRun`): the
  * worker's report, the reconciler and the kill switch cannot overwrite each
- * other, so the first final word stands. One writer is not held to this yet:
- * `recordRun` in `./delegation` writes the status it submitted with after the
- * submit, and can reopen a row the kill switch closed meanwhile; the
- * reconciler then closes it again from the job store.
+ * other, so the first final word stands. The submit is held to it too: what
+ * it records after the backend took the job (`recordSubmission`, `./run-moves`)
+ * moves the status only by `start`, so it cannot reopen a row the kill switch
+ * closed meanwhile or put a started run back to `queued`, and a submit that
+ * failed ends its run through the same close.
  */
 export const TASK_RUN_LIFECYCLE = defineLifecycle<TaskRunStatus, 'start' | 'succeed' | 'fail' | 'interrupt'>({
   id: 'task-run',

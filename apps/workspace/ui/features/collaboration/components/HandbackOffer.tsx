@@ -80,7 +80,7 @@ export function HandbackOffer({
       </span>
 
       <span className="flex items-center gap-1">
-        <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={onAccept}>
+        <Button variant="secondary" size="sm" className="h-7 gap-1.5 text-xs" onClick={onAccept}>
           {t('mentions.handback.action')}
         </Button>
         <Button

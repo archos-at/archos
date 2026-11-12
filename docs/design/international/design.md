@@ -737,7 +737,7 @@ No questionnaire: every fact and lookup setup needs has a record and an operatio
 interface KnowledgeContext { gate: Gate; packs: Array<{ packId: string; seq: number }>; chains: Record<string, LeafRef[]>
   authorities: Array<{ function: string; bodies: Body[]; label?: 'unchecked'|'from_project_data' }>        // ≤ 8
   procedures: Array<{ id: string; stichtage: Record<NodeId, { event: string; date: string | null; basis: Basis }> }>
-  works: Array<{ workId: string; uses: EditionUse[]; displaced: AnchorPair[] }>                            // ≤ 40
+  works: Array<{ workId: string; uses: EditionUse[]; displaced: AnchorPair[] }>                            // built: ≤ 500, every one in the chain text
   openFacts: Array<{ key: string; decisiveFor: string[]; request?: Request }>                              // ≤ 12
   prompt: { chain: string; terminology: TermPair[]; hedges: HedgeCode[] }; retrieval: RetrievalFilter }
 interface EditionUse { editionId: string; role: Role; qualifier?: 'uncurated'|'office_maintained'; route: string; date: string

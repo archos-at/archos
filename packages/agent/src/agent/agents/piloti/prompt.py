@@ -62,6 +62,7 @@ from agent.common.source_kinds import parse_shelf
 from agent.common.steering import AppliedSteer
 from agent.common.steering import with_steering
 from agent.knowledge.already_read import render_already_read_block
+from agent.knowledge.project_memory import turn_personal_memory
 from agent.observability.langfuse_trace_attributes import current_fallback_identity
 from agent.observability.langfuse_trace_attributes import record_prompt_link
 from agent.observability.langfuse_trace_attributes import record_trace_metadata
@@ -559,6 +560,9 @@ def turn_context_values(
         workspace_block=(
             state.workspace_block if any(name.startswith(WORKSPACE_TOOL_PREFIX) for name in tool_names) else None
         ),
+        # The asker's own notes (ADR-0180), read off the turn's memory log and
+        # not the state: the state is checkpointed and handed to deep research.
+        personal_memory=turn_personal_memory(),
         **_site_blocks(state, documents, tool_names),
         # The L1 skills catalog, collated by the register layer; None renders
         # no section.

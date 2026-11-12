@@ -1,0 +1,9 @@
+---
+operators:
+  - >
+    A country's page has "Add a document" on its Works and editions tab. Paste
+    the publisher's URL of a PDF (preferred: the platform fetches it itself) or
+    upload the file, say which work and edition it is, and it goes into the
+    country's open draft change request, or a new one, ready to review. An
+    agent on the platform door does the same in one call
+    (platform-knowledge-document-add).

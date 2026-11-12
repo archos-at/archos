@@ -67,7 +67,7 @@ export function DocumentsSettings({
           title={t('project.documents.knowledgeTitle')}
           description={t('project.documents.knowledgeDescription')}
           action={
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="secondary" size="sm" asChild>
               <Link href={`/app/projects/${encodeURIComponent(projectId)}/knowledge`}>
                 <BookOpenCheck className="size-4" aria-hidden />
                 {t('project.documents.knowledgeLink')}

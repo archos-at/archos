@@ -33,6 +33,8 @@ const Checkbox = React.forwardRef<
       // „some" read as „checked, but disabled" — the one state it exists for.
       'data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground data-[state=indeterminate]:border-primary',
       'dark:data-[state=indeterminate]:bg-primary dark:data-[state=indeterminate]:text-primary-foreground',
+      // Under the pointer the empty box takes the pointer's fill, as everything with no fill of its own does.
+      'data-[state=unchecked]:hover:bg-hover',
       FOCUS_RING,
       'aria-invalid:ring-destructive/20 aria-invalid:border-destructive',
       className

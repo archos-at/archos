@@ -103,3 +103,19 @@ export async function readTerritoryChain(
   )
   return chainAt(territoryId, date, (id) => parents.get(id))
 }
+
+/** The zone each of `territoryIds` states in its released record (those that state none are absent). */
+export async function readTerritoryZones(
+  organizationId: string,
+  territoryIds: readonly string[]
+): Promise<Record<string, string>> {
+  if (territoryIds.length === 0) return {}
+  const rows = await withTenant({ organizationId }, () =>
+    getDb().execute<{ id: string; zone: string }>(sql`
+      SELECT r.id, t.zone
+      FROM knowledge_records r JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
+      WHERE r.type = 'territory' AND r.id IN (${sql.join(territoryIds.map((id) => sql`${id}`), sql`, `)})
+        AND t.zone IS NOT NULL AND ${recordReadable('r', organizationId)}`)
+  )
+  return Object.fromEntries(rows.map((row) => [row.id, String(row.zone)]))
+}

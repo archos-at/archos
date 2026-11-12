@@ -26,7 +26,10 @@
  *   attempt through, in `reconnecting` while the ladder has a rung, and in
  *   `failed` or `incompatible` when it has none. An attempt whose preparation
  *   threw, or whose socket could not be constructed, failed like any other:
- *   it used to rest at `connecting` for good, and the chat said nothing.
+ *   it used to rest at `connecting` for good, and the chat said nothing. So
+ *   did one that never answered: a preparation is bounded by the driver, which
+ *   says `PREPARE_FAILED` (it outlives a close, and a state's timer does not),
+ *   and a dial by `dialLimit` here.
  * - A suspend moves a state without a socket to `suspended` or `offline`, and
  *   only when the page really is hidden or offline. It is never a failed
  *   attempt: read as one, it spent a rung and said `failed` a second time.
@@ -102,6 +105,19 @@ export const hasRung = (ladder: RetryLadderOptions, index: number): boolean =>
 export const rungDelayMs = (ladder: RetryLadderOptions, index: number): number =>
   'delaysMs' in ladder ? (ladder.delaysMs[index] ?? 0) : backoffWithJitter(index, ladder)
 
+/**
+ * How long a socket may take to open (`dialing`: TCP, TLS, the proxy, and the
+ * gateway's scope lookup, which happens before the upgrade completes). A
+ * browser gives a dial no bound of its own short of the operating system's,
+ * and Node's `ws` none at all, so a server that accepts and never upgrades
+ * held the status at `connecting` for good. Fifteen seconds is what the chat
+ * already gives a server to acknowledge a question across the same path
+ * (`ACK_TIMEOUT_MS`), and three times the hello's bound, which covers one
+ * round trip in process. It is also long enough that the headless turn's own
+ * 45 s deadline still speaks before four hung dials have spent its ladder.
+ */
+export const DIAL_TIMEOUT_MS = 15_000
+
 const announce = (status: TurnSocketStatus) => ({ type: 'announce' as const, params: { status } })
 
 /** A stand-in for an actor the driver provides: it does nothing and says nothing. */
@@ -159,6 +175,7 @@ export const turnSocketMachine = setup({
   delays: {
     // `takeRung` has run by the time this is read, so the rung just taken is the one before `attempts`.
     rung: ({ context }) => rungDelayMs(context.ladder, context.attempts - 1),
+    dialLimit: DIAL_TIMEOUT_MS,
   },
 }).createMachine({
   id: 'turnSocket',
@@ -236,6 +253,8 @@ export const turnSocketMachine = setup({
           },
           states: {
             dialing: {
+              // A dial nobody answers failed like any other. This attempt reached no server.
+              after: { dialLimit: { target: '#turnSocket.active.retry' } },
               on: {
                 SOCKET_REFUSED: { target: '#turnSocket.active.retry' },
                 SOCKET_OPENED: { target: 'greeting' },

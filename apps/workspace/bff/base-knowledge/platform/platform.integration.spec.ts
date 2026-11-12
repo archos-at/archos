@@ -38,8 +38,9 @@ vi.mock('@/lib/knowledge/service', () => ({
   }),
   // The files the corpus holds, each with the sha256 of its bytes; one is `ingested` once its chunks exist.
   getKnowledgeBaseStatus: async () => ({
-    files: [...corpus.held].map(([fileName, currentSha256]) => ({ fileName, currentSha256, state: corpus.ingested.includes(fileName) ? 'ingested' : 'pending' })),
+    files: [...corpus.held].map(([fileName, currentSha256]) => ({ fileName, currentSha256, state: corpus.ingested.includes(fileName) ? 'ingested' : 'pending', displayTitle: null })),
   }),
+  updateKnowledgeBaseDisplayTitle: async () => undefined,
 }))
 
 const url = process.env.TEST_DATABASE_URL

@@ -17,10 +17,13 @@
 
 import { buildCitationModel } from '@/features/chat/lib/citations/build'
 import { CITATION_PARAM, encodeCitationLink } from '@/features/chat/lib/citations/deep-link'
-import { citedLoci, isHttpUrl } from '@/features/chat/lib/citations/model'
+import { citedLoci, isHttpUrl, refHost } from '@/features/chat/lib/citations/model'
 import { decodeCitations } from '@/features/chat/lib/citations/persistence'
 import { describeResource } from '@/lib/sharing/registry'
 import { sanitizeProvenance } from '@/lib/conversations/message-provenance'
+import { type CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import { FALLBACK_CITATION_STYLES } from '@/shared/citation-style-fallback'
+import { sourceLine } from '@/shared/citation-style'
 import type { AskAnswerEvidence } from './ask-wire'
 
 interface EvidenceMessage {
@@ -39,10 +42,11 @@ function threadPath(conversationId: string, projectId: string | null, origin: st
 
 function sourcesOf(
   message: EvidenceMessage,
-  thread: { conversationId: string; projectId: string | null; origin: string | null },
+  thread: { conversationId: string; projectId: string | null; origin: string | null; styles: CitationStylePayload },
 ): NonNullable<AskAnswerEvidence['sources']> {
   const metadata = isRecord(message.metadata) ? message.metadata : {}
-  const citations = decodeCitations(metadata.citations, new Date(message.createdAt))
+  const answeredAt = new Date(message.createdAt)
+  const citations = decodeCitations(metadata.citations, answeredAt)
   if (!citations) return []
   const base = threadPath(thread.conversationId, thread.projectId, thread.origin)
   const sources: NonNullable<AskAnswerEvidence['sources']> = []
@@ -59,7 +63,11 @@ function sourcesOf(
         documentId: document.id,
         name: document.title,
         ...(locus.page !== undefined && { page: locus.page }),
+        ...(locus.clause !== undefined && { clause: locus.clause }),
+        kind: document.kind,
         url: outbound ?? `${base}&${CITATION_PARAM}=${encodeCitationLink({ document, locus })}`,
+        // The line the browser's copy writes, dated by the answer.
+        citation: sourceLine({ ...document, host: refHost({ document }), locus: locus.clause, page: locus.page }, answeredAt, thread.styles),
       })
     }
   }
@@ -81,9 +89,10 @@ function confidenceOf(message: EvidenceMessage): AskAnswerEvidence['confidence']
 /** The sources and confidence the answer's message stores; a key is absent where the message has none. */
 export function answerEvidence(
   message: EvidenceMessage,
-  thread: { conversationId: string; projectId: string | null; origin?: string | null },
+  thread: { conversationId: string; projectId: string | null; origin?: string | null; styles?: CitationStylePayload },
 ): AskAnswerEvidence {
-  const sources = sourcesOf(message, { ...thread, origin: thread.origin ?? null })
+  const styles = thread.styles ?? FALLBACK_CITATION_STYLES
+  const sources = sourcesOf(message, { ...thread, origin: thread.origin ?? null, styles })
   const confidence = confidenceOf(message)
   return { ...(sources.length > 0 && { sources }), ...(confidence && { confidence }) }
 }

@@ -140,12 +140,14 @@ backend:
   - 'apps/workspace/tests/fixtures/workspace_mcp_requests.json'
   - 'apps/workspace/tests/fixtures/workspace_mcp_responses.json'
   - 'apps/workspace/tsconfig.json'
+  - 'apps/workspace/ui/adapters/api/documents-schemas.ts'
   - 'apps/workspace/ui/features/a2ui/catalog.tsx'
   - 'apps/workspace/ui/features/cards/card-decision.ts'
   - 'apps/workspace/ui/features/cards/components/AnswerCards.tsx'
   - 'apps/workspace/ui/features/cards/lib/formula-cases.json'
   - 'apps/workspace/ui/features/chat/lib/executed-steps.ts'
   - 'apps/workspace/ui/features/documents/lib/ingest-failure.ts'
+  - 'apps/workspace/ui/features/documents/utils.ts'
   - 'apps/workspace/ui/features/layout/components/InputArea.tsx'
   - 'apps/workspace/workers/job-queue.js'
   - 'apps/workspace/workers/jobs/index.js'
@@ -267,6 +269,7 @@ workspace:
   - 'packages/agent/src/agent/skills/events.py'
   - 'packages/knowledge-layer/src/ingest/chosen_document_type.py'
   - 'tests/fixtures/base-knowledge/turn_law_austria.json'
+  - 'tests/fixtures/golden/scoring_parity.json'
   # End of the files this tier's tests read.
 site:
   # The Node version every job of this tier runs on (setup-node reads it).
@@ -347,6 +350,7 @@ infra:
   - 'apps/agent-host/src/agent_host/routes/chat_occupancy.py'
   - 'apps/agent-host/src/agent_host/routes/internal_auth.py'
   - 'apps/agent-host/src/agent_host/routes/jobs.py'
+  - 'apps/agent-host/src/agent_host/routes/oib.py'
   - 'apps/workspace/bff/malware-scan/config.ts'
   - 'apps/workspace/bff/model-config/openrouter.ts'
   - 'apps/workspace/bff/scheduling/sweeps.ts'
@@ -419,6 +423,10 @@ hatchet:
   - 'packages/agent/src/agent/knowledge/ingest_*.py'
   - 'packages/agent/tests/knowledge/test_ingest_workflow_engine.py'
   - 'packages/agent/tests/testing/agent_testing/orchestrator_engine_worker.py'
+  # The folder card builder's tasks, which the standard ingest worker serves.
+  - 'packages/agent/src/agent/knowledge/folder_cards/**'
+  - 'packages/agent/tests/knowledge/folder_cards/test_folder_card_workflow_engine.py'
+  - 'packages/agent/tests/testing/agent_testing/folder_cards_engine_worker.py'
   # The research run: submit, the worker, cancel, and the job store it shares.
   - 'apps/agent-host/src/agent_host/jobs/**'
   - 'apps/agent-host/src/agent_host/routes/job_kill.py'

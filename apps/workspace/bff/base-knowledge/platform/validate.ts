@@ -10,6 +10,8 @@
  *   file the base corpus holds, so a publish never names a text that is not
  *   there (ADR-0165, "Texts are attached in the request"). The corpus is the
  *   api tier's, so that answer is handed in like KC-7's (`checkedOutside`).
+ *   A golden case states at least one thing an answer is held to, names each
+ *   must-not once, and names an edition and a territory that exist.
  * - KC-3: intervals are ordered, and no two editions of one work are in force
  *   on the same day: two in one batch, or a new one beside one already on the
  *   platform (the as-of resolver refuses that as ambiguous, so it is refused
@@ -73,7 +75,8 @@ export const KIT_HINTS: Readonly<Record<KitCheck, string>> = {
     'exactly as the capture has them, including what the record names (its name, designation or label).',
   'KC-7':
     'Repair the source record so it parses, its hosts cover every URL it names, and each recorded fixture passes; ' +
-    'platform-knowledge-source-test shows what each fixture requested and found.',
+    'platform-knowledge-source-test shows what each fixture requested and found. A fixture of a document (a PDF) names ' +
+    'the capture the platform took of it (`captureId`), not its bytes.',
 }
 
 export interface Problem {
@@ -222,11 +225,18 @@ function namedTerritoryFields(record: ProposedRecord): [string, string][] {
   }
   if (record.type === 'ruleset') return each(record.values.territoryIds, '/values/territoryIds')
   if (record.type === 'source') return [[record.territoryId, '/territoryId']]
+  if (record.type === 'golden_case') return record.context.territoryId ? [[record.context.territoryId, '/context/territoryId']] : []
   return []
 }
 
 /** The field a reference is named by, for the pointer. */
-const REFERENCE_FIELD: Readonly<Record<string, string>> = { edition: '/workKey', manifestation: '/editionKey', work: '/addressees', ruleset: '/values/workIds' }
+const REFERENCE_FIELD: Readonly<Record<string, string>> = {
+  edition: '/workKey',
+  manifestation: '/editionKey',
+  work: '/addressees',
+  ruleset: '/values/workIds',
+  golden_case: '/expected/edition/editionKey',
+}
 
 /**
  * What a record claims to be, which one of its quotes must name: a territory's
@@ -280,6 +290,30 @@ function quoteProblems(
   return []
 }
 
+/**
+ * A golden case states something an answer can be held to (an expected value, an edition, a citation or a
+ * must-not), and names each must-not once: a case with nothing to check would pass whatever the answer said.
+ * Its site may lie in another country (a question the office's law does not cover), so its territory is only
+ * held to exist.
+ */
+function goldenCaseProblems(record: ProposedRecord): Problem[] {
+  if (record.type !== 'golden_case') return []
+  const { values, edition, citations } = record.expected
+  const found: Problem[] = []
+  const hint = 'Give the case an expected value, edition or citation, or a must-not, and each must-not its own id.'
+  if (values.length === 0 && !edition && citations.length === 0 && record.mustNot.length === 0) {
+    found.push(kitProblem('KC-1', record, '/expected', 'states nothing an answer is held to.', hint))
+  }
+  const decides = [...values.map((value) => value.grounding), ...(edition ? [edition.grounding] : []), ...citations.map((citation) => citation.grounding)].some((grounding) => grounding !== 'unconfirmed')
+  if (!decides && record.mustNot.length === 0 && values.length + citations.length + (edition ? 1 : 0) > 0) {
+    found.push(kitProblem('KC-1', record, '/expected', 'has only unconfirmed expectations and no must-not, so no run could pass or fail it.', 'Confirm one expectation against its source (grounding records or text), or add a must-not.'))
+  }
+  const ids = record.mustNot.map((rule) => rule.id)
+  const twice = ids.findIndex((id, index) => ids.indexOf(id) !== index)
+  if (twice >= 0) found.push(kitProblem('KC-1', record, `/mustNot/${twice}/id`, `the must-not "${ids[twice]}" is named twice.`, hint))
+  return found
+}
+
 export function validateProposal(
   records: readonly ProposedRecord[],
   countryId: string,
@@ -308,6 +342,7 @@ export function validateProposal(
     if (record.type === 'source' && territoryCountry(record.territoryId) !== countryId) {
       own.push(problem('KC-1', record, '/territoryId', `${record.territoryId} lies outside ${countryId}, the country of this request.`))
     }
+    own.push(...goldenCaseProblems(record))
   })
   const exists = (id: string, type: KnowledgeRecordType) => batch.get(id) === type || known.get(id)?.type === type
   records.forEach((record, index) => {

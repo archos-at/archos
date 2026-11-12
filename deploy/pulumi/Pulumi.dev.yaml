@@ -164,8 +164,12 @@ config:
   # Drain budget for in-flight research jobs on shutdown (see Pulumi.prod.yaml).
   # Shorter on staging: faster deploys matter more than saving a staging job.
   grid-oib:agentWorkerDrainSeconds: "180"
-  # ── Ingestion tier (ADR-0076) ── scales to zero while nothing is queued.
-  grid-oib:ingestWorkerMinReplicas: "0"
+  # ── Ingestion tier (ADR-0076) ── never below one pod: the base corpus hands its jobs to
+  # Hatchet only (`ingest_dispatch.enqueue_only`, no fallback), and Hatchet takes them only
+  # once a worker has registered `ingest-document`. At zero no worker ever registered it,
+  # every corpus job was refused, the backlog KEDA scales on stayed empty, and Austria's
+  # 49 texts failed to index on 2026-11-12. `ingest-worker.spec.ts` holds every stack to it.
+  grid-oib:ingestWorkerMinReplicas: "1"
   grid-oib:ingestWorkerMaxReplicas: "3"
   grid-oib:ingestWorkerConcurrency: "2"
   grid-oib:ingestWorkerDrainSeconds: "180"
@@ -189,6 +193,10 @@ config:
   # AuthKit domain of this stack's WorkOS environment: the agent doors' authorization server (ADR-0122).
   grid-oib:workosAuthkitDomain: grateful-view-25-staging.authkit.app
   grid-oib:registryUsername: matthiasbigl
+  # One operator reviews, approves alone and publishes a country's knowledge
+  # change request (KNOWLEDGE_SINGLE_OPERATOR, migration 0233): the owner's
+  # decision of 2026-11-11, for dev only. Never set it in Pulumi.prod.yaml.
+  grid-oib:knowledgeSingleOperator: "true"
   # ── Observability / OTel Collector + Aspire dashboard (ADR-0029) ──
   # Deployed only when the flag is on AND every dependency is set; otherwise
   # `pulumi preview` logs a warning naming what is missing and the tier

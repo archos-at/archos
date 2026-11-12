@@ -243,44 +243,70 @@ an order.
 Five of the first list were done in the change that wrote this page: document
 reading, the run's ending (task run and ledger), the deletion queue, the BIM
 model and the CMS social post. Each began by verifying its lead, and all five
-leads held. What they left open, each a decision and not a conversion:
+leads held. Three independent reviews before the merge found nothing blocking.
 
-* **Re-screening a quarantined upload fails at the database** (`GQH01`): the
-  0122 trigger needs to let a quarantined row return to `uploaded` when the
-  write lifts nothing. In the gotchas register, with a spec waiting on it.
-* **Archiving a document does not cancel its running ingest job**, so the job
-  may write chunks after the archive purged them (unverified on the Python
-  side).
-* **`delegation.ts` can still reopen an ended run row** when the kill switch
-  fires during a submit; two files at their size limit stand in the way.
-* **Nothing records that a scheduled social post went out at Buffer.** That
-  needs a status poll per scheduled post.
-* **An entity erased over HTTP whose purger transaction then fails on its final
-  attempt** still reads `failed`.
+What those two rounds left open was decided and closed in the change after
+(November 2026). Each fix began by reproducing the defect, and two decisions
+were corrected by the code on the way:
 
-Three independent reviews before the merge (turn socket, deletion queue, run
-endings and document failure writes) found nothing blocking. What they left,
-each narrow:
+* **Re-screening a quarantined upload** works (migration 0225). The rule first
+  decided, "the write lifts nothing", was unsafe: no CHECK ties the status to
+  the screening outcome, so a quarantined row still carrying an earlier `clean`
+  would have been shown to the office. The trigger lets a quarantined row
+  return to `uploaded` only when the new row says its outcome is `quarantined`
+  and its three hashes are unchanged, and the re-screen writes that outcome.
+* **Archiving a document stops its running read first**, and the pipeline's
+  `document-exists` check answers "gone" for an archived document, so a job the
+  cancel could not reach removes its own chunks.
+* **The stop route says what state the document ended in.**
+* **An extraction job knows its row by its own job id** as well as the bytes.
+* **The kill switch interrupts only what it stopped.** The decision first aimed
+  at a run whose block already reads `done`; tracing the worker showed the
+  block reads `done` only after the outcome was delivered or given up on, and
+  the real window is a run that owns SUCCESS in the job store while its outcome
+  report is still in flight. Every row the backend does not report as killed is
+  closed by the job store's verdict.
+* **Recording a submission cannot reopen an ended run** or take a started one
+  back to waiting.
+* **A run's close is stamped by the database's clock**, so the heal's predicate
+  does not depend on a pod's.
+* **A deletion's claim is a token** (`claimed_at`): every closing write matches
+  the claim it took, so a holder whose claim was taken over changes nothing. A
+  folder already purged whose bookkeeping failed is closed `purged`
+  (`closeErased`).
+* **A connection attempt is bounded** in preparing (10 s) and dialing (15 s);
+  a thread holds one live connection error; the "restoring" line also shows
+  when the first connect after a tab returns is slow; a recorder that hung on a
+  recording the meter heard speech in says it could not be saved.
+* **Migration 0223 has its Postgres check**, and a spec holds the schema's
+  CHECK text, the migration and the script to the status tuple.
 
-* **A run that finished just before the kill switch or a lost-job close took
-  its row ends `interrupted`, and its report is not filed** and no completed
-  item follows; the report text stays in the thread. This is the first-ending
-  rule applied as its authors' comments describe it; before, the late success
-  flipped the row and filed.
-* **The heal that settles a run's block can miss a run** when the pod's clock
-  lags the database's and the block write failed too (`finished_at` is the
-  pod's time, `reconcile_checked_at` the database's).
-* **An extraction job identifies itself by storage key only**, so a re-read of
-  the same bytes under a new job can still be failed by the old job's last
-  attempt.
-* **A deletion row can read `failed` for erased data** when a request held a
-  claim for more than 15 minutes, the purger took it over and purged, and the
-  request then failed at the attempt cap: the purger's write no longer
-  overwrites it. A claim token would close it.
-* **A connection preparation that hangs** (never resolves or rejects) leaves
-  the socket at `connecting`; the fix here covers one that fails.
-* **Migration 0223 has no Postgres check** in `scripts/rls-test-db.sh`, and
-  nothing compares the schema's generated CHECK text with the SQL.
+Still open after that, each for a stated reason:
+
+* **Nothing records that a scheduled social post went out at Buffer.** No
+  Buffer account exists yet to test a status poll against.
+* **A folder whose purge completed but owes trace erasure, and whose
+  bookkeeping failed, still reads `failed`.** Nothing durable records whether
+  those traces were erased. (A chat in that state is closed since the second
+  sweep below: its missing row says it is erased, and the trace sweep erases
+  the traces, stamps the row and closes it `purged`.)
+* **An old extraction job's success path is not fenced**, only its failure
+  write; and between marking a row processing and stamping the new job's id an
+  old job's failure can still land. Closing both needs the enqueue and the
+  stamp in one transaction.
+* **The review canvas exposes the "restoring" fact but shows nothing**: there
+  is no place or copy for a connection note on the canvas yet.
+* **Sliced recording is on for WebM only.** Safari's MP4 slices have not been
+  sent through the transcription, so a hung recorder there still holds nothing.
+* **After the kill switch, a run can stay live for a while**: one whose job the
+  store still holds as running (its stop failed, or it lay past the batch), or
+  one the store has lost, is left for the reconciler, which ends a lost one
+  `failed` after its grace. The platform console shows the interrupted count
+  only; the answer also carries `runsSucceeded`, `runsFailed` and
+  `runsWaiting`, which the console does not draw yet.
+* **A re-read with screening switched off** leaves a re-screened file
+  `completed` with outcome `quarantined`: held, in the reviewers' queue, with
+  no reason listed.
 
 Still to convert, by what each fixes for a person:
 
@@ -296,3 +322,131 @@ Still to convert, by what each fixes for a person:
    shared fetch-state hook for the twelve components with two booleans.
 5. **The agent door.** A resource that serves the registry, so a calling agent
    can read which moves a record accepts before it asks for one.
+
+## A second sweep, for what is still ugly
+
+Three scouts on the smallest model, on 2026-11-11 after the changes above had
+merged, each asked for the state machines most likely to produce a real bug:
+the UI, the workspace's server side, and Python. **"Read" means the author of
+this page re-checked it in the code; everything else is a scout's report.** Most
+of the open list above turned out to be fenced already, and the server-side
+scout said so instead of filling ten rows.
+
+### Server side
+
+| What | Where | Trust |
+|---|---|---|
+| An erased chat's Langfuse traces are never erased when the purger's trace step fails on every attempt: the row ends `failed`, and the one sweep that retries trace erasure selects `status = 'purged'` | `purger/purge-conversation.js` (the step after the BFF erase), `workers/maintenance-sql.js` `findConversationsAwaitingTraceErasure` | **Real, fixed**: the sweep now also selects a `failed` row whose `conversations` row is gone (last attempt within the window, settled, not held), re-checks the hold and the missing row before deleting, then stamps the row and closes it `purged` (`markConversationTracesErased`, the declared `close` from `failed`). A `failed` row whose chat exists is untouched. `bff/scheduling/conversation-trace-erasure.integration.spec.ts`, `workers/maintenance-sql.spec.mjs` |
+| Activating a platform lesson is followed by the capacity eviction, which can retire the lesson just activated; the response is the row from before the eviction and says `active` | `bff/platform-lessons/service.ts` (the `active` branch, then `evictActiveOverCapacity`) | **Real, fixed**: the eviction ordered by `last_reported_at` and could retire the lesson just activated; activation, eviction and events were also two transactions. Now one transaction (`capacity-repository.ts`) that protects the activated lesson; `capacity.spec.ts` |
+| A proposed change re-applied after a stale five-minute claim runs its applier again; a rename then fails "not found" and the row settles `partially_applied` although the work happened. `proposed-changes.md` says a re-run is a no-op | `bff/proposals/repository.ts`, `executors.ts`, `operation-applier.ts` | scout; the crash that triggers it is suspected |
+| Two corrections of one memory note at once leave two live replacements | `bff/projects/memory-service.ts` | scout |
+
+Cleared by the scout, each with its fence: mention requests, mail-thread
+follows, inbound mail parts (a fresh decision id per claim), the purger's queue,
+the job queue's holder, report filing, the source monitor (a partial unique
+index and `FOR UPDATE`), the inbox. A claim earlier on this page, that two
+CHECKs disagree on `task_runs.filing_status`, is stale: migration 0105 fixed it.
+
+Not reached: `apps/cms`, most of inbound mail's receive and the mail import,
+scheduled task definitions, feedback, the folder bin, budgets.
+
+### UI
+
+| What | Where | Trust |
+|---|---|---|
+| The preview pane keeps the previous file's image when the next file's preview fails: A's picture under B's name, no error, no retry | `ui/features/documents/components/use-file-preview-controller.tsx`, `file-preview-pane-document.tsx` | **Fixed**, reproduced first (`file-preview-pane.spec.tsx`, „a next file whose preview fails“): every load drops the last one's URLs in `use-file-preview-controller.tsx`, so the pane's own failed and gone states show |
+| A server proposal card whose first read fails stays failed until it is mounted again, and `problem = 'load'` can sit beside a live proposal | `ui/features/cards/hooks/use-server-proposal.ts` | **Fixed**, reproduced first (`ProposalReceipt.load.spec.tsx`): the read is one state (loading, loaded, failed) in `use-server-proposal.ts`, and a failed one is read again on the channel coming up, a hint, or the reader's return to the tab |
+| A shared thread's read-receipt retry outlives its conversation: a failed POST arms a timer after cleanup that later posts the old conversation's id | `ui/features/collaboration/hooks/use-shared-thread.ts` | **Fixed**, reproduced first (`use-shared-thread.spec.ts`, „a read receipt that fails after the reader left…“): the retry in `use-shared-thread.ts` is not armed once its effect is cleaned up, and takes the reported-id ref back only while it still names its own message. Whether the server accepted a backwards mark was not checked |
+| "The shelf is free" in an upload is five flags from three hooks; a stuck dialog stalls the drop queue | `ui/features/documents/hooks/use-shelf-upload.ts` | scout, suspected |
+| A shared thread's turn banner is cleared by one unguarded write, so the composer can unlock during a colleague's turn | `use-shared-thread.ts` | scout, suspected |
+| A review reply stays in `editing` when the agent takes the thread up, and the draft is lost | `ui/features/documents/components/review/thread-card.tsx` | scout, mechanism traced |
+| An activity card's row derives "undone" from five sources; its undo reads then writes with no version | `ui/features/cards/components/CanvasActivityCard.tsx` | scout, race suspected |
+| The intake wizard's save awaits deferred uploads with no bound, and decides a conflict by comparing translated text | the intake wizard controller | scout |
+| The IFC viewer destroys its renderer twice on a cancel mid-load, and its two-point measurement is written twice | `use-ifc-viewer-canvas-controller.tsx` | scout |
+| The members form loads a roster with no request guard across projects | `ui/components/projects/project-members-form.tsx` | scout, suspected |
+
+The hand-written loading, error and retry state is wider than the dozen this
+page counted: by grep, 31 files hold a loading state of their own and 37 an
+error state, and there is no shared hook. Eight were read.
+
+Not reached: `ui/features/chat`, `ui/features/inbound-mail`, most of the review
+panel, the upload tray, `ui/components/shell`, `app/**/*.tsx`.
+
+### Python
+
+Most of it is guarded: a research run's terminal writes, the run ledger's
+moves, turn admission, the turn fence and the chat sequencer were read by the
+scout and found sound. What is ugly is the ingest job's status row.
+
+| What | Where | Trust |
+|---|---|---|
+| The row is written by an unconditional upsert that vouches for it ("the write wins over a row another replica settled"), so a stopped run's late write can turn a person's cancel back into processing | `knowledge/ingest_status_store.py` `put` | **Real, fixed** in the run, not in `put`. The revival was not a late write in a small window: the cancel clears `owner`, so the stopped worker's next heartbeat (30 s) took the row for a wrongly settled one and wrote it back, which is the deliberate rule ("the owner, while it lives, is right about its job") applied to a cancel. Now a run that has been told to stop writes no live or failed status again and may still write `completed` (`knowledge-layer/src/ingest/adapter.py` `_persist`, `_told_to_stop`); the cancel also releases the row's hold (`_write_cancelled`), and `ingest_dispatch.cancel` answers `finished` when the job ended in the race. `put` stays unconditional, so an outsider's `interrupted` is still the live owner's to overwrite. `tests/knowledge_layer_tests/test_ingest_robustness.py` (a stopped run's beat, progress, failure and `completed`; the owner's rule for a Hatchet-run job), `test_ingest_status_store.py`, `apps/agent-host/tests/test_ingest_dispatch.py`. **Open**: a write that lands between the cancel's settle and the cancel reaching the worker makes the row `processing` again; the run's last word (`ingest_workflow._stopped`) settles it once more, and if the worker dies first the row now reads `interrupted` after 120 s instead of staying held for up to 30 h 45 min |
+| A stop mark survives a failed cancel, so a later supersede is treated as a person's stop | `agent_host/jobs/ingest_dispatch.py`, `knowledge/ingest_workflow.py` | **Real, deliberately left.** Clearing the mark when the cancel fails is not safe either: `cancel_run` raises on a REST timeout after the engine may have taken the cancel, and the run would then record a person's stop as superseded with no push. A stale mark costs one settle push that names a job the document no longer points at |
+| A settle reads the row and then puts it, with no compare-and-set | `knowledge/ingest_execution.py` | **Real, deliberately left**: `settle_timed_out`, `fail_unreadable` and `settle_superseded` each have a window of milliseconds in which a cancel can be overwritten, and the BFF's document stays `cancelled` in all three. The one case with a lasting effect (`reopen` after a stopped run's `failed` write) needed that write, which a stopped run no longer makes |
+| Why a job was cancelled is spread over four fields, two of which nothing reads | the ingest status model | **Real, cosmetic, deliberately left**: `metadata.cancelled`, `metadata.superseded` and `metadata.retrying_after` have no reader outside tests, the BFF reads `status` only, and the `person:` prefix on `run_id` is the one field that decides anything. Removing the unread keys changes three tests and no behaviour |
+| `JobState` and `FileStatus` are typed again in TypeScript with no parity test | `ui/adapters/api/documents-schemas.ts`, `ui/features/documents/utils.ts` | **Real, closed with a test**, no drift found: the two zod enums and `mapBackendStatus` are held to the Python enums by `tests/knowledge_layer_tests/test_ingest_state_parity.py`. The BFF types neither; it compares strings (see below) |
+
+### Where a record's state lives
+
+A research run is in five places with one truth, and that is sound: the
+backend job store's `job_info.status` is the truth (`job_outcome.py`: "terminal
+statuses are sticky", read), the job events are its history, the Hatchet run is
+execution, the run ledger is derived with "first final word stands", and the
+workspace's run row is reconciled to the job store.
+
+A document has three truths: "is it read" is a JSON status in `ingest_jobs`;
+"can it be found" is the vector store; and what the office sees is
+`documents.status`, a copy of the first. An earlier version of this paragraph
+said that copy was "kept in step by one push and five fallbacks" and asked for
+one settle function. That overstated it, from a scout's list nobody had read
+against the code. Two readers costed the fix on 2026-11-11, in the code and
+without changing it, and the author of this page re-checked what follows.
+
+One function writes a job's outcome: `setDocumentReconciledStatus`
+(`bff/documents/repository/reconcile.ts`), a compare-and-set on the status the
+read saw and on the ingest job id. It has six call sites: four inside
+`reconcileDocumentStatuses` (`bff/documents/reconcile-status.ts`) and two beside
+it in `bff/documents/reingest.ts`, a person's re-read and a person's stop. The
+settle push, the stale-pending sweep, the upload-batch sweep and every read are
+callers of the reconciler, not writers of their own; lost-job and the "Job ID
+not found" heal are passes inside it. Stuck-processing and ingest-recovery are
+a different thing: they act on `processing`, the status the reconciler leaves
+alone by rule, read the BFF's own job queue and never the backend's job, and
+write through `markDocumentIngestFailed`. Of eleven recent defects in this area
+(one reader's count from the history of `reconcile-status.ts` and its
+neighbours since 2026-10-28, not re-read by the author), eight were in the
+decision, what the backend's answer means or that nobody asked, and one would
+have been prevented by a single settle function.
+
+The three steps this page named, and what became of each:
+
+1. **Guard the ingest row's writes.** Done as the small version in #1637: the
+   first row of the Python table above. A final status does not stick there, on
+   purpose: a read that finished must still overwrite a cancel.
+2. **Define the states once and generate the TypeScript copy.** Costed and
+   reduced to the parity test in the Python table's last row. Generation
+   changes nothing at runtime: the list is baked in at build time, so an open
+   tab or an older pod meets a new state exactly as before, and the BFF types
+   no list at all. A Python transition table would document a rule the store
+   deliberately does not enforce (`ingest_status_store.py`: the owner, while it
+   lives, is right about its job).
+3. **One settle function for the workspace's copy.** Costed and not built. The
+   guards in the writers' `WHERE`s are of four kinds (the job compare-and-set,
+   local-work ownership, held-at-rest with the content hash, a compare-and-set
+   on the collection), and the declared graph (`reading-lifecycle.ts`) permits
+   nearly every move from every state but `quarantined`, so `canTransition`
+   would add almost nothing. Done instead: a ratchet,
+   `bff/documents/status-writers.spec.ts`. Eleven functions in six files set the
+   column (ten updates and the insert at birth); each is listed with its guard,
+   `setDocumentReconciledStatus` may be named only by the reconcile and
+   `reingest.ts`, and a twelfth writer or a third caller fails the spec.
+
+Still open, each with where it comes from:
+
+| What | Source |
+|---|---|
+| Split `reconcile-status.ts` along its seams (what a job status or a listing entry means; the collection listing and its cache; the orchestrator). About 620 lines moved, no behaviour change, and it takes the file off the size baseline (683 counted lines against 600). After the production promotion, not into it | the costing; the seams were read by its reader only |
+| The stamp window: `markDocumentProcessing` drops the row's job name and the new job's id is stamped after the enqueue, and in between an extraction job counts a row that names no job as its own (`unnamedCounts`) | **Run against Postgres on 2026-11-11, closed but for one case, nothing changed for it** (`bff/documents/dispatch-failure-race.integration.spec.ts`, second half). The sweep and `failDocumentsOfDeadJob` cannot act in the window: both go by the name the row carries (`stillOwnedBy` without `unnamedCounts` compares NULL, the listing joins on `metadata.bffJobId`), and `markDocumentProcessing` renews `updated_at`, so the sweep's quarter of an hour starts again. A running job of the same bytes may fail the row, and that is not the wrong job: `queueDocumentWork` names that very job next (`findOpenJobId`). A job for replaced bytes cannot fail it (the storage key). It could SETTLE it, through the dispatch's unguarded job write; that was reproduced and is fixed with the row below. Left open: a job on its last attempt writes its failure inside the window and the queue buries it before the new round looks for an open job, both between two consecutive statements of `queueDocumentWork`. The row then reads `failed` with the true reason and offers the retry again; the new job finds it not `processing` and leaves. Closing it needs the enqueue and the stamp in one transaction, which changes the queue's contract for a retry that has to be pressed twice |
+| A dispatch's late `failed` can land over a newer `pending` job | **Reproduced against Postgres and fixed on 2026-11-11** (the same spec, first half, through the real `dispatchIngest` with only the backend's answer scripted). A request that hung (`BACKEND_FETCH_TIMEOUT_MS`, asked twice: up to 20 s) wrote `failed` over the job of a second dispatch, over a read that had already finished, and over new bytes; the row kept the newer job's id, and neither the settle push nor the stale-pending sweep nor the reconcile's compare-and-set reached it again. The same dispatch succeeding late wrote its job over the newer one (`setDocumentIngestJob` had no compare either). Fix: `dispatchIngest` passes what it read of the row before it asked (`DispatchStart`: ingest job id and storage key), and both writes carry `unchangedSinceDispatch` in their `WHERE` (`bff/documents/repository/mutations.ts`). Of the ten call sites that pass no owner, the two in `dispatchIngest` changed. The other eight were left: five write straight after reading the row, about a fact no newer read changes (no stored bytes in `unarchive.ts`, `folder-bin-jobs.ts` and `ingest-recovery.ts`, no converter in `document-dispatch.ts`, a re-point refused in `collection-placement.ts`), and three sit in a `catch` that runs when a dispatch threw (a presign, the queue or the database), never for a backend that did not answer, which `dispatchIngest` records itself. Those three can still fail a row a concurrent dispatch took, in the milliseconds of a thrown error; not reproduced, not guarded |
+| A backend job status the BFF does not know falls through to "in progress" in `resolveJobOutcome` and leaves the row `pending`, asked about on every read, for good. The parity test fails the change that adds a state on one side and names the readers; nothing stops a deployed BFF meeting a newer backend | read by the author (`reconcile-status.ts`, `resolveJobOutcome`) |
+| The cancel route and the re-read heal run `onDocumentsSettled` themselves and skip what the reconcile also runs for a moved row (`shelf.changed` to colleagues, the search projection, `document_ingest_finished`) | the costing, not re-read by the author |

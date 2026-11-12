@@ -51,7 +51,7 @@ export const AuditLogButton: FC<AuditLogButtonProps> = ({ endpoint, label, error
     // second press, and swaps its glyph for the spinner only once the wait
     // has lasted 150 ms (same slot, so the label does not move).
     <Button
-      variant="outline"
+      variant="secondary"
       size="sm"
       onClick={() => {
         if (!loading) void open()

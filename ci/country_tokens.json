@@ -1,0 +1,70 @@
+{
+  "$comment": [
+    "The country-specific tokens scripts/check_country_in_code.py counts in source code under apps/ and packages/.",
+    "A country is data (ADR-0162, ADR-0168, ADR-0169, ADR-0173, ADR-0174): its institutions, legal databases, hosts,",
+    "territories and laws belong in records, never in a module, a route, an identifier or a string literal.",
+    "",
+    "To extend it for a country: add a key under `countries` (its ISO 3166-1 code) with the same kinds, then run",
+    "`.venv/bin/python scripts/check_country_in_code.py --rebaseline` and review the diff of",
+    "ci/country_in_code_baseline.json: every new entry is code that already names that country. Take the tokens",
+    "from the country's pack (configs/knowledge-packs/<cc>.json: territory names and ids, work designations) and",
+    "its source records (hosts); tests/test_check_country_in_code.py holds the list to the pack's territories.",
+    "",
+    "Each kind is one row of the burn-down in docs/architecture/country-extensibility.md and takes three matchers:",
+    "  hosts     a domain; it and every subdomain is one hit, case-insensitive.",
+    "  patterns  Python regexes, case-sensitive unless they say (?i). For file names and coded literals.",
+    "  words     one word of an identifier or of text, case-insensitive: `oib` matches `oib_sync`, `OibSync`,",
+    "            `OIB-RL` and `oib`, never `foible`. A trailing * matches a prefix (`wien*`: Wien, Wiener).",
+    "Hosts are matched first, then patterns, then words, each on what the one before left, so one occurrence is",
+    "one hit. Before adding a word, run `--explain` and read what it matches: a short word that is also English",
+    "(`at`, `ris` inside another word is safe, a bare `tirol` is not a problem, `bo` or `st` would be) goes in as",
+    "a pattern with its context instead."
+  ],
+  "countries": {
+    "AT": {
+      "legal_database": {
+        "what": "RIS, the federal legal information system, and its gazettes, as a name in code",
+        "words": ["ris", "lgbl", "bgbl"]
+      },
+      "standards_body": {
+        "what": "The OIB and its Richtlinien as a name in code",
+        "words": ["oib"]
+      },
+      "corpus_file_name": {
+        "what": "The spellings the OIB publishes its files under",
+        "patterns": ["(?i)oib-(?:rl|richtlinie)[_-]\\d[\\w.-]*"]
+      },
+      "host": {
+        "what": "A host of an Austrian authority or publisher",
+        "hosts": ["gv.at", "oib.or.at", "austrian-standards.at"]
+      },
+      "territory": {
+        "what": "Austria, its Länder and their codes as literals",
+        "patterns": [
+          "\\bAT-[1-9]\\b",
+          "(['\"`])(?:AT|at)\\1"
+        ],
+        "words": [
+          "österreich*", "oesterreich*", "austria*",
+          "bundesland*", "bundesländer*", "bundeslaender*",
+          "burgenland", "burgenländ*", "burgenlaend*", "bgld",
+          "kärnten", "kaernten", "kärntner*", "kaerntner*", "carinthia*",
+          "niederösterreich*", "niederoesterreich*", "nö", "noe",
+          "oberösterreich*", "oberoesterreich*", "oö", "ooe",
+          "salzburg*", "sbg",
+          "steiermark", "steiermärkisch*", "steiermaerkisch*", "steirisch*", "styria*", "stmk",
+          "tirol*", "tyrol*",
+          "vorarlberg*", "vbg",
+          "wien*", "vienna*"
+        ]
+      },
+      "law_name": {
+        "what": "A building law of a Land, or the word for one",
+        "words": [
+          "bauordnung*", "baugesetz*", "bautechnikverordnung*", "bautechnikgesetz*", "bauvorschriften",
+          "wbtv", "btv", "stbtv", "tbv", "bauvo", "bautv", "baug", "bauo"
+        ]
+      }
+    }
+  }
+}

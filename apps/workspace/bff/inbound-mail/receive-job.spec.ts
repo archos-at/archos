@@ -535,6 +535,20 @@ describe('mail is never lost to a parser bug', () => {
     expect(announceWaiting).toHaveBeenCalledTimes(1)
   })
 
+  it('holds the mail unreadable on the last attempt when its raw message cannot be read at all, so no dead job leaves it received', async () => {
+    receive(await sign(message()))
+    state.objects.delete(RAW_KEY)
+
+    await expect(run(NOT_LAST)).rejects.toThrow('no object')
+    expect(heldRow().status).toBe('received')
+
+    expect(await run(LAST)).toMatchObject({ done: true })
+    expect(heldRow().status).toBe('waiting')
+    expect(heldRow()).toMatchObject({ readStorageKey: null })
+    expect(state.parts).toHaveLength(1)
+    expect(state.parts[0].riskFlags).toEqual(['unreadable'])
+  })
+
   it('holds a mail whose sender was never judged as unchecked for 30 days, never as an outsider’s 14', async () => {
     vi.mocked(findAddressToken).mockResolvedValueOnce(null)
     receive(await sign(message()))

@@ -459,18 +459,18 @@ const ACTIVE_RUN_STATUSES = TASK_RUN_LIFECYCLE.liveStates
  * The one write of an ending: the worker's own report, the reconciler and the
  * kill switch can close one run at the same moment, and the guard on the live
  * states lets exactly one of them record its ending, so the first final word
- * stands. Null means the row had already ended (or is not this
- * organization's); the caller reads the row to learn which ending stands.
+ * stands. Null means the row had already ended (or is not this organization's).
+ * `finished_at` is the database's clock, as `reconcile_checked_at` is: the heal compares the two.
  */
 export async function closeActiveRun(
   runId: string,
   organizationId: string,
-  patch: Pick<NewTaskRun, 'status' | 'error' | 'finishedAt'>,
+  patch: Pick<NewTaskRun, 'status' | 'error'>,
 ): Promise<TaskRun | null> {
   const db = getDb()
   const [row] = await db
     .update(taskRuns)
-    .set({ ...patch, updatedAt: new Date() })
+    .set({ ...patch, finishedAt: sql`now()`, updatedAt: new Date() })
     .where(
       and(
         eq(taskRuns.id, runId),

@@ -1,6 +1,6 @@
 /**
  * Every closed vocabulary of the base knowledge records (migrations 0202,
- * 0204, 0205 and 0209, ADR-0163, ADR-0165 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
+ * 0204, 0205, 0209 and 0228, ADR-0163, ADR-0165 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
  * by `vocab.spec.ts`, which also writes `tests/fixtures/base-knowledge.schema.json`,
  * the copy the Python tier reads (its licence classes are tested against it).
  * Pure, so the UI reads them too. A source's protocols and formats are not
@@ -10,7 +10,7 @@
  * change to it reaches only its own importers (`scripts/blast-radius.mjs`).
  */
 
-export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'relation', 'source'] as const
+export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'relation', 'source', 'golden_case'] as const
 export type KnowledgeRecordType = (typeof KNOWLEDGE_RECORD_TYPES)[number]
 
 /**
@@ -98,6 +98,7 @@ export const RULESET_PURPOSES = [
   'fact_sources',
   'advice_policy',
   'terminology',
+  'citation_style',
 ] as const
 export type RulesetPurpose = (typeof RULESET_PURPOSES)[number]
 
@@ -106,7 +107,8 @@ export const DECISION_TABLE_PURPOSES = ['classification', 'derivation', 'referen
 /**
  * The payload schemas a ruleset body may carry: the evaluator's decision table,
  * the two setup records (migration 0207, ADR-0169), and the advice policy and
- * terminology (ADR-0174). A v2 arrives with a pure converter from v1 (design §3.7).
+ * terminology (ADR-0174), and a country's citation style
+ * (migration 0234, `wire/citation-style.ts`). A v2 arrives with a pure converter from v1 (design §3.7).
  */
 export const RULESET_PAYLOAD_SCHEMAS = [
   'decision_table.v1',
@@ -114,6 +116,7 @@ export const RULESET_PAYLOAD_SCHEMAS = [
   'fact_sources.v1',
   'advice_policy.v1',
   'terminology.v1',
+  'citation_style.v1',
 ] as const
 export type RulesetPayloadSchema = (typeof RULESET_PAYLOAD_SCHEMAS)[number]
 
@@ -128,6 +131,7 @@ export const RECORD_SCHEMA_PURPOSES = {
   ...SETUP_RECORD_PURPOSES,
   'advice_policy.v1': 'advice_policy',
   'terminology.v1': 'terminology',
+  'citation_style.v1': 'citation_style',
 } as const satisfies Partial<Record<RulesetPayloadSchema, RulesetPurpose>>
 
 /**
@@ -199,16 +203,6 @@ export type GateState = (typeof GATE_STATES)[number]
 
 /** Why a site is unknown: no site was stated, or a point lies in no territory the records hold. */
 export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
-
-/**
- * The schemes a work's identifiers are read in, so a passage the agent reads
- * live at its source finds its work (ADR-0175): RIS's Gesetzesnummer (the
- * `Gesetzesnummer` query parameter of a consolidated text) and an ELI (the
- * work's URL, matched by whole path segments). A scheme added here is matched
- * by the agent only once it learns it (`citations/roles.py`).
- */
-export const SOURCE_REF_SCHEMES = ['ris_gesetzesnummer', 'eli'] as const
-export type SourceRefScheme = (typeof SOURCE_REF_SCHEMES)[number]
 
 /**
  * Whether an edition applies to the project's buildings, by its scope

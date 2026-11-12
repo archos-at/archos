@@ -1,0 +1,13 @@
+---
+# area: building-law
+improvements:
+  - >
+    When a rule exists in more than one edition, the assistant now finds the
+    passage of the edition that applies at your project's site first, so its
+    answer cites that edition. An older or newer edition is still found when
+    you ask about it.
+operators:
+  - >
+    A rolled-back base-corpus text is now marked unreleased and keeps its
+    country, instead of being moved to the country no office reads. Texts
+    marked before this change read as they did.

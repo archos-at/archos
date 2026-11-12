@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from agent.common.bff_http import SignedEnvelope
 from agent.common.platform_lessons import LessonsResolution
 from agent.observability.langfuse_trace_attributes import reset_contributions
 from agent.observability.langfuse_trace_attributes import snapshot_contributions
@@ -86,3 +87,50 @@ class TestTheTraceSaysWhatTheTurnWasShown:
     async def test_no_workspace_records_nothing(self, quiet_setup, monkeypatch):
         metadata = await self._load(monkeypatch, None)
         assert "office_conventions_lines" not in metadata
+
+
+class TestTheTraceSaysWhatPersonalMemoryTheTurnHad:
+    """ADR-0180: how many of the asker's notes were shown and whether the turn keeps nothing; never a note."""
+
+    BLOCK = 'PERSONAL_MEMORY v1\n- [pinned | profile] "Leitet die Einreichplanung."\n- [preference] "Kurz antworten."'
+
+    async def _load(self, monkeypatch, **fields):
+        monkeypatch.setattr(
+            context_mod, "fetch_turn_context", lambda *_a, **_kw: ContextBlocks(None, None, None, **fields)
+        )
+        reset_contributions()
+        context = await load_turn_context(
+            RequestContext(
+                context_transport="bff", organization_id="org", envelope_header="hdr", envelope_signature="sig"
+            ),
+            conversation_id="c1",
+            query_text="Wie hoch darf die Brüstung sein?",
+            resolve_stages=False,
+        )
+        metadata = (snapshot_contributions() or {}).get("metadata", {})
+        reset_contributions()
+        return context, metadata
+
+    async def test_the_notes_shown_are_counted_and_not_quoted(self, quiet_setup, monkeypatch):
+        context, metadata = await self._load(monkeypatch, personal_memory=self.BLOCK)
+        assert metadata["personal_memory_lines"] == 2
+        assert metadata["temporary_conversation"] is False
+        assert "Einreichplanung" not in repr(metadata)
+        # To the prompt and the reflection stage on their own fields, never in the project context.
+        assert context.personal_memory == self.BLOCK
+        assert context.stage_facts.personal_memory == self.BLOCK
+        assert context.project_context is None
+
+    async def test_a_turn_without_notes_records_zero(self, quiet_setup, monkeypatch):
+        _context, metadata = await self._load(monkeypatch)
+        assert metadata["personal_memory_lines"] == 0
+
+    async def test_a_temporary_conversation_is_recorded_and_reaches_the_stage_facts(self, quiet_setup, monkeypatch):
+        context, metadata = await self._load(monkeypatch, temporary=True)
+        assert metadata["temporary_conversation"] is True
+        assert context.temporary is True
+        assert context.stage_facts.temporary is True
+
+    async def test_the_stage_facts_carry_the_envelope_for_the_personal_write(self, quiet_setup, monkeypatch):
+        context, _metadata = await self._load(monkeypatch)
+        assert context.stage_facts.envelope == SignedEnvelope(header="hdr", signature="sig")

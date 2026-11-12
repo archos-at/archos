@@ -69,7 +69,7 @@ warning (`resolver._build_org_skills`), never silently half-loaded.
 **A skill says nothing about when or how it runs.** `grid-execution` and
 `grid-schedulable` used to be reserved keys here; both were removed when
 schedules became jobs. Scheduling is a property of the job, and so is the
-output kind (`jobs.output`). The removed keys are **not rejected** — they are
+output kind (the definition's `kind`, `JOB_OUTPUTS`). The removed keys are **not rejected** — they are
 simply unreserved (`SKILL_METADATA_KEYS` in `packages/agent/src/agent/skills/models.py`,
 `METADATA_AGENTS`/`METADATA_CARDS` in `apps/workspace/bff/skills/types.ts`),
 so a stored org row or a pasted SKILL.md still carrying one keeps it as
@@ -329,7 +329,7 @@ tests use. The rule:
 question — what a *scheduled* run produces — and reading an output format as an
 availability rule meant that declaring `deep-research` silently deleted the
 skill from the chat agent, with no error and no log a user could see. The key
-no longer exists on the skill at all; the output kind is now `jobs.output`,
+no longer exists on the skill at all; the output kind is now the job's `output`,
 chosen by the user, and it decides only **which agent runs the job**
 (`routes/skills.py::_OUTPUT_AGENT_TYPES`, mirrored by `AGENT_FOR_OUTPUT` in
 `apps/workspace/bff/jobs/types.ts`). The skill picker in the job builder then
@@ -590,22 +590,26 @@ and backend described under Selection; there is no second channel.
 
 ## Data model (`app`, Drizzle)
 
-**Since migration 0086 the trigger and the attempt live in two tables of their
-own: `task_definitions` (kind, plan, requester, `trigger` = manual | once |
+**The trigger and the attempt live in two tables of their own (migration
+0086): `task_definitions` (kind, plan, requester, `trigger` = manual | once |
 schedule, and the schedule/due columns live per arm) and `task_runs` (one
-attempt, including skipped/errored fires that never reached the agent; runner
-fields from `job_runs`, lifecycle/filing/review from `tasks`).**
-`apps/workspace/bff/db/schema/task-model.ts` declares them; `jobs`,
-`job_runs` and `tasks` are LEGACY, read only by the 0086 backfill until
-migration 0087 drops them. `conversations.job_id` was repointed to
-`task_definitions.id` in 0086 (job ids were reused for their definitions).
-The sections below still describe the shipped `skills` table and the pre-0086
-shape of the others.
+attempt, including skipped/errored fires that never reached the agent).**
+`apps/workspace/bff/db/schema/task-model.ts` declares them, and
+[`docs/database/schema.md`](../database/schema.md) has their columns. A job is
+a definition with `trigger = 'schedule'` or `'manual'`: its `name` is the
+definition's `title`, its `output` the `kind`, its `prompt`, `dataSources` and
+attached skill snapshot the `plan`, its creator the pinned requester.
+`conversations.job_id` names the definition.
 
-Five tables. `skills`/`jobs`/`job_runs` live in
-`apps/workspace/bff/db/schema/jobs.ts`, created by
-`apps/workspace/migrations/0041_agent_skills.sql` as `skills`/`skill_schedules`/
-`skill_runs` and reshaped by `0043_jobs.sql`; `0044_conversation_job_provenance.sql`
+The tables before that, `jobs`, `job_runs` (0041 as `skill_schedules`/
+`skill_runs`, renamed by `0043_jobs.sql`) and `tasks` (0075), are gone: 0086
+copied every row into the two above under the same ids, and
+`0226_drop_dead_scheduler_schema.sql` dropped them once nothing had read or
+written them for 140 migrations.
+
+`skills` lives in `apps/workspace/bff/db/schema/jobs.ts`, created by
+`apps/workspace/migrations/0041_agent_skills.sql`;
+`0044_conversation_job_provenance.sql`
 adds the link from a conversation back to the job that produced it, and
 `0046_curated_skill_activations.sql` adds `curated_skill_activations`,
 `0047_platform_skills.sql` adds `platform_skills`,
@@ -620,9 +624,7 @@ surviving standard row becomes an offer, the CHECK narrows to `offer` and the
 partial index goes. Its counterpart `0087_organization_instructions.sql` adds
 `organization_instructions`, the tenant-side home for what the tier was misused
 for (ADR-0060). Each
-tenant table joins the tenant boundary with a `secure_table()` line (ADR-0041) —
-re-emitted by 0043 under the new names, because a rename carries the policy
-along but leaves its stored predicate written against the old table name.
+tenant table joins the tenant boundary with a `secure_table()` line (ADR-0041).
 `0086_task_definitions.sql` adds the collapsed pair and re-secures them the same
 way.
 
@@ -683,91 +685,26 @@ way.
 - `skill_name` is plain text, not an FK: its referent may be a file. A row
   naming a skill that no longer ships is inert, and survives if it returns
 
-`jobs` — project-scoped prompt on a timer (was `skill_schedules`)
-- `project_id` uuid NOT NULL → `projects.id` ON DELETE CASCADE,
-  `organization_id` text NOT NULL (denormalized)
-- `name` text, `prompt` text **NOT NULL** — the message the job fires, as if
-  typed into a new chat. This is what the job IS. 0043 added it nullable,
-  backfilled it from each row's pinned `skill_snapshot->>'body'` through a
-  COALESCE chain (nothing guaranteed that key was present, and one malformed
-  row would have aborted the migration) and only then set NOT NULL — a column
-  default would have been a lie surviving into every future row
-- `skill_name` text and `skill_snapshot` jsonb — the attached skill, **nullable
-  as a pair**. `CHECK (skill_name IS NULL) = (skill_snapshot IS NULL)`
-  (`jobs_skill_pair_check`) is in the database rather than the BFF because the
-  invariant is about the row: a name with no body is unrunnable, a body from
-  nowhere unattributable. The snapshot is `{name, description, body, metadata,
-  origin}` copied at save time, so a run is a deterministic WYSIWYG copy that
-  cannot drift when the skill is later edited — the workflows "compiled prompt"
-  contract, mirrored as JSONB
-- `output` text NOT NULL — `chat` | `deep-research`. It picks the agent and
+What a job keeps on its definition:
+- `kind` is the output, `chat` | `deep-research`. It picks the agent and
   decides whether the finished run becomes a conversation or a report. It was
-  the user's choice on the job; **nothing asks any more** — the wizard's step
+  the user's choice on the job; **nothing asks any more**: the wizard's step
   „Was soll dabei herauskommen?" is gone and every job created since is
   `deep-research`, because a standing task whose result is not a deliverable is
   a standing task nobody reads. Rows written before that keep their value and
-  keep firing as what they are, which is why the column is still here and still
-  read at fire time. Was `execution`, denormalized from the skill's
-  `grid-execution` metadata; same domain, same effect at fire time, only the
-  source of the value moved
-- `data_sources` jsonb — `string[] | null`. User-selected entries are
+  keep firing as what they are
+- `plan.dataSources` is `string[] | null`. User-selected entries are
   **additional** sources; `knowledge_layer` (project documents + OIB base
   corpus) is always included and prepended on save (`withAlwaysOnKnowledge`),
-  and enforced again at fire time so legacy rows are covered. `null` still =
-  all sources available to the agent. Those documents plus the base corpus are
-  the product's factual/normative basis — a run without them is never intended
-- `enabled` boolean NOT NULL default true, `schedule_cron` (5-field, NULL =
-  manual-only), `schedule_timezone` (IANA, default UTC), `next_run_at`
-  (computed at save time; NULL when no cron or disabled), `last_run_at`,
-  author columns, timestamps
-- Indexes: `idx_jobs_project_id`, `idx_jobs_organization_id`, and the partial
-  `idx_jobs_due` on `(next_run_at)` WHERE
-  `schedule_cron IS NOT NULL AND enabled` — only rows that can ever fire are
-  indexed, so the per-tick due probe stays a tiny scan. Partial indexes are
-  not expressible in the Drizzle builder, so it lives in the SQL migration
-
-`job_runs` (append-only) — submission history (was `skill_runs`)
-- `schedule_id` uuid NOT NULL → `jobs.id` ON DELETE CASCADE, denormalized
-  `project_id` / `organization_id`. **Deliberately not renamed to `job_id`**:
-  that name is taken on this table by the backend async-job id, and a
-  `job_runs_job_id_fkey` pointing at `jobs` would read as a foreign key on the
-  wrong column. 0043 records this as a `COMMENT ON COLUMN`, because the next
-  reader is looking at `\d+ job_runs`, not at migration history
-- `job_id` text — backend async-job id; NULL when `skipped`/`error`
-- `trigger`: `'manual' | 'schedule'`; `status`: `'submitted' | 'skipped' |
-  'error'` — submission outcome only. Live job progress/results stay in the
-  backend job store, joined by `job_id`
-- `detail` text — skip reason (job cap, feature gate) or submission error
-- `conversation_id` text — where an `output='chat'` run landed; NULL for
-  deep-research, skipped/error, and pre-0043 runs. Composite FK to
-  `conversations (id, organization_id)` (the house pattern from 0032), so a run
-  cannot name another tenant's conversation, with `ON DELETE SET NULL
-  ("conversation_id")` scoped to the one column — an unscoped SET NULL would
-  try to null the NOT NULL `organization_id`. Deleting a conversation must not
-  delete run history; the run survives, having forgotten where it landed
-- `skill_snapshot` jsonb NOT NULL — the job's snapshot at fire time, so run
-  history stays self-describing after the job is edited or purged. NOT NULL
-  even though `jobs.skill_snapshot` is nullable: a skill-less job records `{}`
-  here, so history keeps one shape to read (`emptySkillSnapshot()`)
-- `triggered_by` — user id for manual runs, `'scheduler'` for cron
-- Indexes: `idx_job_runs_job_created` on `(schedule_id, created_at DESC)` for
-  the newest-first history, `(project_id)`, `(organization_id)`, and a
-  standalone `(created_at)` the retention prune needs (the composite cannot
-  serve it without a `schedule_id` predicate)
+  and enforced again at fire time so older rows are covered. `null` still =
+  all sources available to the agent
+- `plan.skill` is the attached skill's snapshot, `{}` for none
+  (`emptySkillSnapshot()`); a run copies it into `task_runs.skill_snapshot`
+  (NOT NULL), so history keeps one shape to read
 
 `conversations.job_id` uuid (migration 0044) — provenance, not ownership: the
 job that produced this thread, or NULL when a person started it. See "Job
 conversations" below.
-
-**0043 renames, it does not recreate.** Every already-scheduled row keeps its
-id, its cron and its attached skill, and the ids that `job_runs` and the
-scheduler's claim already reference stay valid — a CREATE/COPY/DROP would have
-thrown those away for no gain. `ALTER TABLE … RENAME TO` moves the table with
-its data, policies, grants and indexes, but renames none of the indexes, the
-primary key or the foreign keys, so 0043 renames each dependent object
-explicitly; otherwise the Drizzle schema (which declares index names) and the
-database would disagree and `\d jobs` would go on calling itself
-`skill_schedules` in every constraint.
 
 ## BFF API
 
@@ -870,7 +807,7 @@ from the job row itself, and it never throws for a skip:
    name **or an empty list** (log only — nothing is delivered from it),
    `output` — which selects the agent — and `conversation_id` when there is
    one.
-4. Record a `job_runs` row: `submitted` (+ `job_id` + `conversation_id`),
+4. Record a `task_runs` row: `submitted` (+ `job_id` + `conversation_id`),
    `skipped` (a 429 with `Retry-After` → detail) or `error`, and touch
    `last_run_at`. Context building sits inside the try, so a transient
    DB/WorkOS failure surfaces as an `error` run row rather than an unrecorded
@@ -936,9 +873,8 @@ and `listAttachableSkills` fed the picker and have no caller. And the 48000-char
 `input` ceiling is no longer sized for a composed result — the BFF's 8000-char
 `prompt` cap is the binding one.
 
-`jobs.skill_name` / `jobs.skill_snapshot` and `task_definitions.plan.skill` are
-**dormant, not dropped**: legacy rows hold real snapshots, the pair CHECK is
-theirs, and a run still records what its definition was configured with. Nothing
+`task_definitions.plan.skill` is **dormant, not dropped**: older rows hold
+real snapshots, and a run still records what its definition was configured with. Nothing
 writes a new one, and nothing delivers a body from one.
 
 ### Job conversations (`output: 'chat'`)
@@ -973,7 +909,7 @@ Three properties, each forced rather than chosen:
   render the job's name and a job glyph instead of the owner's face, and so
   these threads can be kept out of the owner's personal sessions list (a weekly
   job is 52 of them a year) while staying fully openable by URL and from run
-  history. Answering either question from `job_runs` would mean a join on the
+  history. Answering either question from `task_runs` would mean a join on the
   hottest list read in the product, per row, for a fact that never changes
   after insert. The column and the fire path that writes it are in place; the
   list rendering and the sessions-list filter that consume it are not shipped
@@ -985,7 +921,7 @@ conversation must not delete run history. Neither side owns the other.
 
 **Every conversation write is best-effort and can never fail a run.** A failed
 create is logged and swallowed; the run then submits with no `conversation_id`
-and its `job_runs` row records none, which is exactly the shape of every run
+and its `task_runs` row records none, which is exactly the shape of every run
 that predates the feature. The conversation is deliberately NOT cleaned up when
 submission subsequently fails — a submit error is not proof the backend never
 received the run (a timeout is the common case), and deleting the thread a run
@@ -1068,10 +1004,11 @@ through the run report route instead, onto the block (ADR-0062).
 
 ### The task row (ADR-0051)
 
-Every submitted run is also a **task** (`tasks`, `lib/tasks/`): the durable
-unit of delegated work. `fireJob` inserts it beside the `job_runs` row with the
-requester pinned (`jobs.created_by`, never the scheduler), the plan frozen
-(prompt, skill snapshot, data sources) and the backend job id recorded. The
+Every fire is one **task run** (`task_runs`, `lib/tasks/`): the durable
+unit of delegated work. `fireJob` records it (`recordRun`) with the
+requester pinned (the definition's requester, never the scheduler), the plan
+frozen (prompt, skill snapshot, data sources) and the backend job id. Before
+migration 0086 this was a `job_runs` row and a `tasks` row for the same fire. The
 worker's outcome callback closes it (`succeeded` / `failed` / `interrupted`)
 and, for a finished deep-research task, **queues the report's filing as the
 requester** (`file_research_report` on the `bff-jobs` pool, ADR-0079; the run's
@@ -1100,9 +1037,10 @@ functions in process instead of POSTing to its internal routes.
 
 **Firing a definition.** The due time stays ours: `bff/jobs/schedule.ts`
 computes the next occurrence in the definition's own time zone and stores it in
-`next_run_at`. Hatchet crons are UTC with no time zone, so a recurring
-definition is not a Hatchet cron, which would drift by an hour at every
-daylight-saving change. Instead:
+`next_run_at`. A recurring definition is not a Hatchet cron: a cron tick that
+is missed is not caught up, where a scheduled run that comes due late still
+fires, and the schedule would live twice (ADR-0150, note of 2026-11-11; a cron
+can name a time zone with `CRON_TZ=`, so the zone is not the reason). Instead:
 
 1. Each enabled definition with a `next_run_at` has exactly one Hatchet
    scheduled run of `fire-task-definition` at that time; its id is
@@ -1140,7 +1078,8 @@ worker was up, and it gives the definitions that existed before the cutover
 fire on time rather than a repair late. The scan matches the partial index
 `idx_task_definitions_due`.
 
-**The sweeps.** Each is a Hatchet cron task (UTC, minute granularity) with a
+**The sweeps.** Each is a Hatchet cron task (UTC unless the expression names a
+zone with `CRON_TZ=`, minute granularity) with a
 constant concurrency key, `maxRuns: 1` and `CANCEL_NEWEST`, so a run that comes
 due while the previous one is still going is dropped and two never overlap. A
 failure throws and is recorded on the Hatchet run with its error; the next cron
@@ -1158,21 +1097,26 @@ run tries again (the daily ones also retry a few times with backoff).
 | `usage-export` | `*/10 * * * *` | `exportUsageToPosthog`, again at once while it is behind on history |
 | `trace-retention` | daily 02:17 | deletes Langfuse traces older than `TRACE_RETENTION_DAYS` (ADR-0044) |
 | `download-log-retention` | daily 02:37 | purges the download log past its retention (migration 0114) |
-| `frist-reminder` | `45 * * * *` | `enqueueDueReminders`, only on the run that is 06:45 in Vienna |
+| `collaboration-retention` | hourly, minute 23 | `pruneExpiredInboxItems` (inbox items past their keep, spec IB-15) and `sweepOrphanedCollaborationRows` (grants, mention requests and inbox items whose conversation or document is gone), a batch per table a round, up to 20 rounds |
+| `platform-lessons-sweep` | hourly, minute 53 | `runScheduledLessonSweep`: the lesson register's upkeep and up to 25 waiting reports ([`platform-failure-learning.md`](platform-failure-learning.md)) |
+| `inbound-mail-sweep` | every minute | `sweepInboundMail` (ADR-0137, [`inbound-mail.md`](inbound-mail.md)) |
+| `source-monitor` | `*/15 * * * *` | `runSourceMonitor` (ADR-0174), off unless the platform has source monitors on |
+| `frist-reminder` | `CRON_TZ=Europe/Vienna 45 6 * * *` | `enqueueDueReminders`, at 06:45 on the office's clock |
 
 The sweeps that ticked every 30 s now run every minute: Hatchet crons have no
 seconds. The cross-tenant SQL of the prune, the trace erasure and the download
 log lives in `workers/maintenance-sql.js`.
 
 **The Frist reminder and daylight saving.** 06:45 in Vienna is 05:45 UTC in
-winter and 04:45 UTC in summer, so no UTC cron stays on it. The task runs at
-minute 45 of every hour and `isFristReminderHour` (`bff/scheduling/office-clock.ts`)
-lets through only the run whose hour in Vienna is 6. Vienna's offset is a whole
-hour, so exactly one run a day passes, on the days the clocks change too (they
-change at 02:00 and 03:00). A repeat the same day, such as a retry, queues
-nothing new, because each organization's job id is the organization and the
-office's day. A day whose 06:45 run never ran (the engine down across it) is
-not caught up later: the next morning's reminder includes the overdue marks.
+winter and 04:45 UTC in summer, so no UTC cron stays on it. The task's cron
+names the zone, `CRON_TZ=Europe/Vienna 45 6 * * *`, and the engine starts it at
+06:45 on that clock (06:00 to 06:59 exists on every day of the year: the clocks
+change at 02:00 and 03:00). The sweep has no gate of its own, so a retry, or a
+run somebody triggers in the dashboard, queues the day's reminders whenever it
+runs; a repeat the same day queues nothing new, because each organization's
+job id is the organization and the office's day. A day whose 06:45 run never
+ran (the engine down across it) is not caught up later: the next morning's
+reminder includes the overdue marks.
 
 ## Cron semantics
 
@@ -1329,13 +1273,14 @@ history surfaces, and the run-history link and job-glyph rendering that
   the dark-launch property) covers both surfaces: jobs ride the same `skills`
   flag.
 - Scheduling (`bff/scheduling/`): `next-due.spec.ts` (the next run after a
-  fire, misfire coalescing) and `office-clock.spec.ts` (the 06:45 Vienna gate
-  across daylight saving) as plain logic; `tasks.spec.ts`, the one wiring spec
+  fire, misfire coalescing) and `retention-sweeps.spec.ts` (collaboration
+  retention's rounds, the lessons' clock, the reminder without a gate) as plain
+  logic; `tasks.spec.ts`, the one wiring spec
   with a fake client; `repository.integration.spec.ts` (an occurrence is taken
   once, however many fires race, under `task db:test:rls`); and
   `orchestrator.integration.spec.ts` against a real engine (a scheduled fire that
   re-arms, replace and delete on a definition change, a sweep that does not
-  overlap itself), run when `HATCHET_CLIENT_TOKEN` and `HATCHET_CLIENT_HOST_PORT`
+  overlap itself, a `CRON_TZ=` cron that starts on its zone's clock), run when `HATCHET_CLIENT_TOKEN` and `HATCHET_CLIENT_HOST_PORT`
   are set.
 - Backend pytest: `test_skill_submit.py` (token guard 403/503 dev-default,
   payload validation including the `output`/`execution` window, admission-error

@@ -27,6 +27,8 @@ export interface SessionRow {
   hasCompletedReport: boolean
   /** The reader may no longer read this chat (ADR-0088): shown under a neutral title. */
   contentLocked: boolean
+  /** Nothing from this chat is kept in memory (ADR-0180): the history marks its row. */
+  temporary: boolean
 }
 
 interface RowCache {
@@ -42,7 +44,8 @@ const sameRow = (a: SessionRow, b: SessionRow): boolean =>
   +new Date(a.date) === +new Date(b.date) &&
   a.hasActiveDeepResearch === b.hasActiveDeepResearch &&
   a.hasCompletedReport === b.hasCompletedReport &&
-  a.contentLocked === b.contentLocked
+  a.contentLocked === b.contentLocked &&
+  a.temporary === b.temporary
 
 /**
  * The row for one conversation: cached for the object, and the previous row
@@ -58,6 +61,7 @@ const rowFor = (conversation: Conversation, cache: RowCache): SessionRow => {
     hasActiveDeepResearch: hasLiveRun(conversation.messages),
     hasCompletedReport: hasFinishedRun(conversation.messages),
     contentLocked: conversation.contentLocked === true,
+    temporary: conversation.temporary === true,
   }
   const previous = cache.byId.get(conversation.id)
   const row = previous && sameRow(previous, built) ? previous : built

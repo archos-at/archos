@@ -72,6 +72,11 @@ vi.mock('./access', () => ({
   resolveResourceAccess: vi.fn(),
 }))
 
+vi.mock('./ownership-notice', () => ({
+  resolveOwners: vi.fn(),
+  notifyOwnersOfTakeover: vi.fn(),
+}))
+
 vi.mock('./directory', () => ({
   loadOrganizationDirectory: vi.fn(),
   unknownPerson: (userId: string) => ({ userId, email: null, name: userId, profilePictureUrl: null }),
@@ -105,6 +110,7 @@ import type { ResourceRole, ResourceVisibility } from '@/lib/db/schema/resource-
 import { publishToUsers } from '@/lib/events/bus'
 import { requireResourceAccess, requireResourceWriteAccess, resolveResourceAccess } from './access'
 import { loadOrganizationDirectory } from './directory'
+import { notifyOwnersOfTakeover, resolveOwners } from './ownership-notice'
 import { SHARE_LIMIT, consumeLimit } from '@/lib/limits'
 import { allowedDecision } from '@/test-utils/limit-fixtures'
 import { countGrantsForResource, deleteGrant, listGrantsForResource, upsertGrant } from './repository'
@@ -134,6 +140,22 @@ function stubCallerAccess(role: ResourceRole, visibility: ResourceVisibility = '
     visibility,
     container: { organizationId: 'org_1', projectId: 'proj_1' },
     canEscalate: false,
+    contentLocked: false,
+  })
+}
+
+/**
+ * A project admin who reads the resource through project visibility and does
+ * not own it: what `./access` answers the takeover's own check with. Once, so
+ * the roster read that follows sees the owner the takeover made them.
+ */
+function stubTakeoverAccess(): void {
+  vi.mocked(requireResourceAccess).mockResolvedValueOnce({
+    role: 'collaborator',
+    reason: 'visibility-project',
+    visibility: 'project',
+    container: { organizationId: 'org_1', projectId: 'proj_1' },
+    canEscalate: true,
     contentLocked: false,
   })
 }
@@ -434,16 +456,9 @@ describe('a document cannot be made private (nothing would enforce it)', () => {
 
 describe('escalateToOwner (spec SH-10)', () => {
   beforeEach(() => {
-    // A project admin who is not yet party to the thread — what `./access`
-    // resolves for the only caller allowed through here.
-    vi.mocked(resolveResourceAccess).mockResolvedValue({
-      role: null,
-      reason: null,
-      visibility: 'private',
-      container: { organizationId: 'org_1', projectId: 'proj_1' },
-      canEscalate: true,
-      contentLocked: false,
-    })
+    // A project admin who can read the thread through its project visibility
+    // and does not own it — the only caller allowed through here.
+    stubTakeoverAccess()
     stubConversation('user_creator')
     // The roster as it reads once the admin's own owner grant has landed.
     stubGrants([{ subjectUserId: 'user_me', role: 'owner' }])
@@ -484,6 +499,52 @@ describe('escalateToOwner (spec SH-10)', () => {
     expect(publishToUsers).not.toHaveBeenCalled()
     expect(warn).toHaveBeenCalled()
     warn.mockRestore()
+  })
+
+  it('asks for read access itself, and writes nothing for a caller who has none', async () => {
+    // ADR-0032 decision 5, amended 2026-11-11: a project admin with no role on a
+    // private chat is answered 404 by `requireResourceAccess`, before any write.
+    vi.mocked(requireResourceAccess).mockReset()
+    vi.mocked(requireResourceAccess).mockRejectedValue(new NotFoundError())
+
+    await expect(escalateToOwner(session, 'conversation', 'conv_1')).rejects.toBeInstanceOf(NotFoundError)
+
+    expect(requireResourceAccess).toHaveBeenCalledWith(session, 'conversation', 'conv_1', 'viewer', {
+      allowLocked: true,
+    })
+    expect(upsertGrant).not.toHaveBeenCalled()
+    expect(recordAuditEvent).not.toHaveBeenCalled()
+    expect(notifyOwnersOfTakeover).not.toHaveBeenCalled()
+  })
+
+  it('refuses a reader who may not take ownership (canEscalate false) as not found', async () => {
+    vi.mocked(requireResourceAccess).mockReset()
+    stubCallerAccess('viewer', 'project')
+
+    await expect(escalateToOwner(session, 'conversation', 'conv_1')).rejects.toBeInstanceOf(NotFoundError)
+    expect(upsertGrant).not.toHaveBeenCalled()
+    expect(recordAuditEvent).not.toHaveBeenCalled()
+  })
+
+  it('tells the owners it had before the takeover, and audits the role the admin held', async () => {
+    vi.mocked(resolveOwners).mockResolvedValue(['user_creator'])
+
+    await escalateToOwner(session, 'conversation', 'conv_1')
+
+    expect(resolveOwners).toHaveBeenCalledWith('org_1', 'conversation', 'conv_1')
+    expect(notifyOwnersOfTakeover).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      resourceType: 'conversation',
+      resourceId: 'conv_1',
+      actorUserId: 'user_me',
+      owners: ['user_creator'],
+    })
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'resource.ownership.escalated',
+        metadata: { previousRole: 'collaborator', via: 'project-admin' },
+      }),
+    )
   })
 })
 
@@ -569,14 +630,7 @@ describe('a conversation that drew on a restricted folder reaches only people cl
   })
 
   it('asks about the project admin themself when they take ownership', async () => {
-    vi.mocked(resolveResourceAccess).mockResolvedValue({
-      role: null,
-      reason: null,
-      visibility: 'private',
-      container: { organizationId: 'org_1', projectId: 'proj_1' },
-      canEscalate: true,
-      contentLocked: false,
-    })
+    stubTakeoverAccess()
     vi.mocked(assertMayWidenConversation).mockRejectedValueOnce(
       new ConflictError('self', { reason: 'restricted-content-self' }),
     )
@@ -695,14 +749,7 @@ describe('sharing a document is a write in its folder (ADR-0088)', () => {
     ['taking ownership', () => escalateToOwner(session, 'document', 'doc_1')],
   ])('refuses %s from a reader of a read-only folder, before anything is written or limited', async (_name, act) => {
     stubCallerAccess('owner')
-    vi.mocked(resolveResourceAccess).mockResolvedValue({
-      role: null,
-      reason: null,
-      visibility: 'private',
-      container: { organizationId: 'org_1', projectId: 'proj_1' },
-      canEscalate: true,
-      contentLocked: false,
-    })
+    stubTakeoverAccess()
 
     await expect(act()).rejects.toMatchObject({ status: 403, details: { reason: 'folder-read-only' } })
 

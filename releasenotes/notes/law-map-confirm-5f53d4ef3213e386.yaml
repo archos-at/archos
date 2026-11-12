@@ -1,0 +1,9 @@
+---
+# area: building-law
+operators:
+  - >
+    On the law map, a reviewer now confirms a country statement by statement:
+    an act with the editions it makes binding, an edition with its text, a
+    region's building act. Each yes or no is recorded on the change request as
+    before, and the person who proposed it is never the one who confirms it,
+    unless the deployment runs one operator alone.
