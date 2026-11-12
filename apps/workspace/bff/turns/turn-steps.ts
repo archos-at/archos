@@ -8,7 +8,7 @@
  * (`_persistTurnProvenance`). A turn nobody watched to its end (asked through
  * the agent door, woken by an event, a browser closed mid-turn) had no other
  * writer, so its answer reloaded without a Herleitung. The agent tier keeps the
- * frames that touch a step and hands them over behind the answer row
+ * frames of each row the fold needs and hands them over after the answer row
  * (`agent_host/turn_record.py`); this folds them with the browser's own fold
  * and stores the same shape through the same sanitizer, so the two writers
  * agree and either may land first.
@@ -23,8 +23,8 @@ import { findConversationInOrg, findMessageInConversation, mergeMessageMetadata 
 import type { Message } from '@/lib/db/schema/messages'
 import { closeSteps, foldTurnEvents, initialTurnView } from './turn-fold'
 
-/** The most frames one turn hands over (`MAX_STEP_FRAMES`, `turn_record.py`); the stored rows are bounded again on write. */
-export const MAX_TURN_STEP_FRAMES = 1200
+/** The most frames one turn hands over: three per row (`MAX_STEP_FRAMES` in `turn_record.py`, held to this by the spec). */
+export const MAX_TURN_STEP_FRAMES = 7200
 
 /** `PUT /api/internal/conversations/{id}/messages/{turnId}/steps`. */
 export const internalTurnStepsSchema = z

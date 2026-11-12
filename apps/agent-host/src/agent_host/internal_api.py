@@ -224,7 +224,8 @@ async def post_internal_turn_steps(
     fold and stores ``provenance.thinkingSteps`` on the question, replacing
     what is there, so a browser that also stored them leaves one copy
     (``apps/workspace/bff/turns/turn-steps.ts``). Sent after the answer row,
-    once per turn, scoped by organization like that row. Retried briefly
+    once per turn, in a task of its own that a headless turn's outcome does not
+    wait on, scoped by organization like that row. Retried briefly
     (``internal_retry``); a 404 (no such question, or an older BFF) is final.
     """
     base_url = internal_base_url()

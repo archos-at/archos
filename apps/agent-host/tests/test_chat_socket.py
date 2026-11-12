@@ -2819,13 +2819,15 @@ async def test_a_headless_turn_reports_its_outcome_once_after_its_row_is_written
     outcome_contract["TurnOutcomeResponse"].validate(bff.answer[1])
 
 
-async def test_a_headless_turn_hands_its_steps_over_after_its_row_and_before_its_outcome(
+async def test_a_headless_turn_hands_its_steps_over_after_its_row_and_its_outcome_does_not_wait_on_them(
     harness, bff, persisted, monkeypatch
 ):
     handed: list[tuple[Any, ...]] = []
+    stuck = asyncio.Event()
 
     async def steps(*args: Any) -> bool:
-        handed.append((*args, len(persisted), len(bff.outcomes)))
+        handed.append((*args, len(persisted)))
+        await stuck.wait()  # a slow or failing route, retried
         return True
 
     monkeypatch.setattr(chat_socket, "post_internal_turn_steps", steps)
@@ -2839,17 +2841,17 @@ async def test_a_headless_turn_hands_its_steps_over_after_its_row_and_before_its
 
     sock = harness(stepping).connect(headers=HEADLESS)
     sock.client(type="user_message", message_id=WAKE, text="?")
-    await until(lambda: bff.outcomes)
-    await _settle_background()
+    await until(lambda: bff.outcomes)  # told while the steps are still on their way
 
-    [(conversation_id, _organization_id, turn_id, frames, rows_before, outcomes_before)] = handed
+    [(conversation_id, _organization_id, turn_id, frames, rows_before)] = handed
     assert (conversation_id, turn_id) == (CONV, WAKE)  # the question is the turn's own row
     assert [(frame["type"], frame["step"]["id"]) for frame in frames] == [
         ("STEP_STARTED", "tool:1"),
         ("STEP_FINISHED", "tool:1"),
     ]
-    assert [frame["seq"] for frame in frames] == sorted(frame["seq"] for frame in frames)
-    assert (rows_before, outcomes_before) == (1, 0)  # after the answer row, before the caller hears the end
+    assert rows_before == 1  # after the answer row
+    stuck.set()
+    await _settle_background()
 
 
 async def test_a_turn_that_took_no_step_hands_nothing_over(harness, monkeypatch):

@@ -492,8 +492,8 @@ async def persist_turn_result(
         message_type="agent_response",
         metadata=metadata,
     )
-    if written and turn_id and step_frames:  # the Herleitung, on the question (`turn_record`)
-        await post_internal_turn_steps(conversation_id, organization_id, turn_id, step_frames)
+    if written and turn_id and step_frames:  # the Herleitung, on the question; nothing waits on it (`turn_record`)
+        in_background(post_internal_turn_steps(conversation_id, organization_id, turn_id, step_frames))
     return written
 
 
