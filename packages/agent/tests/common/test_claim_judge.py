@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -284,6 +285,89 @@ class TestTheCall:
 
         assert metadata["answer_check_finish_reason"] == "stop" and metadata["answer_check_output_tokens"] == 40
         assert {"answer_check_elapsed_ms", "answer_check_evidence_chars", "answer_check_answer_chars"} <= set(metadata)
+
+    async def test_a_long_exception_class_name_fits_the_wire(self):
+        """The wire caps ``error_type`` at 100 and ``finish_reason`` at 40; a longer value would fail the TurnResult."""
+        from agent.common.wire_v2 import ConfidenceCheck
+
+        long_error = type("E" * 150, (RuntimeError,), {})
+        outcome = await llm_judge(_Model(error=long_error("x")))(_evidence())
+        rambling = await llm_judge(_Model(reply="nein", ending=({"finish_reason": "f" * 90}, {})))(_evidence())
+
+        assert outcome.error_type == "E" * 100 and len(rambling.finish_reason) == 40
+        for reason in (outcome, rambling):
+            ConfidenceCheck.model_validate({"status": "unavailable", "unavailable_reason": reason.to_wire()})
+
+    async def test_the_exception_itself_reaches_the_log_and_nothing_else(self, caplog):
+        with caplog.at_level("WARNING", logger=claim_judge.__name__):
+            outcome = await llm_judge(_Model(error=RuntimeError("402 Payment Required")))(_evidence())
+
+        assert any("402 Payment Required" in (record.exc_text or str(record.exc_info)) for record in caplog.records)
+        assert "402" not in json.dumps(outcome.to_wire())
+
+
+def _openai_chat(reply: dict) -> Any:
+    """A real ``ChatOpenAI``, the production client class, answering ``reply`` over an in-memory transport."""
+    import httpx
+    from langchain_openai import ChatOpenAI
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=reply)
+
+    return ChatOpenAI(
+        model="judge-model",
+        api_key="test",
+        base_url="http://provider.test/v1",
+        max_retries=0,
+        http_async_client=httpx.AsyncClient(transport=httpx.MockTransport(answer)),
+    )
+
+
+def _completion(content: str, finish_reason: str, completion_tokens: int) -> dict:
+    return {
+        "id": "c1",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "judge-model",
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": finish_reason}],
+        "usage": {
+            "prompt_tokens": 900,
+            "completion_tokens": completion_tokens,
+            "total_tokens": 900 + completion_tokens,
+        },
+    }
+
+
+class TestTheProductionClient:
+    """Through ``ChatOpenAI`` and the OpenAI SDK, not a double: with ``response_format`` the SDK parses the
+    reply itself, and a reply cut at the budget arrives as ``LengthFinishReasonError``, never as cut text."""
+
+    async def test_a_reply_cut_at_the_budget_is_unparseable_and_truncated(self, monkeypatch):
+        cut = '{"level": "low", "findings": [{"statement": "Die Treppe'
+        chat = _openai_chat(_completion(cut, "length", claim_judge.MAX_OUTPUT_TOKENS))
+        raised: list[str] = []
+        failure = claim_judge._failure
+
+        def spy(exc, call):
+            raised.append(type(exc).__name__)
+            return failure(exc, call)
+
+        monkeypatch.setattr(claim_judge, "_failure", spy)
+
+        outcome = await llm_judge(chat)(_evidence())
+
+        assert raised == ["LengthFinishReasonError"]
+
+        assert isinstance(outcome, Unavailable)
+        assert (outcome.cause, outcome.finish_reason, outcome.truncated) == ("unparseable", "length", True)
+        assert outcome.error_type is None and outcome.elapsed_ms is not None
+
+    async def test_a_whole_reply_is_judged(self):
+        chat = _openai_chat(_completion('{"level": "medium", "findings": [], "open_points": []}', "stop", 20))
+
+        outcome = await llm_judge(chat)(_evidence())
+
+        assert not isinstance(outcome, Unavailable) and outcome.level == "medium"
 
     def test_the_agent_resolves_it_on_the_follow_ups_group_and_has_none_without_a_model(self, monkeypatch):
         from agent.stages import runner

@@ -49,6 +49,7 @@ from collections.abc import Sequence
 from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import replace
 from typing import Any
 from typing import Literal
 
@@ -183,6 +184,12 @@ class Unavailable:
     elapsed_ms: int | None = None
     evidence_chars: int | None = None
     answer_chars: int | None = None
+
+    def __post_init__(self) -> None:
+        # The wire caps both (``wire_v2.ConfidenceUnavailable``), and a longer value there fails the whole
+        # ``TurnResult``: a provider's free-text finish reason or a long exception class name is cut here.
+        object.__setattr__(self, "error_type", self.error_type[:100] if self.error_type else self.error_type)
+        object.__setattr__(self, "finish_reason", self.finish_reason[:40] if self.finish_reason else self.finish_reason)
 
     def to_wire(self) -> dict[str, Any]:
         """The fields that say something: ``cause`` always, the rest when set."""
@@ -325,8 +332,11 @@ def _ending(response: Any) -> tuple[str | None, int | None]:
     return (reason if isinstance(reason, str) else None), (tokens if isinstance(tokens, int) else None)
 
 
-def _outcome(response: Any, base: dict[str, Any]) -> Check | Unavailable:
-    """The check a reply states, or why it states none: empty, cut at the budget, or no such object."""
+def _outcome(response: Any, call: Unavailable) -> Check | Unavailable:
+    """The check a reply states, or why it states none: empty, cut at the budget, or no such object.
+
+    ``call`` carries what is known of the call (its sizes and time); the cause is decided here.
+    """
     from agent.common.message_utils import content_to_text
 
     text = content_to_text(getattr(response, "content", response))
@@ -334,11 +344,28 @@ def _outcome(response: Any, base: dict[str, Any]) -> Check | Unavailable:
     truncated = finish_reason in ("length", "max_tokens") or (output_tokens or 0) >= MAX_OUTPUT_TOKENS
     _record_call(finish_reason=finish_reason, output_tokens=output_tokens)
     if not text.strip():
-        return Unavailable("no_reply", finish_reason=finish_reason, truncated=truncated, **base)
+        return replace(call, cause="no_reply", finish_reason=finish_reason, truncated=truncated)
     check = parse_reply(text)
     if check is None:
-        return Unavailable("unparseable", finish_reason=finish_reason, truncated=truncated, **base)
+        return replace(call, cause="unparseable", finish_reason=finish_reason, truncated=truncated)
     return check
+
+
+def _failure(exc: BaseException, call: Unavailable) -> Unavailable:
+    """Why a call that raised gave no check.
+
+    With ``response_format`` the OpenAI client parses the reply itself and raises ``LengthFinishReasonError``
+    on ``finish_reason`` ``length`` rather than returning the cut text: that is a reply cut at the output
+    budget, the same cause as a truncated reply that did not parse. Matched by name, so the check needs no
+    provider SDK to import. Any other exception (``ContentFilterFinishReasonError`` among them) is ``error``.
+    """
+    if isinstance(exc, TimeoutError):
+        return replace(call, cause="timeout", error_type="TimeoutError")
+    if type(exc).__name__ == "LengthFinishReasonError":
+        usage = getattr(getattr(exc, "completion", None), "usage", None)
+        _record_call(finish_reason="length", output_tokens=getattr(usage, "completion_tokens", None))
+        return replace(call, cause="unparseable", finish_reason="length", truncated=True)
+    return replace(call, cause="error", error_type=type(exc).__name__)
 
 
 def _record_call(**facts: Any) -> None:
@@ -355,22 +382,22 @@ def llm_judge(llm: Any) -> JudgeFn:
         from agent.common.structured_reply import structured_response
 
         messages = build_messages(evidence)
-        sizes = {
-            "evidence_chars": len(evidence_data(evidence)),
-            "answer_chars": len(evidence.answer),
-        }
+        sized = Unavailable("error", evidence_chars=len(evidence_data(evidence)), answer_chars=len(evidence.answer))
         started = time.monotonic()
+        raised: Exception | None = None
         try:
             model = llm.bind(temperature=0, max_tokens=MAX_OUTPUT_TOKENS)
             response = await asyncio.wait_for(structured_response(model, messages, CheckReply), JUDGE_TIMEOUT_S)
-            outcome = _outcome(response, {**sizes, "elapsed_ms": _since(started)})
-        except TimeoutError:
-            outcome = Unavailable("timeout", error_type="TimeoutError", elapsed_ms=_since(started), **sizes)
+            outcome = _outcome(response, replace(sized, elapsed_ms=_since(started)))
         except Exception as exc:  # noqa: BLE001 - every failure is the same answer: no level, with its cause
-            outcome = Unavailable("error", error_type=type(exc).__name__, elapsed_ms=_since(started), **sizes)
-        _record_call(elapsed_ms=_since(started), **sizes)
+            raised = exc
+            outcome = _failure(exc, replace(sized, elapsed_ms=_since(started)))
+        _record_call(elapsed_ms=_since(started), evidence_chars=sized.evidence_chars, answer_chars=sized.answer_chars)
         if isinstance(outcome, Unavailable):
-            logger.warning("Answer check unavailable (%s); the turn surfaces no confidence", outcome.to_wire())
+            # The exception's own text (a provider's "402 Payment Required", a 429) is for the log alone.
+            logger.warning(
+                "Answer check unavailable (%s); the turn surfaces no confidence", outcome.to_wire(), exc_info=raised
+            )
         return outcome
 
     return judge

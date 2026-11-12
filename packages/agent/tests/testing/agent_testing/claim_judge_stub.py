@@ -49,7 +49,7 @@ def stub_judge(
 ) -> JudgeFn:
     """A judge that always answers ``level``, ``findings`` and ``open_points``, appending each request to ``calls``."""
 
-    async def judge(evidence: Evidence) -> Check | None:
+    async def judge(evidence: Evidence) -> Check | Unavailable:
         if calls is not None:
             calls.append(evidence)
         return Check(level, tuple(findings), tuple(open_points))
