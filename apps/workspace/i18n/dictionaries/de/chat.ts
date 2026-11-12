@@ -1729,8 +1729,11 @@ export const chat: typeof en.chat = {
         clause: 'Pkt.\u00A0{clause}',
         page: 'S.\u00A0{page}',
         // Eine Ausgabe, die ein Rechtsakt hier für verbindlich erklärt: der Akt, wie ihn die Daten nennen.
-        through: '{name} (verbindlich über {act})',
-        throughSince: '{name} (verbindlich über {act} seit {since})',
+        binding: 'verbindlich über {act}',
+        bindingSince: 'verbindlich über {act} seit {since}',
+        // Der Weg stammt aus dem Datensatz der Plattform, der noch nie an der Rechtsquelle geprüft wurde.
+        unchecked: 'laut Plattformdaten, noch nicht an der Quelle geprüft',
+        withRecord: '{name} ({record})',
         date: '{day}.{month}.{year}',
         // Aus einem Aufruf ohne Treffer: wo gesucht wurde und wonach. Nie „Keine Informationen gefunden“.
         openNoHitIn: 'Nicht beurteilbar, weil die Suche in {target} nach „{query}“ keine Fundstelle ergab.',

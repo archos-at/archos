@@ -1710,8 +1710,11 @@ export const chat = {
         clause: 'Sec.\u00A0{clause}',
         page: 'p.\u00A0{page}',
         // An edition an act declares binding here: the act as its records name it.
-        through: '{name} (binding through {act})',
-        throughSince: '{name} (binding through {act} since {since})',
+        binding: 'binding through {act}',
+        bindingSince: 'binding through {act} since {since}',
+        // The route comes from the platform's record, never yet checked against the legal source.
+        unchecked: 'per platform records, not yet checked against the source',
+        withRecord: '{name} ({record})',
         date: '{year}-{month}-{day}',
         // From a call without a hit: where it looked and for what. Never "No information found".
         openNoHitIn: 'Cannot be judged: the search in {target} for “{query}” found no passage.',

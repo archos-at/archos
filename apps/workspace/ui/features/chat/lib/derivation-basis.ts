@@ -122,18 +122,24 @@ const roleSince = (t: Translator, doc: Pick<CitedDocument, 'line'>): string | un
   return match ? t('thinking.node.basis.date', { year: match[1], month: match[2], day: match[3] }) : undefined
 }
 
+/** The labels a role carries when the platform has not checked it against its source (ADR-0173). */
+const UNCHECKED = new Set(['check_overdue', 'unchecked_since'])
+
 /**
  * One line of „Grundlagen“: the edition, the act it is binding through and since when, then the passage.
- * This is the chain a reader checks the answer by: which act makes this edition apply at the site.
+ * This is the chain a reader checks the answer by: which act makes this edition apply at the site. It is
+ * the platform's record of that chain, so when the record was never checked against its source the line
+ * says so, rather than stating the route as settled law.
  */
 const basisLine = (t: Translator, doc: CitedDocument): BasisLine => {
   const act = adoptingAct(doc)
   const since = act ? roleSince(t, doc) : undefined
-  const name = !act
-    ? cardName(doc)
-    : since
-      ? t('thinking.node.basis.throughSince', { name: cardName(doc), act, since })
-      : t('thinking.node.basis.through', { name: cardName(doc), act })
+  const B = 'thinking.node.basis.'
+  const record = act && [
+    since ? t(`${B}bindingSince`, { act, since }) : t(`${B}binding`, { act }),
+    ...((doc.line?.role_labels ?? []).some((label) => UNCHECKED.has(label)) ? [t(`${B}unchecked`)] : []),
+  ]
+  const name = record ? t(`${B}withRecord`, { name: cardName(doc), record: record.join(', ') }) : cardName(doc)
   const text = [name, documentLocation(t, doc)].filter(Boolean).join(', ')
   return { numbers: citationNumbers(doc), text }
 }
