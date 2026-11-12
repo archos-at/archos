@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
 import { HEAVY_POOL, HEAVY_WORKFLOW, WORKFLOW } from "./ingest-worker";
@@ -34,6 +34,10 @@ async function load(knobs: Record<string, string> = {}) {
   });
   return import("../config").then((m) => m.loadConfig());
 }
+
+/** One knob's value as a committed stack file sets it, or undefined when it leaves the default. */
+const stackKnob = (stackFile: string, key: string) =>
+  read("deploy", "pulumi", stackFile).match(new RegExp(`^\\s*grid-oib:${key}: "?([^"\\s]+)"?\\s*$`, "m"))?.[1];
 
 const pythonSources = [
   read("apps", "agent-host", "src", "agent_host", "jobs", "ingest_dispatch.py"),
@@ -82,8 +86,7 @@ describe("the ingest-worker tier", () => {
     // request equals limit, so the scheduler places only what a node holds,
     // and every replica at its limit fits one 64 GB batch node (56 GiB: the
     // node less the kubelet reserve and Gotenberg, which shares the group).
-    const prod = read("deploy", "pulumi", "Pulumi.prod.yaml");
-    const knob = (key: string) => prod.match(new RegExp(`^\\s*grid-oib:${key}: "?([^"\\s]+)"?\\s*$`, "m"))?.[1];
+    const knob = (key: string) => stackKnob("Pulumi.prod.yaml", key);
     const gib = (value: string | undefined) => Number(value?.replace(/Gi$/, ""));
 
     expect(knob("nodeGroupBatch")).toBe("batch");
@@ -95,6 +98,22 @@ describe("the ingest-worker tier", () => {
     expect(heavy.resources.requestsMemory).toBe(heavy.resources.limitsMemory);
     const heavyGib = heavy.maxReplicas * gib(heavy.resources.limitsMemory);
     expect(Number(knob("ingestWorkerMaxReplicas")) * gib(knob("ingestWorkerLimitsMemory")) + heavyGib).toBeLessThanOrEqual(56);
+  });
+
+  it("keeps one standard ingest worker up on every stack, so the base corpus is never refused", async () => {
+    // The base corpus hands its jobs to Hatchet only (`enqueue_only`, no in-process fallback), and
+    // `require_registered` refuses a trigger until a worker has registered the workflow. At zero
+    // replicas none ever had on dev: every corpus job was refused, the backlog KEDA scales on stayed
+    // empty, and Austria's 49 texts failed to index (2026-11-12, "no worker has registered
+    // dev_ingest-document yet"). Corpus jobs carry no size, so they never run on the heavy pool.
+    expect(read("apps", "agent-host", "src", "agent_host", "routes", "oib.py")).toContain("enqueue=enqueue_only");
+    const stacks = readdirSync(join(repoRoot, "deploy", "pulumi")).filter((file) => /^Pulumi\.[\w-]+\.yaml$/.test(file));
+    expect(stacks).toEqual(expect.arrayContaining(["Pulumi.dev.yaml", "Pulumi.prod.yaml"]));
+    for (const stack of stacks) {
+      const value = stackKnob(stack, "ingestWorkerMinReplicas");
+      const { minReplicas } = (await load(value === undefined ? {} : { ingestWorkerMinReplicas: value })).ingestWorker;
+      expect(minReplicas, `${stack} lets the ingest tier reach zero`).toBeGreaterThanOrEqual(1);
+    }
   });
 
   it("runs heavy files on a high-memory pool that scales on its own workflow's backlog", async () => {
