@@ -56,7 +56,7 @@ export function ProjectListRow({ project, docCount = 0, activityAt }: ProjectLis
     // a lifted row would detach from the rows either side of it. The stretched
     // link's ring is square (`after:rounded-none`) so it follows the row, not a
     // pill that no longer exists.
-    <Item as="li" className="group relative gap-3 px-3 py-2.5 has-[a:focus-visible]:bg-accent/40">
+    <Item as="li" className="group relative gap-3 px-3 py-2.5 has-[a:focus-visible]:bg-hover">
       {/* Hidden on phones: indexing a single narrow column by initials is worth
           less than the 48px it takes from names that are already truncating. */}
       <ProjectInitialsTile project={project} className="hidden sm:grid" />

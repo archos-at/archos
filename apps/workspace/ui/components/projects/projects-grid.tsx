@@ -220,7 +220,7 @@ export function ProjectsGrid({
             title={t(`list.noneInFilter.${activeFilter === 'all' ? 'active' : activeFilter}`)}
             description={t('list.noneInFilter.description')}
             action={
-              <Button variant="outline" size="sm" onClick={() => setStatusFilter('all')}>
+              <Button variant="secondary" size="sm" onClick={() => setStatusFilter('all')}>
                 {t('list.noneInFilter.showAll')}
               </Button>
             }
@@ -233,7 +233,7 @@ export function ProjectsGrid({
               title={t('list.noMatch.title')}
               description={t('list.noMatch.description')}
               action={
-                <Button variant="outline" size="sm" onClick={() => setQuery('')}>
+                <Button variant="secondary" size="sm" onClick={() => setQuery('')}>
                   {t('list.noMatch.clear')}
                 </Button>
               }

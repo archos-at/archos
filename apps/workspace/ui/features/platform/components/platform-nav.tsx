@@ -156,7 +156,7 @@ export function PlatformNav(): JSX.Element {
                         'px-3 py-1.5',
                         active
                           ? 'bg-secondary text-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                          : 'text-muted-foreground hover:bg-hover hover:text-foreground'
                       )}
                     >
                       <Icon

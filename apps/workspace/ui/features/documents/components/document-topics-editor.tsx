@@ -98,7 +98,7 @@ export function DocumentTopicsEditor({
               onClick={() => void persist(topics.filter((existing) => existing !== topic), topics)}
               disabled={saving}
               aria-label={t('preview.removeTag', { tag: topic })}
-              className="hover:bg-accent hover:text-foreground focus-visible:ring-ring touch-target -mr-0.5 rounded-control p-0.5 transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 motion-reduce:transition-none"
+              className="hover:bg-hover hover:text-foreground focus-visible:ring-ring touch-target -mr-0.5 rounded-control p-0.5 transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 motion-reduce:transition-none"
             >
               <X className="size-3" aria-hidden />
             </button>

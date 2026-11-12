@@ -58,6 +58,7 @@ export function ProjectSettingsNav({
       rootHref={settingsSectionHref(projectId, 'overview')}
       pillId="project-settings-nav-pill"
       orientation="tabs"
+      track
       data-testid="project-settings-nav"
     />
   )

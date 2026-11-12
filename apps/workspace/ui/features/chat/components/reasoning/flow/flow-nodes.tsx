@@ -291,7 +291,7 @@ const UncitedFoldCard: FC<{
         aria-expanded={false}
         aria-describedby={tabId}
         className={cn(
-          'bg-muted/40 duration-snap pointer-fine:hover:bg-muted flex min-h-11 w-full min-w-0 flex-col rounded-control border border-dashed px-3 py-2.5 text-left transition-[background-color,scale] ease-out outline-none active:scale-[0.985] motion-reduce:transition-none',
+          'bg-muted/40 duration-snap pointer-fine:hover:bg-desk flex min-h-11 w-full min-w-0 flex-col rounded-control border border-dashed px-3 py-2.5 text-left transition-[background-color,scale] ease-out outline-none active:scale-[0.985] motion-reduce:transition-none',
           FOCUS_RING
         )}
       >

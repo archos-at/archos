@@ -164,7 +164,7 @@ export const SourceBasisPicker: FC = () => {
               <span className="block">{t('dataSources.unableToLoad')}</span>
               <span className="block text-xs">{dataSourcesError}</span>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => fetchDataSources()}
                 aria-label={t('dataSources.retryAria')}

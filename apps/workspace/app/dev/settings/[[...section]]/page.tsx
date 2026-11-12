@@ -274,6 +274,9 @@ export default function SettingsDevPage({
             rootHref="/dev/settings"
             pillId="dev-settings-pill"
             orientation="tabs"
+            // As `ProjectSettingsNav` draws it: this preview mounts the nav itself, and kept the grey pill when the
+            // product moved to the track (2026-11-12).
+            track
           />
         </div>
         <div className="min-w-0">

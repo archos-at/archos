@@ -422,7 +422,7 @@ export function InboxList({
           <AlertCircle />
           <AlertTitle className="line-clamp-none">{t('inbox.errors.actionFailed')}</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-3 pt-1">
-            <Button variant="outline" size="sm" onClick={dismissMutationError}>
+            <Button variant="secondary" size="sm" onClick={dismissMutationError}>
               {t('sharing.errors.dismiss')}
             </Button>
           </AlertDescription>

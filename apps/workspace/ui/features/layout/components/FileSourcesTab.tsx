@@ -261,7 +261,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
       <span className="text-xs font-medium text-muted-foreground">{t('fileSourcesTab.uploadTo')}</span>
       <div className="flex gap-2">
         <Button
-          variant={uploadTarget === 'project' ? 'default' : 'outline'}
+          variant={uploadTarget === 'project' ? 'default' : 'secondary'}
           size="sm"
           onClick={() => setUploadTarget('project')}
           disabled={!projectCollectionName}
@@ -269,7 +269,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
           {t('fileSourcesTab.targetProject')}
         </Button>
         <Button
-          variant={uploadTarget === 'session' ? 'default' : 'outline'}
+          variant={uploadTarget === 'session' ? 'default' : 'secondary'}
           size="sm"
           onClick={() => setUploadTarget('session')}
         >

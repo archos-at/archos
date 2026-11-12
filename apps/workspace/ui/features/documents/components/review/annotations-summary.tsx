@@ -87,7 +87,7 @@ export function AnnotationsSummary({
               type="button"
               data-testid="annotations-summary-row"
               onClick={() => onOpenReview(annotation.id)}
-              className="hover:bg-accent border-border/60 flex w-full items-start gap-2.5 border-t px-3 py-2.5 text-left first:border-t-0"
+              className="hover:bg-hover border-border/60 flex w-full items-start gap-2.5 border-t px-3 py-2.5 text-left first:border-t-0"
             >
               <CommentPin
                 as="span"

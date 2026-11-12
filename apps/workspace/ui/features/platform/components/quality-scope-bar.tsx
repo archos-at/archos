@@ -277,11 +277,11 @@ function CustomRange({
     >
       <PopoverTrigger asChild>
         <Button
-          variant={active ? 'secondary' : 'outline'}
+          variant="secondary"
           size="sm"
           aria-pressed={active}
           data-testid="quality-range-custom"
-          className="tabular-nums"
+          className="tabular-nums aria-pressed:bg-selected aria-pressed:hover:bg-selected"
         >
           <CalendarRange className="size-3.5" aria-hidden />
           {label}

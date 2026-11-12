@@ -234,7 +234,7 @@ export function ProjectDocCount({ count, className }: { count: number; className
  * apart (they had: the mail link took the surface radius).
  */
 const LAYERED_LINK =
-  'relative z-10 inline-flex items-center justify-center gap-1.5 rounded-control text-muted-foreground transition-colors duration-quick ease-out hover:bg-accent hover:text-foreground focus-visible:outline-none motion-reduce:transition-none'
+  'relative z-10 inline-flex items-center justify-center gap-1.5 rounded-control text-muted-foreground transition-colors duration-quick ease-out hover:bg-hover hover:text-foreground focus-visible:outline-none motion-reduce:transition-none'
 
 /** Its labelled size: 32px on a mouse, 44px under a finger. */
 const LAYERED_LINK_LABELLED = 'h-8 px-2.5 text-xs pointer-coarse:h-11 pointer-coarse:px-3'
@@ -321,7 +321,7 @@ export function ProjectInitialsTile({
     <span
       aria-hidden
       className={cn(
-        'grid size-9 shrink-0 place-items-center rounded-control bg-muted text-xs font-medium tracking-wide text-muted-foreground transition-colors duration-quick ease-out group-hover:bg-accent group-hover:text-foreground motion-reduce:transition-none',
+        'grid size-9 shrink-0 place-items-center rounded-control bg-muted text-xs font-medium tracking-wide text-muted-foreground transition-colors duration-quick ease-out group-hover:bg-selected group-hover:text-foreground motion-reduce:transition-none',
         className,
       )}
     >

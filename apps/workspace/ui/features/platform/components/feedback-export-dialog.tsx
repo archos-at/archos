@@ -135,7 +135,7 @@ export function FeedbackExportDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" data-testid="feedback-export">
+        <Button variant="secondary" size="sm" data-testid="feedback-export">
           <Download className="size-3.5" aria-hidden />
           {t('answerFeedback.exportDialog.trigger')}
         </Button>

@@ -341,7 +341,7 @@ export function PageSheetClose({ label }: { label: string }): JSX.Element {
     <DialogPrimitive.Close
       data-slot="page-sheet-close"
       className={cn(
-        'text-muted-foreground hover:bg-accent hover:text-foreground flex size-9 shrink-0 items-center justify-center rounded-control outline-none transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:size-11',
+        'text-muted-foreground hover:bg-hover hover:text-foreground flex size-9 shrink-0 items-center justify-center rounded-control outline-none transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:size-11',
         FOCUS_RING,
       )}
     >

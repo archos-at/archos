@@ -115,7 +115,7 @@ export function EntryList(props: EntryListProps): JSX.Element {
         onClearSelection={props.onClearSelection}
         selectionActions={
           <>
-            <Button size="sm" variant="outline" onClick={() => props.onBulk({ type: 'check', result: 'current' })}>
+            <Button size="sm" variant="secondary" onClick={() => props.onBulk({ type: 'check', result: 'current' })}>
               {t('bulk.check')}
             </Button>
             <MoveTo folders={folders} onMove={(folderId) => props.onBulk({ type: 'move', folderId })} />
@@ -131,7 +131,7 @@ export function EntryList(props: EntryListProps): JSX.Element {
           title={filtered ? t('empty.filtered') : t('empty.folder')}
           action={
             filtered ? (
-              <Button variant="outline" size="sm" onClick={props.onReset}>
+              <Button variant="secondary" size="sm" onClick={props.onReset}>
                 {t('empty.clearFilters')}
               </Button>
             ) : undefined

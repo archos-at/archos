@@ -166,7 +166,7 @@ export function IfcModelViewer({ className, onRetry, ...options }: IfcModelViewe
 export function ViewerRetry({ onClick, label }: { onClick: () => void; label?: string }): JSX.Element {
   const t = useTranslations(bimCopy)
   return (
-    <Button variant="outline" size="sm" onClick={onClick}>
+    <Button variant="secondary" size="sm" onClick={onClick}>
       <RotateCcw className="size-3.5" aria-hidden="true" />
       {label ?? t('loadFailed.action')}
     </Button>

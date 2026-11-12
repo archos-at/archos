@@ -116,7 +116,7 @@ const thumbBase = cn(
   'inline-flex size-6 items-center justify-center rounded-control pointer-coarse:size-11',
   'text-muted-foreground',
   PRESSABLE,
-  'hover:bg-accent hover:text-foreground',
+  'hover:bg-hover hover:text-foreground',
   FOCUS_RING
 )
 
