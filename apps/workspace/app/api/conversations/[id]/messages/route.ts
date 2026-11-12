@@ -10,8 +10,10 @@
  * shape existing callers expect is unchanged.
  */
 
+import { actingReaderIsAgent } from '@/lib/agent-api/acting-session'
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { createMessagesSchema, listMessagesQuerySchema } from '@/lib/conversations/conversation-wire'
+import { messagesForAgent } from '@/lib/conversations/messages-for-agent'
 import { createConversationMessages, listConversationMessages } from '@/lib/conversations/service'
 import {
   DEFAULT_MUTATION_LIMIT,
@@ -22,8 +24,11 @@ import {
 type Params = { id: string }
 
 export const GET = apiRoute<Params>(
-  async ({ session, params, request }) =>
-    listConversationMessages(session, params.id, parseQuery(request, listMessagesQuerySchema)),
+  async ({ session, params, request }) => {
+    const page = await listConversationMessages(session, params.id, parseQuery(request, listMessagesQuerySchema))
+    // The browser renders the stored answer's dialect; an agent reads it as plain Markdown.
+    return actingReaderIsAgent() ? messagesForAgent(page, params.id, session.organizationId) : page
+  },
   { authz: { enforcedBy: 'listConversationMessages (requireResourceAccess)' } }
 )
 
