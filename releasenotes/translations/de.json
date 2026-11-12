@@ -4936,6 +4936,10 @@
     "de": "Nennt eine Antwort eine Datei beim Namen, etwa „Beginnen Sie mit pd8280-2.pdf“, ist der Name jetzt ein Link, der das Dokument neben der Antwort öffnet, im Fließtext wie in Tabellen."
   },
   {
+    "en": "When an answer names an edition of a guideline or standard that binds at the project's site, it now also says since when it binds there and through which instrument, as the platform's records state.",
+    "de": "Wenn eine Antwort eine am Projektstandort verbindliche Fassung einer Richtlinie oder Norm nennt, gibt sie nun auch an, seit wann diese dort verbindlich ist und durch welchen Rechtsakt – laut den Aufzeichnungen der Plattform."
+  },
+  {
     "en": "When an answer numbers its sources without listing them, each number now points to the passage this answer read that says what the sentence says, and the source list is added for you, instead of an unrelated source from earlier in the conversation.",
     "de": "Wenn eine Antwort ihre Quellen nummeriert, ohne sie aufzulisten, verweist nun jede Nummer auf die gelesene Passage, die die jeweilige Aussage belegt, und die Quellenliste wird automatisch ergänzt – statt auf eine unpassende Quelle aus dem früheren Gespräch."
   },

@@ -41,6 +41,14 @@
         },
         {
           "section": "features",
+          "area": "building-law",
+          "text": {
+            "en": "When an answer names an edition of a guideline or standard that binds at the project's site, it now also says since when it binds there and through which instrument, as the platform's records state.",
+            "de": "Wenn eine Antwort eine am Projektstandort verbindliche Fassung einer Richtlinie oder Norm nennt, gibt sie nun auch an, seit wann diese dort verbindlich ist und durch welchen Rechtsakt – laut den Aufzeichnungen der Plattform."
+          }
+        },
+        {
+          "section": "features",
           "area": "general",
           "text": {
             "en": "Your recent chats in a project are now listed in the sidebar under Chat, with the open one highlighted, and „Alle Chats“ below them opens the whole chat history.",
