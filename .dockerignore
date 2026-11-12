@@ -99,3 +99,4 @@ external/
 evals/*/results/
 evals/*/aggregated_results_*/
 evals/*/analysis/
+apps/workspace/public/dev-stored-answers/

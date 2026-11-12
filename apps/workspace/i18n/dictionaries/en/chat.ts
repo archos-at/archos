@@ -1652,10 +1652,24 @@ export const chat = {
     derivationWarning: {
       failed: '{count, plural, one {#\u00A0call failed} other {#\u00A0calls failed}}',
       open: '{count, plural, one {#\u00A0open point} other {#\u00A0open points}}',
+      // What the answer check found (ADR-0139): worse than any call, since it is
+      // about the answer itself.
+      unbacked: '{count, plural, one {#\u00A0statement not backed} other {#\u00A0statements not backed}}',
+      contradicted:
+        '{count, plural, one {#\u00A0statement contradicts its source} other {#\u00A0statements contradict their source}}',
     },
     // A turn without any research: one line, nothing to expand.
     noResearch: 'Answered without research',
     noResearchNote: 'General expertise, no source cited',
+    // The answer ends by asking the reader something: not "Done". `askedBack`
+    // sits on the header's right; the two lines below are for a turn that
+    // researched nothing.
+    askedBack: 'Question for you',
+    // For screen readers: done, but the answer check found a statement the
+    // answer rests on unbacked (or contradicted by its source).
+    flagged: 'With a note',
+    askedBackHeadline: 'Asked you a question',
+    askedBackNote: 'A sourced answer still needs one detail from you',
     // A turn of exactly one call: the header is the Herleitung.
     singleCited: 'cited {markers}',
     derivationSummary: 'Trace',
@@ -1709,6 +1723,17 @@ export const chat = {
         open: 'Open',
         clause: 'Sec.\u00A0{clause}',
         page: 'p.\u00A0{page}',
+        pages: 'pp.\u00A0{pages}',
+        more: '+{count} more',
+        // An edition an act declares binding here: the act as its records name it.
+        binding: 'binding through {act}',
+        bindingSince: 'binding through {act} since {since}',
+        // The route comes from the platform's record, never yet checked against the legal source.
+        unchecked: 'per platform records, never checked against the source',
+        checkedOn: 'per platform records, last checked against the source on {date}',
+        uncurated: 'official source, not curated',
+        withRecord: '{name} ({record})',
+        date: '{year}-{month}-{day}',
         // From a call without a hit: where it looked and for what. Never "No information found".
         openNoHitIn: 'Cannot be judged: the search in {target} for “{query}” found no passage.',
         openNoHitShelf: 'Cannot be judged: the search {shelf} for “{query}” found no passage.',

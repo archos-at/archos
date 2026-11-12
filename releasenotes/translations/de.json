@@ -884,6 +884,10 @@
     "de": "Eine langsame KI kann Piloti nicht mehr davon abhalten, überhaupt Notizen zu machen. Der Schritt für Notizen gibt jetzt von selbst auf und funktioniert bei der nächsten Frage wieder, statt für alle still zu bleiben."
   },
   {
+    "en": "A source card in the derivation names only what a reader would write down, a point, a paragraph or a table, and the pages to open („Tabelle 3 · S. 7–8“). Section headings and which page carries which citation show on hover.",
+    "de": "Eine Quellenkarte in der Herleitung nennt nur, was Leser:innen notieren würden: einen Punkt, einen Absatz oder eine Tabelle sowie die aufzuschlagenden Seiten („Tabelle 3 · S. 7–8“). Abschnittsüberschriften und welche Seite welches Zitat enthält, werden bei Hover angezeigt."
+  },
+  {
     "en": "A source could be marked as cited before it had been checked, and stayed marked even when the check later removed it from the answer. The panel now lists only the sources that survived the check.",
     "de": "Eine Quelle konnte als zitiert markiert sein, bevor sie geprüft war, und blieb so markiert, auch wenn die Prüfung sie später aus der Antwort entfernte. Die Liste zeigt jetzt nur noch Quellen, die die Prüfung überstanden haben."
   },
@@ -4128,8 +4132,16 @@
     "de": "Die Wissensdatenbank und die Dokumentenliste der Plattform zeigen jetzt auch bei älteren Dateien an, wann sie eingelesen wurden und um welchen Dateityp es sich handelt. Bisher wurden beide Angaben einen Tag nach dem Upload nicht mehr angezeigt."
   },
   {
+    "en": "The last card of an answer's derivation now names the binding edition of a guideline together with the regulation that makes it binding, and says a paragraph or a table as written with its page, instead of a file name or „Pkt. § 1“.",
+    "de": "Die letzte Karte in der Herleitung einer Antwort nennt jetzt die verbindliche Ausgabe einer Richtlinie sowie die Verordnung, die sie verbindlich macht, und führt einen Paragraphen oder eine Tabelle in der Originalschreibweise samt Seitenzahl an – statt eines Dateinamens oder „Pkt. § 1“."
+  },
+  {
     "en": "The legal notices in the app (imprint, privacy policy, terms, AI notice and the list of providers who process data) now say ARCHOS (formerly Piloti), so it is clear they cover your account from before the rename, and they name the operator, its address and its contact e-mail.",
     "de": "Die rechtlichen Hinweise in der App (Impressum, Datenschutzerklärung, Nutzungsbedingungen, KI-Hinweis und Liste der Anbieter, die Daten verarbeiten) nennen jetzt ARCHOS (vormals Piloti), sodass klar ist, dass sie auch für Ihr Konto aus der Zeit vor der Umbenennung gelten; außerdem nennen sie den Betreiber, seine Adresse und seine Kontakt-E-Mail-Adresse."
+  },
+  {
+    "en": "The line above an answer now names what the answer's own check could not back, such as two statements without a source, and shows a warning instead of the green check when that sinks the answer. An answer that cites nothing and asks you something reads as a question back, no longer as answered without research.",
+    "de": "Die Zeile über einer Antwort nennt jetzt, was die eigene Prüfung der Antwort nicht belegen konnte, etwa zwei Aussagen ohne Quelle, und zeigt eine Warnung statt des grünen Häkchens, wenn das die Antwort entkräftet. Eine Antwort, die nichts zitiert und Ihnen eine Frage stellt, wirkt nun wie eine Rückfrage und nicht mehr wie eine ohne Recherche beantwortete Frage."
   },
   {
     "en": "The line above each folder that says how much Piloti has read now opens in place: it stays where you clicked it and the overview unfolds beneath it, instead of the line vanishing and a separate box appearing.",
@@ -5038,6 +5050,10 @@
   {
     "en": "When you ask how something was solved before, Piloti now starts with the past projects that fit your question, not only those most like your building, and puts the passages that show a solution first.",
     "de": "Wenn Sie fragen, wie etwas früher gelöst wurde, zeigt Piloti jetzt zuerst frühere Projekte, die zu Ihrer Frage passen – nicht nur jene, die Ihrem Gebäude am ähnlichsten sind – und stellt Passagen, die eine Lösung zeigen, an den Anfang."
+  },
+  {
+    "en": "When you ask since when a guideline has been binding at your project's site, the answer now gives the date from the platform's reviewed records, the same date the citation shows. It no longer looks the date up on the web and cites a newsletter for it.",
+    "de": "Wenn Sie fragen, seit wann eine Richtlinie am Projektstandort verbindlich ist, nennt die Antwort jetzt das Datum aus den geprüften Datensätzen der Plattform – dasselbe Datum wie in der Quellenangabe. Sie sucht das Datum nicht mehr im Web und belegt es mit einem Newsletter."
   },
   {
     "en": "When you ask to see a model, a room or a storey, the 3D view now stays in the answer instead of disappearing as the answer finishes. Asking to open a model now keeps the tiles to choose from.",

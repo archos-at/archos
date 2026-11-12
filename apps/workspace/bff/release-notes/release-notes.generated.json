@@ -1121,6 +1121,30 @@
         },
         {
           "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The line above an answer now names what the answer's own check could not back, such as two statements without a source, and shows a warning instead of the green check when that sinks the answer. An answer that cites nothing and asks you something reads as a question back, no longer as answered without research.",
+            "de": "Die Zeile über einer Antwort nennt jetzt, was die eigene Prüfung der Antwort nicht belegen konnte, etwa zwei Aussagen ohne Quelle, und zeigt eine Warnung statt des grünen Häkchens, wenn das die Antwort entkräftet. Eine Antwort, die nichts zitiert und Ihnen eine Frage stellt, wirkt nun wie eine Rückfrage und nicht mehr wie eine ohne Recherche beantwortete Frage."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The last card of an answer's derivation now names the binding edition of a guideline together with the regulation that makes it binding, and says a paragraph or a table as written with its page, instead of a file name or „Pkt. § 1“.",
+            "de": "Die letzte Karte in der Herleitung einer Antwort nennt jetzt die verbindliche Ausgabe einer Richtlinie sowie die Verordnung, die sie verbindlich macht, und führt einen Paragraphen oder eine Tabelle in der Originalschreibweise samt Seitenzahl an – statt eines Dateinamens oder „Pkt. § 1“."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A source card in the derivation names only what a reader would write down, a point, a paragraph or a table, and the pages to open („Tabelle 3 · S. 7–8“). Section headings and which page carries which citation show on hover.",
+            "de": "Eine Quellenkarte in der Herleitung nennt nur, was Leser:innen notieren würden: einen Punkt, einen Absatz oder eine Tabelle sowie die aufzuschlagenden Seiten („Tabelle 3 · S. 7–8“). Abschnittsüberschriften und welche Seite welches Zitat enthält, werden bei Hover angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "Notifications in the inbox are now removed once they are older than the longest keeping period of any notification type. This clean-up was planned from the start but had never run.",
@@ -1381,6 +1405,14 @@
           "text": {
             "en": "In a project whose site is not set yet, the assistant now searches the building-law texts your office holds, quotes them as information and asks for the site before naming the edition that applies. It no longer says a guideline's text could not be read when the text is there.",
             "de": "In einem Projekt, dessen Standort noch nicht festgelegt ist, durchsucht der Assistent jetzt die in Ihrem Büro hinterlegten baurechtlichen Texte, zitiert sie als Information und fragt nach dem Standort, bevor er die geltende Fassung nennt. Er behauptet nicht mehr, der Text einer Richtlinie sei nicht lesbar, wenn er vorliegt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "When you ask since when a guideline has been binding at your project's site, the answer now gives the date from the platform's reviewed records, the same date the citation shows. It no longer looks the date up on the web and cites a newsletter for it.",
+            "de": "Wenn Sie fragen, seit wann eine Richtlinie am Projektstandort verbindlich ist, nennt die Antwort jetzt das Datum aus den geprüften Datensätzen der Plattform – dasselbe Datum wie in der Quellenangabe. Sie sucht das Datum nicht mehr im Web und belegt es mit einem Newsletter."
           }
         },
         {

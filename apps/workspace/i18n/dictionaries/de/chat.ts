@@ -1671,10 +1671,24 @@ export const chat: typeof en.chat = {
     derivationWarning: {
       failed: '{count, plural, one {#\u00A0Abruf fehlgeschlagen} other {#\u00A0Abrufe fehlgeschlagen}}',
       open: '{count, plural, one {#\u00A0Punkt offen} other {#\u00A0Punkte offen}}',
+      // Was die Belegpr\u00FCfung der Antwort fand (ADR-0139): schwerer als jeder Abruf,
+      // denn es betrifft die Antwort selbst.
+      unbacked: '{count, plural, one {#\u00A0Aussage ohne Beleg} other {#\u00A0Aussagen ohne Beleg}}',
+      contradicted:
+        '{count, plural, one {#\u00A0Aussage widerspricht der Quelle} other {#\u00A0Aussagen widersprechen der Quelle}}',
     },
     // Ein Zug ohne jede Recherche: eine Zeile, nichts zum Aufklappen.
     noResearch: 'Ohne Recherche beantwortet',
     noResearchNote: 'Allgemeines Fachwissen, keine Quelle zitiert',
+    // Die Antwort endet mit einer Frage an die Lesenden: nicht \u201EFertig\u201C.
+    // `askedBack` steht rechts in der Kopfzeile, die zwei Zeilen darunter
+    // stehen f\u00FCr einen Zug ohne Recherche.
+    askedBack: 'R\u00FCckfrage',
+    // F\u00FCr Screenreader: fertig, aber die Belegpr\u00FCfung fand eine Aussage, die die
+    // Antwort tr\u00E4gt und nicht belegt ist (oder der Quelle widerspricht).
+    flagged: 'Mit Hinweis',
+    askedBackHeadline: 'R\u00FCckfrage gestellt',
+    askedBackNote: 'F\u00FCr eine belegte Antwort fehlt noch eine Angabe von Ihnen',
     // Ein Zug mit genau einem Aufruf: die Kopfzeile ist die Herleitung.
     singleCited: 'zitiert {markers}',
     derivationSummary: 'Herleitung',
@@ -1728,6 +1742,19 @@ export const chat: typeof en.chat = {
         open: 'Offen',
         clause: 'Pkt.\u00A0{clause}',
         page: 'S.\u00A0{page}',
+        pages: 'S.\u00A0{pages}',
+        more: '+{count} weitere',
+        // Eine Ausgabe, die ein Rechtsakt hier für verbindlich erklärt: der Akt, wie ihn die Daten nennen.
+        binding: 'verbindlich über {act}',
+        bindingSince: 'verbindlich über {act} seit {since}',
+        // Der Weg stammt aus dem Datensatz der Plattform, der noch nie an der Rechtsquelle geprüft wurde.
+        unchecked: 'laut Plattformdaten, noch nie an der Quelle geprüft',
+        // Geprüft, aber die nächste Prüfung ist fällig: der Tag der letzten.
+        checkedOn: 'laut Plattformdaten, zuletzt am {date} an der Quelle geprüft',
+        // Aus einer amtlichen Quelle gelesen, die niemand kuratiert hat.
+        uncurated: 'amtliche Quelle, nicht kuratiert',
+        withRecord: '{name} ({record})',
+        date: '{day}.{month}.{year}',
         // Aus einem Aufruf ohne Treffer: wo gesucht wurde und wonach. Nie „Keine Informationen gefunden“.
         openNoHitIn: 'Nicht beurteilbar, weil die Suche in {target} nach „{query}“ keine Fundstelle ergab.',
         openNoHitShelf: 'Nicht beurteilbar, weil die Suche {shelf} nach „{query}“ keine Fundstelle ergab.',

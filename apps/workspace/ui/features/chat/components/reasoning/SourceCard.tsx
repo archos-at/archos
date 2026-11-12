@@ -43,7 +43,7 @@ import { Ruler } from 'lucide-react'
 import { SourcePreviewChip } from '../SourcePreview'
 import { CitationMarkers } from '../CitationMarker'
 import { documentEdition, documentShortName } from '../../lib/document-names'
-import { documentLocation } from '../../lib/derivation-basis'
+import { documentLocation, documentLocationDetail } from '../../lib/derivation-basis'
 
 /** Provenance icon per signal — mirrors SourceSignalChip so they never drift. */
 const SIGNAL_ICON: Record<SourceSignal, LucideIcon> = {
@@ -183,6 +183,9 @@ export const SourceCard: FC<{
         : pages.length === 1
           ? t('answerSources.page', { page: pages[0]! })
           : t('answerSources.pages', { pages: pages.join(', ') })
+  // The card says where at a glance; which page carries which [N], and the
+  // heading around it, is there for the reader who stops on the place.
+  const locationDetail = loci ? undefined : documentLocationDetail(t, doc)
 
   return (
     <div
@@ -264,7 +267,10 @@ export const SourceCard: FC<{
         {(location || allRepeat || numbers.length > 0) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[13px] leading-[19px]">
             {location && (
-              <span className="bg-muted text-foreground rounded-control px-1.5 tabular-nums">
+              <span
+                className="bg-muted text-foreground rounded-control px-1.5 tabular-nums"
+                title={locationDetail}
+              >
                 {loci ? (
                   <RoundLoci
                     loci={loci}

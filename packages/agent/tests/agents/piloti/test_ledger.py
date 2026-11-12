@@ -161,6 +161,24 @@ class TestAClaimWithoutRecordsCapsLikeUnsettledLaw:
             "law-cited-from-web": 1.0,
         }
 
+    def test_a_web_page_cited_beside_the_records_for_a_held_work_is_scored(self, monkeypatch):
+        """The Wien answer of 2026-11-12: the binding day of a held work cited from a newsletter as well."""
+        from agent.common import web_sources
+        from agent.observability import langfuse_scores
+
+        emitted: list = []
+        monkeypatch.setattr(langfuse_scores, "emit_scores", lambda scores, **_: emitted.extend(scores) or len(scores))
+        work = web_sources.HeldWork(
+            designation="OIB-Richtlinie 4", where="knowledge_base", names=web_sources._names("OIB-Richtlinie 4")
+        )
+        monkeypatch.setattr(web_sources, "held_works", lambda: (work,))
+        monkeypatch.setattr("agent.common.binding_claims.held_works", lambda: (work,))
+        ris = SourceEntry(citation_key="Wiener Bautechnikverordnung 2023, § 5", source_type="knowledge_layer")
+        page = SourceEntry(url="https://chamber.example.org/newsletter-2302", title="Newsletter", source_type="generic")
+        content = "Es gilt die OIB-Richtlinie 4, Ausgabe Mai 2023, seit 23. Februar 2024 [1]; so auch die Kammer [2]."
+        self._state(content, cited=(_cited(ris, 1), _cited(page, 2)))
+        assert {score.name: score.value for score in emitted}["law-cited-from-web"] == 1.0
+
     def test_an_answer_that_states_no_law_from_the_web_is_untouched(self, monkeypatch):
         from agent.observability import langfuse_scores
 
