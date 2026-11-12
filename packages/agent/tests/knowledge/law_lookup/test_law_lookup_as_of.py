@@ -163,3 +163,18 @@ def test_no_switch_decides_the_offer_any_more():
 
     for retired in ("ENV_OVERRIDE", "as_of_offered", "as_of_allowed", "AS_OF_REFUSED"):
         assert not hasattr(as_of, retired), retired
+
+
+# Without a day the lookup reads today's consolidated law, whatever version the search hit was. Dev QC 2026-11-12:
+# two version hits of one provision (2016, 2017) were both read as today's law and cited „Fassung 2016-10-25"
+# and „Fassung 2017-04-07" for a question about 2026. Today's law carries no hit's version date.
+@pytest.mark.asyncio
+async def test_today_reads_the_consolidated_law_and_dates_it_with_no_hits_version():
+    portal = _versions()
+    portal.set_text(xa.CODE_URL, "Act (fixture)", "§ 3. (1) Today's version applies.")
+    output = await _ask(portal, **_ARGS)
+
+    assert "Today's version applies" in output
+
+    assert set(portal.documents_requested) == {xa.CODE_URL}
+    assert "Fassung 2015-01-01" not in output and "Fassung 2021-01-01" not in output
