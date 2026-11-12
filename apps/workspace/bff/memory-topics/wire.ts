@@ -18,9 +18,7 @@ export const memoryTopicField = z
   .string()
   .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
   .nullable()
-  .describe(
-    `1–3 words in the person's language; reuse a topic. null: none.`
-  )
+  .describe(`1–3 words in the person's language; reuse a topic. null: none.`)
 
 /** `PATCH …/memory/topics`: every note with topic `from` gets topic `to`; a `to` another topic has merges them. */
 export const memoryTopicRenameSchema = z.object({
@@ -30,9 +28,7 @@ export const memoryTopicRenameSchema = z.object({
     .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
     .nullable()
     .describe('Topic to rename. null: no topic.'),
-  to: memoryTopicField.describe(
-    'New name; an existing one merges. null: none.'
-  ),
+  to: memoryTopicField.describe('New name; an existing one merges. null: none.'),
 })
 
 /**

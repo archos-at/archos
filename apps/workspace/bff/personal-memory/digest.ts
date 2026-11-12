@@ -25,7 +25,6 @@ export const PERSONAL_MEMORY_DIGEST_HEADER = 'PERSONAL_MEMORY v1'
 export const PERSONAL_DIGEST_MAX_ITEMS = 20
 /** The block's character budget, footer included. */
 export const PERSONAL_DIGEST_MAX_CHARS = 1500
-/** The most topics the index names (the bound `topic-index.ts` shares with the project digest). */
 
 /** A note as the block needs it: what it says, its kind, whether it is pinned, and its topic. */
 export interface PersonalDigestNote {

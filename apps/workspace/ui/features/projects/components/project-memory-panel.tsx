@@ -352,7 +352,11 @@ export function ProjectMemoryPanel({
                 <FieldLabel htmlFor="memory-add-scope">{t('memory.scopeAria')}</FieldLabel>
                 <Select
                   value={addScope}
-                  onValueChange={(value) => setAddScope(value as 'project' | 'organization')}
+                  onValueChange={(value) => {
+                    // A topic belongs to one shelf: a project topic must not ride along onto an office note.
+                    setAddScope(value as 'project' | 'organization')
+                    setAddTopic(null)
+                  }}
                 >
                   <SelectTrigger id="memory-add-scope" className="w-44">
                     <SelectValue />

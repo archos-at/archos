@@ -179,4 +179,30 @@ describe('ProjectMemoryPanel', () => {
       topic: 'Brandschutz',
     })
   })
+
+  test('switching a new note to the office drops the project topic picked for it', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === 'POST'
+        ? Response.json({ item: wire({ id: 'new', content: 'Gilt im ganzen Büro.', scope: 'organization', projectId: null }) })
+        : Response.json({
+            topics: [{ name: 'Stellplätze', count: 1 }],
+            items: [wire({ id: 'park', content: 'Tiefgarage mit 40 Plätzen.', topic: 'Stellplätze' })],
+          })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ProjectMemoryPanel projectId="p1" />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Add note' }))
+    await userEvent.type(screen.getByLabelText('Add note'), 'Gilt im ganzen Büro.')
+    await userEvent.type(screen.getByRole('combobox', { name: 'Topic' }), 'stell')
+    await userEvent.click(screen.getByRole('option', { name: 'Stellplätze' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Scope of the note' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'All my projects' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('Gilt im ganzen Büro.')
+    const post = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'POST')
+    expect(String(post?.[0])).toContain('/api/organization/memory')
+    expect(JSON.parse(String((post?.[1] as RequestInit | undefined)?.body)).topic ?? null).toBeNull()
+  })
 })
