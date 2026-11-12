@@ -15,7 +15,11 @@ import type { JSX } from 'react'
 import { useId, useState } from 'react'
 import { Pencil, Trash2, Ungroup } from 'lucide-react'
 import { toast } from 'sonner'
-import { ApiRequestError } from '@/adapters/api/api-error'
+import {
+  removePersonalMemoryTopic,
+  renamePersonalMemoryTopic,
+  updatePersonalMemoryNote,
+} from '@/adapters/api/personal-memory-client'
 import { TopicPicker } from '@/components/memory/topic-picker'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -26,19 +30,6 @@ import { useTranslations } from '@/i18n'
 import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
 import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
 import { normalizeTopic } from '@/lib/memory-topics/topic'
-
-const TOPICS_PATH = '/api/user/memory/topics'
-const notePath = (itemId: string): string => `/api/user/memory/${encodeURIComponent(itemId)}`
-
-/** One write to the personal memory routes. A refusal throws its status, as the panel's client does. */
-async function send(path: string, method: 'PATCH' | 'DELETE', body: unknown): Promise<void> {
-  const response = await fetch(path, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!response.ok) throw new ApiRequestError(`Failed to ${method} ${path}: ${response.status}`, response.status)
-}
 
 /** The topic a typed name means in its normal form (null for no name), or null when it is too long to be one. */
 function normalizedOrNull(raw: string): { topic: string | null } | null {
@@ -73,8 +64,8 @@ export function PersonalTopicActions({
   const typed = normalizedOrNull(name)
   const nameTooLong = typed === null
   const nameEmpty = typed !== null && typed.topic === null
-  // A new spelling of the same topic (only the case differs) is no change: the server resolves it to the topic it has.
-  const unchanged = typed?.topic?.toLocaleLowerCase('de') === topic.toLocaleLowerCase('de')
+  // Only the same name is no change. A new case of the name is a rename: the server changes the spelling.
+  const unchanged = typed?.topic === topic
   const nameErrorId = `${generatedId}-name-error`
 
   /** Runs one write, then reads the list again; a failure says so and changes nothing. */
@@ -104,17 +95,19 @@ export function PersonalTopicActions({
     const to = typed.topic
     return runWrite(async () => {
       // A name another topic has merges the notes into it; the server answers how many moved.
-      await send(TOPICS_PATH, 'PATCH', { from: topic, to })
+      await renamePersonalMemoryTopic({ from: topic, to })
       setRenaming(false)
     }, shared('errors.saveFailed'))
   }
 
   const ungroup = (): Promise<void> =>
-    runWrite(() => send(TOPICS_PATH, 'PATCH', { from: topic, to: null }), shared('errors.saveFailed'))
+    runWrite(async () => {
+      await renamePersonalMemoryTopic({ from: topic, to: null })
+    }, shared('errors.saveFailed'))
 
   const remove = (): Promise<void> =>
     runWrite(async () => {
-      await send(TOPICS_PATH, 'DELETE', { name: topic })
+      await removePersonalMemoryTopic(topic)
       setRemoving(false)
     }, shared('errors.removeFailed'))
 
@@ -211,7 +204,7 @@ export function PersonalNoteTopicMove({
   const move = async (topic: string | null): Promise<void> => {
     setBusy(true)
     try {
-      await send(notePath(item.id), 'PATCH', { topic })
+      await updatePersonalMemoryNote(item.id, { topic })
       onChanged()
     } catch {
       setAttempt((count) => count + 1)

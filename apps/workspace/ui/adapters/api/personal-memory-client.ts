@@ -124,14 +124,22 @@ export const renamePersonalMemoryTopic = async (input: {
   from: string | null
   to: string | null
 }): Promise<{ moved: number }> => {
-  const response = await fetch(`${MEMORY_PATH}/topics`, { method: 'PATCH', headers: jsonHeaders, body: JSON.stringify(input) })
+  const response = await fetch(`${MEMORY_PATH}/topics`, {
+    method: 'PATCH',
+    headers: jsonHeaders,
+    body: JSON.stringify(input),
+  })
   if (!response.ok) throw await refusal(response, 'rename topic in')
   return (await response.json()) as { moved: number }
 }
 
 /** Remove every note of the person on topic `name`, for good. Answers how many went. */
 export const removePersonalMemoryTopic = async (name: string): Promise<{ removed: number }> => {
-  const response = await fetch(`${MEMORY_PATH}/topics`, { method: 'DELETE', headers: jsonHeaders, body: JSON.stringify({ name }) })
+  const response = await fetch(`${MEMORY_PATH}/topics`, {
+    method: 'DELETE',
+    headers: jsonHeaders,
+    body: JSON.stringify({ name }),
+  })
   if (!response.ok) throw await refusal(response, 'remove topic from')
   return (await response.json()) as { removed: number }
 }

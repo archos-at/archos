@@ -141,12 +141,15 @@ describe('formatTopicDigest', () => {
     const printedLines = lines.filter((line) => line.startsWith('- ['))
     expect(printedLines.length).toBeGreaterThan(0)
     expect(printedLines.length).toBeLessThan(items.length)
-    // Every printed note's topic is named in the index.
-    for (const line of printedLines) {
-      // The quoted topic, from its opening quote to its closing one.
-      const topic = line.slice(3, line.indexOf('" | ') + 1)
-      expect(lines[1]).toContain(topic)
-    }
+    // The index is bounded: it names some topics and counts the rest in its tail.
+    const index = lines[1]
+    const named = [...index.matchAll(/"([^"]*)" \(\d+\)/g)].map((match) => match[1])
+    const tail = /\(\+(\d+) more topics, not named\)/.exec(index)
+    // Each printed note's topic is named in the index, or the tail counts the topics left unnamed.
+    // A printed line opens `- ["Topic" | `, so the topic runs from index 4 to its closing quote.
+    const printedTopics = new Set(printedLines.map((line) => line.slice(4, line.indexOf('" | '))))
+    const unnamed = [...printedTopics].filter((topic) => !named.includes(topic))
+    if (unnamed.length > 0) expect(tail?.[1]).toBe(String(unnamed.length))
   })
 
   it('appends the omitted-notes notice after the lines', () => {

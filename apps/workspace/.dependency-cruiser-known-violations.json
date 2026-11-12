@@ -5430,23 +5430,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/projects/components/project-memory-panel.tsx",
-    "to": "ui/features/documents/components/folder-access-mark.tsx",
-    "unresolvedTo": "@/features/documents/components/folder-access-mark",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/features/projects/components/settings/documents-settings.tsx",
     "to": "ui/features/uploads/components/upload-history.tsx",
     "unresolvedTo": "@/features/uploads/components/upload-history",
