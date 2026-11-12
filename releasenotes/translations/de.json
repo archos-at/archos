@@ -5088,6 +5088,10 @@
     "de": "Wenn Sie fragen, seit wann eine Richtlinie am Projektstandort verbindlich ist, nennt die Antwort jetzt das Datum aus den geprüften Datensätzen der Plattform – dasselbe Datum wie in der Quellenangabe. Sie sucht das Datum nicht mehr im Web und belegt es mit einem Newsletter."
   },
   {
+    "en": "When you ask the assistant to undo or correct one of your personal notes, it now removes or replaces that note instead of adding a second one that contradicts it.",
+    "de": "Wenn Sie den Assistenten bitten, eine Ihrer persönlichen Notizen zurückzunehmen oder zu korrigieren, entfernt oder ersetzt er diese nun, statt eine zweite, widersprüchliche Notiz hinzuzufügen."
+  },
+  {
     "en": "When you ask to see a model, a room or a storey, the 3D view now stays in the answer instead of disappearing as the answer finishes. Asking to open a model now keeps the tiles to choose from.",
     "de": "Wenn Sie sich ein Modell, einen Raum oder ein Geschoss anzeigen lassen, bleibt die 3D-Ansicht jetzt in der Antwort, statt mit deren Abschluss zu verschwinden. Wenn Sie darum bitten, ein Modell zu öffnen, bleiben die Kacheln zur Auswahl sichtbar."
   },

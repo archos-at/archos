@@ -1393,6 +1393,14 @@
         },
         {
           "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "When you ask the assistant to undo or correct one of your personal notes, it now removes or replaces that note instead of adding a second one that contradicts it.",
+            "de": "Wenn Sie den Assistenten bitten, eine Ihrer persönlichen Notizen zurückzunehmen oder zu korrigieren, entfernt oder ersetzt er diese nun, statt eine zweite, widersprüchliche Notiz hinzuzufügen."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "The inbox's notice that e-mails to a project wait for filing now says how many wait. It used to count only those that arrived since you last opened it, so it could read \"One e-mail\" while two were waiting.",
