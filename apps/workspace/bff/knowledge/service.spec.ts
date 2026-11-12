@@ -355,6 +355,19 @@ describe('reingestKnowledgeBaseDocuments with release marks', () => {
     await expect(reingestKnowledgeBaseDocuments(['a.pdf'], marks)).resolves.toMatchObject({ queued: ['a.pdf'] })
   })
 
+  it("carries the backend's own reason, so an index run says why the corpus refused it", async () => {
+    const detail = 'could not hand ingestion job oib-1 to Hatchet: WorkflowNotRegistered'
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ detail }), { status: 500 }))
+
+    await expect(reingestKnowledgeBaseDocuments(['a.pdf'], marks)).rejects.toThrow(`Knowledge backend returned 500: ${detail}`)
+  })
+
+  it('keeps a bare status when the backend says nothing', async () => {
+    fetchMock.mockResolvedValue(new Response('', { status: 500 }))
+
+    await expect(reingestKnowledgeBaseDocuments(['a.pdf'], marks)).rejects.toThrow(/^Knowledge backend returned 500$/)
+  })
+
   it('throws, so the indexing job retries, when a backend from before the flag leaves the file unreleased', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: 'pending', queued: ['a.pdf'] }), { status: 200 }))
 
