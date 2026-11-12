@@ -228,6 +228,13 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         min_value=0,
     ),
     ScoreDefinition(
+        "turn-slots-stranded",
+        "NUMERIC",
+        "Admission slots the turn's workflow still held when the turn ended (its teardown outran its bound), "
+        "given back then rather than renewed for as long as the teardown ran; written only when one was.",
+        min_value=0,
+    ),
+    ScoreDefinition(
         "file-tools-used",
         "CATEGORICAL",
         "Which of the office-file moves a turn used (ADR-0127), as the files eval's arms define them: search "

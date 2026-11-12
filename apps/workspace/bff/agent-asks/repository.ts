@@ -5,7 +5,7 @@
  */
 
 import 'server-only'
-import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, lt, lte } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documentVersions } from '@/lib/db/schema/document-versions'
 import { documents } from '@/lib/db/schema/documents'
@@ -62,6 +62,21 @@ export async function findAskById(id: string): Promise<AgentAskRow | null> {
   const db = getDb()
   const [row] = await db.select().from(agentAsks).where(eq(agentAsks.id, id)).limit(1)
   return row ?? null
+}
+
+/**
+ * The asks of every organization still open that were asked before `before`,
+ * oldest first and at most `limit`: the expiry sweep's work. Run under platform
+ * access; each is then ended in its own organization (`endAsk`).
+ */
+export async function findAsksOpenBefore(before: Date, limit: number): Promise<Array<Pick<AgentAskRow, 'id' | 'organizationId'>>> {
+  const db = getDb()
+  return db
+    .select({ id: agentAsks.id, organizationId: agentAsks.organizationId })
+    .from(agentAsks)
+    .where(and(inArray(agentAsks.state, [...ASK_LIFECYCLE.liveStates]), lt(agentAsks.createdAt, before)))
+    .orderBy(asc(agentAsks.createdAt))
+    .limit(limit)
 }
 
 /** Whether `requestedBy` asked anything in `conversationId`: the test that a conversation may be continued by an ask. */

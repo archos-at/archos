@@ -137,6 +137,24 @@ describe.skipIf(!url)('asks against Postgres', () => {
     expect(await as(ORG, () => repo.findAsk(ORG, ask.id))).toBeNull()
   })
 
+  it('lists the open asks of every organization asked before a time, for the expiry sweep, and only under the audited bypass', async () => {
+    const mine = await newAsk()
+    const theirs = await newAsk(OTHER_ORG, OTHER_THREAD, BERT)
+    const ended = await newAsk()
+    await as(ORG, () => repo.endAsk(ORG, ended.id, { state: 'completed' }))
+    const later = new Date(Date.now() + 60_000)
+
+    const open = await withPlatformAccess('ask expiry spec', () => repo.findAsksOpenBefore(later, 1_000))
+    const ids = open.map((ask) => ask.id)
+    expect(ids).toEqual(expect.arrayContaining([mine.id, theirs.id]))
+    expect(ids).not.toContain(ended.id)
+    expect(open.find((ask) => ask.id === theirs.id)?.organizationId).toBe(OTHER_ORG)
+    expect(await withPlatformAccess('ask expiry spec', () => repo.findAsksOpenBefore(new Date(0), 1_000))).toEqual([])
+    // A tenant scope sees its own asks only: the sweep is a platform read, or it reads one office.
+    const scoped = (await as(ORG, () => repo.findAsksOpenBefore(later, 1_000))).map((ask) => ask.organizationId)
+    expect(new Set(scoped)).toEqual(new Set([ORG]))
+  })
+
   it('lists no documents for an ask that filed none', async () => {
     const ask = await newAsk()
     expect(await as(ORG, () => repo.listAskDocuments(ask, { kind: 'member', userId: ANNA }))).toEqual([])

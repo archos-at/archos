@@ -172,6 +172,7 @@ from agent.turn.payload import turn_surface
 from agent.turn.response import answer_message_id
 from agent.turn.streaming import TurnTextFold
 from agent_host.after_terminal_writes import drain_after_terminal
+from agent_host.after_terminal_writes import drain_cancel_grace
 from agent_host.after_terminal_writes import in_background
 from agent_host.auth.middleware import build_request_trace_tags
 from agent_host.auth.middleware import detect_internal_caller
@@ -271,9 +272,6 @@ SUPERSEDE_WAIT_SECONDS = float(os.getenv("CHAT_SUPERSEDE_WAIT_SECONDS", "13.5") 
 # must fit inside the pod's grace period, and cover the longest turn:
 # `CHAT_TURN_DEADLINE_SECONDS`. Pulumi derives both from one number.
 DRAIN_SECONDS = float(os.getenv("CHAT_DRAIN_SECONDS", "2700") or "2700")
-
-#: How long a drain waits for cancelled turns to unwind and publish their terminal.
-DRAIN_CANCEL_GRACE_SECONDS = 10.0
 
 #: How often the wait looks at the running marker, and how often it asks the
 #: owner to stop again: a pub/sub message sent while the owner's input
@@ -1265,7 +1263,7 @@ class ChatRegistry:
             task.cancel()
         if pending:
             logger.warning("Cancelling %d chat turn(s) still running after the drain", len(pending))
-            await asyncio.wait(pending, timeout=DRAIN_CANCEL_GRACE_SECONDS)
+            await asyncio.wait(pending, timeout=drain_cancel_grace())
         await drain_after_terminal()
         return len(pending)
 

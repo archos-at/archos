@@ -133,6 +133,14 @@ const SWEEPS: SweepSpec[] = [
     run: sweeps.sweepSourceMonitors,
   },
   {
+    name: 'agent-ask-expiry',
+    cron: '*/5 * * * *',
+    reason:
+      'lists the asks of every organization still open past the longest a chat turn runs (their outcome notice was lost); ' +
+      'each is ended inside its own organization',
+    run: sweeps.sweepLostAsks,
+  },
+  {
     name: 'schedule-repair',
     cron: '*/5 * * * *',
     reason: 'finds the task definitions of every organization whose due time passed without a fire, or that have no scheduled run',

@@ -1092,6 +1092,7 @@ run tries again (the daily ones also retry a few times with backoff).
 | `upload-sweep` | every minute | `sweepUploadBatches` (ADR-0086). The route `/api/internal/upload-batches/sweep` stays for the operator's `?windowDays=` catch-up |
 | `folder-placement-sweep` | every minute | `sweepCollectionPlacement` (ADR-0087) |
 | `conversation-trace-erasure` | every minute | deletes the Langfuse traces of chats the BFF erased in the delete request |
+| `agent-ask-expiry` | `*/5 * * * *` | `endLostAsks` (`lib/agent-asks/service.ts`): ends `failed` the asks still open past `askMaxSeconds` (their turn's outcome notice was lost), with the reason a read gives (ADR-0124) |
 | `schedule-repair` | `*/5 * * * *` | see above |
 | `task-runs-prune` | hourly | deletes `task_runs` older than `SKILL_RUNS_RETENTION_DAYS` |
 | `usage-export` | `*/10 * * * *` | `exportUsageToPosthog`, again at once while it is behind on history |

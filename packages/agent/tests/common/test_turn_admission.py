@@ -366,3 +366,48 @@ def test_active_turns_reads_the_fleet_count_from_the_store(monkeypatch: pytest.M
     monkeypatch.setattr(turn_admission.cache, "eval_script", fake_eval)
     assert turn_admission.active_turns() == 7
     assert seen == [([turn_admission._GLOBAL_KEY], turn_admission.TURN_LEASE_SECONDS)]
+
+
+@pytest.mark.asyncio
+async def test_a_turn_that_is_over_gives_back_the_slot_its_workflow_still_holds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The slot is the turn's: whoever ends the turn hands it back, whatever the workflow is still doing."""
+    _limits(monkeypatch, total=10, per_org=1)
+    monkeypatch.setattr(turn_admission, "TURN_LEASE_SECONDS", 0.3)
+    slots = turn_admission.TurnSlots()
+    admitted, finish = asyncio.Event(), asyncio.Event()
+
+    async def workflow() -> None:
+        turn_admission.bind_turn_slots(slots)
+        async with admit_turn_async("org_1"):
+            admitted.set()
+            await finish.wait()  # a teardown nobody waits for any more
+
+    running = asyncio.create_task(workflow())
+    await admitted.wait()
+    assert await turn_admission.return_turn_slots(slots) == 1
+    await asyncio.sleep(0.5)  # past a lease: a renewal would have re-stamped it, a released slot stays free
+
+    with admit_turn("org_1"):
+        pass
+    finish.set()
+    await running
+    assert slots.held == {}
+
+
+@pytest.mark.asyncio
+async def test_a_workflow_whose_turn_is_over_takes_no_slot(monkeypatch: pytest.MonkeyPatch) -> None:
+    _limits(monkeypatch, total=10, per_org=1)
+    slots = turn_admission.TurnSlots()
+    assert await turn_admission.return_turn_slots(slots) == 0
+
+    async def late_workflow() -> None:
+        turn_admission.bind_turn_slots(slots)
+        async with admit_turn_async("org_1"):
+            pass
+
+    with pytest.raises(TurnAdmissionError):
+        await asyncio.create_task(late_workflow())
+    with admit_turn("org_1"):  # and the slot it reached for went back at once
+        pass
