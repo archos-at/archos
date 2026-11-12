@@ -504,6 +504,10 @@
     "de": "Ein großer Upload wird nicht mehr als fehlgeschlagen angezeigt, solange die Datei noch gelesen wird: Der Status bleibt auf „Wird gelesen“, ein Hinweis informiert Sie, dass das Lesen im Hintergrund fortgesetzt wird, und sobald die Datei bereit ist, ist sie zitierfähig."
   },
   {
+    "en": "A law looked up in its current consolidated version is no longer labelled with the date of an older version of the paragraph.",
+    "de": "Ein Gesetz, das in seiner aktuellen konsolidierten Fassung abgerufen wird, ist nicht mehr mit dem Datum einer älteren Fassung des Paragraphen gekennzeichnet."
+  },
+  {
     "en": "A licensed standard your office holds but has not cleared for AI processing is now named in answers as held and not read, so the answer says why it cannot quote it instead of leaving it out.",
     "de": "Eine lizenzierte Norm, über die Ihr Büro verfügt, die aber nicht für die KI-Verarbeitung freigegeben ist, wird in Antworten jetzt als vorhanden, aber nicht gelesen genannt. So erklärt die Antwort, warum sie daraus nicht zitieren kann, statt die Norm auszulassen."
   },
