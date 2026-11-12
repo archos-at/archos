@@ -176,7 +176,7 @@ export function IfcCompliancePanel({
           {t('compliance.title')}
         </h2>
         {bcfHref && openWork > 0 && (
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="secondary" size="sm">
             {/* `download` without a value: the filename comes from the
                 response's Content-Disposition, which is the only place that
                 knows which revision was exported. */}

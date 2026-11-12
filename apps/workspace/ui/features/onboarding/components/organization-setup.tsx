@@ -221,7 +221,7 @@ function InviteOnly({ onSignOut }: { onSignOut: () => void }): JSX.Element {
         {t('inviteOnly.description')}
       </SetupHeading>
       <p className="text-muted-foreground mt-4 text-sm leading-relaxed">{t('inviteOnly.wrongAccount')}</p>
-      <Button type="button" variant="outline" className="mt-6" onClick={onSignOut}>
+      <Button type="button" variant="secondary" className="mt-6" onClick={onSignOut}>
         <LogOut className="size-4" aria-hidden />
         {tc('actions.signOut')}
       </Button>

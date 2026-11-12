@@ -350,6 +350,7 @@ infra:
   - 'apps/agent-host/src/agent_host/routes/chat_occupancy.py'
   - 'apps/agent-host/src/agent_host/routes/internal_auth.py'
   - 'apps/agent-host/src/agent_host/routes/jobs.py'
+  - 'apps/agent-host/src/agent_host/routes/oib.py'
   - 'apps/workspace/bff/malware-scan/config.ts'
   - 'apps/workspace/bff/model-config/openrouter.ts'
   - 'apps/workspace/bff/scheduling/sweeps.ts'

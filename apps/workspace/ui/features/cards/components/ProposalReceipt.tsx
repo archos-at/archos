@@ -190,7 +190,7 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
           {alternative && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => {
                 if (!applyWaits) void decide('apply', alternative.body)
@@ -208,7 +208,7 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
           )}
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => void decide('dismiss')}
             aria-disabled={pressed || undefined}

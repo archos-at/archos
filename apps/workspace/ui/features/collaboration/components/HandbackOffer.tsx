@@ -70,7 +70,7 @@ export function HandbackOffer({
       // like the awaiting banner's own live region.
       role="status"
       className={cn(
-        'flex w-fit max-w-full flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-card px-3.5 py-2 shadow-xs',
+        'flex w-fit max-w-full flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-card px-3.5 py-2 shadow-xs',
         className,
       )}
     >
@@ -80,7 +80,7 @@ export function HandbackOffer({
       </span>
 
       <span className="flex items-center gap-1">
-        <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={onAccept}>
+        <Button variant="secondary" size="sm" className="h-7 gap-1.5 text-xs" onClick={onAccept}>
           {t('mentions.handback.action')}
         </Button>
         <Button

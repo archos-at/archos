@@ -215,7 +215,7 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
         <Alert variant="destructive">
           <AlertCircle />
           <AlertTitle className="line-clamp-none">{t('inbox.errors.actionFailed')}</AlertTitle>
-          <Button variant="outline" size="sm" className="mt-2 w-fit" onClick={() => (waiting.dismissMutationError(), fresh.dismissMutationError())}>
+          <Button variant="secondary" size="sm" className="mt-2 w-fit" onClick={() => (waiting.dismissMutationError(), fresh.dismissMutationError())}>
             {t('sharing.errors.dismiss')}
           </Button>
         </Alert>

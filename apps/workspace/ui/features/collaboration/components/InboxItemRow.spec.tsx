@@ -1535,7 +1535,7 @@ describe('InboxItemRow — who and what at a glance', () => {
     render(<InboxItemRow item={item()} focused />)
     const row = screen.getByTestId('inbox-item')
     expect(row).toHaveAttribute('data-focused', 'true')
-    expect(row).toHaveClass('bg-muted')
+    expect(row).toHaveClass('bg-desk')
     // No ring of its own over the global focus outline: the two drew a double bar.
     expect(row).not.toHaveClass('ring-2')
     expect(row).toHaveAttribute('data-focus-inset')

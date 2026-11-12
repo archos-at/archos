@@ -150,7 +150,7 @@ An empty field is never a claim (`claimsOf` already skips unstated fields). A de
 
 ### C2. What a claim is
 
-Six kinds, each with its one question:
+Seven kinds, each with its one question:
 
 | Claim | Question the reviewer answers | Source it must cite | Review view |
 |---|---|---|---|
@@ -160,6 +160,17 @@ Six kinds, each with its one question:
 | `rule` | Are these examples right? | The provision the rule encodes (`provision` on each row, as today) | The examples as a table: inputs, expected, the rule's output |
 | `citation_style` | Are these the lines an office would write? | The publisher's own citation guidance, where there is one | Rendered sample lines per kind |
 | `golden_case` | Is this the answer a right reply must give? | Its grounding, as today (`records`, `text`, `unconfirmed`) | The question, the expected values, the last run |
+| `source` | May the platform fetch this publisher's documents, on these terms? | Its terms page (licence, attribution) and a recorded test of one document | In words: the hosts it fetches from, the licence with the attribution quoted, monitoring on or off, the documents it may fetch as linked titles, and its test as one line ("OIB-RL 2 reads with ≥ 30 passages") |
+
+**What one confirmation covers** (`law-map-review.ts`, `reviewUnitsOf`), grouped by what a person decides, so Austria is about 35 confirmations rather than one per record (the owner stopped at 144):
+
+- each adoption statement, with the act it names (17 for Austria);
+- each region's building act (9);
+- the imported territories, in one per country. They stay one explicit unit rather than none: on a deployment run by one operator alone, approval requires every claim accepted (`decide.ts`), so "none" would mean the approve button writing verdicts nobody saw;
+- a publisher's editions of one year, with their texts and the works whose newest edition they hold: "OIB-Richtlinie 2023" holds the nine guidelines and their companion documents (Erläuternde Bemerkungen, Leitfäden, Begriffsbestimmungen, Zitierte Normen with its Rev. 1, the RL 7 Grundlagendokument). Editions of a year are one publisher's when they share a mark of it: the work's issuer, the site their text was taken from (an edition may cite the gazette that adopted it, its text cites the publisher), or the series, the designation without its number (`seriesOf`). The year is the edition's issue day or the year its label names; the batch is named for the series most of its works carry. On the dev request Austria is 17 statements, 9 building acts, 1 territories unit and 4 years (2015, 2019, 2023, 2025), plus one unit per other kind;
+- every other record, in one unit per kind: the sources, the rules, the test questions, the authorities.
+
+Verdicts stay per claim, so what was confirmed before the grouping stays confirmed and the counter shows only what remains. One confirm sends every claim of the unit through the same review route, in calls of at most 500, and the source tick is asked once per unit. No row shows a record id: a text reads as its work and edition ("Erläuternde Bemerkungen zu OIB-Richtlinie 1 · Ausgabe Mai 2023"), else its file. A kind's records open in words (`law-map-record.tsx`), each with its stored fields behind "Technical details", never first. A source reads its documents from `config.access.documents` and its test from `config.fixtures[].expect`. Not yet built: a rule's examples as a table and a test question's last run. `citation_style` is no record type of a change request yet (`KNOWLEDGE_RECORD_TYPES`), so the map never shows one.
 
 An `adoption` statement is keyed by the act's structured identifier (its gazette number or ELI) and its in-force date, never by parsing a provision's text. A replacement act (TBV 2026, K-BTV 2024) is a new statement; Kundmachung and Inkrafttreten are separate dates, and the map uses Inkrafttreten.
 

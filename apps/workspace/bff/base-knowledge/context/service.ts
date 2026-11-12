@@ -35,7 +35,7 @@ import { projectBuildings } from '../chain/building'
 import type { BuildingScope } from '../rulesets/applicability'
 import { loadGraph } from '../chain/load'
 import { readOrganizationCountries } from '../platform/entitlements'
-import { procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
+import { PROFILE_PROCEDURE_IDS, procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
 import { countryOf, resolveKnowledgeContext, type SiteLeaf } from './resolve'
 import { lastAnswerPackSeqs, packsUpdatedSince } from './last-answer'
 import { rememberTurnContext } from './turn-snapshot'
@@ -49,7 +49,7 @@ type ReferenceDate = ProcedureContext['referenceDates'][string]
 export const CONTEXT_TTL_MS = 10 * 60 * 1000
 
 /** The procedures a turn carries: the profile's first, as `procedure-*` facts scope them (ADR-0171). */
-const PROCEDURE_IDS = ['p1'] as const
+const PROCEDURE_IDS = PROFILE_PROCEDURE_IDS
 
 /**
  * Turns whose knowledge context could not be read (`knowledge_context_available`

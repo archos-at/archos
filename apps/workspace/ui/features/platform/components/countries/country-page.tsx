@@ -81,7 +81,7 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
   }
   // The map reads the change requests, not the overview: it stays one click away while the overview loads or fails.
   const mapLink = (
-    <Button asChild variant="outline" size="sm">
+    <Button asChild variant="secondary" size="sm">
       <Link href={`/app/platform/countries/${countryId.toLowerCase()}/map`} data-testid="open-law-map">
         {tMap('open')}
       </Link>

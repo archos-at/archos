@@ -356,7 +356,7 @@ export function CanvasActivityCard({
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => batch === null && setConfirmDiscard({ open: true, count: pendingIds.length })}
               aria-disabled={batch !== null || undefined}
@@ -575,7 +575,7 @@ function UndoButton({ number, busy, onClick }: { number: number; busy: boolean; 
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="secondary"
       size="sm"
       onClick={onClick}
       aria-label={t('cards.canvasActivity.undoLabel', { number })}
@@ -791,7 +791,7 @@ function SetRow({
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => void answer('dismissed')}
                 aria-label={t('cards.canvasActivity.rejectLabel', { number: item.number })}

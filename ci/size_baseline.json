@@ -58,7 +58,7 @@
     "apps/workspace/ui/features/documents/hooks/use-file-upload.ts": 627,
     "apps/workspace/ui/features/jobs/components/schedule-wizard.tsx": 1052,
     "apps/workspace/ui/features/knowledge/components/use-pdf-document-view-controller.tsx": 797,
-    "apps/workspace/ui/features/layout/components/SessionsPanel.tsx": 1088,
+    "apps/workspace/ui/features/layout/components/SessionsPanel.tsx": 1086,
     "apps/workspace/ui/features/layout/components/chat-area/use-chat-area-controller.tsx": 874,
     "apps/workspace/ui/features/layout/components/input-area/use-input-area-controller.tsx": 956,
     "apps/workspace/ui/features/platform/components/agent-profiler.tsx": 608,

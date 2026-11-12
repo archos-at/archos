@@ -7,9 +7,10 @@
  */
 
 import type { JSX, ReactNode } from 'react'
+import Link from 'next/link'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useTranslations } from '@/i18n'
+import { useLocale, useTranslations } from '@/i18n'
 import { lawMapCopy } from '@/i18n/namespaces/law-map'
 
 /** One row of the outline: its name on the left, its value said once on the right. */
@@ -60,7 +61,7 @@ export function OutlineRow({
   )
   const className = cn('grid w-full grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 border-b py-3 text-left', size === 'sm' && 'py-2.5', size === 'lg' && 'border-b-0 pb-1.5')
   return onClick ? (
-    <button type="button" onClick={onClick} aria-expanded={expanded} className={cn(className, 'hover:bg-accent/60')} data-testid={testId}>
+    <button type="button" onClick={onClick} aria-expanded={expanded} className={cn(className, 'hover:bg-hover')} data-testid={testId}>
       {body}
     </button>
   ) : (
@@ -97,4 +98,33 @@ export function SourceQuote({ url, quote, note }: { url: string; quote: string |
       {note ? <span className="text-xs"> · {note}</span> : null}
     </div>
   )
+}
+
+/** The quiet last row of a list that opens a form in its place: "+ Add …". */
+export function AddLine({ label, onClick, testId }: { label: string; onClick: () => void; testId?: string }): JSX.Element {
+  return (
+    <button type="button" onClick={onClick} className="text-muted-foreground hover:text-foreground w-full border-b py-2.5 text-left text-sm" data-testid={testId}>
+      + {label}
+    </button>
+  )
+}
+
+/** A line of quiet links, one per place to go next. */
+export function QuietLinks({ links }: { links: { href: string; label: string }[] }): JSX.Element | null {
+  if (links.length === 0) return null
+  return (
+    <p className="text-muted-foreground flex flex-wrap gap-x-4 text-sm">
+      {links.map((link) => (
+        <Link key={link.href} href={link.href} className="underline underline-offset-2">
+          {link.label}
+        </Link>
+      ))}
+    </p>
+  )
+}
+
+/** An ISO day as the reader's locale writes it; a dash for none. */
+export function useDate(): (iso: string | null) => string {
+  const { locale } = useLocale()
+  return (iso) => (iso ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`)) : '–')
 }

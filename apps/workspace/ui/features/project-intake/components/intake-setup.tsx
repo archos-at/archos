@@ -53,7 +53,7 @@ function NoIntake({ projectId }: { projectId: string }): JSX.Element {
         title={t('empty.title')}
         description={t('empty.description')}
         action={
-          <Button asChild variant="outline">
+          <Button asChild variant="secondary">
             <Link href={`/app/projects/${projectId}/intake`}>{t('empty.action')}</Link>
           </Button>
         }

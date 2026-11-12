@@ -73,7 +73,7 @@ const InertPreview: FC<{ children: React.ReactNode }> = ({ children }) => (
 )
 
 /** The external "request a card" link, saying it leaves Piloti for a new tab. */
-const RequestCardLink: FC<{ url: string; variant: 'default' | 'outline' }> = ({ url, variant }) => {
+const RequestCardLink: FC<{ url: string; variant: 'default' | 'secondary' }> = ({ url, variant }) => {
   const t = useTranslations(platformCopy)
   return (
     <Button asChild variant={variant} size="sm" className="shrink-0">
@@ -203,7 +203,7 @@ export const PlatformCards: FC = () => {
       }
       testId="platform-cards"
       action={
-        featureRequest ? <RequestCardLink url={featureRequest.url} variant="outline" /> : undefined
+        featureRequest ? <RequestCardLink url={featureRequest.url} variant="secondary" /> : undefined
       }
     >
       <ul className="flex flex-col divide-y">

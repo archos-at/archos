@@ -232,7 +232,7 @@ export function FeedbackThreadsDialog({
                   </Tabs>
                 )}
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={compose}
                   className={cn(!canViewOffice && 'flex-1')}
@@ -847,7 +847,7 @@ function ThreadMessages({
         ) : mine ? (
           <div className="flex flex-col items-start gap-3 px-2 py-1">
             <p className="text-muted-foreground text-sm text-pretty">{t('threads.cannotReply')}</p>
-            <Button variant="outline" size="sm" onClick={onNewFeedback}>
+            <Button variant="secondary" size="sm" onClick={onNewFeedback}>
               {t('threads.send')}
             </Button>
           </div>

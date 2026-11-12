@@ -34,20 +34,21 @@
 
 import type { JSX } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
-import { motion, motionQuick, springPress, usePrefersReducedMotion } from '@/components/motion'
+import { motion, springPress, usePrefersReducedMotion } from '@/components/motion'
 import { cn } from '@/lib/utils'
 
 export interface RaisedCardProps extends Omit<ComponentProps<'div'>, 'ref'> {
   /**
-   * Lift on hover. On for anything that opens something; off for a card that
-   * is a container rather than a target, where a lift promises a click that
-   * does not exist.
+   * Answers the pointer: the sheet and its tray each go one step down the
+   * ladder, as a folder and a row do. On for anything that opens something;
+   * off for a card that is a container rather than a target, where an answer
+   * promises a click that does not exist.
    */
   interactive?: boolean
   children: ReactNode
 }
 
-/** The outer tray. Clips the body's bottom radius and owns the hover shadow. */
+/** The outer tray. Clips the body's bottom radius and names the group its body answers the pointer in. */
 export function RaisedCard({
   interactive = false,
   className,
@@ -58,9 +59,12 @@ export function RaisedCard({
   const card = (
     <div
       className={cn(
-        'border-border bg-muted/50 shadow-sm relative flex h-full min-w-0 flex-col overflow-hidden rounded-surface border',
-        'transition-shadow duration-quick ease-out motion-reduce:transition-none',
-        interactive && 'hover:shadow-md',
+        'bg-desk shadow-sm relative flex h-full min-w-0 flex-col overflow-hidden rounded-surface',
+        'transition-colors duration-quick ease-out motion-reduce:transition-none',
+        // The tray is the desk, so under the pointer it is the picked grey; the sheet on it takes its own step
+        // (`RaisedCardBody`). It lifted 2px with a deeper shadow until 2026-11-12: a second language beside the fill,
+        // and nothing at all in dark, where a shadow does not show on charcoal (V3 of the interaction review).
+        interactive && 'group/raised hover:bg-selected',
         className
       )}
       {...rest}
@@ -70,45 +74,27 @@ export function RaisedCard({
   )
 
   if (!interactive) return card
-  // HOVER IS A TWEEN, THE PRESS IS A SPRING — and they are not the same
-  // motion wearing one transition, so they live on two nested elements, each
-  // with its own transition.
-  //
-  // The 2px lift (outer) is ambient: it fires on every pointer crossing,
-  // dozens of times per screenful of a file grid, and its trajectory carries
-  // nothing the endpoint does not already say ("this is a target"). The design
-  // language's third veto — anything appearing more than ~5× per screenful is
-  // tween-only — lands squarely on it, so it is `motionQuick`, the same 180ms
-  // ease-out the card's own `transition-shadow` runs on. Sharing that number is
-  // the point: lift and shadow are one gesture.
-  //
-  // The tap (inner) is direct manipulation and must be REVERSIBLE mid-flight —
-  // release before the dip completes and the card has to come back from
-  // wherever it is, carrying its velocity. That is the one thing a tween
+  // THE PRESS IS A SPRING. A tap is direct manipulation and must be REVERSIBLE
+  // mid-flight: release before the dip completes and the card has to come back
+  // from wherever it is, carrying its velocity. That is the one thing a tween
   // cannot do (it restarts from zero velocity and stutters), and it is why
   // `springPress` exists. ζ = 1.00, so the overshoot is 0px at any travel. The
   // dip is the house press, 0.98 (`components/ui/press.ts`).
   //
-  // Both are written as full `transform` strings, not motion's `y` / `scale`
-  // shorthands: those are CSS variables run from the main thread, and a file
-  // grid is exactly the page that is busy (thumbnails decoding) while a pointer
-  // crosses it. A string transform runs on the compositor. Under reduced
-  // motion neither moves; the shadow still answers the hover.
+  // Written as a full `transform` string, not motion's `scale` shorthand: that
+  // is a CSS variable run from the main thread, and a file grid is exactly the
+  // page that is busy (thumbnails decoding) while a pointer crosses it. A
+  // string transform runs on the compositor. Under reduced motion it does not
+  // move; the fill still answers the hover. Nothing moves under the pointer
+  // alone: the card answers it with its fill.
   return (
     <motion.div
       className="h-full min-w-0 will-change-transform"
-      style={{ transform: 'translateY(0px)' }}
-      whileHover={reduced ? undefined : { transform: 'translateY(-2px)' }}
-      transition={motionQuick}
+      style={{ transform: 'scale(1)' }}
+      whileTap={reduced ? undefined : { transform: 'scale(0.98)' }}
+      transition={springPress}
     >
-      <motion.div
-        className="h-full min-w-0"
-        style={{ transform: 'scale(1)' }}
-        whileTap={reduced ? undefined : { transform: 'scale(0.98)' }}
-        transition={springPress}
-      >
-        {card}
-      </motion.div>
+      {card}
     </motion.div>
   )
 }
@@ -149,6 +135,8 @@ export function RaisedCardBody({
     <div
       className={cn(
         'bg-card w-full overflow-hidden rounded-surface px-4 pb-3 pt-3.5',
+        // In a card that opens something, the sheet answers the pointer itself (`group/raised`, the tray's).
+        'transition-colors duration-quick ease-out group-hover/raised:bg-sheet-hover motion-reduce:transition-none',
         className
       )}
       {...rest}

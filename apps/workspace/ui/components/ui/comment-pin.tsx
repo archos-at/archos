@@ -67,7 +67,7 @@ export const CommentPin = React.forwardRef<HTMLButtonElement, CommentPinProps>(f
   const filled = active && !proposed && !ghost
   const classes = cn(
     'relative inline-flex size-6 items-center justify-center rounded-full rounded-bl-none font-mono text-[11px] leading-none font-semibold tabular-nums',
-    'border-2 shadow-sm transition-[scale,background-color,color] duration-snap ease-out motion-reduce:transition-none',
+    'border-2 transition-[scale,background-color,color] duration-snap ease-out motion-reduce:transition-none',
     proposed && 'border-dashed',
     done && 'opacity-60',
     // Hollow: the sheet shows through, the number in the ring's ink.

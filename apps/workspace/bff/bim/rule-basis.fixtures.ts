@@ -36,6 +36,7 @@ export function contextUse(designation: string, editionLabel: string, overrides:
     language: null,
     textStatus: null,
     applicability: null,
+    issuer: null,
     ...overrides,
   }
 }

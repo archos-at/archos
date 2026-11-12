@@ -33,6 +33,10 @@
  * the record it is about and an RFC 6901 `pointer` into that record, so an
  * agent repairs the field and resends the batch with the same keys.
  *
+ * A warning is not a check: {@link releaseWarnings} names what a request would
+ * release that nothing refuses and a reviewer weighs before approving or
+ * publishing it (the country's own territory stating no coverage).
+ *
  * The rest of the kit (anchors, hosts, level obligations, instruction-like
  * text) needs sources and packs that arrive later; until then a reviewer
  * checks those claim by claim.
@@ -44,7 +48,7 @@ import type { DecisionTable } from '../wire/ruleset'
 import { dayAfter } from '../time/editions'
 import { normalizeForQuote, quoteFound, quoteLongEnough } from './quote'
 import { proposalKey, recordIdOf, referencesOf } from './records'
-import type { ProposedRecord } from './wire'
+import type { ProposedRecord, RevisionView } from './wire'
 
 /** A platform record that already exists: its type and country. */
 export interface KnownRecord {
@@ -362,4 +366,34 @@ export function validateProposal(
   })
   for (const [index, found] of overlapProblems(records, existing)) problems[index]?.push(found)
   return problems.flatMap((own, index) => own.map((found) => ({ ...found, index })))
+}
+
+/** What a request would release that no check refuses, and a reviewer weighs before approving or publishing it. */
+export interface ReleaseWarning {
+  code: 'country_states_no_coverage'
+  recordId: string
+  detail: string
+}
+
+export const NO_COVERAGE_WARNING =
+  'the country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one'
+
+/**
+ * The request's warnings, from each record's newest revision in it. A country whose own territory record
+ * (`id === countryId`) states no `coverageLevel` leaves a site in it at gate `none` (`context/resolve.ts`
+ * `coverageAt`, the nearest territory on the chain that states one) unless a region on its chain states one:
+ * its law is read, and no edition binds. Silent when a territory of the request states coverage, since the
+ * region may then be the one that answers. A union states none by design (it never lends its coverage to a
+ * member). Pure.
+ */
+export function releaseWarnings(
+  countryId: string,
+  revisions: readonly (Pick<RevisionView, 'type' | 'recordId'> & { claims: readonly { path: string; value: unknown }[] })[],
+): ReleaseWarning[] {
+  const states = (revision: (typeof revisions)[number]) =>
+    revision.claims.some((claim) => claim.path === 'coverageLevel' && claim.value !== null && claim.value !== undefined)
+  const territories = revisions.filter((revision) => revision.type === 'territory')
+  const country = territories.find((revision) => revision.recordId === countryId)
+  if (!country || country.claims.some((claim) => claim.path === 'kind' && claim.value === 'union')) return []
+  return territories.some(states) ? [] : [{ code: 'country_states_no_coverage', recordId: countryId, detail: NO_COVERAGE_WARNING }]
 }

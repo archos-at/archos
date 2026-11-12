@@ -52,6 +52,8 @@ export const CITATION_LINE_FIELDS = {
   /** The work's designation and the edition's label, as their records name them. */
   designation: name,
   edition_label: name,
+  /** Who issues the work, as its record names it: the publisher a line of the edition's text names. */
+  issuer: name,
   /** The instrument that declares the edition binding here; absent for law in its territory. */
   route: routeSchema,
   /** The first day a binding role holds from, and the day the role was resolved for. */

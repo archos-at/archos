@@ -39,6 +39,7 @@ import {
 import { knowledgeSourceRevisions } from '@/lib/db/schema/knowledge-sources'
 import { knowledgeGoldenCaseRevisions } from '@/lib/db/schema/knowledge-golden'
 import type { EntryCheck, EntryValues } from '../wire'
+import { workDesignation } from '../office/work-designation'
 import { OFFICE_WORK_KINDS, type OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 
 const isOfficeWorkKind = (kind: string): kind is OfficeWorkKind => (OFFICE_WORK_KINDS as readonly string[]).includes(kind)
@@ -57,6 +58,12 @@ export interface EntryRecordIds {
 
 export interface StoredEntry extends EntryRecordIds {
   documentId: string
+  /**
+   * Whether the work belongs to no document: it does once a second edition
+   * joined it (`office-editions.ts`), so removing one edition's document never
+   * takes the work, and with it the other editions, along.
+   */
+  workStandsAlone: boolean
   /** The work's head is set: a person confirmed the values in force. */
   confirmed: boolean
   values: EntryValues
@@ -120,7 +127,7 @@ type EditionBody = Omit<typeof knowledgeEditionRevisions.$inferInsert, 'revision
 type CopyBody = Omit<typeof knowledgeManifestationRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
 export type RulesetBody = Omit<typeof knowledgeRulesetRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
 
-function bodiesOf(
+export function bodiesOf(
   values: EntryValues,
   ids: EntryRecordIds,
   terms: KnowledgeTerms
@@ -134,12 +141,12 @@ function bodiesOf(
       issuer: values.issuer,
       addressees: values.addressees,
     },
-    edition: { workId: ids.workId, label: values.editionLabel, issuedOn: values.issuedOn },
+    edition: { workId: ids.workId, label: values.editionLabel, issuedOn: values.issuedOn, inForceFrom: values.inForceFrom, inForceTo: values.inForceTo },
     copy: { editionId: ids.editionId, licenceClass: values.licenceClass, terms },
   }
 }
 
-interface WriteContext {
+export interface WriteContext {
   organizationId: string
   createdBy: string
   provenance: KnowledgeProvenance
@@ -207,6 +214,20 @@ export async function insertProposedEntry(
  * every head moved to it, and, on a confirmation, the first check: confirming
  * an edition is checking it. One transaction.
  */
+/**
+ * Lock an edition's record and say which work its newest revision names. Every
+ * write to an office edition takes this lock first, so a write and a newer
+ * edition joining the work run one after the other, and neither acts on a
+ * work the other has just replaced (`store/office-editions.ts`).
+ */
+export async function lockEditionWork(tx: Tx, editionId: string): Promise<string | null> {
+  await tx.execute(sql`SELECT 1 FROM knowledge_records WHERE id = ${editionId} FOR UPDATE`)
+  const rows = await tx.execute<{ work_id: string }>(sql`
+    SELECT e.work_id FROM knowledge_edition_revisions e JOIN knowledge_revisions r ON r.revision_id = e.revision_id
+    WHERE e.record_id = ${editionId} ORDER BY r.created_at DESC LIMIT 1`)
+  return Array.from(rows)[0]?.work_id ?? null
+}
+
 export async function writeConfirmedValues(
   ids: EntryRecordIds,
   values: EntryValues,
@@ -214,8 +235,13 @@ export async function writeConfirmedValues(
 ): Promise<void> {
   await withTenant({ organizationId: context.organizationId }, () =>
     getDb().transaction(async (tx) => {
-      const revisions = await appendEntryRevisions(tx, ids, values, context)
-      await moveHeads(tx, ids, revisions)
+      // The work as it is now: a newer edition may have joined since the caller read it.
+      const workId = (await lockEditionWork(tx, ids.editionId)) ?? ids.workId
+      const joined = workId !== ids.workId
+      const live = joined ? { ...ids, workId } : ids
+      const written = joined ? { ...values, designation: workDesignation(values.designation) } : values
+      const revisions = await appendEntryRevisions(tx, live, written, context)
+      await moveHeads(tx, live, revisions)
       if (context.firstCheck) {
         await tx.insert(knowledgeChecks).values({
           id: randomUUID(),
@@ -332,8 +358,9 @@ export async function readOfficeEntries(organizationId: string, documentIds?: re
         .where(
           and(
             eq(knowledgeRecords.organizationId, organizationId),
-            isNotNull(knowledgeRecords.documentId),
-            documentIds ? inArray(knowledgeRecords.documentId, [...documentIds]) : undefined
+            // An entry's records; the works that stand alone come through the editions naming them below, so a
+            // work no edition names any more (its last document deleted from the Büroablage) is never read.
+            documentIds ? inArray(knowledgeRecords.documentId, [...documentIds]) : isNotNull(knowledgeRecords.documentId)
           )
         )
         .orderBy(desc(knowledgeRecords.createdAt))
@@ -341,25 +368,39 @@ export async function readOfficeEntries(organizationId: string, documentIds?: re
       const inForce = await revisionInForce(tx, records)
       const bodies = await readBodies(tx, [...inForce.values()])
       const groups = groupByDocument(records)
+      const sharedWorks = await standaloneWorksOf(tx, organizationId, bodies.editions, records)
+      const allRecords = [...records, ...sharedWorks.map((work) => work.record)]
+      if (sharedWorks.length > 0) {
+        const more = await readBodies(tx, sharedWorks.flatMap((work) => (work.revisionId ? [work.revisionId] : [])))
+        bodies.works.push(...more.works)
+        for (const [id, provenance] of more.provenance) bodies.provenance.set(id, provenance)
+        for (const work of sharedWorks) if (work.revisionId) inForce.set(work.record.id, work.revisionId)
+      }
       const copyIds = [...groups.values()].flatMap((group) => (group.manifestation ? [group.manifestation.id] : []))
       const checks = await latestChecks(tx, copyIds)
-      return assembleEntries(groups, inForce, bodies, checks)
+      const works = new Map(allRecords.filter((record) => record.type === 'work').map((record) => [record.id, record]))
+      return assembleEntries(groups, works, inForce, bodies, checks)
     })
   )
 }
 
 function assembleEntries(
   groups: Map<string, Partial<Record<KnowledgeRecordType, RecordRow>>>,
+  works: ReadonlyMap<string, RecordRow>,
   inForce: Map<string, string>,
   bodies: Awaited<ReturnType<typeof readBodies>>,
   checks: Map<string, EntryCheck>
 ): StoredEntry[] {
   const entries: StoredEntry[] = []
   for (const [documentId, group] of groups) {
-    const { work, edition, manifestation } = group
-    if (!work || !edition || !manifestation) continue
-    const workBody = bodies.works.find((row) => row.revisionId === inForce.get(work.id))
+    const { edition, manifestation } = group
+    if (!edition || !manifestation) continue
     const editionBody = bodies.editions.find((row) => row.revisionId === inForce.get(edition.id))
+    // The work its edition names: once a second edition joined, a standalone one, while the document's own
+    // first work still exists beside it with the edition's earlier revisions (`office-editions.ts`).
+    const work = (editionBody ? works.get(editionBody.workId) : undefined) ?? group.work
+    if (!work) continue
+    const workBody = bodies.works.find((row) => row.revisionId === inForce.get(work.id))
     const copyBody = bodies.copies.find((row) => row.revisionId === inForce.get(manifestation.id))
     if (!workBody || !editionBody || !copyBody) continue
     // An office holds only its five kinds; a row of another kind is no entry of the office's.
@@ -369,25 +410,56 @@ function assembleEntries(
       editionId: edition.id,
       copyId: manifestation.id,
       documentId,
-      confirmed: work.headRevisionId !== null,
+      workStandsAlone: work.documentId === null,
+      // The edition's own head: a second edition is a proposal while its work is long confirmed.
+      confirmed: edition.headRevisionId !== null,
       values: {
         kind: workBody.kind,
         title: workBody.title,
         designation: workBody.identifiers.designation ?? null,
         editionLabel: editionBody.label,
         issuedOn: editionBody.issuedOn,
+        inForceFrom: editionBody.inForceFrom,
+        inForceTo: editionBody.inForceTo,
         territoryIds: workBody.territoryIds,
         issuer: workBody.issuer,
         addressees: workBody.addressees,
         licenceClass: copyBody.licenceClass,
       },
-      provenance: bodies.provenance.get(workBody.revisionId) ?? {},
+      provenance: bodies.provenance.get(editionBody.revisionId) ?? bodies.provenance.get(workBody.revisionId) ?? {},
       terms: copyBody.terms,
       lastCheck: checks.get(manifestation.id) ?? null,
-      createdAt: new Date(work.createdAt),
+      createdAt: new Date(edition.createdAt),
     })
   }
   return entries.slice(0, MAX_OFFICE_ENTRIES)
+}
+
+/**
+ * The standalone works the editions of a narrowed read name: a read by
+ * document id loads only those documents' records, and a shared work has none.
+ */
+async function standaloneWorksOf(
+  tx: Tx,
+  organizationId: string,
+  editions: readonly { workId: string }[],
+  loaded: readonly RecordRow[],
+): Promise<{ record: RecordRow; revisionId: string | null }[]> {
+  const have = new Set(loaded.map((record) => record.id))
+  const wanted = [...new Set(editions.map((edition) => edition.workId))].filter((id) => !have.has(id))
+  if (wanted.length === 0) return []
+  const rows: RecordRow[] = await tx
+    .select({
+      id: knowledgeRecords.id,
+      type: knowledgeRecords.type,
+      documentId: knowledgeRecords.documentId,
+      headRevisionId: knowledgeRecords.headRevisionId,
+      createdAt: knowledgeRecords.createdAt,
+    })
+    .from(knowledgeRecords)
+    .where(and(eq(knowledgeRecords.organizationId, organizationId), inArray(knowledgeRecords.id, wanted)))
+  const inForce = await revisionInForce(tx, rows)
+  return rows.map((record) => ({ record, revisionId: inForce.get(record.id) ?? null }))
 }
 
 /** Whether a document already has base-knowledge records (one entry per document). */
@@ -411,6 +483,29 @@ export async function documentsWithEntries(organizationId: string, documentIds: 
       .where(and(eq(knowledgeRecords.organizationId, organizationId), inArray(knowledgeRecords.documentId, [...documentIds])))
   )
   return rows.flatMap((row) => (row.documentId ? [row.documentId] : []))
+}
+
+/**
+ * The entry (its edition's id, the id an entry is found by) each of
+ * `documentIds` is recorded as: one query for a listing page, so the Büroablage
+ * can mark its standards (ADR-0163). Each document has its own edition, also
+ * when its work is shared with another edition and so belongs to no document.
+ */
+export async function entryIdsForDocuments(organizationId: string, documentIds: readonly string[]): Promise<Map<string, string>> {
+  if (documentIds.length === 0) return new Map()
+  const rows = await withTenant({ organizationId }, () =>
+    getDb()
+      .select({ id: knowledgeRecords.id, documentId: knowledgeRecords.documentId })
+      .from(knowledgeRecords)
+      .where(
+        and(
+          eq(knowledgeRecords.organizationId, organizationId),
+          eq(knowledgeRecords.type, 'edition'),
+          inArray(knowledgeRecords.documentId, [...documentIds])
+        )
+      )
+  )
+  return new Map(rows.flatMap((row) => (row.documentId ? [[row.documentId, row.id] as const] : [])))
 }
 
 /** The copy a document is, as its newest revision states it (a confirmed head, or a proposal). */

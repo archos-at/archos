@@ -26,3 +26,6 @@ export { documentFilesHref } from './lib/document-question'
 // The E-Mail-Eingang offers to follow a Verlauf on the same card as the Verlauf's own tab.
 export { FollowCard, FollowCardHint } from './components/mail-thread/follow-card'
 export { InboundMailWaitingLine } from './components/inbound-mail-waiting-line'
+// The office standards (Grundlagen des Büros) drill into their folders as Dateien does: one path row, one folder tile.
+export { FolderBreadcrumbRow, FolderCard, FolderCardSkeleton } from './components/folder-navigation'
+export { FileGrid } from './components/file-grid'

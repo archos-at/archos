@@ -19,6 +19,7 @@
  */
 
 import { z } from 'zod'
+import { corpusQuerySchema } from '@/lib/knowledge/corpus-query'
 import {
   approvalBodySchema,
   captureBodySchema,
@@ -112,7 +113,8 @@ export const platformKnowledgeOperations = [
     description:
       'Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the ' +
       'approvals (with the reason of one given alone), and the release moves. `approval` is four_eyes, or single when its ' +
-      'author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed.',
+      'author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed. ' +
+      '`warnings` names what the request would release that nothing refuses: read each to the person before they approve or publish.',
     method: 'GET',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]',
     params: requestParams,
@@ -208,9 +210,11 @@ export const platformKnowledgeOperations = [
     summary: 'See the whole base corpus, released or not',
     description:
       'The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. ' +
-      'It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.',
+      'It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list. ' +
+      'The whole store with summaries is longer than one result: narrow it with `nameContains` and `countryId` (or `none`), leave out the summaries with `brief: true`, and page with `limit` and `cursor` (`matched`, `nextCursor`).',
     method: 'GET',
     path: '/api/platform/knowledge/documents',
+    query: corpusQuerySchema,
     load: () => import('@/app/api/platform/knowledge/documents/route'),
   },
   {

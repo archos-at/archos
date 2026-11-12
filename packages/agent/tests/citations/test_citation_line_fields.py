@@ -39,6 +39,7 @@ ACT = {
     "corpusFiles": [],
     "designation": "BA-N",
     "editionLabel": None,
+    "issuer": None,
     "sourceRefs": [{"scheme": "xa_law_number", "value": "77"}],
     "sourceUrl": None,
     "language": None,
@@ -64,6 +65,7 @@ GUIDELINE = {
     "corpusFiles": ["guideline_2_edition_may_2021.pdf"],
     "designation": "GL 2",
     "editionLabel": "Edition May 2021",
+    "issuer": "Standards Institute of Xanadu",
     "sourceRefs": [],
     "sourceUrl": "https://standards.xa.example/guideline-2",
     "language": "fr-XA",
@@ -175,10 +177,30 @@ def test_a_cited_edition_carries_its_label_route_and_dates_from_the_records():
     assert "retrieved_at" not in wire
 
 
+def test_a_cited_edition_names_who_issues_it_from_the_work_s_record_whatever_its_file_is_called():
+    """The publisher a line names is the record's issuer: never the document class or a file name (the base
+    corpus holds a record-linked text under a generated name, ``docClass`` ``other``)."""
+    entry = SourceEntry(
+        citation_key="guideline-2-2021-text-e7e0e19b89e4.pdf, p.9",
+        source_type="knowledge_layer",
+        shelf="base",
+        doc_class="other",
+        edition_id="edition:guideline-2-2021",
+    )
+    wire = source_entry_to_wire(entry)
+    assert (wire["designation"], wire["edition_label"], wire["issuer"]) == (
+        "GL 2",
+        "Edition May 2021",
+        "Standards Institute of Xanadu",
+    )
+    # A work whose record names no issuer states none: absent, never guessed.
+    assert "issuer" not in source_entry_to_wire(_at_the_gazette())
+
+
 def test_a_source_no_record_reaches_carries_none_of_it():
     wire = source_entry_to_wire(SourceEntry(citation_key="site_plan.pdf, p.2", source_type="knowledge_layer"))
-    absent = ("role", "designation", "edition_label", "route", "role_since", "as_of", "last_checked_at", "freshness")
-    absent += ("language", "text_status")
+    absent = ("role", "designation", "edition_label", "issuer", "route", "role_since", "as_of", "last_checked_at")
+    absent += ("freshness", "language", "text_status")
     assert not set(absent) & set(wire)
 
 

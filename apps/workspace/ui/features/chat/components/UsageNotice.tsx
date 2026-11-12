@@ -120,7 +120,7 @@ export const UsageNotice: FC<UsageNoticeProps> = ({ notice, onDismiss }) => {
           />
         )}
         {notice.canChange && (
-          <Button asChild size="sm" variant="outline">
+          <Button asChild size="sm" variant="secondary">
             <Link href={notice.href}>{t('usageNotice.raiseLimit')}</Link>
           </Button>
         )}

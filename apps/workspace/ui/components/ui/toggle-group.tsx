@@ -161,6 +161,9 @@ const ToggleGroupItem = React.forwardRef<
       ref={ref}
       value={value}
       data-slot="toggle-group-item"
+      // On a track the keyboard's ring is drawn inside the segment (`data-focus-inset`, `globals.css`): the track
+      // scrolls sideways, so it clips, and a ring 2px outside the segment showed as four corner marks.
+      data-focus-inset={context.segmented ? '' : undefined}
       className={cn(
         toggleVariants({
           variant: context.variant ?? variant,
@@ -172,11 +175,12 @@ const ToggleGroupItem = React.forwardRef<
         // like the tabs trigger. Only ink stays here. `relative isolate` +
         // pill `-z-10` keeps the text above the pill with no wrapper element,
         // so no consumer needs a relative wrapper of its own.
-        // On the track an unchosen segment hovers to ink, not to a fill: a
-        // state grey on the track's grey is grey on grey, and the thumb is
-        // the one surface that moves.
+        // On the track an unchosen segment takes ink and the pointer's fill,
+        // one step down from the track, as a row does; the chosen one keeps
+        // its thumb and takes nothing. Ink alone was the faintest answer in
+        // the app, next to nothing on a glyph (V5, 2026-11-12).
         context.segmented &&
-          'relative isolate hover:bg-transparent data-[state=on]:bg-transparent data-[state=on]:shadow-none',
+          'relative isolate hover:bg-transparent data-[state=off]:hover:bg-hover data-[state=on]:bg-transparent data-[state=on]:shadow-none focus-visible:ring-inset focus-visible:ring-offset-0',
         // Never squeezed: a row of segments that runs out of room scrolls
         // (the segmented tray is `overflow-x-auto`) or wraps (the plain
         // group), and a segment that shrank instead cut its own label and

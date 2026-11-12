@@ -129,7 +129,7 @@ export function RecentlyDeleted({ canManageCompliance = false }: RecentlyDeleted
             </div>
             {entry.status === 'pending' && (
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className="min-w-24"
                 onClick={() => void handleRestore(entry)}

@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Archive, Bell, FolderKanban, MessageSquarePlus, Search } from 'lucide-react'
+import { Archive, Bell, FolderKanban, Library, MessageSquarePlus, Search } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -87,9 +87,11 @@ export function OrgHeader({
   return (
     <header
       data-scope="org"
-      // No rule under the header, also not while the page scrolls under it: the
-      // design system's rule (packages/brand/README.md, „Layout and shape“).
-      className="bg-background flex w-full shrink-0 flex-col pt-[env(safe-area-inset-top)]"
+      // One rule under it, as under a project page's header (`SECTION_HEADER_CLASS`): the bar stays put while the page
+      // scrolls under it, and without a line its doorways read as the page's first row (review of 2026-11-12). The
+      // design system's handover has none under a header; the app's layer deviates here, recorded in
+      // packages/brand/README.md („Where this package deviates from the handover“).
+      className="border-border bg-background flex w-full shrink-0 flex-col border-b pt-[env(safe-area-inset-top)]"
     >
       <div className={cn(BRAND_ROW, BRAND_INSET_ORG, 'justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] md:pr-6')}>
         <div className="flex min-w-0 items-center gap-2">
@@ -121,6 +123,16 @@ export function OrgHeader({
               icon={Archive}
               tourAnchor={TOUR_ANCHORS.officeShelf}
               active={pathname === '/app/office-shelf' || pathname.startsWith('/app/office-shelf/')}
+            />
+          )}
+          {/* The office's standards beside the Büroablage they are filed in:
+              a place of their own, so a standard is not one file among many. */}
+          {canAccessOfficeShelf && (
+            <OrgHeaderIconLink
+              href="/app/base-knowledge"
+              label={t('sections.baseKnowledge')}
+              icon={Library}
+              active={pathname === '/app/base-knowledge' || pathname.startsWith('/app/base-knowledge/')}
             />
           )}
           {/* The workspace search (ADR-0136); ⌘K reaches it from anywhere too. */}

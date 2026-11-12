@@ -42,3 +42,20 @@ export function procedureFromProfile(facts: ProfileFacts, procedureId: string): 
 export function profileHasProcedure(facts: ProfileFacts, procedureId: string): boolean {
   return Object.keys(facts).some((key) => key.endsWith(`@${procedureId}`))
 }
+
+/** The procedures a project's profile names, by id (`filed_on@p1`, …). One today. */
+export const PROFILE_PROCEDURE_IDS = ['p1'] as const
+
+/**
+ * The day a project's knowledge resolves on: its procedure's filing day once
+ * that has come, else `today` (the knowledge context's rule, `referenceDateOf`
+ * in `context/service.ts`, which also says which of the two it took).
+ */
+export function referenceDayOfProfile(facts: ProfileFacts, today: string): string {
+  for (const id of PROFILE_PROCEDURE_IDS) {
+    if (!profileHasProcedure(facts, id)) continue
+    const { filedOn } = procedureFromProfile(facts, id)
+    if (filedOn && filedOn <= today) return filedOn
+  }
+  return today
+}

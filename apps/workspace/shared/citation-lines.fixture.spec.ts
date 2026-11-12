@@ -55,7 +55,7 @@ function stylesIn(pack: string): CitationStylePayload | undefined {
 const sourceIn = (citation: (typeof citations)[number], language: string): CitationSource => ({
   ...citation,
   timestamp: NOW,
-  line: { language },
+  line: { ...citation.line, language },
 })
 
 const refOf = (source: CitationSource): CitationRef => {

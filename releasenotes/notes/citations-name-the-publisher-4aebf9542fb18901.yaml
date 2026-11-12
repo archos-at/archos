@@ -1,0 +1,9 @@
+---
+# area: building-law
+fixes:
+  - >
+    A guideline the platform holds as a released edition is now cited by its
+    name and edition, such as „OIB-Richtlinie 6, Ausgabe März 2015“, with the
+    body that issues it as publisher, instead of by its file name with the
+    federal legal database as its source. This holds wherever the records of
+    the site state its coverage.

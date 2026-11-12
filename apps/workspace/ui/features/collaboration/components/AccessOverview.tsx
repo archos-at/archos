@@ -264,7 +264,7 @@ export function AccessOverview({
                       data-testid="access-row"
                       data-role={entry.role}
                       data-reason={entry.reason}
-                      className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors duration-quick ease-out hover:bg-accent motion-reduce:transition-none"
+                      className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors duration-quick ease-out hover:bg-hover motion-reduce:transition-none"
                     >
                       <PersonAvatar person={entry.person} size="md" />
                       <div className="min-w-0 flex-1">
