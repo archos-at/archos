@@ -14,6 +14,8 @@
 
 import type { JSX } from 'react'
 import { useId, useMemo, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SuggestInput, type SuggestOption } from '@/components/ui/suggest-input'
 import { useTranslations } from '@/i18n'
 import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
@@ -32,8 +34,15 @@ export interface TopicPickerProps {
   /** The field's accessible name. Default: the topic label. */
   label?: string
   id?: string
+  /**
+   * A small button, "Verschieben nach …", that opens the same field in a popover and closes it on a
+   * pick: for a note's topic in a list, where the field would otherwise sit beside every note.
+   */
+  compact?: boolean
   'data-testid'?: string
 }
+
+type TopicFieldProps = Omit<TopicPickerProps, 'compact'>
 
 /** The topic a raw entry means on this shelf, or null when it is too long to be one. */
 function topicFor(raw: string, topics: readonly string[]): { topic: string | null } | null {
