@@ -2,7 +2,7 @@ import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'dri
 import type { PersonalMemoryKind, PersonalMemoryProvenance } from '@/lib/personal-memory/vocabulary'
 
 /**
- * Personal memory (ADR-0180, migrations 0229, 0231 and 0232): what the agent keeps about one
+ * Personal memory (ADR-0180, migrations 0229, 0231, 0232 and 0237): what the agent keeps about one
  * person. Row-level security names the person
  * (`organization_id = current_org() AND user_id = current_user_id()`), so a
  * colleague's or an administrator's query matches no row. A note is unique per
@@ -22,6 +22,8 @@ export const personalMemory = pgTable(
     sourceConversationId: text('source_conversation_id'),
     /** The answer the note was saved under (migration 0231): the answer message's id; null for a note that belongs to none. */
     sourceMessageId: uuid('source_message_id'),
+    /** What the note is about (migration 0237): a short subject, reused across the person's notes; null is "no topic". */
+    topic: text('topic'),
     pinned: boolean('pinned').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -38,6 +40,7 @@ export const personalMemory = pgTable(
       table.userId,
       table.contentKey
     ),
+    ownerTopicIdx: index('idx_personal_memory_topic').on(table.organizationId, table.userId, table.topic),
   })
 )
 

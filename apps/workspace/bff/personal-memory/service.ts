@@ -18,12 +18,16 @@ import type { PersonalMemoryItem } from '@/lib/db/schema/personal-memory'
 import { formatBoundedDigestWithKept } from '@/lib/knowledge/digest-format'
 import { assertStorableNote } from '@/lib/knowledge/note-content-guard'
 import { maskChatText } from '@/lib/upload-screening/service'
+import { resolveTopic, summarizeTopics, type MemoryTopicCount } from '@/lib/memory-topics/topic'
 import {
   deleteAllPersonalMemory,
   deletePersonalMemory,
+  deletePersonalTopic,
   findPersonalMemoryByContentKey,
   insertPersonalMemory,
+  movePersonalTopic,
   selectPersonalMemory,
+  selectPersonalTopics,
   touchPersonalMemory,
   updatePersonalMemory,
   type PersonalMemoryFilter,
@@ -49,6 +53,14 @@ export interface NewPersonalNote {
   sourceConversationId?: string | null
   /** The answer the agent saved the note under (its message id); null for a note that belongs to none. */
   sourceMessageId?: string | null
+  /** The note's topic, as the person or the agent named it; resolved against the person's topics on write. */
+  topic?: string | null
+}
+
+/** The names of the person's topics, for `resolveTopic`: every note's topic, each name once. */
+async function ownerTopicNames(owner: PersonalMemoryOwner): Promise<string[]> {
+  const rows = await selectPersonalTopics(owner)
+  return [...new Set(rows.flatMap((row) => (row.topic === null ? [] : [row.topic])))]
 }
 
 /**
@@ -91,6 +103,7 @@ export async function createPersonalMemoryItem(
   const { content, contentKey } = await storable(owner.organizationId, note.content)
   const existing = await findPersonalMemoryByContentKey(owner, contentKey)
   if (existing) return { item: (await touchPersonalMemory(owner, existing.id)) ?? existing, created: false }
+  const topic = note.topic === undefined ? null : resolveTopic(note.topic, await ownerTopicNames(owner))
   try {
     const item = await insertPersonalMemory({
       organizationId: owner.organizationId,
@@ -102,6 +115,7 @@ export async function createPersonalMemoryItem(
       pinned: note.pinned ?? false,
       sourceConversationId: note.sourceConversationId ?? null,
       sourceMessageId: note.sourceMessageId ?? null,
+      topic,
     })
     return { item, created: true }
   } catch (error) {
@@ -117,9 +131,12 @@ export async function createPersonalMemoryItem(
 export async function editPersonalMemoryItem(
   owner: PersonalMemoryOwner,
   id: string,
-  patch: { kind?: PersonalMemoryKind; content?: string; pinned?: boolean }
+  patch: { kind?: PersonalMemoryKind; content?: string; pinned?: boolean; topic?: string | null }
 ): Promise<PersonalMemoryItem | null> {
-  const next = patch.content === undefined ? patch : { ...patch, ...(await storable(owner.organizationId, patch.content)) }
+  const { topic: rawTopic, ...rest } = patch
+  const topic = rawTopic === undefined ? {} : { topic: resolveTopic(rawTopic, await ownerTopicNames(owner)) }
+  const content = rest.content === undefined ? {} : await storable(owner.organizationId, rest.content)
+  const next = { ...rest, ...content, ...topic }
   try {
     return await updatePersonalMemory(owner, id, next)
   } catch (error) {
@@ -130,6 +147,37 @@ export async function editPersonalMemoryItem(
 
 export async function removePersonalMemoryItem(owner: PersonalMemoryOwner, id: string): Promise<boolean> {
   return deletePersonalMemory(owner, id)
+}
+
+/** The person's topics and how many of their notes each holds, the order the topics list shows. */
+export async function listPersonalMemoryTopics(owner: PersonalMemoryOwner): Promise<MemoryTopicCount[]> {
+  return summarizeTopics(await selectPersonalTopics(owner))
+}
+
+/**
+ * Move every note of the person on topic `from` to topic `to` (`PATCH …/memory/topics`).
+ * `to` is resolved against the person's other topics, so a name another topic
+ * has (any case) merges into it, and a new name renames. `to` null ungroups.
+ * Answers how many notes moved.
+ */
+export async function renamePersonalMemoryTopic(
+  owner: PersonalMemoryOwner,
+  input: { from: string | null; to: string | null }
+): Promise<{ moved: number }> {
+  const names = await ownerTopicNames(owner)
+  const from = resolveTopic(input.from, names)
+  const to = resolveTopic(input.to, names.filter((name) => name !== from))
+  return { moved: await movePersonalTopic(owner, from, to) }
+}
+
+/**
+ * Remove every note of the person on topic `name`, for good (`DELETE …/memory/topics`).
+ * Only the caller's notes: the row-level security holds the same line. Answers how many went.
+ */
+export async function removePersonalMemoryTopic(owner: PersonalMemoryOwner, name: string): Promise<{ removed: number }> {
+  const topic = resolveTopic(name, await ownerTopicNames(owner))
+  if (topic === null) return { removed: 0 }
+  return { removed: await deletePersonalTopic(owner, topic) }
 }
 
 /**

@@ -1747,7 +1747,7 @@
       "post": {
         "operationId": "project-memory-create",
         "summary": "Add a memory item",
-        "description": "Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence` and `pinned`. Answers `{ item }` with its id. Needs project:memory:write. Check project-memory-list first so you do not repeat an item.",
+        "description": "Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence`, `pinned` and `topic` (one to three words naming the subject; a topic the shelf already has is reused in any case). Answers `{ item }` with its id. Needs project:memory:write. Check project-memory-list first so you do not repeat an item.",
         "tags": [
           "projects"
         ],
@@ -1795,6 +1795,18 @@
                   },
                   "pinned": {
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 },
                 "required": [
@@ -1841,7 +1853,7 @@
       "get": {
         "operationId": "project-memory-list",
         "summary": "List a project’s memory items",
-        "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. Item ids feed project-memory-update and project-memory-delete.",
+        "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. Each item carries its `topic` (null for none); `topics` lists the topics the caller sees with how many items each holds, over all items, not this page. Item ids feed project-memory-update and project-memory-delete.",
         "tags": [
           "projects"
         ],
@@ -1994,7 +2006,7 @@
       "patch": {
         "operationId": "project-memory-update",
         "summary": "Edit a memory item",
-        "description": "Changes any of a memory item’s kind, content, status, confidence, verification or pinned flag; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.",
+        "description": "Changes any of a memory item’s kind, content, status, confidence, verification, pinned flag or `topic` (null takes it out of its topic); at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.",
         "tags": [
           "projects"
         ],
@@ -2068,6 +2080,18 @@
                   },
                   "pinned": {
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 }
               }
@@ -2101,6 +2125,100 @@
         },
         "x-mcp-annotations": {
           "title": "Edit a memory item",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/projects/{id}/memory/topics": {
+      "patch": {
+        "operationId": "project-memory-topic-rename",
+        "summary": "Rename or merge a memory topic",
+        "description": "Moves every memory item of the project shelf on topic `from` to topic `to` (topic names from project-memory-list; `from: null` means the items with no topic, `to: null` takes them out of their topic). A `to` the shelf already has (any case) merges into it. Answers `{ moved }`. Moves only the items the caller can see and edit; organization items are not on this shelf. Needs project:memory:write.",
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The project id, from project-list."
+            },
+            "description": "The project id, from project-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The topic to rename, as the topics list names it. null: the notes with no topic."
+                  },
+                  "to": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The new name. A name another topic already has (any case) merges the notes into it. null: the notes lose their topic."
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Rename or merge a memory topic",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": true,
@@ -18031,7 +18149,7 @@
       "post": {
         "operationId": "personal-memory-create",
         "summary": "Add a personal memory note",
-        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. 400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.",
+        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned` and `topic` (one to three words naming the subject; a topic the person already has is reused in any case). A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. 400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.",
         "tags": [
           "collaboration"
         ],
@@ -18059,6 +18177,18 @@
                   "pinned": {
                     "description": "A pinned note reaches every turn first.",
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 },
                 "required": [
@@ -18105,7 +18235,7 @@
       "get": {
         "operationId": "personal-memory-list",
         "summary": "List the person’s personal memory",
-        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Item ids feed personal-memory-update and personal-memory-delete.",
+        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Each note carries its `topic` (null for none); `topics` lists the person’s topics with how many notes each holds, over all their notes, not this page. Item ids feed personal-memory-update and personal-memory-delete.",
         "tags": [
           "collaboration"
         ],
@@ -18234,7 +18364,7 @@
       "patch": {
         "operationId": "personal-memory-update",
         "summary": "Edit a personal memory note",
-        "description": "Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
+        "description": "Changes any of a personal note’s kind, content, pinned flag or `topic` (null takes it out of its topic); at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
         "tags": [
           "collaboration"
         ],
@@ -18273,6 +18403,18 @@
                   },
                   "pinned": {
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 }
               }
@@ -18306,6 +18448,149 @@
         },
         "x-mcp-annotations": {
           "title": "Edit a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/user/memory/topics": {
+      "delete": {
+        "operationId": "personal-memory-topic-delete",
+        "summary": "Delete a personal memory topic and its notes",
+        "description": "Removes every personal note of the person on topic `name` (from personal-memory-list), for good; the notes are deleted, not unfiled, and it cannot be undone. Answers `{ removed }`, the number of notes removed. To keep the notes and only take them out of the topic, use personal-memory-topic-rename with `to: null`.",
+        "tags": [
+          "collaboration"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "The topic to remove, as the topics list names it. Every note on it is deleted."
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete a personal memory topic and its notes",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "patch": {
+        "operationId": "personal-memory-topic-rename",
+        "summary": "Rename or merge a personal memory topic",
+        "description": "Moves every personal note on topic `from` to topic `to` (both are topic names from personal-memory-list; `from: null` means the notes with no topic, `to: null` takes them out of their topic). A `to` the person already has (any case) merges the notes into that topic. Answers `{ moved }`, the number of notes moved. Only the person’s own notes.",
+        "tags": [
+          "collaboration"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The topic to rename, as the topics list names it. null: the notes with no topic."
+                  },
+                  "to": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The new name. A name another topic already has (any case) merges the notes into it. null: the notes lose their topic."
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Rename or merge a personal memory topic",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": true,

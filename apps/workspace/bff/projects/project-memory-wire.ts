@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { pageQueryShape } from '@/lib/api/offset-page'
+import { memoryTopicField } from '@/lib/memory-topics/topic'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 import {
   PROJECT_MEMORY_CONFIDENCES,
@@ -38,6 +39,7 @@ export const createMemorySchema = z.object({
   content: z.string().trim().min(1).max(2000),
   confidence: z.enum(PROJECT_MEMORY_CONFIDENCES).optional(),
   pinned: z.boolean().optional(),
+  topic: memoryTopicField.optional(),
 })
 
 export const patchMemorySchema = z
@@ -48,6 +50,7 @@ export const patchMemorySchema = z
     confidence: z.enum(PROJECT_MEMORY_CONFIDENCES).optional(),
     verification: z.enum(PROJECT_MEMORY_VERIFICATIONS).optional(),
     pinned: z.boolean().optional(),
+    topic: memoryTopicField.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: 'Empty patch' })
 

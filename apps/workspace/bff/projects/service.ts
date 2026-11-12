@@ -62,6 +62,8 @@ import {
   updateProjectMemoryItem,
   type CreateMemoryOptions,
 } from './memory-service'
+import { projectTopicsOf, renameProjectShelfTopic, resolveProjectTopicForWrite } from './memory-topics'
+import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import {
   findProjectCollectionName,
   findProjectInOrg,
@@ -635,7 +637,7 @@ export async function getProjectOverview(session: AuthorizedSession, projectId: 
 
 /** The fields a member may edit on an existing memory item. */
 export type ProjectMemoryItemPatch = Partial<
-  Pick<ProjectMemoryItem, 'content' | 'kind' | 'status' | 'confidence' | 'verification' | 'pinned'>
+  Pick<ProjectMemoryItem, 'content' | 'kind' | 'status' | 'confidence' | 'verification' | 'pinned' | 'topic'>
 >
 
 /**
@@ -744,6 +746,8 @@ export interface PersonMemoryInput {
   content: string
   confidence?: ProjectMemoryConfidence
   pinned?: boolean
+  /** The note's topic as the person named it; resolved against the shelf's topics on write (`memory-topics.ts`). */
+  topic?: string | null
   /**
    * The conversation the note was learned in, when it came from a proposal.
    * Purging a folder that conversation drew on deletes the note with it
@@ -762,6 +766,7 @@ const personNote = (session: AuthorizedSession, input: PersonMemoryInput) => ({
   verification: 'user_confirmed' as const,
   createdBy: session.userId,
   ...(input.sourceConversationId ? { sourceConversationId: input.sourceConversationId } : {}),
+  ...(input.topic === undefined ? {} : { topic: input.topic }),
 })
 
 /**
@@ -775,7 +780,20 @@ export async function addProjectMemoryItem(
   options: Pick<CreateMemoryOptions, 'supersedesContent'> = {}
 ): Promise<ProjectMemoryItem> {
   await requireProjectAccess(session, projectId, MEMORY_WRITE_PERMISSIONS)
-  return createProjectMemoryItem({ scope: 'project', projectId, ...personNote(session, input) }, options)
+  const topic = await resolveWriteTopic(projectId, session.organizationId, input.topic)
+  return createProjectMemoryItem(
+    { scope: 'project', projectId, ...personNote(session, { ...input, topic }) },
+    options
+  )
+}
+
+/** A topic the person named, resolved against the shelf's open topics; undefined when none was named. */
+async function resolveWriteTopic(
+  projectId: string,
+  organizationId: string,
+  raw: string | null | undefined
+): Promise<string | null | undefined> {
+  return raw === undefined ? undefined : resolveProjectTopicForWrite(projectId, organizationId, raw)
 }
 
 /**
@@ -801,13 +819,39 @@ export async function editProjectMemoryItem(
   await requireProjectAccess(session, projectId, ['project:memory:write', 'project:edit'])
   // A restricted item the session is not cleared for answers like a missing one.
   const { cleared } = await memoryClearance(session, projectId)
+  const topic = await resolveWriteTopic(projectId, session.organizationId, patch.topic)
   const item = await updateProjectMemoryItem(
     { projectId, organizationId: session.organizationId, readableFolderIds: cleared },
     itemId,
-    patch
+    { ...patch, ...(topic === undefined ? {} : { topic }) }
   )
   if (!item) throw new NotFoundError()
   return item
+}
+
+/** The topics of the project's memory shelf the caller may see, with how many notes each holds (the list's `topics`). */
+export async function getProjectMemoryTopics(
+  session: AuthorizedSession,
+  projectId: string
+): Promise<MemoryTopicCount[]> {
+  await requireProjectAccess(session, projectId, 'project:view')
+  const { cleared } = await memoryClearance(session, projectId)
+  return projectTopicsOf(projectId, session.organizationId, cleared)
+}
+
+/**
+ * Rename or merge a topic on the project's shelf (`PATCH …/memory/topics`). The
+ * same gate as an item's edit, and the same visibility: only the notes the
+ * caller can see and edit move.
+ */
+export async function renameProjectMemoryTopic(
+  session: AuthorizedSession,
+  projectId: string,
+  input: { from: string | null; to: string | null }
+): Promise<{ moved: number }> {
+  await requireProjectAccess(session, projectId, MEMORY_WRITE_PERMISSIONS)
+  const { cleared } = await memoryClearance(session, projectId)
+  return renameProjectShelfTopic({ projectId, organizationId: session.organizationId, readable: cleared, ...input })
 }
 
 export async function removeProjectMemoryItem(

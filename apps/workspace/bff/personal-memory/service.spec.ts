@@ -6,6 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('./repository', () => ({
   PERSONAL_MEMORY_LIST_LIMIT: 200,
   selectPersonalMemory: vi.fn(),
+  selectPersonalTopics: vi.fn(async () => []),
+  movePersonalTopic: vi.fn(),
+  deletePersonalTopic: vi.fn(),
   findPersonalMemoryByContentKey: vi.fn(),
   insertPersonalMemory: vi.fn(),
   touchPersonalMemory: vi.fn(),
@@ -57,6 +60,7 @@ function note(overrides: Partial<PersonalMemoryItem> = {}): PersonalMemoryItem {
     provenanceType: 'agent',
     sourceConversationId: null,
     sourceMessageId: null,
+    topic: null,
     pinned: false,
     createdAt: new Date('2026-11-01T10:00:00Z'),
     updatedAt: new Date('2026-11-01T10:00:00Z'),
@@ -96,6 +100,7 @@ describe('createPersonalMemoryItem', () => {
       pinned: false,
       sourceConversationId: 's_1',
       sourceMessageId: null,
+      topic: null,
     })
   })
 

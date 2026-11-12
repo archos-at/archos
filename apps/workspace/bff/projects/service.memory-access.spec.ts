@@ -31,6 +31,12 @@ vi.mock('@/lib/authz/folder-access', () => ({
   readableFolderIdsFor: vi.fn(),
 }))
 
+vi.mock('./memory-topics', () => ({
+  projectTopicsOf: vi.fn(async () => []),
+  renameProjectShelfTopic: vi.fn(async () => ({ moved: 0 })),
+  resolveProjectTopicForWrite: vi.fn(async (_p: string, _o: string, raw: string | null) => raw),
+}))
+
 vi.mock('./memory-service', () => ({
   createProjectMemoryItem: vi.fn(),
   deleteProjectMemoryItem: vi.fn(async () => true),
@@ -50,7 +56,8 @@ import { NotFoundError } from '@/lib/api/errors'
 import { makeMemoryItem } from '@/test-utils/db-fixtures'
 import { withServedEvidence, type EvidenceReader } from './memory-evidence'
 import { deleteProjectMemoryItem, listProjectMemory, updateProjectMemoryItem } from './memory-service'
-import { editProjectMemoryItem, getProjectMemory, removeProjectMemoryItem } from './service'
+import { projectTopicsOf, renameProjectShelfTopic } from './memory-topics'
+import { editProjectMemoryItem, getProjectMemory, getProjectMemoryTopics, removeProjectMemoryItem, renameProjectMemoryTopic } from './service'
 
 /** The source folder of a restricted note (ADR-0088). */
 const CONTRACTS = 'aaaaaaaa-0000-4000-8000-000000000001'
@@ -171,5 +178,39 @@ describe('editing and deleting', () => {
       NotFoundError
     )
     await expect(removeProjectMemoryItem(SESSION, 'proj-1', 'hidden')).rejects.toBeInstanceOf(NotFoundError)
+  })
+})
+
+describe('renameProjectMemoryTopic and getProjectMemoryTopics', () => {
+  it('renames on the shelf with the caller’s own clearance, so a restricted note moves only for a reader cleared for it', async () => {
+    vi.mocked(readableFolderIdsFor).mockResolvedValue([CONTRACTS])
+    vi.mocked(renameProjectShelfTopic).mockResolvedValue({ moved: 2 })
+
+    await expect(renameProjectMemoryTopic(SESSION, 'proj-1', { from: 'Brandschutz', to: 'Feuerschutz' })).resolves.toEqual({
+      moved: 2,
+    })
+    expect(renameProjectShelfTopic).toHaveBeenCalledWith({
+      projectId: 'proj-1',
+      organizationId: 'org_1',
+      readable: [CONTRACTS],
+      from: 'Brandschutz',
+      to: 'Feuerschutz',
+    })
+  })
+
+  it('refuses a caller who may not edit the project memory, before anything is renamed', async () => {
+    const { requireProjectAccess } = await import('@/lib/authz/projects')
+    vi.mocked(requireProjectAccess).mockRejectedValueOnce(new NotFoundError())
+
+    await expect(renameProjectMemoryTopic(SESSION, 'proj-1', { from: 'A', to: 'B' })).rejects.toBeInstanceOf(NotFoundError)
+    expect(renameProjectShelfTopic).not.toHaveBeenCalled()
+  })
+
+  it('counts the topics over the notes the caller’s clearance shows, and no others', async () => {
+    vi.mocked(readableFolderIdsFor).mockResolvedValue([])
+
+    await getProjectMemoryTopics(SESSION, 'proj-1')
+
+    expect(projectTopicsOf).toHaveBeenCalledWith('proj-1', 'org_1', [])
   })
 })

@@ -114,6 +114,8 @@ export const projectMemory = pgTable(
      * quote. NULL for every other item; when set, always a JSON array.
      */
     evidence: jsonb('evidence').$type<{ fileName: string; page: string | null }[] | null>(),
+    /** What the note is about (migration 0237): a short subject, reused across the shelf's notes; null is "no topic". */
+    topic: text('topic'),
     salience: real('salience').notNull().default(0.5),
     pinned: boolean('pinned').notNull().default(false),
     createdBy: text('created_by'),
@@ -145,6 +147,7 @@ export const projectMemory = pgTable(
       table.scope,
       table.status
     ),
+    projectTopicIdx: index('idx_project_memory_topic').on(table.organizationId, table.projectId, table.topic),
     // NOTE: two PARTIAL UNIQUE indexes on a normalized-content expression
     // (uniq_project_memory_{project,org}_content_active) enforce "at most one
     // active item per scope-owner + normalized content". They are expression +

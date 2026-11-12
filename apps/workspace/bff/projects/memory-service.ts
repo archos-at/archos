@@ -781,7 +781,7 @@ export async function updateProjectMemoryItem(
   patch: Partial<
     Pick<
       ProjectMemoryItem,
-      'content' | 'kind' | 'status' | 'confidence' | 'verification' | 'pinned' | 'salience'
+      'content' | 'kind' | 'status' | 'confidence' | 'verification' | 'pinned' | 'salience' | 'topic'
     >
   >
 ): Promise<ProjectMemoryItem | null> {

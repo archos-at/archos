@@ -13,6 +13,7 @@ vi.mock('@/lib/auth/require-auth', () => ({
 }))
 vi.mock('@/lib/personal-memory/service', () => ({
   listPersonalMemory: vi.fn(),
+  listPersonalMemoryTopics: vi.fn(async () => []),
   createPersonalMemoryItem: vi.fn(),
   clearPersonalMemory: vi.fn(),
 }))
@@ -48,7 +49,7 @@ describe('GET /api/user/memory', () => {
     const response = await GET(new Request('https://grid.test/api/user/memory?userId=user_2'), context)
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ items: [NOTE], nextCursor: null })
+    expect(await response.json()).toEqual({ items: [NOTE], nextCursor: null, topics: [] })
     expect(listPersonalMemory).toHaveBeenCalledWith(OWNER, { limit: 50, offset: 0 }, { sourceConversationId: undefined })
   })
 

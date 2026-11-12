@@ -17,7 +17,11 @@ vi.mock('@/lib/auth/require-auth', () => ({
   }),
 }))
 
-const service = vi.hoisted(() => ({ getProjectMemoryPage: vi.fn(), addProjectMemoryItem: vi.fn() }))
+const service = vi.hoisted(() => ({
+  getProjectMemoryPage: vi.fn(),
+  getProjectMemoryTopics: vi.fn(async () => []),
+  addProjectMemoryItem: vi.fn(),
+}))
 vi.mock('@/lib/projects/service', () => service)
 const access = vi.hoisted(() => ({ canWriteProjectMemory: vi.fn() }))
 vi.mock('@/lib/projects/settings-access', () => access)

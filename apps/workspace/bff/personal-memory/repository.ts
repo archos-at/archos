@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { personalMemory, type NewPersonalMemoryItem, type PersonalMemoryItem } from '@/lib/db/schema/personal-memory'
 
@@ -80,7 +80,7 @@ export async function touchPersonalMemory(owner: PersonalMemoryOwner, id: string
 export async function updatePersonalMemory(
   owner: PersonalMemoryOwner,
   id: string,
-  patch: Partial<Pick<PersonalMemoryItem, 'kind' | 'content' | 'contentKey' | 'pinned'>>
+  patch: Partial<Pick<PersonalMemoryItem, 'kind' | 'content' | 'contentKey' | 'pinned' | 'topic'>>
 ): Promise<PersonalMemoryItem | null> {
   const [row] = await getDb()
     .update(personalMemory)
@@ -96,6 +96,39 @@ export async function deletePersonalMemory(owner: PersonalMemoryOwner, id: strin
     .where(and(eq(personalMemory.id, id), ownedBy(owner)))
     .returning({ id: personalMemory.id })
   return deleted.length > 0
+}
+
+/** The topic of every note of the person, null for a note with none: what the topics list counts. */
+export async function selectPersonalTopics(owner: PersonalMemoryOwner): Promise<{ topic: string | null }[]> {
+  return getDb().select({ topic: personalMemory.topic }).from(personalMemory).where(ownedBy(owner))
+}
+
+/**
+ * Every note of the person on topic `from` (null: no topic) moves to `to`
+ * (null: no topic). One statement; answers how many notes moved. The topic is
+ * not in what `content_key` keys, so no unique index is at stake. The
+ * timestamps stay: a rename files notes, it does not make them newer.
+ */
+export async function movePersonalTopic(
+  owner: PersonalMemoryOwner,
+  from: string | null,
+  to: string | null
+): Promise<number> {
+  const moved = await getDb()
+    .update(personalMemory)
+    .set({ topic: to })
+    .where(and(ownedBy(owner), sql`${personalMemory.topic} is not distinct from ${from}`))
+    .returning({ id: personalMemory.id })
+  return moved.length
+}
+
+/** Removes every note of the person on topic `topic`, for good; answers how many went. */
+export async function deletePersonalTopic(owner: PersonalMemoryOwner, topic: string): Promise<number> {
+  const deleted = await getDb()
+    .delete(personalMemory)
+    .where(and(ownedBy(owner), eq(personalMemory.topic, topic)))
+    .returning({ id: personalMemory.id })
+  return deleted.length
 }
 
 /** Every note of one person in one organization: what leaving the office, or an erasure request, removes. */

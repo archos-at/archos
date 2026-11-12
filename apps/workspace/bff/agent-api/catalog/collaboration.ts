@@ -30,8 +30,10 @@ import {
 import { pushPreferencesPatchSchema } from '@/lib/inbox/push-categories'
 import {
   createPersonalMemorySchema,
+  deletePersonalMemoryTopicSchema,
   listPersonalMemoryQuerySchema,
   patchPersonalMemorySchema,
+  renamePersonalMemoryTopicSchema,
 } from '@/lib/personal-memory/wire'
 import { grantPostSchema, roleChangeSchema, visibilitySchema } from '@/lib/sharing/sharing-wire'
 import { SHAREABLE_RESOURCE_TYPES } from '@/lib/sharing/sharing-vocabulary'
@@ -462,7 +464,8 @@ export const collaborationOperations = [
     description:
       'The notes kept about the person themself (how they want answers, their role and recurring topics), ' +
       'pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the ' +
-      'organization sees them. Item ids feed personal-memory-update and personal-memory-delete.',
+      'organization sees them. Each note carries its `topic` (null for none); `topics` lists the person’s topics with how many notes each holds, ' +
+      'over all their notes, not this page. Item ids feed personal-memory-update and personal-memory-delete.',
     method: 'GET',
     path: '/api/user/memory',
     query: listPersonalMemoryQuerySchema,
@@ -473,7 +476,7 @@ export const collaborationOperations = [
     domain: 'collaboration',
     summary: 'Add a personal memory note',
     description:
-      'Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in ' +
+      'Keeps one note about the person themself: `kind` and `content`, optional `pinned` and `topic` (one to three words naming the subject; a topic the person already has is reused in any case). A note about a project belongs in ' +
       'project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers ' +
       '`{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. ' +
       '400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.',
@@ -488,7 +491,7 @@ export const collaborationOperations = [
     domain: 'collaboration',
     summary: 'Edit a personal memory note',
     description:
-      'Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. ' +
+      'Changes any of a personal note’s kind, content, pinned flag or `topic` (null takes it out of its topic); at least one field. `itemId` is from personal-memory-list. ' +
       '409 when another note of the person already says the new content. Answers `{ item }`.',
     method: 'PATCH',
     path: '/api/user/memory/[itemId]',
@@ -508,6 +511,32 @@ export const collaborationOperations = [
     params: personalMemoryParams,
     destructive: true,
     load: () => import('@/app/api/user/memory/[itemId]/route'),
+  },
+  {
+    name: 'personal-memory-topic-rename',
+    domain: 'collaboration',
+    summary: 'Rename or merge a personal memory topic',
+    description:
+      'Moves every personal note on topic `from` to topic `to` (both are topic names from personal-memory-list; `from: null` means the notes with no topic, `to: null` takes them out of their topic). ' +
+      'A `to` the person already has (any case) merges the notes into that topic. Answers `{ moved }`, the number of notes moved. Only the person’s own notes.',
+    method: 'PATCH',
+    path: '/api/user/memory/topics',
+    body: renamePersonalMemoryTopicSchema,
+    idempotent: true,
+    load: () => import('@/app/api/user/memory/topics/route'),
+  },
+  {
+    name: 'personal-memory-topic-delete',
+    domain: 'collaboration',
+    summary: 'Delete a personal memory topic and its notes',
+    description:
+      'Removes every personal note of the person on topic `name` (from personal-memory-list), for good; the notes are deleted, not unfiled, and it cannot be undone. ' +
+      'Answers `{ removed }`, the number of notes removed. To keep the notes and only take them out of the topic, use personal-memory-topic-rename with `to: null`.',
+    method: 'DELETE',
+    path: '/api/user/memory/topics',
+    body: deletePersonalMemoryTopicSchema,
+    destructive: true,
+    load: () => import('@/app/api/user/memory/topics/route'),
   },
   {
     name: 'personal-memory-clear',

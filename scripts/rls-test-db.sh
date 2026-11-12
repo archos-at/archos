@@ -202,6 +202,8 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/projects/memory-service.integration.spec.ts \
     bff/projects/memory-restricted.integration.spec.ts \
     bff/personal-memory/personal-memory.integration.spec.ts \
+    bff/personal-memory/personal-memory-topics.integration.spec.ts \
+    bff/projects/memory-topics.integration.spec.ts \
     bff/documents/document-versions.integration.spec.ts \
     bff/documents/list-page.integration.spec.ts \
     bff/documents/quarantine-listing.integration.spec.ts \
@@ -4365,3 +4367,33 @@ check_in rr_0236 "SELECT count(*) FROM pg_proc WHERE proname IN ('knowledge_reac
 apply_in rr_0236 0236_reached_records_once.sql
 check_in rr_0236 "$RR_SETS" "1" "0236 applies again after its down"
 echo "==> 0236 sets read once and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0237: a memory note belongs to a topic (ADR-0180). A note that
+# existed has none; the column takes text of 1 to 40 characters with no
+# surrounding space, or nothing; the topic indexes exist. The down drops the
+# column (lossy: every topic goes), and 0237 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0237 memory topics and their down migration on mt_0237"
+migrate_before mt_0237 0237_memory_topics
+sql_in mt_0237 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0237', 'user_a', 'preference', 'Answers in short paragraphs.')"
+sql_in mt_0237 <<<"INSERT INTO project_memory (scope, organization_id, kind, content) VALUES ('organization', 'org_0237', 'decision', 'Bauanträge gehen digital ein.')"
+apply_in mt_0237 0237_memory_topics.sql
+apply_in mt_0237 0237_memory_topics.sql   # up twice: idempotent
+check_in mt_0237 "SELECT coalesce(topic, 'none') FROM personal_memory WHERE organization_id = 'org_0237'" "none" "0237: a personal note that existed has no topic"
+check_in mt_0237 "SELECT coalesce(topic, 'none') FROM project_memory WHERE organization_id = 'org_0237'" "none" "0237: a project note that existed has no topic"
+sql_in mt_0237 <<<"UPDATE personal_memory SET topic = 'Brandschutz' WHERE organization_id = 'org_0237'"
+sql_in mt_0237 <<<"UPDATE project_memory SET topic = 'Stellplätze' WHERE organization_id = 'org_0237'"
+refused_in mt_0237 "UPDATE personal_memory SET topic = ' Brandschutz' WHERE organization_id = 'org_0237'" "personal_memory_topic_bounded" "a personal topic with a leading space was accepted"
+refused_in mt_0237 "UPDATE project_memory SET topic = 'Brandschutz ' WHERE organization_id = 'org_0237'" "project_memory_topic_bounded" "a project topic with a trailing space was accepted"
+refused_in mt_0237 "UPDATE personal_memory SET topic = '' WHERE organization_id = 'org_0237'" "personal_memory_topic_bounded" "an empty personal topic was accepted"
+refused_in mt_0237 "UPDATE project_memory SET topic = repeat('x', 41) WHERE organization_id = 'org_0237'" "project_memory_topic_bounded" "a 41-character project topic was accepted"
+check_in mt_0237 "SELECT count(*) FROM pg_indexes WHERE indexname IN ('idx_personal_memory_topic', 'idx_project_memory_topic')" "2" "0237: both topic indexes exist"
+check_in mt_0237 "SELECT (pg_get_expr(polqual, polrelid) LIKE '%current_user_id()%')::text FROM pg_policy WHERE polrelid = 'personal_memory'::regclass AND polname = 'tenant_isolation'" "true" "0237: the personal policy still names the person"
+apply_in mt_0237 0237_memory_topics.down.sql
+check_in mt_0237 "SELECT count(*) FROM information_schema.columns WHERE column_name = 'topic' AND table_name IN ('personal_memory', 'project_memory')" "0" "0237 down drops both topic columns"
+check_in mt_0237 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0237'" "1" "0237 down leaves the personal notes"
+check_in mt_0237 "SELECT count(*) FROM project_memory WHERE organization_id = 'org_0237'" "1" "0237 down leaves the project notes"
+apply_in mt_0237 0237_memory_topics.sql
+check_in mt_0237 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0237' AND topic IS NULL" "1" "0237 applies again after its down, and no note has a topic"
+echo "==> 0237 memory topics and their down migration verified"

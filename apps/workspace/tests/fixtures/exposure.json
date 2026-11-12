@@ -221,6 +221,16 @@
    "withheld": null,
    "reason": null
   },
+  "project-memory-topic-rename": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "project-memory-update": {
    "kind": "catalog",
    "domain": "projects",
@@ -2164,6 +2174,26 @@
    "reason": null
   },
   "personal-memory-list": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-topic-delete": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "personal-memory-topic-rename": {
    "kind": "catalog",
    "domain": "collaboration",
    "sensitivity": null,
