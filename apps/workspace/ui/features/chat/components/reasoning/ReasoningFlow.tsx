@@ -142,7 +142,7 @@ import {
 import { deriveTraceLanes } from '../../lib/trace-lanes'
 import { buildCitationModel } from '../../lib/citations'
 import { retrievalRounds } from '../../lib/retrieval-rounds'
-import { FALLBACK_W, planFan } from './flow/flow-layout'
+import { FALLBACK_W, measuredFanWidth, planFan } from './flow/flow-layout'
 import { defaultFoldedRounds, SpineFolding, GraphInteraction } from './flow/round-kind'
 import { buildGraph } from './flow/build-graph'
 import { FlowInner } from './flow/flow-inner'
@@ -167,7 +167,9 @@ export const ReasoningFlow: FC<ReasoningFlowProps> = (props) => {
   useLayoutEffect(() => {
     const el = containerRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
-    const measure = () => setWidth(el.clientWidth)
+    // A container out of layout reads 0; keep the width it last had
+    // (`measuredFanWidth`), never plan the fan at the 680 px fallback.
+    const measure = () => setWidth((previous) => measuredFanWidth(previous, el.clientWidth))
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
