@@ -45,7 +45,7 @@ import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 interface MemoryPage {
   items: MemoryItem[]
   nextCursor: string | null
-  topics: MemoryTopicCount[]
+  topics?: MemoryTopicCount[]
 }
 
 interface ProjectMemoryPanelProps {
@@ -133,7 +133,7 @@ export function ProjectMemoryPanel({
           undefined,
           t
         ).then((page) => {
-          shelfTopics = page.topics
+          shelfTopics = page.topics ?? []
           return page
         })
       )

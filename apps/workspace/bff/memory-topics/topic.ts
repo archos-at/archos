@@ -80,7 +80,7 @@ export const memoryTopicField = z
   .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
   .nullable()
   .describe(
-    `The note's topic: one to three words naming its subject ("fire safety", not "decision"), reusing a topic the shelf already has. Max ${MEMORY_TOPIC_MAX_LENGTH} characters. null: no topic.`
+    `One to three words naming the subject, e.g. "fire safety" (not "decision"); reuse a shelf topic. Max ${MEMORY_TOPIC_MAX_LENGTH} chars. null: none.`
   )
 
 /** `PATCH …/memory/topics`: every note with topic `from` gets topic `to`; a `to` another topic has merges them. */
@@ -90,9 +90,9 @@ export const memoryTopicRenameSchema = z.object({
     .min(1)
     .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
     .nullable()
-    .describe('The topic to rename, as the topics list names it. null: the notes with no topic.'),
+    .describe('Topic to rename, as topics names it. null: no topic.'),
   to: memoryTopicField.describe(
-    'The new name. A name another topic already has (any case) merges the notes into it. null: the notes lose their topic.'
+    'New name; an existing topic (any case) merges. null: none.'
   ),
 })
 
@@ -118,4 +118,4 @@ export const memoryTopicQueryField = z
   .string()
   .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
   .optional()
-  .describe('Only the notes on this topic, as topics names it. Empty: the notes with no topic.')
+  .describe('Only this topic, as topics names it. Empty: no topic.')

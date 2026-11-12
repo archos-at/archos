@@ -70,7 +70,7 @@ export const deletePersonalMemoryTopicSchema = z.object({
     .string()
     .min(1)
     .max(200)
-    .describe('The topic to remove, as the topics list names it. Every note on it is deleted.'),
+    .describe('Topic to remove, as topics names it; its notes are deleted.'),
 })
 
 /** `PATCH /api/user/memory/topics`: the same body as the project shelf's (`memoryTopicRenameSchema`). */
