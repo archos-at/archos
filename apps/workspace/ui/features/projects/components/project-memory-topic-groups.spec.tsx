@@ -162,13 +162,15 @@ describe('ProjectMemoryTopicGroups', () => {
     )
 
     await userEvent.click(screen.getAllByRole('button', { name: 'Move to …' })[0])
-    await userEvent.click(await screen.findByRole('combobox', { name: 'Move to …' }))
+    const openField = await screen.findByRole('combobox', { name: 'Move to …' })
+    await userEvent.clear(openField)
     const openList = await screen.findByRole('listbox', { name: 'Move to …' })
     expect(within(openList).getByRole('option', { name: 'Brandschutz' })).toBeInTheDocument()
     expect(within(openList).queryByRole('option', { name: 'Bauherr' })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getAllByRole('button', { name: 'Move to …' })[1])
-    await userEvent.click(await screen.findByRole('combobox', { name: 'Move to …' }))
+    const restrictedField = await screen.findByRole('combobox', { name: 'Move to …' })
+    await userEvent.clear(restrictedField)
     const restrictedList = await screen.findByRole('listbox', { name: 'Move to …' })
     expect(within(restrictedList).getByRole('option', { name: 'Bauherr' })).toBeInTheDocument()
     expect(within(restrictedList).getByRole('option', { name: 'Brandschutz' })).toBeInTheDocument()
