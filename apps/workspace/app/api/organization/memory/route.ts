@@ -14,6 +14,7 @@ import { createOrganizationMemoryItem } from '@/lib/projects/service'
 import { createOrgMemorySchema } from '@/lib/organizations/organization-wire'
 import { offsetPageOf, nextOffsetCursor } from '@/lib/api/offset-page'
 import { listOrganizationMemoryQuerySchema, toMemoryWireItem } from '@/lib/projects/project-memory-wire'
+import { officeTopicsOf, withOfficeTopic } from '@/lib/projects/office-memory-topics'
 
 export const GET = apiRoute(
   async ({ session, request }) => {
@@ -25,9 +26,12 @@ export const GET = apiRoute(
       sourceConversationId: query.conversationId,
       page,
     })
+    // `topics`: the office shelf's topics with how many active notes each holds, over the whole shelf, not this page.
+    const topics = await officeTopicsOf(session.organizationId)
     return {
       items: fetched.slice(0, page.limit).map(toMemoryWireItem),
       nextCursor: nextOffsetCursor(page, fetched.length),
+      topics,
     }
   },
   {
@@ -40,7 +44,10 @@ export const GET = apiRoute(
 
 export const POST = apiRoute(
   async ({ session, request }) => {
-    const input = await parseJsonBody(request, createOrgMemorySchema)
+    const input = await withOfficeTopic(
+      session.organizationId,
+      await parseJsonBody(request, createOrgMemorySchema)
+    )
     const item = await createOrganizationMemoryItem(session, input)
     return { item: toMemoryWireItem(item) }
   },

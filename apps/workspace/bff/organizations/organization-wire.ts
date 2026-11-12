@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { locales } from '@/i18n/config'
+import { memoryTopicField } from '@/lib/memory-topics/topic'
 import { DELETED_FOLDER_CONTENT_POLICIES } from '@/lib/authz/folder-access-rule'
 import {
   PROJECT_MEMORY_CONFIDENCES,
@@ -95,6 +96,7 @@ export const createOrgMemorySchema = z.object({
   content: z.string().trim().min(1).max(2000),
   confidence: z.enum(PROJECT_MEMORY_CONFIDENCES).optional(),
   pinned: z.boolean().optional(),
+  topic: memoryTopicField.optional(),
 })
 
 export const patchOrgMemorySchema = z
@@ -105,6 +107,7 @@ export const patchOrgMemorySchema = z
     confidence: z.enum(PROJECT_MEMORY_CONFIDENCES).optional(),
     verification: z.enum(PROJECT_MEMORY_VERIFICATIONS).optional(),
     pinned: z.boolean().optional(),
+    topic: memoryTopicField.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: 'Empty patch' })
 
