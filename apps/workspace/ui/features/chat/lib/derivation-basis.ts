@@ -18,7 +18,6 @@ import {
   citedLoci,
   isCited,
   oibDocumentKey,
-  type CitationLocus,
   type CitedDocument,
 } from './citations'
 import { documentEdition, documentShortName } from './document-names'
