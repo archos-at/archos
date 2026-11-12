@@ -41,8 +41,8 @@ describe('TopicFolders', () => {
   test('a folder holds the notes of its topic, in the order they were given', () => {
     render(<TopicFolders items={ITEMS} topics={TOPICS} renderItem={(item) => <p>{item.content}</p>} />)
 
-    const [brandschutz] = screen.getAllByTestId('topic-folder')
-    const names = within(brandschutz)
+    const [fireSafety] = screen.getAllByTestId('topic-folder')
+    const names = within(fireSafety)
       .getAllByText(/^Notiz /)
       .map((node) => node.textContent)
     expect(names).toEqual(['Notiz a', 'Notiz d'])

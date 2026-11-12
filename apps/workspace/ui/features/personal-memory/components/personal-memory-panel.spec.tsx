@@ -86,9 +86,9 @@ describe('PersonalMemoryPanel', () => {
     render(<PersonalMemoryPanel />)
 
     await screen.findByText('Stellplatz 3.')
-    const [brandschutz, stellplaetze, unfiled] = screen.getAllByTestId('topic-folder')
-    expect(brandschutz).toHaveTextContent('Brandschutz2 notes')
-    expect(stellplaetze).toHaveTextContent('Stellplätze1 note')
+    const [fireSafety, parking, unfiled] = screen.getAllByTestId('topic-folder')
+    expect(fireSafety).toHaveTextContent('Brandschutz2 notes')
+    expect(parking).toHaveTextContent('Stellplätze1 note')
     expect(unfiled).toHaveTextContent('No topic')
     expect(rows()).toHaveLength(4)
   })

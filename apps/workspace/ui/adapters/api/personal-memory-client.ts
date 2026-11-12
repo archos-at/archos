@@ -34,6 +34,8 @@ export interface PersonalMemoryNote {
 export interface PersonalMemoryPage {
   items: PersonalMemoryNote[]
   nextCursor: string | null
+  /** Every topic of the person's shelf with the notes it holds, the order the topics list shows. */
+  topics: { name: string; count: number }[]
 }
 
 export interface PersonalMemoryCreate {
@@ -111,4 +113,25 @@ export const clearPersonalMemory = async (): Promise<{ removed: number }> => {
 export const removePersonalMemoryNote = async (itemId: string): Promise<void> => {
   const response = await fetch(notePath(itemId), { method: 'DELETE' })
   if (!response.ok) throw new ApiRequestError(`Failed to remove personal memory: ${response.status}`, response.status)
+}
+
+/**
+ * Every note of the person on topic `from` moves to topic `to`: a name another
+ * topic has merges into it, a case-only change renames it, and `to: null`
+ * ungroups the notes (they keep their text). Answers how many notes moved.
+ */
+export const renamePersonalMemoryTopic = async (input: {
+  from: string | null
+  to: string | null
+}): Promise<{ moved: number }> => {
+  const response = await fetch(`${MEMORY_PATH}/topics`, { method: 'PATCH', headers: jsonHeaders, body: JSON.stringify(input) })
+  if (!response.ok) throw await refusal(response, 'rename topic in')
+  return (await response.json()) as { moved: number }
+}
+
+/** Remove every note of the person on topic `name`, for good. Answers how many went. */
+export const removePersonalMemoryTopic = async (name: string): Promise<{ removed: number }> => {
+  const response = await fetch(`${MEMORY_PATH}/topics`, { method: 'DELETE', headers: jsonHeaders, body: JSON.stringify({ name }) })
+  if (!response.ok) throw await refusal(response, 'remove topic from')
+  return (await response.json()) as { removed: number }
 }

@@ -1,3 +1,5 @@
+'use client'
+
 import { useId, useState } from 'react'
 import type { JSX } from 'react'
 import { toast } from 'sonner'
