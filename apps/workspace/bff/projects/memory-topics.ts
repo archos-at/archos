@@ -16,17 +16,14 @@ import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { projectMemory } from '@/lib/db/schema/project-memory'
 import {
+  distinctTopicNames,
   requireRenameFrom,
   resolveTopic,
   summarizeTopics,
   type MemoryTopicCount,
 } from '@/lib/memory-topics/topic'
 import { listProjectMemory, memoryVisibleTo, resolveProjectOrganization } from './memory-service'
-
-/** The distinct topics of the rows, each once. */
-function namesOf(topics: readonly (string | null)[]): string[] {
-  return [...new Set(topics.flatMap((topic) => (topic === null ? [] : [topic])))]
-}
+import { openOfficeTopicRows } from './office-memory-topics'
 
 /**
  * The topic of every note the list shows the reader on this project's shelf: the
@@ -103,7 +100,7 @@ export async function resolveProjectTopicForWrite(
   readable: readonly string[] = []
 ): Promise<string | null> {
   const rows = await shelfTopicRows(projectId, organizationId, readable)
-  return resolveTopic(raw, namesOf(rows.map((row) => row.topic)))
+  return resolveTopic(raw, distinctTopicNames(rows))
 }
 
 /**
@@ -137,9 +134,9 @@ export async function renameProjectShelfTopic(input: {
   const visible = (
     await listProjectMemory(projectId, { organizationId, includeArchived: true, readableFolderIds: readable })
   ).filter((item) => item.scope === 'project')
-  const from = resolveTopic(input.from, namesOf(visible.map((item) => item.topic)))
+  const from = resolveTopic(input.from, distinctTopicNames(visible))
   // The open topics of the whole shelf, the office's included: the names a create or an update resolves against.
-  const openNames = namesOf((await shelfTopicRows(projectId, organizationId, [])).map((row) => row.topic))
+  const openNames = distinctTopicNames(await shelfTopicRows(projectId, organizationId, []))
   const to = resolveTopic(input.to, openNames.filter((name) => name !== from))
   // A rename onto its own name changes nothing: no write, and no count of one.
   if (to === from) return { moved: 0 }
@@ -166,17 +163,5 @@ export async function renameProjectShelfTopic(input: {
  * office notes' topics: the same rule as a project shelf's, on the office shelf.
  */
 export async function resolveOfficeTopicForWrite(organizationId: string, raw: unknown): Promise<string | null> {
-  const rows = await getDb()
-    .select({ topic: projectMemory.topic })
-    .from(projectMemory)
-    .where(
-      and(
-        eq(projectMemory.scope, 'organization'),
-        isNull(projectMemory.projectId),
-        eq(projectMemory.organizationId, organizationId),
-        eq(projectMemory.status, 'active'),
-        isNull(projectMemory.restrictedFolderIds)
-      )
-    )
-  return resolveTopic(raw, namesOf(rows.map((row) => row.topic)))
+  return resolveTopic(raw, distinctTopicNames(await openOfficeTopicRows(organizationId)))
 }

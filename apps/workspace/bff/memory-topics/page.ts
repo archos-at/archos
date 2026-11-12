@@ -5,7 +5,7 @@
  */
 
 import { pageOfList, type OffsetPage, type PageOf } from '@/lib/api/offset-page'
-import { resolveTopic } from './topic'
+import { distinctTopicNames, resolveTopic } from './topic'
 
 /**
  * One page of a list's visible items, filtered to a topic: the items of that
@@ -18,8 +18,7 @@ export function pageOfTopic<T extends { topic: string | null }>(
   topic: string,
   page: OffsetPage
 ): PageOf<T> {
-  const names = [...new Set(items.flatMap((item) => (item.topic === null ? [] : [item.topic])))]
-  const wanted = resolveTopic(topic, names)
+  const wanted = resolveTopic(topic, distinctTopicNames(items))
   const onTopic = items.filter((item) => item.topic === wanted)
   const { rows, nextCursor } = pageOfList(onTopic, page)
   return { items: rows, nextCursor }
