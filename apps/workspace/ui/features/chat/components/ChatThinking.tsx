@@ -3,9 +3,9 @@
  *
  * Folded: the status glyph, „Herleitung · 2 Schritte · 3 Quellen zitiert“ and
  * at most one warning, the worst there is (the answer check's worst finding,
- * else a failed call, else an open point). The glyph is the green check only
- * for an answer the check found nothing in; one that asks the reader back is
- * „Rückfrage“. The mapping: `lib/derivation-header.ts`.
+ * else a failed call, else an open point). The glyph is a warning only for a
+ * finding that sinks the answer; an uncited answer that asks the reader back
+ * is „Rückfrage“. The mapping: `lib/derivation-header.ts`.
  * Expanded: the graph (`ReasoningFlow`) — the question, each step with one row
  * per call, the sources each step returned, and „Grundlagen · Entwurf“ — plus
  * the technical step tail when the reader opted in. Two turns need no panel: one
@@ -150,8 +150,8 @@ export interface ChatThinkingProps {
   citations?: CitationSource[]
   /**
    * The answer check stored with the answer (ADR-0139). Its worst finding is
-   * the settled header's warning, and turns the green check into one: an
-   * answer with an unbacked statement is not plainly „done“.
+   * the settled header's warning; one that sinks the answer (a contradiction,
+   * or a low level) also turns the green check into a warning glyph.
    */
   confidenceCheck?: ConfidenceCheck
   /**
@@ -457,7 +457,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
     isRecoveryPending,
     isStopped,
     endedAs,
-    asksBack: answerAsksBack(answerText),
+    asksBack: answerAsksBack(answerText, citedCount),
     worst,
   })
   // The phase in words, for the screen reader's name and the ending's word.
@@ -471,7 +471,7 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
     handedOff: t('thinking.handedOff'),
     refused: t('thinking.refused'),
     askedBack: t('thinking.askedBack'),
-    flagged: t('thinking.done'),
+    flagged: t('thinking.flagged'),
     done: t('thinking.done'),
   }
   // The label is the activity while Piloti works toward an answer, and the
@@ -544,25 +544,20 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
   // A turn whose ledger names what it read researched, even when none of its
   // steps was kept (a reload): „Ohne Recherche" there contradicted the record.
   const researched = overview.researched || (retrievalLedger?.length ?? 0) > 0
-  if (
-    (status === 'done' || status === 'askedBack') &&
-    !researched &&
-    !escalationReason?.trim() &&
-    !showTechnicalSteps
-  ) {
+  // Its one line carries the pill too: „Ohne Recherche beantwortet · 2 Aussagen ohne Beleg“.
+  if (isSettledAnswer(status) && !researched && !escalationReason?.trim() && !showTechnicalSteps) {
     const askedBack = status === 'askedBack'
+    const Glyph = askedBack ? CircleHelp : status === 'flagged' ? TriangleAlert : CircleMinus
+    const tone = askedBack ? 'text-brand' : status === 'flagged' ? 'text-warning' : 'text-muted-foreground'
     return (
       <div
         data-testid={askedBack ? 'derivation-asked-back' : 'derivation-no-research'}
         className="bg-muted w-full rounded-surface px-4 py-3 shadow-xs"
       >
         <p className="text-foreground flex min-h-6 items-center gap-2 text-sm font-medium">
-          {askedBack ? (
-            <CircleHelp aria-hidden className="text-brand size-5 shrink-0" />
-          ) : (
-            <CircleMinus aria-hidden className="text-muted-foreground size-5 shrink-0" />
-          )}
+          <Glyph aria-hidden className={cn('size-5 shrink-0', tone)} />
           {t(askedBack ? 'thinking.askedBackHeadline' : 'thinking.noResearch')}
+          {warning && JOIN + warning.text}
         </p>
         <p className="text-muted-foreground pl-7 text-[13px] leading-[19px]">
           {t(askedBack ? 'thinking.askedBackNote' : 'thinking.noResearchNote')}
@@ -570,7 +565,9 @@ const ChatThinkingView: FC<ChatThinkingProps> = ({
       </div>
     )
   }
-  if (status === 'done' && overview.single && !showTechnicalSteps) {
+  // A single call keeps its one line only for a plain „done“: a finding or a
+  // Rückfrage gets the full header, where its glyph and pill have room.
+  if (status === 'done' && !worst && overview.single && !showTechnicalSteps) {
     const call = overview.single
     const parts = workParts(t, call.action)
     const card = sourceCards[0]

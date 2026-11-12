@@ -43,6 +43,8 @@
  *     the answer check found two statements unbacked (the header's warning).
  *   - asked-back → a stored answer that read the office's documents, then
  *     asked for the site: not „Ohne Recherche“, and not done.
+ *   - cited-question → a stored, cited answer whose last line invites a
+ *     correction of its assumption: complete, so no Rückfrage.
  *   - failed   → a failed RIS call beside a search that worked.
  *   - single-read → one read, cited: the header is the Herleitung.
  *   - many-calls → eleven calls in one step: ×7, worst first, „+N weitere“.
@@ -76,7 +78,7 @@ import {
   singleReadScene,
 } from '@/test-utils/work-list-scenes'
 import { mapServerMessageToChatMessage } from '@/features/chat/lib/server-message-mapper'
-import { ASKED_BACK, UNBACKED, type StoredAnswer } from '../_fixtures/stored-answers'
+import { ASKED_BACK, CITED_QUESTION, UNBACKED, type StoredAnswer } from '../_fixtures/stored-answers'
 
 const step: StoredThinkingStep = {
   id: 'kb',
@@ -476,6 +478,8 @@ export default function DerivationPreviewPage() {
                 ? storedCommon(UNBACKED)
                 : variant === 'asked-back'
                   ? storedCommon(ASKED_BACK)
+                  : variant === 'cited-question'
+                    ? storedCommon(CITED_QUESTION)
               : variant === 'failed'
                 ? failedCommon
                 : variant === 'single-read'
@@ -512,6 +516,8 @@ export default function DerivationPreviewPage() {
                 ? '/dev/derivation?variant=unbacked — stored answer, two statements unbacked'
                 : variant === 'asked-back'
                   ? '/dev/derivation?variant=asked-back — stored answer that asks for the site'
+                  : variant === 'cited-question'
+                    ? '/dev/derivation?variant=cited-question — cited answer closing with a question'
               : variant === 'failed'
                 ? '/dev/derivation?variant=failed — a failed RIS call'
                 : variant === 'single-read'

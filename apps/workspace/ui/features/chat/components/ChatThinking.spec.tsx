@@ -963,20 +963,21 @@ describe('ChatThinking', () => {
 
     // The answer's own check (ADR-0139), stored on the message: two statements
     // unbacked was a green check and „2 sources cited“ (2026-11-12).
-    const unbackedTwice: ConfidenceCheck = {
+    const check = (level: 'low' | 'medium', count = 2): ConfidenceCheck => ({
       status: 'judged',
-      level: 'low',
-      findings: ['Ausgabe April 2019 gilt seit 10. April 2021.', 'Mai 2023 ist nicht verbindlich.'].map(
-        (statement) => ({ statement, problem: 'unbacked' as const, reason: '', source: 'none' })
-      ),
-    }
+      level,
+      findings: ['Ausgabe April 2019 gilt seit 10. April 2021.', 'Mai 2023 ist nicht verbindlich.']
+        .slice(0, count)
+        .map((statement) => ({ statement, problem: 'unbacked' as const, reason: '', source: 'none' })),
+    })
+    const trigger = () => document.querySelector('[data-derivation-trigger]')!
 
-    test('an answer its check found unbacked is a warning, not a green check', () => {
+    test('an answer its check rated low for unbacked statements is a warning, not a green check', () => {
       render(
         <ChatThinking
           steps={foldScene(failedCallScene())}
           citations={failedCallCitations()}
-          confidenceCheck={unbackedTwice}
+          confidenceCheck={check('low')}
           isThinking={false}
         />
       )
@@ -984,9 +985,25 @@ describe('ChatThinking', () => {
       expect(screen.getByTestId('derivation-warning')).toHaveTextContent(
         plain(tEn('thinking.derivationWarning.unbacked', { count: 2 }))
       )
-      const trigger = document.querySelector('[data-derivation-trigger]')!
-      expect(trigger.querySelector('.text-success')).toBeNull()
-      expect(trigger.querySelector('.text-warning')).not.toBeNull()
+      expect(trigger().querySelector('.text-success')).toBeNull()
+      expect(trigger().querySelector('.text-warning')).not.toBeNull()
+      // Said as its own phase, not „Done“.
+      expect(trigger()).toHaveAccessibleName(new RegExp(`^${tEn('thinking.flagged')} · `))
+    })
+
+    test('a mostly backed answer keeps its check, and the pill names what is unbacked', () => {
+      render(
+        <ChatThinking
+          steps={foldScene(mockupScene())}
+          citations={mockupCitations()}
+          confidenceCheck={check('medium', 1)}
+          isThinking={false}
+        />
+      )
+      expect(trigger().querySelector('.text-success')).not.toBeNull()
+      expect(screen.getByTestId('derivation-warning')).toHaveTextContent(
+        plain(tEn('thinking.derivationWarning.unbacked', { count: 1 }))
+      )
     })
 
     test('a clean check keeps the green check', () => {
@@ -998,8 +1015,25 @@ describe('ChatThinking', () => {
           isThinking={false}
         />
       )
-      const trigger = document.querySelector('[data-derivation-trigger]')!
-      expect(trigger.querySelector('.text-success')).not.toBeNull()
+      expect(trigger().querySelector('.text-success')).not.toBeNull()
+    })
+
+    test('a general-knowledge answer with findings stays „without research“ and carries the pill', () => {
+      render(
+        <ChatThinking
+          steps={[]}
+          confidenceCheck={check('low')}
+          answerText="Eine Brandwand trennt Brandabschnitte."
+          isThinking={false}
+          userQuestion="Was ist eine Brandwand?"
+          answerConfidence="low"
+        />
+      )
+      const line = screen.getByTestId('derivation-no-research')
+      expect(plain(line.textContent)).toContain(
+        `${tEn('thinking.noResearch')} · ${plain(tEn('thinking.derivationWarning.unbacked', { count: 2 }))}`
+      )
+      expect(line.querySelector('.text-warning')).not.toBeNull()
     })
 
     const ledger: RetrievalLedger = [
@@ -1014,23 +1048,50 @@ describe('ChatThinking', () => {
         documents: 1,
       },
     ]
+    const askBack = 'Das hängt vom Landesrecht ab.\n\nIn welchem Bundesland liegt das Bauvorhaben?'
 
     test('an answer that read documents and then asked back is a Rückfrage, not „without research“', () => {
       render(
         <ChatThinking
           steps={[]}
           retrievalLedger={ledger}
-          confidenceCheck={unbackedTwice}
-          answerText={'Das hängt vom Landesrecht ab.\n\nIn welchem Bundesland liegt das Bauvorhaben?'}
+          confidenceCheck={check('medium', 1)}
+          answerText={askBack}
           isThinking={false}
           userQuestion="Welche Ausgabe der OIB-Richtlinie 6 gilt?"
         />
       )
       expect(screen.queryByTestId('derivation-no-research')).not.toBeInTheDocument()
-      const trigger = screen.getByRole('button')
-      expect(trigger).toHaveAccessibleName(new RegExp(`^${tEn('thinking.askedBack')} · `))
-      expect(trigger.querySelector('.text-success')).toBeNull()
-      expect(within(trigger).getByText(tEn('thinking.askedBack'))).toBeInTheDocument()
+      expect(trigger()).toHaveAccessibleName(new RegExp(`^${tEn('thinking.askedBack')} · `))
+      expect(trigger().querySelector('.text-success')).toBeNull()
+      expect(within(screen.getByRole('button')).getByText(tEn('thinking.askedBack'))).toBeInTheDocument()
+    })
+
+    test('a finding that sinks the answer outranks its question back', () => {
+      render(
+        <ChatThinking
+          steps={[]}
+          retrievalLedger={ledger}
+          confidenceCheck={check('low')}
+          answerText={askBack}
+          isThinking={false}
+          userQuestion="Welche Ausgabe der OIB-Richtlinie 6 gilt?"
+        />
+      )
+      expect(trigger()).toHaveAccessibleName(new RegExp(`^${tEn('thinking.flagged')} · `))
+    })
+
+    test('a cited answer under an assumption that invites a correction is no Rückfrage', () => {
+      render(
+        <ChatThinking
+          steps={foldScene(mockupScene())}
+          citations={mockupCitations()}
+          answerText={'Ich gehe von Wien aus: mindestens 1,00 m [1].\n\nLiegt das Projekt in einem anderen Bundesland?'}
+          isThinking={false}
+        />
+      )
+      expect(trigger()).toHaveAccessibleName(new RegExp(`^${tEn('thinking.done')} · `))
+      expect(trigger().querySelector('.text-success')).not.toBeNull()
     })
 
     test('an answer that asked back without researching says so in its one line', () => {

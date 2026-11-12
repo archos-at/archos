@@ -2,8 +2,7 @@
 # area: answers
 fixes:
   - >
-    The line above an answer no longer shows a green check when the answer's own
-    check found statements it could not back: it now shows a warning and names
-    the worst finding, such as two statements without a source. An answer that
-    ends by asking you something reads as a question back, no longer as answered
-    without research.
+    The line above an answer now names what the answer's own check could not back,
+    such as two statements without a source, and shows a warning instead of the
+    green check when that sinks the answer. An answer that cites nothing and asks
+    you something reads as a question back, no longer as answered without research.

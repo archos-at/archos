@@ -1665,6 +1665,9 @@ export const chat = {
     // sits on the header's right; the two lines below are for a turn that
     // researched nothing.
     askedBack: 'Question for you',
+    // For screen readers: done, but the answer check found a statement the
+    // answer rests on unbacked (or contradicted by its source).
+    flagged: 'With a note',
     askedBackHeadline: 'Asked you a question',
     askedBackNote: 'A sourced answer still needs one detail from you',
     // A turn of exactly one call: the header is the Herleitung.

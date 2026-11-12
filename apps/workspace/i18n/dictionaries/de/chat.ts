@@ -1684,6 +1684,9 @@ export const chat: typeof en.chat = {
     // `askedBack` steht rechts in der Kopfzeile, die zwei Zeilen darunter
     // stehen f\u00FCr einen Zug ohne Recherche.
     askedBack: 'R\u00FCckfrage',
+    // F\u00FCr Screenreader: fertig, aber die Belegpr\u00FCfung fand eine Aussage, die die
+    // Antwort tr\u00E4gt und nicht belegt ist (oder der Quelle widerspricht).
+    flagged: 'Mit Hinweis',
     askedBackHeadline: 'R\u00FCckfrage gestellt',
     askedBackNote: 'F\u00FCr eine belegte Antwort fehlt noch eine Angabe von Ihnen',
     // Ein Zug mit genau einem Aufruf: die Kopfzeile ist die Herleitung.

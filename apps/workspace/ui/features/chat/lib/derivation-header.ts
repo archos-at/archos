@@ -3,18 +3,26 @@
  * and the one warning a settled header carries. `ChatThinking` draws it.
  *
  * A settled turn reads what the answer says about itself, not only how the
- * turn looked things up: whether it asked the reader back, and the worst thing
- * its answer check (ADR-0139, `confidenceCheck` on the message) found.
+ * turn looked things up: the worst thing its answer check (ADR-0139,
+ * `confidenceCheck` on the message) found, and whether it asked the reader back.
  *
- * | The settled answer                            | Status      | Glyph            | Pill (at most one, worst first)        |
- * |-----------------------------------------------|-------------|------------------|----------------------------------------|
- * | ends by asking the reader (last line is a ?)  | `askedBack` | question, brand  | its worst finding, else a call's       |
- * | the check found a statement `contradicted`    | `flagged`   | warning          | „1 Aussage widerspricht der Quelle“    |
- * | the check found a statement `unbacked`        | `flagged`   | warning          | „2 Aussagen ohne Beleg“                |
- * | none of that (or the check did not run)       | `done`      | green check      | „1 Abruf fehlgeschlagen“, „1 Punkt offen“ |
+ * | The settled answer, first match wins                         | Status      | Glyph          | Pill (at most one)            |
+ * |--------------------------------------------------------------|-------------|----------------|-------------------------------|
+ * | a statement `contradicted`, or any finding at level `low`    | `flagged`   | warning        | „1 Aussage widerspricht der Quelle“ |
+ * | cites nothing and its last line of prose is a question       | `askedBack` | question       | its finding, if any           |
+ * | anything else; „mostly backed“ (medium, only `unbacked`) too | `done`      | green check    | „2 Aussagen ohne Beleg“, else „1 Abruf fehlgeschlagen“, else „1 Punkt offen“ |
  *
- * A finding outranks a failed call or an open point: those say how the turn
- * looked things up, a finding says the answer the reader acts on is not backed.
+ * A finding outranks a failed call or an open point in the pill: those say how
+ * the turn looked things up, a finding says the answer itself is not backed.
+ * The glyph turns only for a finding that sinks the answer; a medium answer
+ * with a side statement unbacked keeps its check and lets the pill say so.
+ *
+ * „Asked back" is read off the prose, so it only counts for an answer that
+ * cites nothing: the agent closes a cited answer under a stated assumption
+ * with an invitation to correct it („Liegt das Projekt in einem anderen
+ * Bundesland?"), and that answer is complete. An uncited answer under an
+ * assumption still reads as asked back; a field the agent sets on the answer
+ * meta would end the guess.
  */
 
 import type { ConfidenceCheck, ConfidenceFinding } from '@/lib/conversations/confidence-check'
@@ -42,7 +50,7 @@ export interface HeaderStatusInput {
   isRecoveryPending: boolean
   isStopped: boolean
   endedAs?: ThinkingEnding
-  /** The settled answer ends by asking the reader something. */
+  /** The settled answer ends by asking the reader something (`answerAsksBack`). */
   asksBack: boolean
   /** The answer check's worst finding, if it found one. */
   worst: WorstFinding | null
@@ -61,8 +69,8 @@ export function headerStatus(input: HeaderStatusInput): HeaderStatus {
   if (input.isInterrupted) return input.isRecoveryPending ? 'recovering' : 'interrupted'
   if (input.isStopped) return 'stopped'
   if (input.endedAs) return ENDINGS[input.endedAs]
-  if (input.asksBack) return 'askedBack'
-  return input.worst ? 'flagged' : 'done'
+  if (input.worst?.sinks) return 'flagged'
+  return input.asksBack ? 'askedBack' : 'done'
 }
 
 /** A settled turn with an answer: the states that carry a warning pill. */
@@ -75,6 +83,8 @@ export type FindingProblem = ConfidenceFinding['problem']
 export interface WorstFinding {
   problem: FindingProblem
   count: number
+  /** It sinks the answer: a contradiction, or a check that rated the answer low. */
+  sinks: boolean
 }
 
 /** Worst first: a source that says otherwise beats a source that says nothing. */
@@ -85,7 +95,7 @@ export function worstFinding(check: ConfidenceCheck | undefined): WorstFinding |
   if (check?.status !== 'judged') return null
   for (const problem of SEVERITY) {
     const count = check.findings.filter((finding) => finding.problem === problem).length
-    if (count > 0) return { problem, count }
+    if (count > 0) return { problem, count, sinks: problem === 'contradicted' || check.level === 'low' }
   }
   return null
 }
@@ -109,25 +119,21 @@ export function headerWarning(
   return null
 }
 
-/** A sources list's lines (`- [1] …`) and its heading, which close an answer after its prose. */
-const SOURCE_LINE = /^[-*]\s*\[\d+\]/
-const HEADING = /^#{1,6}\s/
 /** Closing marks a question may sit inside: emphasis, quotes, brackets. */
 const TRAILING_MARKS = /[*_"'“”„»«)\]\s]+$/
 
+/** A citation marker in the prose: `[1]`. A sources list carries them too. */
+const MARKER = /\[\d+\]/
+
 /**
- * Whether the answer ends by asking the reader something: its last line of
- * prose, after any sources list, is a question. „In welchem Bundesland liegt
- * das Bauvorhaben?“ is; a question quoted mid-answer is not.
+ * Whether the answer asks the reader back instead of answering: it cites
+ * nothing (no citation, no marker anywhere in its text) and its last line is a
+ * question. „In welchem Bundesland liegt das Bauvorhaben?“ under an uncited
+ * answer is; the same line under „1,00 m [1].“ is an invitation to correct an
+ * assumption, and is not.
  */
-export function answerAsksBack(text: string | undefined): boolean {
-  if (!text) return false
-  const lines = text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-  while (lines.length > 0 && SOURCE_LINE.test(lines[lines.length - 1])) lines.pop()
-  while (lines.length > 0 && HEADING.test(lines[lines.length - 1])) lines.pop()
-  const last = lines.at(-1)
-  return last !== undefined && last.replace(TRAILING_MARKS, '').endsWith('?')
+export function answerAsksBack(text: string | undefined, cited: number): boolean {
+  if (!text || cited > 0 || MARKER.test(text)) return false
+  const last = text.trim().split('\n').at(-1) ?? ''
+  return last.replace(TRAILING_MARKS, '').endsWith('?')
 }
