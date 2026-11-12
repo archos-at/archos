@@ -47,6 +47,8 @@ const corpus = vi.hoisted(() => ({
   countries: new Map<string, string>(),
   /** The display title the indexing job stamped, by file name. */
   titles: new Map<string, string | null>(),
+  /** Files the corpus keeps no metadata row for yet: a title for one answers 404. */
+  untitled: new Set<string>(),
   answers: true,
 }))
 
@@ -77,6 +79,10 @@ vi.mock('@/lib/knowledge/service', () => ({
     }
   },
   updateKnowledgeBaseDisplayTitle: async (fileName: string, title: string | null) => {
+    if (corpus.untitled.has(fileName)) {
+      const { NotFoundError } = await import('@/lib/api/errors')
+      throw new NotFoundError('No summary found for that document')
+    }
     corpus.titles.set(fileName, title)
   },
   uploadKnowledgeBaseDocument: async (file: File) => {
@@ -325,6 +331,26 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       expect(corpus.marks[name]).toMatchObject({ countryId: 'AT', editionId: `edition:${key('published-rl-1-2019')}` })
       // A citation of it is named by its records, not by its file name.
       expect(corpus.titles.get(name)).toBe('OIB-Richtlinie 1, April 2019')
+    })
+
+    it('retries a run whose text the corpus keeps no row for yet, and titles it then', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('untitled')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const file = pdf('untitled.pdf', 'guideline 1, no row yet')
+      const name = nameOf(manifestationKey, await sha(file))
+      await texts.uploadPlatformText(AUTHOR, id, manifestationKey, file)
+      const outcome = await publish(id)
+      const runId = outcome.indexRuns[0] as string
+
+      corpus.untitled.add(name)
+      await expect(indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })).rejects.toThrow(/no row/)
+      expect((await indexing.readIndexStatus(id)).texts).toMatchObject([{ corpusFile: name, state: 'requested' }])
+
+      // The re-ingest wrote the row; the retry titles the text and queues it.
+      corpus.untitled.delete(name)
+      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })
+      expect(corpus.titles.get(name)).toBe('OIB-Richtlinie 1, April 2019')
+      expect((await indexing.readIndexStatus(id)).texts).toMatchObject([{ corpusFile: name, state: 'queued', failure: null }])
     })
   })
 

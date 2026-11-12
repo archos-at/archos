@@ -19,6 +19,7 @@
 import 'server-only'
 import { desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
+import { NotFoundError } from '@/lib/api/errors'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { knowledgeIndexRuns } from '@/lib/db/schema/knowledge-platform'
@@ -133,16 +134,21 @@ async function heldBytes(corpusFile: string, reviewed: string | null | undefined
 }
 
 /**
- * Give a released text the title its records name, unless a person already set one. A text's file is named
+ * Give a released text the title its records name, unless it has one. A text's file is named
  * `<manifestationKey>-<12 hex>.pdf`, which no title guess reads, so without this every citation of it shows that
- * name. A failure is logged and the run goes on: the title is a label, the chunks are what answer.
+ * name. Answers false when the corpus has no row for the file yet (an ingest that never wrote one): the run is
+ * retried, after the re-ingest it queues has written the row. Any other failure is logged and the run goes on: the
+ * title is a label, the chunks are what answer.
  */
-async function stampTitle(held: HeldFile, title: string | null): Promise<void> {
-  if (!title || held.displayTitle) return
+async function stampTitle(held: HeldFile, title: string | null): Promise<boolean> {
+  if (!title || held.displayTitle) return true
   try {
     await updateKnowledgeBaseDisplayTitle(held.fileName, title)
+    return true
   } catch (error) {
+    if (error instanceof NotFoundError) return false
     console.error('[base-knowledge] the title of a released text was not set', { corpusFile: held.fileName, error })
+    return true
   }
 }
 
@@ -166,11 +172,16 @@ export async function runPlatformTextIndex(
       return
     }
     // Before the re-ingest: it keeps a stored title, so the chunks it writes carry this one.
-    await stampTitle(held, released?.title ?? null)
+    const titled = await stampTitle(held, released?.title ?? null)
     const result = await reingestKnowledgeBaseDocuments([run.corpusFile], released ? { [run.corpusFile]: released.mark } : {})
     if (result.unknown.includes(run.corpusFile) || !result.queued.includes(run.corpusFile)) {
       await markRun(run.id, 'failed', `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
       return
+    }
+    if (!titled) {
+      // The re-ingest just queued writes the row; the retry stamps it. The last attempt indexes without a title.
+      if (!attempt.last) throw new Error(`the base corpus has no row for ${run.corpusFile} to title yet`)
+      console.error('[base-knowledge] a released text was indexed without its title', { corpusFile: run.corpusFile })
     }
     await markRun(run.id, 'queued', null)
   } catch (error) {
