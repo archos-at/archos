@@ -905,10 +905,7 @@ function printedItems<T extends DigestItem>(items: readonly T[], digest: string 
 
 /** Format the digest, admitting the restricted notes it prints first; a note not fully admitted is dropped. */
 async function formatAdmittedDigest<T extends DigestItem>(
-  kept: readonly T[],
-  omitted: number,
-  admit: MemoryDigestOptions['admitRestricted'],
-  shelf?: MemoryTopicCount[]
+  kept: readonly T[], omitted: number, admit: MemoryDigestOptions['admitRestricted'], shelf?: MemoryTopicCount[]
 ): Promise<{ digest: string | null; kept: readonly T[] }> {
   const digest = formatDigestLines([...kept], omitted, shelf)
   const restricted = restrictedFoldersOfItems(printedItems(kept, digest))
@@ -1061,12 +1058,8 @@ export async function buildProjectMemoryDigest(
   backfillAfterRecall(candidates, rows, embedded, Boolean(queryText) && !denseCanMatter)
 
   const selected = [...keptPinned, ...keptRecalled]
-  const { digest, kept } = await formatAdmittedDigest(
-    selected,
-    candidates.length - selected.length,
-    options.admitRestricted,
-    shelf
-  )
+  const omitted = candidates.length - selected.length
+  const { digest, kept } = await formatAdmittedDigest(selected, omitted, options.admitRestricted, shelf)
 
   // Recall FOR A QUESTION is the reinforcement event: what was surfaced against
   // a query decays more slowly next time. The query-less handshake build
