@@ -35,6 +35,7 @@ export class SliceAbortedError extends Error {
  * on its own where it can.
  */
 export async function runHandler(job: {
+  jobId?: string
   kind: string
   organizationId: string
   payload: unknown
@@ -46,7 +47,7 @@ export async function runHandler(job: {
   if (job.signal?.aborted) throw new SliceAbortedError()
   return runAsJobSlice(() =>
     withTenant({ organizationId: job.organizationId }, () =>
-      JOB_HANDLERS[kind]({ organizationId: job.organizationId, payload: job.payload, attempts: job.attempts, signal: job.signal })
+      JOB_HANDLERS[kind]({ jobId: job.jobId, organizationId: job.organizationId, payload: job.payload, attempts: job.attempts, signal: job.signal })
     )
   )
 }

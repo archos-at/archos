@@ -93,6 +93,25 @@ def test_reads_the_gate_coverage_packs_and_retrieval_the_bff_sends():
     assert context.chains == {"DE-NW": ("DE-NW", "DE", "EU")}
 
 
+def test_reads_the_sources_a_lookup_may_read_and_drops_one_not_of_their_shape():
+    source = {"key": "xa-gazette", "revisionId": "r1", "country": "XA", "config": {"id": "xa-gazette"}}
+    context = parse_knowledge_context(
+        {**WIRE, "sources": [source, {"key": "broken", "country": "XA"}, {**source, "config": "not a record"}]}
+    )
+
+    assert [(s.key, s.revision_id, s.country, s.config) for s in context.sources] == [
+        ("xa-gazette", "r1", "XA", {"id": "xa-gazette"})
+    ]
+    assert parse_knowledge_context(WIRE).sources == ()
+
+
+def test_a_source_the_turn_could_not_carry_is_named_in_the_trace():
+    context = parse_knowledge_context({**WIRE, "sourcesDropped": ["xa-huge-portal"]})
+
+    assert context.sources_dropped == ("xa-huge-portal",)
+    assert trace_metadata(context)["law_sources_dropped"] == "xa-huge-portal"
+
+
 @pytest.mark.parametrize(
     "raw", [None, "open", {"gate": {"state": "partial"}, "retrieval": {"countries": []}}, {"gate": {"state": "open"}}]
 )
@@ -113,6 +132,8 @@ def test_trace_metadata_names_chains_gate_coverage_packs_and_reference_dates():
         "base_updated_since_last_answer": "DE",
         "building_law_uses": 1,
         "undetermined_editions": "",
+        "law_sources": "",
+        "law_sources_dropped": "",
     }
 
 
@@ -313,3 +334,59 @@ def test_an_unknown_gate_state_fails_closed():
     assert KnowledgeContext(gate="partial").withholds_law
     set_turn_knowledge_context(KnowledgeContext(gate="partial", retrieval_countries=frozenset({"AT"})))
     assert law_sources_withheld() == frozenset({"ris"})
+
+
+# --- the strict-versus-unscoped rule of corpus_countries (a request's silence is never "unscoped") ---
+
+
+def _request(monkeypatch, **fields):
+    from agent import project_context
+
+    monkeypatch.setattr(
+        project_context.RequestContext, "from_context", classmethod(lambda cls: cls(**fields)), raising=True
+    )
+
+
+def test_a_read_of_no_request_is_explicitly_unscoped(monkeypatch):
+    from agent.common.knowledge_context import UNSCOPED
+    from agent.common.knowledge_context import corpus_countries
+
+    _request(monkeypatch)
+    assert corpus_countries() is UNSCOPED
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"organization_id": "org_1", "collection_scope_entries": [{"collection": "base", "shelf": "base"}]},
+        {"organization_id": "org_1", "collection_scope_entries": ["base"]},
+        {"organization_id": "org_1", "collection_scope_entries": []},
+        {"organization_id": "org_1"},
+        {"user_id": "user_1"},
+        {"collection_scope_entries": [{"collection": "base", "shelf": "base", "countries": "QA"}]},
+    ],
+)
+def test_a_request_whose_scope_names_no_countries_reads_no_country(monkeypatch, fields):
+    from agent.common.knowledge_context import corpus_countries
+
+    _request(monkeypatch, **fields)
+    assert corpus_countries() == frozenset()
+
+
+def test_an_entitled_request_reads_only_its_countries(monkeypatch):
+    from agent.common.knowledge_context import corpus_countries
+
+    entry = {"collection": "base", "shelf": "base", "countries": ["QA", "QB", 7]}
+    _request(monkeypatch, organization_id="org_1", collection_scope_entries=[entry])
+    assert corpus_countries() == frozenset({"QA", "QB"})
+
+
+def test_unscoped_corpus_reads_is_the_explicit_marker_inside_a_request(monkeypatch):
+    from agent.common.knowledge_context import UNSCOPED
+    from agent.common.knowledge_context import corpus_countries
+    from agent.common.knowledge_context import unscoped_corpus_reads
+
+    _request(monkeypatch, organization_id="org_1", collection_scope_entries=[])
+    with unscoped_corpus_reads():
+        assert corpus_countries() is UNSCOPED
+    assert corpus_countries() == frozenset()

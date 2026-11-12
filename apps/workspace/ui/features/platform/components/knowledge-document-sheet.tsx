@@ -12,7 +12,7 @@
 
 import type { JSX } from 'react'
 import { useState } from 'react'
-import { Eye, Trash2 } from 'lucide-react'
+import { Eye } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
@@ -55,12 +55,11 @@ import type { KnowledgeFile } from '@/lib/knowledge/service'
 export interface KnowledgeDocumentSheetProps {
   file: KnowledgeFile | null
   onClose: () => void
-  /** Rename, reclassify and remove render only when true. */
+  /** Rename and reclassify render only when true. A text leaves the corpus only through its country's change request. */
   canManage: boolean
   onRename: (file: KnowledgeFile, title: string) => void
   onReclassify: (file: KnowledgeFile, next: DocClass) => void
   onView: (file: KnowledgeFile) => void
-  onDelete: (file: KnowledgeFile) => void
 }
 
 export function KnowledgeDocumentSheet({
@@ -89,7 +88,6 @@ function SheetBody({
   onRename,
   onReclassify,
   onView,
-  onDelete,
 }: Omit<KnowledgeDocumentSheetProps, 'file' | 'onClose'> & { file: KnowledgeFile }): JSX.Element {
   const t = useTranslations(platformCopy)
   const tk = useTranslations(knowledgeCopy)
@@ -221,16 +219,6 @@ function SheetBody({
       ) : null}
 
       <SheetFooter className="pt-2">
-        {canManage ? (
-          <Button
-            variant="ghost"
-            className="text-destructive sm:mr-auto"
-            onClick={() => onDelete(file)}
-          >
-            <Trash2 className="size-3.5" aria-hidden />
-            {t('knowledge.delete')}
-          </Button>
-        ) : null}
         {/* A file the corpus no longer lists has no PDF left to open. */}
         {file.state !== 'removed' ? (
           <Button variant="secondary" onClick={() => onView(file)}>

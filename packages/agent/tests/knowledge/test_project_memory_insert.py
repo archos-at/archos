@@ -287,3 +287,107 @@ def test_a_restricted_write_is_logged_as_restricted_for_the_turn(monkeypatch):
     finally:
         pm.end_turn_memory_log(token)
     assert pm.turn_memory_digest() is None
+
+
+def test_a_temporary_conversation_raises_its_own_error(monkeypatch):
+    """ADR-0180: the BFF refuses the write (403 ``TEMPORARY_CONVERSATION``); it is not a token mismatch."""
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
+    body = json.dumps({"error": "The conversation is temporary", "code": "TEMPORARY_CONVERSATION"}).encode()
+    with _patched_opener(monkeypatch, error=_http_error(403, body)):
+        with pytest.raises(pm.TemporaryConversationError):
+            pm.insert_memory_item(
+                scope="project", project_id="p1", organization_id=None, kind="derived_fact", content="x"
+            )
+
+
+@pytest.mark.parametrize(
+    ("content", "personal_data", "secret"),
+    [
+        ("Reachable at huber@example.com.", True, False),
+        ("Call +43 660 1234567 before noon.", True, False),
+        ("The portal password is hunter2.", True, True),
+        ("IBAN AT611904300234573201 is the fee account.", True, True),
+        ("Leads the permit phase and prefers short answers.", False, False),
+        ("The permit deadline is 12/03/2027.", False, False),
+    ],
+)
+def test_the_secret_shapes_are_the_part_of_the_denylist_personal_memory_keeps(content, personal_data, secret):
+    assert pm.looks_like_personal_data(content) is personal_data
+    assert pm.looks_like_secret(content) is secret
+
+
+# ---------------------------------------------------------------------------
+# The turn's ledger of created notes (what the answer's noted chip is told)
+# ---------------------------------------------------------------------------
+
+
+def _insert(monkeypatch, body, **overrides):
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
+    params = {
+        "scope": "project",
+        "project_id": "p1",
+        "organization_id": "o1",
+        "kind": "decision",
+        "content": " Flat roof. ",
+    }
+    params.update(overrides)
+    with _patched_opener(monkeypatch, body=body):
+        return pm.insert_memory_item(**params)
+
+
+def test_a_created_note_is_entered_in_the_turns_ledger_as_it_was_stored(monkeypatch):
+    token = pm.begin_turn_memory_log()
+    try:
+        assert _insert(monkeypatch, {"item": {"id": "item-1"}, "supersededId": None, "created": True}) == "item-1"
+        assert pm.turn_memory_notes() == (
+            pm.TurnMemoryNote(id="item-1", kind="decision", content="Flat roof.", scope="project"),
+        )
+        assert pm.turn_memory_writes() == ("Flat roof.",)
+    finally:
+        pm.end_turn_memory_log(token)
+
+
+def test_a_note_counts_as_replacing_one_only_when_the_route_retired_it(monkeypatch):
+    token = pm.begin_turn_memory_log()
+    try:
+        _insert(monkeypatch, {"item": {"id": "a"}, "supersededId": "old"}, supersedes_content="Pitched roof.")
+        _insert(monkeypatch, {"item": {"id": "b"}, "supersededId": None}, supersedes_content="No such note.")
+        assert [note.supersedes for note in pm.turn_memory_notes()] == ["Pitched roof.", None]
+    finally:
+        pm.end_turn_memory_log(token)
+
+
+def test_a_restated_note_the_route_only_refreshed_is_a_write_but_no_new_note(monkeypatch):
+    """Reflection still reads it as recorded; the chip must not offer to remove a note this turn did not create."""
+    token = pm.begin_turn_memory_log()
+    try:
+        assert _insert(monkeypatch, {"item": {"id": "old"}, "created": False}) == "old"
+        assert pm.turn_memory_notes() == ()
+        assert pm.turn_refreshed_memory_ids() == frozenset({"old"})
+        assert pm.turn_memory_writes() == ("Flat roof.",)
+    finally:
+        pm.end_turn_memory_log(token)
+
+
+def test_a_restricted_and_an_organization_note_say_so(monkeypatch):
+    token = pm.begin_turn_memory_log()
+    try:
+        _insert(monkeypatch, {"item": {"id": "r"}}, restricted_collections=["proj_p1_r0123456789ab"])
+        _insert(monkeypatch, {"item": {"id": "o"}}, scope="organization", project_id=None)
+        restricted, office = pm.turn_memory_notes()
+        assert (restricted.restricted, restricted.scope) == (True, "project")
+        assert (office.restricted, office.scope) == (False, "organization")
+        assert office.frame_item(in_turn=True) == {
+            "id": "o",
+            "kind": "decision",
+            "content": "Flat roof.",
+            "provenance": "agent",
+            "scope": "organization",
+        }
+    finally:
+        pm.end_turn_memory_log(token)
+
+
+def test_outside_a_turn_a_write_enters_no_ledger(monkeypatch):
+    assert _insert(monkeypatch, {"item": {"id": "item-1"}}) == "item-1"
+    assert pm.turn_memory_notes() == ()

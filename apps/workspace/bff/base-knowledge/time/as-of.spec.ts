@@ -23,6 +23,9 @@ import {
 import { editionInForce } from './editions'
 import { dayIn, zoneOf } from './today'
 
+/** The zones the released territory records state: the country's, as the records give them. */
+const ZONES = { AT: 'Europe/Vienna' }
+
 function answer(
   testCase: AsOfCase,
   overrides: Partial<{ work: (typeof WORKS)[string] }> = {}
@@ -31,6 +34,7 @@ function answer(
     work: overrides.work ?? WORKS[testCase.work],
     rulesets: testCase.rulesets ?? AS_OF_RULESETS,
     chain: testCase.chain,
+    zones: ZONES,
     procedure: parseProcedure(testCase.procedure),
     facts: testCase.facts,
     now: NOW,
@@ -160,6 +164,7 @@ describe('fail closed on unknown', () => {
       work: WORKS.wien,
       rulesets: [filingRule('rule-xx', 'XX')],
       chain: ['XX'],
+      zones: ZONES,
       procedure: parseProcedure({ filedOn: '2023-06-01', decidedOn: 'pending' }),
       now: NOW,
     })
@@ -220,9 +225,20 @@ describe('fail closed on unknown', () => {
 })
 
 describe('today in the node’s zone', () => {
-  it('reads the country of a territory id', () => {
-    expect([zoneOf('AT-9'), zoneOf('AT:gkz:90001'), zoneOf('DE'), zoneOf('XX')]).toEqual([
-      'Europe/Vienna',
+  it('is the nearest zone a record on the chain states, and none without one', () => {
+    const zones = { AT: 'Europe/Vienna', DE: 'Europe/Berlin' }
+    expect([
+      zoneOf(['AT:gkz:90001', 'AT-9', 'AT'], zones),
+      zoneOf(['DE-BE', 'DE'], zones),
+      zoneOf(['AT-9', 'AT'], { 'AT-9': 'Europe/Lisbon', ...zones }),
+      zoneOf(['XX'], zones),
+    ]).toEqual(['Europe/Vienna', 'Europe/Berlin', 'Europe/Lisbon', null])
+  })
+
+  it('is a synthetic country’s zone from its record alone, and the build’s zone where no record states one', () => {
+    expect(zoneOf(['XA-N', 'XA'], { XA: 'Asia/Tokyo' })).toBe('Asia/Tokyo')
+    // Nothing released states a zone: the zone the build lists for the leaf's country, as before the records.
+    expect([zoneOf(['AT:gkz:90001', 'AT-9', 'AT'], {}), zoneOf(['DE-BE', 'DE'], {}), zoneOf(['XA-N', 'XA'], {})]).toEqual([
       'Europe/Vienna',
       'Europe/Berlin',
       null,
@@ -269,6 +285,7 @@ describe('the walk ends on an edition in force where it was reached (review find
       work: { id: 'work:x', historyAvailableFrom: '2018-01-01', editions },
       rulesets: [decidedRule],
       chain: ['AT-9', 'AT'],
+      zones: ZONES,
       procedure: parseProcedure({ filedOn, decidedOn }),
       now: NOW,
     })

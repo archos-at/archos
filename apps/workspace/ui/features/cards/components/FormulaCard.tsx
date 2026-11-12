@@ -32,7 +32,7 @@
  */
 
 import { useId, useMemo, useState, type FC } from 'react'
-import { RotateCcw, SlidersHorizontal, UserPen } from 'lucide-react'
+import { Info, RotateCcw, SlidersHorizontal, UserPen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { QuantityInput, type QuantityIssue } from '@/components/ui/quantity-input'
@@ -59,6 +59,7 @@ import {
   judgeFormula,
   sourceValues,
   type CompiledFormula,
+  type EditionHold,
   type FormulaCardData,
   type FormulaWords,
   type InputLabel,
@@ -71,6 +72,7 @@ import {
   CAVEAT_KEYS,
   CHECK_KEYS,
   COMPONENT_KEYS,
+  HOLD_KEYS,
   INPUT_KEYS,
   LINE_KEYS,
   MEASURE_KEYS,
@@ -81,7 +83,7 @@ import {
 } from '../lib/formula-copy'
 import { DerivationSteps } from './Derivation'
 
-type FormulaCardProps = Pick<FormulaCardData, 'title' | 'formula' | 'note'>
+type FormulaCardProps = Pick<FormulaCardData, 'title' | 'formula' | 'note' | 'site_binding'>
 
 const withUnit = (value: string, unit: string): string => (unit ? `${value} ${unit}` : value)
 
@@ -355,6 +357,18 @@ const undecidedText = (
   return t('cards.formula.cannotJudge')
 }
 
+/** Why a held check gives no verdict, with the edition its bound is from and the one that binds. */
+const holdText = (hold: EditionHold, t: Translator): string =>
+  t(HOLD_KEYS[hold.reason], { edition: hold.edition, binding: hold.binding ?? '' })
+
+/** One check as the live region says it: the verdict, or the hint with its reason. */
+const spokenCheck = (check: LimitCheck, judged: JudgedFormula, t: Translator): string => {
+  const said = { name: t(CHECK_KEYS[check.spec.id]), value: quantityText(check, judged, t), bound: boundText(check, t) }
+  return check.hold
+    ? t('cards.formula.checkHeldSpoken', { ...said, reason: holdText(check.hold, t) })
+    : t('cards.formula.checkSpoken', { ...said, verdict: statusLabel(check.status, t) })
+}
+
 const CheckRow: FC<{
   check: LimitCheck
   judged: JudgedFormula
@@ -367,7 +381,15 @@ const CheckRow: FC<{
   return (
     <li className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <StatusBadge status={check.status} />
+        {check.hold ? (
+          // No ✓ and no ✗: the bound is from an edition that does not bind here, or nobody settled which does.
+          <Chip variant="info" size="sm">
+            <Info aria-hidden="true" />
+            {t('cards.formula.hold.label')}
+          </Chip>
+        ) : (
+          <StatusBadge status={check.status} />
+        )}
         <span className="card-body text-foreground">{t(CHECK_KEYS[check.spec.id])}</span>
         <span className="card-body font-mono tabular-nums text-foreground">{quantityText(check, judged, t)}</span>
         <span className="card-body font-mono text-muted-foreground">{boundText(check, t)}</span>
@@ -376,6 +398,11 @@ const CheckRow: FC<{
       <span className="card-meta text-muted-foreground">
         {[reference.document, reference.section, reference.edition].filter(Boolean).join(' · ')}
       </span>
+      {check.hold && (
+        <p className="card-caption max-w-prose text-muted-foreground">
+          {holdText(check.hold, t)}
+        </p>
+      )}
       {check.status === 'needs_input' && (
         <p className="card-caption max-w-prose text-muted-foreground">{undecidedText(check, compiled, issues, t)}</p>
       )}
@@ -385,7 +412,7 @@ const CheckRow: FC<{
 
 /* ── the card ───────────────────────────────────────────────────────────── */
 
-export const FormulaCard: FC<FormulaCardProps> = ({ title, formula, note }) => {
+export const FormulaCard: FC<FormulaCardProps> = ({ title, formula, note, site_binding: siteBinding }) => {
   const t = useTranslations(chatCopy)
   const { overrides, change, reset } = useReaderOverrides()
   // Which fields hold text the field refused. One reader's view of their own
@@ -403,14 +430,15 @@ export const FormulaCard: FC<FormulaCardProps> = ({ title, formula, note }) => {
   const words = useMemo(() => wordsFor(t), [t])
   const values = { ...source, ...overrides }
   const compiled = compileFormula(formula, values, words)
-  const judged = judgeFormula(compiled, values)
+  const judged = judgeFormula(compiled, values, siteBinding)
   const changed = changedInputs(source, values)
-  const verdict = worstStatus(judged.checks.map((check) => check.status))
+  const verdict = worstStatus(judged.checks.filter((check) => !check.hold).map((check) => check.status))
   const editable = slots.some((slot) => slot.editable)
   const assumedChecks = new Set(
     judged.checks.filter((check) => check.spec.dependsOn.some((key) => changed.has(key))).map((check) => check.spec.id)
   )
-  const tint = judged.checks.find((check) => check.spec.id === compiled.tint)?.status ?? null
+  const tinted = judged.checks.find((check) => check.spec.id === compiled.tint)
+  const tint = tinted && !tinted.hold ? tinted.status : null
   const caseLine = caseText(formula, t)
 
   const onChange: ChangeHandler = (key, value, issue) => {
@@ -430,16 +458,7 @@ export const FormulaCard: FC<FormulaCardProps> = ({ title, formula, note }) => {
     setInteracted(true)
   }
 
-  const spoken = judged.checks
-    .map((check) =>
-      t('cards.formula.checkSpoken', {
-        name: t(CHECK_KEYS[check.spec.id]),
-        value: quantityText(check, judged, t),
-        bound: boundText(check, t),
-        verdict: statusLabel(check.status, t),
-      })
-    )
-    .join(' ')
+  const spoken = judged.checks.map((check) => spokenCheck(check, judged, t)).join(' ')
 
   return (
     <SchematicCard

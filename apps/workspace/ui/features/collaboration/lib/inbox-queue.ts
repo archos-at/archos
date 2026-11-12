@@ -100,6 +100,23 @@ export function newsOf(items: readonly InboxItemView[]): InboxItemView[] {
   return items.filter((item) => !item.read && item.state !== 'inert' && !item.archived && !isOpenRequest(item))
 }
 
+/**
+ * The news with the entry the reader just opened still in it, at the place it
+ * had. Opening an entry reads it, and read news is no news: without this the
+ * entry left the list under the pointer, and the last one took the whole list
+ * with it („Alles erledigt“ beside the message the reader was only now
+ * reading). It stays, drawn as read, for as long as the reader is at its
+ * place; `InboxQueue` decides that and passes `held` only then.
+ */
+export function newsWithHeld(
+  news: readonly InboxItemView[],
+  held: { item: InboxItemView; at: number } | null,
+): InboxItemView[] {
+  if (!held || news.some((item) => item.id === held.item.id)) return [...news]
+  const at = Math.min(Math.max(held.at, 0), news.length)
+  return [...news.slice(0, at), held.item, ...news.slice(at)]
+}
+
 /** The rows in the order they are drawn: the queue's, then the news. What j/k walks. */
 export function queueOrder(groups: readonly InboxQueueGroup[], news: readonly InboxItemView[]): InboxItemView[] {
   return [...groups.flatMap((group) => group.items), ...news]

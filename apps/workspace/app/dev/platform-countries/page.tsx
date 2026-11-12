@@ -1,9 +1,11 @@
 'use client'
 
 /**
- * Dev preview for Platform → countries (ADR-0165). Renders the REAL
- * CountryKnowledge on fixture data: the countries table, the review queue, and
- * (with `?request=1`) a submitted change request opened in its sheet, with an
+ * Dev preview for Platform → Länder (ADR-0165). Renders the REAL
+ * CountryKnowledge (the list) on fixture data, or with `?country=AT` the REAL
+ * CountryPage (`&section=works|sources|rules|review|quality`, `&empty=1` for a
+ * country with nothing yet); with `?country=AT&section=review&request=1` a
+ * submitted change request opened in its sheet, with an
  * authority, a std-asi listing and claims half reviewed; with `?request=alone`,
  * a published one its author approved alone, its second review due (ADR-0176);
  * with `?request=draft`, a draft with an edition whose text is attached and one
@@ -14,9 +16,10 @@
  */
 
 import type { JSX } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
 import { CountryKnowledge } from '@/features/platform/components/country-knowledge'
+import { CountryPage } from '@/features/platform/components/countries/country-page'
 import { useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 
@@ -200,6 +203,36 @@ const DRAFT = {
 }
 const DRAFTS = { changeRequests: [{ ...OVERVIEW.queue[0], id: DRAFT_ID, title: DRAFT.title, status: 'draft', revisionCount: 2 }], nextCursor: null }
 
+const text = (corpusFile: string, edition: string, label: string, work: string, released: boolean) => ({
+  corpusFile,
+  countryId: 'AT',
+  recordId: `manifestation:${corpusFile}`,
+  editionId: `edition:${edition}`,
+  editionLabel: label,
+  workTitle: work,
+  released,
+  changeRequestId: released ? null : DRAFT_ID,
+  changeRequestTitle: released ? null : DRAFT.title,
+  changeRequestStatus: released ? null : 'draft',
+})
+const TEXTS = {
+  texts: [
+    text('oib-rl-1-2023.pdf', 'at-oib-rl-1-2023', 'April 2023', 'OIB-RL 1 Mechanische Festigkeit und Standsicherheit', true),
+    text('oib-rl-2-2023.pdf', 'at-oib-rl-2-2023', 'April 2023', 'OIB-RL 2 Brandschutz', true),
+    text('oib-rl-1-2019.pdf', 'at-oib-rl-1-2019', 'April 2019', 'OIB-RL 1 Mechanische Festigkeit und Standsicherheit', false),
+  ],
+  nextCursor: null,
+}
+const monitor = (failure: string | null, lag: number | null) => ({ kind: 'etag', intervalHours: 24, checkedAt: '2026-11-11T06:00:00Z', okAt: failure ? null : '2026-11-11T06:00:00Z', failure, freshnessLagDays: lag })
+const SOURCES = {
+  sources: [
+    { sourceKey: 'at-ris', origin: 'built_in', recordId: null, countryId: 'AT', state: 'active', changeRequestId: null, hosts: [{ host: 'www.ris.bka.gv.at', state: 'active', usableUntil: null }], dataFlow: 'public_only', monitor: monitor(null, 0), credential: { set: false, hint: null, setAt: null }, openMonitorRequestId: null, fixtures: null },
+    { sourceKey: 'at-oib', origin: 'record', recordId: 'source:at-oib', countryId: 'AT', state: 'testing', changeRequestId: DRAFT_ID, hosts: [{ host: 'www.oib.or.at', state: 'testing', usableUntil: '2026-11-18T00:00:00Z' }], dataFlow: 'public_only', monitor: monitor(null, null), credential: { set: false, hint: null, setAt: null }, openMonitorRequestId: null, fixtures: null },
+    { sourceKey: 'de-gesetze', origin: 'record', recordId: 'source:de-gesetze', countryId: 'DE', state: 'active', changeRequestId: null, hosts: [{ host: 'www.gesetze-im-internet.de', state: 'active', usableUntil: null }], dataFlow: 'public_only', monitor: monitor('timeout', null), credential: { set: false, hint: null, setAt: null }, openMonitorRequestId: null, fixtures: null },
+  ],
+  builtInUnavailable: null,
+}
+
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __platformCountriesShim?: boolean }
   if (!w.__platformCountriesShim) {
@@ -209,6 +242,13 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       if (url === '/api/platform/knowledge') return Response.json(OVERVIEW)
       if (url.startsWith('/api/platform/knowledge/change-requests?status=draft')) return Response.json(DRAFTS)
+      // `?empty=1`: a country nothing has been started for, so every section shows its empty state.
+      const empty = new URLSearchParams(window.location.search).get('empty') === '1'
+      if (url.startsWith('/api/platform/knowledge/change-requests?countryId=')) {
+        return Response.json(empty ? { changeRequests: [], nextCursor: null } : { changeRequests: [...OVERVIEW.queue.filter((one) => one.countryId === 'AT'), DRAFTS.changeRequests[0]], nextCursor: null })
+      }
+      if (url.startsWith('/api/platform/knowledge/texts')) return Response.json(empty ? { texts: [], nextCursor: null } : TEXTS)
+      if (url === '/api/platform/knowledge/sources') return Response.json(empty ? { sources: [], builtInUnavailable: null } : SOURCES)
       if (url.startsWith('/api/platform/knowledge/change-requests/')) {
         if (init?.method === 'POST' && url.includes('/texts')) return Response.json({ text: DRAFT.texts[0], status: 'written', stored: true })
         if (init?.method === 'POST') return Response.json({ recorded: 1 })
@@ -225,6 +265,9 @@ export default function PlatformCountriesDevPage(): JSX.Element {
 
 function Preview(): JSX.Element {
   const t = useTranslations(platformCopy)
+  // `?country=AT` renders that country's page (with `&section=` for a section, `&empty=1` for its empty states).
+  const [country, setCountry] = useState<string | null>(null)
+  useEffect(() => setCountry(new URLSearchParams(window.location.search).get('country')), [])
   // `?request=1` opens the first request in the queue, `?request=alone` the one approved alone, through the real button.
   useEffect(() => {
     const which = new URLSearchParams(window.location.search).get('request')
@@ -232,7 +275,7 @@ function Preview(): JSX.Element {
     let cancelled = false
     const open = (): void => {
       if (cancelled) return
-      const buttons = document.querySelectorAll<HTMLButtonElement>('[data-testid="country-knowledge-queue"] button')
+      const buttons = document.querySelectorAll<HTMLButtonElement>('[data-testid="country-review-waiting"] button')
       const button = which === 'alone' ? buttons[buttons.length - 1] : buttons[0]
       if (button) button.click()
       else window.setTimeout(open, 100)
@@ -246,8 +289,14 @@ function Preview(): JSX.Element {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 md:px-8" data-testid="platform-countries-preview">
-      <PageHeader title={t('sections.countries.title')} subtitle={t('sections.countries.subtitle')} />
-      <CountryKnowledge />
+      {country ? (
+        <CountryPage countryId={country} />
+      ) : (
+        <>
+          <PageHeader title={t('sections.countries.title')} subtitle={t('sections.countries.subtitle')} />
+          <CountryKnowledge />
+        </>
+      )}
     </main>
   )
 }

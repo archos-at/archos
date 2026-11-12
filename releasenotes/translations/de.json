@@ -12,6 +12,10 @@
     "de": "„Mehr“ in der unteren Leiste öffnet jetzt ein Sheet mit ausschließlich den Inhalten, die die Leiste nicht bereits anzeigt, etwa Automatisierung, die Büroablage und Ihr Konto."
   },
   {
+    "en": "\"Mein Gedächtnis\" has \"Alle Notizen entfernen\": after a confirmation that says how many notes go, everything the assistant keeps about you is removed in one step.",
+    "de": "In „Mein Gedächtnis“ gibt es „Alle Notizen entfernen“: Nach einer Bestätigung mit der Anzahl der zu löschenden Notizen wird alles, was der Assistent über Sie gespeichert hat, in einem Schritt entfernt."
+  },
+  {
     "en": "A CSV or text file exported from Excel on Windows now shows its €, „ “ and – characters correctly in the preview.",
     "de": "Eine unter Windows aus Excel exportierte CSV- oder Textdatei zeigt in der Vorschau jetzt die Zeichen €, „ “ und den Strich „–“ richtig an."
   },
@@ -96,6 +100,10 @@
     "de": "Ein Chat-Anhang, den Piloti nicht gelesen oder zurückgehalten hat, gilt nach dem erneuten Laden der Chat-Dateien nicht mehr als verfügbare Quelle."
   },
   {
+    "en": "A chat can be switched to temporary beside the message field. The assistant then keeps nothing from it, in no memory, and the chat says so for as long as the switch is on.",
+    "de": "Ein Chat lässt sich neben dem Nachrichtenfeld auf temporär umstellen. Der Assistent merkt sich daraus nichts, und der Chat weist darauf hin, solange die Einstellung aktiviert ist."
+  },
+  {
     "en": "A chat shared with someone who later loses the right to read a folder it drew on stays in their list as \"Shared chat\", and opening it says they no longer have the rights, with no title, message or attachment shown. The person who shared it sees them marked \"No longer has access\", and the chat opens again if the role comes back.",
     "de": "Ein Chat, der mit jemandem geteilt ist, die oder der später das Recht verliert, einen Ordner zu lesen, aus dem er schöpft, bleibt in deren Liste als „Geteilter Chat“; beim Öffnen steht dort, dass die Rechte fehlen, ohne Titel, Nachricht oder Anhang. Wer den Chat geteilt hat, sieht die Person als „Hat keinen Zugriff mehr“, und der Chat öffnet sich wieder, sobald die Rolle zurück ist."
   },
@@ -114,6 +122,10 @@
   {
     "en": "A citation Piloti could not verify is now marked „Beleg nicht verifiziert\" where it stood, instead of disappearing unnoticed. Piloti no longer attaches a source the answer did not cite.",
     "de": "Eine Quellenangabe, die Piloti nicht verifizieren konnte, wird nun an ihrer Stelle als „Beleg nicht verifiziert“ markiert, statt unbemerkt zu verschwinden. Piloti fügt einer Antwort keine Quelle mehr hinzu, die in der Antwort nicht zitiert wurde."
+  },
+  {
+    "en": "A connection that hangs while it is being set up is retried after a few seconds, and the chat says it is restoring the connection also when you return to a tab mid-answer.",
+    "de": "Eine Verbindung, deren Aufbau hängen bleibt, wird nach einigen Sekunden erneut hergestellt. Der Chat meldet auch „Verbindung wird wiederhergestellt“, wenn Sie während einer Antwort zu einem Tab zurückkehren."
   },
   {
     "en": "A copied annotation link now opens only that annotation, and new annotations a colleague sets while you have the document open in the review no longer stay unread in your inbox.",
@@ -204,6 +216,10 @@
     "de": "Ein Dokument ist jetzt ein einziger Eintrag, egal wie viele Fassungen es hat. Der Eintrag zeigt, wie viele es sind, und beim Öffnen stehen alle Fassungen in einem Verlauf, die neueste zuerst, mit Angabe, wer sie wann eingestellt hat und was sich geändert hat."
   },
   {
+    "en": "A document no longer shows as failed, and stays that way, when it was read again or replaced while an earlier attempt to start reading it was still waiting.",
+    "de": "Ein Dokument wird nicht mehr als fehlgeschlagen angezeigt, wenn es erneut eingelesen oder ersetzt wird, während ein früherer Versuch, das Einlesen zu starten, noch aussteht."
+  },
+  {
     "en": "A document now shows as ready as soon as it has been read, instead of only after someone next opened the file list, and a file whose upload hit a passing storage hiccup is read again within seconds instead of failing.",
     "de": "Ein Dokument wird jetzt als bereit angezeigt, sobald es gelesen wurde, statt erst, wenn jemand die Dateiliste erneut öffnet, und eine Datei, deren Upload durch eine vorübergehende Speicherstörung unterbrochen wurde, wird innerhalb von Sekunden erneut gelesen, statt fehlzuschlagen."
   },
@@ -238,6 +254,14 @@
   {
     "en": "A document whose reading failed for a passing reason is read again on its own, and drawing sets are read faster while several offices upload at once.",
     "de": "Ein Dokument, dessen Einlesen vorübergehend fehlgeschlagen ist, wird automatisch erneut eingelesen, und Plansätze werden schneller eingelesen, wenn mehrere Büros gleichzeitig Uploads durchführen."
+  },
+  {
+    "en": "A document whose reading has failed for good now shows as failed right away, with the option to read it again, instead of still looking as if it were being read for about a quarter of an hour.",
+    "de": "Ein Dokument, bei dem das Einlesen endgültig fehlgeschlagen ist, wird jetzt sofort als fehlgeschlagen angezeigt und kann erneut eingelesen werden, statt etwa eine Viertelstunde lang so auszusehen, als würde es noch eingelesen."
+  },
+  {
+    "en": "A document whose reading was interrupted and then finished after all is now shown as read, instead of staying marked as failed with a retry offered.",
+    "de": "Ein Dokument, dessen Lesen unterbrochen und später doch abgeschlossen wurde, wird jetzt als gelesen angezeigt, statt weiterhin als fehlgeschlagen markiert zu sein und einen erneuten Versuch anzubieten."
   },
   {
     "en": "A document's revisions and their approval now use one word each, everywhere: every state of a document is a revision, numbered \"Revision 3 of 5\", and a revision sent back reads \"Changes requested\", matching the button.",
@@ -350,6 +374,10 @@
   {
     "en": "A file whose reading was cut short by an interruption now shows as failed, with a retry, instead of staying in progress and being impossible to read again.",
     "de": "Eine Datei, deren Lesen durch eine Unterbrechung abgebrochen wurde, wird jetzt als fehlgeschlagen angezeigt, mit einem erneuten Versuch, statt bei „Wird gelesen“ hängen zu bleiben und sich nicht mehr lesen zu lassen."
+  },
+  {
+    "en": "A file whose reading you stopped no longer reappears as failed after you reload the page.",
+    "de": "Eine Datei, deren Einlesen Sie abgebrochen haben, wird nach dem Neuladen der Seite nicht mehr als fehlgeschlagen angezeigt."
   },
   {
     "en": "A file whose upload is still on its way says „Wird hochgeladen“ again instead of „Wird gelesen“.",
@@ -492,6 +520,10 @@
     "de": "Eine zurückgehaltene Mail weist nun in einem Satz darauf hin, wenn ihr Absender derzeit keine Dateien im Projekt ablegen darf, und im Papierkorb wird bei den Datumsangaben keine Ordneranzahl von null mehr angezeigt."
   },
   {
+    "en": "A mail sent to a project address whose original could not be read or scanned now waits visibly for a decision, instead of being tried again in the background every two weeks without anyone seeing it.",
+    "de": "Eine E-Mail an eine Projektadresse, deren Originaldatei nicht gelesen oder gescannt werden konnte, wartet nun sichtbar auf eine Entscheidung, statt alle zwei Wochen im Hintergrund erneut verarbeitet zu werden, ohne dass jemand davon etwas mitbekommt."
+  },
+  {
     "en": "A member budget can no longer be set for someone who does not belong to the organization; such a limit used to be saved and never applied.",
     "de": "Ein Mitgliederbudget lässt sich nicht mehr für jemanden festlegen, der der Organisation nicht angehört; so ein Limit wurde bisher gespeichert und griff nie."
   },
@@ -520,12 +552,24 @@
     "de": "Ein neu hochgeladenes Dokument ist schneller über die Suche auffindbar: Sein Inhalt ist durchsuchbar, sobald er eingelesen wurde, während Zusammenfassung, Tags und Themen noch erstellt werden. Das Dokument wird als abgeschlossen angezeigt, sobald auch diese fertig sind."
   },
   {
+    "en": "A note that corrects an earlier one, such as a changed dimension, date or quantity, now replaces it. Before, the old value could stay and look freshly confirmed.",
+    "de": "Eine Notiz, die eine frühere korrigiert – etwa eine geänderte Abmessung, ein Datum oder eine Menge –, ersetzt diese nun. Bisher konnte der alte Wert bestehen bleiben und so wirken, als wäre er gerade bestätigt worden."
+  },
+  {
     "en": "A note that research was cut off, or that an answer came out weaker than usual, now stays with the answer when you reopen the conversation later. Previously that caveat was visible only while the run was live, so a partial answer read as a complete one the next morning.",
     "de": "Ein Hinweis darauf, dass die Recherche unterbrochen wurde oder eine Antwort schwächer als üblich ausgefallen ist, bleibt jetzt auch dann bei der Antwort, wenn Sie die Unterhaltung später wieder öffnen. Bisher war dieser Hinweis nur während des laufenden Vorgangs sichtbar, sodass eine unvollständige Antwort am nächsten Morgen wie eine vollständige wirkte."
   },
   {
+    "en": "A notice that a document has a new version under another name can no longer be lost when it could not be prepared at that moment.",
+    "de": "Ein Hinweis auf eine neue Version eines Dokuments unter anderem Namen geht nicht mehr verloren, wenn er in diesem Moment nicht erstellt werden kann."
+  },
+  {
     "en": "A one-off task now has the same colour on its card as its block in the timetable.",
     "de": "Eine einmalige Aufgabe trägt auf ihrer Karte jetzt dieselbe Farbe wie ihr Block im Stundenplan."
+  },
+  {
+    "en": "A paragraph of a law that an answer read in the legal database now shows whether it binds at your site, from the published records, and its source chip opens the law at its official address. Before, such a chip showed no status and opened nothing.",
+    "de": "Ein Gesetzesabsatz, den eine Antwort in der Rechtsdatenbank herangezogen hat, zeigt jetzt anhand der veröffentlichten Datensätze, ob er an Ihrem Standort gilt. Über den Quellen-Chip öffnen Sie das Gesetz an seiner offiziellen Adresse. Bisher zeigte ein solcher Chip keinen Status und öffnete nichts."
   },
   {
     "en": "A part of an Outlook archive that arrives cut short on its way to ARCHOS is now sent again by the browser, rather than stopping the import.",
@@ -588,6 +632,10 @@
     "de": "Ein Projekt, dessen Anlegen auf halbem Weg scheiterte, bleibt für die Person, die es angelegt hat, nicht mehr unerreichbar."
   },
   {
+    "en": "A project with a filing date of today or earlier now gets its building-law answers, and the law named on its project page, on the editions in force that day, not today's. The answer says it took the filing date as the reference date and did not check transitional provisions.",
+    "de": "Ein Projekt mit einem Einreichdatum von heute oder früher erhält seine baurechtlichen Antworten und das auf seiner Projektseite angeführte Gesetz nun in der an diesem Tag geltenden Fassung statt in der heutigen. Die Antwort gibt an, dass sie das Einreichdatum als Stichtag herangezogen und Übergangsbestimmungen nicht geprüft hat."
+  },
+  {
     "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",
     "de": "Bei den Dateien eines Projekts wird die Anzahl wartender E-Mails nicht mehr in einer Zeile oberhalb der Dateien angezeigt, sondern im Inbox-Tab."
   },
@@ -602,6 +650,10 @@
   {
     "en": "A project's findings now show where a document states a different building class, storey count, plot area, construction method, use or federal state than the project profile, side by side with links to both.",
     "de": "Die Ergebnisse eines Projekts zeigen jetzt nebeneinander, wo ein Dokument eine andere Gebäudeklasse, Geschossanzahl, Grundstücksfläche, Bauweise, Nutzung oder ein anderes Bundesland als im Projektprofil angibt, jeweils mit Links zu beiden."
+  },
+  {
+    "en": "A project's memory now says that every member of the project reads its notes, and a private chat says that you have not shared it with anyone.",
+    "de": "Im Projekt-Memory steht jetzt, dass jedes Projektmitglied dessen Notizen liest, während in einem privaten Chat steht, dass Sie sie mit niemandem geteilt haben."
   },
   {
     "en": "A project's setup now shows the law that applies at its site, each code and guideline with the edition that binds there, the same law the chat answers with. Where no law can be named yet, it says why: no site, or a country your office has not enabled.",
@@ -724,6 +776,10 @@
     "de": "Ein Recherchelauf oder eine Aufgabe, die während einer kurzen Störung fertig wurde, zeigt jetzt ihr Ergebnis, statt dauerhaft als „läuft“ mit einer leeren Meldung stehen zu bleiben."
   },
   {
+    "en": "A research run that had already finished when all runs were stopped now ends as completed with its report filed, instead of as interrupted.",
+    "de": "Ein Recherchelauf, der bereits abgeschlossen war, als alle Läufe gestoppt wurden, wird nun als abgeschlossen mit abgelegtem Bericht statt als unterbrochen geführt."
+  },
+  {
     "en": "A research run that hits your organization's budget now says so and tells you where an admin can raise the limit, instead of reporting an internal error.",
     "de": "Scheitert ein Recherchelauf am Budget Ihrer Organisation, sagt die Meldung das jetzt und nennt, wo ein Admin die Grenze anheben kann, statt einen internen Fehler zu melden."
   },
@@ -780,6 +836,10 @@
     "de": "Ein Schnitt, eine Treppe, ein Fluchtweg oder eine Strecke wird aus den Werten gezeichnet, die Piloti liest, sodass Zeichnung und Zahlen aus derselben Quelle stammen."
   },
   {
+    "en": "A shared conversation you have left is no longer marked as read afterwards.",
+    "de": "Eine geteilte Konversation, die Sie verlassen haben, wird danach nicht mehr als gelesen markiert."
+  },
+  {
     "en": "A sheet that mixes a floor plan, a section, a chart and a photo has each part recognised and read on its own terms. Values read off a chart are stored with their meaning.",
     "de": "Ein Blatt, das Grundriss, Schnitt, Diagramm und Foto mischt, wird Teil für Teil erkannt und passend ausgewertet. Abgelesene Diagrammwerte werden mit ihrer Bedeutung gespeichert."
   },
@@ -794,6 +854,10 @@
   {
     "en": "A single source that does not answer in time no longer ends a deep research; the run carries on without it.",
     "de": "Eine einzelne Quelle, die nicht rechtzeitig antwortet, beendet die Tiefenrecherche nicht mehr; der Lauf geht ohne sie weiter."
+  },
+  {
+    "en": "A site whose building law makes hundreds of technical standards binding now gets its law named in the answer, instead of being told the knowledge base could not be read.",
+    "de": "Bei einem Standort, an dem das Baurecht Hunderte technische Normen verbindlich macht, wird nun das betreffende Gesetz in der Antwort genannt, statt mitzuteilen, dass die Wissensdatenbank nicht gelesen werden kann."
   },
   {
     "en": "A skill your organization writes may now carry any name; if it shares a name with an offered skill, yours applies.",
@@ -822,6 +886,10 @@
   {
     "en": "A subfolder can only narrow what its parent allows, and someone who may only read a folder sees it marked „Nur lesen“, without upload, rename, move or delete. Only a project admin who may edit a folder can change who may read or edit it.",
     "de": "Ein Unterordner kann nur einschränken, was sein übergeordneter Ordner erlaubt, und wer einen Ordner nur lesen darf, sieht ihn als „Nur lesen“ markiert, ohne Hochladen, Umbenennen, Verschieben oder Löschen. Nur ein Projekt-Admin, der einen Ordner bearbeiten darf, kann ändern, wer ihn lesen oder bearbeiten darf."
+  },
+  {
+    "en": "A suggested change that could not be loaded recovers by itself when the connection returns or you come back to the tab, and no longer offers Apply and Discard beside the message that it could not be loaded.",
+    "de": "Ein Änderungsvorschlag, der nicht geladen werden konnte, wird automatisch wiederhergestellt, sobald die Verbindung wieder besteht oder Sie zum Tab zurückkehren. Neben der Meldung, dass er nicht geladen werden konnte, werden Apply und Discard nicht mehr angeboten."
   },
   {
     "en": "A suggested change to a project's facts is shown field by field, as Vorher and Nachher, so you see what would change before you accept it.",
@@ -858,6 +926,10 @@
   {
     "en": "A task's run history now shows how each run actually ended, so a failed run reads as failed with its reason instead of as submitted.",
     "de": "Der Ausführungsverlauf einer Aufgabe zeigt jetzt, wie jeder Durchlauf tatsächlich geendet hat: Fehlgeschlagene Durchläufe werden mit ihrem Grund als fehlgeschlagen statt als übermittelt angezeigt."
+  },
+  {
+    "en": "A temporary chat is marked in the chat history, and the switch beside the message field shows its word on a phone too. A note the assistant proposed cannot be saved from a chat that is temporary; the card says why.",
+    "de": "Ein temporärer Chat wird im Chatverlauf gekennzeichnet, und der Schalter neben dem Nachrichtenfeld zeigt seine Beschriftung auch auf dem Smartphone an. Eine vom Assistenten vorgeschlagene Notiz kann in einem temporären Chat nicht gespeichert werden; die Karte erklärt warum."
   },
   {
     "en": "A thumbs-down with a short note helps improve answers.",
@@ -1168,6 +1240,10 @@
     "de": "Ein von der Inhaltsprüfung zurückgehaltener Upload wartet jetzt immer auf Prüfung, statt als fehlgeschlagen angezeigt zu werden, und bei einer nicht lesbaren Datei bleibt der tatsächliche Grund erhalten."
   },
   {
+    "en": "An upload to a project or the office shelf now shows as read the moment reading finishes, instead of up to five seconds later. The same holds for a filing suggestion on a fresh upload, an IFC model becoming ready in a project, and the progress of a mail import while its dialog is open.",
+    "de": "Ein Upload in ein Projekt oder in die Büroablage wird jetzt direkt nach Abschluss des Einlesens als gelesen angezeigt, statt erst bis zu fünf Sekunden später. Dasselbe gilt für einen Ablagevorschlag bei einem neuen Upload, ein IFC-Modell, sobald es in einem Projekt bereitsteht, und den Fortschritt eines Mail-Imports, solange der Dialog geöffnet ist."
+  },
+  {
     "en": "An uploaded file now reaches colleagues only once its check for sensitive data has passed. Until then only the person who uploaded it and those who may release quarantined files see it.",
     "de": "Eine hochgeladene Datei erreicht Kolleginnen und Kollegen erst, wenn ihre Prüfung auf sensible Daten bestanden ist. Bis dahin sieht sie nur die Person, die sie hochgeladen hat, und wer zurückgehaltene Dateien freigeben darf."
   },
@@ -1202,6 +1278,10 @@
   {
     "en": "Answers in chat arrive sooner, because Piloti prepares what it needs for the answer in parallel.",
     "de": "Antworten im Chat kommen früher, weil Piloti alles Nötige für die Antwort parallel vorbereitet."
+  },
+  {
+    "en": "Answers no longer cite a law from a website that only republishes it, or from a page served without encryption: the text is read from the official legal database or the knowledge base. An answer that still rests on a web page for a rule gets a lower confidence.",
+    "de": "Antworten zitieren Gesetze nicht mehr von Websites, die diese lediglich wiederveröffentlichen, oder von unverschlüsselten Seiten: Der Text stammt aus der offiziellen Rechtsdatenbank oder der Wissensdatenbank. Antworten, die sich weiterhin bei einer Regel auf eine Webseite stützen, erhalten eine niedrigere Konfidenz."
   },
   {
     "en": "Answers no longer cite a web copy of a guideline the knowledge base holds, or the product's own website, as a source for law, and no longer show internal notes such as \"citation not verified\" in the text.",
@@ -1296,8 +1376,16 @@
     "de": "„Archivieren“ heißt jetzt „Stilllegen“, denn ins Archiv legt man ein Dokument, damit es zu Bürowissen wird. Stilllegen fragt nach und sagt vorher, was passiert: Die Datei verschwindet aus der Liste, Piloti zitiert sie nicht mehr, gelöscht wird nichts."
   },
   {
+    "en": "Archiving a document that is still being read stops the reading, so the archived document no longer turns up in answers afterwards.",
+    "de": "Wenn Sie ein Dokument archivieren, das gerade gelesen wird, wird der Lesevorgang beendet, sodass das archivierte Dokument danach nicht mehr in Antworten auftaucht."
+  },
+  {
     "en": "Archiving a file now takes it out of the file list, which is what archiving was always meant to mean. A new filter shows the archived files again whenever you want them back; nothing is deleted either way.",
     "de": "Beim Archivieren einer Datei wird diese nun aus der Dateiliste entfernt – so, wie es immer gedacht war. Mit einem neuen Filter können Sie archivierte Dateien jederzeit wieder anzeigen; gelöscht wird dabei nichts."
+  },
+  {
+    "en": "Archiving in the inbox is smoother: the rows below close the gap, a restored row fades back in, and the keyboard focus moves to the next entry.",
+    "de": "Das Archivieren im Posteingang läuft reibungsloser: Die Zeilen darunter rücken nach, eine wiederhergestellte Zeile blendet sich wieder ein und der Tastaturfokus wechselt zum nächsten Eintrag."
   },
   {
     "en": "Ask Piloti for a Skizze, such as rooms by how they connect, a site with its access or two options side by side, and it draws one in Excalidraw right in the chat, never to scale. Inside a project you can file the sketch, or open it in Excalidraw, change it and file your version.",
@@ -1482,6 +1570,10 @@
   {
     "en": "Check tables show their result up front, such as „2 erfüllt · 1 offen“, and on a phone wide tables stack row by row instead of scrolling sideways.",
     "de": "Prüftabellen zeigen ihr Ergebnis vorab, etwa „2 erfüllt · 1 offen“, und am Telefon stehen breite Tabellen zeilenweise untereinander, statt seitlich zu scrollen."
+  },
+  {
+    "en": "Checking a held upload again now works: it is read anew and stays hidden from colleagues until that reading passes.",
+    "de": "Ein zurückgehaltener Upload kann jetzt erneut geprüft werden: Er wird neu eingelesen und bleibt für Kollegen verborgen, bis die Prüfung erfolgreich ist."
   },
   {
     "en": "Checking the skill is now a step you run before saving. Its findings are yours to weigh, and they never stop you from saving.",
@@ -1924,6 +2016,10 @@
     "de": "Jeder Ordner zeigt zuerst seine Unterordner und danach seine Dateien. In der Listenansicht bleiben die Spalten für Größe und Datum auch auf einem Laptop-Bildschirm sichtbar. Auf dem Smartphone werden sie in jeder Zeile unter dem Namen angezeigt."
   },
   {
+    "en": "Every note the assistant saves while answering now appears under that answer, with who can read it and \"Entfernen\" to take it back on the spot. Notes on your own shelf are shown there to you alone.",
+    "de": "Jede Notiz, die der Assistent beim Antworten speichert, erscheint jetzt unter der jeweiligen Antwort – mit Angabe, wer sie lesen kann, und der Option „Entfernen“, um sie sofort zurückzunehmen. Notizen in Ihrer eigenen Ablage werden dort nur Ihnen angezeigt."
+  },
+  {
     "en": "Every office can now record its own standards, commentaries and directives, and ask which edition of a law applied on an earlier date.",
     "de": "Jedes Büro kann jetzt eigene Standards, Kommentare und Richtlinien erfassen und abfragen, welche Fassung eines Gesetzes zu einem früheren Zeitpunkt galt."
   },
@@ -2186,6 +2282,10 @@
   {
     "en": "If a browser tab was open during the update, it shows a connection error until you reload it.",
     "de": "Wenn ein Browser-Tab während des Updates geöffnet war, zeigt er einen Verbindungsfehler, bis Sie ihn neu laden."
+  },
+  {
+    "en": "If a dictation could not be saved although you spoke, the chat now says so instead of ending silently.",
+    "de": "Wenn ein Diktat trotz Ihrer Spracheingabe nicht gespeichert werden konnte, weist der Chat jetzt darauf hin, statt kommentarlos zu enden."
   },
   {
     "en": "If a file is deleted right after someone uploaded it to a project or the Archiv, the upload now says so instead of reporting success.",
@@ -2464,6 +2564,10 @@
     "de": "Markdown-, Text- und CSV-Dateien können nun abschnitts- oder zeilenweise zitiert und geöffnet werden, nicht mehr nur als ganze Datei; außerdem bleiben bei jedem Teil einer langen Tabelle, eines Tabellenblatts oder einer CSV-Datei die Spaltenüberschriften erhalten."
   },
   {
+    "en": "Memory refuses passwords, access keys, bank account numbers and social-insurance numbers wherever a note comes from, and says what kind of thing it found.",
+    "de": "Memory weist Passwörter, Zugangsschlüssel, Bankkontonummern und Sozialversicherungsnummern unabhängig davon zurück, aus welcher Notiz sie stammen, und nennt die Art des gefundenen Inhalts."
+  },
+  {
     "en": "Mentioning a colleague with @ now works from the very first moment of a new chat. The list of people used to stay empty for the rest of that chat.",
     "de": "Das Erwähnen einer Kollegin mit @ funktioniert jetzt schon im ersten Moment eines neuen Chats. Bisher blieb die Personenliste dann für den ganzen Chat leer."
   },
@@ -2518,6 +2622,10 @@
   {
     "en": "Nothing is changed until you press Apply, and the change then runs as you, with your own permissions. A change is shown as done only once it has been carried out.",
     "de": "Nichts ändert sich, bis Sie auf „Übernehmen“ drücken, und die Änderung läuft dann in Ihrem Namen mit Ihren eigenen Berechtigungen. Eine Änderung gilt erst als erledigt, wenn sie ausgeführt wurde."
+  },
+  {
+    "en": "Notifications in the inbox are now removed once they are older than the longest keeping period of any notification type. This clean-up was planned from the start but had never run.",
+    "de": "Benachrichtigungen im Posteingang werden jetzt entfernt, sobald sie älter sind als die längste Aufbewahrungsfrist aller Benachrichtigungstypen. Diese Bereinigung war von Anfang an geplant, wurde aber bisher nie ausgeführt."
   },
   {
     "en": "Offene Punkte can now file its Protokoll in the project: „Im Projekt ablegen“ in „Protokoll exportieren“ saves it as „Offene Punkte – <Projekt> – <Datum>“ in the project's top folder, with the filters you set. It is not offered while a listed point is on a document not everyone in the project may open, and the menu says why.",
@@ -2678,6 +2786,10 @@
   {
     "en": "Opening a file on a phone shows its name again. In the file preview, long filenames and the „Von Piloti erstellt\" line were being squeezed out by the row of buttons beside them.",
     "de": "Beim Öffnen einer Datei am Smartphone wird ihr Name wieder angezeigt. In der Dateivorschau werden lange Dateinamen und die Zeile „Von Piloti erstellt“ von der danebenliegenden Button-Reihe verdrängt."
+  },
+  {
+    "en": "Opening a file whose preview cannot be loaded now says so and offers to try again, instead of showing the picture of the file opened before.",
+    "de": "Kann die Vorschau einer geöffneten Datei nicht geladen werden, wird dies jetzt angezeigt und Sie können es erneut versuchen, statt das Bild der zuvor geöffneten Datei zu sehen."
   },
   {
     "en": "Opening a menu or panel with a click no longer pops up the hint of its first help icon, as the Aufwand dial and the project choice in the chat input did. Hints now appear on hover, and when you reach them with the Tab key.",
@@ -3396,6 +3508,10 @@
     "de": "Wenn Ihr Büro ein Modell ausgewählt hat, das vor jeder Antwort immer nachdenkt, erscheinen jetzt unter jeder Antwort Folgefragen. Bisher wurden diese Vorschläge bei solchen Modellen nicht angezeigt."
   },
   {
+    "en": "Switching the inbox filter no longer shows the previous filter's rows for a moment, and a failed background refresh keeps the list on screen.",
+    "de": "Beim Wechsel des Posteingangsfilters werden die Einträge des vorherigen Filters nicht mehr kurz angezeigt, und bei einem fehlgeschlagenen Hintergrund-Update bleibt die Liste sichtbar."
+  },
+  {
     "en": "Switching to another conversation and back, or reloading during an answer, shows the text that had already arrived at once instead of typing it out again, and each conversation reopens where you left it.",
     "de": "Wenn Sie zu einer anderen Unterhaltung wechseln und zurückkehren oder während einer Antwort die Seite neu laden, wird der bereits eingetroffene Text sofort vollständig angezeigt, statt erneut schrittweise eingeblendet zu werden. Außerdem öffnet sich jede Unterhaltung wieder an der Stelle, an der Sie sie verlassen haben."
   },
@@ -3654,6 +3770,10 @@
   {
     "en": "The app's header, the answer card in the document review and the project setup now show the product's current name everywhere.",
     "de": "Der Header der App, die Antwortkarte in der Dokumentenprüfung und das Projekt-Setup zeigen jetzt überall den aktuellen Produktnamen."
+  },
+  {
+    "en": "The assistant draws on what it keeps about you personally only in chats that you alone read. In a chat you share with colleagues it leaves those notes out, because others read the answers there.",
+    "de": "Der Assistent nutzt persönliche Informationen, die er über Sie gespeichert hat, nur in Chats, die nur Sie lesen. In einem Chat, den Sie mit Kolleginnen und Kollegen teilen, lässt er diese Notizen weg, weil dort auch andere die Antworten lesen."
   },
   {
     "en": "The assistant you connected to Piloti, such as Claude or Cursor, can now ask Piloti a question for you and gets Piloti's own answer, with your rights; each question and answer is kept in a private conversation of yours. Agents built on the Agent2Agent standard can ask Piloti the same way.",
@@ -3932,6 +4052,10 @@
     "de": "Im Posteingang wird „Alles erledigt“ nicht mehr angezeigt, solange die Glocke noch eine Anzahl ausweist. Eine Anfrage, die ein Kollege beantwortet hat, bevor Sie sie geöffnet haben, wird als neu angezeigt, bis Sie sie gelesen haben. Wenn sich ein Teil des Posteingangs nicht laden lässt, sehen Sie die Fehlermeldung und können es erneut versuchen."
   },
   {
+    "en": "The inbox opens in one movement. It used to slide up twice, and its placeholder now has the shape of the list that replaces it.",
+    "de": "Der Posteingang öffnet sich in einer Bewegung. Bisher fuhr er zweimal nach oben, und sein Platzhalter hat jetzt die Form der Liste, die ihn ersetzt."
+  },
+  {
     "en": "The inbox's notice that e-mails to a project wait for filing now says how many wait. It used to count only those that arrived since you last opened it, so it could read \"One e-mail\" while two were waiting.",
     "de": "Der Hinweis im Posteingang, dass E-Mails zu einem Projekt auf die Ablage warten, zeigt jetzt an, wie viele es sind. Bisher zählte er nur die E-Mails, die eingegangen sind, seit Sie ihn zuletzt geöffnet haben. Daher konnte dort „Eine E-Mail“ stehen, obwohl zwei warteten."
   },
@@ -3994,6 +4118,10 @@
   {
     "en": "The message box no longer sits flush against your last answer. It now floats as its own translucent panel, and the conversation fades gently into it as you scroll, so it reads as the place where you type rather than another line of the chat.",
     "de": "Das Nachrichtenfeld liegt nicht mehr direkt an Ihrer letzten Antwort. Es schwebt jetzt als eigenes durchscheinendes Feld, und das Gespräch geht beim Scrollen sanft darin über, sodass es wie der Ort wirkt, an dem Sie tippen, und nicht wie eine weitere Zeile im Chat."
+  },
+  {
+    "en": "The message you open stays in the inbox while you read it. Opening your last unread message no longer flips the list to \"all done\" beside it.",
+    "de": "Die geöffnete Nachricht bleibt während des Lesens im Posteingang. Wenn Sie Ihre letzte ungelesene Nachricht öffnen, wechselt die Liste daneben nicht mehr zu „alles erledigt“."
   },
   {
     "en": "The model area is now reachable from the office archive, with structure, quantities and revisions. The Prüfbuch still needs a project, because it checks against building class and main use.",
@@ -4110,6 +4238,10 @@
   {
     "en": "The project's mail address is on the project overview and says what it is for: put it in Cc when you write to the Behörde, the Statik or the Bauherrschaft.",
     "de": "Die Mailadresse des Projekts steht in der Projektübersicht und zeigt, wofür sie gedacht ist: Setzen Sie sie in Cc, wenn Sie an die Behörde, die Statik oder die Bauherrschaft schreiben."
+  },
+  {
+    "en": "The reminder for marks whose deadline is near is sent at 06:45 Vienna time all year, also across the change to and from summer time.",
+    "de": "Die Erinnerung an Markierungen mit nahender Frist wird das ganze Jahr über um 06:45 Uhr Wiener Zeit versendet, auch bei der Umstellung auf die Sommerzeit und zurück."
   },
   {
     "en": "The replaced document keeps its identity: references from answers, the link in the chat and its folder stay intact.",
@@ -4282,6 +4414,14 @@
   {
     "en": "The website's main invitation is now to try Piloti with a real planning question from a current project. The email it opens asks for the question, the location and the building type.",
     "de": "Die wichtigste Einladung auf der Website lautet jetzt, Piloti mit einer echten Planungsfrage aus einem laufenden Projekt auszuprobieren. Die vorbereitete E-Mail bittet um die Frage, den Standort und den Gebäudetyp."
+  },
+  {
+    "en": "The what-if card for a U-value, a stair, an escape route or daylight no longer passes or fails a value where another edition of the guideline applies at your project's site, or where which edition applies is not yet settled. It shows the value against the limit as a hint instead, and says why, such as \"am Standort gilt Ausgabe September 2025\".",
+    "de": "Die What-if-Karte für einen U-Wert, eine Treppe, einen Fluchtweg oder Tageslicht stuft einen Wert nicht mehr als eingehalten oder nicht eingehalten ein, wenn am Projektstandort eine andere Ausgabe der Richtlinie gilt oder noch unklar ist, welche Ausgabe gilt. Stattdessen zeigt sie den Wert im Verhältnis zum Grenzwert als Hinweis an und nennt den Grund, zum Beispiel „am Standort gilt Ausgabe September 2025“."
+  },
+  {
+    "en": "The words for memory are the same everywhere now: \"Projektgedächtnis\" for a project's notes, and one name for each kind of note.",
+    "de": "Die Bezeichnungen für das Gedächtnis sind jetzt überall einheitlich: „Projektgedächtnis“ für die Notizen eines Projekts und jeweils eine Bezeichnung pro Notizart."
   },
   {
     "en": "The working folder belongs to the conversation, and nothing in it is filed, made searchable or quoted as a source. A draft becomes a project document only when somebody takes it into the project.",
@@ -4472,6 +4612,10 @@
     "de": "Was sich jede Woche geändert hat, finden Sie jetzt nach Bereichen sortiert unter „Neuerungen“ in Ihrem Benutzermenü. Einmal pro Woche fasst eine kurze Notiz die Neuerungen der Woche zusammen. Wenn Sie sie schließen, bleibt sie geschlossen. Mit „Nicht mehr anzeigen“ deaktivieren Sie diese Hinweise; über einen Schalter in Ihrem Profil können Sie sie wieder aktivieren."
   },
   {
+    "en": "What the assistant keeps about you personally, such as how you like your answers or what you are responsible for, now goes into a memory of your own that only you can read. It no longer lands in the project's memory in front of the team, even when you say it in a project chat, and it follows you into every project.",
+    "de": "Was sich der Assistent über Sie persönlich merkt, etwa wie Sie Ihre Antworten bevorzugen oder wofür Sie verantwortlich sind, wird jetzt in einem eigenen Speicher abgelegt, den nur Sie lesen können. Es landet nicht mehr im für das Team sichtbaren Projektspeicher – auch wenn Sie es in einem Projekt-Chat erwähnen – und begleitet Sie in jedes Projekt."
+  },
+  {
     "en": "What the conversation has already settled, such as your answers to Piloti's questions, goes into the research instead of being asked again.",
     "de": "Was im Gespräch schon geklärt wurde, etwa Ihre Antworten auf Pilotis Rückfragen, geht in die Recherche ein, statt noch einmal gefragt zu werden."
   },
@@ -4588,6 +4732,10 @@
     "de": "Wenn ein Gebäudemodell zu groß zum Messen ist oder die Datei nicht gelesen werden kann, weist der Assistent jetzt darauf hin und nennt den Grund, statt eine vorübergehende Störung zu melden. Sie können das Modell aufteilen oder erneut exportieren, anstatt auf eine Störung zu warten, die es gar nicht gibt."
   },
   {
+    "en": "When a chat was deleted, the stored record of how its answers were produced could stay behind if removing it kept failing. It is now removed automatically and the deletion is recorded as complete.",
+    "de": "Wurde ein Chat gelöscht, konnte die gespeicherte Dokumentation dazu, wie seine Antworten zustande kamen, zurückbleiben, wenn das Entfernen wiederholt fehlschlug. Sie wird jetzt automatisch entfernt und die Löschung als abgeschlossen vermerkt."
+  },
+  {
     "en": "When a colleague answers or closes many of your Anmerkungen at once, your devices get one notification that counts them, such as „15 Neuigkeiten zu Anmerkungen“, instead of one per Anmerkung. The Postfach still lists each.",
     "de": "Wenn jemand aus Ihrem Team viele Ihrer Anmerkungen auf einmal beantwortet oder schließt, erhalten Ihre Geräte eine zusammenfassende Benachrichtigung, etwa „15 Neuigkeiten zu Anmerkungen“, statt einer Benachrichtigung pro Anmerkung. Im Postfach werden weiterhin alle einzeln angezeigt."
   },
@@ -4640,6 +4788,10 @@
     "de": "Wenn eine Seite nicht gefunden werden kann, Ihnen der Zugriff darauf fehlt oder bei uns etwas schiefgeht, zeigt der Bildschirm das jetzt mit einer kleinen Illustration an und bietet Ihnen eine Möglichkeit, fortzufahren. Auf einem Fehlerbildschirm wird außerdem eine Referenz angezeigt, die Sie angeben können. Über „Fehler melden“ öffnen Sie eine E-Mail an uns, in der die Adresse und die Referenz bereits eingetragen sind."
   },
   {
+    "en": "When a project admin takes ownership of a chat or file you own, you now get a notice in your inbox that names who took it; you remain an owner.",
+    "de": "Wenn ein Projekt-Admin einen Chat oder eine Datei übernimmt, deren Eigentümer Sie sind, erhalten Sie jetzt eine Benachrichtigung in Ihrem Posteingang mit dem Namen der übernehmenden Person; Ihr Eigentümerstatus bleibt bestehen."
+  },
+  {
     "en": "When a project has more notes than fit in one answer, Piloti now says so instead of silently showing a partial list, and pinned notes can no longer push everything else out of view.",
     "de": "Wenn ein Projekt mehr Notizen enthält, als in eine Antwort passen, weist Piloti jetzt darauf hin, statt stillschweigend nur einen Teil der Liste anzuzeigen, und angeheftete Notizen können nicht mehr alles andere aus dem Blickfeld verdrängen."
   },
@@ -4658,6 +4810,10 @@
   {
     "en": "When a reference's page number differs from the page in the PDF, as it often does after a cover sheet, the quoted passage is now also searched for on the neighbouring pages. If it cannot be found, the window says so.",
     "de": "Wenn die Seitenzahl einer Fundstelle von der Seite in der PDF abweicht, wie es oft nach einem Deckblatt vorkommt, wird die zitierte Passage jetzt auch auf den Nachbarseiten gesucht. Lässt sie sich nicht finden, zeigt das Fenster einen Hinweis."
+  },
+  {
+    "en": "When a rule exists in more than one edition, the assistant now finds the passage of the edition that applies at your project's site first, so its answer cites that edition. An older or newer edition is still found when you ask about it.",
+    "de": "Wenn eine Regel in mehreren Ausgaben vorliegt, findet der Assistent jetzt zuerst die Passage aus jener Ausgabe, die am Standort Ihres Projekts gilt, und zitiert diese Ausgabe in seiner Antwort. Eine ältere oder neuere Ausgabe findet er weiterhin, wenn Sie danach fragen."
   },
   {
     "en": "When a scheduled task finishes or fails, you now hear about it in your inbox, with a link to the project's run history.",
@@ -4872,6 +5028,10 @@
     "de": "Wenn Sie einen Chat teilen, der aus einem eingeschränkten Ordner geschöpft hat, bietet Piloti nur Kolleginnen und Kollegen an, die alle diese Ordner lesen dürfen, und zeigt die anderen ausgegraut mit „Hat keinen Zugriff auf einen Ordner, aus dem dieser Chat stammt“. Den Ordner nennt es nie."
   },
   {
+    "en": "When you stop a document that is being read, it now stays stopped: it no longer briefly shows as being read again, and starting it again right away begins a fresh read.",
+    "de": "Wenn Sie das Lesen eines Dokuments anhalten, bleibt es jetzt angehalten: Es wird nicht mehr kurzzeitig wieder als gelesen angezeigt, und wenn Sie es sofort erneut starten, beginnt ein neuer Lesevorgang."
+  },
+  {
     "en": "When you upload a file that belongs in another folder, Piloti suggests that folder with a small chip on the file, and a bar above the folder moves several files into one folder together. Nothing moves until you confirm, and the suggestion shows the move and the reason first.",
     "de": "Wenn Sie eine Datei hochladen, die in einen anderen Ordner gehört, schlägt Piloti diesen Ordner mit einem kleinen Chip auf der Datei vor. Über eine Leiste oberhalb des Ordners können Sie mehrere Dateien gemeinsam in einen Ordner verschieben. Es wird nichts verschoben, bevor Sie bestätigen. Der Vorschlag zeigt zuerst an, wohin die Dateien verschoben werden und warum."
   },
@@ -4906,6 +5066,10 @@
   {
     "en": "When your office's screening rules cannot be applied to an upload, its files are now held unread instead of being read unchecked. Reading them again applies the rules afresh.",
     "de": "Wenn die Prüfvorgaben Ihres Büros auf einen Upload nicht angewendet werden können, werden dessen Dateien nun ungelesen zurückgehalten, statt ungeprüft eingelesen zu werden. Beim erneuten Einlesen werden die Vorgaben erneut angewendet."
+  },
+  {
+    "en": "When your own agent asks a question in the workspace, each source of the answer now comes with its reference line, written the way your country cites it, so your agent can paste it as you would.",
+    "de": "Wenn Ihr eigener Agent im Workspace eine Frage stellt, wird nun jede Antwortquelle mit einer Quellenangabe im landesüblichen Zitierstil versehen, sodass Ihr Agent sie genauso einfügen kann wie Sie."
   },
   {
     "en": "When your own assistant is connected to Piloti, Piloti's proposals now appear as Piloti's card inside Claude, ChatGPT and VS Code, in your assistant's colours and language. You apply or discard the change there with one press, with your rights, and the assistant keeps the card's buttons from its own model.",
@@ -5142,6 +5306,10 @@
   {
     "en": "Your own annotation can no longer be deleted once a colleague has answered in it or it has been carried over to another document. Its menu says why and offers to resolve it instead, so their answers and the numbering in the minutes stay intact.",
     "de": "Ihre eigene Anmerkung lässt sich nicht mehr löschen, sobald eine Kollegin oder ein Kollege darauf geantwortet hat oder sie in ein anderes Dokument übernommen wurde. Im Menü erfahren Sie den Grund und können sie stattdessen als erledigt markieren, damit Antworten und Nummerierung im Protokoll erhalten bleiben."
+  },
+  {
+    "en": "Your own notes have a page, \"Mein Gedächtnis\", in the menu under your name. There you read, add, correct, pin and remove what the assistant keeps about you.",
+    "de": "Ihre eigenen Notizen finden Sie auf der Seite „Mein Gedächtnis“ im Menü unter Ihrem Namen. Dort können Sie nachlesen, hinzufügen, korrigieren, pinnen und entfernen, was sich der Assistent über Sie merkt."
   },
   {
     "en": "Your phone's keyboard finally knows what each field is for: the key that sends a message says \"send\", the one that runs a search says \"search\", and a search box stops capitalising and autocorrecting what you type — so looking for a file by its exact name finds it.",

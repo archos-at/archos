@@ -236,8 +236,9 @@ interface SnapshotDto {
  * candidate copied beats duplicating, or bypassing, those checks.
  */
 const ACTION_ANCHOR: Partial<Record<MissingSourceAction, string>> = {
-  upload_to_base_knowledge: '/app/platform/knowledge',
-  add_to_norm_catalog: '/app/platform/norms',
+  // A missing text or norm is a record of its country, added through a change request there.
+  upload_to_base_knowledge: '/app/platform/countries',
+  add_to_norm_catalog: '/app/platform/countries',
 }
 
 /** The timing tab of Platform → Answer quality, preselecting one conversation. */

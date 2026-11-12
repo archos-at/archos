@@ -21,6 +21,7 @@ import { recordReadable } from '../store/visibility'
 import { readOrganizationCountries } from '../platform/entitlements'
 import { insertChangeRequest } from '../platform/store'
 import type { CoverageLevel } from '../wire/vocab'
+import { readSetupRecords } from '@/lib/project-intake/setup-records'
 import { lawOf } from './project-law'
 import { contextForPage, knowledgeContextForTurn } from './service'
 import type {
@@ -102,7 +103,7 @@ const contextOf = (session: AuthorizedSession, projectId: string) =>
 /** A project's base as the turn reads it, the law it names (`lawOf`), and the newest Steckbrief a person confirmed. Needs project:view. */
 export async function readProjectBase(session: AuthorizedSession, projectId: string): Promise<ProjectBaseView> {
   await requireProjectAccess(session, projectId, 'project:view')
-  const [context, confirmed] = await Promise.all([
+  const [context, confirmed, records] = await Promise.all([
     contextForPage(session.organizationId, projectId),
     withTenant({ organizationId: session.organizationId }, () =>
       getDb()
@@ -117,10 +118,11 @@ export async function readProjectBase(session: AuthorizedSession, projectId: str
         .orderBy(desc(projectBaseConfirmations.confirmedAt))
         .limit(1),
     ),
+    readSetupRecords(session.organizationId),
   ])
   const row = confirmed[0]
   // One resolution for both: the page names the same uses, in the same roles, as the context it shows.
-  return { context, law: lawOf(context), confirmed: row ? { ...row, confirmedAt: row.confirmedAt.toISOString() } : null }
+  return { context, law: lawOf(context, records), confirmed: row ? { ...row, confirmedAt: row.confirmedAt.toISOString() } : null }
 }
 
 const sameSeqs = (a: readonly { packId: string; seq: number }[], b: readonly { packId: string; seq: number }[]) =>

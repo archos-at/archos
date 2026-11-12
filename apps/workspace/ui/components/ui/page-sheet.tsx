@@ -114,6 +114,14 @@ interface PageSheetProps {
    */
   initialFocusRef?: React.RefObject<HTMLElement | null>
   /**
+   * Where the entrance starts, when the panel is already on screen: its loading
+   * skeleton rose in its place (`PageSheetSkeleton`), so the sheet takes over
+   * where that stands (`y` px below rest, the scrim at `scrim` opacity) and
+   * finishes the rise, instead of rising a second time from the foot. At rest
+   * (`y: 0`, `scrim: 1`) nothing moves. The exit plays either way.
+   */
+  enterFrom?: { y: number; scrim: number }
+  /**
    * Fires once the exit animation has fully played. `RoutePageSheet` navigates
    * HERE rather than on close, so the slide-out is seen instead of being cut
    * off by the route unmounting beneath it.
@@ -133,6 +141,7 @@ export function PageSheet({
   headerActions,
   headerless = false,
   initialFocusRef,
+  enterFrom,
   onExitComplete,
   bodyClassName,
   children,
@@ -175,7 +184,7 @@ export function PageSheet({
             <DialogPrimitive.Overlay asChild forceMount>
               <motion.div
                 className={PAGE_SHEET_OVERLAY_CLASS}
-                initial={{ opacity: 0 }}
+                initial={{ opacity: enterFrom?.scrim ?? 0 }}
                 animate={{ opacity: 1, transition: motionEntrance }}
                 exit={{ opacity: 0, transition: motionSheetExit }}
               />
@@ -196,7 +205,7 @@ export function PageSheet({
             >
               <motion.div
                 className={cn(PAGE_SHEET_PANEL_CLASS, PANEL_WIDTH)}
-                initial={{ y: '100%' }}
+                initial={{ y: enterFrom?.y ?? '100%' }}
                 animate={{ y: 0, transition: motionSheetEnter }}
                 exit={{ y: '100%', transition: motionSheetExit }}
                 drag="y"

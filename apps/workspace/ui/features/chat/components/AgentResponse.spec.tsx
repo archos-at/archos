@@ -1,4 +1,4 @@
-import { render, screen } from '@/test-utils'
+import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { AgentResponse } from './AgentResponse'
@@ -10,6 +10,7 @@ import type { AnswerCard } from '@/shared/cards/schemas'
 import { CARD_PREVIEW_FIXTURES } from '@/features/cards/preview-fixtures'
 import { useAnswerFileReferences } from '../hooks/use-answer-file-references'
 import { resetDecidedProposals } from '@/features/cards/decided-proposals'
+import { resetTurnNotes } from '../stores/turn-notes-store'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/server'
 import { proposalBase, PROPOSAL_ID, decidedByAnna } from '@/features/cards/components/proposal-test-kit'
@@ -131,6 +132,64 @@ describe('AgentResponse', () => {
 
       await screen.findByTestId('proposal-status')
       expect(screen.queryByText(`${PRODUCT_NAME} noted`)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('the noted chip for a personal note (ADR-0180)', () => {
+    const CONVERSATION = 's-1'
+    const NOTE = 'Leitet die Einreichplanung.'
+    /** The message every reader of a shared conversation holds: the project's note is on it, a personal one never. */
+    const stages: MessageStages = {
+      memoryReflection: { items: [{ id: 'n-1', kind: 'decision', content: 'Die Bauherrschaft will ein Flachdach.' }] },
+    }
+    const asked: string[] = []
+    const serveMyNotes = (items: unknown[]) =>
+      server.use(
+        http.get('/api/user/memory', ({ request }) => {
+          asked.push(new URL(request.url).search)
+          return HttpResponse.json({ items, nextCursor: null })
+        })
+      )
+
+    beforeEach(() => {
+      asked.length = 0
+      resetTurnNotes()
+    })
+
+    test('shows the owner the note that was saved under this answer, marked as theirs alone', async () => {
+      const user = userEvent.setup()
+      serveMyNotes([
+        { id: 'p-1', kind: 'profile', content: NOTE, provenanceType: 'distillation', sourceMessageId: 'm1' },
+        { id: 'p-2', kind: 'preference', content: 'Unter einer anderen Antwort gemerkt.', provenanceType: 'agent', sourceMessageId: 'm0' },
+      ])
+      render(<AgentResponse content="Answer" messageId="m1" conversationId={CONVERSATION} stages={stages} />)
+
+      await user.click(await screen.findByRole('button', { name: `${PRODUCT_NAME} noted 2 items` }))
+
+      const mine = screen.getAllByTestId('memory-item').find((row) => row.textContent?.includes(NOTE))
+      expect(mine).toHaveTextContent('Only you')
+      expect(screen.queryByText('Unter einer anderen Antwort gemerkt.')).not.toBeInTheDocument()
+      expect(asked).toEqual([`?sourceConversationId=${CONVERSATION}&limit=200`])
+    })
+
+    test('shows a colleague reading the same message the project’s note and no personal row', async () => {
+      const user = userEvent.setup()
+      serveMyNotes([])
+      render(<AgentResponse content="Answer" messageId="m1" conversationId={CONVERSATION} stages={stages} readOnly />)
+
+      await user.click(await screen.findByRole('button', { name: `${PRODUCT_NAME} noted 1 item` }))
+
+      expect(screen.getAllByTestId('memory-item')).toHaveLength(1)
+      expect(screen.queryByText(NOTE)).not.toBeInTheDocument()
+      expect(screen.queryByText('Only you')).not.toBeInTheDocument()
+    })
+
+    test('an answer nothing was saved under shows no chip (a temporary conversation keeps nothing)', async () => {
+      serveMyNotes([])
+      render(<AgentResponse content="Answer" messageId="m1" conversationId={CONVERSATION} />)
+
+      await waitFor(() => expect(asked).toHaveLength(1))
+      expect(screen.queryByTestId('memory-chip')).not.toBeInTheDocument()
     })
   })
 

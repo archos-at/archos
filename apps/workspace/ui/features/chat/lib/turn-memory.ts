@@ -2,18 +2,21 @@
  * What Piloti recorded DURING ONE TURN — the input to the „Piloti hat sich
  * gemerkt" chip (`docs/architecture/post-answer-stages.md` §1.1, §1.7, §5.1).
  *
- * Three things write project memory and only one of them is the post-answer
- * stage. Two of them reach the reader here, and the chip labels them apart:
+ * Every note a turn saves reaches the reader here, on one of three shelves
+ * (ADR-0180: mine, the project's, the office's), and the chip labels WHEN each
+ * was written apart:
  *
  * 1. **In-turn.** The `remember` tool, called by the model while it answers.
- *    When the write needs the user's own authority it arrives as a
- *    `memory_proposal` card, and it is a memory only once they say yes — which
- *    is why the decision, not the card, is what admits it here.
+ *    A write it made on its own is listed on the reflection stage's frame
+ *    (`provenance: 'agent'`). When the write needs the user's own authority it
+ *    arrives as a `memory_proposal` card, and it is a memory only once they say
+ *    yes — which is why the decision, not the card, is what admits it here.
  * 2. **After the answer.** The `memory_reflection` stage, whose frame lands on
  *    `message.stages.memoryReflection` (`provenance_type = 'distillation'` on
  *    the row it wrote).
  *
- * Both are read off the MESSAGE, which is the whole point. Until this existed
+ * The project's and the office's notes are read off the MESSAGE, which is the
+ * whole point. Until this existed
  * the chip was fed by `useConversationMemory`, a three-shot HTTP poll on a
  * `[0, 1500, 4000]` ms schedule — a guess about how long an LLM takes, made by
  * the half of the system that cannot know, and mounted once per rendered
@@ -27,13 +30,18 @@
  * `ui/features/chat/lib/` is where this codebase puts the part that can be
  * tested in a millisecond instead of a mount (AGENTS.md).
  *
- * **What is deliberately NOT here:** a project-scoped in-turn `remember` write
- * that succeeded on its own, with no card. It writes a `project_memory` row
- * carrying only `source_conversation_id`, so it cannot be attributed to a turn
- * by anything the browser holds — a per-turn surface cannot render it honestly,
- * and the old chip only appeared to by showing the whole conversation's memory
- * against every answer. Those rows live in the project memory panel, which is
- * where they are curated. See §11.3 for the change that would give them a turn.
+ * **A PERSONAL note is never on the message** (ADR-0180): other people read a
+ * shared conversation's messages. The agent stores it with the id of the
+ * answer it was saved under (`personal_memory.source_message_id`, the id this
+ * message carries), and the owner's browser asks for its own notes of the
+ * conversation (`stores/turn-notes-store.ts`). Row-level security answers
+ * nobody else, so {@link TurnMemoryInput.personalNotes} is empty for every
+ * other reader.
+ *
+ * **What is still NOT here:** a shared note saved in a turn whose stage frame
+ * never came (the `memory-reflection` flag off for the office, no model
+ * configured for the stage, or no socket open when it finished), and a note
+ * the BFF only refreshed because it was already held.
  */
 
 import type { AnswerCard } from '@/shared/cards/schemas'
@@ -63,12 +71,43 @@ export interface TurnMemoryItem {
   provenance: TurnMemoryProvenance
   /**
    * The earlier note this one corrected, quoted verbatim, when the write
-   * REPLACED something rather than adding to it. Only the in-turn path carries
-   * it (`memory_proposal.supersedes`; accepting the card retires that note);
-   * the reflection stage only ever adds. A correction is the event a reader
-   * most needs to see, because something they may have relied on is gone.
+   * REPLACED something rather than adding to it: a card's
+   * `memory_proposal.supersedes` (accepting the card retires that note), or a
+   * frame item's `supersedes`, which the agent sets only when the BFF retired
+   * the earlier note. A correction is the event a reader most needs to see,
+   * because something they may have relied on is gone, and it is the one note
+   * the chip does not take back: removing it would not bring the old one back.
    */
   supersedes?: string
+  /**
+   * Who reads the note: only the reader, the project's members, the members
+   * cleared for a restricted folder, or everyone in the office (ADR-0180 rule
+   * 1, a note's home says who reads it). Absent when the write did not record
+   * where it went (a proposal decided before `results.scope` existed): the
+   * chip then says nothing rather than guess.
+   */
+  audience?: TurnMemoryAudience
+  /**
+   * The id of the stored note, which is what taking it back deletes. Absent
+   * when the turn does not know it (a card the browser decided before the
+   * proposal recorded what it created): such a row offers no remove action.
+   */
+  noteId?: string
+}
+
+/**
+ * Who reads a note, by where it was put. `restricted` is project memory that
+ * draws on a restricted folder (ADR-0087): only members cleared for it.
+ */
+export type TurnMemoryAudience = 'personal' | 'project' | 'restricted' | 'organization'
+
+/** One of the reader's own personal notes saved under this answer, as `GET /api/user/memory` lists it. */
+export interface PersonalTurnNote {
+  id: string
+  kind: string
+  content: string
+  /** `distillation`: the reflection stage kept it after the answer; anything else, the tool during it. */
+  provenanceType: string
 }
 
 /**
@@ -99,6 +138,30 @@ function wasRemembered(
   return SAVED.has(cardInteractions?.[key]?.decision ?? '')
 }
 
+/**
+ * Where the reader's decision put the note, which is not always where the card
+ * asked for („Nur im Projekt merken“): the proposal's own result says it, and
+ * for an older card the decision's name does.
+ */
+function rememberedFor(
+  card: Extract<AnswerCard, { type: 'memory_proposal' }>,
+  key: string,
+  cardInteractions: CardInteractions | undefined,
+  decidedProposals: DecidedProposals | undefined
+): TurnMemoryAudience | undefined {
+  if (card.proposal_id) {
+    return decidedProposals?.[card.proposal_id]?.results?.find((result) => result.scope)?.scope
+  }
+  return cardInteractions?.[key]?.decision === 'savedOrg' ? 'organization' : 'project'
+}
+
+/** The note an accepted proposal created, when its result names one. */
+const createdNoteId = (
+  card: Extract<AnswerCard, { type: 'memory_proposal' }>,
+  decidedProposals: DecidedProposals | undefined
+): string | undefined =>
+  card.proposal_id ? decidedProposals?.[card.proposal_id]?.results?.find((result) => result.ok && result.itemId)?.itemId : undefined
+
 interface TurnMemoryInput {
   /** Post-answer stage output on this message. */
   stages?: MessageStages
@@ -112,6 +175,11 @@ interface TurnMemoryInput {
    * so its decision is read from here instead.
    */
   decidedProposals?: DecidedProposals
+  /**
+   * The reader's OWN personal notes saved under this answer. Never read from
+   * the message; empty for everyone but the note's owner.
+   */
+  personalNotes?: readonly PersonalTurnNote[]
 }
 
 /**
@@ -122,7 +190,13 @@ interface TurnMemoryInput {
  * chip's popover is a list of what happened, so it reads in the order it
  * happened.
  */
-export function turnMemoryItems({ stages, cards, cardInteractions, decidedProposals }: TurnMemoryInput): TurnMemoryItem[] {
+export function turnMemoryItems({
+  stages,
+  cards,
+  cardInteractions,
+  decidedProposals,
+  personalNotes,
+}: TurnMemoryInput): TurnMemoryItem[] {
   const items: TurnMemoryItem[] = []
 
   for (const [index, card] of (cards ?? []).entries()) {
@@ -132,18 +206,44 @@ export function turnMemoryItems({ stages, cards, cardInteractions, decidedPropos
     const key = cardKey(card, index)
     if (!wasRemembered(card, key, cardInteractions, decidedProposals)) continue
     const supersedes = card.supersedes?.trim()
+    const audience = rememberedFor(card, key, cardInteractions, decidedProposals)
+    const noteId = createdNoteId(card, decidedProposals)
     items.push({
       id: key,
       kind: card.kind,
       content: card.content,
       provenance: 'inTurn',
       ...(supersedes ? { supersedes } : {}),
+      ...(audience ? { audience } : {}),
+      ...(noteId ? { noteId } : {}),
     })
   }
 
+  // The stage's frame lists what the turn wrote to SHARED memory: the tool's
+  // notes (`provenance: 'agent'`) and the reflection pass's own.
   for (const item of stages?.memoryReflection?.items ?? []) {
-    items.push({ ...item, provenance: 'distillation' })
+    items.push({
+      id: item.id,
+      noteId: item.id,
+      kind: item.kind,
+      content: item.content,
+      provenance: item.provenance === 'agent' ? 'inTurn' : 'distillation',
+      audience: item.scope === 'organization' ? 'organization' : item.restricted ? 'restricted' : 'project',
+      ...(item.supersedes ? { supersedes: item.supersedes } : {}),
+    })
   }
 
-  return items
+  for (const note of personalNotes ?? []) {
+    items.push({
+      id: note.id,
+      noteId: note.id,
+      kind: note.kind,
+      content: note.content,
+      provenance: note.provenanceType === 'distillation' ? 'distillation' : 'inTurn',
+      audience: 'personal',
+    })
+  }
+
+  // Stable: what was written during the answer stays ahead of what followed it.
+  return [...items.filter((item) => item.provenance === 'inTurn'), ...items.filter((item) => item.provenance !== 'inTurn')]
 }

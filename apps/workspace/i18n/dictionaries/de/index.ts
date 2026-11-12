@@ -17,6 +17,7 @@ import { collaboration } from './collaboration'
 import { files } from './files'
 import { dossier } from './dossier'
 import { officeShelf } from './office-shelf'
+import { lawMap } from './law-map'
 import { bim } from './bim'
 import { knowledge } from './knowledge'
 import { research } from './research'
@@ -51,6 +52,8 @@ import { inboundMail } from './inbound-mail'
 import { mailThread } from './mail-thread'
 import { search } from './search'
 import { whatsNew } from './whats-new'
+import { personalMemory } from './personal-memory'
+import { memoryNotes } from './memory-notes'
 import type { Dictionary } from '../index'
 
 export const de: Dictionary = {
@@ -68,6 +71,7 @@ export const de: Dictionary = {
   files,
   dossier,
   officeShelf,
+  lawMap,
   bim,
   knowledge,
   research,
@@ -99,4 +103,6 @@ export const de: Dictionary = {
   mailThread,
   search,
   whatsNew,
+  personalMemory,
+  memoryNotes,
 }

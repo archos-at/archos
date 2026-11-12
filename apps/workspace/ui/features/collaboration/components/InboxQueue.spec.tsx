@@ -204,6 +204,29 @@ describe('InboxQueue — every entry is a link to its real place', () => {
     expect(waiting.archive).not.toHaveBeenCalled()
   })
 
+  test('the entry the reader opens stays, read, while they are at it: the last one does not flip the list to done', () => {
+    serve([], [news])
+    const { rerender } = render(<InboxQueue />)
+    fireEvent.click(entries()[0])
+    expect(unread.markRead).toHaveBeenCalledWith(['news'])
+    // The read lands: the server's unread slice no longer holds it.
+    serve([], [])
+    rerender(<InboxQueue />)
+    expect(entries().map((entry) => entry.getAttribute('data-item-id'))).toEqual(['news'])
+    expect(screen.queryByTestId('inbox-queue-done')).not.toBeInTheDocument()
+    // Nothing unread is left to mark.
+    expect(screen.queryByTestId('inbox-queue-news-read')).not.toBeInTheDocument()
+  })
+
+  test('archiving by its control hands the focus to the next entry, not to the page', () => {
+    render(<InboxQueue />)
+    const control = screen.getAllByTestId('inbox-queue-archive')[0]
+    control.focus()
+    fireEvent.click(control)
+    // The control leaves with its entry; docked, the list's keys follow the focus.
+    expect(document.activeElement).toHaveAttribute('data-item-id', 'fresh')
+  })
+
   test('every entry keeps room at its end for the archive control, which a finger always sees', () => {
     render(<InboxQueue />)
     // An entry's own `px-*` once merged the room away and put the text under the button.

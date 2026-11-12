@@ -12,15 +12,19 @@ from unittest.mock import patch
 
 import pytest
 
+from agent.common.bff_http import SignedEnvelope
 from agent.common.canned_replies import GENERIC_ERROR_MESSAGE
+from agent.knowledge.project_memory import TurnMemoryNote
 from agent.memory.restriction import RestrictionEvidence
 from agent.stages import get_stage
 from agent.stages.flags import legacy_enabled_stages
 from agent.stages.flags import stages_for_flag_slug
+from agent.stages.memory_reflection import MAX_NOTED_ITEMS
 from agent.stages.memory_reflection import MEMORY_REFLECTION
 from agent.stages.memory_reflection import MemoryReflectionPayload
 from agent.stages.memory_reflection import matches_escalation_keywords
 from agent.stages.spec import StageContext
+from agent.stages.spec import StageEmpty
 from agent.stages.spec import TurnFacts
 
 
@@ -223,3 +227,232 @@ class TestRestrictedContent:
         with patch("agent.memory.reflection.run_memory_reflection", fake_reflection):
             await MEMORY_REFLECTION.handler(StageContext(facts=_facts(restriction=self._EVIDENCE), llm=object()))
         assert seen["restriction"] is self._EVIDENCE
+
+
+class TestTemporaryConversation:
+    """ADR-0180: a temporary conversation keeps nothing, and the skip says so by name."""
+
+    def test_the_gate_declines_and_names_the_reason(self):
+        decision = _gate(temporary=True)
+        assert (decision.run, decision.reason) == (False, "temporary_conversation")
+
+    def test_it_outranks_every_other_reason(self):
+        assert _gate(temporary=True, project_id=None, run_id="run_1", answer="").reason == "temporary_conversation"
+
+    def test_a_conversation_that_is_not_temporary_proceeds(self):
+        assert _gate(temporary=False).run
+
+
+class TestPersonalNotes:
+    """ADR-0180: the frame is stored on the answer's message, which everyone the
+    conversation is shared with reads, so a personal note never rides it."""
+
+    _ENVELOPE = SignedEnvelope(header="env-header", signature="env-signature")
+    _PERSONAL = {"id": "n-1", "kind": "profile", "content": "Leitet die Einreichplanung.", "about": "person"}
+    _PROJECT = {"id": "p-1", "kind": "constraint", "content": "Das Projekt liegt in Wien.", "about": "project"}
+
+    async def _run(self, written):
+        seen = {}
+
+        async def run(**kwargs):
+            seen.update(kwargs)
+            return written
+
+        facts = _facts(envelope=self._ENVELOPE, personal_memory="PERSONAL_MEMORY v1")
+        with patch("agent.memory.reflection.run_memory_reflection", run):
+            result = await MEMORY_REFLECTION.handler(StageContext(facts=facts, llm=object()))
+        return result, seen
+
+    @pytest.mark.asyncio
+    async def test_the_handler_hands_the_envelope_and_the_personal_block_to_the_pass(self):
+        _result, seen = await self._run([])
+        assert seen["envelope"] == self._ENVELOPE
+        assert seen["personal_memory"] == "PERSONAL_MEMORY v1"
+
+    @pytest.mark.asyncio
+    async def test_the_frame_carries_the_projects_rows_only(self):
+        result, _seen = await self._run([self._PERSONAL, self._PROJECT])
+        assert result == {"items": [{"id": "p-1", "kind": "constraint", "content": "Das Projekt liegt in Wien."}]}
+        MemoryReflectionPayload.model_validate(result)
+
+    @pytest.mark.asyncio
+    async def test_a_pass_that_wrote_only_personal_notes_is_empty_by_name(self):
+        result, _seen = await self._run([self._PERSONAL])
+        assert result == StageEmpty("personal_notes_only")
+
+    def test_the_envelope_is_not_in_the_facts_repr(self):
+        assert "env-signature" not in repr(_facts(envelope=self._ENVELOPE))
+
+
+def _note(note_id: str = "n-1", **overrides) -> TurnMemoryNote:
+    base = {"id": note_id, "kind": "decision", "content": "Die Bauherrschaft will ein Flachdach.", "scope": "project"}
+    return TurnMemoryNote(**{**base, **overrides})
+
+
+class TestInTurnNotes:
+    """What the ``remember`` tool wrote while answering is on the same frame (ADR-0180: every save on its answer)."""
+
+    @pytest.mark.asyncio
+    async def test_the_frame_lists_the_tools_notes_ahead_of_the_stages(self):
+        facts = _facts(noted_this_turn=(_note("n-1"), _note("n-2", scope="organization", kind="preference")))
+        with patch("agent.memory.reflection.run_memory_reflection", return_value=_WRITTEN):
+            payload = await MEMORY_REFLECTION.handler(StageContext(facts=facts, llm=object()))
+        items = MemoryReflectionPayload.model_validate(payload).model_dump(exclude_none=True)["items"]
+        assert [item["id"] for item in items] == ["n-1", "n-2", "9d2f6b41", "1a7c9e02"]
+        assert items[0] == {
+            "id": "n-1",
+            "kind": "decision",
+            "content": "Die Bauherrschaft will ein Flachdach.",
+            "provenance": "agent",
+        }
+        assert items[1]["scope"] == "organization"
+        # The stage's own rows keep the shape they always had: no provenance key.
+        assert "provenance" not in items[2]
+
+    @pytest.mark.asyncio
+    async def test_a_replaced_and_a_restricted_note_say_so(self):
+        note = _note(supersedes="Die Bauherrschaft will ein Satteldach.", restricted=True)
+        with patch("agent.memory.reflection.run_memory_reflection", return_value=[]):
+            payload = await MEMORY_REFLECTION.handler(StageContext(facts=_facts(noted_this_turn=(note,)), llm=object()))
+        assert payload["items"] == [
+            {
+                "id": "n-1",
+                "kind": "decision",
+                "content": "Die Bauherrschaft will ein Flachdach.",
+                "provenance": "agent",
+                "supersedes": "Die Bauherrschaft will ein Satteldach.",
+                "restricted": True,
+            }
+        ]
+
+    def test_a_turn_with_notes_gets_its_frame_where_reflection_is_declined(self):
+        """A direct reply, a short answer, a turn outside a project: the tool's notes still owe the answer a record."""
+        for declined in ({"routing_decision": "meta"}, {"project_id": None}, {"research_truncated": True}):
+            assert _gate(**declined).run is False
+            assert _gate(**declined, noted_this_turn=(_note(),)).run is True
+
+    @pytest.mark.asyncio
+    async def test_where_reflection_is_declined_the_handler_reports_and_reflects_on_nothing(self):
+        facts = _facts(routing_decision="meta", noted_this_turn=(_note(),))
+        with patch("agent.memory.reflection.run_memory_reflection") as run:
+            payload = await MEMORY_REFLECTION.handler(StageContext(facts=facts, llm=object()))
+        run.assert_not_called()
+        assert [item["id"] for item in payload["items"]] == ["n-1"]
+
+    @pytest.mark.asyncio
+    async def test_a_cross_project_turn_reports_its_notes_and_pays_for_no_pass(self):
+        facts = _facts(drew_on_other_projects=True, noted_this_turn=(_note(),))
+        with patch("agent.memory.reflection.run_memory_reflection") as run:
+            payload = await MEMORY_REFLECTION.handler(StageContext(facts=facts, llm=object()))
+        run.assert_not_called()
+        assert len(payload["items"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_the_frame_is_bounded(self):
+        notes = tuple(_note(f"n-{index}") for index in range(MAX_NOTED_ITEMS + 4))
+        with patch("agent.memory.reflection.run_memory_reflection", return_value=[]):
+            payload = await MEMORY_REFLECTION.handler(StageContext(facts=_facts(noted_this_turn=notes), llm=object()))
+        assert len(payload["items"]) == MAX_NOTED_ITEMS
+
+    def test_a_temporary_conversation_has_no_notes_and_no_frame(self):
+        """Nothing is kept from it (the tool answers without writing), so there is nothing to report."""
+        decision = _gate(temporary=True)
+        assert (decision.run, decision.reason) == (False, "temporary_conversation")
+
+
+class TestWhatThePassWrote:
+    """The stage reads each row's outcome from what the BFF answered, under a memory log of its own."""
+
+    @staticmethod
+    def _pass_that_writes(*answers):
+        """A reflection pass whose project writes the BFF answered with ``answers``, one per row."""
+        from agent.knowledge import project_memory as pm
+
+        async def run(**_kwargs):
+            rows = []
+            for answer, payload in answers:
+                pm._record_write(answer, payload)
+                rows.append(
+                    {**answer["item"], "kind": payload["kind"], "content": payload["content"], "about": "project"}
+                )
+            return rows
+
+        return run
+
+    @pytest.mark.asyncio
+    async def test_a_correction_and_a_restricted_row_are_marked_on_the_frame(self):
+        run = self._pass_that_writes(
+            (
+                {"item": {"id": "r-1"}, "supersededId": "old-1", "created": True},
+                {
+                    "scope": "project",
+                    "kind": "derived_fact",
+                    "content": "OIB-RL 2.1 gilt.",
+                    "supersedesContent": "OIB-RL 2.1 gilt nicht.",
+                },
+            ),
+            (
+                {"item": {"id": "r-2"}, "supersededId": None},
+                {
+                    "scope": "project",
+                    "kind": "constraint",
+                    "content": "Die Statik ist freigegeben.",
+                    "restrictedCollections": ["proj_1_rabc"],
+                    "supersedesContent": "Unresolved quote.",
+                },
+            ),
+        )
+        with patch("agent.memory.reflection.run_memory_reflection", run):
+            payload = await MEMORY_REFLECTION.handler(StageContext(facts=_facts(), llm=object()))
+        assert payload["items"] == [
+            {
+                "id": "r-1",
+                "kind": "derived_fact",
+                "content": "OIB-RL 2.1 gilt.",
+                "supersedes": "OIB-RL 2.1 gilt nicht.",
+            },
+            # A quote the BFF did not resolve retired nothing, and the frame does not claim it did.
+            {"id": "r-2", "kind": "constraint", "content": "Die Statik ist freigegeben.", "restricted": True},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_restated_note_the_bff_only_refreshed_is_not_reported_as_written(self):
+        run = self._pass_that_writes(
+            (
+                {"item": {"id": "old"}, "created": False},
+                {"scope": "project", "kind": "decision", "content": "Flachdach."},
+            )
+        )
+        with patch("agent.memory.reflection.run_memory_reflection", run):
+            result = await MEMORY_REFLECTION.handler(StageContext(facts=_facts(), llm=object()))
+        assert result == StageEmpty("restated_notes_only")
+
+    @pytest.mark.asyncio
+    async def test_the_pass_writes_under_this_answers_id_and_leaves_no_log_bound(self):
+        from agent.knowledge import project_memory as pm
+        from agent.turn.response import answer_message_id
+
+        seen = {}
+
+        async def run(**_kwargs):
+            seen["answer"] = pm.turn_answer_message()
+            return []
+
+        with patch("agent.memory.reflection.run_memory_reflection", run):
+            await MEMORY_REFLECTION.handler(StageContext(facts=_facts(), llm=object()))
+        assert seen["answer"] == answer_message_id("conv_1", "msg_1")
+        assert pm.turn_answer_message() is None
+
+    @pytest.mark.asyncio
+    async def test_off_the_socket_a_personal_note_is_stored_under_no_answer(self):
+        from agent.knowledge import project_memory as pm
+
+        seen = {}
+
+        async def run(**_kwargs):
+            seen["answer"] = pm.turn_answer_message()
+            return []
+
+        with patch("agent.memory.reflection.run_memory_reflection", run):
+            await MEMORY_REFLECTION.handler(StageContext(facts=_facts(ws_parent_id=None), llm=object()))
+        assert seen["answer"] is None

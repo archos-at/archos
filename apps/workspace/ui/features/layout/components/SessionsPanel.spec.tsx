@@ -273,6 +273,23 @@ describe('SessionsPanel', () => {
     expect(screen.queryByRole('button', { name: /rename chat/i })).toBeNull()
   })
 
+  test('marks a temporary chat quietly and says it in the row’s name; other rows carry no mark (ADR-0180)', () => {
+    render(
+      <SessionsPanel sessions={[...mockSessions, { id: 'session-temp', title: 'Scratch', date: today, temporary: true }]} />
+    )
+
+    const temporary = screen.getByRole('button', {
+      name: 'Chat: Scratch (temporary chat, nothing from it is kept)',
+    })
+    const marks = screen.getAllByTestId('session-temporary-mark')
+    expect(marks).toHaveLength(1)
+    expect(rowOf(temporary)).toContainElement(marks[0])
+    expect(marks[0]).toHaveAttribute('title', 'Temporary chat: nothing from it is kept.')
+    // Decorative: the words are the button's label, so they are not read twice.
+    expect(marks[0].querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByRole('button', { name: 'Chat: First Session' })).toBeInTheDocument()
+  })
+
   test('shows edit and delete icons on hover', async () => {
     const user = userEvent.setup()
     render(<SessionsPanel sessions={mockSessions} />)

@@ -53,10 +53,10 @@ import { logicalName } from "../names";
  * being reachable, to protect a bounded window in which the failure is loud
  * (a 500 on the diagram route, `filingFailed: true` on the report route) and
  * the remedy is pressing the button again. It is a judgement call and it should
- * be revisited if a second throwing emitter appears. Compose and Coolify make
+ * be revisited if a second throwing emitter appears. Compose makes
  * the opposite call for a stack-specific reason — there is no rolling update to
- * protect and WorkOS is already a hard dependency of those stacks (see
- * `deploy/compose/docker-compose*.yaml`, service `audit-schemas`).
+ * protect and WorkOS is already a hard dependency of that stack (see
+ * `deploy/compose/docker-compose.yaml`, service `audit-schemas`).
  *
  * Two knobs follow from the premise change rather than from taste:
  *   - `backoffLimit` (10) is what actually closes the window — the Job retries

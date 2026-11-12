@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-vi.mock('./repository', () => ({ readWorkInTime: vi.fn(), readTerritoryChain: vi.fn() }))
+vi.mock('./repository', () => ({ readWorkInTime: vi.fn(), readTerritoryChain: vi.fn(), readTerritoryZones: vi.fn() }))
 vi.mock('../store/rulesets', () => ({ readRulesetsInForce: vi.fn() }))
 vi.mock('@/lib/project-profile/profile-service', () => ({ getProjectProfile: vi.fn() }))
 vi.mock('@/lib/authz/feature-flags', async (original) => ({
@@ -26,7 +26,7 @@ import { getProjectProfile } from '@/lib/project-profile/profile-service'
 import { asOfQuerySchema } from '@/lib/base-knowledge/wire/time'
 import { readRulesetsInForce } from '../store/rulesets'
 import { AS_OF_RULESETS, NOW, WORKS } from './as-of-set.fixture'
-import { readTerritoryChain, readWorkInTime } from './repository'
+import { readTerritoryChain, readTerritoryZones, readWorkInTime } from './repository'
 import { editionAsOfForSession } from './service'
 
 const MEMBER: AuthorizedSession = {
@@ -51,6 +51,7 @@ const ask = (session: AuthorizedSession, query: Record<string, string>) =>
 beforeEach(() => {
   vi.mocked(readWorkInTime).mockResolvedValue({ work: WORKS.noe, unreadable: [], truncated: false })
   vi.mocked(readTerritoryChain).mockResolvedValue(['AT-3', 'AT'])
+  vi.mocked(readTerritoryZones).mockResolvedValue({ AT: 'Europe/Vienna' })
   vi.mocked(readRulesetsInForce).mockResolvedValue({
     rulesets: AS_OF_RULESETS,
     unreadable: [],

@@ -68,7 +68,7 @@ Returns `ResourceSharingState` (`lib/sharing/types.ts`):
 | `allowedVisibilities` | What this type permits — drives the UI's options. Conversations expose only `private`/`project` in phase 1 (see ADR-0032 follow-ups). Documents expose only `project`: `private` on a document is refused, because no read path enforces it (per-document access comes separately). A document that already says `private` reads as before and can be set back to `project` |
 | `myRole` | The caller's effective role, or `null` |
 | `canManage` | Whether the caller may change sharing (`owner`) |
-| `canEscalate` | Project admin who may take ownership of a resource they were not party to |
+| `canEscalate` | Project admin who can already read the resource and does not own it, so may take ownership (ADR-0032, amendment 2026-11-11). `false` without a role: a private resource the admin is not party to cannot be taken over |
 | `entries[]` | `{ person, role, reason, grantedBy, lostAccess? }` — `reason` is why they have access (`creator`, `grant`, `visibility-project`, `visibility-organization`) so the roster is never mysterious. `lostAccess` is `true` for a person still shared with who may no longer read a folder the conversation drew on (ADR-0088); it never says which. Present for a conversation, absent for a document |
 | `shared` | True when the server is authoritative for this resource (ADR-0033) |
 
@@ -90,9 +90,12 @@ Two shapes on one route:
 
 - `{ subjectUserId, role? }` — grant or re-grant (`role` defaults to
   `collaborator`). Requires `owner`. `201`.
-- `{ escalate: true }` — a project admin taking ownership. Audited distinctly as
-  `resource.ownership.escalated`, because it is the one path by which someone
-  reaches a **private** resource without being invited.
+- `{ escalate: true }` — a project admin taking ownership of a resource they
+  can already read and do not own. Audited distinctly as
+  `resource.ownership.escalated`, and each owner the resource had before gets a
+  `resource.ownership_taken` inbox row naming the admin. A caller with no role on
+  the resource (a private chat they are not party to) gets `404`, as for every
+  other denial (ADR-0032, amendment 2026-11-11).
 
 Refusals worth handling in the UI:
 
@@ -538,10 +541,13 @@ Requires `viewer`.
   sends `attach{turn_id, after_seq}` on the new one and the agent tier replays that
   turn (chat wire v2 §d).
 
-### `POST /api/internal/collaboration/prune`
+### Inbox retention (no route)
 
-Token-guarded (`internalApiRoute`) retention prune for inbox items (spec IB-15).
-Housekeeping invoked by a scheduler, not a person. Idempotent and bounded — each
-call deletes at most one batch, so a backlog is worked off over several ticks
-rather than taking a long lock on a table that serves every page render. Returns
-`{ pruned, cutoff }`.
+The retention prune for inbox items (spec IB-15) and the sweep for collaboration
+rows whose target is gone are the `collaboration-retention` Hatchet cron task of
+the `bff-jobs` worker, hourly (`sweepCollaborationRetention`,
+`apps/workspace/bff/scheduling/sweeps.ts`, ADR-0150). Bounded: a round deletes
+at most one batch per table, and a run takes at most 20 rounds, so a backlog
+never takes a long lock on a table that serves every page render. The route
+`POST /api/internal/collaboration/prune` that used to expose it had no caller
+and is removed.

@@ -4,7 +4,7 @@
 /**
  * The declared moves of `documents.status` (ADR-0179), held to the three
  * things that already say something about them: a statechart interpreter, the
- * phases of `DOCUMENT_STATUS_FACTS`, and the quarantine rule of migration 0122.
+ * phases of `DOCUMENT_STATUS_FACTS`, and the quarantine rule of migrations 0122 and 0225.
  */
 import { describe, expect, it } from 'vitest'
 import { createMachine, transition } from 'xstate'
@@ -36,9 +36,10 @@ describe('the reading lifecycle of a document', () => {
     expect(lifecycle.finalStates).toEqual([])
   })
 
-  it('lets a quarantined row leave by a release and nothing else (migration 0122)', () => {
-    expect(lifecycle.eventsFrom('quarantined')).toEqual(['release'])
+  it('lets a quarantined row leave by a release or a re-screen and nothing else (migrations 0122, 0225)', () => {
+    expect(lifecycle.eventsFrom('quarantined')).toEqual(['release', 'rescreen'])
     expect(lifecycle.next('quarantined', 'release')).toBe('uploaded')
+    expect(lifecycle.next('quarantined', 'rescreen')).toBe('uploaded')
   })
 
   it.each(['dispatch', 'process', 'fail', 'unindex'] as const)(
@@ -70,8 +71,8 @@ describe('the lifecycle and the phases of the status facts agree', () => {
     expect(statusesAccepting('release')).toEqual(atRest)
   })
 
-  it('a re-screen is asked of the same rows, less the quarantined one the database refuses', () => {
-    expect(statusesAccepting('rescreen')).toEqual(atRest.filter((status) => status !== 'quarantined'))
+  it('a re-screen is asked of the same rows, the quarantined one included (migration 0225)', () => {
+    expect(statusesAccepting('rescreen')).toEqual(atRest)
   })
 
   it('a verdict is the job’s: no state at rest becomes quarantined or cancelled', () => {

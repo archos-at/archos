@@ -1,0 +1,8 @@
+---
+operators:
+  - >
+    A base-corpus text that fails to index now records the knowledge backend's
+    own reason in its index run (for example "QueueUnavailable: no worker has
+    registered dev_ingest-document yet"), not a bare "returned 500". Staging
+    keeps one ingest worker up, so a publish's texts are never refused for want
+    of one.

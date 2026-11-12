@@ -87,6 +87,33 @@ async def test_a_recent_event_keeps_a_quiet_job_alive(db_url):
     assert await run_ownership.try_take(_store(db_url), "job-1") is run_ownership.Verdict.ALIVE
 
 
+async def test_the_ghost_reaper_leaves_a_job_a_retry_just_took_over(db_url):
+    """The rescue writes no event until its workflow is built; the reaper must read the takeover as life."""
+    from sqlalchemy import text
+
+    from agent_host.routes import job_reaper
+
+    silent = run_ownership.STALE_SECONDS + 5
+    await _job(db_url, "running", silent_for=timedelta(seconds=silent))
+    EventStore(db_url, "job-1").store({"type": "job.heartbeat", "data": {}})
+    stamp = (datetime.now(UTC) - timedelta(seconds=silent)).replace(tzinfo=None)
+    with EventStore._get_or_create_sync_engine(db_url).begin() as conn:
+        conn.execute(text("UPDATE job_events SET created_at = :stamp"), {"stamp": stamp})
+    assert job_reaper._find_stale_jobs(db_url, ("running",)) == ["job-1"]
+
+    assert await run_ownership.try_take(_store(db_url), "job-1") is run_ownership.Verdict.TAKEN
+
+    assert job_reaper._find_stale_jobs(db_url, ("running",)) == []
+
+
+def test_a_waiting_retry_takes_a_dead_run_before_the_reaper_fails_it():
+    """One window, and a retry that waits past it: the reaper may not call a run dead before a retry may take it."""
+    from agent_host.routes import job_reaper
+
+    assert run_ownership.STALE_SECONDS == job_reaper.GHOST_JOB_TIMEOUT_SECONDS
+    assert run_ownership.WAIT_SECONDS > run_ownership.STALE_SECONDS + run_ownership._POLL_SECONDS
+
+
 @pytest.mark.parametrize("status", ["success", "failure", "interrupted"])
 async def test_a_finished_job_is_never_taken(db_url, status):
     await _job(db_url, status)

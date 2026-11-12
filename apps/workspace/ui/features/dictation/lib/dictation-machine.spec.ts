@@ -17,6 +17,7 @@ import {
   WAVE_BARS,
   dictationMachine,
   dictationStateOf,
+  heardSpeech,
   heldSpeech,
   waveHeight,
   type CaptureCommand,
@@ -346,6 +347,52 @@ describe('recording', () => {
     capture.report({ type: 'recording.finished', audio: AUDIO, durationMs: 2500, meterTrusted: false })
     expect(phase()).toBe('transcribing')
     expect(transcribe.inputs).toEqual([{ audio: AUDIO, format: 'webm', durationMs: 2500 }])
+  })
+
+  test('a recorder that hung on a recording the meter heard a voice in says it could not be saved', async () => {
+    const { actor, toRecording, capture, transcribe, onError, phase } = harness()
+    await toRecording()
+    capture.report({ type: 'level.sampled', level: SILENCE_RMS * 20, elapsedSeconds: 1 })
+    actor.send({ type: 'toggle' })
+    vi.advanceTimersByTime(STOP_LIMIT_MS)
+    expect(actor.getSnapshot().matches({ capturing: { recording: 'forced' } })).toBe(true)
+    capture.report({ type: 'recording.finished', audio: new Blob([]), durationMs: 2500, meterTrusted: true })
+    expect(phase()).toBe('idle')
+    expect(transcribe.inputs).toHaveLength(0)
+    expect(onError).toHaveBeenCalledExactlyOnceWith('notSaved')
+    expect(capture.released).toBe(1)
+  })
+
+  test.each([
+    ['a forced finish the meter heard only silence in', SILENCE_RMS / 2, 2500],
+    ['a forced finish of a misclick, however loud', SILENCE_RMS * 20, MIN_RECORDING_MS - 1],
+  ])('%s stays silent', async (_name, level, durationMs) => {
+    const { actor, toRecording, capture, transcribe, onError, phase } = harness()
+    await toRecording()
+    capture.report({ type: 'level.sampled', level, elapsedSeconds: 1 })
+    actor.send({ type: 'toggle' })
+    vi.advanceTimersByTime(STOP_LIMIT_MS)
+    capture.report({ type: 'recording.finished', audio: new Blob([]), durationMs, meterTrusted: true })
+    expect(phase()).toBe('idle')
+    expect(transcribe.inputs).toHaveLength(0)
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  test('a recorder that reports its own stop with nothing stays silent, speech heard or not', async () => {
+    const { actor, toRecording, capture, onError, phase } = harness()
+    await toRecording()
+    capture.report({ type: 'level.sampled', level: SILENCE_RMS * 20, elapsedSeconds: 1 })
+    actor.send({ type: 'toggle' })
+    capture.report({ type: 'recording.finished', audio: new Blob([]), durationMs: 2500, meterTrusted: true })
+    expect(phase()).toBe('idle')
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  test('heardSpeech needs both a voice and a recording long enough to hold one', () => {
+    expect(heardSpeech(MIN_RECORDING_MS, SILENCE_RMS)).toBe(true)
+    expect(heardSpeech(MIN_RECORDING_MS - 1, 1)).toBe(false)
+    expect(heardSpeech(5000, SILENCE_RMS / 2)).toBe(false)
+    expect(heardSpeech(5000, 0)).toBe(false)
   })
 
   test('a silent recorder that captured nothing is dropped without a word', async () => {

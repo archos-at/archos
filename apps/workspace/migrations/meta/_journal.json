@@ -1576,6 +1576,83 @@
       "when": 1793900000000,
       "tag": "0224_knowledge_text_four_eyes",
       "breakpoints": true
+    },
+    {
+      "idx": 225,
+      "version": "7",
+      "when": 1794000000000,
+      "tag": "0225_quarantine_rescreen_exit",
+      "breakpoints": true
+    },
+    {
+      "idx": 226,
+      "version": "7",
+      "when": 1794100000000,
+      "tag": "0226_drop_dead_scheduler_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 227,
+      "version": "7",
+      "when": 1794200000000,
+      "tag": "0227_deletion_queue_pending_has_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 228,
+      "version": "7",
+      "when": 1794300000000,
+      "tag": "0228_golden_cases",
+      "breakpoints": true
+    },
+    {
+      "idx": 229,
+      "version": "7",
+      "when": 1794400000000,
+      "tag": "0229_personal_memory",
+      "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1794500000000,
+      "tag": "0230_conversation_temporary",
+      "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1794600000000,
+      "tag": "0231_personal_memory_source_message",
+      "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "7",
+      "when": 1794700000000,
+      "tag": "0232_personal_memory_content_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 233,
+      "version": "7",
+      "when": 1794800000000,
+      "tag": "0233_knowledge_single_operator",
+      "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1794900000000,
+      "tag": "0234_citation_style_rulesets",
+      "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1795000000000,
+      "tag": "0235_territory_zone",
+      "breakpoints": true
     }
   ]
 }

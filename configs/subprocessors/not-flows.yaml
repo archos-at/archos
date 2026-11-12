@@ -1,6 +1,9 @@
 # Hosts and variables the scan finds that carry no data out of the cluster,
 # each with the reason. An entry that no longer occurs fails the check.
 hosts:
+  gesetzefinden.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
+  jusline.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
+  lexfind.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
   data.legilux.public.lu: the JOLux ontology's namespace in Fedlex's SPARQL query, never fetched
   docs.oasis-open.org: the Akoma Ntoso XML namespace (packages/public-sources/src/engines/akn.py), never fetched
   publications.europa.eu: EU language-authority IRIs in Fedlex's SPARQL query, compared as identifiers, never fetched
@@ -139,6 +142,7 @@ packages:
     - 'js:remark-frontmatter'
     - 'js:remark-mdx'
     - 'js:remark-parse'
+    - 'js:safe-regex2'
     - 'js:unified'
     - 'js:@xstate/react'
     - 'js:xstate'
@@ -254,6 +258,7 @@ packages:
     - 'py:regex'
     - 'py:shapely'
     - 'py:striprtf'
+    - 'py:validators'
   'assets it would fetch are self-hosted: Excalidraw fonts (EXCALIDRAW_ASSET_PATH), pdf.js cmaps and fonts (public/pdfjs), PDF fonts from local files, Geist from the package':
     - 'js:@excalidraw/excalidraw'
     - 'js:pdfjs-dist'

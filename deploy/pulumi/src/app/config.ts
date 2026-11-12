@@ -554,6 +554,8 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     { name: "PLATFORM_ORG_EXTERNAL_ID", value: cfg.auth.platformOrgExternalId },
     { name: "DISABLE_SELF_SERVE_ORGS", value: String(cfg.auth.disableSelfServeOrgs) },
     { name: "AUDIT_LOGS_ENABLED", value: String(cfg.auth.auditLogsEnabled) },
+    // Platform knowledge governance: `true` lets one operator approve and publish alone (dev only).
+    { name: "KNOWLEDGE_SINGLE_OPERATOR", value: String(cfg.auth.knowledgeSingleOperator) },
     // Shared cache + WS rate limiting (needed for >1 replica correctness).
     // Authenticated: the URL carries the password, so it comes from the Secret.
     sref("REDIS_URL"),

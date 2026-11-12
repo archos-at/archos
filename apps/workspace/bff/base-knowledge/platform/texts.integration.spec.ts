@@ -80,8 +80,10 @@ vi.mock('@/lib/knowledge/service', () => ({
     for (const [name, mark] of Object.entries(marks)) corpus.countries.set(name, String((mark as { countryId?: string }).countryId))
     return { status: 'pending', queued: names.filter((name) => corpus.files.has(name)), unknown: names.filter((name) => !corpus.files.has(name)), message: '' }
   },
-  markCorpusFileCountry: async () => undefined,
-  streamKnowledgeBaseDocument: async (name: string) => new Response(new Uint8Array(corpus.bytes.get(name) ?? Buffer.from('')), { headers: { 'Content-Type': 'application/pdf' } }),
+  withdrawCorpusFile: async () => undefined,
+}))
+vi.mock('@/lib/knowledge/source-pdf', () => ({
+  streamKnowledgeBaseDocumentAsPlatform: async (name: string) => new Response(new Uint8Array(corpus.bytes.get(name) ?? Buffer.from('')), { headers: { 'Content-Type': 'application/pdf' } }),
 }))
 
 const url = process.env.TEST_DATABASE_URL

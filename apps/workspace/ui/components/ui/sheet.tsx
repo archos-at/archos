@@ -6,6 +6,8 @@ import * as SheetPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useTranslations } from '@/i18n'
+import { commonCopy } from '@/i18n/namespaces/common'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { OVERLAY_MOTION, OVERLAY_EXIT, OVERLAY_REDUCED } from '@/components/ui/overlay-motion'
 import { focusPanelUnderFinger } from '@/components/ui/overlay-focus'
@@ -102,7 +104,10 @@ interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof SheetP
 }
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ className, children, side = 'right', closeLabel = 'Close', style, onOpenAutoFocus, ...props }, ref) => (
+  ({ className, children, side = 'right', closeLabel, style, onOpenAutoFocus, ...props }, ref) => {
+    // The close button's name in the reader's language, unless the caller names it.
+    const t = useTranslations(commonCopy)
+    return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
@@ -132,11 +137,12 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
           )}
         >
           <X className="size-4" aria-hidden />
-          <span className="sr-only">{closeLabel}</span>
+          <span className="sr-only">{closeLabel ?? t('actions.close')}</span>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPortal>
-  ),
+    )
+  },
 )
 SheetContent.displayName = SheetPrimitive.Content.displayName
 

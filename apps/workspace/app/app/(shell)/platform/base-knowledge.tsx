@@ -1,23 +1,16 @@
 'use client'
 
 /**
- * Platform base-knowledge manager (ADR-0016, Phase C): the shared OIB corpus
- * every project grounds its answers on, for a non-technical owner.
+ * Platform → maintenance: the base corpus's indexing, across every country.
  *
- * Reading order: four numbers that answer "is the corpus healthy?", then one
- * card holding the toolbar (search, filters, Upload, an overflow menu for the
- * corpus-wide actions) and the table. A row's edits live in a detail sheet,
- * and the same edits apply to a selection at once.
- *
- * The ingest contract: the backend ingests uploads in the background, so an
- * upload returns `pending`, and `useIngestWatch` polls the status until each
- * new file is done, timed out or missing.
- *
- * Two actions cost money (every page goes through OCR, VLM captioning and
- * embedding again): Sync and Re-index. Both ask first and say what they cover.
- * Read-only platform staff see the corpus and the detail of every document,
- * and none of the write controls (every write route requires
- * `platform:settings:manage`).
+ * A text enters the corpus only inside a change request of its country
+ * (Platform → Länder), so nothing here adds or deletes one. What is left is the
+ * upkeep that has no country: is each file indexed (four numbers, then the
+ * table with its state, its country and its request), and the two actions that
+ * redo the indexing, Sync and Re-index. Both cost money (every page goes
+ * through OCR, VLM captioning and embedding again), so both ask first and say
+ * what they cover. A row's detail sheet keeps the title and Dokumentart edits.
+ * Read-only platform staff see the corpus and none of the write controls.
  */
 
 import { SortableHead } from '@/components/ui/sortable-head'
@@ -32,8 +25,6 @@ import {
   MoreHorizontal,
   RefreshCw,
   RotateCcw,
-  Trash2,
-  Upload,
 } from 'lucide-react'
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -69,7 +60,6 @@ import { CorpusGroupRow, PlacementLine, useCorpusPlacement } from '@/features/pl
 import { KnowledgeDocumentSheet } from '@/features/platform/components/knowledge-document-sheet'
 import { KnowledgeSummary } from '@/features/platform/components/knowledge-summary'
 import { useIngestWatch } from '@/features/platform/components/knowledge-ingest-watch'
-import { KnowledgeUploadPanel } from '@/features/platform/components/knowledge-upload-panel'
 import { SectionCard } from '@/features/platform/components/section-card'
 import { usePlatformCan } from '@/features/platform/platform-access'
 import { PdfViewerDialog } from '@/features/knowledge/components/pdf-viewer-dialog'
@@ -86,7 +76,6 @@ import type {
   KnowledgeBaseStatus,
   KnowledgeFile,
   KnowledgeFileState,
-  KnowledgeUploadResult,
 } from '@/lib/knowledge/service'
 
 /** Sorting a status column alphabetically is useless; sort it by urgency. */
@@ -145,20 +134,12 @@ export function BaseKnowledge(): JSX.Element {
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<string[]>([])
 
-  const [uploadOpen, setUploadOpen] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
-  /** The results of the last batch, for the ZIP members it rejected. */
-  const [lastUploads, setLastUploads] = useState<KnowledgeUploadResult[]>([])
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncConfirmOpen, setSyncConfirmOpen] = useState(false)
   const [isReingesting, setIsReingesting] = useState(false)
-  // The confirm dialogs hold a SNAPSHOT of their targets, taken when they
-  // open. Deriving them from the live list emptied the delete dialog mid-
-  // request (the rows are removed optimistically), so its title read
-  // " entfernen?" and a bulk delete flipped to the single-file copy.
+  // The confirm dialog holds a SNAPSHOT of its targets, taken when it opens,
+  // so a poll that changes the list does not change what it asks about.
   const [pendingReingest, setPendingReingest] = useState<string[]>([])
-  const [pendingDelete, setPendingDelete] = useState<KnowledgeFile[]>([])
-  const [isDeleting, setIsDeleting] = useState(false)
 
   // Optimistic edits, applied over the fetched status until a refetch confirms them.
   const [docClassOverrides, setDocClassOverrides] = useState<Record<string, DocClass>>({})
@@ -172,7 +153,7 @@ export function BaseKnowledge(): JSX.Element {
   const loadSeqRef = useRef(0)
 
   const fetchStatus = useCallback(async (): Promise<KnowledgeBaseStatus> => {
-    const res = await fetch('/api/knowledge-base')
+    const res = await fetch('/api/platform/knowledge/documents')
     if (!res.ok) throw new Error(`Failed to load knowledge base (${res.status})`)
     return (await res.json()) as KnowledgeBaseStatus
   }, [])
@@ -243,80 +224,6 @@ export function BaseKnowledge(): JSX.Element {
   }, [status, docClassOverrides, displayTitleOverrides])
 
   const ingest = useIngestWatch(fetchStatus, applyStatus, files)
-
-  /**
-   * Post one file to the corpus and say how it went. The names it queued, for
-   * the indexing watch, and its result; null when it was refused.
-   */
-  const uploadOne = useCallback(
-    async (file: File): Promise<{ names: string[]; result: KnowledgeUploadResult } | null> => {
-      const form = new FormData()
-      form.append('file', file)
-      try {
-        const r = await fetch('/api/platform/knowledge/documents', { method: 'POST', body: form })
-        const body = (await r.json().catch(() => ({}))) as Partial<KnowledgeUploadResult> & {
-          error?: string
-        }
-        if (!r.ok || (body.status !== 'pending' && body.status !== 'success')) {
-          // The file's name and the failure in the reader's language lead;
-          // the server's reason, when it gave one, is the detail line.
-          toast.error(
-            t('knowledge.uploadFailed', { name: file.name }),
-            body.error ? { description: body.error } : undefined
-          )
-          return null
-        }
-        if (body.kind === 'zip') {
-          toast.success(
-            t('knowledge.zipQueued', {
-              accepted: body.accepted ?? 0,
-              rejected: body.rejected ?? 0,
-            })
-          )
-        } else {
-          toast.success(t('knowledge.uploadPending', { name: body.fileName ?? file.name }))
-        }
-        const names =
-          body.kind === 'zip'
-            ? (body.members ?? []).filter((m) => m.status === 'pending').map((m) => m.fileName)
-            : body.fileName
-              ? [body.fileName]
-              : []
-        return { names, result: body as KnowledgeUploadResult }
-      } catch {
-        toast.error(t('knowledge.uploadFailed', { name: file.name }))
-        return null
-      }
-    },
-    [t]
-  )
-
-  // One request per file, one after another: the route takes a single file,
-  // and the panel stays busy until the whole batch has been handed over.
-  const handleUpload = useCallback(
-    async (batch: File[]) => {
-      if (batch.length === 0) return
-      setIsUploading(true)
-      setLastUploads([])
-      const names: string[] = []
-      const results: KnowledgeUploadResult[] = []
-      try {
-        for (const file of batch) {
-          const outcome = await uploadOne(file)
-          if (!outcome) continue
-          names.push(...outcome.names)
-          results.push(outcome.result)
-        }
-        setLastUploads(results)
-        if (results.length === 0) return
-        await load()
-        ingest.watch(names)
-      } finally {
-        setIsUploading(false)
-      }
-    },
-    [ingest, load, uploadOne]
-  )
 
   const handleSync = useCallback(() => {
     // A full sync can take minutes, so the dialog closes and the toolbar
@@ -477,45 +384,6 @@ export function BaseKnowledge(): JSX.Element {
     [load, t]
   )
 
-  const handleDelete = useCallback(() => {
-    const names = pendingDelete.map((f) => f.fileName)
-    if (names.length === 0) return
-    setIsDeleting(true)
-    // Optimistic: drop the rows now; the refetch reconciles and brings back
-    // any that failed. The dialog reads its own snapshot, not these rows.
-    setStatus((prev) =>
-      prev ? { ...prev, files: prev.files.filter((f) => !names.includes(f.fileName)) } : prev
-    )
-    // `allSettled`: nine of ten deleting must not be reported as ten failures.
-    Promise.allSettled(
-      names.map((name) =>
-        fetch(`/api/platform/knowledge/documents/${encodeURIComponent(name)}`, {
-          method: 'DELETE',
-        }).then((r) => {
-          if (!r.ok) throw new Error(`Delete failed (${r.status})`)
-          return name
-        })
-      )
-    )
-      .then((results) => {
-        const failed = results.filter((r) => r.status === 'rejected').length
-        const removed = results.length - failed
-        if (names.length === 1) {
-          if (failed > 0) toast.error(t('knowledge.deleteFailed', { name: names[0] }))
-          else toast.success(t('knowledge.deleteSuccess', { name: names[0] }))
-          return
-        }
-        if (removed > 0) toast.success(t('knowledgeAdmin.bulkDeleteDone', { count: removed }))
-        if (failed > 0) toast.error(t('knowledgeAdmin.bulkDeleteFailed', { count: failed }))
-      })
-      .finally(() => {
-        setIsDeleting(false)
-        setPendingDelete([])
-        setSelected((prev) => prev.filter((name) => !names.includes(name)))
-        void load()
-      })
-  }, [pendingDelete, load, t])
-
   const byName = useMemo(() => new Map(files.map((f) => [f.fileName, f])), [files])
   const detailFile = detailName ? (byName.get(detailName) ?? null) : null
 
@@ -604,13 +472,11 @@ export function BaseKnowledge(): JSX.Element {
     setOffset(0)
   }
 
-  const isBusy = isUploading || isSyncing
+  const isBusy = isSyncing
   const hasDocuments = files.length > 0
-  // The empty state must not swallow the upload panel or in-flight progress,
-  // or the first upload into an empty corpus has nowhere to happen.
+  // The empty state must not swallow in-flight indexing progress.
   const showEmpty =
     !hasDocuments &&
-    !uploadOpen &&
     ingest.items.length === 0 &&
     !ingest.timedOut &&
     ingest.missing.length === 0
@@ -658,10 +524,6 @@ export function BaseKnowledge(): JSX.Element {
           {isSyncing ? t('knowledge.syncing') : t('knowledgeAdmin.bulkReingestBusy')}
         </span>
       ) : null}
-      <Button size="sm" onClick={() => setUploadOpen((open) => !open)} aria-expanded={uploadOpen}>
-        <Upload className="size-3.5" aria-hidden />
-        {uploadOpen ? t('knowledgeAdmin.hideUpload') : t('knowledgeAdmin.addDocuments')}
-      </Button>
       <ActionMenu
         mode="dropdown"
         entries={overflowEntries}
@@ -709,14 +571,6 @@ export function BaseKnowledge(): JSX.Element {
         emptyIcon={BookOpenCheck}
         emptyTitle={t('knowledgeAdmin.emptyTitle')}
         emptyDescription={t('knowledgeAdmin.emptyDescription')}
-        emptyAction={
-          canManage ? (
-            <Button size="sm" onClick={() => setUploadOpen(true)}>
-              <Upload className="size-3.5" aria-hidden />
-              {t('knowledgeAdmin.addDocuments')}
-            </Button>
-          ) : undefined
-        }
       >
         <div className="flex flex-col gap-4">
           {hasDocuments ? (
@@ -764,17 +618,6 @@ export function BaseKnowledge(): JSX.Element {
                     {isReingesting
                       ? t('knowledgeAdmin.bulkReingestBusy')
                       : t('knowledgeAdmin.bulkReingest')}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="text-destructive"
-                    onClick={() =>
-                      setPendingDelete(files.filter((f) => selected.includes(f.fileName)))
-                    }
-                  >
-                    <Trash2 className="size-3.5" aria-hidden />
-                    {t('knowledgeAdmin.bulkDelete')}
                   </Button>
                 </>
               }
@@ -830,24 +673,6 @@ export function BaseKnowledge(): JSX.Element {
                 </>
               }
               actions={toolbarActions}
-            />
-          ) : null}
-
-          {canManage ? (
-            <KnowledgeUploadPanel
-              open={uploadOpen}
-              isUploading={isUploading}
-              isBusy={isBusy}
-              onFiles={(batch) => void handleUpload(batch)}
-              items={ingest.items}
-              timedOut={ingest.timedOut}
-              onRearm={() => {
-                ingest.rearm()
-                void load()
-              }}
-              missing={ingest.missing}
-              onDismissMissing={ingest.dismissMissing}
-              lastUploads={lastUploads}
             />
           ) : null}
 
@@ -1006,49 +831,15 @@ export function BaseKnowledge(): JSX.Element {
           setDetailName(null)
           setViewerFile(file.fileName)
         }}
-        onDelete={(file) => {
-          setDetailName(null)
-          setPendingDelete([file])
-        }}
       />
 
       {viewerFile ? (
         <PdfViewerDialog
-          open
-          onOpenChange={(open) => !open && setViewerFile(null)}
+          open onOpenChange={(open) => !open && setViewerFile(null)}
           fileName={viewerFile}
+          src={`/api/platform/knowledge/documents/${encodeURIComponent(viewerFile)}`}
         />
       ) : null}
-
-      <ConfirmDialog
-        open={pendingDelete.length > 0}
-        onOpenChange={(open) => {
-          if (!open) setPendingDelete([])
-        }}
-        title={
-          pendingDelete.length > 1
-            ? t('knowledgeAdmin.bulkDeleteTitle', { count: pendingDelete.length })
-            : t('knowledge.deleteTitle', { name: pendingDelete[0]?.fileName ?? '' })
-        }
-        description={
-          pendingDelete.length > 1
-            ? t('knowledgeAdmin.bulkDeleteDescription')
-            : t('knowledge.deleteDescription')
-        }
-        confirmLabel={
-          pendingDelete.length > 1
-            ? t('knowledgeAdmin.bulkDeleteConfirm', { count: pendingDelete.length })
-            : t('knowledge.deleteConfirm')
-        }
-        cancelLabel={t('knowledge.deleteCancel')}
-        tone="destructive"
-        pending={isDeleting}
-        onConfirm={handleDelete}
-      >
-        {pendingDelete.length > 1 ? (
-          <NameList names={pendingDelete.map((f) => f.fileName)} />
-        ) : null}
-      </ConfirmDialog>
 
       <ConfirmDialog
         open={pendingReingest.length > 0}

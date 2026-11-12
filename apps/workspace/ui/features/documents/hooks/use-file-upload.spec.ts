@@ -1505,14 +1505,16 @@ describe('useFileUpload — chat attachments', () => {
     const answer = (body: unknown) => ({ ok: true, status: 200, json: async () => body })
     const canceledWrite = ['row-1', { status: 'canceled' }] as const
 
-    /** The stop answers `cancelled`; `meanwhile` runs while the request is out. */
+    /**
+     * The stop answers `cancelled` and the status the document then holds;
+     * `meanwhile` runs while the request is out. Any other request fails the
+     * test: the answer is all the row is decided from.
+     */
     function stubStop(documentStatus: string, meanwhile: () => void = () => {}) {
       fetchMock.mockImplementation(async (url: string) => {
-        if (url.endsWith('/cancel')) {
-          meanwhile()
-          return answer({ result: 'cancelled' })
-        }
-        return answer({ status: documentStatus })
+        if (!url.endsWith('/cancel')) throw new Error(`unexpected request after the stop: ${url}`)
+        meanwhile()
+        return answer({ id: 'doc-1', result: 'cancelled', status: documentStatus })
       })
     }
 
@@ -1532,8 +1534,9 @@ describe('useFileUpload — chat attachments', () => {
     })
 
     test('a row that finished reading while the stop was out keeps what it says', async () => {
-      stubStop('ingested', () => mockDocumentsStoreState.updateTrackedFile('row-1', { status: 'success' }))
+      stubStop('completed', () => mockDocumentsStoreState.updateTrackedFile('row-1', { status: 'success' }))
       await stop()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
       expect(mockDocumentsStoreState.updateTrackedFile).not.toHaveBeenCalledWith(...canceledWrite)
       expect((mockDocumentsStoreState.trackedFiles[0] as { status: string }).status).toBe('success')
     })

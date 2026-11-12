@@ -2034,7 +2034,6 @@
                   "status": {
                     "type": "string",
                     "enum": [
-                      "proposed",
                       "active",
                       "superseded",
                       "dismissed"
@@ -5007,7 +5006,7 @@
       "post": {
         "operationId": "document-ingest-cancel",
         "summary": "Cancel a document’s running ingestion",
-        "description": "Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.",
+        "description": "Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. `result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` is the status the document holds afterwards, which is not `cancelled` when the read ended first.",
         "tags": [
           "documents"
         ],
@@ -15024,11 +15023,53 @@
         }
       }
     },
+    "/api/citations/style": {
+      "get": {
+        "operationId": "citation-style-get",
+        "summary": "Read how the office’s country writes a citation",
+        "description": "The citation style released for the office’s home country, per language: which sources are a standard or a law, the line template per kind, the locus and page labels, the edition phrase and the date form. Write references in it. Returns `{ style }`, null while the country has none released.",
+        "tags": [
+          "conversations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read how the office’s country writes a citation",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/conversations": {
       "post": {
         "operationId": "conversation-create",
         "summary": "Start a new conversation",
-        "description": "Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document. You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.",
+        "description": "Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document, and optionally `temporary` (nothing from it is kept in memory). You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.",
         "tags": [
           "conversations"
         ],
@@ -15082,6 +15123,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "temporary": {
+                    "description": "True starts a temporary conversation: nothing from it is kept in project, organization or personal memory.",
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -15310,8 +15355,8 @@
       },
       "patch": {
         "operationId": "conversation-update",
-        "summary": "Rename a conversation or change when ARCHOS answers",
-        "description": "Sets `title` (owner role) and/or the `engagement` mode that decides when ARCHOS answers (collaborator role); at least one. Returns it.",
+        "summary": "Rename a conversation, make it temporary, or change when ARCHOS answers",
+        "description": "Sets `title` (owner role), `temporary` (owner role) and/or the `engagement` mode that decides when ARCHOS answers (collaborator role); at least one. A temporary conversation keeps nothing in project, organization or personal memory; switching it off keeps nothing from earlier turns. Returns it.",
         "tags": [
           "conversations"
         ],
@@ -15344,6 +15389,10 @@
                       "ask",
                       "mention"
                     ]
+                  },
+                  "temporary": {
+                    "description": "True makes the conversation temporary: from now on nothing from it is kept in project, organization or personal memory. False keeps memory again from the next turn; nothing from the turns before is kept.",
+                    "type": "boolean"
                   }
                 }
               }
@@ -15376,7 +15425,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Rename a conversation or change when ARCHOS answers",
+          "title": "Rename a conversation, make it temporary, or change when ARCHOS answers",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": true,
@@ -17659,6 +17708,7 @@
                 "conversation.activity",
                 "storage.quota_warning",
                 "document.assigned_to_you",
+                "resource.ownership_taken",
                 "task_run.completed",
                 "task_run.failed",
                 "task_run.waiting",
@@ -17922,6 +17972,332 @@
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/user/memory": {
+      "delete": {
+        "operationId": "personal-memory-clear",
+        "summary": "Delete all personal memory notes",
+        "description": "Removes every personal note of the person for good, pinned ones included; it cannot be undone. Notes of the project and of the organization are not touched. Answers `{ removed }`, the number of notes removed (0 when there were none). To remove one note use personal-memory-delete.",
+        "tags": [
+          "collaboration"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete all personal memory notes",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "post": {
+        "operationId": "personal-memory-create",
+        "summary": "Add a personal memory note",
+        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. 400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.",
+        "tags": [
+          "collaboration"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "preference",
+                      "profile"
+                    ],
+                    "description": "`preference`: how the person wants the agent to work. `profile`: their role, responsibilities and recurring topics."
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "description": "One self-contained sentence about the person, max 2000 characters."
+                  },
+                  "pinned": {
+                    "description": "A pinned note reaches every turn first.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "content"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Add a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "get": {
+        "operationId": "personal-memory-list",
+        "summary": "List the person’s personal memory",
+        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Item ids feed personal-memory-update and personal-memory-delete.",
+        "tags": [
+          "collaboration"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Default 50, max 200.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Default 50, max 200."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "sourceConversationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "description": "Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the person’s personal memory",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/user/memory/{itemId}": {
+      "delete": {
+        "operationId": "personal-memory-delete",
+        "summary": "Delete a personal memory note",
+        "description": "Removes one personal note for good; it cannot be undone. `itemId` is from personal-memory-list.",
+        "tags": [
+          "collaboration"
+        ],
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The personal memory note id (a UUID), from personal-memory-list."
+            },
+            "description": "The personal memory note id (a UUID), from personal-memory-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "patch": {
+        "operationId": "personal-memory-update",
+        "summary": "Edit a personal memory note",
+        "description": "Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
+        "tags": [
+          "collaboration"
+        ],
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The personal memory note id (a UUID), from personal-memory-list."
+            },
+            "description": "The personal memory note id (a UUID), from personal-memory-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "preference",
+                      "profile"
+                    ],
+                    "description": "`preference`: how the person wants the agent to work. `profile`: their role, responsibilities and recurring topics."
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "description": "One self-contained sentence about the person, max 2000 characters."
+                  },
+                  "pinned": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Edit a personal memory note",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
           "openWorldHint": false
         }
       }
@@ -18765,7 +19141,7 @@
       "post": {
         "operationId": "sharing-grant-add",
         "summary": "Give a person access to a resource",
-        "description": "Grants `subjectUserId` a `role` on the resource: `viewer`, `collaborator` (the default) or `owner`. User ids come from sharing-candidate-list. Only the resource owner may grant. `{ escalate: true }` instead makes a project administrator the owner of a resource they were not party to, recorded as its own act. Returns the sharing state. Sensitive: the organization switches it on for agents, and the person confirms every call.",
+        "description": "Grants `subjectUserId` a `role` on the resource: `viewer`, `collaborator` (the default) or `owner`. User ids come from sharing-candidate-list. Only the resource owner may grant. `{ escalate: true }` instead makes a project administrator the owner of a resource they can already read and do not own, recorded as its own act, and its owners are told; a resource the caller cannot read answers 404. Returns the sharing state. Sensitive: the organization switches it on for agents, and the person confirms every call.",
         "tags": [
           "collaboration"
         ],
@@ -22484,7 +22860,7 @@
       "get": {
         "operationId": "knowledge-base-get",
         "summary": "See what the building-law corpus contains",
-        "description": "The status of the platform-owned base corpus (OIB guidelines and the like): which documents it holds and whether they are indexed. Identical for every organization. To search it use the document search with `shelf: \"base\"` (no project needed); for Austrian law itself the law lookup. This only lists what is there.",
+        "description": "The base corpus as this organization reads it: the documents released in a country the organization is entitled to, and whether each is indexed. An organization entitled to no country gets an empty list. To search it use the document search with `shelf: \"base\"` (no project needed); for the law itself the law lookup. This only lists what is there.",
         "tags": [
           "knowledge"
         ],
@@ -22526,7 +22902,7 @@
       "get": {
         "operationId": "knowledge-document-get",
         "summary": "Read a base-corpus PDF",
-        "description": "The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Identical for every organization. Use it to quote a source a citation points at.",
+        "description": "The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Only a document released in a country the organization is entitled to; any other name answers 404, whether or not such a file exists. Use it to quote a source a citation points at.",
         "tags": [
           "knowledge"
         ],
@@ -25435,6 +25811,18 @@
             "description": "\"true\" also returns archived items."
           },
           {
+            "name": "conversationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the notes written from this conversation.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "description": "Only the notes written from this conversation."
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -25587,7 +25975,6 @@
                   "status": {
                     "type": "string",
                     "enum": [
-                      "proposed",
                       "active",
                       "superseded",
                       "dismissed"
@@ -28761,6 +29148,113 @@
         }
       }
     },
+    "/api/platform/knowledge/documents": {
+      "get": {
+        "operationId": "platform-knowledge-base-get",
+        "summary": "See the whole base corpus, released or not",
+        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.",
+        "tags": [
+          "platform"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "See the whole base corpus, released or not",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "post": {
+        "operationId": "platform-knowledge-document-upload",
+        "summary": "Upload a PDF or ZIP to the base corpus",
+        "description": "Adds a PDF, or a ZIP of PDFs, to the base corpus store. Up to 32 MiB per call through the agent door. Send `body.files[0]` as { name, mimeType, contentBase64 }; `body.fields.doc_class` presets the document type of a single PDF. Ingestion runs in the background: the answer is `pending`, follow it with the corpus status operations. No country reads a file added here; attach an edition’s text in its change request with platform-knowledge-text-import or -text-upload instead. Other bytes under a file a platform record names are refused with NAME_TAKEN: a named text changes only in a change request. Platform owners only.",
+        "tags": [
+          "platform"
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "doc_class": {
+                    "description": "The document type for a single PDF; omit to let ingestion decide.",
+                    "type": "string",
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Upload a PDF or ZIP to the base corpus",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/change-requests": {
       "post": {
         "operationId": "platform-knowledge-change-request-create",
@@ -28831,7 +29325,7 @@
       "get": {
         "operationId": "platform-knowledge-change-request-list",
         "summary": "List the platform’s knowledge change requests",
-        "description": "Newest first, at most 200; filter by `status`.",
+        "description": "Newest first, at most 200; filter by `status` and by `countryId` for one country.",
         "tags": [
           "platform"
         ],
@@ -28851,6 +29345,17 @@
                 "rolled_back"
               ]
             }
+          },
+          {
+            "name": "countryId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only this country’s requests, by its ISO 3166-1 alpha-2 code; every country when absent.",
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            },
+            "description": "Only this country’s requests, by its ISO 3166-1 alpha-2 code; every country when absent."
           },
           {
             "name": "origin",
@@ -28942,7 +29447,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-decide",
         "summary": "Approve or reject a submitted change request, or give the second review of one approved alone",
-        "description": "The person’s own decision, asked of them. Every request needs a domain expert’s approval (`role: domain_expert`); approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. `override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone (403 without), is refused while a pasted capture is not source-checked by another person, is never implied, and marks the request `approval: single` with a second review due; propose it and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an approved request whose second review is due, another person gives it in each role approved alone they hold (`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed request is not published further; rejecting it again withdraws its preview, and a published one is rolled back (platform-knowledge-rollback), each a separate decision. Answers `secondReviewDue`, the roles still owed. Audited.",
+        "description": "The person’s own decision, asked of them. Every request needs a domain expert’s approval (`role: domain_expert`); approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. `override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone (403 without), is refused while a pasted capture is not source-checked by another person, is never implied, and marks the request `approval: single` with a second review due; propose it and ask, the person decides. On a deployment set to one operator alone (dev) the author’s own source check counts and no second review is due (`secondReview: null`): the author reviews, approves with the override and publishes alone, still audited and marked `single`; the 409 that names the source check says which applies. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an approved request whose second review is due, another person gives it in each role approved alone they hold (`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed request is not published further; rejecting it again withdraws its preview, and a published one is rolled back (platform-knowledge-rollback), each a separate decision. Answers `secondReviewDue`, the roles still owed. Audited.",
         "tags": [
           "platform"
         ],
@@ -29099,7 +29604,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-review",
         "summary": "Record verdicts on the claims of a change request under review",
-        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture, or the manifestation’s text, against its source, which an operator-supplied capture and a text nobody fetched (uploaded, or only named) need before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone stays reviewable until its second review is given.",
+        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture, or the manifestation’s text, against its source, which an operator-supplied capture and a text nobody fetched (uploaded, or only named) need before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request, except on a deployment set to one operator alone (dev): there the author records verdicts, `sourceChecked` included, on their own request. A verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone stays reviewable until its second review is given.",
         "tags": [
           "platform"
         ],
@@ -29266,7 +29771,7 @@
       "post": {
         "operationId": "platform-knowledge-citation-capture",
         "summary": "Capture a page that platform records will cite",
-        "description": "Into a draft change request. `basis: fetched` fetches the URL now through the public-source fetcher, on a host of the configured source `sourceId` (e.g. at-ris), and stores its sha256 and text; `basis: operator_supplied` stores the text you copied from a page that cannot be fetched, which the reviewer must check against its source. The answer says `countsAsFetched`: true only through a built-in source or a released source another person approved. A fetch through a source proposed in this draft works for testing, and is checked by the reviewer like a pasted page. Returns `captureId`: cite it with a quote copied exactly from the page; the kit checks every quote (KC-6).",
+        "description": "Into a draft change request. `basis: fetched` fetches the URL now through the public-source fetcher, on a host of the configured source `sourceId` (e.g. at-ris), and stores its sha256 and text; `basis: operator_supplied` stores the text you copied from a page that cannot be fetched, which the reviewer must check against its source. The answer says `countsAsFetched`: true only through a built-in source or a released source another person approved. A fetch through a source proposed in this draft works for testing, and is checked by the reviewer like a pasted page. Returns `captureId`: cite it with a quote copied exactly from the page; the kit checks every quote (KC-6). A fetched capture of a PDF is also what proves a `pdf_document` source: name its `captureId` as the response of the source’s fixture for that URL, in place of the PDF’s bytes.",
         "tags": [
           "platform"
         ],
@@ -29460,6 +29965,287 @@
         }
       }
     },
+    "/api/platform/knowledge/countries/{countryId}/documents": {
+      "post": {
+        "operationId": "platform-knowledge-document-add",
+        "summary": "Add a PDF to a country from its publisher’s URL, in one call",
+        "description": "The whole flow for one document: `url` is the PDF on a host of one of the country’s sources (refused with HOST_NOT_ON_SOURCE otherwise, and NOT_A_PDF when it answers no PDF). The platform fetches it, so its origin is proven. `work` is `{workKey}` from platform-knowledge-work-list or a new `{title, designation, kind}`. Goes into the country’s open draft change request, or a new one titled for the document when none is open. Proposes the work (when new), the edition and its manifestation, each quoting where the document prints the work’s designation or title and the edition’s label, then attaches the PDF. Returns `changeRequestId`, `opened` (a new request), the keys and the text’s `sha256`. Refused with EDITION_EXISTS when the work has that edition, NOT_PRINTED when the document does not print the designation or label as given. A text step that fails leaves the records in the draft and its refusal carries `changeRequestId`: the same call again reuses the capture and the records and attaches only the text. Then platform-knowledge-validate and -change-request-submit. TEXT_CHANGED when the text fetched is other bytes than the capture the records quote.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "countryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+            },
+            "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "format": "uri",
+                    "description": "The PDF at its publisher, on a host of one of this country’s sources: the platform fetches it itself, so its origin is proven."
+                  },
+                  "work": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "workKey": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+                            "description": "A work of this country, from platform-knowledge-work-list."
+                          }
+                        },
+                        "required": [
+                          "workKey"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300,
+                            "description": "The work’s title as the document prints it."
+                          },
+                          "designation": {
+                            "default": null,
+                            "description": "Its short designation as printed, e.g. a guideline’s number.",
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 120
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "statute",
+                              "ordinance",
+                              "administrative_regulation",
+                              "directive",
+                              "intergovernmental_agreement",
+                              "model_code",
+                              "technical_standard",
+                              "guideline",
+                              "commentary",
+                              "authority_directive"
+                            ],
+                            "description": "What the work is: a statute, an ordinance, a model code, a guideline, a commentary (explanatory notes) and so on."
+                          }
+                        },
+                        "required": [
+                          "title",
+                          "kind"
+                        ]
+                      }
+                    ]
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "The edition as the document prints it, e.g. its date or year; the document must print it."
+                  },
+                  "inForceFrom": {
+                    "default": null,
+                    "description": "The day this edition applies from.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "licenceClass": {
+                    "default": "public_open",
+                    "type": "string",
+                    "enum": [
+                      "public_open",
+                      "public_restricted"
+                    ]
+                  }
+                },
+                "required": [
+                  "url",
+                  "work",
+                  "label"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Add a PDF to a country from its publisher’s URL, in one call",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/countries/{countryId}/documents/upload": {
+      "post": {
+        "operationId": "platform-knowledge-document-add-upload",
+        "summary": "Add an uploaded PDF to a country, in one call",
+        "description": "When no source of the country serves the PDF; otherwise use platform-knowledge-document-add. Send `body.files[0]` (one PDF, up to 32 MiB) and `body.fields`: `work` as JSON, `label`, `inForceFrom`, `publishedAt` (where the publisher publishes it) and `titleText` (the title lines copied from the PDF, which the records quote; the platform does not read the PDF). Nobody fetched it, so the reviewer checks both against the file before anyone approves. Goes into the country’s open draft change request, or a new one titled for the document when none is open. Proposes the work (when new), the edition and its manifestation, each quoting where the document prints the work’s designation or title and the edition’s label, then attaches the PDF. Returns `changeRequestId`, `opened` (a new request), the keys and the text’s `sha256`. Refused with EDITION_EXISTS when the work has that edition, NOT_PRINTED when the document does not print the designation or label as given. A text step that fails leaves the records in the draft and its refusal carries `changeRequestId`: the same call again reuses the capture and the records and attaches only the text. Then platform-knowledge-validate and -change-request-submit.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "countryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+            },
+            "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "work": {
+                    "description": "The work as JSON: {\"workKey\"} or {\"title\",\"designation\",\"kind\"}.",
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "The edition as the document prints it, e.g. its date or year; the document must print it."
+                  },
+                  "inForceFrom": {
+                    "description": "The day this edition applies from, YYYY-MM-DD.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "const": ""
+                      }
+                    ]
+                  },
+                  "publishedAt": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "format": "uri",
+                    "description": "Where the publisher publishes the document, for the reviewer to check the file against."
+                  },
+                  "titleText": {
+                    "type": "string",
+                    "minLength": 15,
+                    "maxLength": 20000,
+                    "description": "The document’s title lines copied from the PDF, naming the work and the edition: what the records quote, checked by the reviewer against the file."
+                  }
+                },
+                "required": [
+                  "file",
+                  "work",
+                  "label",
+                  "publishedAt",
+                  "titleText"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Add an uploaded PDF to a country, in one call",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/documents/{fileName}": {
       "delete": {
         "operationId": "platform-knowledge-document-delete",
@@ -29512,36 +30298,108 @@
           "idempotentHint": true,
           "openWorldHint": false
         }
+      },
+      "get": {
+        "operationId": "platform-knowledge-document-get",
+        "summary": "Read any base-corpus PDF, released or not",
+        "description": "The PDF of one document of the base corpus store, returned as an attached resource up to 5 MiB; a larger file is not sent. It serves documents no organization reads too. The file name comes from platform-knowledge-base-get.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "fileName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The base-corpus file name, exactly as platform-knowledge-base-get lists it."
+            },
+            "description": "The base-corpus file name, exactly as platform-knowledge-base-get lists it."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is a file; the media type depends on the request (a text format such as Markdown or CSV is returned as text). Over MCP it arrives as an embedded resource up to 5 MiB and is described, not sent, above that. A redirect to a time-limited link is handed on as a resource link and never followed.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read any base-corpus PDF, released or not",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
       }
     },
-    "/api/platform/knowledge/documents": {
+    "/api/platform/knowledge/golden-runs": {
       "post": {
-        "operationId": "platform-knowledge-document-upload",
-        "summary": "Upload a PDF or ZIP to the base corpus",
-        "description": "Adds a PDF, or a ZIP of PDFs, to the base corpus store. Up to 32 MiB per call through the agent door. Send `body.files[0]` as { name, mimeType, contentBase64 }; `body.fields.doc_class` presets the document type of a single PDF. Ingestion runs in the background: the answer is `pending`, follow it with the corpus status operations. No country reads a file added here; attach an edition’s text in its change request with platform-knowledge-text-import or -text-upload instead. Other bytes under a file a platform record names are refused with NAME_TAKEN: a named text changes only in a change request. Platform owners only.",
+        "operationId": "platform-knowledge-golden-run",
+        "summary": "Run a country’s golden cases through the real answer path and score them",
+        "description": "Starts a run of the country’s golden cases (golden_case records): the released ones, or with `changeRequestId` those of a change request published to preview. Each case is asked as you, in the platform organization, as agent-ask-create asks, at the site and with the facts the case states, on the law released for that country; the platform organization must be entitled to it. Each answer is scored against its case: expected values present, the edition named, each citation resolving to a cited source and its locus, no must-not violated, with its seconds and its cost from the usage ledger. An expectation with grounding `unconfirmed` is scored and never decides the case. Asks four cases at once and returns the run; then call platform-knowledge-golden-run-advance until `finishedAt` is set. Uses the platform organization’s model budget. Scores are on each answer’s Langfuse trace, under the dataset run `datasetRun`.",
         "tags": [
           "platform"
         ],
         "requestBody": {
           "required": true,
-          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "file": {
+                  "countryId": {
                     "type": "string",
-                    "format": "binary"
+                    "pattern": "^[A-Z]{2}$",
+                    "description": "The country whose golden cases run."
                   },
-                  "doc_class": {
-                    "description": "The document type for a single PDF; omit to let ingestion decide.",
+                  "changeRequestId": {
+                    "description": "Run the golden cases of this change request (published to preview) instead of the released ones.",
                     "type": "string",
-                    "maxLength": 100
+                    "format": "uuid"
+                  },
+                  "caseKeys": {
+                    "description": "Only these cases; all of them when absent.",
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
                   }
                 },
                 "required": [
-                  "file"
+                  "countryId"
                 ]
               }
             }
@@ -29573,10 +30431,139 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Upload a PDF or ZIP to the base corpus",
+          "title": "Run a country’s golden cases through the real answer path and score them",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/golden-runs/{runId}/advance": {
+      "post": {
+        "operationId": "platform-knowledge-golden-run-advance",
+        "summary": "Step a golden run: score the cases that were answered and ask the next",
+        "description": "Waits up to `waitSeconds` for the running cases, scores those whose answer arrived, asks the next pending cases (four at once) and returns the run as platform-knowledge-golden-run-get does. Repeat until `finishedAt` is set. Only the person who started the run steps it. A case that could not be answered is settled with `failure` and no verdict.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The run id, from platform-knowledge-golden-run."
+            },
+            "description": "The run id, from platform-knowledge-golden-run."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "waitSeconds": {
+                    "default": 20,
+                    "description": "How long to wait for running cases before answering.",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 40
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Step a golden run: score the cases that were answered and ask the next",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/golden-runs/{runId}": {
+      "get": {
+        "operationId": "platform-knowledge-golden-run-get",
+        "summary": "Read a golden run: every case with its verdict, checks and scores",
+        "description": "The run’s `summary` (cases pending, asked, settled, passed, failed, unanswered, and expectations no reviewer confirmed), `medianSeconds`, `medianCostUsd`, the stable `releaseSeq` it was answered on, and per case its `state`, `passed`, and `result`: each check (value, edition, citation, must_not) with `passed`, whether it `decides` and why it failed, the scores by name, the confidence the answer stated, its seconds, cost and trace id. The answer itself is in the asker’s own conversation, by `askId` (agent-ask-get).",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The run id, from platform-knowledge-golden-run."
+            },
+            "description": "The run id, from platform-knowledge-golden-run."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read a golden run: every case with its verdict, checks and scores",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
           "openWorldHint": false
         }
       }
@@ -29760,7 +30747,7 @@
       "post": {
         "operationId": "platform-knowledge-records-propose",
         "summary": "Propose up to 200 cited records into a draft change request",
-        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation, relation, ruleset, source; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate.",
+        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation, relation, ruleset, source, golden_case; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate. A source whose fixture names no capture yet (`captureId: null`) is written with `awaiting` on its result: capture the URL through it, then propose it again with the capture’s id.",
         "tags": [
           "platform"
         ],
@@ -29918,22 +30905,17 @@
                             },
                             "identifiers": {
                               "default": {},
-                              "description": "The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.",
+                              "description": "The work’s identifiers at its source, {\"<scheme>\": \"<value>\"}: a passage read live there finds this work when its address carries the value where the country’s source record declares the scheme (`identifiers`, e.g. a query parameter); an undeclared scheme finds nothing. Copy each value from the captured page. At most 8; `designation` is the work’s own field, not a scheme. `eli` (European Legislation Identifier) is a URL ending with \"/\", checked for shape only.",
                               "type": "object",
-                              "properties": {
-                                "ris_gesetzesnummer": {
-                                  "description": "RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. \"20000006\".",
-                                  "type": "string",
-                                  "pattern": "^\\d{1,12}$"
-                                },
-                                "eli": {
-                                  "description": "The European Legislation Identifier of the work, as a URL ending with \"/\"; a passage whose ELI path continues below it is this work (…/1930/11/ never matches …/1930/110/).",
-                                  "type": "string",
-                                  "maxLength": 300,
-                                  "pattern": "\\/$"
-                                }
+                              "propertyNames": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,39}$"
                               },
-                              "additionalProperties": false
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              }
                             },
                             "citations": {
                               "default": [],
@@ -30821,6 +31803,19 @@
                                 "null"
                               ]
                             },
+                            "zone": {
+                              "default": null,
+                              "description": "The IANA time zone a day is read in here; null inherits the nearest parent that states one. Without any, an open procedure’s window is undetermined (zone_unknown).",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z]+(?:\\/[A-Za-z0-9_+-]+){1,2}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "citations": {
                               "default": [],
                               "maxItems": 10,
@@ -30976,7 +31971,8 @@
                                     "fact_definitions",
                                     "fact_sources",
                                     "advice_policy",
-                                    "terminology"
+                                    "terminology",
+                                    "citation_style"
                                   ]
                                 },
                                 "territoryIds": {
@@ -31314,6 +32310,73 @@
                                         "payload": {
                                           "type": "object",
                                           "properties": {
+                                            "addressRegister": {
+                                              "type": "object",
+                                              "properties": {
+                                                "id": {
+                                                  "type": "string",
+                                                  "pattern": "^[a-z]{2}-[a-z0-9-]{1,40}$"
+                                                },
+                                                "publisher": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 200,
+                                                  "description": "Who publishes it, for a person reading where an address was confirmed."
+                                                },
+                                                "municipalityTerritory": {
+                                                  "type": "string",
+                                                  "pattern": "^[A-Z]{2}:[a-z][a-z0-9_]{0,15}:\\{code\\}$",
+                                                  "description": "The territory id of a municipality by its official code in a register row."
+                                                },
+                                                "postcodePattern": {
+                                                  "type": "string",
+                                                  "minLength": 3,
+                                                  "maxLength": 200,
+                                                  "description": "A postcode of this country’s shape: a filter on the register’s rows."
+                                                },
+                                                "crossBorderPostcodePattern": {
+                                                  "description": "A neighbour’s postcodes this country’s addresses are written with: not a filter, and not evidence of the neighbour.",
+                                                  "type": "string",
+                                                  "minLength": 3,
+                                                  "maxLength": 200
+                                                },
+                                                "stateFromCode": {
+                                                  "description": "The state (Land) a municipality lies in, from its code alone; absent when the code names none.",
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "pattern": {
+                                                      "type": "string",
+                                                      "minLength": 3,
+                                                      "maxLength": 200,
+                                                      "description": "Matched against the municipality code; the first group is {1}."
+                                                    },
+                                                    "territory": {
+                                                      "type": "string",
+                                                      "pattern": "^[A-Z]{2}-\\{1\\}$"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "pattern",
+                                                    "territory"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                "downloadUrl": {
+                                                  "type": "string",
+                                                  "maxLength": 500,
+                                                  "format": "uri",
+                                                  "description": "The bulk file the importer reads: an official download, never a query."
+                                                }
+                                              },
+                                              "required": [
+                                                "id",
+                                                "publisher",
+                                                "municipalityTerritory",
+                                                "postcodePattern",
+                                                "downloadUrl"
+                                              ],
+                                              "additionalProperties": false
+                                            },
                                             "subdivisions": {
                                               "type": "object",
                                               "properties": {
@@ -31899,6 +32962,254 @@
                                       "type": "object",
                                       "properties": {
                                         "kind": {
+                                          "const": "citation_style"
+                                        },
+                                        "payloadSchema": {
+                                          "const": "citation_style.v1"
+                                        },
+                                        "payload": {
+                                          "type": "object",
+                                          "properties": {
+                                            "styles": {
+                                              "minItems": 1,
+                                              "maxItems": 10,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "language": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|\\d{3}))?$"
+                                                  },
+                                                  "kinds": {
+                                                    "maxItems": 20,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "match": {
+                                                          "type": "object",
+                                                          "properties": {
+                                                            "authorities": {
+                                                              "default": [],
+                                                              "maxItems": 20,
+                                                              "type": "array",
+                                                              "items": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 64
+                                                              }
+                                                            },
+                                                            "tints": {
+                                                              "default": [],
+                                                              "maxItems": 20,
+                                                              "type": "array",
+                                                              "items": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 64
+                                                              }
+                                                            },
+                                                            "lanePrefixes": {
+                                                              "default": [],
+                                                              "maxItems": 20,
+                                                              "type": "array",
+                                                              "items": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 64
+                                                              }
+                                                            },
+                                                            "origins": {
+                                                              "default": [],
+                                                              "maxItems": 20,
+                                                              "type": "array",
+                                                              "items": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 64
+                                                              }
+                                                            }
+                                                          },
+                                                          "additionalProperties": false
+                                                        },
+                                                        "type": {
+                                                          "type": "string",
+                                                          "enum": [
+                                                            "standard",
+                                                            "legislation"
+                                                          ]
+                                                        },
+                                                        "publisher": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        },
+                                                        "place": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        },
+                                                        "container": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "match",
+                                                        "type"
+                                                      ],
+                                                      "additionalProperties": false
+                                                    }
+                                                  },
+                                                  "edition": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "word": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 200
+                                                      },
+                                                      "label": {
+                                                        "minItems": 1,
+                                                        "maxItems": 12,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      },
+                                                      "months": {
+                                                        "type": "object",
+                                                        "propertyNames": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 20
+                                                        },
+                                                        "additionalProperties": {
+                                                          "type": "integer",
+                                                          "minimum": 1,
+                                                          "maximum": 12
+                                                        }
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "word",
+                                                      "label",
+                                                      "months"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "date": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  },
+                                                  "bareLocus": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  },
+                                                  "page": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  },
+                                                  "lines": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "standard": {
+                                                        "minItems": 1,
+                                                        "maxItems": 12,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      },
+                                                      "legislation": {
+                                                        "minItems": 1,
+                                                        "maxItems": 12,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      },
+                                                      "webpage": {
+                                                        "minItems": 1,
+                                                        "maxItems": 12,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      },
+                                                      "report": {
+                                                        "minItems": 1,
+                                                        "maxItems": 12,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "standard",
+                                                      "legislation",
+                                                      "webpage",
+                                                      "report"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "quote": {
+                                                    "minItems": 1,
+                                                    "maxItems": 12,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "string",
+                                                      "minLength": 1,
+                                                      "maxLength": 200
+                                                    }
+                                                  }
+                                                },
+                                                "required": [
+                                                  "language",
+                                                  "kinds",
+                                                  "date",
+                                                  "bareLocus",
+                                                  "page",
+                                                  "lines",
+                                                  "quote"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "styles"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "payloadSchema",
+                                        "payload"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
                                           "const": "inherits"
                                         },
                                         "inherits": {
@@ -32194,6 +33505,16 @@
                               },
                               "description": "Every host it may reach. Usable by this request’s tests for 24 hours, by everyone once published."
                             },
+                            "copyHosts": {
+                              "default": [],
+                              "description": "Sites that republish its texts: never fetched, never one of hosts.",
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+                              }
+                            },
                             "dataFlow": {
                               "default": "public_only",
                               "description": "site_keyed when a site point (a bbox, a coordinate) is sent: publishing it needs a privacy reviewer.",
@@ -32202,6 +33523,29 @@
                                 "public_only",
                                 "site_keyed"
                               ]
+                            },
+                            "identifiers": {
+                              "default": {},
+                              "description": "How a work’s identifier is read from the address of a passage at this source, by the scheme the knowledge records name it under: {\"<scheme>\": {\"query\": \"<query parameter>\"}}. A cited passage finds its work, and so its role, by it.",
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                              },
+                              "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                  "query": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80
+                                  }
+                                },
+                                "required": [
+                                  "query"
+                                ],
+                                "additionalProperties": false
+                              }
                             },
                             "terms": {
                               "type": "object",
@@ -32360,36 +33704,61 @@
                                       "format": "uri"
                                     },
                                     "additionalProperties": {
-                                      "type": "object",
-                                      "properties": {
-                                        "contentType": {
-                                          "type": "string",
-                                          "minLength": 1,
-                                          "maxLength": 120,
-                                          "description": "e.g. text/html; charset=utf-8, application/geo+json or application/pdf."
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "contentType": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 120,
+                                              "description": "e.g. text/html; charset=utf-8, application/geo+json or application/pdf."
+                                            },
+                                            "body": {
+                                              "type": "string",
+                                              "maxLength": 500000,
+                                              "description": "The body as the source served it: the text itself, or base64 for a binary body."
+                                            },
+                                            "encoding": {
+                                              "default": "utf-8",
+                                              "description": "utf-8 for a text body as it came; base64 for a binary one (a PDF), within the same length.",
+                                              "type": "string",
+                                              "enum": [
+                                                "utf-8",
+                                                "base64"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "contentType",
+                                            "body"
+                                          ],
+                                          "additionalProperties": false
                                         },
-                                        "body": {
-                                          "type": "string",
-                                          "maxLength": 500000,
-                                          "description": "The body as the source served it: the text itself, or base64 for a binary body."
-                                        },
-                                        "encoding": {
-                                          "default": "utf-8",
-                                          "description": "utf-8 for a text body as it came; base64 for a binary one (a PDF), within the same length.",
-                                          "type": "string",
-                                          "enum": [
-                                            "utf-8",
-                                            "base64"
-                                          ]
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "captureId": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "format": "uuid"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ],
+                                              "description": "The id of a fetched capture of this URL, in this change request, through this source. null while it is not taken: the draft is written so its hosts can be fetched, and validate fails until the record names the capture."
+                                            }
+                                          },
+                                          "required": [
+                                            "captureId"
+                                          ],
+                                          "additionalProperties": false
                                         }
-                                      },
-                                      "required": [
-                                        "contentType",
-                                        "body"
-                                      ],
-                                      "additionalProperties": false
+                                      ]
                                     },
-                                    "description": "Every URL the operation requests, with the response recorded for it."
+                                    "description": "Every URL the operation requests, with the response recorded for it: `{contentType, body, encoding}` for a small text or JSON response you copied, or `{captureId}` for a document the platform captured (a PDF: format pdf_document reads the capture’s pages)."
                                   },
                                   "expect": {
                                     "type": "object",
@@ -32410,6 +33779,11 @@
                                 "additionalProperties": false
                               },
                               "description": "Recorded exchanges that prove the record with no live call."
+                            },
+                            "lookup": {
+                              "description": "How a law lookup reads this source, in snake case (see public_sources.lookup): the language, the locus grammar of its texts, the collections its search offers, the territory filter and the wording. Without it, no lookup reads the source.",
+                              "type": "object",
+                              "additionalProperties": {}
                             },
                             "citations": {
                               "default": [],
@@ -32455,6 +33829,430 @@
                             "terms",
                             "access",
                             "fixtures"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "const": "golden_case"
+                            },
+                            "key": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+                            },
+                            "question": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000,
+                              "description": "The question as a person asks it."
+                            },
+                            "language": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+                              "description": "The language of the question and of every expected phrase."
+                            },
+                            "context": {
+                              "default": {
+                                "territoryId": null,
+                                "facts": {},
+                                "referenceDate": null,
+                                "note": null
+                              },
+                              "type": "object",
+                              "properties": {
+                                "territoryId": {
+                                  "default": null,
+                                  "description": "The site the question is asked for; null: asked with no site.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "facts": {
+                                  "default": {},
+                                  "description": "The project facts the question needs, by fact key (fact_definitions).",
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string",
+                                    "pattern": "^[a-z][a-z0-9_]{0,59}$"
+                                  },
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "referenceDate": {
+                                  "default": null,
+                                  "description": "The day the answer is about, e.g. a filing day; null: today.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "note": {
+                                  "default": null,
+                                  "description": "What else the scenario needs that a run cannot state, e.g. an office document.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 500
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "expected": {
+                              "type": "object",
+                              "properties": {
+                                "values": {
+                                  "default": [],
+                                  "maxItems": 12,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "label": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 120,
+                                        "description": "What the value is, e.g. \"longest escape route to the stair\"."
+                                      },
+                                      "anyOf": {
+                                        "minItems": 1,
+                                        "maxItems": 12,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 160
+                                        },
+                                        "description": "The value as an answer may write it; one of them must appear in the answer."
+                                      },
+                                      "grounding": {
+                                        "type": "string",
+                                        "enum": [
+                                          "records",
+                                          "text",
+                                          "unconfirmed"
+                                        ],
+                                        "description": "records, text, or unconfirmed: a reviewer still confirms it against the source."
+                                      }
+                                    },
+                                    "required": [
+                                      "label",
+                                      "anyOf",
+                                      "grounding"
+                                    ]
+                                  }
+                                },
+                                "edition": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "editionKey": {
+                                          "type": "string",
+                                          "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+                                          "description": "The edition a right answer rests on, proposed here or already published."
+                                        },
+                                        "anyOf": {
+                                          "minItems": 1,
+                                          "maxItems": 12,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 160
+                                          },
+                                          "description": "How an answer names that edition, e.g. its label."
+                                        },
+                                        "role": {
+                                          "default": null,
+                                          "description": "What the edition is to the site, when the case states it.",
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "binding",
+                                                "guidance",
+                                                "interpretation",
+                                                "authority_practice",
+                                                "information"
+                                              ]
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "grounding": {
+                                          "type": "string",
+                                          "enum": [
+                                            "records",
+                                            "text",
+                                            "unconfirmed"
+                                          ],
+                                          "description": "records, text, or unconfirmed: a reviewer still confirms it against the source."
+                                        }
+                                      },
+                                      "required": [
+                                        "editionKey",
+                                        "anyOf",
+                                        "grounding"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "citations": {
+                                  "default": [],
+                                  "maxItems": 6,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "designation": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 160,
+                                        "description": "The instrument as its citation names it."
+                                      },
+                                      "alsoKnownAs": {
+                                        "default": [],
+                                        "description": "Other names a source may carry for it.",
+                                        "maxItems": 8,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 160
+                                        }
+                                      },
+                                      "locus": {
+                                        "default": null,
+                                        "description": "The clause, section or paragraph, as the citation writes it.",
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 160
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "grounding": {
+                                        "type": "string",
+                                        "enum": [
+                                          "records",
+                                          "text",
+                                          "unconfirmed"
+                                        ],
+                                        "description": "records, text, or unconfirmed: a reviewer still confirms it against the source."
+                                      }
+                                    },
+                                    "required": [
+                                      "designation",
+                                      "grounding"
+                                    ]
+                                  }
+                                }
+                              }
+                            },
+                            "mustNot": {
+                              "default": [],
+                              "maxItems": 12,
+                              "type": "array",
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "phrase"
+                                      },
+                                      "id": {
+                                        "type": "string",
+                                        "pattern": "^[a-z0-9][a-z0-9-]{0,59}$"
+                                      },
+                                      "in": {
+                                        "default": "answer",
+                                        "type": "string",
+                                        "enum": [
+                                          "answer",
+                                          "confidence_reason"
+                                        ]
+                                      },
+                                      "anyOf": {
+                                        "minItems": 1,
+                                        "maxItems": 12,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 160
+                                        },
+                                        "description": "Violated when one of these appears."
+                                      },
+                                      "whenConfidence": {
+                                        "default": [],
+                                        "description": "Only at these confidence levels; empty: at any.",
+                                        "maxItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "low",
+                                            "medium",
+                                            "high"
+                                          ]
+                                        }
+                                      },
+                                      "whenRecords": {
+                                        "default": "any",
+                                        "description": "unreleased: only while the site’s records are not published.",
+                                        "type": "string",
+                                        "enum": [
+                                          "any",
+                                          "released",
+                                          "unreleased"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "id",
+                                      "anyOf"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "source"
+                                      },
+                                      "id": {
+                                        "type": "string",
+                                        "pattern": "^[a-z0-9][a-z0-9-]{0,59}$"
+                                      },
+                                      "sourceKinds": {
+                                        "minItems": 1,
+                                        "maxItems": 5,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "building_law",
+                                            "office",
+                                            "project",
+                                            "web",
+                                            "measurement"
+                                          ]
+                                        },
+                                        "description": "Violated when the answer cites a source of one of these kinds."
+                                      },
+                                      "naming": {
+                                        "default": [],
+                                        "description": "Only a source whose name or address holds one of these; empty: any such source.",
+                                        "maxItems": 12,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 160
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "id",
+                                      "sourceKinds"
+                                    ]
+                                  }
+                                ],
+                                "discriminator": {
+                                  "propertyName": "kind"
+                                }
+                              }
+                            },
+                            "tags": {
+                              "default": [],
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9:_-]{0,39}$"
+                              }
+                            },
+                            "citations": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
+                                  "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "note": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "key",
+                            "question",
+                            "language",
+                            "expected"
                           ]
                         }
                       ],
@@ -32574,6 +34372,129 @@
         }
       }
     },
+    "/api/platform/knowledge/releases/{countryId}": {
+      "get": {
+        "operationId": "platform-knowledge-release-export",
+        "summary": "Export a country’s stable release as one bundle file, to import on another deployment",
+        "description": "Reads the stable revision of every platform record of the country and answers one versioned bundle as a gzipped JSON file (`knowledge-release-<country>-<seq>.json.gz`): each record as the proposal it was published from (records name each other by key, so they resolve anywhere), the captures its citations name with their text, URL, sha256 and basis, each attached text as its file name, URL and sha256 (never the PDF), and `requires`: records of other countries it names. Writes nothing. Refused while a second review disputes a released record. Upload the file unchanged to platform-knowledge-release-import on the other deployment.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "countryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$",
+              "description": "The country whose stable release is exported, e.g. \"XA\"."
+            },
+            "description": "The country whose stable release is exported, e.g. \"XA\"."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Export a country’s stable release as one bundle file, to import on another deployment",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/releases": {
+      "post": {
+        "operationId": "platform-knowledge-release-import",
+        "summary": "Import another deployment’s release bundle as a new draft change request",
+        "description": "Send the file platform-knowledge-release-export answered as `body.files[0]` ({ name, mimeType, contentBase64 }, up to 32 MiB) and optionally `body.fields.title`. Writes it into a NEW draft change request of its country, and nothing more: it never submits, approves or publishes, so the draft is reviewed here with four eyes like any other. The records are checked as a proposal is first; a bundle that fails is refused whole (422 with the problems) and leaves nothing behind. Every capture comes in as operator-supplied (nobody fetched it here), so a reviewer checks it against its source (`sourceChecked`) before approval. Each manifestation names the released file: attach bytes with the released sha256 through platform-knowledge-text-import (the text’s `url` and `sourceId`) or platform-knowledge-text-upload; other bytes are refused (`TEXT_NOT_RELEASED`). Answers the draft’s id and the `texts` to attach. Refused with `REFERENCE_NOT_RELEASED` while a record names another country’s record this deployment has not released to stable: import and publish that country first. The same bundle again answers the request it went into, `unchanged`, with its `requestStatus`. Then platform-knowledge-validate and platform-knowledge-change-request-submit.",
+        "tags": [
+          "platform"
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "title": {
+                    "description": "The draft’s title; \"Import of <country> release <seq>\" when absent.",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Import another deployment’s release bundle as a new draft change request",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/change-requests/{changeRequestId}/rollback": {
       "post": {
         "operationId": "platform-knowledge-rollback",
@@ -32653,7 +34574,7 @@
       "get": {
         "operationId": "platform-knowledge-schema-get",
         "summary": "Read the JSON Schema of each platform record type",
-        "description": "What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, manifestation, relation, ruleset, source; `type` for one), the citation every record carries, the batch limit and the checks of the validation kit with what to do about each. Read it before the first proposal.",
+        "description": "What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, manifestation, relation, ruleset, source, golden_case; `type` for one), the citation every record carries, the batch limit and the checks of the validation kit with what to do about each. Read it before the first proposal.",
         "tags": [
           "platform"
         ],
@@ -32673,7 +34594,8 @@
                 "manifestation",
                 "relation",
                 "ruleset",
-                "source"
+                "source",
+                "golden_case"
               ]
             },
             "description": "One record type; all of them when absent."
@@ -32850,7 +34772,7 @@
       "post": {
         "operationId": "platform-knowledge-source-test",
         "summary": "Test a public source: its recorded fixtures, and one live probe if asked",
-        "description": "Runs the source record’s recorded fixtures through its access type and engine with no live call (what KC-7 checks), and with `live: true` fetches its monitor probe once through the fetcher. Pass `changeRequestId` to test the source as that open request proposes it: its hosts are usable by that request alone, for 24 hours from the proposal. Without it, the published source. Nothing is stored. 404 for a key nothing registers.",
+        "description": "Runs the source record’s recorded fixtures through its access type and engine with no live call (what KC-7 checks), and with `live: true` fetches its monitor probe once through the fetcher. Pass `changeRequestId` to test the source as that open request proposes it: its hosts are usable by that request alone, for 24 hours from the proposal. Without it, the published source. Nothing is stored. 404 for a key nothing registers. A fixture whose response names a capture is read from that capture; one that names none yet (`captureId: null`) is not run: `awaiting` lists the URLs to capture, and it is not `ok`.",
         "tags": [
           "platform"
         ],
@@ -33407,6 +35329,82 @@
         },
         "x-mcp-annotations": {
           "title": "Run the validation kit on a whole change request",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/countries/{countryId}/works": {
+      "get": {
+        "operationId": "platform-knowledge-work-list",
+        "summary": "List a country’s released works with their editions",
+        "description": "Each released work of `countryId` with its `workKey`, title, designation and kind, and its released editions’ labels: what platform-knowledge-document-add files a PDF under, by `workKey`. Sorted by key; `nextCursor` pages on.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "countryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+            },
+            "description": "The country, ISO 3166-1 alpha-2, from platform-knowledge-overview-get."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "nextCursor of the previous page: the last workKey it held.",
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+            },
+            "description": "nextCursor of the previous page: the last workKey it held."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List a country’s released works with their editions",
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,

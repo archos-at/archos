@@ -61,6 +61,9 @@ gh --version
 
 Start the dev server, then drive it. The preview routes render real components
 from fixtures, so nothing else needs to be running.
+A page behind a session (anything under `/app`) needs the whole app and a
+signed-in user: [`task local:up`](../contributing/local-stack.md) runs it
+locally with a minted session cookie, no WorkOS account needed.
 
 ```bash
 cd apps/workspace && bun run dev        # or: npx next dev --turbopack -p 3311

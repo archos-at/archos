@@ -18,9 +18,10 @@ import { formatIntakeAnswer, labelForProfileKey } from '@/lib/project-profile/in
 import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/project-profile/types'
 import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
 import { gateNamesLaw, type ProjectLaw } from '@/lib/base-knowledge/wire/project-law'
+import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import { deriveAll, withoutDerivedClasses } from './derivation-view'
 import { locationRegisterFor } from './location-register'
-import { BUILDING_CLASS_RULE } from './setup-scope'
+import { BUILDING_CLASS_RULE, setupUnpublished } from './setup-scope'
 import { profileKeyParts } from './profile-edits'
 import {
   MAX_INTAKE_NEEDS,
@@ -142,14 +143,15 @@ function derivationReviews(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
   needs: readonly Need[],
-  lawWithheld: boolean
+  lawWithheld: boolean,
+  records: readonly StoredRuleset[]
 ): DerivationReview[] {
   const classes = new Map(
     profileItems(profile, definition, needs)
       .filter(({ item }) => isDerivedClass(item))
       .map(({ item }) => [item.key, item])
   )
-  return deriveAll(profile, definition, { lawWithheld }).map((derivation) => ({
+  return deriveAll(profile, definition, { lawWithheld, records }).map((derivation) => ({
     ...derivation,
     suggestion: classes.get(`${BUILDING_CLASS_RULE}@${derivation.buildingId}`) ?? null,
   }))
@@ -188,6 +190,8 @@ export interface IntakeViewInput {
   profile: ProjectProfile
   definition: ProjectIntakeDefinition
   needs: readonly Need[]
+  /** The released setup records the review reads its classification and location register from (`readSetupRecords`). */
+  records: readonly StoredRuleset[]
   unreadDocuments: number
   canDecide: boolean
   canComplete: boolean
@@ -229,13 +233,14 @@ export function buildIntakeView(input: IntakeViewInput): IntakeView {
     questions,
     openQuestions,
     groups,
-    derivations: derivationReviews(profile, definition, needs, lawWithheld),
+    derivations: derivationReviews(profile, definition, needs, lawWithheld, input.records),
     canDecide: input.canDecide,
     canComplete: input.canComplete,
     // Step 5, Steckbrief: the law at the site, from the platform's records.
     ...(input.applicableLaw ? { applicableLaw: input.applicableLaw } : {}),
     // Step 4, Rückfragen: what the location decides, and the documents for it.
-    locationRegister: locationRegisterFor({ profile, location: row.location ?? null, mode: row.mode, needs }),
+    locationRegister: locationRegisterFor({ profile, location: row.location ?? null, mode: row.mode, needs, records: input.records }),
+    setupPublished: !setupUnpublished(profile, input.records),
     readingProgress: readingProgressOf(input),
   }
 }

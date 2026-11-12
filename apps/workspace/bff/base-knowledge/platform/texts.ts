@@ -28,7 +28,8 @@ import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { actingClientId } from '@/lib/agent-api/acting-session'
 import type { KnowledgeProvenance, KnowledgeTextProvenance } from '@/lib/db/schema/knowledge-records'
-import { getKnowledgeBaseStatus, streamKnowledgeBaseDocument, uploadKnowledgeBaseDocument } from '@/lib/knowledge/service'
+import { getKnowledgeBaseStatus, uploadKnowledgeBaseDocument } from '@/lib/knowledge/service'
+import { streamKnowledgeBaseDocumentAsPlatform } from '@/lib/knowledge/source-pdf'
 import { CaptureFetchError, type ConfiguredSource, importSourceText } from './capture-fetch'
 import { configuredSource, runKit } from './onboarding'
 import { requirePlatform } from './service-gate'
@@ -96,9 +97,16 @@ async function nameTheText(
     if (request?.status !== 'draft') throw new ConflictError('The change request left draft while the text was stored.')
     // The fetch or the upload ran outside the lock. A proposal of this manifestation made meanwhile is not written
     // over with the snapshot taken before it: the attach is refused, and attaching again names the stored bytes.
-    const latest = proposedRecordSchema.safeParse((await draftManifestation(tx, requestId, recordIdOfKey(record.key)))?.proposal)
+    const current = await draftManifestation(tx, requestId, recordIdOfKey(record.key))
+    const latest = proposedRecordSchema.safeParse(current?.proposal)
     if (!latest.success || JSON.stringify(latest.data) !== JSON.stringify(record)) {
       throw new ConflictError('The manifestation was proposed again while its text was stored; nothing was named. Attach the text again.')
+    }
+    // An imported release names the bytes it was reviewed with (`./release-transfer.ts`): only those are attached to it.
+    if (current?.releasedSha256 && current.releasedSha256 !== text.sha256) {
+      throw new ApiError(409, 'TEXT_NOT_RELEASED', `The imported release has sha256 ${current.releasedSha256} for this text; these bytes have ${text.sha256}, so nothing was named.`, {
+        hint: 'Attach the PDF whose sha256 the import answered for this manifestation, fetched from its URL or uploaded.',
+      })
     }
     const problems = await runKit(tx, request, [next], checks)
     if (problems.length > 0) {
@@ -212,7 +220,7 @@ export async function readPlatformText(session: UserSession | null, requestId: s
   const found = await platformTransaction((tx) => draftManifestation(tx, requestId, recordIdOfKey(manifestationKey)))
   if (!found?.text) throw new NotFoundError(`No manifestation ${manifestationKey} with a text in this change request.`)
   const { corpusFile, sha256 } = found.text
-  const upstream = await streamKnowledgeBaseDocument(corpusFile)
+  const upstream = await streamKnowledgeBaseDocumentAsPlatform(corpusFile)
   const bytes = Buffer.from(await upstream.arrayBuffer())
   if (!sha256 || createHash('sha256').update(bytes).digest('hex') !== sha256) {
     throw new ApiError(409, 'TEXT_CHANGED', `The base corpus keeps other bytes as ${corpusFile} than the ones this change request names; the text is not shown.`, {

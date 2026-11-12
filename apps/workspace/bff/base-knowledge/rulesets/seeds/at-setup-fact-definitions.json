@@ -11,6 +11,18 @@
     "kind": "fact_definitions",
     "payloadSchema": "fact_definitions.v1",
     "payload": {
+      "addressRegister": {
+        "id": "at-bev",
+        "publisher": "BEV – Bundesamt für Eich- und Vermessungswesen (Österreichisches Adressregister)",
+        "municipalityTerritory": "AT:gkz:{code}",
+        "postcodePattern": "^\\d{4}$",
+        "crossBorderPostcodePattern": "^(8756[7-9]|87491)$",
+        "stateFromCode": {
+          "pattern": "^([1-9])\\d{4}$",
+          "territory": "AT-{1}"
+        },
+        "downloadUrl": "https://data.bev.gv.at/download/Adressregister/Archiv_Adressregister/Adresse_Relationale_Tabellen_Stichtagsdaten_{yyyymmdd}.zip"
+      },
       "subdivisions": {
         "factKey": "federal_state",
         "label": "Bundesland",

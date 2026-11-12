@@ -38,6 +38,10 @@ const pathOf = (value: unknown): string => {
 }
 
 const RUNG_DUE = { type: 'xstate.after.rung.turnSocket.active.reconnecting' } as unknown as TurnSocketEvent
+/** The dial's own bound: a socket that was made and never opened. */
+const DIAL_DUE = {
+  type: 'xstate.after.dialLimit.turnSocket.active.connected.dialing',
+} as unknown as TurnSocketEvent
 
 interface Walk {
   snapshot: Snapshot
@@ -120,6 +124,7 @@ const EVENTS: Record<string, TurnSocketEvent> = {
   'PAGE_RESUMED(kept talking)': { type: 'PAGE_RESUMED', socketWentQuiet: false },
   'PAGE_RESUMED(went quiet)': { type: 'PAGE_RESUMED', socketWentQuiet: true },
   RUNG_DUE,
+  DIAL_DUE,
 }
 
 type Move = [state: string, ...announced: TurnSocketStatus[]]
@@ -157,6 +162,7 @@ const MOVES: Record<keyof typeof REACH, Record<string, Move>> = {
     'SOCKET_CLOSED(4426)': OUTDATED,
     'PAGE_RESUMED(kept talking)': OPENING,
     'PAGE_RESUMED(went quiet)': OPENING,
+    DIAL_DUE: RECONNECTING,
   },
   'active.connected.greeting': {
     RECONNECT: OPENING,
@@ -274,6 +280,19 @@ describe('the ladder', () => {
       HERE
     )
     expect(run.state).toBe('active.failed')
+  })
+
+  it('takes a rung for a dial nobody answered, gives up as failed, and rests suspended on a hidden page', () => {
+    const hung = walk([...TO_DIALING, DIAL_DUE], { delaysMs: [10] }, HERE)
+    expect(hung.state).toBe('active.reconnecting')
+    expect(hung.snapshot.context.attempts).toBe(1)
+    expect(hung.actions).toContain('dropSocket')
+    const spent = walk([...TO_DIALING, DIAL_DUE], { delaysMs: [] }, HERE)
+    expect(spent.state).toBe('active.failed')
+    expect(spent.announced).toEqual(['connecting', 'reconnecting', 'failed'])
+    const away = walk([...TO_DIALING, DIAL_DUE], { delaysMs: [10] }, HIDDEN)
+    expect(away.state).toBe('active.suspended')
+    expect(away.snapshot.context.attempts).toBe(0)
   })
 
   it('takes a rung for a preparation that failed and for a socket that could not be made, and gives up as failed', () => {

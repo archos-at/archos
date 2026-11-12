@@ -31,9 +31,12 @@ import {
   TERRITORY_KINDS,
 } from '@/lib/base-knowledge/wire/vocab'
 import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
-import { sourceRecordFields } from '@/lib/base-knowledge/wire/source'
+import { identifierSchemeSchema, sourceRecordFields } from '@/lib/base-knowledge/wire/source'
+import { MAX_SOURCE_REFS } from '@/lib/base-knowledge/chain/source-refs'
+import { goldenCaseFields } from '@/lib/base-knowledge/wire/golden-case'
 import { appliesWhenTableSchema } from '@/lib/base-knowledge/wire/applies-when'
 import { transitionTableSchema } from '@/lib/base-knowledge/wire/time'
+import { zoneSchema } from '@/lib/base-knowledge/wire/zone'
 
 /** ISO 3166-1 alpha-2: what an office is entitled to and a platform record belongs to. */
 export const countryIdSchema = z
@@ -106,22 +109,22 @@ const workRecord = z.object({
     .default(['site'])
     .describe('What the work attaches to: site, office_seat (HOAI), client (VgV). Anything but site never binds by the site alone.'),
   identifiers: z
-    .object({
-      'ris_gesetzesnummer': z
-        .string()
-        .regex(/^\d{1,12}$/)
-        .optional()
-        .describe('RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. "20000006".'),
-      eli: z
-        .url()
-        .max(300)
-        .regex(/\/$/, 'an ELI ends with "/": a passage is this work only below that whole path segment')
-        .optional()
-        .describe('The European Legislation Identifier of the work, as a URL ending with "/"; a passage whose ELI path continues below it is this work (…/1930/11/ never matches …/1930/110/).'),
+    .record(
+      identifierSchemeSchema,
+      z.string().trim().min(1).max(300),
+    )
+    .refine((identifiers) => Object.keys(identifiers).length <= MAX_SOURCE_REFS, `at most ${MAX_SOURCE_REFS} identifiers`)
+    .superRefine((identifiers, ctx) => {
+      // ELI is a European standard, not a country's: the one scheme whose value is checked here.
+      const eli = identifiers.eli
+      if (eli !== undefined && !(z.url().safeParse(eli).success && eli.endsWith('/'))) {
+        ctx.addIssue({ code: 'custom', path: ['eli'], message: 'an ELI is a URL ending with "/"' })
+      }
     })
-    .strict()
     .default({})
-    .describe('The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.'),
+    .describe(
+      'The work’s identifiers at its source, {"<scheme>": "<value>"}: a passage read live there finds this work when its address carries the value where the country’s source record declares the scheme (`identifiers`, e.g. a query parameter); an undeclared scheme finds nothing. Copy each value from the captured page. At most ' + String(MAX_SOURCE_REFS) + '; `designation` is the work’s own field, not a scheme. `eli` (European Legislation Identifier) is a URL ending with "/", checked for shape only.',
+    ),
   ...common,
 })
 
@@ -191,6 +194,7 @@ const territoryRecord = z.object({
     .default(null)
     .describe('How far the records go here (none, open, core, full); null inherits from the parent. Only a publish changes it.'),
   municipalLaw: z.boolean().nullable().default(null).describe('Whether this node’s own municipal law is held.'),
+  zone: zoneSchema.nullable().default(null).describe('The IANA time zone a day is read in here; null inherits the nearest parent that states one. Without any, an open procedure’s window is undetermined (zone_unknown).'),
   ...common,
 })
   // `parentIds` and `datedParents` became `parents` (0219): a proposal still naming them is refused, never stripped.
@@ -254,11 +258,23 @@ const rulesetRecord = z.object({
 })
 
 /** A public source (ADR-0174): its key is the source id the fetcher, captures and monitors name. */
-const sourceRecord = z.object({
-  type: z.literal('source'),
-  ...sourceRecordFields,
-  ...common,
-})
+const sourceRecord = z
+  .object({
+    type: z.literal('source'),
+    ...sourceRecordFields,
+    ...common,
+  })
+  .superRefine((record, ctx) => {
+    // The fetcher refuses a record whose copies are its own hosts (public_sources `Source`): refused here,
+    // or it would be released and every lookup would fall back past it.
+    const own = new Set(record.hosts)
+    record.copyHosts.forEach((host, index) => {
+      if (own.has(host)) ctx.addIssue({ code: 'custom', path: ['copyHosts', index], message: `${host} is one of hosts, not a copy` })
+    })
+  })
+
+// A golden case (0228): one question of a country's quality bar (`wire/golden-case.ts`).
+const goldenCaseRecord = z.object({ type: z.literal('golden_case'), key: keySchema, ...goldenCaseFields(territoryIdSchema, keySchema), ...common })
 
 export const proposedRecordSchema = z.discriminatedUnion('type', [
   workRecord,
@@ -269,6 +285,7 @@ export const proposedRecordSchema = z.discriminatedUnion('type', [
   rulesetRecord,
   relationRecord,
   sourceRecord,
+  goldenCaseRecord,
 ])
 export type ProposedRecord = z.infer<typeof proposedRecordSchema>
 
@@ -294,6 +311,11 @@ export interface ProposalRecordResult {
   status: 'valid' | 'invalid' | 'written' | 'unchanged'
   revisionId: string | null
   problems: KitProblemView[]
+  /**
+   * What the record still waits for before the request validates, each with what to do: a source whose fixture
+   * names no capture yet (`captureId: null`) is written into the draft with this set, and fails validate until it is recorded.
+   */
+  awaiting?: string[]
 }
 
 /** A problem of the validation kit as the wire carries it (`validate.ts`). */
@@ -373,7 +395,7 @@ export interface CaptureView {
 }
 
 /** Every record type `records-propose` takes, in the order the guide proposes them; held to `proposedRecordSchema`'s union by `wire.spec.ts`. */
-export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'relation', 'ruleset', 'source'] as const
+export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'relation', 'ruleset', 'source', 'golden_case'] as const
 
 export const schemaQuerySchema = z.object({
   type: z.enum(PROPOSED_RECORD_TYPES).optional().describe('One record type; all of them when absent.'),
@@ -468,6 +490,7 @@ export const MAX_CHANGE_REQUEST_PAGE = 200
 
 export const listChangeRequestsQuerySchema = z.object({
   status: z.enum(CHANGE_REQUEST_STATUSES).optional(),
+  countryId: countryIdSchema.optional().describe('Only this country’s requests, by its ISO 3166-1 alpha-2 code; every country when absent.'),
   origin: z
     .enum(CHANGE_REQUEST_ORIGINS)
     .optional()
@@ -575,44 +598,5 @@ export interface IndexStatusView {
   texts: { revisionId: string; corpusFile: string; state: 'requested' | 'queued' | 'failed' | 'indexed'; failure: string | null }[]
 }
 
-export interface OrganizationCountriesView {
-  homeCountry: string | null
-  entitled: { countryId: string; source: 'home' | 'platform'; entitledAt: string | null }[]
-}
-
-/**
- * Why an office has no home country (ADR-0158): its WorkOS metadata names one, which the next signed-in page load
- * writes; or no row yet and nothing names one; or a row whose admins never stated it.
- */
-export const UNPLACED_REASONS = ['directory_names', 'no_row', 'not_stated'] as const
-
-/** One office's placement as the platform reads it: `platform-org-countries-list`. */
-export interface OrganizationPlacementView {
-  organizationId: string
-  name: string
-  homeCountry: string | null
-  /** Null once placed. `directoryHomeCountry`: what the WorkOS organization's metadata names, if anything. */
-  unplaced: { reason: (typeof UNPLACED_REASONS)[number]; directoryHomeCountry: string | null } | null
-  /** Its home first (source `home`), then each country the platform entitled it to, with who and how. */
-  entitled: {
-    countryId: string
-    source: 'home' | 'platform'
-    entitledAt: string | null
-    entitledBy: string | null
-    decisionSource: string | null
-  }[]
-}
-
-export interface PlatformOrganizationCountries {
-  /** This page's offices, the unplaced first, then by name. */
-  organizations: OrganizationPlacementView[]
-  /** How many on this page have no home country. */
-  unplaced: number
-  /** Pass as `cursor` for the next page; null on the last. */
-  nextCursor: string | null
-}
-
-export const listOrganizationCountriesQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).optional().describe('Organizations per page; 100 at most and by default.'),
-  cursor: z.string().trim().min(1).max(200).optional().describe('nextCursor of the previous page.'),
-})
+// Where each office is placed (its home country and entitlements): `./organization-countries-wire.ts`.
+export * from './organization-countries-wire'

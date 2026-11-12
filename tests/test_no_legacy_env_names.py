@@ -28,7 +28,6 @@ ALLOWED = (
     "apps/workspace/scripts/legacy-env-names.cjs",
     "apps/workspace/scripts/legacy-env-names.spec.mjs",
     "deploy/compose/docker-compose.yaml",
-    "deploy/compose/docker-compose.coolify.yaml",
     "docs/deployment/environment-variables.md",
     "docs/adr/0145-the-repository-is-laid-out-by-job.md",
     "docs/adr/0079-background-work-runs-on-one-claim-substrate.md",

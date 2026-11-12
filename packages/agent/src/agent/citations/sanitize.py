@@ -16,6 +16,8 @@ from agent.citations.references import REFERENCE_SECTION_RE
 from agent.citations.report_layout import normalize_citation_syntax
 from agent.citations.report_layout import normalize_source_section_layout
 from agent.citations.report_layout import renumber_citations
+from agent.common.url_safety import host_problem
+from agent.common.url_safety import strip_signed_query
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +47,6 @@ _SHORTENER_DOMAINS = frozenset(
 
 # Patterns indicating a truncated/garbled URL
 _TRUNCATED_URL_RE = re.compile(r"\.\.\.$|…$")  # ends in ... or ellipsis
-
-
-# Suspicious URL patterns
-_IP_ADDRESS_RE = re.compile(r"^https?://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
 
 
 _SUSPICIOUS_SCHEMES_RE = re.compile(r"^(?:javascript|data|vbscript|file):", re.IGNORECASE)
@@ -113,7 +111,7 @@ def sanitize_report(report_text: str) -> ReportSanitizationResult:
        be fully expanded (no bit.ly, t.co, etc.).
     4. Remove truncated/garbled URLs — URLs ending in '...' or with no
        path (domain-only like 'https://arxiv.org') are incomplete.
-    5. Block unsafe URLs — no IP-address URLs, no non-http schemes.
+    5. Block unsafe URLs and strip signed queries (``common/url_safety.py``).
     6. Renumber citations after verification/sanitization and trim any
        trailing source-section meta-commentary.
 
@@ -169,6 +167,18 @@ def sanitize_report(report_text: str) -> ReportSanitizationResult:
     )
 
 
+def _normalized(raw_url: str) -> str | None:
+    """A captured URL in the registry's normal form; None for one that cannot be parsed.
+
+    The URL patterns stop at ``]``, so an IPv6 literal arrives as ``https://[::1`` and ``urlparse`` raises on
+    it. Until 2026-11-11 that took the whole answer down; such an address matches no source and is removed.
+    """
+    try:
+        return normalize_url(raw_url.rstrip(URL_TRIM_CHARS))
+    except ValueError:
+        return None
+
+
 class _BodyUrls:
     """URL hygiene for the report body: a URL a reference lists becomes its ``[N]``, any other is removed."""
 
@@ -180,8 +190,9 @@ class _BodyUrls:
         self._url_to_citation: dict[str, int] = {}
         for m in CITATION_LINE_RE.finditer(ref_section):
             url_m = _BARE_URL_RE.search(m.group(2))
-            if url_m:
-                self._url_to_citation[normalize_url(url_m.group(0).rstrip(URL_TRIM_CHARS))] = int(m.group(1))
+            normalized = _normalized(url_m.group(0)) if url_m else None
+            if normalized is not None:
+                self._url_to_citation[normalized] = int(m.group(1))
 
     def clean(self, body: str) -> str:
         """The body with its links collapsed to their text and its bare URLs replaced or removed.
@@ -213,8 +224,8 @@ class _BodyUrls:
         return cleaned
 
     def _replace_url(self, match: re.Match) -> str:
-        normalized = normalize_url(match.group(0).rstrip(URL_TRIM_CHARS))
-        if normalized in self._url_to_citation:
+        normalized = _normalized(match.group(0))
+        if normalized is not None and normalized in self._url_to_citation:
             self.replaced += 1
             return f"[{self._url_to_citation[normalized]}]"
         self.removed += 1
@@ -240,6 +251,7 @@ class _VettedSources:
     shortened: list[str] = field(default_factory=list)
     truncated: list[str] = field(default_factory=list)
     unsafe: list[str] = field(default_factory=list)
+    signed_queries_stripped: int = 0
 
 
 def _url_problem(line: str, url_match: re.Match) -> tuple[str, str] | None:
@@ -248,7 +260,10 @@ def _url_problem(line: str, url_match: re.Match) -> tuple[str, str] | None:
     # Check for non-http schemes embedded in text
     if _SUSPICIOUS_SCHEMES_RE.search(line):
         return "unsafe", url
-    parsed = urlparse(url)
+    try:
+        parsed = urlparse(url)
+    except ValueError:  # an IPv6 literal the URL pattern cut at its bracket
+        return "unsafe", url_match.group(0)
     # Check 2: shortened URLs. Strip www. and port for comparison
     bare_domain = parsed.netloc.lower().split(":")[0]
     if bare_domain.startswith("www."):
@@ -259,10 +274,21 @@ def _url_problem(line: str, url_match: re.Match) -> tuple[str, str] | None:
     raw_url = url_match.group(0)
     if _TRUNCATED_URL_RE.search(raw_url) or "…" in raw_url:
         return "truncated", raw_url
-    # Check 4: IP address URLs and non-http schemes
-    if _IP_ADDRESS_RE.match(url) or parsed.scheme not in ("http", "https"):
+    # Check 4: an address that may not be shown as a source (``common/url_safety.py``): https only, a
+    # public DNS name, never an IP literal, localhost, a single-label or an in-cluster host.
+    if host_problem(url) is not None:
         return "unsafe", url
     return None
+
+
+def _without_signed_query(line: str, url_match: re.Match, vetted: _VettedSources) -> str:
+    """The source line with its address's signed query taken off (a pre-signed link carries a credential)."""
+    url = url_match.group(0).rstrip(URL_TRIM_CHARS)
+    stripped = strip_signed_query(url)
+    if stripped == url:
+        return line
+    vetted.signed_queries_stripped += 1
+    return line[: url_match.start()] + stripped + line[url_match.start() + len(url) :]
 
 
 def _vet_source_urls(ref_section: str) -> _VettedSources:
@@ -280,13 +306,13 @@ def _vet_source_urls(ref_section: str) -> _VettedSources:
         url_match = _BARE_URL_RE.search(line)
         problem = _url_problem(line, url_match) if url_match else None
         if problem is None:
-            kept.append(line)
+            kept.append(_without_signed_query(line, url_match, vetted) if url_match else line)
             continue
         kind, url = problem
         getattr(vetted, kind).append(url)
         if line_m := CITATION_LINE_RE.match(line):
             vetted.removed_numbers.add(int(line_m.group(1)))
-    if len(kept) != len(ref_lines):
+    if kept != ref_lines:
         vetted.ref_section = "\n".join(kept)
     for kind, what in (("shortened", "shortened"), ("truncated", "truncated/incomplete"), ("unsafe", "unsafe")):
         if urls := getattr(vetted, kind):

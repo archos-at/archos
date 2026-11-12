@@ -87,8 +87,10 @@ Chosen option 3.
   own or, only when that node says `inherits: parent`, its parent's
   (`explicit`). No ruleset is `undetermined: no_rule`; two for one node, purpose
   and date are `ambiguous_rules`. A work-targeted ruleset wins for its works.
-- **Austria first.** `rulesets/seeds/at-oib-2023-building-class.json` holds the
-  OIB 2023 classification as data; `rulesets/building-class.ts` reads a
+- **Austria first.** `configs/knowledge-packs/at-setup.json` holds the
+  OIB 2023 classification as data (a change request an operator proposes; the
+  build keeps the same record as a seed, `rulesets/seeds/`, read only while none
+  is released); `rulesets/building-class.ts` reads a
   Building's profile into facts and returns `deriveBuildingClass`'s own shape.
   Nothing in the product decides from it yet: S9 moves the derivation onto it
   and deletes the coded rules.

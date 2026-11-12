@@ -230,6 +230,31 @@ describe('InboxList — states', () => {
     expect(refresh).toHaveBeenCalled()
   })
 
+  test('a read that fails with rows on screen keeps the rows', () => {
+    // A background re-read (a live nudge, the poll) that failed once used to
+    // replace a working list with the load error.
+    page.search = 'filter=all'
+    useInboxListMock.mockReturnValue(result({ items: [ITEM], error: true }))
+    render(<InboxList />)
+    expect(screen.getByTestId('inbox-item')).toBeInTheDocument()
+    expect(screen.queryByText('Your inbox could not be loaded.')).not.toBeInTheDocument()
+    page.search = ''
+  })
+
+  test('a section is keyed by its span, so the ones under a section that left stay mounted', () => {
+    page.search = 'filter=all'
+    const old = { ...ITEM, id: 'i-old', updatedAt: '2020-01-01T08:00:00Z' }
+    const today = { ...ITEM, id: 'i-today', updatedAt: new Date().toISOString() }
+    useInboxListMock.mockReturnValue(result({ items: [today, old] }))
+    const { rerender } = render(<InboxList />)
+    const older = screen.getAllByTestId('inbox-section')[1]
+    useInboxListMock.mockReturnValue(result({ items: [old] }))
+    rerender(<InboxList />)
+    // Keyed by its place it became „the first section“ and was built again: its rows jumped instead of closing the gap.
+    expect(screen.getAllByTestId('inbox-section')).toContain(older)
+    page.search = ''
+  })
+
   test('the empty state differs by filter', () => {
     useInboxListMock.mockReturnValue(result())
     page.search = ''

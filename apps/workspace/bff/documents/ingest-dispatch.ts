@@ -12,7 +12,8 @@ import { presignForBackend, buildThumbnailStorageKey } from '@/lib/s3'
 import { resolveDocumentBucket } from '@/lib/storage/bucket'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { projectFactsForIngest } from '@/lib/cross-project/project-facts-mirror'
-import { findDocumentInOrg, markDocumentIngestFailed, setDocumentIngestJob } from './repository'
+import { findDocumentInOrg, markDocumentIngestFailed, setDocumentIngestJob, type DispatchStart } from './repository'
+import { extractIngestJobId } from './lost-job'
 import { internalRead } from './document-reader'
 import { announceIngestStarted } from '@/lib/analytics/ingest-events'
 import { filingChoiceRecord } from './filing-choice'
@@ -295,6 +296,12 @@ export async function dispatchIngest(
   // Read from the row rather than threaded through every caller; a failed read
   // books the spend to the organization alone, never fails the dispatch.
   const attribution = await findDocumentInOrg(documentId, organizationId, internalRead('ingest')).catch(() => null)
+  // The row as this dispatch found it. The backend may answer much later, and
+  // what is then written, the job or the failure, lands only if no newer
+  // dispatch or re-upload has taken the row meanwhile (`unchangedSinceDispatch`).
+  const start: DispatchStart | undefined = attribution
+    ? { ingestJobId: extractIngestJobId(attribution.metadata), storageKey: attribution.storageKey }
+    : undefined
   const projectFacts = await projectFactsForIngest(attribution?.projectId, organizationId)
   // The content gate's rules (ADR-0086). Every path into the index passes this
   // line — upload, re-ingest, re-index, Archiv, chat, the IFC digest — so the
@@ -304,7 +311,7 @@ export async function dispatchIngest(
   try {
     screening = await ingestScreeningFor(organizationId, attribution)
   } catch {
-    await markDocumentIngestFailed(documentId, organizationId, INGEST_DISPATCH_FAILED_MESSAGE)
+    await markDocumentIngestFailed(documentId, organizationId, INGEST_DISPATCH_FAILED_MESSAGE, start)
     return { jobId: null, status: 'failed' }
   }
 
@@ -388,7 +395,7 @@ export async function dispatchIngest(
       mailThread: extras.mailThread,
       mailOrigin: extras.mailThread ? null : extras.mailOrigin,
     })
-    const moved = await setDocumentIngestJob(documentId, organizationId, ingestJobId, filingChoice)
+    const moved = await setDocumentIngestJob(documentId, organizationId, ingestJobId, filingChoice, start)
     // The start of the clock `document_ingest_finished.duration_ms` measures: a row
     // with a start and no finish for an hour is a document waiting for somebody.
     if (moved) {
@@ -407,6 +414,6 @@ export async function dispatchIngest(
   // leaving the row at its birth status ('uploaded', which the badge renders
   // green "Ready") would promise citations for a document nothing ever
   // indexed. Failed with retry offered is the honest state either way.
-  await markDocumentIngestFailed(documentId, organizationId, INGEST_DISPATCH_FAILED_MESSAGE)
+  await markDocumentIngestFailed(documentId, organizationId, INGEST_DISPATCH_FAILED_MESSAGE, start)
   return { jobId: null, status: 'failed' }
 }

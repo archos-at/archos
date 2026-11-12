@@ -126,6 +126,7 @@ const ALL_TYPES = [
   'conversation.activity',
   'storage.quota_warning',
   'document.assigned_to_you',
+  'resource.ownership_taken',
   'task_run.completed',
   'task_run.failed',
   'task_run.waiting',

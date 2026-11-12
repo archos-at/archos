@@ -10,6 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CONNECTION_WAIT_NOTE_AFTER_MS } from '@/adapters/api/connection-wait'
 import type { TurnSocket, TurnSocketOptions } from '@/adapters/api/turn-socket'
 import type { ClientMessage } from '@/adapters/api/wire-v2'
 import type { TurnView } from '@/features/chat/lib/turn-fold'
@@ -346,5 +347,36 @@ describe('a turn that goes silent', () => {
     expect(last().phase).toBe('running')
     socket.options()?.onSilent?.(['turn-1'])
     expect(last()).toMatchObject({ phase: 'failed', error: { code: 'agent.response_interrupted' } })
+  })
+
+  it('says the connection is being restored when its socket stays unconnected under a running turn, and when it is back', async () => {
+    vi.useFakeTimers()
+    const socket = scriptedSocket()
+    const restoring: boolean[] = []
+    const views: TurnView[] = []
+    const client = createCanvasTurnClient({
+      conversationId: 'conv_1',
+      documentId: 'doc_1',
+      title: 'Grundriss.pdf',
+      onTurn: (view) => views.push(view),
+      onRestoring: (on) => restoring.push(on),
+      createSocket: socket.create,
+      fetch: recordedFetch().run,
+    })
+    await client.ask({ text: 'Was ist das?' }, 'turn-1')
+    socket.deliver(1, { type: 'RUN_STARTED', message_id: 'a-1' })
+    expect(views.at(-1)?.phase).toBe('running')
+
+    // The socket drops under the turn: nothing for a drop the first attempt mends.
+    socket.options()?.onStatus?.('reconnecting')
+    vi.advanceTimersByTime(CONNECTION_WAIT_NOTE_AFTER_MS - 1)
+    expect(restoring).toEqual([])
+    socket.options()?.onStatus?.('connecting')
+    vi.advanceTimersByTime(1)
+    expect(restoring).toEqual([true])
+    // The turn is still the person's to wait on: the client has not failed it.
+    expect(views.at(-1)?.phase).toBe('running')
+    socket.options()?.onStatus?.('open')
+    expect(restoring).toEqual([true, false])
   })
 })

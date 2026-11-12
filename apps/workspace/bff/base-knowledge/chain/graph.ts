@@ -9,7 +9,7 @@ import type { Applicability } from '../rulesets/applicability'
 import type { AppliesWhenTable } from '../wire/applies-when'
 import type { SourceRef } from './source-refs'
 import type { TerritoryParent } from './territory-chain'
-import type { BindingMode, ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
+import type { BindingMode, ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind, TextStatus } from '../wire/vocab'
 
 /** Who owns a record: the platform, or the office reading it. Another office's records are never in a graph. */
 export type GraphOwner = 'platform' | 'office'
@@ -40,7 +40,7 @@ export interface GraphWork {
   addresseeTerritoryIds: readonly string[]
   /** What it attaches to (0213); absent reads as the site. */
   connectsBy?: readonly ConnectingFactor[]
-  /** Its identifiers at its source (`ris_gesetzesnummer`, `eli`): how a passage read live finds it; absent reads as none. */
+  /** Its identifiers at its source, by the scheme its source record declares (`eli`, a law number): how a passage read live finds it; absent reads as none. */
   sourceRefs?: readonly SourceRef[]
   /** The first day whose edition is held (0206); absent or null: no earlier than the oldest edition present. */
   historyAvailableFrom?: string | null
@@ -62,6 +62,8 @@ export interface GraphEdition {
   appliesWhen?: AppliesWhenTable | null
   /** Where a person opens its text: the page its platform manifestation cites first; absent when none cites one. */
   sourceUrl?: string | null
+  /** The platform manifestation that holds its text: its language (BCP 47) and what that text is (authentic, a translation); absent when none is held. */
+  text?: { language: string; status: TextStatus } | null
 }
 
 export interface RelationAnchorPair {
@@ -107,6 +109,8 @@ export interface RouteStep {
   /** `territory` for law in its territory, else the relation it follows. */
   via: 'territory' | 'relation'
   workId: string
+  /** For a `relation` step, the edition of the declaring instrument the route came through; null for law read live at its source. */
+  editionId?: string | null
   /** The relation followed, for a `relation` step. */
   relationId?: string
   provision?: string | null
@@ -143,6 +147,4 @@ export interface ResolvedChain {
   uses: readonly EditionUse[]
   /** Law on the chain left out because its edition at the date is unknown, never guessed (`time/editions.ts`). */
   undetermined: readonly UndeterminedLaw[]
-  /** More uses than one resolution returns: what was left out reads as nothing, so a caller fails closed. */
-  truncated: boolean
 }

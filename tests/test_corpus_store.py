@@ -455,6 +455,38 @@ class TestMarkGeneration:
         assert _job_done("a.pdf", _sha(b"alpha"), FORMAT) is True
 
 
+class TestReleased:
+    """A release marks a file released, a rollback unreleased with its country kept (ADR-0173)."""
+
+    def test_a_file_is_read_by_its_countries_until_it_is_withdrawn(self, bucket):
+        corpus_store.put("a.pdf", b"alpha")
+        corpus_store.set_mark("a.pdf", corpus_store.FileMark(country_id="XA", released=True))
+        assert corpus_store.released_to("a.pdf", ["XA"])
+        assert not corpus_store.released_to("a.pdf", ["XB"])
+
+        corpus_store.set_mark("a.pdf", corpus_store.FileMark(country_id="XA", released=False))
+
+        assert not corpus_store.released_to("a.pdf", ["XA"])
+        assert corpus_store.get_mark("a.pdf") == corpus_store.FileMark(country_id="XA", released=False)
+        assert corpus_store.begin_job("a.pdf").job_config() == {"country_id": "XA", "released": False}
+
+    def test_a_row_from_before_the_flag_is_read_by_its_country_alone(self, bucket):
+        corpus_store.put("a.pdf", b"alpha")
+        corpus_store.set_mark("a.pdf", corpus_store.FileMark(country_id="XA"))
+
+        assert corpus_store.released_to("a.pdf", ["XA"])
+        assert corpus_store.begin_job("a.pdf").job_config() == {"country_id": "XA"}
+
+    def test_a_mark_table_created_before_the_flag_gets_its_column_on_first_use(self, bucket):
+        corpus_store.set_mark("a.pdf", corpus_store.FileMark(country_id="XA"))
+        with corpus_store._transaction() as conn:
+            conn.exec_driver_sql("ALTER TABLE oib_corpus_marks DROP COLUMN released")
+        corpus_store._initialized.clear()
+
+        assert corpus_store.get_mark("a.pdf") == corpus_store.FileMark(country_id="XA")
+        assert corpus_store.released_to("a.pdf", ["XA"])
+
+
 class TestFailure:
     def test_a_job_that_gave_up_is_remembered_against_the_bytes_it_gave_up_on(self, bucket):
         corpus_store.put("a.pdf", b"alpha")

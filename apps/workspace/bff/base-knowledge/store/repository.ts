@@ -37,6 +37,7 @@ import {
   knowledgeTerritoryRevisions,
 } from '@/lib/db/schema/knowledge-platform'
 import { knowledgeSourceRevisions } from '@/lib/db/schema/knowledge-sources'
+import { knowledgeGoldenCaseRevisions } from '@/lib/db/schema/knowledge-golden'
 import type { EntryCheck, EntryValues } from '../wire'
 import { OFFICE_WORK_KINDS, type OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 
@@ -68,7 +69,7 @@ export interface StoredEntry extends EntryRecordIds {
 
 export const newRecordId = (type: KnowledgeRecordType) => `${type}_${randomUUID()}`
 
-/** Each record type's body table (0202, 0204, 0205, 0211, 0212): the one list every reader of revision bodies walks. */
+/** Each record type's body table (0202, 0204, 0205, 0211, 0212, 0228): the one list every reader of revision bodies walks. */
 export const BODY_TABLES = {
   work: knowledgeWorkRevisions,
   edition: knowledgeEditionRevisions,
@@ -78,6 +79,7 @@ export const BODY_TABLES = {
   authority: knowledgeAuthorityRevisions,
   relation: knowledgeRelationRevisions,
   source: knowledgeSourceRevisions,
+  golden_case: knowledgeGoldenCaseRevisions,
 } as const
 
 /**

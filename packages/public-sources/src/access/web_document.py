@@ -36,6 +36,7 @@ class WebDocumentConfig(AccessConfig):
 class WebDocument(AccessType):
     name = "web_document"
     config_model = WebDocumentConfig
+    served_operations = ("document",)
 
     def document(self, document_id: str) -> Document:
         for document in self.config.documents:

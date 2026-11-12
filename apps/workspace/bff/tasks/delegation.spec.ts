@@ -11,7 +11,10 @@ vi.mock('./repository', () => ({
   insertDefinitionWithRun: vi.fn(),
   insertRun: vi.fn(),
   updateRun: vi.fn(),
+  closeActiveRun: vi.fn(),
+  findRunById: vi.fn(),
 }))
+vi.mock('./run-moves', () => ({ recordSubmission: vi.fn() }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/jobs/service', () => ({
@@ -42,6 +45,7 @@ import { AGENT_RUN_INPUT_MAX_CHARS } from '@/lib/jobs/types'
 import { createTaskThread, submitAgentRun } from '@/lib/jobs/service'
 import { resolveSkillSnapshot } from '@/lib/skills/service'
 import * as repository from './repository'
+import { recordSubmission } from './run-moves'
 import {
   commissionResearchRun,
   delegateTask,
@@ -69,6 +73,26 @@ let insertedDefinition: TaskDefinition
 /** The inserted run, as the database would hand it back. */
 let insertedRun: TaskRun
 
+/**
+ * The two writes a submit makes, over the inserted run as the database holds
+ * it: the references always, the status only from `queued` to `running`, and
+ * an ending only onto a live row. What `./run-moves` and `closeActiveRun` do
+ * in SQL (`reconcile.integration.spec.ts` holds that).
+ */
+function storedRunWrites() {
+  vi.mocked(recordSubmission).mockImplementation(async (_id, _org, { status, ...references }) => {
+    const starts = status === 'running' && insertedRun.status === 'queued'
+    insertedRun = { ...insertedRun, ...references, ...(starts ? { status, startedAt: new Date() } : {}) } as TaskRun
+    return insertedRun
+  })
+  vi.mocked(repository.closeActiveRun).mockImplementation(async (_id, _org, patch) => {
+    if (insertedRun.status !== 'queued' && insertedRun.status !== 'running') return null
+    insertedRun = { ...insertedRun, ...patch, finishedAt: new Date() } as TaskRun
+    return insertedRun
+  })
+  vi.mocked(repository.findRunById).mockImplementation(async () => insertedRun)
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(repository.insertDefinition).mockImplementation(async (values) => {
@@ -91,6 +115,7 @@ beforeEach(() => {
     return insertedRun
   })
   vi.mocked(repository.updateRun).mockImplementation(async (_id, _org, patch) => ({ ...insertedRun, ...patch }) as TaskRun)
+  storedRunWrites()
   vi.mocked(createTaskThread).mockResolvedValue('s_definition_thread')
   vi.mocked(submitAgentRun).mockImplementation(async (spec) => ({
     backendJobId: 'backend-1',
@@ -140,7 +165,8 @@ describe('delegateTask', () => {
     const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'compliance_check', goal: 'Prüf das Haus A' })
 
     expect(run?.status).toBe('queued')
-    expect(vi.mocked(repository.updateRun).mock.calls[0][2]).toMatchObject({ status: 'queued', startedAt: null })
+    expect(run?.startedAt ?? null).toBeNull()
+    expect(vi.mocked(recordSubmission).mock.calls[0][2]).toMatchObject({ status: 'queued' })
   })
 
   it('runs every kind as a chat output, so the work lands in a real thread', async () => {
@@ -155,10 +181,10 @@ describe('delegateTask', () => {
       // Aufträge card shows, so both surfaces name one run the same way.
       title: 'Dokument: Schreib den Aktenvermerk',
     })
-    expect(insertedRun.conversationId).toBeNull()
+    expect(vi.mocked(repository.insertDefinitionWithRun).mock.calls[0][1]).not.toHaveProperty('conversationId')
     // The conversation id comes back from the submission and is recorded, so
     // the card can link a reader to the work rather than only announce it.
-    const updated = vi.mocked(repository.updateRun).mock.calls[0][2]
+    const updated = vi.mocked(recordSubmission).mock.calls[0][2]
     expect(updated).toMatchObject({
       status: 'running',
       backendJobId: 'backend-1',
@@ -186,7 +212,7 @@ describe('delegateTask', () => {
       conversationId: 's_live_chat',
       runId: 'run-1',
     })
-    expect(vi.mocked(repository.updateRun).mock.calls[0][2]).toMatchObject({
+    expect(vi.mocked(recordSubmission).mock.calls[0][2]).toMatchObject({
       conversationId: 's_live_chat',
       runMessageId: 'msg-run-1',
     })
@@ -335,24 +361,71 @@ describe('delegateTask', () => {
   it('does not call a submitted run failed when recording it fails (#723)', async () => {
     // The backend accepted the job; the database write after it did not land.
     // The run is running, and saying `failed` would tell the reader it is not.
-    vi.mocked(repository.updateRun).mockRejectedValue(new Error('connect EHOSTUNREACH 10.0.0.1:5432'))
+    vi.mocked(recordSubmission).mockRejectedValue(new Error('connect EHOSTUNREACH 10.0.0.1:5432'))
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
 
     expect(run?.status).toBe('running')
     expect(run?.backendJobId).toBeTruthy()
-    expect(vi.mocked(repository.updateRun).mock.calls.map(([, , patch]) => patch.status)).toEqual(['running'])
+    expect(vi.mocked(recordSubmission).mock.calls.map(([, , submission]) => submission.status)).toEqual(['running'])
+    expect(repository.closeActiveRun).not.toHaveBeenCalled()
   })
 
   it('still returns the failed run when recording the failure fails too', async () => {
     vi.mocked(submitAgentRun).mockRejectedValue(new JobSubmitError('backend unreachable', 502))
-    vi.mocked(repository.updateRun).mockRejectedValue(new Error('the database system is shutting down'))
+    vi.mocked(repository.closeActiveRun).mockRejectedValue(new Error('the database system is shutting down'))
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
 
     expect(run?.status).toBe('failed')
+  })
+
+  describe('what the submit records follows the run lifecycle', () => {
+    /** The kill switch, or the worker, reaching the row while the submit is still out. */
+    function duringTheSubmit(change: Partial<TaskRun>) {
+      vi.mocked(submitAgentRun).mockImplementation(async (spec) => {
+        insertedRun = { ...insertedRun, ...change } as TaskRun
+        return { backendJobId: 'backend-1', conversationId: spec.conversationId, runMessageId: `msg-${spec.runId}`, queued: change.status === 'running' }
+      })
+    }
+
+    it('never writes a status past the lifecycle: no unconditional update carries one', async () => {
+      await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
+
+      const statusWrites = vi.mocked(repository.updateRun).mock.calls.filter(([, , patch]) => 'status' in patch)
+      expect(statusWrites).toEqual([])
+      expect(recordSubmission).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps the ending of a row the kill switch closed during the submit, and still records the job', async () => {
+      duringTheSubmit({ status: 'interrupted', error: 'Abgebrochen.' })
+
+      const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
+
+      expect(run).toMatchObject({ status: 'interrupted', error: 'Abgebrochen.', backendJobId: 'backend-1' })
+    })
+
+    it('does not put a run the worker already started back to queued', async () => {
+      const startedAt = new Date('2026-11-11T10:00:00.000Z')
+      duringTheSubmit({ status: 'running', startedAt })
+
+      const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
+
+      expect(run).toMatchObject({ status: 'running', startedAt, backendJobId: 'backend-1' })
+    })
+
+    it('keeps the ending that stands when the submit fails on a row already ended', async () => {
+      vi.mocked(submitAgentRun).mockImplementation(async () => {
+        insertedRun = { ...insertedRun, status: 'interrupted', error: 'Abgebrochen.' } as TaskRun
+        throw new JobSubmitError('backend unreachable', 502)
+      })
+
+      const { run } = await delegateTask(session, { projectId: PROJECT, kind: 'document', goal: 'Schreib das' })
+
+      expect(run).toMatchObject({ status: 'interrupted', error: 'Abgebrochen.' })
+    })
   })
 
   it('audits the creation as `task.created`, with the trigger named', async () => {
@@ -461,6 +534,7 @@ describe('what a delegated run is told to produce', () => {
     return insertedRun
   })
   vi.mocked(repository.updateRun).mockImplementation(async (_id, _org, patch) => ({ ...insertedRun, ...patch }) as TaskRun)
+  storedRunWrites()
       vi.mocked(submitAgentRun).mockResolvedValue({
         backendJobId: 'b',
         conversationId: null,
@@ -610,7 +684,7 @@ describe('commissionResearchRun — an escalated question becomes a run', () => 
     })
 
     expect(result.status).toBe('failed')
-    expect(vi.mocked(repository.updateRun).mock.calls[0][2]).toMatchObject({
+    expect(vi.mocked(repository.closeActiveRun).mock.calls[0][2]).toEqual({
       status: 'failed',
       error: 'backend unreachable',
     })

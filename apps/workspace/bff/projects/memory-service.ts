@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import { getDb } from '@/lib/db'
 import { executeRows } from '@/lib/db/execute-rows'
-import { BadRequestError } from '@/lib/api/errors'
+import { BadRequestError, ConflictError } from '@/lib/api/errors'
 import type { OffsetPage } from '@/lib/api/offset-page'
 import { sourceFoldersOfCollections } from '@/lib/authz/folder-access'
 import { isProjectClosed, projectClosedError } from './project-status'
@@ -15,18 +15,16 @@ import {
   NEAR_DUP_MIN_TOKENS,
   contentTokens,
   jaccardSimilarity,
+  assertionRelation,
   normalizeContent,
-  polaritySignature,
+  type AssertionRelation,
 } from '@/lib/knowledge/consolidation'
 import { formatBoundedDigest } from '@/lib/knowledge/digest-format'
-import {
-  embedNote,
-  embedNotes,
-  enrichForEmbedding,
-  toVectorLiteral,
-  type EmbeddedNote,
-} from '@/lib/knowledge/embeddings'
+import { embedNote, enrichForEmbedding, toVectorLiteral, type EmbeddedNote } from '@/lib/knowledge/embeddings'
+import { assertStorableNote } from '@/lib/knowledge/note-content-guard'
 import { daysSince, fuseHybridRelevance, rankByRecallScore } from '@/lib/knowledge/recall-scoring'
+import { STALE_VECTOR, backfillAfterRecall, embedStoredNote } from './memory-embedding'
+import { refuseStatusMove, statusMayBecome, supersedable } from './memory-status'
 import { RECALL_CANDIDATE_LIMIT, selectRecallCandidates, type DigestTiming } from './memory-recall'
 import { maskChatText } from '@/lib/upload-screening/service'
 
@@ -179,11 +177,10 @@ async function findActiveDuplicate(
 /** Bound on the candidate scan (most recently updated active items in scope). */
 const NEAR_DUP_CANDIDATE_LIMIT = 200
 
-/** A near-identical existing item, and whether it asserts the OPPOSITE. */
+/** A near-identical existing item, and what the incoming note is to it (`assertionRelation`). */
 interface NearMatch {
   item: ProjectMemoryItem
-  /** True when the two contents are near-identical but disagree in polarity. */
-  opposedPolarity: boolean
+  relation: AssertionRelation
 }
 
 /**
@@ -195,7 +192,7 @@ interface NearMatch {
  *
  * The match is classified rather than merged blindly: at this overlap the item
  * is either the same fact restated (→ merge) or the same fact CORRECTED
- * (→ supersede). See NEGATION_TOKENS.
+ * (→ supersede). See `assertionRelation`.
  */
 async function findActiveNearMatch(
   values: Pick<
@@ -228,10 +225,7 @@ async function findActiveNearMatch(
     }
   }
   if (!best) return null
-  return {
-    item: best,
-    opposedPolarity: polaritySignature(values.content) !== polaritySignature(best.content),
-  }
+  return { item: best, relation: assertionRelation(values.content, best.content) }
 }
 
 /**
@@ -257,8 +251,8 @@ const SEMANTIC_DUP_THRESHOLD = 0.9
  * incoming note is the same statement, and the same statement filed once as a
  * `constraint` and once as a `derived_fact` is one fact with two rows — the
  * "there should be only one entry" a reviewer sees. It carries the same
- * polarity check: at this similarity the incoming finding is either the same
- * fact restated (merge) or the same fact CORRECTED (supersede), and merging a
+ * classification: at this similarity the incoming finding is either the same
+ * fact restated or the same fact CORRECTED (supersede), and merging a
  * correction is how memory becomes uncorrectable. Cosine is computed in SQL so
  * candidate vectors never cross the wire.
  *
@@ -316,10 +310,7 @@ async function findSemanticNearMatch(
     confidence: (raw.confidence as ProjectMemoryConfidence | undefined) ?? 'medium',
     supersedesId: (raw.supersedes_id as string | null) ?? null,
   } as ProjectMemoryItem
-  return {
-    item,
-    opposedPolarity: polaritySignature(values.content) !== polaritySignature(item.content),
-  }
+  return { item, relation: assertionRelation(values.content, item.content) }
 }
 
 /**
@@ -454,7 +445,7 @@ export async function listProjectMemory(
 
 export async function listOrganizationMemory(
   organizationId: string,
-  options: { includeArchived?: boolean; page?: OffsetPage } = {}
+  options: { includeArchived?: boolean; sourceConversationId?: string; page?: OffsetPage } = {}
 ): Promise<ProjectMemoryItem[]> {
   const db = getDb()
   const conditions = [
@@ -467,6 +458,8 @@ export async function listOrganizationMemory(
   if (!options.includeArchived) {
     conditions.push(eq(projectMemory.status, 'active'))
   }
+  // The office's notes written from one conversation: what its „noted" chip may offer to take back.
+  if (options.sourceConversationId) conditions.push(eq(projectMemory.sourceConversationId, options.sourceConversationId))
   const query = db
     .select()
     .from(projectMemory)
@@ -493,10 +486,15 @@ export interface CreateMemoryOptions {
   onSuperseded?: (supersededId: string) => void
 }
 
-/** Refresh a duplicate in place: recency + the best-known confidence. */
+/**
+ * Refresh a duplicate in place: recency + the best-known confidence. `rewrite`
+ * also takes the incoming text, for a duplicate the index calls equal while it
+ * asserts something else (`≤ 40 m` against `≥ 40 m`); the backfill re-embeds it.
+ */
 async function refreshDuplicate(
   duplicate: ProjectMemoryItem,
-  values: NewProjectMemoryItem
+  values: NewProjectMemoryItem,
+  rewrite = false
 ): Promise<ProjectMemoryItem> {
   const db = getDb()
   const incoming = (values.confidence ?? 'medium') as ProjectMemoryConfidence
@@ -506,15 +504,26 @@ async function refreshDuplicate(
       : duplicate.confidence
   const [updated] = await db
     .update(projectMemory)
-    .set({ confidence: best, lastReferencedAt: new Date(), updatedAt: new Date() })
+    .set({
+      ...(rewrite ? { content: values.content, ...STALE_VECTOR } : {}),
+      confidence: best,
+      lastReferencedAt: new Date(),
+      updatedAt: new Date(),
+    })
     .where(eq(projectMemory.id, duplicate.id))
     .returning()
   return updated ?? duplicate
 }
 
-/** A note's text as it may be stored, embedded and served: masked (ADR-0086). */
-async function maskedNote(organizationId: string, content: string): Promise<string> {
-  return (await maskChatText(organizationId, content)).text
+/**
+ * A note's text as it may be stored, embedded and served: masked (ADR-0086),
+ * and refused when what the mask left still holds a secret, or, for a write
+ * no person typed, a way to reach one (`note-content-guard.ts`).
+ */
+async function storableNote(organizationId: string, content: string, refuseContact: boolean): Promise<string> {
+  const text = (await maskChatText(organizationId, content)).text
+  assertStorableNote(text, { refuseContact })
+  return text
 }
 
 export async function createProjectMemoryItem(
@@ -533,8 +542,10 @@ export async function createProjectMemoryItem(
   // it (ADR-0086): a note rides every turn's digest and goes to the embedder
   // below, so it must not hold what the chat composer would have removed. Here
   // rather than at each caller, so the memory panel, the organization route,
-  // the agent's `remember` tool and reflection are all masked by construction.
-  const content = await maskedNote(input.organizationId, input.content)
+  // the agent's `remember` tool and reflection are all masked, and refused a
+  // secret, by construction. A contact detail is refused for every writer but
+  // a person, who may put a colleague's address on the team's shelf themselves.
+  const content = await storableNote(input.organizationId, input.content, input.provenanceType !== 'user')
   // The judge's verdict rides only on a note that ended up restricted (the
   // 0117 CHECK): on an open note it would tell any project member that the
   // chat could list a restricted folder. The audit trail has every verdict.
@@ -544,15 +555,20 @@ export async function createProjectMemoryItem(
   // Write-time consolidation (design §3.2). Three outcomes, in order:
   //
   //  1. Exact normalized duplicate → refresh in place, no new row.
-  //  2. Same-kind paraphrase → refresh in place IF it says the same thing;
-  //     if it says the OPPOSITE it is a correction, so it supersedes instead.
+  //  2. Near-duplicate → refresh in place UNLESS it is `corrected`: a changed
+  //     number, date, negation, comparison or word supersedes. A human-curated
+  //     note is never retired: its correction is recorded beside it
+  //     (`conflictsWithId`). A rewording only the vector saw merges.
   //  3. A caller-named supersede target → that entry is retired.
   //
-  // Without (2)'s polarity split a correction scores as a duplicate and is
-  // silently dropped while the stale row gets a fresh timestamp — memory then
-  // can never be corrected, only appended to.
+  // Merging in (2) keeps the OLD text, so a correction that merges is silently
+  // dropped while the stale row gets a fresh timestamp — memory then can never
+  // be corrected, only appended to.
   const exact = await findActiveDuplicate(values)
-  if (exact) return refreshDuplicate(exact, values)
+  if (exact) {
+    const corrected = assertionRelation(values.content, exact.content) === 'corrected'
+    return refreshDuplicate(exact, values, corrected && isAgentSupersedable(exact))
+  }
 
   // One embedding per write, reused for BOTH the semantic dedup probe and the
   // stored vector — so consolidation and future recall cost one call between
@@ -567,7 +583,7 @@ export async function createProjectMemoryItem(
   const named = options.supersedesContent?.trim()
     ? await resolveSupersedeTarget(values, options.supersedesContent)
     : null
-  if (near && !near.opposedPolarity) {
+  if (near && near.relation !== 'corrected') {
     const refreshed = await refreshDuplicate(near.item, values)
     // The finding restates a row we already hold — and the caller ALSO named
     // the entry it makes obsolete. Merging must not swallow that: the named
@@ -577,47 +593,35 @@ export async function createProjectMemoryItem(
       const retired = await db
         .update(projectMemory)
         .set({ status: 'superseded', updatedAt: new Date() })
-        .where(and(eq(projectMemory.id, named.id), eq(projectMemory.status, 'active')))
+        .where(and(eq(projectMemory.id, named.id), supersedable()))
         .returning({ id: projectMemory.id })
       if (retired.length > 0) options.onSuperseded?.(named.id)
     }
     return refreshed
   }
 
-  const candidate = near?.item ?? named
-
-  let supersedeTarget: ProjectMemoryItem | null = null
-  let conflictsWithId: string | null = null
-  if (candidate) {
-    if (isAgentSupersedable(candidate)) {
-      supersedeTarget = candidate
-    } else {
-      // Both stay active and the user resolves it in the memory panel — the
-      // new finding is still recorded, it just doesn't retire a human's entry.
-      // Recorded ON THE ROW, not only in this log line: the contradiction is a
-      // fact about the project (two live notes disagree, and a person's wins
-      // until a person says otherwise), and a panel can only show a conflict
-      // the database remembers.
-      conflictsWithId = candidate.id
-      console.warn(
-        `[memory] Not superseding human-curated item ${candidate.id} (pinned/user-confirmed/user-authored)`
-      )
-    }
+  // What this write replaces: the near-duplicate it rewords or corrects, and
+  // the entry the caller named, when they are two rows. An agent retires what
+  // an agent wrote; a human-curated entry stays active beside the new finding
+  // and the user resolves it in the memory panel. That conflict is recorded ON
+  // THE ROW: two live notes disagree, a person's wins until a person says
+  // otherwise, and a panel can only show a conflict the database remembers.
+  const replaced = [near?.item, named].filter(
+    (item, index, all): item is ProjectMemoryItem => !!item && all.findIndex((other) => other?.id === item.id) === index
+  )
+  const retiring = replaced.filter(isAgentSupersedable)
+  const supersedeTarget = retiring[0] ?? null
+  const conflictsWithId = replaced.find((item) => !isAgentSupersedable(item))?.id ?? null
+  if (conflictsWithId) {
+    console.warn(`[memory] Not superseding human-curated item ${conflictsWithId} (pinned/user-confirmed/user-authored)`)
   }
 
-  const withVector: NewProjectMemoryItem = embedded
-    ? {
-        ...values,
-        embedding: embedded.vector,
-        embeddingModel: embedded.fingerprint,
-        embeddedAt: new Date(),
-      }
-    : values
-  const insertValues: NewProjectMemoryItem = supersedeTarget
-    ? { ...withVector, supersedesId: supersedeTarget.id }
-    : conflictsWithId
-      ? { ...withVector, conflictsWithId }
-      : withVector
+  const insertValues: NewProjectMemoryItem = {
+    ...values,
+    ...(embedded ? { embedding: embedded.vector, embeddingModel: embedded.fingerprint, embeddedAt: new Date() } : {}),
+    ...(supersedeTarget ? { supersedesId: supersedeTarget.id } : {}),
+    ...(conflictsWithId ? { conflictsWithId } : {}),
+  }
 
   try {
     if (!supersedeTarget) {
@@ -629,14 +633,16 @@ export async function createProjectMemoryItem(
     // without the replacement (a fact silently disappearing from the digest).
     return await db.transaction(async (tx) => {
       const [item] = await tx.insert(projectMemory).values(insertValues).returning()
-      const retired = await tx
-        .update(projectMemory)
-        .set({ status: 'superseded', updatedAt: new Date() })
-        .where(and(eq(projectMemory.id, supersedeTarget.id), eq(projectMemory.status, 'active')))
-        .returning({ id: projectMemory.id })
-      // Reported only for a retirement this call performed (a concurrent writer
-      // may have retired the target first, matching zero rows).
-      if (retired.length > 0) options.onSuperseded?.(supersedeTarget.id)
+      for (const target of retiring) {
+        const retired = await tx
+          .update(projectMemory)
+          .set({ status: 'superseded', updatedAt: new Date() })
+          .where(and(eq(projectMemory.id, target.id), supersedable()))
+          .returning({ id: projectMemory.id })
+        // Reported only for a retirement this call performed (a concurrent writer
+        // may have retired the target first, matching zero rows).
+        if (retired.length > 0) options.onSuperseded?.(target.id)
+      }
       return item
     })
   } catch (err) {
@@ -779,18 +785,28 @@ export async function updateProjectMemoryItem(
     >
   >
 ): Promise<ProjectMemoryItem | null> {
-  const db = getDb()
-  // An edited note is typed text like a new one, and masked the same way.
+  // An edited note is typed text like a new one: masked, and refused a secret.
   const masked =
     patch.content === undefined
       ? patch
-      : { ...patch, content: await maskedNote(owner.organizationId, patch.content) }
-  const [item] = await db
-    .update(projectMemory)
-    .set({ ...masked, updatedAt: new Date() })
-    .where(and(eq(projectMemory.id, itemId), ownerCondition(owner)))
-    .returning()
-  return item ?? null
+      : { ...patch, content: await storableNote(owner.organizationId, patch.content, false) }
+  // The vector describes the text and the kind it was made from: an edit of
+  // either drops it in the same statement, so the note is never matched or
+  // recalled by what it used to say, and is embedded again right after.
+  const reworded = patch.content !== undefined || patch.kind !== undefined
+  try {
+    const [item] = await getDb()
+      .update(projectMemory)
+      .set({ ...masked, ...(reworded ? STALE_VECTOR : {}), updatedAt: new Date() })
+      .where(and(eq(projectMemory.id, itemId), ownerCondition(owner), statusMayBecome(patch.status)))
+      .returning()
+    if (!item) return patch.status ? refuseStatusMove(itemId, ownerCondition(owner), patch.status) : null
+    return reworded ? embedStoredNote(item) : item
+  } catch (error) {
+    // The 0010 index: another active note of this shelf already says this.
+    if (isUniqueViolation(error)) throw new ConflictError('Another note already says this')
+    throw error
+  }
 }
 
 export async function deleteProjectMemoryItem(
@@ -1069,21 +1085,8 @@ export async function buildProjectMemoryDigest(
   )
   const keptRecalled = ranked.slice(0, recallSlots).map((entry) => unpinned[entry.index])
 
-  // Self-healing backfill: rows written while the embedder was down (or before
-  // it existed) stay on the lexical path until something embeds them. This is
-  // that something — a bounded, fire-and-forget batch per digest build, so an
-  // ACTIVE project heals itself and a dormant one costs nothing.
-  if (queryText && !denseCanMatter) {
-    // Every candidate here lacks a vector: the rows the skipped embed would
-    // have had backfilled, so skipping the wait never stops the healing.
-    void backfillMemoryEmbeddings(candidates.slice(0, MEMORY_BACKFILL_BATCH))
-  } else if (embedded) {
-    const unembedded = candidates
-      .filter((candidate) => candidate.relevance === null)
-      .filter((candidate) => !embeddedFingerprintMatches(rows, candidate.id, embedded.fingerprint))
-      .slice(0, MEMORY_BACKFILL_BATCH)
-    if (unembedded.length > 0) void backfillMemoryEmbeddings(unembedded)
-  }
+  // Rows that missed their vector are embedded now, fire-and-forget.
+  backfillAfterRecall(candidates, rows, embedded, Boolean(queryText) && !denseCanMatter)
 
   const selected = [...keptPinned, ...keptRecalled]
   const { digest, kept } = await formatAdmittedDigest(
@@ -1102,47 +1105,6 @@ export async function buildProjectMemoryDigest(
   if (queryText) void markMemoryRecalled(kept.map((item) => item.id))
 
   return digest
-}
-
-/** Rows already carrying a vector from the CURRENT model need no backfill. */
-function embeddedFingerprintMatches(
-  rows: { id: string; embeddingModel: string | null }[],
-  id: string,
-  fingerprint: string
-): boolean {
-  return rows.some((row) => row.id === id && row.embeddingModel === fingerprint)
-}
-
-/** Backfill batch per digest build — small on purpose; the next build continues. */
-const MEMORY_BACKFILL_BATCH = 8
-
-/**
- * Embed and store vectors for notes that missed theirs. Fire-and-forget and
- * tenant-scoped: called inside the digest's `withTenant` scope, and the async
- * continuation inherits it, so RLS still applies to the update.
- */
-async function backfillMemoryEmbeddings(
-  items: Pick<RecallCandidate, 'id' | 'kind' | 'content'>[]
-): Promise<void> {
-  try {
-    const embedded = await embedNotes(
-      items.map((item) => enrichForEmbedding(item.content, [item.kind]))
-    )
-    if (!embedded) return
-    const db = getDb()
-    for (let index = 0; index < items.length; index++) {
-      await db
-        .update(projectMemory)
-        .set({
-          embedding: embedded[index].vector,
-          embeddingModel: embedded[index].fingerprint,
-          embeddedAt: new Date(),
-        })
-        .where(eq(projectMemory.id, items[index].id))
-    }
-  } catch (error) {
-    console.warn('[memory] Embedding backfill failed (non-fatal):', error)
-  }
 }
 
 /**

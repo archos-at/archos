@@ -1102,16 +1102,18 @@ in a per-turn `ContextVar` that `ChatAgent.run` opens beside
 looks the block up by that hash and builds `SourceEntry`s by field copy, so a
 passage body cannot supply a header field the producer omitted. `ChatAgent.run`
 is the only caller that opens the capture, so the structured read is what a
-Piloti turn gets for `knowledge_search`, `read_passage` and `ris_lookup`, and
+Piloti turn gets for `knowledge_search`, `read_passage` and `law_lookup`, and
 the deep researcher, the conversation path and the job runner parse the text.
 The text parsers in `citations/text_parsers.py`
 (`_parse_knowledge_layer` and the eleven `_KL_*` regexes) stay for the callers
 that hold the bytes without the records: a registry hydrated from the shared
 cache, a turn replayed out of Postgres, and the job runner's callback in
 `apps/agent-host/src/agent_host/jobs/callbacks.py`. A text those parsers find no
-`Citation:` line in carries no sources at all; the generic URL extractor beneath
-them reads the tools with no registered parser (web search), never a passage
-body. Nothing reads a FAILED call either: both capture loops skip a
+`Citation:` line in carries no sources at all. A web search is read by its
+result records (`citations/web_results.py`: one `<Document href>` header per
+hit, never an address inside a page's text, and no address `common/url_safety.py`
+refuses); the generic URL extractor beneath them reads only the tools with no
+registered parser, never a passage body. Nothing reads a FAILED call either: both capture loops skip a
 `ToolMessage` whose `status` is `error`, so the words a tool failure returns are
 the model's to act on and nobody's evidence. The contract test asserts the
 two readers produce the same entries
@@ -1181,7 +1183,7 @@ downstream learns a second shape. That claim was false for one release:
 fell to the non-URL fallback and registered one source whose citation key was
 the string `read_passage`. A citation to a passage the turn OPENED rather than
 searched was then dropped as `citation_key_not_in_registry`. The tool name is
-registered explicitly now, beside `ris_lookup`. Its collection scope, base corpus and file
+registered explicitly now, beside `law_lookup` (and `ris_lookup`, its name in a stored turn). Its collection scope, base corpus and file
 exclusions are read off the `knowledge_search` instance named in its config
 (`knowledge_search: knowledge_search`) rather than restated, so the two cannot
 end up pointed at different corpora. And it is listed under the same
@@ -1430,9 +1432,9 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   re-verification. Austria: the nine state building codes, Wiener
   Garagengesetz, WBTV, Kleingartengesetz, and the federal acts (ASchG, AStV,
   BKAG, ZTG, WGG, DMSG, UVP-G, WRG, ForstG, GewO). Pointer index only: full
-  texts are still fetched live — by `ris_lookup` on the chat surface (it takes
+  texts are still fetched live — by `law_lookup` on the chat surface (it takes
   the pointer, downloads the law and returns the answering §§ as citable
-  passages: `packages/ris-adapter/src/lookup/`), and by `ris_fetch_document` in
+  passages: `packages/agent/src/agent/knowledge/law_lookup/`), and by `ris_fetch_document` in
   deep research, which still drives the three older RIS tools itself.
 - **The OIB corpus is not in the catalog.** The `oib_corpus_files` table and its
   objects → `oib_knowledge` are its own source of truth; what a corpus file *is* (Richtlinie / Leitfaden /
@@ -1468,7 +1470,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   Bundesland lane (other states' law is dropped — `focus_entries` semantics).
   Addresses only, and only where the run's knowledge context lets the RIS
   tools run (`law_gate.law_sources_withheld`); no `binding_note`, no corpus
-  edition, no verdicts (ADR-0175). **Piloti renders none of it**: `ris_lookup`
+  edition, no verdicts (ADR-0175). **Piloti renders none of it**: `law_lookup`
   resolves a catalog pointer out of the question itself (ADR-0060 amendment).
 - **Which law applies** — the turn's knowledge context alone (ADR-0173,
    ADR-0175, `common/knowledge_context.py`). The BFF resolves it on every turn
@@ -1495,7 +1497,13 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    `apps/workspace/tests/fixtures/knowledge-context.schema.json`. It is the turn's one answer to which
    law applies: the citation chip reads the same roles the gate does
    (`citations/roles.py`), so a citation never says binding where the gate says
-   information. The chain text is the turn context's
+   information. A cited passage finds its use by the id of the record it was
+   read as (`SourceEntry.edition_id`, `work_id`: a corpus point's
+   `knowledge_edition_id`, a legal-database passage's work by the identifier
+   its source record reads off the document), never by a URL, a host or a file
+   name's spelling, and the citation then carries the use's edition label,
+   route, dates, language and public address
+   ([`design/citations.md`](../design/citations.md), slice 1). The chain text is the turn context's
    `<building_law>` block (`law_gate.turn_building_law_block`), the only
    building-law text a turn reads, and a gate that withholds law shows the
    note instead. A cited base-corpus passage maps to its edition by its
@@ -2000,11 +2008,28 @@ The agent can now persist curated findings across turns. Full design:
   `organizationId`, `projectId` null).
 - **Read path**: `buildProjectMemoryDigest()`
   (`apps/workspace/bff/projects/memory-service.ts`) merges org-wide +
-  project items (active only; pinned first, then most recently updated,
-  bounded), tags each line with scope/kind/confidence/verification, and the
-  digest rides the WS upgrade as the `x-grid-project-memory` header
-  (`server.js` → `packages/agent/src/agent/project_context.py`), injected into prompts
-  alongside `x-grid-project-context`.
+  project items (active only; the pinned ones, then the ones recalled for
+  this turn's question, bounded) and tags each line with
+  scope/kind/confidence/verification. A signed-in chat turn does not get the
+  digest in a handshake header (ADR-0077): the agent calls
+  `POST /api/internal/turn-context` at turn setup and reads it from
+  `projectMemory` in the response
+  (`packages/agent/src/agent/turn/context_client.py`). A turn whose signed
+  scope holds restricted-folder collections also calls
+  `GET /api/internal/memory/digest` and takes that digest, which may carry
+  restricted notes. The `x-grid-project-memory` header is left in two places:
+  the handshake of a deployment where nobody signs in
+  (`apps/workspace/bff/turns/turn-headers.js`), and the job worker, which
+  fetches the digest from `GET /api/internal/memory/digest` and writes it into
+  its own request state (`apps/agent-host/src/agent_host/jobs/agent_job_setup.py`).
+  `packages/agent/src/agent/project_context.py` reads the header in both.
+- **Personal memory (ADR-0180)**: a third home, in a table of its own
+  (`personal_memory`, row-level security on the person). The same turn-context
+  response carries the asker's block as `personalMemory`, only when the asker
+  alone reads the answer, and `temporary`, which tells the agent to skip its
+  memory writers. The agent writes through `POST /api/internal/personal-memory`
+  (`packages/agent/src/agent/knowledge/personal_memory.py`). The design is in
+  `project-memory-design.md`, first section.
 
 ## 8b. Runtime model overrides & usage metering (2026-07-07)
 
