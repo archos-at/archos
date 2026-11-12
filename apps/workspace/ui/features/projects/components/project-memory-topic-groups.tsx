@@ -20,7 +20,7 @@ import {
 import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { TopicFolders } from '@/components/memory/topic-folders'
 import { Badge } from '@/components/ui/badge'
-import { ItemContent, ItemList } from '@/components/ui/item'
+import { ItemContent } from '@/components/ui/item'
 import { FolderAccessMark } from '@/features/documents/components/folder-access-mark'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
@@ -144,25 +144,22 @@ export function ProjectMemoryTopicGroups({
     )
   }
   return (
-    <ItemList>
-      <TopicFolders
-        items={ordered}
-        topics={topics}
-        renderItem={(item) => (
-          <ProjectMemoryNote
-            key={item.id}
-            item={item}
-            projectId={projectId}
-            topicNames={topicNames}
-            allItems={allItems}
-            readOnly={readOnly}
-            controls={controls}
-            onChanged={onChanged}
-          />
-        )}
-        renderTopicActions={readOnly ? undefined : renderTopicActions}
-      />
-    </ItemList>
+    <TopicFolders
+      items={ordered}
+      topics={topics}
+      renderItem={(item) => (
+        <ProjectMemoryNote
+          item={item}
+          projectId={projectId}
+          topicNames={topicNames}
+          allItems={allItems}
+          readOnly={readOnly}
+          controls={controls}
+          onChanged={onChanged}
+        />
+      )}
+      renderTopicActions={readOnly ? undefined : renderTopicActions}
+    />
   )
 }
 

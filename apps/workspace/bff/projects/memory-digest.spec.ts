@@ -113,7 +113,9 @@ describe('formatTopicDigest', () => {
   })
 
   it('does not name a topic whose note the budget left out', () => {
-    const long = 'x'.repeat(1700)
+    // One long note fills the budget; the second note's topic would fit beside it
+    // only without the index, and the index is counted first.
+    const long = 'x'.repeat(1600)
     const digest = formatTopicDigest(
       [note({ content: long, topic: 'Brandschutz' }), note({ content: 'roof load', topic: 'Geheim' })],
       0,

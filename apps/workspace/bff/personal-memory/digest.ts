@@ -75,15 +75,22 @@ function headingOf(topic: string | null): string {
   return topic === null ? 'No topic:' : `Topic ${quoted(topic)}:`
 }
 
+interface TopicGroup {
+  topic: string | null
+  notes: PersonalDigestNote[]
+}
+
 /** The notes grouped by topic, the groups in order of their first note, the notes with no topic last. */
-export function groupNotesByTopic(notes: readonly PersonalDigestNote[]): PersonalDigestNote[][] {
+function groupNotesByTopic(notes: readonly PersonalDigestNote[]): TopicGroup[] {
   const groups = new Map<string | null, PersonalDigestNote[]>()
   for (const note of notes) {
     const group = groups.get(note.topic)
     if (group) group.push(note)
     else groups.set(note.topic, [note])
   }
-  return [...groups.values()].sort((a, b) => Number(a[0].topic === null) - Number(b[0].topic === null))
+  return [...groups]
+    .map(([topic, group]) => ({ topic, notes: group }))
+    .sort((a, b) => Number(a.topic === null) - Number(b.topic === null))
 }
 
 function itemOf(note: PersonalDigestNote): DigestLineItem {
@@ -131,11 +138,11 @@ function groupedBody(
   let kept = 0
   for (const group of groupNotesByTopic(notes)) {
     const room = budget - text.length - 1
-    const piece = formatBoundedDigestWithKept(headingOf(group[0].topic), group.map(itemOf), room)
+    const piece = formatBoundedDigestWithKept(headingOf(group.topic), group.notes.map(itemOf), room)
     if (!piece.digest) break
     text = `${text}\n${piece.digest}`
     kept += piece.kept.length
-    if (piece.kept.length < group.length) break
+    if (piece.kept.length < group.notes.length) break
   }
   return { text, kept }
 }

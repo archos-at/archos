@@ -400,7 +400,7 @@ def test_a_personal_block_grouped_by_topic_counts_only_its_notes(request_context
     block = "\n".join(
         [
             PERSONAL_HEADER,
-            "topics of the person's 3 notes (at most 20 named): \"Brandschutz\" (2), \"Stellplätze\" (1)",
+            'topics of the person\'s 3 notes (at most 20 named): "Brandschutz" (2), "Stellplätze" (1)',
             'Topic "Brandschutz":',
             '- [pinned | profile] "Leitet die Einreichplanung."',
             '- [preference] "Antwortet kurz."',
