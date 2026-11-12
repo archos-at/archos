@@ -34,6 +34,12 @@ const ownerUrl = process.env.TEST_OWNER_DATABASE_URL
 const RUN = Date.now().toString(36)
 const AUSTRIAN = `org_vis_${RUN}_at`
 const GERMAN = `org_vis_${RUN}_de`
+// An office entitled to nothing: a home country no fixture publishes.
+const UNENTITLED = `org_vis_${RUN}_xz`
+// The offices the oracles compare, this spec's own. Not every office in the database: CI runs this spec on one
+// database every earlier suite added offices to, and a comparison that grows with them is the next timeout
+// (#1704; the reach oracle took 9.5 s on CI over every office).
+const OFFICES = [AUSTRIAN, GERMAN, UNENTITLED]
 const AUTHOR = 'user_vis_author'
 const EXPERT = 'user_vis_expert'
 
@@ -86,6 +92,7 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     for (const [organizationId, home] of [
       [AUSTRIAN, 'AT'],
       [GERMAN, 'DE'],
+      [UNENTITLED, 'XZ'],
     ] as const) {
       await withTenant({ organizationId }, () =>
         db.execute(sql`INSERT INTO organizations (workos_organization_id, home_country) VALUES (${organizationId}, ${home})`),
@@ -145,30 +152,21 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     await owner?.end()
     await withPlatformAccess('visibility spec cleanup', async () => {
       await db.execute(sql`DELETE FROM organization_countries WHERE organization_id = ${GERMAN}`)
-      await db.execute(sql`DELETE FROM organizations WHERE workos_organization_id IN (${AUSTRIAN}, ${GERMAN})`)
+      await db.execute(sql`DELETE FROM organizations WHERE workos_organization_id IN (${AUSTRIAN}, ${GERMAN}, ${UNENTITLED})`)
     })
   })
 
   it('names exactly what the row policy lets each office read', async () => {
-    const offices = (
-      await withPlatformAccess('visibility spec: every office', () =>
-        db.execute<{ id: string }>(sql`SELECT workos_organization_id AS id FROM organizations ORDER BY 1`),
-      )
-    ).map((row) => row.id)
-    expect(offices).toEqual(expect.arrayContaining([AUSTRIAN, GERMAN]))
+    const offices = OFFICES
     for (const organizationId of offices) {
       expect(await throughPredicate(organizationId), organizationId).toEqual(await throughPolicy(organizationId))
     }
   })
 
   // Migration 0236 reads the reach as one set; 0211's per-row walk stays defined, and is the oracle:
-  // for every office, every platform record is in the set exactly where the walk answers true.
-  it('reads the reach as one set that answers what the per-row walk answers, for every office', async () => {
-    const offices = (
-      await withPlatformAccess('visibility spec: every office', () =>
-        db.execute<{ id: string }>(sql`SELECT workos_organization_id AS id FROM organizations ORDER BY 1`),
-      )
-    ).map((row) => row.id)
+  // for each of this spec's offices, every platform record is in the set exactly where the walk answers true.
+  it('reads the reach as one set that answers what the per-row walk answers, for each of its offices', async () => {
+    const offices = OFFICES
     for (const organizationId of offices) {
       const disagreements = await drizzle(owner).transaction(async (tx) => {
         await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true)`)
@@ -196,15 +194,11 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
   })
 
   // Migration 0236 reads the entitlement as one set too; the per-row function stays defined, and is the oracle: for
-  // every office, every country a record names (and the EU) is in the set exactly where the function answers true.
+  // each of this spec's offices, every country a record names (and the EU) is in the set exactly where the function answers true.
   // A record with no country is entitled to no one: `NULL IN (...)` is NULL, which the policy's OR reads as false;
   // the set itself never holds a NULL, which the coalesce would otherwise hide.
-  it('reads the entitled countries as one set that answers what the per-row entitlement answers, for every office', async () => {
-    const offices = (
-      await withPlatformAccess('visibility spec: every office', () =>
-        db.execute<{ id: string }>(sql`SELECT workos_organization_id AS id FROM organizations ORDER BY 1`),
-      )
-    ).map((row) => row.id)
+  it('reads the entitled countries as one set that answers what the per-row entitlement answers, for each of its offices', async () => {
+    const offices = OFFICES
     for (const organizationId of offices) {
       const disagreements = await drizzle(owner).transaction(async (tx) => {
         await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true)`)
@@ -226,6 +220,7 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
       })
     expect(await entitled(AUSTRIAN)).toEqual(['AT', 'EU'])
     expect(await entitled(GERMAN)).toEqual(['DE', 'LI'])
+    expect(await entitled(UNENTITLED)).toEqual(['XZ'])
   })
 
   it('is not vacuous: an Austrian office reads the reached Swiss standard and the EU pack, a German office neither', async () => {
@@ -234,5 +229,9 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     const german = await throughPredicate(GERMAN)
     expect(german).not.toContain(`work:sia-500-${RUN}`)
     expect(german).not.toContain('AT-9')
+    const unentitled = await throughPredicate(UNENTITLED)
+    expect(unentitled).not.toContain(`work:sia-500-${RUN}`)
+    expect(unentitled).not.toContain('AT-9')
+    expect(unentitled).not.toContain('EU')
   })
 })
