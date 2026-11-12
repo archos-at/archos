@@ -72,13 +72,6 @@ export interface ScopeContext {
    * session-less path) cannot include one by accident.
    */
   restrictedCollections?: readonly string[]
-  /**
-   * Whether the base corpus (Austrian building law) is searched. False for a
-   * project its profile does not place in Austria (ADR-0158): a Bavarian
-   * project's "Brandschutz?" must not come back with OIB-RL 2 as its law. A
-   * turn with no project keeps it. Absent means true.
-   */
-  includeBase?: boolean
 }
 
 /** The base knowledge corpus's collection name, from the deployment's configuration. */
@@ -92,7 +85,9 @@ export function computeCollectionScope(
 ): string[] {
   const scope: string[] = []
   const base = context.baseCollection || resolveBaseCollectionName()
-  if (context.includeBase !== false) scope.push(base)
+  // In every scope, whatever the project's site: which countries of it a read sees is the base entry's
+  // signed list, narrowed by the turn's or the run's knowledge context (ADR-0173).
+  scope.push(base)
 
   // Org-wide Archiv: shared across every project in the org, so it rides in the
   // scope right next to the base corpus (independent of the active project).

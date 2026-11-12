@@ -841,6 +841,30 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The sidebar inside a project reads lighter again: smaller, quieter text, a thin line along its edge, and more room between the office's places and your name at the bottom.",
+            "de": "Die Sidebar innerhalb eines Projekts wirkt wieder leichter: mit kleinerer, dezenterer Schrift, einer dünnen Linie am Rand und mehr Abstand zwischen den Bürobereichen und Ihrem Namen am unteren Rand."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Your ten most recent chats now stand under „Letzte Chats“ below the project's sections, while the sections above and the office's places below stay where they are; „Alle Chats“ at the end of the list opens the whole chat history, and a click on „Letzte Chats“ folds the list away.",
+            "de": "Ihre zehn letzten Chats finden Sie jetzt unter „Letzte Chats“ unterhalb der Projektbereiche; die Bereiche darüber und die Standorte des Büros darunter bleiben an ihrem Platz. „Alle Chats“ am Ende der Liste öffnet den gesamten Chatverlauf, und ein Klick auf „Letzte Chats“ klappt die Liste ein."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The project list that opens from the project's name is as wide as the sidebar's button instead of running past its edge.",
+            "de": "Die über den Projektnamen geöffnete Projektliste ist nun so breit wie die Schaltfläche in der Seitenleiste und ragt nicht mehr über deren Rand hinaus."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "collaboration",
           "text": {
             "en": "The inbox opens in one movement. It used to slide up twice, and its placeholder now has the shape of the list that replaces it.",
@@ -1309,6 +1333,14 @@
           "text": {
             "en": "The Subprocessors page is corrected after a full review: the hosting provider appears under its current company name, sign-in is shown to also send invitation e-mails and to keep an office's own AI keys, and address search is marked optional. Session recording is no longer called sampled.",
             "de": "Die Seite „Subprocessors“ ist nach einer vollständigen Überprüfung korrigiert: Der Hosting-Anbieter erscheint unter seinem aktuellen Unternehmensnamen, beim Login ist nun auch angegeben, dass Einladungs-E-Mails versendet und die eigenen KI-Schlüssel eines Büros gespeichert werden, und die Adresssuche ist als optional gekennzeichnet. Die Sitzungsaufzeichnung wird nicht mehr als stichprobenbasiert bezeichnet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "In a project whose site is not set yet, the assistant now searches the building-law texts your office holds, quotes them as information and asks for the site before naming the edition that applies. It no longer says a guideline's text could not be read when the text is there.",
+            "de": "In einem Projekt, dessen Standort noch nicht festgelegt ist, durchsucht der Assistent jetzt die in Ihrem Büro hinterlegten baurechtlichen Texte, zitiert sie als Information und fragt nach dem Standort, bevor er die geltende Fassung nennt. Er behauptet nicht mehr, der Text einer Richtlinie sei nicht lesbar, wenn er vorliegt."
           }
         },
         {
