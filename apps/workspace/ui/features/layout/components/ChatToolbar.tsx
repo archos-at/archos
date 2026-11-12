@@ -328,7 +328,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
       >
         {/* The door to the project's past chats, with its word at every width: as a lone glyph beside the
             title it read as the title's icon, and none of the pilot offices found it (2026-11-10). The rail
-            lists the last chats under „Chat“ and leads here too („Alle Chats“). `ChatToolbar.spec.tsx` („the
+            lists the last chats under „Letzte Chats“ and leads here too („Alle Chats“). `ChatToolbar.spec.tsx` („the
             history door is never a glyph alone“) holds it. */}
         <Button
           variant="ghost"

@@ -359,6 +359,26 @@ body {
   }
 }
 
+/* A list that scrolls between two parts that stand still (the rail's „Letzte Chats“): its last 24px fade out while
+   more lies below, and stand whole once the end is reached. A list too short to scroll has an inactive timeline, so
+   the animation has no effect and nothing fades. Guarded like `scroll-edge-bottom`. */
+@keyframes scroll-fade-bottom-end {
+  0%,
+  96% {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
+  }
+  100% {
+    mask-image: none;
+  }
+}
+
+@utility scroll-fade-bottom {
+  @supports (animation-timeline: scroll(self block)) {
+    animation: scroll-fade-bottom-end linear both;
+    animation-timeline: scroll(self block);
+  }
+}
+
 @utility scroll-edge-top {
   @supports (animation-timeline: scroll(nearest block)) {
     animation: scroll-edge-reveal-top linear both;

@@ -28,7 +28,8 @@ export interface ProjectSwitcherProps {
  * The project selector is the first control of the rail and the one press on
  * it: the kit's secondary press (white with its 12% edge, radius 6; Paper on a
  * desk, principle 4) across the rail's column, 40px, the project's name at
- * 14/600 on ONE line and the chevrons that say it opens. A name that does not
+ * 13/500 on ONE line (14/600 read as too heavy, 2026-11-11) and the chevrons
+ * that say it opens. A name that does not
  * fit loses its middle and keeps its end („Baufeld D12" is what tells sibling
  * projects apart); it never wraps, and the whole name is the press's title and
  * the open menu's first row. The version before set the name on two wrapped
@@ -90,7 +91,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
     const quiet = project.status === 'paused' || project.status === 'closed'
     return (
       <CommandItem key={project.id} value={project.id} onSelect={() => choose(project.id)} className="gap-2.5">
-        <span className={cn('min-w-0 flex-1 truncate', isCurrent && 'font-semibold')}>{project.name}</span>
+        <span className={cn('min-w-0 flex-1 truncate', isCurrent && 'font-medium')}>{project.name}</span>
         {quiet && project.status && (
           <span className="text-muted-foreground shrink-0 text-xs">{tProjects(`card.status.${project.status}`)}</span>
         )}
@@ -114,7 +115,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
           </span>
         ) : (
           <>
-            <MiddleTruncate text={name} tail={12} className="min-w-0 flex-1 text-sm font-semibold" />
+            <MiddleTruncate text={name} tail={12} className="min-w-0 flex-1 text-[13px] font-medium" />
             <ChevronsUpDown className="text-muted-foreground size-3.5" aria-hidden />
           </>
         )}
@@ -141,12 +142,15 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         align="start"
         side={collapsed ? 'right' : 'bottom'}
         sideOffset={collapsed ? 22 : 6}
-        className="w-72 p-0 motion-reduce:animate-none"
+        // As wide as the press it hangs from (owner decision 2026-11-11: at 288px it ran past the rail's edge);
+        // beside the icon rail, where the press is a 36px tile, a list's own 240px.
+        className={cn('p-0 motion-reduce:animate-none', collapsed ? 'w-60' : 'w-(--radix-popover-trigger-width)')}
       >
         {/* The phone's sheet in a popover: a search first (a dozen running
             projects is past what a reader scans), then the three opened last,
             then the rest. One order on both shapes (`project-list.ts`). */}
-        <Command shouldFilter={false} loop value={cursor} onValueChange={setCursor} label={t('projectSwitcher.switchHeading')}>
+        {/* Rows at the rail's 13px, so a list as narrow as its press still holds a project's whole name. */}
+        <Command shouldFilter={false} loop value={cursor} onValueChange={setCursor} label={t('projectSwitcher.switchHeading')} className="[&_[cmdk-item]]:text-[13px]">
           <CommandInput
             value={query}
             onValueChange={(next) => {
