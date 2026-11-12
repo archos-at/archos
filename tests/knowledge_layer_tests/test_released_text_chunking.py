@@ -175,3 +175,10 @@ def test_an_edition_named_in_the_text_is_no_footer() -> None:
     escape = ESCAPE.replace("3.1.4 Im Falle", "Siehe den Leitfaden Ausgabe Wien 2020\n3.1.4 Im Falle")
     docs = text_documents_for_pages(_pages(CONTENTS, BODY, escape, FIGHTING, ANNEX), RELEASED, 1, released_text=True)
     assert "Leitfaden Ausgabe Wien 2020" in _clause(docs, "3.1.3").text
+
+
+def test_an_annex_heading_with_its_title_on_the_same_line_opens_the_back_matter() -> None:
+    """The 2015 RL 6 prints "Anhang Muster Energieausweis …" as one line at the top of its page."""
+    annex = ANNEX.replace("Anhang\n", "Anhang Muster der Bescheinigung Seite 1\n")
+    docs = text_documents_for_pages(_pages(CONTENTS, BODY, ESCAPE, FIGHTING, annex), RELEASED, 1, released_text=True)
+    assert "Anhang Muster" not in _clause(docs, "4.1").text

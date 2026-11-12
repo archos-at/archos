@@ -519,19 +519,28 @@ def _back_matter(text_pages: list[dict[str, Any]]) -> tuple[str, ...]:
 
 
 def _cut_back_matter(segments: list[_Segment], postamble: list[tuple[int, str]], keys: tuple[str, ...]) -> None:
-    """Move the last Punkt's lines from the first one that IS a back-matter entry on into the postamble.
+    """Move the last Punkt's lines from the first one that opens a back-matter entry on into the postamble.
 
-    The whole line must key as the entry: a sentence of the last Punkt that merely starts
-    with its word ("Anhang 1 auszustellen …") stays in the Punkt.
+    A line opens one when it keys as the entry ("Anhang"), or starts with it and opens a
+    page ("Anhang Muster Energieausweis …", OIB-RL 6, Ausgabe März 2015). A sentence of
+    the last Punkt that merely starts with the word ("Anhang 1 auszustellen …") mid-page
+    stays in the Punkt.
     """
     if not segments or not keys:
         return
     last = segments[-1].lines
-    for index, (_page, line) in enumerate(last[1:], start=1):
-        if _DOT_LEADER_RE.search(line) is None and _title_key(line) in keys:
+    for index, (page, line) in enumerate(last[1:], start=1):
+        key = _title_key(line)
+        opens_page = page != last[index - 1][0]
+        if _DOT_LEADER_RE.search(line) is None and (key in keys or (opens_page and _opens_with(key, keys))):
             postamble[:0] = last[index:]
             del last[index:]
             return
+
+
+def _opens_with(key: str, keys: tuple[str, ...]) -> bool:
+    """Whether ``key`` starts with one of ``keys`` as a whole word."""
+    return any(key == entry or key.startswith(entry + " ") for entry in keys)
 
 
 def _split_into_segments(
