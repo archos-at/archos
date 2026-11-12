@@ -1734,12 +1734,16 @@ async def test_a_turn_that_read_licensed_text_marks_its_row_from_the_workflow_s_
     from agent.observability import turn_outcome
     from agent_host.chat_socket import _persist_in_background
 
+    async def publish(_conversation_id: str, _frame: dict) -> bool:
+        return True
+
+    wire = chat_socket.TurnWire(CONV, "t1", publish)
     box = turn_outcome.begin_turn_outcome()
     try:
         contextvars.copy_context().run(turn_outcome.record_turn_tag, LICENSED_TRACE_TAG)
-        await _persist_in_background(CONV, "org-1", RunFinishedBody(outcome="answered", result=_result()))
+        await _persist_in_background(wire, "org-1", RunFinishedBody(outcome="answered", result=_result()))
         await _persist_in_background(
-            CONV,
+            wire,
             "org-1",
             RunFinishedBody(outcome="answered", result=_result().model_copy(update={"message_id": "m-2"})),
         )
@@ -2813,6 +2817,61 @@ async def test_a_headless_turn_reports_its_outcome_once_after_its_row_is_written
     assert bff.rows_before == [1]  # the answer row went first
     outcome_contract["TurnOutcomeRequest"].validate(bff.outcomes[0])
     outcome_contract["TurnOutcomeResponse"].validate(bff.answer[1])
+
+
+async def test_a_headless_turn_hands_its_steps_over_after_its_row_and_its_outcome_does_not_wait_on_them(
+    harness, bff, persisted, monkeypatch
+):
+    handed: list[tuple[Any, ...]] = []
+    stuck = asyncio.Event()
+
+    async def steps(*args: Any) -> bool:
+        handed.append((*args, len(persisted)))
+        await stuck.wait()  # a slow or failing route, retried
+        return True
+
+    monkeypatch.setattr(chat_socket, "post_internal_turn_steps", steps)
+
+    async def stepping(request, ask):
+        yield StepStartedBody(step=ToolStep(id="tool:1", tool="knowledge_search"))
+        yield TextMessageStartBody(message_id="m")
+        yield TextMessageContentBody(message_id="m", delta="Antwort.")
+        yield StepFinishedBody(step=ToolStep(id="tool:1", tool="knowledge_search", status="ok"))
+        yield _finished(request, text="Antwort.")
+
+    sock = harness(stepping).connect(headers=HEADLESS)
+    sock.client(type="user_message", message_id=WAKE, text="?")
+    await until(lambda: bff.outcomes)  # told while the steps are still on their way
+
+    [(conversation_id, _organization_id, turn_id, frames, rows_before)] = handed
+    assert (conversation_id, turn_id) == (CONV, WAKE)  # the question is the turn's own row
+    assert [(frame["type"], frame["step"]["id"]) for frame in frames] == [
+        ("STEP_STARTED", "tool:1"),
+        ("STEP_FINISHED", "tool:1"),
+    ]
+    assert rows_before == 1  # after the answer row
+    stuck.set()
+    await _settle_background()
+
+
+async def test_a_turn_that_took_no_step_hands_nothing_over(harness, monkeypatch):
+    handed: list[tuple[Any, ...]] = []
+
+    async def steps(*args: Any) -> bool:
+        handed.append(args)
+        return True
+
+    monkeypatch.setattr(chat_socket, "post_internal_turn_steps", steps)
+
+    async def plain(request, ask):
+        yield _finished(request, text="Antwort.")
+
+    sock = harness(plain).connect()
+    sock.client(type="user_message", message_id="t1", text="?")
+    await until(lambda: _last(sock) == "RUN_FINISHED")
+    await _settle_background()
+
+    assert handed == []
 
 
 @pytest.mark.parametrize(

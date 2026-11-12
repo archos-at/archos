@@ -348,7 +348,7 @@ export interface MessageProvenance {
  */
 export const MAX_THINKING_STEPS = 600
 /** What is read at all before the bound applies: anything longer is a runaway client. */
-const MAX_THINKING_STEPS_READ = 4 * MAX_THINKING_STEPS
+export const MAX_THINKING_STEPS_READ = 4 * MAX_THINKING_STEPS
 /**
  * Which steps a list over {@link MAX_THINKING_STEPS} loses first, oldest first
  * within each tier: status lines and tool rows (what the work list already

@@ -18,7 +18,7 @@ import {
   type CanvasChatQuestion,
   type CanvasChatSteer,
 } from '@/features/chat/lib/canvas-bridge'
-import { initialTurnView, type TurnView } from '@/features/chat/lib/turn-fold'
+import { initialTurnView, type TurnView } from '@/lib/turns/turn-fold'
 import { useChatStore } from '@/features/chat/store'
 import type { CanvasQuestion, CanvasTurnClient, CanvasTurnClientOptions } from '../lib/canvas-turn-client'
 import { askRegionOf, statusOf, useCanvasAsk, type UseCanvasAskOptions } from './use-canvas-ask'

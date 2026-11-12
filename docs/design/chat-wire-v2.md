@@ -549,7 +549,7 @@ same text on both sides. The client stores the same cut (`stopStreaming`,
 `stopTurnView`), so a reload shows what the reader saw when they pressed Stop,
 whichever of the two writes of the row reaches the BFF first (both insert under
 one id and the second no-ops). The rule has one copy per language,
-`TurnTextFold.stopped` and `features/chat/lib/stopped-answer.ts`, and
+`TurnTextFold.stopped` and `bff/turns/stopped-answer.ts`, and
 `contracts/wire/v2/stopped-cases.jsonl` holds both to the same cases. A Stop that
 crosses the finished answer (the reveal runs up to about a second behind the
 wire) finds no turn to cancel: the server has stored the whole answer and
@@ -616,7 +616,7 @@ Expiry sends `interaction_resolved{expired}`, then `RUN_ERROR{interaction_expire
 
 ### e.1 One pure fold
 
-`features/chat/lib/turn-fold.ts` exports `foldTurnEvent(view: TurnView | undefined, event: WireEvent): TurnView`
+`bff/turns/turn-fold.ts` exports `foldTurnEvent(view: TurnView | undefined, event: WireEvent): TurnView`
 and `foldTurnEvents(view, events)`. The fold is pure, it is the only
 interpretation of the wire, and the live socket, the replay after `attach` and
 the spectator stream all use it.
@@ -807,7 +807,7 @@ and a reader-order change, nothing more.
 | Producers | One test per producer that goes **through the compiled graph** under `astream` and asserts the body it wrote. The most important: the writer reaches the Piloti inner graph through the real agent runtime function boundary, which `test_stream_writer_reach.py` stands in for with a plain async function. Also: setup steps are yielded, `ToolStepCallback` emits basename only, a `sources` step equals the records' lanes, and prose deltas are coalesced | `packages/agent/tests/turn/`, `…/agents/piloti/`, `…/common/test_turn_status.py`, `…/skills/` |
 | Handler | Auth, binding, rejection codes, cancel authorisation (asker yes, colleague `not_asker`, bus path), HITL round trip and expiry, attach replay and splice with no duplicate or missing seq, stage stamping after the terminal, persistence built from `TurnResult`. A test that builds the app and asserts the runtime's `websocket_endpoint` and `WebSocketMessageHandler` are the runtime's own objects. A ruff `banned-api` for `nat.data_models.api_server` everywhere, and for the internal modules `nat.plugin_api` covers | `apps/agent-host/tests/test_chat_socket.py` |
 | Golden replay | One real turn recorded through the whole backend (a fake LLM with a recorded token stream and the real graph) and compared frame for frame, `ts` excepted, with a committed golden JSONL. Every frame is under 4 KB except `STATE_SNAPSHOT` and `RUN_FINISHED` (under 64 KB), the two that carry the sources | `packages/agent/tests/turn/test_golden_turn.py` |
-| Fold | Every fixture turn folds to the expected `TurnView`. Duplicate seq keeps identity, and a gap is flagged. Snapshot, retraction and terminal replacement. Card before marker. Spectator mid-turn start. The persisted projection round-trips through `sanitizeProvenance` | `features/chat/lib/turn-fold.spec.ts` |
+| Fold | Every fixture turn folds to the expected `TurnView`. Duplicate seq keeps identity, and a gap is flagged. Snapshot, retraction and terminal replacement. Card before marker. Spectator mid-turn start. The persisted projection round-trips through `sanitizeProvenance` | `bff/turns/turn-fold.spec.ts` |
 | Migration | Old stored steps (real rows captured from staging, anonymised) convert to the v2 shape, and the dropped kinds are gone | `message-provenance.spec.ts`; the migration spec for 0097 was retired once 0097 had run in production |
 | Browser | `/dev/stream-socket` (being built now by another engineer) is ported to v2: it replays the fixtures and a recorded long turn through the real socket client, fold and store, and reports frame bytes and main-thread time in `window.__streamSocket` | `app/dev/stream-socket` |
 | Proxy | `ws-teardown.spec.ts`, `ws-frames.spec.ts` (plus a v2 `user_message` case) and the header-stripping spec pass **unchanged** | `src/lib/proxy`, `src/lib/limits` |
@@ -895,7 +895,7 @@ separately. The exit criterion in the definition of done is the measured diff.
   deleted and the rest are ported.
 
 **S4 · UI transport and fold.**
-- **Owns:** `features/chat/lib/turn-fold.ts` (new), `adapters/api/turn-socket.ts`
+- **Owns:** `bff/turns/turn-fold.ts` (new), `adapters/api/turn-socket.ts`
   (new; replaces `websocket-client.ts`), `adapters/api/schemas.ts`,
   `adapters/api/step-event-schemas.ts` (deleted),
   `features/chat/lib/intermediate-step-parser.ts` (deleted),

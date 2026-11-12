@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { parseWireEvent, type WireEvent } from '@/adapters/api/wire-v2'
-import { foldTurnEvent, type TurnView } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvent, type TurnView } from '@/lib/turns/turn-fold'
 import { projectTurn } from '@/features/chat/lib/turn-projection'
 import type { ChatMessage } from '@/features/chat/types'
 import {
