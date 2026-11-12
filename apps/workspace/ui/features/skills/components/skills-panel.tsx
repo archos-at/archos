@@ -84,7 +84,7 @@ export function SkillsPanel({ canManageOrgSkills }: SkillsPanelProps): JSX.Eleme
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1080px] px-6 pb-10 pt-6 md:px-10">
+    <div className="listing-container px-4 pb-10 pt-6 md:px-8" /* the section's content container: the header's left edge */>
       {canManageOrgSkills && (
         <ProjectSectionActions>
           <Button size="sm" className="shrink-0" onClick={() => openSkillEditor(null)}>
