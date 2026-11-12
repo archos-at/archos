@@ -57,6 +57,14 @@ JUDGE_TIMEOUT_S = 12.0
 #: go in whole, the answer's own citations first; one that does not fit is
 #: left out and counted, never cut in the middle.
 EVIDENCE_BUDGET_CHARS = 60_000
+#: The most of one workspace record the check reads, and of all of them. A read answers with the route's
+#: JSON, up to the server's 40,000-character cap; unbounded, two of them filled the budget before any
+#: passage (dev QC 2026-11-12: two ``project-base-get`` reads of 40,000 characters each left the
+#: grader no passage at all, and one left it none for the U-value the answer cited). A record is cut
+#: at its share, marked as cut; one past the total is left out and counted.
+RECORD_MAX_CHARS = 12_000
+RECORDS_BUDGET_CHARS = 24_000
+_CUT = " [cut for length]"
 #: Room for the level and a handful of findings.
 MAX_OUTPUT_TOKENS = 1024
 #: The findings the chip names; a longer list is cut here.
@@ -80,6 +88,9 @@ class Evidence:
     answer: str
     passages: Sequence[Passage] = ()
     records: Sequence[str] = ()
+    #: The turn context the answer was written from: the profile, the inventory, the ``<building_law>``
+    #: block. Bounded by their own producers and never cut here: they are what the answer was told.
+    context: Sequence[str] = ()
     measurements: Sequence[str] = ()
     readings: Sequence[str] = ()
     quotes_found: Sequence[str] = ()
@@ -151,15 +162,33 @@ SYSTEM_PROMPT = (
 )
 
 
+def _bounded_records(records: Sequence[str]) -> tuple[list[str], int]:
+    """The workspace records within their share, each cut at :data:`RECORD_MAX_CHARS`; how many were left out."""
+    kept: list[str] = []
+    left, omitted = RECORDS_BUDGET_CHARS, 0
+    for record in records:
+        text = record if len(record) <= RECORD_MAX_CHARS else record[: RECORD_MAX_CHARS - len(_CUT)] + _CUT
+        if len(text) > left:
+            omitted += 1
+            continue
+        left -= len(text)
+        kept.append(text)
+    return kept, omitted
+
+
 def _evidence_block(evidence: Evidence) -> dict[str, Any]:
-    """The evidence as one JSON object, the passages whole up to the budget, the answer's own first."""
+    """The evidence as one JSON object: records within their share, passages whole up to the budget, cited first."""
+    records, records_omitted = _bounded_records(evidence.records)
     block: dict[str, Any] = {
-        "records": list(evidence.records),
+        "turn_context": list(evidence.context),
+        "records": records,
         "measurements": list(evidence.measurements),
         "readings_off_drawings": list(evidence.readings),
         "quotations_found_verbatim": list(evidence.quotes_found),
         "quotations_not_found_in_their_passage": list(evidence.quotes_not_found),
     }
+    if records_omitted:
+        block["records_left_out_for_length"] = records_omitted
     left = EVIDENCE_BUDGET_CHARS - len(json.dumps(block, ensure_ascii=False))
     passages, omitted = [], 0
     for passage in sorted(evidence.passages, key=lambda p: not p.cited):

@@ -247,3 +247,45 @@ async def test_a_provider_that_refuses_the_cache_switch_still_gets_judged():
 
     assert check is not None and check.level == "high"
     assert model.one_shot is False
+
+
+class TestWorkspaceRecordsKeepToTheirShare:
+    """Dev QC 2026-11-12: two ``project-base-get`` reads of 40,000 characters each filled the budget before any
+    passage, and the check came back unavailable; one read left the grader without the passage the answer cited."""
+
+    READ = "project-base-get (read): " + '{"context": {"uses": [' + "x" * 40_000 + "]}}"
+    LAW = "<building_law>OIB-Richtlinie 6, edition Ausgabe April 2019: declared binding since 2021-04-10</building_law>"
+
+    def _two_reads(self) -> Evidence:
+        return _evidence(
+            Passage("[1]", "Wände gegen Außenluft: U ≤ 0,35 W/m²K", cited=True),
+            records=[self.READ, self.READ],
+            context=[self.LAW],
+        )
+
+    def test_the_cited_passage_stays_beside_two_long_reads(self):
+        data = _data(build_messages(self._two_reads()))
+
+        assert [p["label"] for p in data["passages"]] == ["[1]"]
+
+    def test_each_read_is_cut_at_its_share_and_marked(self):
+        data = _data(build_messages(self._two_reads()))
+
+        assert len(data["records"]) == 2
+        assert all(len(r) == claim_judge.RECORD_MAX_CHARS and r.endswith("[cut for length]") for r in data["records"])
+
+    def test_a_read_past_the_share_is_left_out_and_counted(self):
+        data = _data(build_messages(_evidence(records=[self.READ, self.READ, self.READ])))
+
+        assert len(data["records"]) == 2 and data["records_left_out_for_length"] == 1
+
+    def test_the_turn_context_is_never_cut(self):
+        long_law = "<building_law>" + "y" * 15_000 + "</building_law>"
+        data = _data(build_messages(_evidence(records=[self.READ, self.READ], context=[long_law])))
+
+        assert data["turn_context"] == [long_law]
+
+    def test_the_whole_block_stays_within_the_budget_and_the_context(self):
+        body = build_messages(self._two_reads())[1].content
+
+        assert len(body) < claim_judge.EVIDENCE_BUDGET_CHARS

@@ -95,7 +95,7 @@ async def test_the_check_reads_the_question_the_answer_and_this_turns_records():
 
     assert evidence.question == "Was liegt bei Anna?" and evidence.answer == prose
     assert any(r.startswith("project-approvals-list (read):") and "Anna Berger" in r for r in evidence.records)
-    assert any("Lacknergasse 98" in r for r in evidence.records)
+    assert any("Lacknergasse 98" in c for c in evidence.context)
 
 
 async def test_last_turns_workspace_read_is_not_this_turns_evidence():
