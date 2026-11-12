@@ -54,11 +54,12 @@ class Engine:
 
     name: ClassVar[str]
     config_model: ClassVar[type[EngineConfig]]
-    #: The labels a search hit's metadata states a version's in-force window and its territory under,
-    #: empty for a format whose hits state none.
+    #: The labels a search hit's metadata states a version's in-force window, its territory and the provision
+    #: it holds under, empty for a format whose hits state none.
     in_force_from: ClassVar[str] = ""
     in_force_until: ClassVar[str] = ""
     territory_field: ClassVar[str] = ""
+    provision_field: ClassVar[str] = ""
 
     def __init__(self, config: EngineConfig | dict | None = None) -> None:
         if isinstance(config, EngineConfig):

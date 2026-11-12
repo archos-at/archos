@@ -33,6 +33,8 @@ class LookupTrace:
     headings: list[str] = field(default_factory=list)
     #: The day asked for (``as_of``), empty for today's law.
     as_of: str = ""
+    #: A day asked for that was today or later, and so read as today's law (``as_of.reads_today``).
+    as_of_today: str = ""
     #: Hits of an ``as_of`` search left unread because no version of that day.
     versions_dropped: int = 0
     #: Which source record answered: its id, its revision (a released record's), and how the call came to read

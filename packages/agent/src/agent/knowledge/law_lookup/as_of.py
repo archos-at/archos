@@ -18,7 +18,9 @@ today's text under a past date.
 from __future__ import annotations
 
 import re
+from datetime import UTC
 from datetime import date
+from datetime import datetime
 
 _ISO = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
 #: An ISO timestamp, read as its day: an API may state a date as one. Nothing else after a date is accepted.
@@ -48,6 +50,34 @@ def as_of_error(as_of: str) -> str:
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", as_of) or parse_day(as_of) is None:
         return f"Error: as_of must be a calendar day as YYYY-MM-DD, got {as_of!r}."
     return ""
+
+
+def today() -> date:
+    """The day the lookup reads as today: the UTC date, the one clock every replica shares."""
+    return datetime.now(UTC).date()
+
+
+def reads_today(as_of: str, now: date) -> bool:
+    """Whether ``as_of`` asks for today's text: a day on or after today (``now``).
+
+    Today's consolidated text IS the version in force today, so such a day takes
+    the lookup's usual path (address, catalog, search). A later day reads today's
+    text too, and the answer says so (:func:`today_note`): nothing in force later
+    is known yet, and a version already promulgated for it is not in today's text.
+    Only a past day is read from version documents of that day.
+    """
+    day = parse_day(as_of)
+    return day is not None and day >= now
+
+
+def today_note(as_of: str, now: date) -> str:
+    """The line an answer carries when ``as_of`` was read as today."""
+    if parse_day(as_of) == now:
+        return f"as_of {as_of} is today: the text in force today."
+    return (
+        f"as_of {as_of} is after today ({now.isoformat()}): the text in force today. An amendment already "
+        "promulgated for a later day is not in it; say so when the answer depends on that day."
+    )
 
 
 def in_force_on(metadata: dict[str, str], day: date, engine) -> bool:
