@@ -1730,6 +1730,8 @@ export const chat: typeof en.chat = {
         page: 'S.\u00A0{page}',
         // Eine Ausgabe, die ein Rechtsakt hier für verbindlich erklärt: der Akt, wie ihn die Daten nennen.
         through: '{name} (verbindlich über {act})',
+        throughSince: '{name} (verbindlich über {act} seit {since})',
+        date: '{day}.{month}.{year}',
         // Aus einem Aufruf ohne Treffer: wo gesucht wurde und wonach. Nie „Keine Informationen gefunden“.
         openNoHitIn: 'Nicht beurteilbar, weil die Suche in {target} nach „{query}“ keine Fundstelle ergab.',
         openNoHitShelf: 'Nicht beurteilbar, weil die Suche {shelf} nach „{query}“ keine Fundstelle ergab.',

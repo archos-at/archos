@@ -116,10 +116,24 @@ export const adoptingAct = (doc: Pick<CitedDocument, 'line'>): string | undefine
   return `${designation}, ${provision}`
 }
 
-/** One line of „Grundlagen“: the edition, the act it is binding through, then the passage. */
+/** The first day a binding role holds, as the dictionary writes a day; undefined for anything but `YYYY-MM-DD`. */
+const roleSince = (t: Translator, doc: Pick<CitedDocument, 'line'>): string | undefined => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(doc.line?.role_since ?? '')
+  return match ? t('thinking.node.basis.date', { year: match[1], month: match[2], day: match[3] }) : undefined
+}
+
+/**
+ * One line of „Grundlagen“: the edition, the act it is binding through and since when, then the passage.
+ * This is the chain a reader checks the answer by: which act makes this edition apply at the site.
+ */
 const basisLine = (t: Translator, doc: CitedDocument): BasisLine => {
   const act = adoptingAct(doc)
-  const name = act ? t('thinking.node.basis.through', { name: cardName(doc), act }) : cardName(doc)
+  const since = act ? roleSince(t, doc) : undefined
+  const name = !act
+    ? cardName(doc)
+    : since
+      ? t('thinking.node.basis.throughSince', { name: cardName(doc), act, since })
+      : t('thinking.node.basis.through', { name: cardName(doc), act })
   const text = [name, documentLocation(t, doc)].filter(Boolean).join(', ')
   return { numbers: citationNumbers(doc), text }
 }

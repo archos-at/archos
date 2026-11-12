@@ -274,9 +274,9 @@ before calls carried an id link nothing; there a row about a document opens it.
 
 **„Grundlagen · Entwurf“ closes the graph.** „Rechtsgrundlage“ lists the cited
 law with its edition and place, named by the records it was read as rather than
-by its file: „OIB-Richtlinie 4, Ausgabe April 2019 (verbindlich über StBTV
-2020), Tabelle 3, S. 10“. The act in brackets is the one the records say
-declares that edition binding where the project is; law read live in its own
+by its file: „OIB-Richtlinie 4, Ausgabe April 2019 (verbindlich über StBTV 2020 seit
+01.09.2020), Tabelle 3, S. 10“. The act in brackets, and the day from which it
+makes that edition binding where the project is, are what the records say; law read live in its own
 territory carries none. Only a numbered point is called „Pkt.“; a paragraph or a
 table is said as written and keeps its page. „Belegt durch“ the cited project and office
 documents with theirs, and „Offen“ every call that failed or found nothing:

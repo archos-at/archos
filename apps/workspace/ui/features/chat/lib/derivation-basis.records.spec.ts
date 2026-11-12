@@ -16,9 +16,9 @@ const t = translatorFor(chatCopy, 'de')
 const FILE_NAME = /\.pdf\b|text-[0-9a-f]{6,}/
 
 describe('the Herleitung names a cited edition by its records, never by its file', () => {
-  test('the last card says the edition, the act it is binding through, then the passage', () => {
+  test('the last card says the edition, the act it is binding through and since when, then the passage', () => {
     const law = basisLines(t, cardsOf(stairs)).law.map((line) => line.text)
-    expect(law[0]).toBe('OIB-Richtlinie 4, Ausgabe April 2019 (verbindlich über StBTV 2020), Tabelle 3, S. 10, S. 4')
+    expect(law[0]).toBe('OIB-Richtlinie 4, Ausgabe April 2019 (verbindlich über StBTV 2020 seit 01.09.2020), Tabelle 3, S. 10, S. 4')
     // Law read live keeps its own title and has no route: it is law in its own territory.
     expect(law[1]).toBe('Steiermärkische Bautechnikverordnung 2020 – StBTV 2020, § 1')
     for (const text of law) expect(text).not.toMatch(FILE_NAME)
@@ -27,7 +27,7 @@ describe('the Herleitung names a cited edition by its records, never by its file
   test('an act whose provision is a gazette number is said with its designation in front', () => {
     const [line] = basisLines(t, cardsOf(uValue)).law
     expect(line.numbers).toEqual([1, 2])
-    expect(line.text.startsWith('OIB-Richtlinie 6, Ausgabe 2025 (verbindlich über WBTV, LGBl. 26/2026)')).toBe(true)
+    expect(line.text.startsWith('OIB-Richtlinie 6, Ausgabe 2025 (verbindlich über WBTV, LGBl. 26/2026 seit 15.07.2026)')).toBe(true)
     expect(line.text).not.toMatch(FILE_NAME)
   })
 
