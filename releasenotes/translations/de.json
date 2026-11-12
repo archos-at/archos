@@ -2408,6 +2408,10 @@
     "de": "In einer schmalen Dateienliste, etwa neben dem Chat, werden Dateinamen nicht mehr vom Status überlagert und lange Namen nicht mehr mitten in einem Buchstaben abgeschnitten: Die Liste zeigt weniger Spalten an und hält das Ende jedes Namens lesbar."
   },
   {
+    "en": "In a project whose site is not set yet, the assistant now searches the building-law texts your office holds, quotes them as information and asks for the site before naming the edition that applies. It no longer says a guideline's text could not be read when the text is there.",
+    "de": "In einem Projekt, dessen Standort noch nicht festgelegt ist, durchsucht der Assistent jetzt die in Ihrem Büro hinterlegten baurechtlichen Texte, zitiert sie als Information und fragt nach dem Standort, bevor er die geltende Fassung nennt. Er behauptet nicht mehr, der Text einer Richtlinie sei nicht lesbar, wenn er vorliegt."
+  },
+  {
     "en": "In a project without saved notes, Piloti starts answering up to a second sooner, because it no longer waits to compare your question with notes that are not there.",
     "de": "In einem Projekt ohne gespeicherte Notizen antwortet Piloti bis zu einer Sekunde schneller, weil es nicht mehr darauf wartet, Ihre Frage mit nicht vorhandenen Notizen abzugleichen."
   },
@@ -4256,6 +4260,10 @@
     "de": "Die Projektliste und die Ordnerzeilen oberhalb der Dateien bilden jetzt eine zusammenhängende Liste: Nur die oberen und unteren Ecken sind abgerundet, und die Zeilen werden durch eine einzelne Linie statt durch separate Boxen mit Zwischenräumen getrennt."
   },
   {
+    "en": "The project list that opens from the project's name is as wide as the sidebar's button instead of running past its edge.",
+    "de": "Die über den Projektnamen geöffnete Projektliste ist nun so breit wie die Schaltfläche in der Seitenleiste und ragt nicht mehr über deren Rand hinaus."
+  },
+  {
     "en": "The project selector at the top of the sidebar is one button with the project's name on a single line, and the list of projects opens right under it.",
     "de": "Die Projektauswahl oben in der Seitenleiste ist eine einzelne Schaltfläche mit dem Projektnamen in einer Zeile, und die Projektliste öffnet sich direkt darunter."
   },
@@ -4330,6 +4338,10 @@
   {
     "en": "The sidebar entry that opens a conversation is now simply called \"Chat\", on the desktop and on the phone.",
     "de": "Der Sidebar-Eintrag zum Öffnen einer Unterhaltung heißt jetzt am Desktop und am Smartphone einfach „Chat“."
+  },
+  {
+    "en": "The sidebar inside a project reads lighter again: smaller, quieter text, a thin line along its edge, and more room between the office's places and your name at the bottom.",
+    "de": "Die Sidebar innerhalb eines Projekts wirkt wieder leichter: mit kleinerer, dezenterer Schrift, einer dünnen Linie am Rand und mehr Abstand zwischen den Bürobereichen und Ihrem Namen am unteren Rand."
   },
   {
     "en": "The sidebar inside a project shows where you are: the section you are in is a white sheet with an edge, as the open tab in Dateien, and the other sections are set in black instead of grey.",
@@ -5374,6 +5386,10 @@
   {
     "en": "Your recent chats in a project are now listed in the sidebar under Chat, with the open one highlighted, and „Alle Chats“ below them opens the whole chat history.",
     "de": "Ihre letzten Chats in einem Projekt werden jetzt in der Seitenleiste unter Chat angezeigt, wobei der geöffnete Chat hervorgehoben ist; „Alle Chats“ darunter öffnet den gesamten Chatverlauf."
+  },
+  {
+    "en": "Your ten most recent chats now stand under „Letzte Chats“ below the project's sections, while the sections above and the office's places below stay where they are; „Alle Chats“ at the end of the list opens the whole chat history, and a click on „Letzte Chats“ folds the list away.",
+    "de": "Ihre zehn letzten Chats finden Sie jetzt unter „Letzte Chats“ unterhalb der Projektbereiche; die Bereiche darüber und die Standorte des Büros darunter bleiben an ihrem Platz. „Alle Chats“ am Ende der Liste öffnet den gesamten Chatverlauf, und ein Klick auf „Letzte Chats“ klappt die Liste ein."
   },
   {
     "en": "Your uploads no longer wait behind another office's large import.",
