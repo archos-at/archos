@@ -20,6 +20,8 @@ export interface EntryDocument {
   collectionName: string
   /** The name the backend holds its chunks under. */
   storedName: string
+  /** The office shelf folder it is filed in; null at the shelf root. */
+  folderId: string | null
 }
 
 /** The Archiv documents among `ids` the reader may see, by id. */
@@ -36,6 +38,7 @@ export async function visibleOfficeDocuments(
         filename: documents.filename,
         displayName: documents.displayName,
         collectionName: documents.collectionName,
+        folderId: documents.folderId,
       })
       .from(documents)
       .where(
@@ -50,7 +53,7 @@ export async function visibleOfficeDocuments(
   return new Map(
     rows.map((row) => [
       row.id,
-      { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename },
+      { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename, folderId: row.folderId },
     ])
   )
 }
@@ -72,6 +75,7 @@ export async function readShelfDocument(
         filename: documents.filename,
         displayName: documents.displayName,
         collectionName: documents.collectionName,
+        folderId: documents.folderId,
       })
       .from(documents)
       .where(
@@ -85,7 +89,7 @@ export async function readShelfDocument(
       .limit(1)
   )
   if (!row) return null
-  return { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename }
+  return { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename, folderId: row.folderId }
 }
 
 /**

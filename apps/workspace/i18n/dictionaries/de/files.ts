@@ -2,6 +2,8 @@ import type { en } from '../en'
 
 /** files namespace — populated during component i18n. */
 export const files: typeof en.files = {
+  /** A Büroablage file that is one of the office's standards (ADR-0163). */
+  baseKnowledge: { label: 'Grundlage', open: 'Als Grundlage des Büros öffnen: Ausgabe, Lizenz, letzte Prüfung' },
   uploadZone: {
     clickToUpload: 'Zum Hochladen klicken',
     orDragAndDrop: ' oder per Drag-and-drop ablegen',

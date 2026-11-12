@@ -1821,6 +1821,15 @@
    "describe": "{\"name\":\"skill-update\",\"domain\":\"skills\",\"summary\":\"Change an organization skill\",\"description\":\"Patch any of an org skill’s name, description, body, metadata, enabled flag or category (`categoryId: null` removes it from its category). Platform skills have no id here; a person switches those on or off. Needs org:skills:manage.\",\"annotations\":{\"title\":\"Change an organization skill\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"skillId\":{\"type\":\"string\",\"description\":\"The org skill id, from skill-list.\"}},\"required\":[\"skillId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":64,\"pattern\":\"^[a-z0-9]+(-[a-z0-9]+)*$\"},\"description\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":1024},\"body\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":32000},\"metadata\":{\"type\":\"object\",\"additionalProperties\":{\"type\":\"string\"}},\"enabled\":{\"type\":\"boolean\"},\"categoryId\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"uuid\"},{\"type\":\"null\"}]}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
+   "name": "base-knowledge-bulk",
+   "domain": "knowledge",
+   "summary": "Check, move or remove many base-knowledge entries at once",
+   "description": "One action over up to 50 entries: `check` records a check with its result, `move` files them into a folder from base-knowledge-folder-list, `remove` deletes them and their documents. Answers one result per entry; a refused entry does not stop the others. Needs org:office_shelf:manage.",
+   "readOnly": false,
+   "destructive": true,
+   "describe": "{\"name\":\"base-knowledge-bulk\",\"domain\":\"knowledge\",\"summary\":\"Check, move or remove many base-knowledge entries at once\",\"description\":\"One action over up to 50 entries: `check` records a check with its result, `move` files them into a folder from base-knowledge-folder-list, `remove` deletes them and their documents. Answers one result per entry; a refused entry does not stop the others. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Check, move or remove many base-knowledge entries at once\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"entryIds\":{\"minItems\":1,\"maxItems\":50,\"type\":\"array\",\"items\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"description\":\"From base-knowledge-list; at most 50.\"},\"action\":{\"oneOf\":[{\"type\":\"object\",\"properties\":{\"type\":{\"const\":\"check\"},\"result\":{\"type\":\"string\",\"enum\":[\"current\",\"newer_known\",\"withdrawn\",\"source_unreachable\"],\"description\":\"current: still the edition in force.\"},\"note\":{\"description\":\"Where it was checked.\",\"type\":\"string\",\"maxLength\":1000}},\"required\":[\"type\",\"result\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"type\":{\"const\":\"move\"},\"folderId\":{\"type\":\"string\",\"format\":\"uuid\",\"description\":\"From base-knowledge-folder-list.\"}},\"required\":[\"type\",\"folderId\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"type\":{\"const\":\"remove\"}},\"required\":[\"type\"],\"additionalProperties\":false}],\"discriminator\":{\"propertyName\":\"type\"}}},\"required\":[\"entryIds\",\"action\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+  },
+  {
    "name": "base-knowledge-check-record",
    "domain": "knowledge",
    "summary": "Record that a base-knowledge entry was checked",
@@ -1830,6 +1839,15 @@
    "describe": "{\"name\":\"base-knowledge-check-record\",\"domain\":\"knowledge\",\"summary\":\"Record that a base-knowledge entry was checked\",\"description\":\"Records that somebody checked whether the copy is still the edition in force, and the result; anything but `current` keeps it overdue. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Record that a base-knowledge entry was checked\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"entryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"From base-knowledge-list.\"}},\"required\":[\"entryId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"result\":{\"type\":\"string\",\"enum\":[\"current\",\"newer_known\",\"withdrawn\",\"source_unreachable\"],\"description\":\"current: still the edition in force.\"},\"note\":{\"description\":\"Where it was checked.\",\"type\":\"string\",\"maxLength\":1000}},\"required\":[\"result\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
+   "name": "base-knowledge-edition-add",
+   "domain": "knowledge",
+   "summary": "Upload a newer edition of a base-knowledge entry",
+   "description": "Uploads the newer edition into the entry’s folder as a second edition of the same work (its edition read from the file name), proposed until a person confirms it. Answers then take the edition in force on the project’s reference day; the earlier entry stays for projects filed before, with a check that found a newer edition. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.",
+   "readOnly": false,
+   "destructive": false,
+   "describe": "{\"name\":\"base-knowledge-edition-add\",\"domain\":\"knowledge\",\"summary\":\"Upload a newer edition of a base-knowledge entry\",\"description\":\"Uploads the newer edition into the entry’s folder as a second edition of the same work (its edition read from the file name), proposed until a person confirms it. Answers then take the edition in force on the project’s reference day; the earlier entry stays for projects filed before, with a check that found a newer edition. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Upload a newer edition of a base-knowledge entry\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"entryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"From base-knowledge-list.\"}},\"required\":[\"entryId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"files\":{\"minItems\":1,\"maxItems\":1,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":255,\"description\":\"The file name, with its extension, e.g. \\\"Grundriss EG.pdf\\\".\"},\"mimeType\":{\"description\":\"The media type, e.g. \\\"application/pdf\\\". Defaults to application/octet-stream.\",\"type\":\"string\",\"maxLength\":255},\"contentBase64\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":44739244,\"pattern\":\"^[A-Za-z0-9+/]*={0,2}$\",\"description\":\"The file's bytes as standard base64 (RFC 4648, with padding), at most 33554432 bytes decoded.\"}},\"required\":[\"name\",\"contentBase64\"]},\"description\":\"The file to upload. Exactly one file.\"},\"fields\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false,\"description\":\"The route’s text fields, sent beside the file as form parts.\"}},\"required\":[\"files\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+  },
+  {
    "name": "base-knowledge-edition-as-of",
    "domain": "knowledge",
    "summary": "Which edition of a law or norm applied on a date or to a permit procedure",
@@ -1837,6 +1855,24 @@
    "readOnly": true,
    "destructive": false,
    "describe": "{\"name\":\"base-knowledge-edition-as-of\",\"domain\":\"knowledge\",\"summary\":\"Which edition of a law or norm applied on a date or to a permit procedure\",\"description\":\"Answers \\\"what applied when this was submitted\\\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today. An edition’s `inForceTo` is the first day it no longer holds (exclusive), not its last day.\",\"annotations\":{\"title\":\"Which edition of a law or norm applied on a date or to a permit procedure\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"workId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. work:at-wien-bo\"},\"territoryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80,\"description\":\"The legislating node, e.g. AT-9.\"},\"asOf\":{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},\"projectId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"procedureId\":{\"type\":\"string\",\"pattern\":\"^p[0-9]{1,3}$\"},\"procedureType\":{\"type\":\"string\",\"pattern\":\"^[a-z][a-z0-9_]{0,63}$\"},\"filedOn\":{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},\"decidedOn\":{\"anyOf\":[{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},{\"const\":\"pending\"}]},\"worksStartedOn\":{\"anyOf\":[{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},{\"const\":\"not_started\"}]}},\"required\":[\"workId\",\"territoryId\"],\"additionalProperties\":false}},\"additionalProperties\":false,\"required\":[\"query\"]}}"
+  },
+  {
+   "name": "base-knowledge-folder-create",
+   "domain": "knowledge",
+   "summary": "Create a folder for the office’s base knowledge",
+   "description": "Creates a folder under the base-knowledge root (created on first use) or under one of its folders, e.g. by trade or by standards body. Refused when a sibling has the name. Needs org:office_shelf:manage.",
+   "readOnly": false,
+   "destructive": false,
+   "describe": "{\"name\":\"base-knowledge-folder-create\",\"domain\":\"knowledge\",\"summary\":\"Create a folder for the office’s base knowledge\",\"description\":\"Creates a folder under the base-knowledge root (created on first use) or under one of its folders, e.g. by trade or by standards body. Refused when a sibling has the name. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Create a folder for the office’s base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":255,\"description\":\"e.g. a trade, a topic or a standards body.\"},\"parentId\":{\"description\":\"A folder from base-knowledge-folder-list; omit for the top level.\",\"type\":\"string\",\"format\":\"uuid\"},\"description\":{\"description\":\"What belongs in it, in the office’s words.\",\"type\":\"string\",\"maxLength\":500}},\"required\":[\"name\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+  },
+  {
+   "name": "base-knowledge-folder-list",
+   "domain": "knowledge",
+   "summary": "List the folders of the office’s base knowledge",
+   "description": "The base-knowledge root folder on the office shelf (`rootId`, null until first used) and every folder below it. They are office shelf folders: rename or delete one with office-shelf-folder-update or -delete; the root keeps its name and place. Any member may read.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"base-knowledge-folder-list\",\"domain\":\"knowledge\",\"summary\":\"List the folders of the office’s base knowledge\",\"description\":\"The base-knowledge root folder on the office shelf (`rootId`, null until first used) and every folder below it. They are office shelf folders: rename or delete one with office-shelf-folder-update or -delete; the root keeps its name and place. Any member may read.\",\"annotations\":{\"title\":\"List the folders of the office’s base knowledge\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"default\":200,\"description\":\"Default and max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous page’s `nextCursor`.\",\"type\":\"string\",\"pattern\":\"^\\\\d{1,5}$\"}},\"additionalProperties\":false}},\"additionalProperties\":false}}"
   },
   {
    "name": "base-knowledge-get",
@@ -1851,10 +1887,10 @@
    "name": "base-knowledge-list",
    "domain": "knowledge",
    "summary": "List the office’s base knowledge: its standards, commentaries and directives",
-   "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Only confirmed entries reach answers. Any member may read.",
+   "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"base-knowledge-list\",\"domain\":\"knowledge\",\"summary\":\"List the office’s base knowledge: its standards, commentaries and directives\",\"description\":\"An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Only confirmed entries reach answers. Any member may read.\",\"annotations\":{\"title\":\"List the office’s base knowledge: its standards, commentaries and directives\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\",\"enum\":[\"proposed\",\"confirmed\"]},\"designation\":{\"description\":\"Part of a designation or title.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"limit\":{\"default\":50,\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous page’s `nextCursor`.\",\"type\":\"string\",\"pattern\":\"^\\\\d{1,4}$\"}},\"additionalProperties\":false}},\"additionalProperties\":false}}"
+   "describe": "{\"name\":\"base-knowledge-list\",\"domain\":\"knowledge\",\"summary\":\"List the office’s base knowledge: its standards, commentaries and directives\",\"description\":\"An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.\",\"annotations\":{\"title\":\"List the office’s base knowledge: its standards, commentaries and directives\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\",\"enum\":[\"proposed\",\"confirmed\"]},\"designation\":{\"description\":\"Part of a designation or title.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"q\":{\"description\":\"Part of a designation, title or file name.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"kind\":{\"type\":\"string\",\"enum\":[\"technical_standard\",\"guideline\",\"commentary\",\"authority_directive\",\"statute\"]},\"attention\":{\"description\":\"proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used.\",\"type\":\"string\",\"enum\":[\"proposed\",\"check_due\",\"metadata_only\"]},\"folderId\":{\"description\":\"A folder from base-knowledge-folder-list: its entries and those of its subfolders.\",\"type\":\"string\",\"format\":\"uuid\"},\"limit\":{\"default\":50,\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous page’s `nextCursor`.\",\"type\":\"string\",\"pattern\":\"^\\\\d{1,4}$\"}},\"additionalProperties\":false}},\"additionalProperties\":false}}"
   },
   {
    "name": "base-knowledge-propose",
@@ -1863,7 +1899,7 @@
    "description": "Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law): give the values you read from its masthead; the rest come from its reading. It reaches no answer until a person confirms it. 409 when the document already has an entry. Needs org:office_shelf:manage.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"base-knowledge-propose\",\"domain\":\"knowledge\",\"summary\":\"Propose an office shelf document as base knowledge\",\"description\":\"Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law): give the values you read from its masthead; the rest come from its reading. It reaches no answer until a person confirms it. 409 when the document already has an entry. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Propose an office shelf document as base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"technical_standard\",\"guideline\",\"commentary\",\"authority_directive\",\"statute\"],\"description\":\"A commentary only interprets.\"},\"title\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":300,\"description\":\"The title as the document prints it.\"},\"designation\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},{\"type\":\"null\"}],\"description\":\"e.g. \\\"ÖNORM B 1600:2017\\\".\"},\"editionLabel\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"The edition as the masthead prints it, e.g. \\\"2017-04-01\\\".\"},\"issuedOn\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}]},\"territoryIds\":{\"maxItems\":20,\"type\":\"array\",\"items\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\"},\"description\":\"Where it applies; empty for a standard.\"},\"issuer\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},{\"type\":\"null\"}]},\"addressees\":{\"maxItems\":10,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. \\\"MA 37\\\".\"},\"territoryId\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\",\"description\":\"Where it decides, e.g. AT-9.\"}},\"required\":[\"name\",\"territoryId\"]},\"description\":\"A directive’s authorities; empty otherwise.\"},\"licenceClass\":{\"type\":\"string\",\"enum\":[\"public_open\",\"public_restricted\",\"licensed\"],\"description\":\"licensed for a purchased copy.\"},\"documentId\":{\"type\":\"string\",\"format\":\"uuid\",\"description\":\"An office shelf document id, from document-list.\"}},\"required\":[\"documentId\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+   "describe": "{\"name\":\"base-knowledge-propose\",\"domain\":\"knowledge\",\"summary\":\"Propose an office shelf document as base knowledge\",\"description\":\"Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law): give the values you read from its masthead; the rest come from its reading. It reaches no answer until a person confirms it. 409 when the document already has an entry. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Propose an office shelf document as base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"technical_standard\",\"guideline\",\"commentary\",\"authority_directive\",\"statute\"],\"description\":\"A commentary only interprets.\"},\"title\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":300,\"description\":\"The title as the document prints it.\"},\"designation\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},{\"type\":\"null\"}],\"description\":\"e.g. \\\"ÖNORM B 1600:2017\\\".\"},\"editionLabel\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"The edition as the masthead prints it, e.g. \\\"2017-04-01\\\".\"},\"issuedOn\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}]},\"inForceFrom\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}],\"description\":\"When this edition took effect; null: from issuedOn.\"},\"inForceTo\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}],\"description\":\"When it stopped applying, if withdrawn; a later edition ends it by itself.\"},\"territoryIds\":{\"maxItems\":20,\"type\":\"array\",\"items\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\"},\"description\":\"Where it applies; empty for a standard.\"},\"issuer\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},{\"type\":\"null\"}]},\"addressees\":{\"maxItems\":10,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. \\\"MA 37\\\".\"},\"territoryId\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\",\"description\":\"Where it decides, e.g. AT-9.\"}},\"required\":[\"name\",\"territoryId\"]},\"description\":\"A directive’s authorities; empty otherwise.\"},\"licenceClass\":{\"type\":\"string\",\"enum\":[\"public_open\",\"public_restricted\",\"licensed\"],\"description\":\"licensed for a purchased copy.\"},\"documentId\":{\"type\":\"string\",\"format\":\"uuid\",\"description\":\"An office shelf document id, from document-list.\"}},\"required\":[\"documentId\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
   },
   {
    "name": "base-knowledge-remove",
@@ -1890,7 +1926,7 @@
    "description": "Changes a confirmed entry’s descriptive values; the earlier values stay in its history. The licence is not among them: only the person changes it. 409 for a proposal. Needs org:office_shelf:manage.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"base-knowledge-update\",\"domain\":\"knowledge\",\"summary\":\"Change a confirmed base-knowledge entry\",\"description\":\"Changes a confirmed entry’s descriptive values; the earlier values stay in its history. The licence is not among them: only the person changes it. 409 for a proposal. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Change a confirmed base-knowledge entry\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"entryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"From base-knowledge-list.\"}},\"required\":[\"entryId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"technical_standard\",\"guideline\",\"commentary\",\"authority_directive\",\"statute\"],\"description\":\"A commentary only interprets.\"},\"title\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":300,\"description\":\"The title as the document prints it.\"},\"designation\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},{\"type\":\"null\"}],\"description\":\"e.g. \\\"ÖNORM B 1600:2017\\\".\"},\"editionLabel\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"The edition as the masthead prints it, e.g. \\\"2017-04-01\\\".\"},\"issuedOn\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}]},\"territoryIds\":{\"maxItems\":20,\"type\":\"array\",\"items\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\"},\"description\":\"Where it applies; empty for a standard.\"},\"issuer\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},{\"type\":\"null\"}]},\"addressees\":{\"maxItems\":10,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. \\\"MA 37\\\".\"},\"territoryId\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\",\"description\":\"Where it decides, e.g. AT-9.\"}},\"required\":[\"name\",\"territoryId\"]},\"description\":\"A directive’s authorities; empty otherwise.\"}},\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+   "describe": "{\"name\":\"base-knowledge-update\",\"domain\":\"knowledge\",\"summary\":\"Change a confirmed base-knowledge entry\",\"description\":\"Changes a confirmed entry’s descriptive values; the earlier values stay in its history. The licence is not among them: only the person changes it. 409 for a proposal. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Change a confirmed base-knowledge entry\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"entryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"From base-knowledge-list.\"}},\"required\":[\"entryId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"technical_standard\",\"guideline\",\"commentary\",\"authority_directive\",\"statute\"],\"description\":\"A commentary only interprets.\"},\"title\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":300,\"description\":\"The title as the document prints it.\"},\"designation\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},{\"type\":\"null\"}],\"description\":\"e.g. \\\"ÖNORM B 1600:2017\\\".\"},\"editionLabel\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"The edition as the masthead prints it, e.g. \\\"2017-04-01\\\".\"},\"issuedOn\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}]},\"inForceFrom\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}],\"description\":\"When this edition took effect; null: from issuedOn.\"},\"inForceTo\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}],\"description\":\"When it stopped applying, if withdrawn; a later edition ends it by itself.\"},\"territoryIds\":{\"maxItems\":20,\"type\":\"array\",\"items\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\"},\"description\":\"Where it applies; empty for a standard.\"},\"issuer\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},{\"type\":\"null\"}]},\"addressees\":{\"maxItems\":10,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. \\\"MA 37\\\".\"},\"territoryId\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\",\"description\":\"Where it decides, e.g. AT-9.\"}},\"required\":[\"name\",\"territoryId\"]},\"description\":\"A directive’s authorities; empty otherwise.\"}},\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
    "name": "base-knowledge-upload",
@@ -1899,7 +1935,7 @@
    "description": "Stores one file on the office shelf and proposes it from its file name. Its text is not read (no index, no summary) until a person confirms the copy. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"base-knowledge-upload\",\"domain\":\"knowledge\",\"summary\":\"Upload a standard, commentary or directive as base knowledge\",\"description\":\"Stores one file on the office shelf and proposes it from its file name. Its text is not read (no index, no summary) until a person confirms the copy. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Upload a standard, commentary or directive as base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"files\":{\"minItems\":1,\"maxItems\":1,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":255,\"description\":\"The file name, with its extension, e.g. \\\"Grundriss EG.pdf\\\".\"},\"mimeType\":{\"description\":\"The media type, e.g. \\\"application/pdf\\\". Defaults to application/octet-stream.\",\"type\":\"string\",\"maxLength\":255},\"contentBase64\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":44739244,\"pattern\":\"^[A-Za-z0-9+/]*={0,2}$\",\"description\":\"The file's bytes as standard base64 (RFC 4648, with padding), at most 33554432 bytes decoded.\"}},\"required\":[\"name\",\"contentBase64\"]},\"description\":\"The file to upload. Exactly one file.\"},\"fields\":{\"type\":\"object\",\"properties\":{\"folderId\":{\"description\":\"From office-shelf-folder-list; omit for the root.\",\"type\":\"string\"}},\"additionalProperties\":false,\"description\":\"The route’s text fields, sent beside the file as form parts.\"}},\"required\":[\"files\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+   "describe": "{\"name\":\"base-knowledge-upload\",\"domain\":\"knowledge\",\"summary\":\"Upload a standard, commentary or directive as base knowledge\",\"description\":\"Stores one file on the office shelf and proposes it from its file name. Its text is not read (no index, no summary) until a person confirms the copy. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Upload a standard, commentary or directive as base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"files\":{\"minItems\":1,\"maxItems\":1,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":255,\"description\":\"The file name, with its extension, e.g. \\\"Grundriss EG.pdf\\\".\"},\"mimeType\":{\"description\":\"The media type, e.g. \\\"application/pdf\\\". Defaults to application/octet-stream.\",\"type\":\"string\",\"maxLength\":255},\"contentBase64\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":44739244,\"pattern\":\"^[A-Za-z0-9+/]*={0,2}$\",\"description\":\"The file's bytes as standard base64 (RFC 4648, with padding), at most 33554432 bytes decoded.\"}},\"required\":[\"name\",\"contentBase64\"]},\"description\":\"The file to upload. Exactly one file.\"},\"fields\":{\"type\":\"object\",\"properties\":{\"folderId\":{\"description\":\"From base-knowledge-folder-list; omit for the base-knowledge root folder.\",\"type\":\"string\"}},\"additionalProperties\":false,\"description\":\"The route’s text fields, sent beside the file as form parts.\"}},\"required\":[\"files\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
   },
   {
    "name": "coverage-get",
@@ -2131,26 +2167,26 @@
   "add member project": [
    "project-person-add",
    "project-member-list",
+   "base-knowledge-edition-add",
    "project-create",
    "assignment-candidate-list",
    "project-record-get",
    "task-run-document-add",
    "project-profile-patch",
    "organization-member-list",
-   "inbound-mail-list",
-   "conversation-message-add"
+   "inbound-mail-list"
   ],
   "Mitglied zu Projekt hinzufügen": [
    "project-person-add",
    "project-member-list",
+   "base-knowledge-edition-add",
    "project-create",
    "assignment-candidate-list",
    "project-record-get",
    "task-run-document-add",
    "project-profile-patch",
    "organization-member-list",
-   "inbound-mail-list",
-   "conversation-message-add"
+   "inbound-mail-list"
   ],
   "list project members": [
    "project-member-list",
@@ -2204,25 +2240,25 @@
    "project-create",
    "office-shelf-folder-create",
    "project-folder-create",
+   "base-knowledge-folder-create",
    "project-task-run-list",
    "task-delete",
    "task-get",
    "task-list",
    "task-run-cancel",
-   "task-run-get",
-   "task-run-review"
+   "task-run-get"
   ],
   "Aufgabe erstellen": [
    "project-create",
    "office-shelf-folder-create",
    "project-folder-create",
+   "base-knowledge-folder-create",
    "project-task-run-list",
    "task-delete",
    "task-get",
    "task-list",
    "task-run-cancel",
-   "task-run-get",
-   "task-run-review"
+   "task-run-get"
   ],
   "inbox unread": [
    "inbox-list",
@@ -2273,13 +2309,13 @@
    "document-move",
    "project-folder-delete",
    "project-folder-update",
+   "base-knowledge-bulk",
    "office-shelf-folder-update",
    "document-bin",
    "project-folder-bin-list",
    "document-summary-get",
    "office-shelf-folder-delete",
-   "office-shelf-folder-list",
-   "project-folder-bin-purge"
+   "office-shelf-folder-list"
   ],
   "Datei in Ordner verschieben": [
    "document-move",
@@ -2288,34 +2324,34 @@
    "project-root-sort-start",
    "project-folder-update",
    "root-sort-run-undo",
+   "base-knowledge-bulk",
    "office-shelf-folder-update",
    "document-bin",
-   "project-folder-bin-list",
-   "inbound-mail-file"
+   "project-folder-bin-list"
   ],
   "create folder": [
    "office-shelf-folder-create",
    "project-folder-create",
+   "base-knowledge-folder-create",
    "office-shelf-folder-ensure",
    "hold-create",
    "project-create",
    "skill-category-create",
    "office-shelf-folder-delete",
    "office-shelf-folder-list",
-   "office-shelf-folder-update",
-   "project-folder-access-get"
+   "office-shelf-folder-update"
   ],
   "Ordner anlegen": [
    "office-shelf-folder-create",
    "project-folder-create",
+   "base-knowledge-folder-create",
    "office-shelf-folder-ensure",
    "hold-create",
    "project-create",
    "skill-category-create",
    "office-shelf-folder-delete",
    "office-shelf-folder-list",
-   "office-shelf-folder-update",
-   "project-folder-access-get"
+   "office-shelf-folder-update"
   ],
   "document versions": [
    "document-version-list",
@@ -2392,14 +2428,14 @@
   "list proposals": [
    "proposal-list",
    "annotation-list",
+   "base-knowledge-list",
    "proposal-get",
    "project-list",
    "project-member-list",
    "document-list",
    "quarantine-list",
    "office-shelf-folder-list",
-   "project-folder-list",
-   "conversation-list"
+   "project-folder-list"
   ],
   "offene Vorschläge": [
    "proposal-get",
@@ -2408,6 +2444,7 @@
    "project-cleanup-propose",
    "annotation-list",
    "conversation-message-update",
+   "base-knowledge-list",
    "base-knowledge-update"
   ],
   "assign document responsible": [
