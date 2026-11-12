@@ -7,6 +7,7 @@
 
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -20,6 +21,19 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: navigation.push, replace: navigation.push }),
   usePathname: () => '/app/base-knowledge',
   useSearchParams: () => new URLSearchParams(navigation.search),
+}))
+
+// The one viewer, as a frame around what it is given: these specs are about what the place opens and puts beside
+// the file, not about the viewer, which has its own.
+vi.mock('@/features/documents/file-preview', () => ({
+  fileItemFromStatus: (body: { id: string; filename: string }) => ({ ...body }),
+  FilePreviewDialog: ({ file, detailsLead, onClose }: { file: { filename: string } | null; detailsLead?: ReactNode; onClose: () => void }) =>
+    file ? (
+      <div role="dialog" aria-label={file.filename}>
+        <button type="button" onClick={onClose}>close</button>
+        {detailsLead}
+      </div>
+    ) : null,
 }))
 
 const listOf = (entries = BASE_KNOWLEDGE_ENTRIES, canManage = true): BaseKnowledgeList => ({
@@ -39,6 +53,7 @@ function stubFetch(list: BaseKnowledgeList, folders = BASE_KNOWLEDGE_FOLDERS) {
       calls.push({ url: input, init })
       if (input.startsWith('/api/base-knowledge/folders')) return Response.json(folders)
       if (input.startsWith('/api/base-knowledge/bulk')) return Response.json({ results: [{ entryId: 'din-4109', ok: true, error: null }] })
+      if (input.startsWith('/api/documents/')) return Response.json({ id: 'doc', filename: 'ÖNORM B 1600.pdf', status: 'completed' })
       return Response.json(list)
     }),
   )
@@ -92,6 +107,26 @@ describe('BaseKnowledgeWorkspace', () => {
     renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
     expect(calls.some((call) => call.url.includes('folderId=00000000-0000-4000-8000-000000000002'))).toBe(true)
+  })
+
+  it('opens a standard as its file, from its row', async () => {
+    stubFetch(listOf())
+    renderWorkspace()
+    const [first] = await screen.findAllByTestId('base-knowledge-row')
+    await userEvent.click(within(first).getByTestId('base-knowledge-entry-name'))
+    expect(navigation.push).toHaveBeenCalledWith(`/app/base-knowledge?file=${BASE_KNOWLEDGE_ENTRIES[0].id}`, { scroll: false })
+  })
+
+  it('shows the file with the standard’s facts beside it, and its page one press away', async () => {
+    navigation.search = 'file=oenorm-b-1600'
+    stubFetch(listOf())
+    renderWorkspace()
+    const viewer = await screen.findByRole('dialog', { name: 'ÖNORM B 1600.pdf' })
+    const facts = within(viewer).getByTestId('standard-facts')
+    expect(within(facts).getByText('Ausgabe')).toBeTruthy()
+    expect(within(facts).getByText('Zuletzt geprüft')).toBeTruthy()
+    await userEvent.click(within(facts).getByTestId('standard-facts-manage'))
+    expect(navigation.push).toHaveBeenCalledWith('/app/base-knowledge?entry=oenorm-b-1600', { scroll: false })
   })
 
   it('opens a standard as a page in place of the list, without a side panel', async () => {

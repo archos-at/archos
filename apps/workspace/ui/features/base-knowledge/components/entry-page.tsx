@@ -11,7 +11,7 @@
 
 import { useRef, useState, type JSX } from 'react'
 import { toast } from 'sonner'
-import { Upload } from 'lucide-react'
+import { FileText, Upload } from 'lucide-react'
 import {
   addBaseKnowledgeEdition,
   bulkBaseKnowledge,
@@ -538,16 +538,31 @@ export function EntryPage({
   entry,
   onBack,
   onOpenEdition,
+  onOpenFile,
   ...rest
-}: Omit<EntryPageProps, 'onClose'> & { entry: BaseKnowledgeEntry; onBack: () => void; onOpenEdition: (entryId: string) => void }): JSX.Element {
+}: Omit<EntryPageProps, 'onClose'> & {
+  entry: BaseKnowledgeEntry
+  onBack: () => void
+  onOpenEdition: (entryId: string) => void
+  /** The standard is a file: from its page, one press opens it to read. */
+  onOpenFile?: () => void
+}): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-4" data-testid="base-knowledge-entry-page">
       <BackControl label={t('detail.back')} onClick={onBack} className="self-start" testId="base-knowledge-back" />
-      <header className="space-y-1">
-        <h2 className="text-xl font-semibold">{entry.values.designation ?? entry.values.title}</h2>
-        {entry.values.designation && <p className="text-muted-foreground">{entry.values.title}</p>}
-        <Provenance entry={entry} />
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <h2 className="text-xl font-semibold">{entry.values.designation ?? entry.values.title}</h2>
+          {entry.values.designation && <p className="text-muted-foreground">{entry.values.title}</p>}
+          <Provenance entry={entry} />
+        </div>
+        {onOpenFile && (
+          <Button variant="secondary" size="sm" onClick={onOpenFile} data-testid="base-knowledge-open-file">
+            <FileText aria-hidden />
+            {t('detail.openFile')}
+          </Button>
+        )}
       </header>
       <Editions entry={entry} onOpen={onOpenEdition} />
       {/* Keyed by id and state, so a saved change or another entry starts a fresh form. */}

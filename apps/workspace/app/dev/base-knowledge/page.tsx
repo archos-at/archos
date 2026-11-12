@@ -23,6 +23,7 @@ import {
 } from '@/lib/base-knowledge/office/listing'
 import type { BaseKnowledgeList, ListEntriesQuery } from '@/lib/base-knowledge/wire'
 import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES } from '../_fixtures/base-knowledge'
+import { buildPdf, type PdfLine } from '../_fixtures/sample-pdf'
 
 function list(url: URL, variant: string | null): BaseKnowledgeList {
   const entries = variant === 'empty' ? [] : BASE_KNOWLEDGE_ENTRIES
@@ -69,6 +70,28 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       // An entry's own path answers with the entry; a write leaves the fixture as it is.
       if (entry) return Response.json(entry)
       if (url.pathname.startsWith('/api/base-knowledge')) return Response.json({ results: [] })
+      // A standard opens as its file: the viewer reads the document's status and its bytes like any other.
+      const doc = /^\/api\/documents\/([^/]+)\/(status|file|preview|details|versions|visual-details|annotations)$/.exec(url.pathname)
+      const held = doc ? BASE_KNOWLEDGE_ENTRIES.find((candidate) => candidate.documentId === decodeURIComponent(doc[1])) : undefined
+      if (doc && held) {
+        if (doc[2] === 'status') {
+          return Response.json({ id: held.documentId, filename: held.fileName, contentType: 'application/pdf', status: 'completed', fileSize: 1_843_200, pageCount: 1, createdAt: held.createdAt })
+        }
+        if (doc[2] === 'file') {
+          const page: PdfLine[] = [
+            [held.values.designation ?? held.values.title, 22, true],
+            [held.values.title, 13, false],
+            [`Ausgabe ${held.values.editionLabel}`, 11, false],
+            ['', 11, false],
+            ['1 Anwendungsbereich', 14, true],
+            ['Diese Norm gilt für die Planung und Errichtung von Bauwerken.', 11, false],
+          ]
+          return new Response(buildPdf([page]), { headers: { 'Content-Type': 'application/pdf' } })
+        }
+        if (doc[2] === 'preview') return Response.json({ url: `/api/documents/${held.documentId}/file`, contentType: 'application/pdf' })
+        if (doc[2] === 'annotations') return Response.json({ annotations: [], canAnnotate: true })
+        return Response.json(doc[2] === 'versions' ? { versions: [] } : doc[2] === 'visual-details' ? { details: [] } : {})
+      }
       if (url.pathname === '/api/documents' && url.searchParams.get('scope') === 'office_shelf') {
         return Response.json({
           documents: [

@@ -101,7 +101,15 @@ export const baseKnowledge = {
     removeTitle: 'Remove {count} standards?',
     removeBody: 'The standards and their files are removed from Office filing. {productName} no longer quotes them. This cannot be undone.',
   },
+  facts: {
+    title: 'Standard',
+    designation: 'Designation',
+    manage: 'Edit details',
+    reviewAndConfirm: 'Review and confirm',
+    checked: 'Recorded as current.',
+  },
   detail: {
+    openFile: 'Open file',
     editions: 'Editions',
     editionsWhy: 'Answers take the edition in force on the project’s reference date: for a project filed earlier the one of that time, otherwise the current one.',
     editionLine: 'Edition {label}',

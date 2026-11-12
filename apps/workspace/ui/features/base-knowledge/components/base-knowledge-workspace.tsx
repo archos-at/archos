@@ -46,6 +46,7 @@ import { MAX_BULK_ENTRIES, type BulkEntriesBody } from '@/lib/base-knowledge/wir
 import { useBaseKnowledge, type BaseKnowledgeFilters } from '../hooks/use-base-knowledge'
 import { EntryList } from './entry-list'
 import { EntryPage } from './entry-page'
+import { StandardFile } from './standard-file'
 import { Guide } from './guide'
 import { ShelfPickerDialog } from './shelf-picker-dialog'
 
@@ -57,17 +58,24 @@ export interface BaseKnowledgeWorkspaceProps {
 type Translate = ReturnType<typeof useTranslations>
 const failure = (t: Translate, error: unknown) => (error instanceof Error && error.message ? error.message : t('saveError'))
 
-/** The folder and the open standard live in the URL, so the back button and a shared link land where the person was. */
-function useLocation(): { folderId: string | null; entryId: string | null; go: (next: { folderId?: string | null; entryId?: string | null }) => void } {
+type Place = { folderId?: string | null; entryId?: string | null; fileId?: string | null }
+
+/**
+ * The folder, the standard open as its file (`?file=`) and the standard's own page (`?entry=`) live in the URL, so
+ * the back button and a shared link land where the person was. A standard opens as its file; its page is where it
+ * is managed.
+ */
+function useLocation(): { folderId: string | null; entryId: string | null; fileId: string | null; go: (next: Place) => void } {
   const params = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
   const folderId = params.get('folder')
   const entryId = params.get('entry')
+  const fileId = params.get('file')
   const go = useCallback(
-    (next: { folderId?: string | null; entryId?: string | null }) => {
+    (next: Place) => {
       const query = new URLSearchParams(params.toString())
-      for (const [key, value] of [['folder', next.folderId], ['entry', next.entryId]] as const) {
+      for (const [key, value] of [['folder', next.folderId], ['entry', next.entryId], ['file', next.fileId]] as const) {
         if (value === undefined) continue
         if (value) query.set(key, value)
         else query.delete(key)
@@ -77,7 +85,7 @@ function useLocation(): { folderId: string | null; entryId: string | null; go: (
     },
     [params, pathname, router],
   )
-  return { folderId, entryId, go }
+  return { folderId, entryId, fileId, go }
 }
 
 /**
@@ -124,6 +132,15 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
   const entries = useMemo(() => list?.entries ?? [], [list])
   const open = useOpenEntry(location.entryId, entries)
   const openEntry = open.entry
+  const viewed = useOpenEntry(location.fileId, entries)
+
+  // A standard whose file cannot be read: say so, and stay on the list.
+  const { go } = location
+  useEffect(() => {
+    if (!viewed.failed) return
+    toast.error(t('entryLoadError'))
+    go({ fileId: null })
+  }, [viewed.failed, go, t])
 
   // A further page that did not load: the entries on screen stay, and the person is told.
   const hasList = list !== null
@@ -262,6 +279,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           entry={openEntry}
           onBack={() => location.go({ entryId: null })}
           onOpenEdition={(entryId) => location.go({ entryId })}
+          onOpenFile={() => location.go({ entryId: null, fileId: openEntry.id })}
           canManage={canManage}
           rootId={folders.rootId}
           folders={folders.folders}
@@ -326,7 +344,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           onSelect={select}
           onClearSelection={() => setSelected(new Set())}
           onBulk={(action) => (action.type === 'remove' ? setRemoving(true) : void bulk(action))}
-          onOpen={(entry) => location.go({ entryId: entry.id })}
+          onOpen={(entry) => location.go({ fileId: entry.id })}
           loadingMore={state.loadingMore}
           onLoadMore={state.loadMore}
         />
@@ -357,6 +375,25 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
         {list && !location.entryId && <Guide key={empty ? 'empty' : 'filled'} defaultOpen={empty} />}
         {body()}
       </div>
+
+      {viewed.entry && (
+        <StandardFile
+          entry={viewed.entry}
+          canManage={canManage}
+          onClose={() => go({ fileId: null })}
+          onManage={() => go({ fileId: null, entryId: viewed.entry?.id })}
+          onOpenEdition={(entryId) => go({ fileId: entryId })}
+          onChanged={(entry) => {
+            viewed.set(entry)
+            if (!entry) go({ fileId: null })
+            void reload()
+          }}
+          onUnavailable={() => {
+            toast.error(t('entryLoadError'))
+            go({ fileId: null })
+          }}
+        />
+      )}
 
       <ShelfPickerDialog open={picking} onOpenChange={setPicking} recorded={new Set(entries.map((entry) => entry.documentId))} onProposed={() => void reload()} />
       <ConfirmDialog

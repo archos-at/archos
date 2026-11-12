@@ -97,6 +97,11 @@ describe('FilePreviewPane', () => {
     vi.restoreAllMocks()
   })
 
+  it('puts what its opener knows about the file first in the details column', () => {
+    render(<FilePreviewPane file={mockFile} projectId="proj-1" detailsLead={<p>Ausgabe 2023-02-01</p>} />)
+    expect(within(screen.getByTestId('file-preview-details-lead')).getByText('Ausgabe 2023-02-01')).toBeDefined()
+  })
+
   it('renders file metadata', () => {
     render(<FilePreviewPane file={mockFile} projectId="proj-1" />)
     expect(screen.getByText('plan.pdf')).toBeDefined()

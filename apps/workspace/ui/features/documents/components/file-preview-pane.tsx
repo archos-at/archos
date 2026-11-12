@@ -10,7 +10,7 @@ export function FilePreviewPane(props: FilePreviewPaneProps) {
   return (
     <div className="@container bg-card flex h-full min-h-0 flex-col">
       <FilePreviewChrome controller={controller} />
-      <FilePreviewBody controller={controller} />
+      <FilePreviewBody controller={controller} detailsLead={props.detailsLead} />
       <FilePreviewFooter controller={controller} />
     </div>
   )

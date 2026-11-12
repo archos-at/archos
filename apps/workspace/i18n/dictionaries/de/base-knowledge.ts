@@ -101,7 +101,15 @@ export const baseKnowledge = {
     removeTitle: '{count} Grundlagen entfernen?',
     removeBody: 'Die Grundlagen und ihre Dateien werden aus der Büroablage entfernt. {productName} zitiert sie danach nicht mehr. Das lässt sich nicht rückgängig machen.',
   },
+  facts: {
+    title: 'Grundlage',
+    designation: 'Bezeichnung',
+    manage: 'Angaben bearbeiten',
+    reviewAndConfirm: 'Prüfen und bestätigen',
+    checked: 'Als aktuell festgehalten.',
+  },
   detail: {
+    openFile: 'Datei öffnen',
     editions: 'Ausgaben',
     editionsWhy: 'Antworten nehmen die Ausgabe, die am Stichtag des Projekts galt: für ein früher eingereichtes Projekt die damalige, sonst die aktuelle.',
     editionLine: 'Ausgabe {label}',

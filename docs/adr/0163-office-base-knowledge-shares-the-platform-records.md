@@ -177,6 +177,12 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   without one edition's date (`ÖNORM B 1600`, not `…:2017`; `workDesignation`), each edition's date being
   its label. A dated edition is in force on no day before it starts or after it ends; only an undated one
   answers when the rule finds none. An edition's history shows only the editions the reader may see.
+- **A standard opens as the file it is** (2026-11-12): a press on it opens the app's one viewer
+  (`FilePreviewDialog`, `?file=` in the URL), as the Büroablage opens any file, with the standard's facts
+  (designation, edition, valid from, status, text use, last check, its other editions) first in the viewer's
+  details column, and the two things done in passing there: confirm a proposal, say it is still current. Its page
+  (values, licence, folder, newer edition, removal) is one press away, „Angaben bearbeiten“. Reading a standard
+  is the common act; managing it is the rare one.
 - **Which edition an answer uses** is the platform's rule for a standard, guideline or commentary
   (`time/editions.ts` `newestInForce`; an edition starts on its in-force date, else its issue date) at the
   project's reference day: the filing day once it has come, else today (`referenceDayOfProfile`, which the
