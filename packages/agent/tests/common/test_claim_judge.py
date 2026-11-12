@@ -206,6 +206,14 @@ class TestTheCall:
         finally:
             set_turn_knowledge_context(None)
 
+    def test_the_grader_is_told_what_the_building_law_entry_backs(self):
+        """The check is handed the <building_law> block; the grader's rule that a record never backs what a
+        regulation requires must not swallow it, or a binding edition stated from it stays unbacked."""
+        from agent.common.claim_judge import SYSTEM_PROMPT
+
+        assert "<building_law>" in SYSTEM_PROMPT
+        assert "which edition" in SYSTEM_PROMPT and "never one of what" in SYSTEM_PROMPT
+
 
 @pytest.mark.parametrize("answer", stored_answers(), ids=lambda answer: answer["id"])
 def test_every_stored_answer_reaches_the_check_whole(answer):
