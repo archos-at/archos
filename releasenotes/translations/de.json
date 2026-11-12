@@ -1156,6 +1156,10 @@
     "de": "Eine Antwort, die noch entsteht, bleibt erhalten, wenn Ihre Verbindung abbricht, und Piloti zeigt „Piloti arbeitet weiter“, bis die Antwort da ist."
   },
   {
+    "en": "An answer that itself says something it relies on is still open or not checked, such as which edition binds at the site, no longer shows high confidence beside that remark: it shows medium, and the chip says why.",
+    "de": "Eine Antwort, die selbst darauf hinweist, dass eine ihrer Grundlagen noch offen oder ungeprüft ist – etwa welche Fassung am Standort maßgeblich ist –, wird neben diesem Hinweis nicht mehr mit hoher, sondern mit mittlerer Konfidenz angezeigt; der Chip nennt den Grund."
+  },
+  {
     "en": "An answer that names which edition of a guideline applies at your site, and since when, is no longer rated low confidence just for that statement. The confidence check now reads the same record of what applies at the site that the answer was written from.",
     "de": "Eine Antwort, die angibt, welche Ausgabe einer Richtlinie an Ihrem Standort gilt und seit wann, wird nicht mehr allein für diese Aussage mit geringer Konfidenz bewertet. Die Konfidenzprüfung greift jetzt auf denselben Datensatz zu, der festhält, was an dem Standort gilt, auf dessen Grundlage die Antwort erstellt wurde."
   },
