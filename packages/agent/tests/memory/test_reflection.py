@@ -9,6 +9,7 @@ import pytest
 from agent.common import AgentGroup
 from agent.common import bff_http
 from agent.knowledge.personal_memory import VALID_PERSONAL_KINDS
+from agent.knowledge.personal_memory import PersonalMemoryForget
 from agent.knowledge.personal_memory import PersonalMemoryWrite
 from agent.knowledge.project_memory import VALID_CONFIDENCES
 from agent.knowledge.project_memory import VALID_KINDS
@@ -967,6 +968,24 @@ class TestWhomAFindingIsAbout:
         )
         assert finding.supersedes == ""
 
+    def test_a_person_finding_supersedes_a_personal_note_it_was_shown(self):
+        block = 'PERSONAL_MEMORY v1\n- [preference] "Mit \\"Lord\\" ansprechen."'
+        [finding] = _sanitize(
+            [_person(content="Mit Vornamen ansprechen.", supersedes='Mit "Lord" ansprechen.')],
+            can_write_personal=True,
+            personal_memory=block,
+        )
+        assert finding.supersedes == 'Mit "Lord" ansprechen.'
+
+    def test_a_removal_is_a_person_finding_with_no_content(self):
+        block = 'PERSONAL_MEMORY v1\n- [pinned | preference] "Mit Lord ansprechen."'
+        [finding] = _sanitize(
+            [_person(content="", supersedes="Mit Lord ansprechen.")], can_write_personal=True, personal_memory=block
+        )
+        assert (finding.content, finding.supersedes) == ("", "Mit Lord ansprechen.")
+        # A removal of a note nobody showed it is nothing.
+        assert _sanitize([_person(content="", supersedes="Mit Lord ansprechen.")], can_write_personal=True) == []
+
     def test_a_dropped_person_finding_costs_no_slot(self):
         raw = [_person()] * 3 + [{"kind": "decision", "content": f"Decision {n}."} for n in range(R.MAX_NEW_ITEMS)]
         assert len(_sanitize(raw)) == R.MAX_NEW_ITEMS
@@ -1034,6 +1053,31 @@ class TestPersonalFindingsAreWrittenToPersonalMemory:
             }
         ]
         assert [(row["id"], row["about"]) for row in recorded] == [("n-1", "person"), ("p-1", "project")]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("removed", "written"), [("n-0", ["Mit Vornamen ansprechen."]), (None, [])])
+    async def test_a_personal_correction_is_written_only_once_its_note_is_gone(self, monkeypatch, removed, written):
+        forgotten, personal = [], []
+
+        def forget(**kwargs):
+            forgotten.append(kwargs["content"])
+            return PersonalMemoryForget(removed_id=removed, refused=None if removed else "not_found")
+
+        def insert_personal(**kwargs):
+            personal.append(kwargs["content"])
+            return PersonalMemoryWrite(id="n-1", created=True)
+
+        monkeypatch.setattr(R, "forget_personal_memory_item", forget)
+        monkeypatch.setattr(R, "insert_personal_memory_item", insert_personal)
+        finding = R._ReflectionFinding.model_validate(
+            _person(
+                content="Mit Vornamen ansprechen.", supersedes="Mit Lord ansprechen.", confidence="high", importance=3
+            )
+        )
+        await R._write_personal_finding(finding, envelope=_ENVELOPE, conversation_id="conv-1")
+
+        assert forgotten == ["Mit Lord ansprechen."]
+        assert personal == written
 
     @pytest.mark.asyncio
     async def test_without_an_envelope_the_person_finding_reaches_no_memory(self, monkeypatch):

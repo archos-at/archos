@@ -29,7 +29,7 @@ import {
   type PersonalMemoryFilter,
   type PersonalMemoryOwner,
 } from './repository'
-import { requirePersonalContentKey } from './content-key'
+import { personalContentKey, requirePersonalContentKey } from './content-key'
 import type { PersonalMemoryKind, PersonalMemoryProvenance } from './vocabulary'
 
 export type { PersonalMemoryOwner }
@@ -130,6 +130,34 @@ export async function editPersonalMemoryItem(
 
 export async function removePersonalMemoryItem(owner: PersonalMemoryOwner, id: string): Promise<boolean> {
   return deletePersonalMemory(owner, id)
+}
+
+/**
+ * What the agent's forget did: the note it removed, `curated` when the quoted
+ * note is one the person wrote or pinned, `not_found` when no note says that.
+ */
+export type ForgetPersonalNoteOutcome =
+  | { removedId: string; refused: null }
+  | { removedId: null; refused: 'curated' | 'not_found' }
+
+/**
+ * The agent's undo: remove the person's note that says `quoted`, the text it
+ * was shown in its `PERSONAL_MEMORY` block. Matched by `content_key` only, so
+ * case and punctuation do not matter and nothing is guessed at: an unmatched
+ * quote removes nothing and says so. A note the person wrote or pinned is
+ * theirs to remove in the panel, never the agent's (design §3.2, as for
+ * project memory).
+ */
+export async function forgetPersonalMemoryItem(
+  owner: PersonalMemoryOwner,
+  quoted: string
+): Promise<ForgetPersonalNoteOutcome> {
+  const key = personalContentKey(quoted)
+  const note = key ? await findPersonalMemoryByContentKey(owner, key) : null
+  if (!note) return { removedId: null, refused: 'not_found' }
+  if (note.pinned || note.provenanceType === 'user') return { removedId: null, refused: 'curated' }
+  if (!(await deletePersonalMemory(owner, note.id))) return { removedId: null, refused: 'not_found' }
+  return { removedId: note.id, refused: null }
 }
 
 /**

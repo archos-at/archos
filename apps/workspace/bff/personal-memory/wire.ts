@@ -80,3 +80,10 @@ export const internalPersonalMemorySchema = z
   .strict()
 
 export type InternalPersonalMemoryInput = z.infer<typeof internalPersonalMemorySchema>
+
+/**
+ * The body of `POST /api/internal/personal-memory/forget`, the agent's undo:
+ * the text of the note to remove, as the agent's `PERSONAL_MEMORY` block showed
+ * it. Strict and with no owner field, like the write.
+ */
+export const internalForgetPersonalMemorySchema = z.object({ content }).strict()

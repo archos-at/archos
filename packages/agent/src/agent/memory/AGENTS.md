@@ -32,6 +32,18 @@ on a message other people read. Project and organization writes keep the whole
 personal-data denylist (`looks_like_personal_data`); personal writes keep its
 secret half (`looks_like_secret`).
 
+**A personal note is corrected or dropped by removing it, never by a note that
+contradicts it.** Both writers take `supersedes` for a personal note too: the
+tool from the turn's `PERSONAL_MEMORY` block, reflection only for a whole note
+of the block it was shown. The client's `forget_personal_memory_item` calls
+`POST /api/internal/personal-memory/forget`, which matches the quote by
+`content_key` and guesses at nothing. The replacement is written only once the
+old note is gone: when the BFF answers `not_found` or `curated` (a note the
+person wrote or pinned, theirs to remove in the panel) nothing is written,
+because an "undo" that lands as "no longer X" beside "X" is the bug this rule
+closes. An empty `content` with `supersedes` is the removal alone, and the tool
+allows it in a temporary conversation, since it keeps nothing new.
+
 **The stage's frame lists the turn's shared notes, and only those.** The
 `memory_reflection` frame carries the project and organization notes the
 `remember` tool created during the answer (`provenance: "agent"`, at most

@@ -71,8 +71,11 @@ REFLECTION_SYSTEM_PROMPT = (
     "importance is an integer 1-10: how much future answers depend on this finding — 1-3 "
     "incidental, 4-6 useful context, 7-8 shapes answers, 9-10 getting it wrong invalidates "
     "answers.\n"
-    "supersedes is the verbatim content of the PROJECT memory entry being replaced, or an empty "
-    "string; always an empty string with about: person.\n\n"
+    "supersedes is the verbatim content of the memory entry being replaced, or an empty string: "
+    "a project memory entry with about: project, a personal memory entry with about: person.\n"
+    "When the person asks to drop, undo or forget one of their personal notes, return a finding "
+    "with about: person, that note VERBATIM in supersedes and an EMPTY content: the note is "
+    'removed. Never record a note that negates an earlier one ("no longer X") in its place.\n\n'
     f"Return AT MOST {MAX_NEW_ITEMS} findings. If nothing qualifies, return an empty list — "
     "that is the common and correct outcome. Respond with ONLY a JSON object of the form: "
     '{"findings": [{"about": "...", "kind": "...", "content": "...", "confidence": "...", "importance": 5, '

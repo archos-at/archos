@@ -39,6 +39,7 @@ import {
   clearPersonalMemory,
   createPersonalMemoryItem,
   editPersonalMemoryItem,
+  forgetPersonalMemoryItem,
   listPersonalMemory,
   removePersonalMemoryItem,
 } from './service'
@@ -308,6 +309,33 @@ describe('clearPersonalMemory', () => {
   it('answers 0 for a person who holds no note', async () => {
     vi.mocked(deleteAllPersonalMemory).mockResolvedValue(0)
     expect(await clearPersonalMemory(OWNER)).toBe(0)
+  })
+})
+
+describe('forgetPersonalMemoryItem', () => {
+  it('removes the agent’s note the quote names, matched with case and punctuation folded', async () => {
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(note({ id: 'note-1' }))
+    vi.mocked(deletePersonalMemory).mockResolvedValue(true)
+
+    expect(await forgetPersonalMemoryItem(OWNER, '  answers in SHORT paragraphs ')).toEqual({ removedId: 'note-1', refused: null })
+    expect(findPersonalMemoryByContentKey).toHaveBeenCalledWith(OWNER, 'answers in short paragraphs')
+    expect(deletePersonalMemory).toHaveBeenCalledWith(OWNER, 'note-1')
+  })
+
+  it('removes nothing and says not_found when no note says that, or the quote has no letter', async () => {
+    expect(await forgetPersonalMemoryItem(OWNER, 'Mit „Lord“ ansprechen.')).toEqual({ removedId: null, refused: 'not_found' })
+    expect(await forgetPersonalMemoryItem(OWNER, '…')).toEqual({ removedId: null, refused: 'not_found' })
+    expect(deletePersonalMemory).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['the person wrote', { provenanceType: 'user' as const }],
+    ['is pinned', { pinned: true }],
+  ])('refuses a note the person %s as curated: theirs to remove in the panel', async (_name, overrides) => {
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(note(overrides))
+
+    expect(await forgetPersonalMemoryItem(OWNER, 'Answers in short paragraphs.')).toEqual({ removedId: null, refused: 'curated' })
+    expect(deletePersonalMemory).not.toHaveBeenCalled()
   })
 })
 
