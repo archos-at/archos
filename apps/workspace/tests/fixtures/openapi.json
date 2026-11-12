@@ -1853,7 +1853,7 @@
       "get": {
         "operationId": "project-memory-list",
         "summary": "List a project’s memory items",
-        "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. Each item carries its `topic` (null for none); `topics` lists the topics the caller sees with how many items each holds, over all items, not this page. Item ids feed project-memory-update and project-memory-delete.",
+        "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. Each item carries its `topic` (null for none); `topics` lists the topics the caller sees with how many items each holds, over all items, not this page. `topic` narrows the list to one topic, as `topics` names it (empty: the items with no topic). Item ids feed project-memory-update and project-memory-delete.",
         "tags": [
           "projects"
         ],
@@ -1883,6 +1883,17 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "topic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the notes on this topic, as topics names it. Empty: the notes with no topic.",
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "Only the notes on this topic, as topics names it. Empty: the notes with no topic."
           },
           {
             "name": "limit",
@@ -18235,7 +18246,7 @@
       "get": {
         "operationId": "personal-memory-list",
         "summary": "List the person’s personal memory",
-        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Each note carries its `topic` (null for none); `topics` lists the person’s topics with how many notes each holds, over all their notes, not this page. Item ids feed personal-memory-update and personal-memory-delete.",
+        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Each note carries its `topic` (null for none); `topics` lists the person’s topics with how many notes each holds, over all their notes, not this page. `topic` narrows the page to one topic, as `topics` names it (empty: the notes with no topic). Item ids feed personal-memory-update and personal-memory-delete.",
         "tags": [
           "collaboration"
         ],
@@ -18272,6 +18283,17 @@
               "maxLength": 255
             },
             "description": "Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`."
+          },
+          {
+            "name": "topic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the notes on this topic, as topics names it. Empty: the notes with no topic.",
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "Only the notes on this topic, as topics names it. Empty: the notes with no topic."
           }
         ],
         "responses": {
@@ -26487,7 +26509,7 @@
       "post": {
         "operationId": "organization-memory-create",
         "summary": "Add an organization memory item",
-        "description": "Records one item of organization-wide knowledge that every project then carries. Any member may add one. Returns the created item with its id. Check organization-memory-list first to avoid a duplicate.",
+        "description": "Records one item of organization-wide knowledge that every project then carries. Optional `topic` (one to three words naming the subject; a topic the office shelf already has is reused in any case). Any member may add one. Returns the created item with its id. Check organization-memory-list first to avoid a duplicate.",
         "tags": [
           "organization"
         ],
@@ -26523,6 +26545,18 @@
                   },
                   "pinned": {
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 },
                 "required": [
@@ -26569,7 +26603,7 @@
       "get": {
         "operationId": "organization-memory-list",
         "summary": "List organization memory",
-        "description": "The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. Any member may read. Item ids feed organization-memory-update and organization-memory-delete.",
+        "description": "The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. Each item carries its `topic` (null for none); `topics` lists the office shelf’s topics with how many active items each holds, over all items, not this page. Any member may read. Item ids feed organization-memory-update and organization-memory-delete.",
         "tags": [
           "organization"
         ],
@@ -26712,7 +26746,7 @@
       "patch": {
         "operationId": "organization-memory-update",
         "summary": "Edit an organization memory item",
-        "description": "Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned). At least one field is required. The id comes from organization-memory-list.",
+        "description": "Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned, or `topic`: null takes it out of its topic). At least one field is required. The id comes from organization-memory-list.",
         "tags": [
           "organization"
         ],
@@ -26776,6 +26810,18 @@
                   },
                   "pinned": {
                     "type": "boolean"
+                  },
+                  "topic": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The note's topic: one to three words naming its subject (\"Brandschutz\", not \"Entscheidung\"), reusing a topic the shelf already has. Max 40 characters. null: no topic."
                   }
                 }
               }
