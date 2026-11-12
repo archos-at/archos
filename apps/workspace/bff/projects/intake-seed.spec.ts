@@ -27,7 +27,7 @@ import type { GeocodeResult } from '@/lib/geocoding/types'
 import { ProjectProfileSchema } from '@/lib/project-profile/types'
 import { siteCountry } from '@/lib/project-profile/site'
 import { makeProject } from '@/test-utils/db-fixtures'
-import { intakeRowFor, intakeSeed, POSTAL_CODE_REASON, startProjectIntake, TYPED_ADDRESS_REASON } from './intake-seed'
+import { intakeRowFor, intakeSeed, POSTAL_CODE_REASON, seedProjectSite, startProjectIntake, TYPED_ADDRESS_REASON } from './intake-seed'
 
 const NOW = new Date('2026-10-14T09:00:00Z')
 const session = { organizationId: 'org_1', userId: 'user_pl' } as AuthorizedSession
@@ -234,5 +234,28 @@ describe('startProjectIntake', () => {
   it('lets a failed write through, so the caller rolls the project back', async () => {
     insertProjectIntake.mockRejectedValue(new Error('constraint'))
     await expect(startProjectIntake(session, makeProject({ id: 'p1' }), {}, NOW)).rejects.toThrow('constraint')
+  })
+})
+
+describe('seedProjectSite', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('writes country and Land given by hand on a project set up by the person, with no intake row', async () => {
+    const project = makeProject({ id: 'p1', organizationId: 'org_1' })
+    await seedProjectSite(session, project, { country: 'at', federalState: 'burgenland', address: 'Hauptstraße 35, 7000 Eisenstadt' }, NOW)
+
+    expect(insertProjectIntake).not.toHaveBeenCalled()
+    expect(seedProjectProfile).toHaveBeenCalledTimes(1)
+    const profile = ProjectProfileSchema.parse(seedProjectProfile.mock.calls[0]?.[1])
+    expect(profile.facts.country?.value).toBe('at')
+    expect(profile.facts.federal_state?.value).toBe('burgenland')
+    expect(seedProjectProfile.mock.calls[0]?.[2]).toBeUndefined()
+  })
+
+  it('writes nothing when no site was given', async () => {
+    await seedProjectSite(session, makeProject({ id: 'p1' }), {}, NOW)
+    expect(seedProjectProfile).not.toHaveBeenCalled()
   })
 })
