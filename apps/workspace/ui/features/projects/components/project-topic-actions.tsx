@@ -20,6 +20,7 @@ import { commonCopy } from '@/i18n/namespaces/common'
 import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 import { normalizeTopic } from '@/lib/memory-topics/topic'
+import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 
 /**
  * The topic actions of the project memory shelf (ADR-0180, the topics amendment):
@@ -32,6 +33,12 @@ const topicsUrl = (projectId: string): string => `/api/projects/${encodeURICompo
 
 const itemUrl = (projectId: string, itemId: string): string =>
   `/api/projects/${encodeURIComponent(projectId)}/memory/${encodeURIComponent(itemId)}`
+
+/** A note's own PATCH. An office note is the organization's, so it goes where the panel sends it (`project-memory-panel.tsx`). */
+const noteUrl = (projectId: string, item: Pick<ProjectMemoryItem, 'id' | 'scope'>): string =>
+  item.scope === 'organization'
+    ? `/api/organization/memory/${encodeURIComponent(item.id)}`
+    : itemUrl(projectId, item.id)
 
 /** A PATCH that answers JSON, or throws for any status the shelf refuses. */
 async function patchJson<T>(url: string, body: unknown): Promise<T> {
@@ -192,26 +199,29 @@ export function ProjectTopicActions({
 
 export interface ProjectNoteTopicMoveProps {
   projectId: string
-  item: { id: string; topic: string | null }
+  item: Pick<ProjectMemoryItem, 'id' | 'scope' | 'topic'>
   /** The topics the shelf has, as the list names them. */
   topics: string[]
   /** Called after the note took its new topic. */
   onChanged: () => void
 }
 
-/** Move one project memory note to another topic, or to none, with the note's own PATCH. */
+/** Move one note (project or office) to another topic, or to none, with the note's own PATCH. */
 export function ProjectNoteTopicMove({ projectId, item, topics, onChanged }: ProjectNoteTopicMoveProps): JSX.Element {
   const t = useTranslations(memoryTopicsCopy)
   const tProject = useTranslations(projectsCopy)
   const [pending, setPending] = useState(false)
+  /** Bumped on a failure: the picker is keyed by it, so it shows the note's topic again. */
+  const [attempt, setAttempt] = useState(0)
 
   const move = async (topic: string | null) => {
     if (topic === item.topic) return
     setPending(true)
     try {
-      await patchJson<{ item: unknown }>(itemUrl(projectId, item.id), { topic })
+      await patchJson<{ item: unknown }>(noteUrl(projectId, item), { topic })
       onChanged()
     } catch {
+      setAttempt((count) => count + 1)
       toast.error(tProject('memory.errors.updateFailed'))
     } finally {
       setPending(false)
@@ -221,6 +231,7 @@ export function ProjectNoteTopicMove({ projectId, item, topics, onChanged }: Pro
   return (
     <div role="group" aria-label={t('moveTo')}>
       <TopicPicker
+        key={attempt}
         topics={topics}
         value={item.topic}
         disabled={pending}

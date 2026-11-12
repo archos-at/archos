@@ -98,9 +98,10 @@ describe.skipIf(!url)('project memory topics against live Postgres', () => {
     await closeDb()
   })
 
-  it('counts the topics a reader who is not cleared sees: the open notes only', async () => {
+  it('counts the topics a reader who is not cleared sees: the open notes and the office notes', async () => {
     const counted = await inTenant(() => topics.projectTopicsOf(projectId, ORG, []))
     expect(counted).toEqual([
+      { name: 'Bauordnung', count: 1 },
       { name: 'Brandschutz', count: 1 },
       { name: 'Stellplätze', count: 1 },
     ])
@@ -121,6 +122,7 @@ describe.skipIf(!url)('project memory topics against live Postgres', () => {
     const counted = await inTenant(() => topics.projectTopicsOf(projectId, ORG, [folderId]))
     // One note each: the order is by name in German.
     expect(counted).toEqual([
+      { name: 'Bauordnung', count: 1 },
       { name: 'Brandschutz', count: 1 },
       { name: 'Feuerschutz', count: 1 },
       { name: 'Stellplätze', count: 1 },

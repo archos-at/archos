@@ -11,15 +11,18 @@ import { ProjectNoteTopicMove, ProjectTopicActions } from './project-topic-actio
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
 
+/** How many times the stubbed picker mounted: a keyed remount shows the note's topic again. */
+const picker = vi.hoisted(() => ({ mounts: 0 }))
+
 vi.mock('@/components/memory/topic-picker', async () => {
-  const { createElement } = await import('react')
+  const { createElement, useEffect } = await import('react')
   return {
-    TopicPicker: ({ onChange, disabled }: { onChange: (topic: string | null) => void; disabled?: boolean }) =>
-      createElement(
-        'button',
-        { type: 'button', disabled, onClick: () => onChange('Stellplätze') },
-        'pick Stellplätze'
-      ),
+    TopicPicker: ({ onChange, disabled }: { onChange: (topic: string | null) => void; disabled?: boolean }) => {
+      useEffect(() => {
+        picker.mounts += 1
+      }, [])
+      return createElement('button', { type: 'button', disabled, onClick: () => onChange('Stellplätze') }, 'pick Stellplätze')
+    },
   }
 })
 
@@ -126,7 +129,7 @@ describe('ProjectNoteTopicMove', () => {
     render(
       <ProjectNoteTopicMove
         projectId={PROJECT}
-        item={{ id: 'm-1', topic: 'Brandschutz' }}
+        item={{ id: 'm-1', scope: 'project', topic: 'Brandschutz' }}
         topics={['Brandschutz', 'Stellplätze']}
         onChanged={onChanged}
       />
@@ -146,7 +149,7 @@ describe('ProjectNoteTopicMove', () => {
     render(
       <ProjectNoteTopicMove
         projectId={PROJECT}
-        item={{ id: 'm-1', topic: 'Stellplätze' }}
+        item={{ id: 'm-1', scope: 'project', topic: 'Stellplätze' }}
         topics={['Stellplätze']}
         onChanged={vi.fn()}
       />
@@ -155,5 +158,43 @@ describe('ProjectNoteTopicMove', () => {
     await userEvent.click(screen.getByRole('button', { name: 'pick Stellplätze' }))
 
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test('an office note moves on the organization’s own route, not the project’s', async () => {
+    const onChanged = vi.fn()
+    render(
+      <ProjectNoteTopicMove
+        projectId={PROJECT}
+        item={{ id: 'o-1', scope: 'organization', topic: 'Brandschutz' }}
+        topics={['Brandschutz', 'Stellplätze']}
+        onChanged={onChanged}
+      />
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'pick Stellplätze' }))
+
+    await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1))
+    expect(fetchMock).toHaveBeenCalledWith('/api/organization/memory/o-1', expect.objectContaining({ method: 'PATCH' }))
+    expect(bodyOf(fetchMock, 0)).toEqual({ topic: 'Stellplätze' })
+  })
+
+  test('a refused move remounts the picker, so it shows the note’s own topic again', async () => {
+    fetchMock.mockImplementationOnce(async () => new Response(null, { status: 500 }))
+    const onChanged = vi.fn()
+    picker.mounts = 0
+    render(
+      <ProjectNoteTopicMove
+        projectId={PROJECT}
+        item={{ id: 'm-1', scope: 'project', topic: 'Brandschutz' }}
+        topics={['Brandschutz', 'Stellplätze']}
+        onChanged={onChanged}
+      />
+    )
+    expect(picker.mounts).toBe(1)
+
+    await userEvent.click(screen.getByRole('button', { name: 'pick Stellplätze' }))
+
+    await waitFor(() => expect(picker.mounts).toBe(2))
+    expect(onChanged).not.toHaveBeenCalled()
   })
 })

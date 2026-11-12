@@ -97,4 +97,35 @@ describe('TopicFolders', () => {
 
     expect(folders()).toEqual([expect.stringContaining('Brandschutz')])
   })
+
+  test('a topic the notes hold and the summary lacks gets its own folder after the summary’s, counted by its notes', () => {
+    render(
+      <TopicFolders
+        items={[row('a', 'Brandschutz'), row('e', 'Bauherr'), row('f', 'Bauherr')]}
+        topics={[{ name: 'Brandschutz', count: 1 }]}
+        renderItem={(item) => <p>{item.content}</p>}
+      />
+    )
+
+    const [first, second] = screen.getAllByTestId('topic-folder')
+    expect(first).toHaveTextContent('Brandschutz')
+    expect(second).toHaveTextContent('Bauherr')
+    expect(second).toHaveTextContent('2 notes')
+    expect(within(second).getAllByText(/^Notiz /).map((node) => node.textContent)).toEqual(['Notiz e', 'Notiz f'])
+  })
+
+  test('the notes of an unlisted topic keep their folder after the summary’s and before the notes without a topic', () => {
+    render(
+      <TopicFolders
+        items={[row('a', null), row('e', 'Bauherr')]}
+        topics={[]}
+        renderItem={(item) => <p>{item.content}</p>}
+      />
+    )
+
+    const [unlisted, unfiled] = screen.getAllByTestId('topic-folder')
+    expect(unlisted).toHaveTextContent('Bauherr')
+    expect(unfiled).toHaveTextContent('No topic')
+    expect(folders()).toHaveLength(2)
+  })
 })

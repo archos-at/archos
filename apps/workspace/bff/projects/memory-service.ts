@@ -26,6 +26,8 @@ import { STALE_VECTOR, backfillAfterRecall, embedStoredNote } from './memory-emb
 import { refuseStatusMove, statusMayBecome, supersedable } from './memory-status'
 import { RECALL_CANDIDATE_LIMIT, selectRecallCandidates, type DigestTiming } from './memory-recall'
 import { formatTopicDigest } from './memory-digest'
+import { projectTopicsOf } from './memory-topics'
+import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import { maskChatText } from '@/lib/upload-screening/service'
 
 /** Re-exported so a route reads the bound without importing the schema (ADR-0017). */
@@ -833,13 +835,12 @@ export type DigestItem = Pick<
 }
 
 /**
- * Pure digest formatter (exported for tests): the header, the topic index and
- * one line per item, `- [topic | scope-tag kind | confidence | verification] "content"`
- * (`./memory-digest.ts`). Content is quoted and escaped, so stored content can
- * never forge an additional tag line; the whole text is bounded by DIGEST_MAX_CHARS.
+ * Pure digest formatter (exported for tests): the header, the topic index (over
+ * the shelf's open topics when given) and one line per item (`./memory-digest.ts`).
+ * Content is quoted and escaped; the text is bounded by DIGEST_MAX_CHARS.
  */
-export function formatDigestLines(items: DigestItem[], omitted = 0): string | null {
-  return formatTopicDigest(items, omitted, DIGEST_MAX_CHARS)
+export function formatDigestLines(items: DigestItem[], omitted = 0, shelf?: MemoryTopicCount[]): string | null {
+  return formatTopicDigest(items, omitted, DIGEST_MAX_CHARS, shelf)
 }
 
 /**
@@ -908,21 +909,21 @@ function printedItems<T extends DigestItem>(items: readonly T[], digest: string 
 
 /**
  * Format the digest, admitting the restricted notes it prints first. A note
- * whose collections are not all admitted is dropped and the digest formatted
- * again from what is left; what is left needs no further admission.
+ * whose collections are not all admitted is dropped and the digest formatted again.
  */
 async function formatAdmittedDigest<T extends DigestItem>(
   kept: readonly T[],
   omitted: number,
-  admit: MemoryDigestOptions['admitRestricted']
+  admit: MemoryDigestOptions['admitRestricted'],
+  shelf?: MemoryTopicCount[]
 ): Promise<{ digest: string | null; kept: readonly T[] }> {
-  const digest = formatDigestLines([...kept], omitted)
+  const digest = formatDigestLines([...kept], omitted, shelf)
   const restricted = restrictedFoldersOfItems(printedItems(kept, digest))
   if (restricted.length === 0) return { digest, kept }
   const admitted = admit ? await admit(restricted) : new Set<string>()
   if (restricted.every((folderId) => admitted.has(folderId))) return { digest, kept }
   const allowed = kept.filter((item) => (item.restrictedFolderIds ?? []).every((name) => admitted.has(name)))
-  return { digest: formatDigestLines([...allowed], omitted + kept.length - allowed.length), kept: allowed }
+  return { digest: formatDigestLines([...allowed], omitted + kept.length - allowed.length, shelf), kept: allowed }
 }
 
 /**
@@ -999,7 +1000,12 @@ export async function buildProjectMemoryDigest(
   const embedding = queryText
     ? embedNote(queryText, { timeoutMs: 1000, signal: abandon.signal })
     : Promise.resolve(null)
-  const recent = await selectRecallCandidates(scope, null)
+  // The shelf's open topics (no clearance) ride beside the recency read, so the index names every topic
+  // the agent may reuse, not only the printed notes'.
+  const [recent, shelf] = await Promise.all([
+    selectRecallCandidates(scope, null),
+    projectId && organizationId ? projectTopicsOf(projectId, organizationId, []) : undefined,
+  ])
   const denseCanMatter =
     recent.length > 0 && (recent.length >= RECALL_CANDIDATE_LIMIT || recent.some((row) => Boolean(row.hasEmbedding)))
   if (!denseCanMatter) abandon.abort()
@@ -1069,7 +1075,8 @@ export async function buildProjectMemoryDigest(
   const { digest, kept } = await formatAdmittedDigest(
     selected,
     candidates.length - selected.length,
-    options.admitRestricted
+    options.admitRestricted,
+    shelf
   )
 
   // Recall FOR A QUESTION is the reinforcement event: what was surfaced against
