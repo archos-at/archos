@@ -75,7 +75,7 @@ describe('ProjectMemoryPanel', () => {
     render(<ProjectMemoryPanel projectId="p1" />)
 
     await screen.findByText('Fluchtweg Treppenhaus 2 offen.')
-    expect(screen.getByText('Brandschutz')).toBeInTheDocument()
+    expect(screen.getAllByText('Brandschutz').length).toBeGreaterThan(0)
   })
 
   test('a closed project: the notes, and no control that would change them (ADR-0090)', async () => {

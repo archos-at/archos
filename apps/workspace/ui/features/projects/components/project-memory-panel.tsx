@@ -124,7 +124,8 @@ export function ProjectMemoryPanel({
       // skeleton or clear an existing error banner — it only swaps in fresh
       // items when they arrive. The initial load is non-silent.
       if (!silent) setError(null)
-      // Every page carries the shelf's topics, counted over the whole shelf rather than the page: the last page's are kept.
+      // Every page carries the shelf's topics, counted over the whole shelf
+      // rather than the page: the last page's are kept.
       let shelfTopics: MemoryTopicCount[] = []
       collectPages<MemoryItem>((cursor) =>
         requestJson<MemoryPage>(
