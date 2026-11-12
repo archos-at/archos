@@ -2648,6 +2648,10 @@
     "de": "Markdown-, Text- und CSV-Dateien können nun abschnitts- oder zeilenweise zitiert und geöffnet werden, nicht mehr nur als ganze Datei; außerdem bleiben bei jedem Teil einer langen Tabelle, eines Tabellenblatts oder einer CSV-Datei die Spaltenüberschriften erhalten."
   },
   {
+    "en": "Memory notes can now be sorted into topics such as Brandschutz, Stellplätze or Bauherr, and each memory list shows its topics with the number of notes in each. This keeps a long memory easy to scan: you can move, rename or merge topics, and the assistant files new notes under a fitting topic by itself.\n",
+    "de": "Notizen im Gedächtnis lassen sich jetzt nach Themen ordnen, etwa Brandschutz, Stellplätze oder Bauherr, und jede Gedächtnisliste zeigt ihre Themen mit der Anzahl der Notizen. So bleibt auch ein langes Gedächtnis übersichtlich, und Sie können Themen verschieben, umbenennen oder zusammenführen, während der Assistent neue Notizen selbst einem passenden Thema zuordnet."
+  },
+  {
     "en": "Memory refuses passwords, access keys, bank account numbers and social-insurance numbers wherever a note comes from, and says what kind of thing it found.",
     "de": "Memory weist Passwörter, Zugangsschlüssel, Bankkontonummern und Sozialversicherungsnummern unabhängig davon zurück, aus welcher Notiz sie stammen, und nennt die Art des gefundenen Inhalts."
   },

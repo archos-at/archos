@@ -1,12 +1,7 @@
----
 features:
   - >
-    Die Notizen im Gedächtnis lassen sich jetzt nach Themen ordnen, etwa
-    Brandschutz, Stellplätze oder Bauherr. Jede Notiz kann ein Thema tragen,
-    und die Liste zeigt die Themen mit der Anzahl ihrer Notizen. Sie können
-    eine Notiz in ein anderes Thema verschieben oder ihr keines geben, ein
-    Thema umbenennen, und ein Thema, das Sie mit einem anderen zusammenführen
-    wollen, mit dem anderen vereinen. Ihre eigenen persönlichen Notizen können
-    Sie zudem als Thema gesammelt löschen. Der Assistent ordnet neue Notizen
-    selbst einem passenden Thema zu und nutzt dafür die Themen, die es bereits
-    gibt.
+    Memory notes can now be sorted into topics such as Brandschutz,
+    Stellplätze or Bauherr, and each memory list shows its topics with the
+    number of notes in each. This keeps a long memory easy to scan: you can
+    move, rename or merge topics, and the assistant files new notes under a
+    fitting topic by itself.
