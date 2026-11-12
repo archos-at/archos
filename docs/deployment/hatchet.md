@@ -366,9 +366,20 @@ that moves to Hatchet lands. Nothing claims them afterwards.
    platform comes up before any tier rolls: every tier that starts or runs a
    run waits for `hatchet-token-sync`.
 2. **Deploy.** The tiers roll onto Hatchet; the worker tiers scale on its backlog.
-3. **Run the re-dispatch.** It re-submits what the old tables still hold to
-   Hatchet. For ingest that is the BFF's re-dispatch of `pending` documents; the
-   release notes of the change name the exact command for each queue.
+3. **Run the re-dispatch, once no pod of the old image is left.** Old api and
+   chat pods write `research_job_queue` while they drain, and an old
+   agent-worker may still hold a claimed job, which a re-dispatch would start a
+   second time. Per queue:
+   - `research_job_queue`: nothing does it for you. Run
+     `kubectl -n grid exec deploy/agent-worker -- python -m agent_host.jobs.requeue_legacy`
+     (prints started, already terminal, already on Hatchet, unreadable; safe to
+     run twice).
+   - `ingest_job_queue`: every new ingest worker moves the rows itself, 500 a
+     minute, and logs `Ingest cutover: N job(s) moved`. By hand:
+     `python -m agent.knowledge.ingest_cutover`. A plaintext payload (not
+     `enc:`) is refused and left claimed.
+   - `bff_job_queue` and automations: the BFF sweep and `schedule-repair` pick
+     them up within five minutes.
 4. **Watch the old tables empty.** On the app cluster:
 
    ```bash
@@ -386,6 +397,14 @@ There is no way back to the claim queues on the same release: rolling back is
 deploying the previous release, whose tiers still claim from the old tables.
 Runs already started in Hatchet then finish only once a release that runs on
 Hatchet is back.
+
+An image-only rollback (the tag in the deploy summary) is not that previous
+release: it keeps this program. The scheduler Deployment is gone, so the old
+images run no automations and none of the sweeps it drove, and KEDA scales the
+workers on Hatchet's backlog, which old code never writes. Going back for real
+means reverting `deploy/pulumi` too, where Pulumi refuses to delete the
+protected `background-work-pg` and `hatchet-rabbitmq`. Decide the path before
+the release reaches prod ([prod-release-2026-11.md](prod-release-2026-11.md#rollback-across-hatchet)).
 
 ### Folder cards need no re-dispatch
 

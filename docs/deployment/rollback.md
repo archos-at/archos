@@ -72,6 +72,9 @@ A rollback changes the **images**. It keeps the current **program** (what
 - **The vector-store floor refuses some tags.** A backend from before the Chroma
   removal (ADR-0115) cannot run under today's program, and the deploy says so.
   The way back across it: [qdrant-runbook.md, "Rollback"](qdrant-runbook.md#rollback).
+- **Not across the move to Hatchet.** An image rollback from a release on
+  Hatchet to one before it leaves no scheduler and workers scaled on a backlog
+  the old code never writes ([hatchet.md, "Cutover"](hatchet.md#cutover-from-the-claim-queues)).
 - **The data tier is never replaced.** `protectDataResources` (on in prod) makes
   Pulumi refuse to delete or replace Postgres and the storage StatefulSets.
 

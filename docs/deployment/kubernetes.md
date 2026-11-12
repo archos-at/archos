@@ -647,7 +647,8 @@ scheduler container.
 message's entry can point at its Fassung with the project (the 0067 shape).
 `ALTER TABLE … ADD CONSTRAINT … UNIQUE` builds the index under an `ACCESS
 EXCLUSIVE` lock, and `drizzle-kit migrate` runs every pending migration in one
-transaction (0039, 0149), so the lock is held until 0196 to 0199 all commit:
+transaction (0039, 0149), so the lock is held until every pending migration
+commits (on prod's jump from 0191 to 0235, until 0235):
 every read and write of any document's versions waits for the build (uploads,
 the viewer, retrieval's version reads). `CONCURRENTLY` cannot run in that
 transaction, and the runner has no non-transactional step.

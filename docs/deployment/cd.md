@@ -159,6 +159,12 @@ accepted residual (see
 
 ## Image pinning
 
+**The prod job has no downgrade guard.** It deploys whatever
+`imageTag` the merged `Pulumi.prod.yaml` names; the vector-store floor
+only warns when it cannot find the commit. develop's copy of that line is not
+maintained (it pinned 2026-09-18 while prod ran 2026-10-28), so a promotion PR
+sets it and checks `git diff origin/prod -- deploy/pulumi/Pulumi.prod.yaml`.
+
 `deploy.yml` pins one ref per service
 ([`resolve-image-refs.sh`](../../deploy/pulumi/scripts/resolve-image-refs.sh)):
 

@@ -2,6 +2,20 @@
 
 Read at `origin/develop` `ed5d4e4b2e` and `origin/prod` `f48bdcc4cd` (2026-11-11). Prod runs `sha-331b9d9117661b201c762a7017f9c0d17ec21866` (the `prod` branch's `deploy/pulumi/Pulumi.prod.yaml`, 2026-10-28), migrations through `0191`. Dev holds Austria (`5907f5cb-…`, 312 records, 408 revisions, 50 texts) and the EU (`c323cdc4-…`, 5 records), both `submitted`, neither published. Nothing here was run against prod.
 
+> **Superseded in parts (2026-11-12).** The release runbook
+> [prod-release-2026-11.md](../../deployment/prod-release-2026-11.md) orders
+> this rollover with Hatchet and project mail and proposes promoting
+> `b3fa243d73` first. Drift since this was written: migrations now run to
+> `0235` (0228–0235 are additive); the step-0 freeze was broken for the
+> Normenkatalog and Basiswissen pages (6a127e852, 9c26bb9bc), whose sync moved
+> to Platform → Maintenance; `law_lookup` replaced the RIS adapter's path
+> (3fbe7dabe, f2e6edc58); a rollback marks texts `released=false` instead of
+> `ZZ` (1da439f2c); `platform:knowledge:*` do not exist in WorkOS Production yet;
+> a tag rollback across Hatchet is not safe (step 5's rollback column); the
+> review takes a working day, not hours, because every imported capture is
+> `operator_supplied`; and document readings in the window drop derived
+> building-class suggestions.
+
 ## The answer
 
 The only point where prod would answer worse than today is the time between the code promotion and Austria's stable publish on prod. In that window every Austrian office's turn has gate `none` (or `site_unknown`). It still reads the corpus and RIS, but it names no binding edition, derives no building class, and caps any answer that cites building law at medium (finding 1). The sequence below keeps that window as short as possible: everything that can happen before the promotion happens before it, and the prod review checks identity with the reviewed dev release instead of starting over. Removing the window entirely would take a release with the old answer path and the new door, and develop has no such commit (finding 1, last paragraph). That decision is the owner's (open question 1).
