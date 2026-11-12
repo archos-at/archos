@@ -84,8 +84,16 @@ That is faster, cheaper, and sends less of an office's text to the model provide
   Apps, ADR-0142); producing it is this one. Until that step, the output check
   accepts an HTML file only as a file to download, never rendered inside the app.
   When it is shown, it is served from an origin separate from the application, in a
-  sandboxed frame without `allow-same-origin`, under a CSP with `connect-src 'none'`,
-  so its scripts run but can neither read the app nor send anything out.
+  frame sandboxed with `allow-scripts` alone (no `allow-same-origin`, popups, forms or
+  top navigation), under `default-src 'none'; script-src 'unsafe-inline';
+  style-src 'unsafe-inline'; img-src data: blob:; font-src data:; form-action 'none';
+  base-uri 'none'`. Its scripts run but cannot read the app, and no fetch, image,
+  font, style or form can reach another host. One channel stays open, because CSP
+  has no directive for it since `navigate-to` was dropped: the frame can navigate
+  itself to a URL that carries data. What it could leak is the file's own content,
+  which the viewer can already see, so the risk is a page that a prompt injection
+  filled with something the person did not mean to send. Accepted when the display
+  step is designed, or HTML is shown without scripts.
 - **The builtin research skills** that call Deep Agents' shell `execute` and are
   switched off in production (`configs/config_oib_openrouter.yml`: "it needs a
   sandbox this config does not run") are written for Python. They would need a
