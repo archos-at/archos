@@ -18,6 +18,7 @@ const note = (id: string, content: string, overrides: Record<string, unknown> = 
   kind: 'preference',
   content,
   provenanceType: 'agent',
+  topic: null,
   pinned: false,
   sourceConversationId: null,
   createdAt: '2026-11-01T09:00:00Z',
@@ -73,6 +74,23 @@ describe('PersonalMemoryPanel', () => {
     expect(second).toContain('Role and topics')
     expect(third).toContain('after an answer')
     expect(screen.getByLabelText('Pinned')).toBeInTheDocument()
+  })
+
+  test('notes are folded by topic: the topics most notes first, the notes without a topic last', async () => {
+    serve([
+      note('n-plain', 'Ohne Thema.'),
+      note('n-one', 'Stellplatz 3.', { topic: 'Stellplätze' }),
+      note('n-two', 'Brandschutzklasse F30.', { topic: 'Brandschutz' }),
+      note('n-three', 'Fluchtweg Nord.', { topic: 'Brandschutz' }),
+    ])
+    render(<PersonalMemoryPanel />)
+
+    await screen.findByText('Stellplatz 3.')
+    const [brandschutz, stellplaetze, unfiled] = screen.getAllByTestId('topic-folder')
+    expect(brandschutz).toHaveTextContent('Brandschutz2 notes')
+    expect(stellplaetze).toHaveTextContent('Stellplätze1 note')
+    expect(unfiled).toHaveTextContent('No topic')
+    expect(rows()).toHaveLength(4)
   })
 
   test('shows the loading rows until the list answers', () => {

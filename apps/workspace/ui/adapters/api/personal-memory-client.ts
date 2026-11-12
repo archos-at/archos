@@ -23,6 +23,8 @@ export interface PersonalMemoryNote {
   content: string
   provenanceType: PersonalMemoryProvenance
   pinned: boolean
+  /** The note's topic within the person's shelf; null when it has none. */
+  topic: string | null
   sourceConversationId: string | null
   createdAt: string
   updatedAt: string
@@ -45,6 +47,8 @@ export interface PersonalMemoryUpdate {
   kind?: PersonalMemoryKind
   content?: string
   pinned?: boolean
+  /** Move the note to this topic; null takes it out of every topic. */
+  topic?: string | null
 }
 
 const MEMORY_PATH = '/api/user/memory'
