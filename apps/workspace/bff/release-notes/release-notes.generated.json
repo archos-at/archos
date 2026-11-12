@@ -1267,6 +1267,14 @@
           "section": "fixes",
           "area": "building-law",
           "text": {
+            "en": "A question about the law on a given day, such as a submission's filing day, now finds the regulation you name and reads the version in force that day, where before it could miss the regulation, even for today. A day of today or later reads today's text, and the answer says so.",
+            "de": "Bei einer Frage zur Rechtslage an einem bestimmten Tag, etwa am Einreichungstag eines Antrags, wird nun die von Ihnen genannte Vorschrift gefunden und in der an diesem Tag geltenden Fassung wiedergegeben; bisher konnte die Vorschrift übersehen werden, sogar bei Fragen zur heutigen Rechtslage. Für heute und spätere Tage wird der heutige Text herangezogen, und die Antwort weist darauf hin."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
             "en": "A law looked up in its current consolidated version is no longer labelled with the date of an older version of the paragraph.",
             "de": "Ein Gesetz, das in seiner aktuellen konsolidierten Fassung abgerufen wird, ist nicht mehr mit dem Datum einer älteren Fassung des Paragraphen gekennzeichnet."
           }
