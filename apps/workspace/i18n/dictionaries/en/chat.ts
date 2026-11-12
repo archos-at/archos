@@ -1652,10 +1652,21 @@ export const chat = {
     derivationWarning: {
       failed: '{count, plural, one {#\u00A0call failed} other {#\u00A0calls failed}}',
       open: '{count, plural, one {#\u00A0open point} other {#\u00A0open points}}',
+      // What the answer check found (ADR-0139): worse than any call, since it is
+      // about the answer itself.
+      unbacked: '{count, plural, one {#\u00A0statement not backed} other {#\u00A0statements not backed}}',
+      contradicted:
+        '{count, plural, one {#\u00A0statement contradicts its source} other {#\u00A0statements contradict their source}}',
     },
     // A turn without any research: one line, nothing to expand.
     noResearch: 'Answered without research',
     noResearchNote: 'General expertise, no source cited',
+    // The answer ends by asking the reader something: not "Done". `askedBack`
+    // sits on the header's right; the two lines below are for a turn that
+    // researched nothing.
+    askedBack: 'Question for you',
+    askedBackHeadline: 'Asked you a question',
+    askedBackNote: 'A sourced answer still needs one detail from you',
     // A turn of exactly one call: the header is the Herleitung.
     singleCited: 'cited {markers}',
     derivationSummary: 'Trace',

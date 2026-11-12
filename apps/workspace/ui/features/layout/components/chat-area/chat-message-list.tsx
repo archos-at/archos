@@ -338,6 +338,8 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                               userQuestion={message.content}
                               answerConfidence={agentMsg?.answerConfidence}
                               citations={agentMsg?.citations}
+                              confidenceCheck={agentMsg?.confidenceCheck}
+                              answerText={agentMsg?.content}
                               answerId={agentMsg?.id}
                               escalationReason={agentMsg?.escalationReason}
                               retrievalLedger={agentMsg?.retrievalLedger}

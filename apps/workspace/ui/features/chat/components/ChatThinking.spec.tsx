@@ -7,6 +7,8 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import { useLayoutStore } from '@/features/layout/store'
 import { storedStep } from '@/test-utils/wire-v2-steps'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
+import type { ConfidenceCheck } from '@/lib/conversations/confidence-check'
+import type { RetrievalLedger } from '@/lib/conversations/message-retrieval-ledger'
 import {
   MOCKUP_QUESTION,
   failedCallCitations,
@@ -957,6 +959,94 @@ describe('ChatThinking', () => {
     test('no warning while the turn works', () => {
       render(<ChatThinking steps={foldScene(failedCallScene())} isThinking />)
       expect(screen.queryByTestId('derivation-warning')).not.toBeInTheDocument()
+    })
+
+    // The answer's own check (ADR-0139), stored on the message: two statements
+    // unbacked was a green check and „2 sources cited“ (2026-11-12).
+    const unbackedTwice: ConfidenceCheck = {
+      status: 'judged',
+      level: 'low',
+      findings: ['Ausgabe April 2019 gilt seit 10. April 2021.', 'Mai 2023 ist nicht verbindlich.'].map(
+        (statement) => ({ statement, problem: 'unbacked' as const, reason: '', source: 'none' })
+      ),
+    }
+
+    test('an answer its check found unbacked is a warning, not a green check', () => {
+      render(
+        <ChatThinking
+          steps={foldScene(failedCallScene())}
+          citations={failedCallCitations()}
+          confidenceCheck={unbackedTwice}
+          isThinking={false}
+        />
+      )
+      // The finding outranks the failed call.
+      expect(screen.getByTestId('derivation-warning')).toHaveTextContent(
+        plain(tEn('thinking.derivationWarning.unbacked', { count: 2 }))
+      )
+      const trigger = document.querySelector('[data-derivation-trigger]')!
+      expect(trigger.querySelector('.text-success')).toBeNull()
+      expect(trigger.querySelector('.text-warning')).not.toBeNull()
+    })
+
+    test('a clean check keeps the green check', () => {
+      render(
+        <ChatThinking
+          steps={foldScene(mockupScene())}
+          citations={mockupCitations()}
+          confidenceCheck={{ status: 'judged', level: 'high', findings: [] }}
+          isThinking={false}
+        />
+      )
+      const trigger = document.querySelector('[data-derivation-trigger]')!
+      expect(trigger.querySelector('.text-success')).not.toBeNull()
+    })
+
+    const ledger: RetrievalLedger = [
+      {
+        index: 0,
+        key: 'status.retrieval.withQuery',
+        tools: ['knowledge_search'],
+        corpora: [],
+        docs: [{ name: 'Planungsbericht.pdf', detail: 'p.1' }],
+        newDocs: ['Planungsbericht.pdf'],
+        hits: 1,
+        documents: 1,
+      },
+    ]
+
+    test('an answer that read documents and then asked back is a Rückfrage, not „without research“', () => {
+      render(
+        <ChatThinking
+          steps={[]}
+          retrievalLedger={ledger}
+          confidenceCheck={unbackedTwice}
+          answerText={'Das hängt vom Landesrecht ab.\n\nIn welchem Bundesland liegt das Bauvorhaben?'}
+          isThinking={false}
+          userQuestion="Welche Ausgabe der OIB-Richtlinie 6 gilt?"
+        />
+      )
+      expect(screen.queryByTestId('derivation-no-research')).not.toBeInTheDocument()
+      const trigger = screen.getByRole('button')
+      expect(trigger).toHaveAccessibleName(new RegExp(`^${tEn('thinking.askedBack')} · `))
+      expect(trigger.querySelector('.text-success')).toBeNull()
+      expect(within(trigger).getByText(tEn('thinking.askedBack'))).toBeInTheDocument()
+    })
+
+    test('an answer that asked back without researching says so in its one line', () => {
+      render(
+        <ChatThinking
+          steps={[]}
+          answerText="Welche Brandschutzklasse hat das Gebäude?"
+          isThinking={false}
+          userQuestion="Brauche ich eine Brandwand?"
+          answerConfidence="medium"
+        />
+      )
+      expect(screen.getByTestId('derivation-asked-back')).toHaveTextContent(
+        tEn('thinking.askedBackHeadline')
+      )
+      expect(screen.queryByTestId('derivation-no-research')).not.toBeInTheDocument()
     })
 
     test('a turn that looked nothing up is one line that opens nothing', () => {

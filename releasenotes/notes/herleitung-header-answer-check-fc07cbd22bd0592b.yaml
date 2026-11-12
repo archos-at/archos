@@ -1,0 +1,9 @@
+---
+# area: answers
+fixes:
+  - >
+    The line above an answer no longer shows a green check when the answer's own
+    check found statements it could not back: it now shows a warning and names
+    the worst finding, such as two statements without a source. An answer that
+    ends by asking you something reads as a question back, no longer as answered
+    without research.

@@ -39,7 +39,7 @@
     "apps/workspace/ui/features/cards/components/IfcDataCards.tsx": 763,
     "apps/workspace/ui/features/cards/schematics/DimensionDiagramCard.tsx": 663,
     "apps/workspace/ui/features/cards/schematics/kit.tsx": 634,
-    "apps/workspace/ui/features/chat/components/ChatThinking.tsx": 715,
+    "apps/workspace/ui/features/chat/components/ChatThinking.tsx": 703,
     "apps/workspace/ui/features/chat/hooks/use-websocket-chat.ts": 965,
     "apps/workspace/ui/features/chat/stores/messages-store.ts": 859,
     "apps/workspace/ui/features/chat/stores/sessions-store.ts": 1051,
