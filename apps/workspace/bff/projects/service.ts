@@ -68,7 +68,8 @@ import {
   renameProjectShelfTopic,
   resolveProjectTopicForWrite,
 } from './memory-topics'
-import { pageOfTopic, type MemoryTopicCount } from '@/lib/memory-topics/topic'
+import { pageOfTopic } from '@/lib/memory-topics/page'
+import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import {
   findProjectCollectionName,
   findProjectInOrg,
