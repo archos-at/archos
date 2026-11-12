@@ -1121,6 +1121,22 @@
         },
         {
           "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The last card of an answer's derivation now names the binding edition of a guideline together with the regulation that makes it binding, and says a paragraph or a table as written with its page, instead of a file name or „Pkt. § 1“.",
+            "de": "Die letzte Karte in der Herleitung einer Antwort nennt jetzt die verbindliche Ausgabe einer Richtlinie sowie die Verordnung, die sie verbindlich macht, und führt einen Paragraphen oder eine Tabelle in der Originalschreibweise samt Seitenzahl an – statt eines Dateinamens oder „Pkt. § 1“."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A source card in the derivation names only what a reader would write down, a point, a paragraph or a table, and the pages to open („Tabelle 3 · S. 7–8“). Section headings and which page carries which citation show on hover.",
+            "de": "Eine Quellenkarte in der Herleitung nennt nur, was Leser:innen notieren würden: einen Punkt, einen Absatz oder eine Tabelle sowie die aufzuschlagenden Seiten („Tabelle 3 · S. 7–8“). Abschnittsüberschriften und welche Seite welches Zitat enthält, werden bei Hover angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "Notifications in the inbox are now removed once they are older than the longest keeping period of any notification type. This clean-up was planned from the start but had never run.",
