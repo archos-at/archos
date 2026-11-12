@@ -139,6 +139,12 @@ export function ReleaseBar({ view, canManage, onChanged, className }: { view: Ch
   return (
     <>
       <div className={cn('flex flex-wrap items-center justify-end gap-3', className)} data-testid="release-bar">
+        {/* A warning refuses nothing: the reviewer reads it before approving or publishing. */}
+        {(view.warnings ?? []).map((warning) => (
+          <p key={warning.code} className="text-warning w-full text-sm" data-testid={`change-request-warning-${warning.code}`}>
+            {t(`countryKnowledge.warnings.${warning.code}`)}
+          </p>
+        ))}
         {primary?.why ? <p className="text-muted-foreground mr-auto text-sm">{primary.why}</p> : null}
         {canReview ? (
           <>
