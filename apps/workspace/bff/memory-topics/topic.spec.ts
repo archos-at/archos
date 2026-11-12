@@ -109,6 +109,19 @@ describe('summarizeTopics', () => {
   })
 })
 
+describe('distinctTopicNames', () => {
+  it('names each topic once and leaves out the notes with no topic', () => {
+    expect(
+      distinctTopicNames([{ topic: 'Brandschutz' }, { topic: null }, { topic: 'Brandschutz' }, { topic: 'Zufahrt' }])
+    ).toEqual(['Brandschutz', 'Zufahrt'])
+  })
+
+  it('answers an empty list when no row holds a topic', () => {
+    expect(distinctTopicNames([{ topic: null }])).toEqual([])
+    expect(distinctTopicNames([])).toEqual([])
+  })
+})
+
 describe('memoryTopicRenameSchema', () => {
   it('takes a rename, a merge and an ungrouping, and refuses a missing field', () => {
     expect(memoryTopicRenameSchema.safeParse({ from: 'Brandschutz', to: 'Feuerschutz' }).success).toBe(true)

@@ -49,7 +49,7 @@ beforeEach(() => {
 
 describe('PersonalTopicActions', () => {
   test('the no-topic group has nothing to rename, ungroup or remove', () => {
-    render(<PersonalTopicActions topic={null} count={2} onChanged={vi.fn()} />)
+    render(<PersonalTopicActions topic={null} count={2} topics={[]} onChanged={vi.fn()} />)
 
     expect(screen.queryByTestId('personal-topic-actions')).not.toBeInTheDocument()
   })
@@ -146,7 +146,8 @@ describe('PersonalNoteTopicMove', () => {
     const onChanged = vi.fn()
     render(<PersonalNoteTopicMove item={{ id: 'n-1', topic: null }} topics={['Brandschutz']} onChanged={onChanged} />)
 
-    await userEvent.type(screen.getByRole('combobox', { name: 'Move to …' }), 'brand')
+    await userEvent.click(screen.getByRole('button', { name: 'Move to …' }))
+    await userEvent.type(screen.getByRole('combobox', { name: 'Topic' }), 'brand')
     await userEvent.click(screen.getByRole('option', { name: 'Brandschutz' }))
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1))

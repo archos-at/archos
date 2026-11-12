@@ -4,10 +4,12 @@
  * The notes of a project's memory shelf, as folders by topic (ADR-0180): one
  * row per note with its controls. The panel owns the data, the edit draft and
  * the delete dialog; this file draws what they hold. Inside a folder the notes
- * keep the kind order the panel listed kinds in.
+ * keep the kind order the panel listed kinds in. A shelf with no topic on any
+ * note is grouped by kind instead, as it was before topics.
  */
 
 import type { JSX, ReactNode } from 'react'
+import { Fragment } from 'react'
 import { Check, CircleAlert, Pencil, Pin, PinOff, Trash2 } from 'lucide-react'
 import { SourceDeletedNote } from '@/components/projects/source-deleted-note'
 import {
@@ -20,7 +22,8 @@ import {
 import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { TopicFolders } from '@/components/memory/topic-folders'
 import { Badge } from '@/components/ui/badge'
-import { ItemContent } from '@/components/ui/item'
+import { ItemContent, ItemList } from '@/components/ui/item'
+import { SectionLabel } from '@/components/ui/section-label'
 import { FolderAccessMark } from '@/features/documents'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
@@ -125,6 +128,11 @@ function kindRank(kind: string): number {
   return rank === -1 ? PROJECT_MEMORY_KINDS.length : rank
 }
 
+/** The distinct topics of the notes, each once, in the order they first appear. */
+function topicNamesOf(items: readonly MemoryItem[]): string[] {
+  return [...new Set(items.flatMap((item) => (item.topic === null ? [] : [item.topic])))]
+}
+
 export function ProjectMemoryTopicGroups({
   projectId,
   items,
@@ -134,36 +142,76 @@ export function ProjectMemoryTopicGroups({
   controls,
   onChanged,
 }: ProjectMemoryTopicGroupsProps): JSX.Element {
-  const topicNames = topics.map((entry) => entry.name)
+  // A restricted note may be filed under any topic its reader sees. An open note may be
+  // filed only under a topic an open note holds: a restricted topic's name must not reach
+  // a note that everyone it is open to can read (ADR-0087).
+  const allTopicNames = topics.map((entry) => entry.name)
+  const openTopicNames = topicNamesOf(items.filter((item) => !item.restrictedFolderIds?.length))
   const ordered = [...items].sort((a, b) => kindRank(a.kind) - kindRank(b.kind))
   // A topic only office notes hold has no project note for the shelf's rename or ungroup to
   // act on: the server would move nothing and answer so, so the folder offers no actions.
   const projectTopics = new Set(items.filter((item) => item.scope === 'project').map((item) => item.topic))
+  const renderItem = (item: MemoryItem): ReactNode => (
+    <ProjectMemoryNote
+      item={item}
+      projectId={projectId}
+      topicNames={item.restrictedFolderIds?.length ? allTopicNames : openTopicNames}
+      allItems={allItems}
+      readOnly={readOnly}
+      controls={controls}
+      onChanged={onChanged}
+    />
+  )
+  if (!ordered.some((item) => item.topic !== null)) {
+    return <KindGroups items={ordered} renderItem={renderItem} />
+  }
   const renderTopicActions = (topic: string | null): ReactNode => {
     if (topic === null || !projectTopics.has(topic)) return null
-    const count =
-      topics.find((entry) => entry.name === topic)?.count ?? items.filter((item) => item.topic === topic).length
     return (
-      <ProjectTopicActions projectId={projectId} topic={topic} count={count} onChanged={onChanged} />
+      <ProjectTopicActions
+        projectId={projectId}
+        topic={topic}
+        mergeTargets={openTopicNames}
+        onChanged={onChanged}
+      />
     )
   }
   return (
     <TopicFolders
       items={ordered}
       topics={topics}
-      renderItem={(item) => (
-        <ProjectMemoryNote
-          item={item}
-          projectId={projectId}
-          topicNames={topicNames}
-          allItems={allItems}
-          readOnly={readOnly}
-          controls={controls}
-          onChanged={onChanged}
-        />
-      )}
+      renderItem={renderItem}
       renderTopicActions={readOnly ? undefined : renderTopicActions}
     />
+  )
+}
+
+/** The notes by kind, under the kind's heading, as the shelf listed them before topics. */
+function KindGroups({
+  items,
+  renderItem,
+}: {
+  items: MemoryItem[]
+  renderItem: (item: MemoryItem) => ReactNode
+}): JSX.Element {
+  const kindLabels = useMemoryKindLabels()
+  const groups = PROJECT_MEMORY_KINDS.map((kind) => ({
+    kind,
+    items: items.filter((item) => item.kind === kind),
+  })).filter((group) => group.items.length > 0)
+  return (
+    <ItemList data-testid="kind-groups">
+      {groups.map((group) => (
+        <Fragment key={group.kind}>
+          <div className="bg-muted px-5 py-2">
+            <SectionLabel as="h3">{kindLabels.group(group.kind)}</SectionLabel>
+          </div>
+          {group.items.map((item) => (
+            <Fragment key={item.id}>{renderItem(item)}</Fragment>
+          ))}
+        </Fragment>
+      ))}
+    </ItemList>
   )
 }
 

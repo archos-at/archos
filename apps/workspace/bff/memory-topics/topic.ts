@@ -74,6 +74,14 @@ export function summarizeTopics(items: readonly { topic: string | null }[]): Mem
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'de'))
 }
 
+/**
+ * The distinct topic names of the rows, each once, null (no topic) left out: the
+ * names a write resolves a topic against (`resolveTopic`).
+ */
+export function distinctTopicNames(items: readonly { topic: string | null }[]): string[] {
+  return [...new Set(items.flatMap((item) => (item.topic === null ? [] : [item.topic])))]
+}
+
 /** The topic field of a note on the wire: text up to the wire bound, or null to take the note out of its topic. */
 export const memoryTopicField = z
   .string()

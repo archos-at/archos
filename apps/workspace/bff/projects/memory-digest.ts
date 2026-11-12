@@ -18,20 +18,21 @@
  */
 
 import { formatBoundedDigestWithKept } from '@/lib/knowledge/digest-format'
+import {
+  quoted,
+  TOPIC_INDEX_MAX_CHARS,
+  TOPIC_INDEX_MAX_TOPICS,
+  topicIndexLine as indexLineOf,
+} from '@/lib/knowledge/topic-index'
 import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import type { DigestItem } from './memory-service'
 
 const DIGEST_HEADER = 'PROJECT_MEMORY v1'
 
-/** The most topics the index names; any further topic is counted in the index, not named. */
-export const DIGEST_TOPIC_INDEX_MAX = 20
+/** The most topics the index names (the bound `topic-index.ts` shares with the personal block). */
+export const DIGEST_TOPIC_INDEX_MAX = TOPIC_INDEX_MAX_TOPICS
 /** The index line's own budget, so long topic names cannot take the room of the notes. */
-export const DIGEST_TOPIC_INDEX_MAX_CHARS = 300
-
-/** A text as the digest quotes it: one line, quotes and backslashes escaped (the rule of `digest-format.ts`). */
-function quoted(text: string): string {
-  return `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
-}
+export const DIGEST_TOPIC_INDEX_MAX_CHARS = TOPIC_INDEX_MAX_CHARS
 
 /**
  * A topic as the digest holds it: one line, and none of the brackets or bar a
@@ -68,20 +69,7 @@ function indexedTopics(
 
 /** The index line for these notes and the shelf's open topics; null when neither has a topic. */
 export function topicIndexLine(items: readonly DigestItem[], shelf?: readonly MemoryTopicCount[]): string | null {
-  const topics = indexedTopics(items, shelf)
-  if (topics.length === 0) return null
-  const head = `topics of the project's memory, bounded (at most ${DIGEST_TOPIC_INDEX_MAX} named):`
-  const parts: string[] = []
-  let used = head.length
-  for (const { name, count } of topics.slice(0, DIGEST_TOPIC_INDEX_MAX)) {
-    const part = `${quoted(name)} (${count})`
-    if (used + part.length + 1 > DIGEST_TOPIC_INDEX_MAX_CHARS) break
-    parts.push(part)
-    used += part.length + 1
-  }
-  const more = topics.length - parts.length
-  if (more > 0) parts.push(`(+${more} more topics, not named)`)
-  return `${head} ${parts.join(', ')}`
+  return indexLineOf("topics of the project's memory, bounded", indexedTopics(items, shelf))
 }
 
 /** The header of a digest over these notes: the header, then the index when there is one. */

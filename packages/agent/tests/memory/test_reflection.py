@@ -1127,6 +1127,12 @@ class TestTopics:
         # A project line may open with its topic: the supersede quote names the content, never the tag.
         assert '`- ["Topic" | kind | confidence | verification]`' in R.REFLECTION_SYSTEM_PROMPT
 
+    def test_the_prompt_writes_the_topic_in_the_persons_language(self):
+        assert "in the language the person wrote in" in R.REFLECTION_SYSTEM_PROMPT
+        assert "topic is one to three words naming the subject, in the language the person wrote in" in (
+            R.REFLECTION_SYSTEM_PROMPT
+        )
+
     @pytest.mark.asyncio
     async def test_the_topic_reaches_both_writers(self, monkeypatch):
         project, personal = [], []
