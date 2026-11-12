@@ -160,7 +160,8 @@ function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly str
   const where = work?.territoryIds.find((id) => chain.includes(id))
   const why = !last || last.via === 'territory' ? `${kind}${where ? ` of ${where}` : ''}, ${inForceWords(notes)}` : stepWords(graph, last)
   const day = roleSinceOf(graph, use, use.editionId ? graph.editions.get(use.editionId) : undefined)
-  const since = day ? ` since ${day}` : ''
+  // By territory, the day is the edition's (a consolidated text's Fassung), not the law's own entry into force.
+  const since = !day ? '' : !last || last.via === 'territory' ? `, this edition since ${day}` : ` since ${day}`
   const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}${since}${noteWords(notes)}${applicabilityWords(use)}`]
   for (const displaced of use.displaced) {
     const target = displaced.anchor ?? 'the whole instrument'

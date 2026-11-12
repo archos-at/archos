@@ -72,7 +72,7 @@ describe('the chain text', () => {
       [
         "Building law at this site, Wien (AT-9, AT), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.",
         "Binding here (a day named is the records' own: state it from here, not from a web page):",
-        '- Bauordnung für Wien, edition Fassung 2024: law of AT-9, in force since 2024-01-01',
+        '- Bauordnung für Wien, edition Fassung 2024: law of AT-9, in force, this edition since 2024-01-01',
         '- Wiener Bautechnikverordnung, the consolidated text in force at its source: ordinance of AT-9, in force',
         '- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by Wiener Bautechnikverordnung (§ 1 WBTV 2023) since 2024-02-23',
         '  - pkt_3.1 does not apply here; Wiener Bautechnikverordnung par_4 applies instead',
