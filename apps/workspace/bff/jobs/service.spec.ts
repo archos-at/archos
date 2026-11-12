@@ -46,7 +46,6 @@ vi.mock('@/lib/model-config/service', () => ({
 vi.mock('@/lib/project-profile/prompt-view', () => ({
   loadProjectPromptView: vi.fn(),
   loadProjectFederalState: vi.fn(),
-  loadProjectSiteCountry: vi.fn(async () => 'at'),
 }))
 
 vi.mock('@/lib/retrieval-scope/collection-scope', () => ({
@@ -844,6 +843,17 @@ describe('submitAgentRun', () => {
     const submitted = vi.mocked(submitJob).mock.calls[0][0]
     expect(submitted.collection_scope).toContain('proj_x')
     expect((submitted.collection_scope ?? []).filter((name) => /_r[0-9a-f]{12}$/.test(name))).toEqual([])
+  })
+
+  it('searches the base corpus for a project whatever its site: the run knowledge context picks the countries (ADR-0173)', async () => {
+    // Dev QC 2026-11-12: an unplaced project's run and chat left the base corpus out, and the answer said a
+    // released OIB text "could not be read". The profile here places the project nowhere.
+    const actual = await vi.importActual<typeof import('@/lib/retrieval-scope/collection-scope')>('@/lib/retrieval-scope/collection-scope')
+    vi.mocked(computeCollectionScope).mockImplementation(actual.computeCollectionScope)
+
+    await submitAgentRun(spec)
+
+    expect(vi.mocked(submitJob).mock.calls[0][0].collection_scope).toContain(actual.resolveBaseCollectionName())
   })
 })
 
