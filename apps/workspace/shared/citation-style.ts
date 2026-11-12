@@ -4,6 +4,7 @@
  */
 
 import type { CitationStyle, CitationStylePayload } from '@/lib/base-knowledge/wire/citation-style'
+import type { CitationLineWire } from './citation-line'
 
 /** Fill a template: each segment printed only when every field it names has a value. */
 export const fillTemplate = (template: string | readonly string[], values: Readonly<Record<string, string | undefined>>) =>
@@ -58,8 +59,8 @@ export interface CitedSource {
   tint?: string
   origin?: string
   url?: string
-  /** The language of the text read; it picks the style's language. */
-  line?: { language?: string }
+  /** The language of the text read, which picks the style's language, and the records the text was read as. */
+  line?: Pick<CitationLineWire, 'language' | 'edition_id' | 'designation' | 'edition_label' | 'issuer'>
   /** The host of `url`, for a web page. */
   host?: string
   locus?: string
@@ -96,15 +97,40 @@ const kindOf = (source: CitedSource, { kinds }: CitationStyle) =>
       match.lanePrefixes.some((prefix) => (source.lane ?? '').toLowerCase().startsWith(prefix.toLowerCase()))
   )
 
+/**
+ * What a text of an edition the records name is called, by them: the work's designation and the edition's
+ * label. Undefined for any other source, whose own title stands: law read live (no edition), a document, a
+ * page, and a corpus file no record names.
+ */
+export function recordedName(line: CitedSource['line']): string | undefined {
+  if (!line?.edition_id || !line.designation) return undefined
+  return [line.designation, line.edition_label].filter(Boolean).join(', ')
+}
+
+/**
+ * A text of an edition the records name is a publication of the work's issuer, whatever lane or file name
+ * it has: the publisher is the record's, and the place the one the style states for that publisher.
+ */
+function recordedItem(source: CitedSource, style: CitationStyle, base: { id: string; title: string }): CslItem | undefined {
+  const line = source.line
+  if (!recordedName(line)) return undefined
+  const publisher = line?.issuer
+  const place = publisher ? style.kinds.find((kind) => kind.publisher === publisher)?.place : undefined
+  const by = publisher && { publisher, ...(place && { 'publisher-place': place }), authority: publisher }
+  return { ...base, type: 'standard', ...by, ...(line?.edition_label && { edition: line.edition_label }) }
+}
+
 /** One source as a CSL-JSON item. `now` is passed in, so `accessed` is testable. */
 export function toCslItem(source: CitedSource, now: Date, style: CitationStyle): CslItem {
   const { id, url } = source
-  const title = source.title.trim()
+  const title = recordedName(source.line) ?? source.title.trim()
   const { edition, issued } = parseEdition(`${title} ${source.fileName ?? ''}`, style)
   const page = source.page != null ? String(source.page) : undefined
   const section = source.locus?.trim() || undefined
   const located = { ...(issued && { issued }), ...(section && { section }), ...(page && { page }) }
   const online = url ? { URL: url, accessed: cslDate(now.getFullYear(), now.getMonth() + 1) } : {}
+  const recorded = recordedItem(source, style, { id, title })
+  if (recorded) return { ...recorded, ...located, ...online }
   const kind = kindOf(source, style)
   if (kind?.type === 'standard') {
     const { publisher, place } = kind

@@ -20,6 +20,9 @@ import { MAX_SOURCE_REFS, sourceRefSchema } from '../chain/source-refs'
  */
 export const MAX_CONTEXT_USES = 500
 
+/** The longest issuer a use carries: the record's own bound (`knowledge_work_revisions.issuer`, 200). */
+export const MAX_ISSUER_CHARS = 200
+
 /** What the turn may claim about the law of its site: in the vocabulary (`wire/vocab.ts`), so the intake's wire reads it too. */
 export { GATE_STATES, type GateState } from '../wire/vocab'
 
@@ -111,6 +114,8 @@ export const contextUseSchema = z
     designation: z.string().nullable(),
     /** The edition's label (`Ausgabe Mai 2023`); null for law read live at its source. */
     editionLabel: z.string().nullable(),
+    /** Who issues the work, as its record names it: the publisher a citation of its text names; null when the record states none. */
+    issuer: z.string().max(MAX_ISSUER_CHARS).nullable(),
     /** The work's identifiers at its source, sorted by scheme and value; [] when the record states none. */
     sourceRefs: z.array(sourceRefSchema).max(MAX_SOURCE_REFS),
     /** Where a person opens the edition's text: the page its manifestation cites first; null when none does. */

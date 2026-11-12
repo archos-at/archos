@@ -131,6 +131,47 @@ describe('toTechnicalText', () => {
     )
   })
 
+  test('a text the records name is titled by them, not by its file name, and published by their issuer', () => {
+    const recorded = refFor({
+      id: 'c8',
+      content: '',
+      timestamp: NOW,
+      title: 'xa-guide-4-2019-text-0a1b2c3d4e5f.pdf',
+      fileName: 'xa-guide-4-2019-text-0a1b2c3d4e5f.pdf',
+      citationKey: 'xa-guide-4-2019-text-0a1b2c3d4e5f.pdf, p.3',
+      collection: 'oib_knowledge',
+      kind: 'building_law',
+      lane: 'building_law_base',
+      origin: 'kb',
+      page: 3,
+      number: 8,
+      isCited: true,
+      line: { edition_id: 'edition:xa-guide-4-2019', designation: 'XA Guide 4', edition_label: 'Edition 2019', issuer: 'Xanadu Building Institute' },
+    })
+    expect(recorded.document.title).toBe('XA Guide 4, Edition 2019')
+    const item = toCslItem(recorded, NOW)
+    expect(item).toMatchObject({ type: 'standard', title: 'XA Guide 4, Edition 2019', publisher: 'Xanadu Building Institute' })
+    expect(toTechnicalText(recorded, NOW)).not.toContain('Rechtsinformationssystem')
+  })
+
+  test('a law read live keeps its own title and source: the records name its work, not an edition', () => {
+    const live = refFor({
+      id: 'c9',
+      content: '',
+      timestamp: NOW,
+      title: 'Bauordnung für Wien § 108',
+      kind: 'building_law',
+      lane: 'building_law_ris',
+      origin: 'ris',
+      url: 'https://www.ris.bka.gv.at/x',
+      number: 9,
+      isCited: true,
+      line: { work_id: 'work:bo-wien', designation: 'BO für Wien', issuer: 'Land Wien' },
+    })
+    expect(live.document.title).toBe('Bauordnung für Wien § 108')
+    expect(toTechnicalText(live, NOW)).toBe(toTechnicalText(law, NOW))
+  })
+
   test('numbers the bibliography the way the answer cites it', () => {
     expect(toTechnicalTextList([oib, law], NOW).split('\n')[1]).toMatch(/^\[2\] Bauordnung/)
   })

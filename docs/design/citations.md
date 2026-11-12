@@ -341,6 +341,24 @@ The interpreter fills templates, each a list of segments printed only when all t
 `FALLBACK_CITATION_STYLES` (`shared/citation-style-fallback.ts`) and the `null` answer of `bff/citations/style.ts`, once Austria's record is
 published on prod.
 
+*A text of a released edition is named by its records (2026-11-12).* A text attached to a manifestation
+reaches the corpus as `<manifestationKey>-<12 hex>.pdf` with document class `other` and no display title.
+Its hit therefore took the file name as its title (`knowledge_layer/search/grounding_hits.py`, display title
+or file name) and the lane `building_law_base` (`doc_class_vocabulary.py`), which a style's law kind matches
+by its lane prefix `building_law`: the line read "oib-rl-6-2015-text-….pdf, Pkt. 3.1, S. 9, in:
+Rechtsinformationssystem des Bundes (RIS)." (L on dev, reproduced by the `recorded-text` case of the
+citation-lines fixture). Now each use carries the work's `issuer` (`context/resolve.ts`, `contextUseSchema`),
+the citation wire carries it beside `designation` and `edition_label` (`citations/roles.role_fields`), and a
+source whose line names an edition (`edition_id` and `designation`) is written as a `standard` whatever its
+lane: its title the designation and the edition label, its publisher the issuer, its place the `place` of the
+style's kind whose `publisher` is that issuer (`shared/citation-style.ts` `recordedName`). The chip takes the
+same title (`citations/model.ts`). Law read live names no edition and keeps its own title and source. Where
+no use reaches a passage the file name and lane stay the fallback: a gate of `none` carries no uses at all
+(`resolve.ts`, so a country whose territory states no coverage cites its texts by file name, the warning
+`country_states_no_coverage` on its change request), and neither does a turn replayed from its text without
+the session cache (`edition_id` has no line). Austria's style prints a publisher only with its place (one
+segment, `" ({publisher}, {place})"`), so an issuer the style names no place for is left out, never guessed.
+
 *Not yet, and why.* The Word export (`bff/answer-export/citations.ts`), the copy-answer Markdown
 (`lib/answer-markdown.ts`) and the peek still label a source from i18n ("S. {page}") rather than the line:
 moving them changes what they print today, so each is its own change against this fixture. The style chosen

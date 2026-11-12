@@ -33,6 +33,7 @@
 import { mergePageRegions, type PageRegion } from '@/features/knowledge/lib/page-region'
 import type { CitationProject, CitationSource } from '../../types'
 import type { CitationLineWire } from '@/shared/citation-line'
+import { recordedName } from '@/shared/citation-style'
 import { hostnameOf, isHttpUrl, normalizeUrl } from './text'
 export { isHttpUrl } // `bff/agent-asks/answer-evidence.ts` imports it from here
 import {
@@ -860,6 +861,8 @@ export class CitationAccumulator {
         label: observation.identity.label,
       }) || incomingTitle
     if (title && (!doc.title || looksLikeFilename(doc.title))) doc.title = title
+    // A text of an edition the records name is called what they call it, never by its file name.
+    doc.title = recordedName(doc.line) ?? doc.title
 
     if (observation.locus) this.mergeLocus(doc, observation.locus)
 
