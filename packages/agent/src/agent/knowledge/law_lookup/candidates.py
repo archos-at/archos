@@ -181,9 +181,17 @@ def candidate_from_hit(hit, law: LawSource, *, whole_law: bool = True) -> Candid
     provisions and the consolidated law is the document that HAS them. Case
     law has no whole-law URL and falls back to its own text. A version of a
     past day is read as itself (``whole_law=False``), never the law of today.
+
+    A version's in-force date is stated only when the document read IS that
+    version. Today's consolidated law is not the hit's version, so it carries
+    no date of the hit's: a search hit of a 2016 version, read as today's law,
+    was cited as „Fassung 2016-10-25" for a question about 2026 (dev QC
+    2026-11-12).
     """
     engine = law.engine
-    url = (hit.full_law_url or hit.fetch_url) if whole_law else hit.fetch_url
+    reads_today = whole_law and bool(hit.full_law_url)
+    url = hit.full_law_url if reads_today else hit.fetch_url
+    own_date = hit.metadata.get(engine.in_force_from, "") if engine.in_force_from else ""
     return Candidate(
         title=hit.title,
         url=url,
@@ -192,7 +200,7 @@ def candidate_from_hit(hit, law: LawSource, *, whole_law: bool = True) -> Candid
         collection=hit.application,
         territory=hit.metadata.get(engine.territory_field, "") if engine.territory_field else "",
         origin="live",
-        version_date=hit.metadata.get(engine.in_force_from, "") if engine.in_force_from else "",
+        version_date="" if reads_today else own_date,
     )
 
 
