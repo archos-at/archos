@@ -37,12 +37,28 @@ export const PAD = 24
 const MIN_CONTENT_W = 220
 
 /**
- * Width assumed when the container reports none — a typical desktop chat
- * column. `clientWidth` is 0 in jsdom and in any display:none ancestor, and the
- * graph must still render there; the ResizeObserver corrects it on the first
- * real measurement (before paint, since it runs in a layout effect).
+ * Width assumed until the container has reported a real one — a typical
+ * desktop chat column. `clientWidth` is 0 in jsdom and in any display:none
+ * ancestor, and the graph must still render there; the first real measurement
+ * replaces it (before paint, since it runs in a layout effect). Once measured,
+ * a later 0 keeps the last real width ({@link measuredFanWidth}): falling back
+ * here then is what drew a 680 px graph into a 648 px panel.
  */
 export const FALLBACK_W = 680
+
+/**
+ * The width the fan is planned against after the container reports
+ * `clientWidth`. A width of 0 is no measurement: the container is out of
+ * layout for a moment (a `display:none` ancestor, a hidden tab, a full-page
+ * capture that shrinks the viewport to 1×1 to read the page's size), so the
+ * last real width stands. Planning against 0 fell through to
+ * {@link FALLBACK_W}, 680 px, and for that moment every panel narrower than
+ * 680 drew its framing, its sources and its Grundlagen past its right edge,
+ * where the pane's `overflow-hidden` cut the words off.
+ */
+export function measuredFanWidth(previous: number, clientWidth: number): number {
+  return clientWidth > 0 ? clientWidth : previous
+}
 
 /** How the sources are packed into columns for a given container width. */
 export interface FanLayout {
