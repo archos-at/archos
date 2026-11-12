@@ -1257,6 +1257,14 @@
         },
         {
           "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "Answers that look up the building law of a project on a past or future day show how well their sources back them again, and the steps behind them no longer show that lookup as failed.",
+            "de": "Antworten, die das für ein Projekt an einem vergangenen oder zukünftigen Stichtag geltende Baurecht abfragen, zeigen wieder, wie gut sie durch ihre Quellen gestützt werden, und die zugrunde liegenden Schritte kennzeichnen diese Abfrage nicht mehr als fehlgeschlagen."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "The text of an e-mail to a project could not be filed when ARCHOS had suggested a folder for it, so it stayed at \"Filing …\" for good. It is now filed into that folder like any other text.",
