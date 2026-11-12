@@ -178,3 +178,16 @@ async def test_today_reads_the_consolidated_law_and_dates_it_with_no_hits_versio
 
     assert set(portal.documents_requested) == {xa.CODE_URL}
     assert "Fassung 2015-01-01" not in output and "Fassung 2021-01-01" not in output
+
+
+# The other side of the rule: a hit with no consolidated law is read from its own version document, so that
+# document's in-force date is true and stays on the citation.
+@pytest.mark.asyncio
+async def test_a_hit_read_from_its_own_version_document_keeps_its_date():
+    portal = xa.Portal.with_codes()
+    portal.search = xa.search_answer(xa.hit("XAN40000001", "Act (fixture) § 3", url=OLD_URL, since="2015-01-01"))
+    portal.set_text(OLD_URL, "Act (fixture)", "§ 3. (1) The old version applies.")
+    output = await _ask(portal, **_ARGS)
+
+    assert portal.documents_requested == [OLD_URL]
+    assert "Fassung 2015-01-01" in output
