@@ -49,11 +49,19 @@ describe('PATCH /api/user/memory/topics', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ moved: 3 })
-    expect(renamePersonalMemoryTopic).toHaveBeenCalledWith(OWNER, { from: 'Brandschutz', to: 'Fassade' })
+    expect(renamePersonalMemoryTopic).toHaveBeenCalledWith(OWNER, {
+      from: 'Brandschutz',
+      to: 'Fassade',
+    })
   })
 
   it('ungroups with to null, and ignores an owner the body names: the notes are the session’s', async () => {
-    await send('PATCH', { from: 'Brandschutz', to: null, userId: 'user_2', organizationId: 'org_2' })
+    await send('PATCH', {
+      from: 'Brandschutz',
+      to: null,
+      userId: 'user_2',
+      organizationId: 'org_2',
+    })
 
     expect(renamePersonalMemoryTopic).toHaveBeenCalledWith(OWNER, { from: 'Brandschutz', to: null })
   })

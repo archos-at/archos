@@ -58,8 +58,14 @@ describe('PATCH /api/projects/[id]/memory/topics', () => {
     await patch({ from: 'Brandschutz', to: null })
     await patch({ from: null, to: 'Brandschutz' })
 
-    expect(renameProjectMemoryTopic).toHaveBeenNthCalledWith(1, expect.anything(), PROJECT, { from: 'Brandschutz', to: null })
-    expect(renameProjectMemoryTopic).toHaveBeenNthCalledWith(2, expect.anything(), PROJECT, { from: null, to: 'Brandschutz' })
+    expect(renameProjectMemoryTopic).toHaveBeenNthCalledWith(1, expect.anything(), PROJECT, {
+      from: 'Brandschutz',
+      to: null,
+    })
+    expect(renameProjectMemoryTopic).toHaveBeenNthCalledWith(2, expect.anything(), PROJECT, {
+      from: null,
+      to: 'Brandschutz',
+    })
   })
 
   it('answers 400 on a blank from, before the service runs', async () => {
@@ -77,7 +83,9 @@ describe('PATCH /api/projects/[id]/memory/topics', () => {
   })
 
   it('answers 400 when the service refuses a to over the topic bound (40 characters)', async () => {
-    vi.mocked(renameProjectMemoryTopic).mockRejectedValue(new BadRequestError('A topic is at most 40 characters.'))
+    vi.mocked(renameProjectMemoryTopic).mockRejectedValue(
+      new BadRequestError('A topic is at most 40 characters.')
+    )
 
     const response = await patch({ from: 'Brandschutz', to: 'x'.repeat(41) })
 
