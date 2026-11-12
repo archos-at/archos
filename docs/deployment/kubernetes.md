@@ -263,8 +263,9 @@ a node get added.
 
 **Node loss wipes ephemeral storage; only PVCs survive.** On node replacement,
 `emptyDir` / `hostPath` / container-fs are gone. This stack uses **none** of
-those for durable data — no `emptyDir`, no `hostPath`, no DaemonSets anywhere —
-so the k0s kubelet-path quirk (`/var/lib/k0s/kubelet` instead of
+those for durable data — no `emptyDir`, no `hostPath`, and the one DaemonSet,
+`otel-agent` (`deploy/pulumi/src/platform/otel-agent.ts`), mounts only its
+ConfigMap — so the k0s kubelet-path quirk (`/var/lib/k0s/kubelet` instead of
 `/var/lib/kubelet`) is a non-issue here; the only ephemeral file is the
 agent-worker's `/tmp` liveness marker, which is meant to be transient. All state
 lives on PVCs (which survive) or in Postgres.
