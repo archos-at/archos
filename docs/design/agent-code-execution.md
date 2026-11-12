@@ -81,7 +81,11 @@ That is faster, cheaper, and sends less of an office's text to the model provide
   authority's form.
 - **Interactive outputs.** A run can write an HTML page: a table to filter, a chart
   to hover, a checklist to tick. Showing it beside the chat is a later step (MCP
-  Apps, ADR-0142); producing it is this one.
+  Apps, ADR-0142); producing it is this one. Until that step, the output check
+  accepts an HTML file only as a file to download, never rendered inside the app.
+  When it is shown, it is served from an origin separate from the application, in a
+  sandboxed frame without `allow-same-origin`, under a CSP with `connect-src 'none'`,
+  so its scripts run but can neither read the app nor send anything out.
 - **The builtin research skills** that call Deep Agents' shell `execute` and are
   switched off in production (`configs/config_oib_openrouter.yml`: "it needs a
   sandbox this config does not run") are written for Python. They would need a
@@ -189,17 +193,32 @@ and "read `/skills/office/<type>/` before writing a file of that type".
    that pass and records the run in the Herleitung.
 6. The model gets the module's return value, its log, and the list of files written.
 
+**One run at a time per conversation.** The backend runs a conversation's `execute`
+calls one after another, so two calls in one model response never write back from
+the same snapshot of `/workspace/`. The second starts from the files the first kept.
+Runs of different conversations still run side by side.
+
 Nothing persists in the runner. A second run sees the files the first one kept,
 because they are in `/workspace/`, not because the isolate survived.
 
 ## Isolation
 
-Two layers, each enough to stop the ordinary failure, together for the rare one:
+Two layers. Each stops the ordinary failure; what they leave open is stated below:
 
 | Layer | What it stops |
 |---|---|
 | **A fresh V8 isolate per run**, no network (`globalOutbound: null` or no network binding at all), a time limit and a memory limit | The script reaching anything beyond its inputs, looping forever, or exhausting memory |
-| **A runner pod with nothing in it**: no egress, no secrets, no service account token, no stored files, no other tenant's data at rest | A script that escaped its isolate finds no data and no route out; it could only see other runs in flight on that pod |
+| **A runner pod with nothing in it**: no egress, no secrets, no service account token, no stored files, no other tenant's data at rest | A script that escaped its isolate finds no data at rest and no route out |
+
+**What the two layers do not stop.** Runner pods are shared, so runs of different
+offices can be in flight on the same pod at once. A script that escaped its isolate
+could read another run's inputs in that pod's memory and copy them into its own
+output files, which go back to its own office; the missing network does not stop
+that path. Accepted for now, because an escape needs a bug in the isolate engine,
+runs last well under a second, and the output check sees only file types, not
+contents. The way to close it is one runner deployment per organization: each office's
+runs on pods of its own, at the cost of a minimum of pods per office instead of a
+shared pool. This is decision 5 below.
 
 The isolate engine is the open choice:
 
@@ -262,7 +281,7 @@ deletion.
 |---|---|---|
 | Run time | 60 s default, 180 s maximum | Office files take well under a second (*measured*); this is a ceiling against loops |
 | Memory per run | 128 MB | Cloudflare Workers' own per-isolate limit; enough for the tested files |
-| Concurrent runs per pod | 16 | Memory, below |
+| Concurrent runs per pod | 8 | Worst case: 70 MB for workerd + 8 × (128 MB per isolate + 50 MB of inputs held for it) ≈ 1.5 GB, inside a 2 GiB limit. The measured peak (925 MB for 20 runs) is typical use, not the budget |
 | Concurrent runs per organization | 4 | One office cannot starve the others |
 | Inputs per run | 50 MB in total | Drawings and scans stay with the services built for them |
 | Output files | all checked before the card | The output check is not optional |
@@ -278,8 +297,8 @@ deletion.
 | 20 runs at once | 2.7 s for all twenty, 925 MB peak | workerd with Cloudflare Computer's workspace, an upper bound for a stateless runner |
 | Idle workerd | 67 to 70 MB | same |
 
-So a pod at 1 vCPU and 1 to 2 GiB runs many times what an office asks for; KEDA adds
-pods for bursts. Next to the model tokens of the turn that writes the script, a run
+So a pod requests 1 vCPU and 1 GiB, with a 2 GiB limit sized from the worst case above;
+KEDA adds pods for bursts. Next to the model tokens of the turn that writes the script, a run
 costs little, and it lowers those tokens: documents are processed in the run and only
 a summary reaches the model.
 
@@ -317,6 +336,8 @@ Each rejection names the premise it rests on, so a later reader re-checks the pr
    checked before real documents go in.
 3. The limits above.
 4. Whether runs count toward an office's credits (ADR-0053).
+5. Shared runner pods (the cross-office exposure under Isolation, accepted for now)
+   or one runner deployment per organization.
 
 ## Verified and assumed
 
