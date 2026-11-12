@@ -12,7 +12,7 @@
  */
 
 import type { ConnectingFactor, KnowledgeWorkKind } from '../wire/vocab'
-import type { EditionUse, KnowledgeGraph, ResolvedChain, RouteStep, UndeterminedLaw } from './graph'
+import type { EditionUse, GraphEdition, KnowledgeGraph, ResolvedChain, RouteStep, UndeterminedLaw } from './graph'
 
 /**
  * What the knowledge context corrected on a use (design §4.6, §5.2): the
@@ -65,6 +65,21 @@ export function nameOf(value: string | null | undefined): string {
     .replace(/\s+/g, ' ')
     .trim()
   return flat.length > MAX_NAME_CHARS ? `${flat.slice(0, MAX_NAME_CHARS - 1)}…` : flat
+}
+
+const isoDay = (value: string | null | undefined): string | null => (value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null)
+
+/**
+ * The first day a binding role holds from: the edition's entry into force, and
+ * for a route the declaring relation's too (the later one). The chain text
+ * states it and a citation's status line reads it (`roleSince`), one
+ * derivation, so the model never has to look the day up elsewhere.
+ */
+export function roleSinceOf(graph: KnowledgeGraph, use: Pick<EditionUse, 'route'>, edition: GraphEdition | undefined): string | null {
+  const last = use.route.at(-1)
+  const relation = last?.via === 'relation' ? graph.relations.find((candidate) => candidate.id === last.relationId) : undefined
+  const days = [isoDay(edition?.inForceFrom), isoDay(relation?.validFrom)].filter((day): day is string => day !== null)
+  return days.sort().at(-1) ?? null
 }
 
 /** Why an edition is not determined, as the agent reads it. */
@@ -144,7 +159,10 @@ function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly str
   const last = use.route.at(-1)
   const where = work?.territoryIds.find((id) => chain.includes(id))
   const why = !last || last.via === 'territory' ? `${kind}${where ? ` of ${where}` : ''}, ${inForceWords(notes)}` : stepWords(graph, last)
-  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}${noteWords(notes)}${applicabilityWords(use)}`]
+  const day = roleSinceOf(graph, use, use.editionId ? graph.editions.get(use.editionId) : undefined)
+  // By territory, the day is the edition's (a consolidated text's Fassung), not the law's own entry into force.
+  const since = !day ? '' : !last || last.via === 'territory' ? `, this edition since ${day}` : ` since ${day}`
+  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}${since}${noteWords(notes)}${applicabilityWords(use)}`]
   for (const displaced of use.displaced) {
     const target = displaced.anchor ?? 'the whole instrument'
     const by = workName(graph, displaced.byWorkId)
@@ -202,7 +220,7 @@ export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, 
   const source = uncurated ? "from the platform's records, some read from an uncurated official source (marked)" : "from the platform's reviewed records"
   const lines = [
     `Building law at this site, ${leafName} (${resolved.chain.join(', ')}), on ${resolved.date}${onFilingDay ? FILING_DAY : ''}, ${source}. ${PREAMBLE}`,
-    ...section('Binding here:', by('binding').flatMap((use) => bindingLine(graph, use, resolved.chain, noteOf(use)))),
+    ...section("Binding here (a day named is the records' own: state it from here, not from a web page):", by('binding').flatMap((use) => bindingLine(graph, use, resolved.chain, noteOf(use)))),
     ...section('Authority practice here:', by('authority_practice').map((use) => practiceLine(graph, use))),
     ...section(
       'Guidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):',

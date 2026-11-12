@@ -18,7 +18,7 @@ import { chainAt, resolveChain, roleRank } from '../chain/resolve'
 import { MAX_SOURCE_REFS } from '../chain/source-refs'
 import type { BuildingScope } from '../rulesets/applicability'
 import type { GraphEdition, KnowledgeGraph, ResolvedChain } from '../chain/graph'
-import { nameOf, renderChainText, keyOfUse, type UseNotes } from '../chain/text'
+import { nameOf, renderChainText, keyOfUse, roleSinceOf, type UseNotes } from '../chain/text'
 import { PLATFORM_FRESHNESS_DAYS } from '../platform/freshness'
 import type { ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind } from '../wire/vocab'
 import {
@@ -126,8 +126,6 @@ export function freshnessOf(kind: KnowledgeWorkKind, edition: GraphEdition | und
 
 type ResolvedUse = ReturnType<typeof resolveChain>['uses'][number]
 
-const isoDay = (value: string | null | undefined): string | null => (value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null)
-
 /** The instrument that declares a use binding: the last step of its route, when that step is a relation. */
 export function routeOf(graph: KnowledgeGraph, use: Pick<ResolvedUse, 'route'>): UseRoute | null {
   const last = use.route.at(-1)
@@ -140,14 +138,6 @@ export function routeOf(graph: KnowledgeGraph, use: Pick<ResolvedUse, 'route'>):
     editionLabel: edition?.label ? nameOf(edition.label) : null,
     provision: last.provision ? nameOf(last.provision).slice(0, 300) : null,
   }
-}
-
-/** The first day a binding role holds from: the edition's entry into force, and for a route the declaring relation's too (the later one). */
-export function roleSinceOf(graph: KnowledgeGraph, use: Pick<ResolvedUse, 'route'>, edition: GraphEdition | undefined): string | null {
-  const last = use.route.at(-1)
-  const relation = last?.via === 'relation' ? graph.relations.find((candidate) => candidate.id === last.relationId) : undefined
-  const days = [isoDay(edition?.inForceFrom), isoDay(relation?.validFrom)].filter((day): day is string => day !== null)
-  return days.sort().at(-1) ?? null
 }
 
 const siteOnly = (factors: readonly ConnectingFactor[]): boolean => factors.length === 1 && factors[0] === 'site'
