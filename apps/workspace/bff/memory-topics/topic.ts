@@ -86,13 +86,29 @@ export const memoryTopicField = z
 
 /** `PATCH …/memory/topics`: every note with topic `from` gets topic `to`; a `to` another topic has merges them. */
 export const memoryTopicRenameSchema = z.object({
-  from: memoryTopicField.describe('The topic to rename, as the topics list names it. null: the notes with no topic.'),
+  from: z
+    .string()
+    .min(1)
+    .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
+    .nullable()
+    .describe('The topic to rename, as the topics list names it. null: the notes with no topic.'),
   to: memoryTopicField.describe(
     'The new name. A name another topic already has (any case) merges the notes into it. null: the notes lose their topic.'
   ),
 })
 
 export type MemoryTopicRenameInput = z.infer<typeof memoryTopicRenameSchema>
+
+/**
+ * A rename's `from`, checked before anything is read or written: null is the notes
+ * with no topic, and text that is blank once trimmed is refused (400). Read as no
+ * topic, a blank `from` would silently move the notes that have none.
+ */
+export function requireRenameFrom(from: string | null): void {
+  if (from !== null && normalizeTopic(from) === null) {
+    throw new BadRequestError('The topic to rename is named by its text, or null for the notes with no topic.')
+  }
+}
 
 /**
  * The `topic` a list filters on, as the query names it: one topic's name, or

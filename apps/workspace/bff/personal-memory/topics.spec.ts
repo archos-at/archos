@@ -175,6 +175,31 @@ describe('renamePersonalMemoryTopic', () => {
 
     await expect(renamePersonalMemoryTopic(OWNER, { from: 'Nichts', to: 'Anderes' })).resolves.toEqual({ moved: 0 })
   })
+
+  it('writes nothing when the rename lands on its own name, and answers zero', async () => {
+    shelf('Brandschutz')
+
+    await expect(renamePersonalMemoryTopic(OWNER, { from: 'Brandschutz', to: 'Brandschutz' })).resolves.toEqual({ moved: 0 })
+    await expect(renamePersonalMemoryTopic(OWNER, { from: null, to: null })).resolves.toEqual({ moved: 0 })
+
+    expect(movePersonalTopic).not.toHaveBeenCalled()
+  })
+
+  it('still changes the case of a topic: the case-only rename is a change', async () => {
+    shelf('brandschutz')
+    vi.mocked(movePersonalTopic).mockResolvedValue(1)
+
+    await expect(renamePersonalMemoryTopic(OWNER, { from: 'brandschutz', to: 'Brandschutz' })).resolves.toEqual({ moved: 1 })
+    expect(movePersonalTopic).toHaveBeenCalledWith(OWNER, 'brandschutz', 'Brandschutz')
+  })
+
+  it('refuses an empty from (400) before any note is read or moved', async () => {
+    await expect(renamePersonalMemoryTopic(OWNER, { from: '', to: 'Feuerschutz' })).rejects.toMatchObject({ status: 400 })
+    await expect(renamePersonalMemoryTopic(OWNER, { from: '   ', to: 'Feuerschutz' })).rejects.toMatchObject({ status: 400 })
+
+    expect(selectPersonalTopics).not.toHaveBeenCalled()
+    expect(movePersonalTopic).not.toHaveBeenCalled()
+  })
 })
 
 describe('removePersonalMemoryTopic', () => {

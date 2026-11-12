@@ -15,7 +15,12 @@ import 'server-only'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { projectMemory } from '@/lib/db/schema/project-memory'
-import { resolveTopic, summarizeTopics, type MemoryTopicCount } from '@/lib/memory-topics/topic'
+import {
+  requireRenameFrom,
+  resolveTopic,
+  summarizeTopics,
+  type MemoryTopicCount,
+} from '@/lib/memory-topics/topic'
 import { listProjectMemory, memoryVisibleTo, resolveProjectOrganization } from './memory-service'
 
 /** The distinct topics of the rows, each once. */
@@ -56,13 +61,45 @@ export async function projectTopicsOf(
   return summarizeTopics(await shelfTopicRows(projectId, organizationId, readable))
 }
 
-/** A topic a write stores, resolved against the open notes' topics (see the file's note on restricted notes). */
+/**
+ * Whether the shelf's note `itemId` is restricted (ADR-0087), as a reader cleared
+ * for `readable` sees it. A note the reader cannot see is not: its edit answers
+ * as a missing note, whatever its topic.
+ */
+export async function isRestrictedShelfNote(
+  projectId: string,
+  organizationId: string,
+  itemId: string,
+  readable: readonly string[]
+): Promise<boolean> {
+  const rows = await getDb()
+    .select({ restrictedFolderIds: projectMemory.restrictedFolderIds })
+    .from(projectMemory)
+    .where(
+      and(
+        eq(projectMemory.id, itemId),
+        eq(projectMemory.projectId, projectId),
+        eq(projectMemory.organizationId, organizationId),
+        memoryVisibleTo(readable)
+      )
+    )
+  return (rows[0]?.restrictedFolderIds?.length ?? 0) > 0
+}
+
+/**
+ * A topic a write stores, resolved against the shelf's topics. An open note passes
+ * no `readable` and resolves against the open topics only. A restricted note passes
+ * the folders its writer is cleared for, so its topic may be one of the restricted
+ * topics that reader can see (the note's own kind of topic); never an open note's.
+ */
 export async function resolveProjectTopicForWrite(
   projectId: string,
   organizationId: string,
-  raw: unknown
+  raw: unknown,
+  readable: readonly string[] = []
 ): Promise<string | null> {
-  return resolveTopic(raw, namesOf((await shelfTopicRows(projectId, organizationId, [])).map((row) => row.topic)))
+  const rows = await shelfTopicRows(projectId, organizationId, readable)
+  return resolveTopic(raw, namesOf(rows.map((row) => row.topic)))
 }
 
 /**
@@ -91,6 +128,7 @@ export async function renameProjectShelfTopic(input: {
   from: string | null
   to: string | null
 }): Promise<{ moved: number }> {
+  requireRenameFrom(input.from)
   const { projectId, organizationId, readable } = input
   const visible = (
     await listProjectMemory(projectId, { organizationId, includeArchived: true, readableFolderIds: readable })
@@ -98,6 +136,8 @@ export async function renameProjectShelfTopic(input: {
   const from = resolveTopic(input.from, namesOf(visible.map((item) => item.topic)))
   const openNames = namesOf(visible.filter((item) => !item.restrictedFolderIds?.length).map((item) => item.topic))
   const to = resolveTopic(input.to, openNames.filter((name) => name !== from))
+  // A rename onto its own name changes nothing: no write, and no count of one.
+  if (to === from) return { moved: 0 }
   const ids = visible.filter((item) => (item.topic ?? null) === from).map((item) => item.id)
   if (ids.length === 0) return { moved: 0 }
   const moved = await getDb()

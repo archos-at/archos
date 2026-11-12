@@ -12,12 +12,22 @@
 
 import 'server-only'
 import { ConflictError } from '@/lib/api/errors'
-import { DEFAULT_PAGE_LIMIT, nextOffsetCursor, type OffsetPage, type PageOf } from '@/lib/api/offset-page'
+import {
+  DEFAULT_PAGE_LIMIT,
+  nextOffsetCursor,
+  type OffsetPage,
+  type PageOf,
+} from '@/lib/api/offset-page'
 import { isUniqueViolation } from '@/lib/db/errors'
 import type { PersonalMemoryItem } from '@/lib/db/schema/personal-memory'
 import { assertStorableNote } from '@/lib/knowledge/note-content-guard'
 import { maskChatText } from '@/lib/upload-screening/service'
-import { resolveTopic, summarizeTopics, type MemoryTopicCount } from '@/lib/memory-topics/topic'
+import {
+  requireRenameFrom,
+  resolveTopic,
+  summarizeTopics,
+  type MemoryTopicCount,
+} from '@/lib/memory-topics/topic'
 import {
   deleteAllPersonalMemory,
   deletePersonalMemory,
@@ -37,7 +47,11 @@ import { PERSONAL_DIGEST_MAX_ITEMS, renderPersonalMemoryDigest } from './digest'
 import type { PersonalMemoryKind, PersonalMemoryProvenance } from './vocabulary'
 
 export type { PersonalMemoryOwner }
-export { PERSONAL_DIGEST_MAX_CHARS, PERSONAL_DIGEST_MAX_ITEMS, PERSONAL_MEMORY_DIGEST_HEADER } from './digest'
+export {
+  PERSONAL_DIGEST_MAX_CHARS,
+  PERSONAL_DIGEST_MAX_ITEMS,
+  PERSONAL_MEMORY_DIGEST_HEADER,
+} from './digest'
 
 export interface NewPersonalNote {
   kind: PersonalMemoryKind
@@ -45,9 +59,12 @@ export interface NewPersonalNote {
   provenanceType: PersonalMemoryProvenance
   pinned?: boolean
   sourceConversationId?: string | null
-  /** The answer the agent saved the note under (its message id); null for a note that belongs to none. */
+  /** The answer the agent saved the note under (its message id); null: none. */
   sourceMessageId?: string | null
-  /** The note's topic, as the person or the agent named it; resolved against the person's topics on write. */
+  /**
+   * The note's topic, as the person or the agent named it; resolved against
+   * the person's topics on write.
+   */
   topic?: string | null
 }
 
@@ -63,7 +80,10 @@ async function ownerTopicNames(owner: PersonalMemoryOwner): Promise<string[]> {
  * secret (`note-content-guard.ts`; a person's own contact details may stay on
  * their own shelf) or no letter and no digit (`content-key.ts`).
  */
-async function storable(organizationId: string, content: string): Promise<{ content: string; contentKey: string }> {
+async function storable(
+  organizationId: string,
+  content: string
+): Promise<{ content: string; contentKey: string }> {
   const text = (await maskChatText(organizationId, content)).text
   assertStorableNote(text, { refuseContact: false })
   return { content: text, contentKey: requirePersonalContentKey(text) }
@@ -112,8 +132,11 @@ export async function createPersonalMemoryItem(
 ): Promise<{ item: PersonalMemoryItem; created: boolean }> {
   const { content, contentKey } = await storable(owner.organizationId, note.content)
   const existing = await findPersonalMemoryByContentKey(owner, contentKey)
-  if (existing) return { item: (await touchPersonalMemory(owner, existing.id)) ?? existing, created: false }
-  const topic = note.topic === undefined ? null : resolveTopic(note.topic, await ownerTopicNames(owner))
+  if (existing) {
+    return { item: (await touchPersonalMemory(owner, existing.id)) ?? existing, created: false }
+  }
+  const topic =
+    note.topic === undefined ? null : resolveTopic(note.topic, await ownerTopicNames(owner))
   try {
     const item = await insertPersonalMemory({
       organizationId: owner.organizationId,
@@ -144,8 +167,10 @@ export async function editPersonalMemoryItem(
   patch: { kind?: PersonalMemoryKind; content?: string; pinned?: boolean; topic?: string | null }
 ): Promise<PersonalMemoryItem | null> {
   const { topic: rawTopic, ...rest } = patch
-  const topic = rawTopic === undefined ? {} : { topic: resolveTopic(rawTopic, await ownerTopicNames(owner)) }
-  const content = rest.content === undefined ? {} : await storable(owner.organizationId, rest.content)
+  const topic =
+    rawTopic === undefined ? {} : { topic: resolveTopic(rawTopic, await ownerTopicNames(owner)) }
+  const content =
+    rest.content === undefined ? {} : await storable(owner.organizationId, rest.content)
   const next = { ...rest, ...content, ...topic }
   try {
     return await updatePersonalMemory(owner, id, next)
@@ -155,12 +180,17 @@ export async function editPersonalMemoryItem(
   }
 }
 
-export async function removePersonalMemoryItem(owner: PersonalMemoryOwner, id: string): Promise<boolean> {
+export async function removePersonalMemoryItem(
+  owner: PersonalMemoryOwner,
+  id: string
+): Promise<boolean> {
   return deletePersonalMemory(owner, id)
 }
 
 /** The person's topics and how many of their notes each holds, the order the topics list shows. */
-export async function listPersonalMemoryTopics(owner: PersonalMemoryOwner): Promise<MemoryTopicCount[]> {
+export async function listPersonalMemoryTopics(
+  owner: PersonalMemoryOwner
+): Promise<MemoryTopicCount[]> {
   return summarizeTopics(await selectPersonalTopics(owner))
 }
 
@@ -168,15 +198,17 @@ export async function listPersonalMemoryTopics(owner: PersonalMemoryOwner): Prom
  * Move every note of the person on topic `from` to topic `to` (`PATCH …/memory/topics`).
  * `to` is resolved against the person's other topics, so a name another topic
  * has (any case) merges into it, and a new name renames. `to` null ungroups.
- * Answers how many notes moved.
+ * A rename that lands on its own name writes nothing. Answers how many notes moved.
  */
 export async function renamePersonalMemoryTopic(
   owner: PersonalMemoryOwner,
   input: { from: string | null; to: string | null }
 ): Promise<{ moved: number }> {
+  requireRenameFrom(input.from)
   const names = await ownerTopicNames(owner)
   const from = resolveTopic(input.from, names)
   const to = resolveTopic(input.to, names.filter((name) => name !== from))
+  if (to === from) return { moved: 0 }
   return { moved: await movePersonalTopic(owner, from, to) }
 }
 
@@ -184,7 +216,10 @@ export async function renamePersonalMemoryTopic(
  * Remove every note of the person on topic `name`, for good (`DELETE …/memory/topics`).
  * Only the caller's notes: the row-level security holds the same line. Answers how many went.
  */
-export async function removePersonalMemoryTopic(owner: PersonalMemoryOwner, name: string): Promise<{ removed: number }> {
+export async function removePersonalMemoryTopic(
+  owner: PersonalMemoryOwner,
+  name: string
+): Promise<{ removed: number }> {
   const topic = resolveTopic(name, await ownerTopicNames(owner))
   if (topic === null) return { removed: 0 }
   return { removed: await deletePersonalTopic(owner, topic) }
@@ -214,7 +249,9 @@ export async function forgetPersonalMemoryItem(
   const note = key ? await findPersonalMemoryByContentKey(owner, key) : null
   if (!note) return { removedId: null, refused: 'not_found' }
   if (note.pinned || note.provenanceType === 'user') return { removedId: null, refused: 'curated' }
-  if (!(await deletePersonalMemory(owner, note.id))) return { removedId: null, refused: 'not_found' }
+  if (!(await deletePersonalMemory(owner, note.id))) {
+    return { removedId: null, refused: 'not_found' }
+  }
   return { removedId: note.id, refused: null }
 }
 
@@ -236,7 +273,9 @@ export async function clearPersonalMemory(owner: PersonalMemoryOwner): Promise<n
  * `digest.ts`, says how the block is laid out). The shelf's topics are read from
  * every note of the person, so the index matches the topics list on the screen.
  */
-export async function buildPersonalMemoryDigest(owner: PersonalMemoryOwner): Promise<string | null> {
+export async function buildPersonalMemoryDigest(
+  owner: PersonalMemoryOwner
+): Promise<string | null> {
   const [rows, topicRows] = await Promise.all([
     selectPersonalMemory(owner, PERSONAL_DIGEST_MAX_ITEMS + 1),
     selectPersonalTopics(owner),

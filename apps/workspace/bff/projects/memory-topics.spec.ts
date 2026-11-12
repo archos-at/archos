@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
   listed: [] as Record<string, unknown>[],
-  rows: [] as { topic: string | null }[],
+  rows: [] as Record<string, unknown>[],
   /** What each update set, and the id list its WHERE named. */
   sets: [] as unknown[],
   updatedIds: [] as string[][],
@@ -18,13 +18,15 @@ const h = vi.hoisted(() => ({
 
 vi.mock('server-only', () => ({}))
 
-// The conditions are recorded as data, so the test reads which ids the update named.
+// The conditions are recorded as data, so the test reads which ids the update named,
+// and a select's rows are filtered by the visibility and the note id its WHERE names.
 vi.mock('drizzle-orm', async (importOriginal) => {
   const actual = await importOriginal<typeof import('drizzle-orm')>()
   return {
     ...actual,
     and: (...conditions: unknown[]) => ({ conditions }),
     inArray: (_column: unknown, ids: string[]) => ({ ids }),
+    eq: (column: { name: string }, value: unknown) => ({ column: column.name, value }),
   }
 })
 
@@ -36,7 +38,7 @@ vi.mock('./memory-service', () => ({
       return restricted.every((folder) => (options.readableFolderIds ?? []).includes(folder))
     })
   ),
-  memoryVisibleTo: vi.fn(() => 'visible'),
+  memoryVisibleTo: vi.fn((readable: readonly string[] = []) => ({ visibleTo: readable })),
   resolveProjectOrganization: vi.fn(async () => 'org_1'),
 }))
 
@@ -54,15 +56,33 @@ vi.mock('@/lib/db', () => ({
         }
       },
     }),
-    select: () => ({ from: () => ({ where: async () => h.rows }) }),
+    select: () => ({
+      from: () => ({
+        where: async (condition: { conditions: Record<string, unknown>[] }) =>
+          h.rows.filter((row) => rowPasses(row, condition)),
+      }),
+    }),
   }),
 }))
 
-import { renameProjectShelfTopic, resolveProjectTopicForWrite } from './memory-topics'
+import { isRestrictedShelfNote, renameProjectShelfTopic, resolveProjectTopicForWrite } from './memory-topics'
 import { listProjectMemory } from './memory-service'
 
 const PROJECT = 'proj_1'
 const ORG = 'org_1'
+const CONTRACTS = 'aaaaaaaa-0000-4000-8000-000000000001'
+const OTHER = 'bbbbbbbb-0000-4000-8000-000000000002'
+
+/** A row of the fake select: visible to a reader cleared for all of its folders, and the one note an `id` condition names. */
+function rowPasses(row: Record<string, unknown>, condition: { conditions: Record<string, unknown>[] }): boolean {
+  return condition.conditions.every((part) => {
+    if ('visibleTo' in part) {
+      const restricted = (row.restrictedFolderIds as string[] | null | undefined) ?? []
+      return restricted.every((folder) => (part.visibleTo as string[]).includes(folder))
+    }
+    return part.column !== 'id' || row.id === part.value
+  })
+}
 
 function note(id: string, topic: string | null, overrides: Record<string, unknown> = {}) {
   return {
@@ -141,6 +161,40 @@ describe('renameProjectShelfTopic', () => {
     expect(h.sets).toEqual([{ topic: 'bauherr' }])
   })
 
+  it('writes nothing when the rename lands on its own name, and answers zero', async () => {
+    h.listed = [note('a', 'Brandschutz'), note('b', 'Brandschutz')]
+
+    await expect(
+      renameProjectShelfTopic({ projectId: PROJECT, organizationId: ORG, readable: [], from: 'Brandschutz', to: 'Brandschutz' })
+    ).resolves.toEqual({ moved: 0 })
+    await expect(
+      renameProjectShelfTopic({ projectId: PROJECT, organizationId: ORG, readable: [], from: 'brandschutz', to: 'Brandschutz' })
+    ).resolves.toEqual({ moved: 0 })
+
+    expect(h.sets).toEqual([])
+  })
+
+  it('still renames a topic to another spelling of its own name: the case-only rename is a change', async () => {
+    h.listed = [note('a', 'Brandschutz'), note('b', 'Brandschutz')]
+
+    await expect(
+      renameProjectShelfTopic({ projectId: PROJECT, organizationId: ORG, readable: [], from: 'Brandschutz', to: 'brandschutz' })
+    ).resolves.toEqual({ moved: 2 })
+
+    expect(h.sets).toEqual([{ topic: 'brandschutz' }])
+  })
+
+  it('refuses an empty from (400) before any note is read or written, so it never targets the notes with no topic', async () => {
+    h.listed = [note('a', null)]
+
+    await expect(
+      renameProjectShelfTopic({ projectId: PROJECT, organizationId: ORG, readable: [], from: '', to: 'Brandschutz' })
+    ).rejects.toMatchObject({ status: 400 })
+
+    expect(listProjectMemory).not.toHaveBeenCalled()
+    expect(h.sets).toEqual([])
+  })
+
   it('takes notes out of their topic with to null, and answers zero for a topic nobody holds', async () => {
     h.listed = [note('a', 'Bauherr')]
 
@@ -164,5 +218,50 @@ describe('resolveProjectTopicForWrite', () => {
     await expect(resolveProjectTopicForWrite(PROJECT, ORG, 'brandschutz')).resolves.toBe('Brandschutz')
     await expect(resolveProjectTopicForWrite(PROJECT, ORG, 'Bauherr')).resolves.toBe('Bauherr')
     await expect(resolveProjectTopicForWrite(PROJECT, ORG, null)).resolves.toBeNull()
+  })
+})
+
+describe('resolveProjectTopicForWrite for a restricted note', () => {
+  const shelf = [
+    { topic: 'Brandschutz', restrictedFolderIds: null },
+    { topic: 'Verträge', restrictedFolderIds: [CONTRACTS] },
+    { topic: 'Honorare', restrictedFolderIds: [OTHER] },
+  ]
+
+  it('resolves against the restricted topics its writer is cleared for', async () => {
+    h.rows = shelf
+
+    await expect(resolveProjectTopicForWrite(PROJECT, ORG, 'verträge', [CONTRACTS])).resolves.toBe('Verträge')
+  })
+
+  it('never offers a restricted topic to an open note, even one its writer is cleared for', async () => {
+    h.rows = shelf
+
+    await expect(resolveProjectTopicForWrite(PROJECT, ORG, 'verträge', [])).resolves.toBe('verträge')
+    await expect(resolveProjectTopicForWrite(PROJECT, ORG, 'brandschutz', [])).resolves.toBe('Brandschutz')
+  })
+
+  it('offers no restricted topic its writer is not cleared for', async () => {
+    h.rows = shelf
+
+    await expect(resolveProjectTopicForWrite(PROJECT, ORG, 'honorare', [CONTRACTS])).resolves.toBe('honorare')
+  })
+})
+
+describe('isRestrictedShelfNote', () => {
+  it('answers whether the note is restricted, for a reader who sees it', async () => {
+    h.rows = [
+      { id: 'restricted-1', topic: 'Verträge', restrictedFolderIds: [CONTRACTS] },
+      { id: 'open-1', topic: 'Brandschutz', restrictedFolderIds: null },
+    ]
+
+    await expect(isRestrictedShelfNote(PROJECT, ORG, 'restricted-1', [CONTRACTS])).resolves.toBe(true)
+    await expect(isRestrictedShelfNote(PROJECT, ORG, 'open-1', [CONTRACTS])).resolves.toBe(false)
+  })
+
+  it('answers false for a restricted note the reader is not cleared for, as for a missing one', async () => {
+    h.rows = [{ id: 'restricted-1', topic: 'Verträge', restrictedFolderIds: [CONTRACTS] }]
+
+    await expect(isRestrictedShelfNote(PROJECT, ORG, 'restricted-1', [])).resolves.toBe(false)
   })
 })

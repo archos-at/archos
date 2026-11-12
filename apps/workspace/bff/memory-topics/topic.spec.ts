@@ -9,6 +9,7 @@ import {
   memoryTopicRenameSchema,
   normalizeTopic,
   pageOfTopic,
+  requireRenameFrom,
   resolveTopic,
   summarizeTopics,
 } from './topic'
@@ -115,6 +116,22 @@ describe('memoryTopicRenameSchema', () => {
     expect(memoryTopicRenameSchema.safeParse({ from: null, to: 'Bauherr' }).success).toBe(true)
     expect(memoryTopicRenameSchema.safeParse({ from: 'Bauherr', to: null }).success).toBe(true)
     expect(memoryTopicRenameSchema.safeParse({ from: 'Bauherr' }).success).toBe(false)
+  })
+
+  it('refuses an empty from: it is a topic’s name or null, never text that reads as no topic', () => {
+    expect(memoryTopicRenameSchema.safeParse({ from: '', to: 'Brandschutz' }).success).toBe(false)
+  })
+})
+
+describe('requireRenameFrom', () => {
+  it('passes a topic’s name and null for the notes with no topic', () => {
+    expect(() => requireRenameFrom('Brandschutz')).not.toThrow()
+    expect(() => requireRenameFrom(null)).not.toThrow()
+  })
+
+  it('refuses a blank from (400), which normalizes to no topic', () => {
+    expect(() => requireRenameFrom('')).toThrow(BadRequestError)
+    expect(() => requireRenameFrom('   ')).toThrow(BadRequestError)
   })
 })
 

@@ -32,6 +32,7 @@ vi.mock('@/lib/authz/folder-access', () => ({
 }))
 
 vi.mock('./memory-topics', () => ({
+  isRestrictedShelfNote: vi.fn(async () => false),
   projectTopicsOf: vi.fn(async () => []),
   renameProjectShelfTopic: vi.fn(async () => ({ moved: 0 })),
   resolveProjectTopicForWrite: vi.fn(async (_p: string, _o: string, raw: string | null) => raw),
@@ -50,14 +51,21 @@ vi.mock('./memory-evidence', () => ({
   withServedEvidence: vi.fn(async (_organizationId: string, items: readonly unknown[]) => [...items]),
 }))
 
+import { requireProjectAccess } from '@/lib/authz/projects'
 import { customFolderNames, purgedFolderDates, readableFolderIdsFor } from '@/lib/authz/folder-access'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { NotFoundError } from '@/lib/api/errors'
 import { makeMemoryItem } from '@/test-utils/db-fixtures'
 import { withServedEvidence, type EvidenceReader } from './memory-evidence'
 import { deleteProjectMemoryItem, listProjectMemory, updateProjectMemoryItem } from './memory-service'
-import { projectTopicsOf, renameProjectShelfTopic } from './memory-topics'
-import { editProjectMemoryItem, getProjectMemory, getProjectMemoryTopics, removeProjectMemoryItem, renameProjectMemoryTopic } from './service'
+import { isRestrictedShelfNote, projectTopicsOf, renameProjectShelfTopic, resolveProjectTopicForWrite } from './memory-topics'
+import {
+  editProjectMemoryItem,
+  getProjectMemory,
+  getProjectMemoryShelf,
+  removeProjectMemoryItem,
+  renameProjectMemoryTopic,
+} from './service'
 
 /** The source folder of a restricted note (ADR-0088). */
 const CONTRACTS = 'aaaaaaaa-0000-4000-8000-000000000001'
@@ -181,7 +189,7 @@ describe('editing and deleting', () => {
   })
 })
 
-describe('renameProjectMemoryTopic and getProjectMemoryTopics', () => {
+describe('renameProjectMemoryTopic', () => {
   it('renames on the shelf with the caller’s own clearance, so a restricted note moves only for a reader cleared for it', async () => {
     vi.mocked(readableFolderIdsFor).mockResolvedValue([CONTRACTS])
     vi.mocked(renameProjectShelfTopic).mockResolvedValue({ moved: 2 })
@@ -199,18 +207,89 @@ describe('renameProjectMemoryTopic and getProjectMemoryTopics', () => {
   })
 
   it('refuses a caller who may not edit the project memory, before anything is renamed', async () => {
-    const { requireProjectAccess } = await import('@/lib/authz/projects')
     vi.mocked(requireProjectAccess).mockRejectedValueOnce(new NotFoundError())
 
     await expect(renameProjectMemoryTopic(SESSION, 'proj-1', { from: 'A', to: 'B' })).rejects.toBeInstanceOf(NotFoundError)
     expect(renameProjectShelfTopic).not.toHaveBeenCalled()
   })
+})
 
+describe('getProjectMemoryShelf', () => {
   it('counts the topics over the notes the caller’s clearance shows, and no others', async () => {
     vi.mocked(readableFolderIdsFor).mockResolvedValue([])
+    vi.mocked(listProjectMemory).mockResolvedValue([])
 
-    await getProjectMemoryTopics(SESSION, 'proj-1')
+    await getProjectMemoryShelf(SESSION, 'proj-1', { page: { limit: 50, offset: 0 } })
 
     expect(projectTopicsOf).toHaveBeenCalledWith('proj-1', 'org_1', [])
+  })
+
+  it('checks access once and reads the clearance once, for the page and the topics alike', async () => {
+    vi.mocked(readableFolderIdsFor).mockResolvedValue([CONTRACTS])
+    vi.mocked(listProjectMemory).mockResolvedValue([makeMemoryItem({ id: 'open' })])
+
+    const shelf = await getProjectMemoryShelf(SESSION, 'proj-1', { page: { limit: 50, offset: 0 } })
+
+    expect(requireProjectAccess).toHaveBeenCalledTimes(1)
+    expect(readableFolderIdsFor).toHaveBeenCalledTimes(1)
+    expect(projectTopicsOf).toHaveBeenCalledWith('proj-1', 'org_1', [CONTRACTS])
+    expect(shelf.items.map((item) => item.id)).toEqual(['open'])
+    expect(shelf.nextCursor).toBeNull()
+  })
+
+  it('filters the visible notes to the topic, then pages the topic’s notes', async () => {
+    vi.mocked(readableFolderIdsFor).mockResolvedValue([CONTRACTS])
+    vi.mocked(customFolderNames).mockResolvedValue(new Map([[CONTRACTS, 'Verträge']]))
+    vi.mocked(listProjectMemory).mockResolvedValue([
+      makeMemoryItem({ id: 'a', topic: 'Brandschutz' }),
+      makeMemoryItem({ id: 'b', topic: 'Stellplätze' }),
+      makeMemoryItem({ id: 'c', topic: 'Brandschutz' }),
+      makeMemoryItem({ id: 'd', topic: 'Brandschutz', restrictedFolderIds: [CONTRACTS] }),
+    ])
+
+    const shelf = await getProjectMemoryShelf(SESSION, 'proj-1', { page: { limit: 2, offset: 0 }, topic: 'brandschutz' })
+
+    expect(shelf.items.map((item) => item.id)).toEqual(['a', 'c'])
+    expect(shelf.nextCursor).not.toBeNull()
+  })
+
+  it('answers the topic filter for a reader cleared for nothing from the open notes only', async () => {
+    vi.mocked(readableFolderIdsFor).mockResolvedValue([])
+    vi.mocked(listProjectMemory).mockResolvedValue([makeMemoryItem({ id: 'a', topic: 'Brandschutz' })])
+
+    const shelf = await getProjectMemoryShelf(SESSION, 'proj-1', { page: { limit: 50, offset: 0 }, topic: 'Brandschutz' })
+
+    expect(listProjectMemory).toHaveBeenCalledWith('proj-1', expect.objectContaining({ readableFolderIds: [] }))
+    expect(shelf.items.map((item) => item.id)).toEqual(['a'])
+  })
+})
+
+describe('the topic of an edited note', () => {
+  it('resolves against the restricted topics the editor is cleared for, for a restricted note', async () => {
+    vi.mocked(readableFolderIdsFor).mockResolvedValue([CONTRACTS])
+    vi.mocked(isRestrictedShelfNote).mockResolvedValueOnce(true)
+
+    await editProjectMemoryItem(SESSION, 'proj-1', 'restricted-1', { topic: 'Verträge' })
+
+    expect(isRestrictedShelfNote).toHaveBeenCalledWith('proj-1', 'org_1', 'restricted-1', [CONTRACTS])
+    expect(resolveProjectTopicForWrite).toHaveBeenCalledWith('proj-1', 'org_1', 'Verträge', [CONTRACTS])
+  })
+
+  it('resolves against the open topics only, for an open note', async () => {
+    vi.mocked(readableFolderIdsFor).mockResolvedValue([CONTRACTS])
+    vi.mocked(isRestrictedShelfNote).mockResolvedValueOnce(false)
+
+    await editProjectMemoryItem(SESSION, 'proj-1', 'open-1', { topic: 'Bauherr' })
+
+    expect(resolveProjectTopicForWrite).toHaveBeenCalledWith('proj-1', 'org_1', 'Bauherr', [])
+  })
+
+  it('asks nothing of the shelf when the edit names no topic', async () => {
+    vi.mocked(readableFolderIdsFor).mockResolvedValue([CONTRACTS])
+
+    await editProjectMemoryItem(SESSION, 'proj-1', 'item-1', { pinned: true })
+
+    expect(isRestrictedShelfNote).not.toHaveBeenCalled()
+    expect(resolveProjectTopicForWrite).not.toHaveBeenCalled()
   })
 })
