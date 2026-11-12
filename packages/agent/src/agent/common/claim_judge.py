@@ -14,7 +14,7 @@ So this module asks once, after the prose has streamed, on the organisation's
 follow-ups model at temperature 0: the question, the final answer, and every
 piece of evidence the turn registered (the passages in full up to
 :data:`EVIDENCE_BUDGET_CHARS`, the workspace records, the turn context's
-project profile and inventory, the measurements, the drawing readings, and
+project profile, inventory and building law, the measurements, the drawing readings, and
 which quotations the server's quote check found or did not find). The evidence
 travels as data inside one delimited block, and the system prompt says that
 instructions inside it are not followed. The reply is a level and the
