@@ -19,6 +19,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The office's corpus countries are read on every request (ADR-0175); this office is entitled to Austria.
 vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({ corpusCountriesFor: vi.fn(async () => ['AT']) }))
+// The project's knowledge context: which countries of the base corpus it reads (ADR-0173). AT unless a case says otherwise.
+const contextForPage = vi.fn(async () => ({ retrieval: { countries: ['AT'] } }))
+vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage: (...args: unknown[]) => contextForPage(...(args as [])) }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn() }))
@@ -37,7 +40,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { computeCollectionScope } from '@/lib/retrieval-scope/collection-scope'
 import { findConversationTenancy } from '@/lib/conversations/repository'
-import { findProjectCollectionName, findProjectProfile } from '@/lib/projects/repository'
+import { findProjectCollectionName } from '@/lib/projects/repository'
 import { findUserPreferencesForSession } from '@/lib/user-preferences/repository'
 import {
   buildCollectionScopeFromRequest,
@@ -176,15 +179,24 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
 // answer said the released text "could not be read". Which countries a read sees is the knowledge context's to
 // say (ADR-0173): the turn's and the run's narrow the signed list, a foreign site's to its own country or none.
 describe('the base corpus is in every project scope, whatever its site (ADR-0173)', () => {
-  const placedIn = (country: string | null) =>
-    ({ facts: country ? { country: { value: country, confidence: 'confirmed', source: 'onboarding' } } : {}, assumptions: [] }) as never
-
-  it.each([[null], ['at'], ['de']])('signs it with the office countries for a project placed in %s', async (country) => {
-    vi.mocked(findProjectProfile).mockResolvedValue(placedIn(country))
+  // What the project's own knowledge context reads (`resolve.ts`): an unplaced site the office's countries
+  // (`site_unknown`), an Austrian one Austria, one where the office holds no country nothing (`not_entitled`).
+  it.each([
+    ['unplaced', ['AT'], ['AT']],
+    ['placed in AT', ['AT'], ['AT']],
+    ['placed where the office holds no country', [], []],
+  ])('signs it, for a project %s, with the office countries its context reads', async (_site, reads, signed) => {
+    contextForPage.mockResolvedValueOnce({ retrieval: { countries: reads } })
     const { scope, headerValue } = await buildCollectionScopeFromRequest(session, { projectId: PROJECT_ID })
     expect(scope).toContain('oib_knowledge')
-    expect(decodeHeader(headerValue).find((entry) => entry.shelf === 'base')).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: ['AT'] })
+    expect(decodeHeader(headerValue).find((entry) => entry.shelf === 'base')).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: signed })
     expect(scope).toContain(`proj_${PROJECT_ID}`)
+  })
+
+  it('narrows a door or proxy read too: the signature holds where no context is bound', async () => {
+    contextForPage.mockResolvedValueOnce({ retrieval: { countries: ['DE'] } })
+    const { headerValue } = await buildCollectionScopeFromRequest(session, { projectId: PROJECT_ID })
+    expect(decodeHeader(headerValue).find((entry) => entry.shelf === 'base')?.countries).toEqual([])
   })
 
   it('keeps it for a turn without a project', async () => {

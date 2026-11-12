@@ -656,12 +656,13 @@ Every backend call carries a base64url `X-Grid-Collection-Scope` header =
 RAG multi-tenant boundary. Note `resolveProjectCollectionName` short-circuits to
 no project scope when `session.organizationId` is falsy (anonymous /
 `REQUIRE_AUTH=false`). `oib_knowledge` is in every scope, whatever the project's
-site, its entry signed with the office's corpus countries (`base-entry.ts`). Which
-of them a read sees is the knowledge context's to say (ADR-0173): a turn's or a
-run's narrows the list (`knowledge_context.corpus_countries`), so an unplaced project
-(`site_unknown`) reads the office's countries as information and a project placed in
-a country the office does not hold reads none (`scoped_collections_for_site` drops the
-base collection). A door call binds no context and reads the signed list. Until
+site. Its entry is signed with the countries the request may read (`base-entry.ts`):
+the office's corpus countries, and for a project those of them its own knowledge
+context reads (`projectCorpusCountries`, ADR-0173 `retrieval.countries`). So an unplaced
+project (`site_unknown`) reads the office's countries as information and a project
+placed in a country the office does not hold reads none, on every path: a turn or run
+that binds its context narrows again (`knowledge_context.corpus_countries`), and a door,
+proxy or job read that binds none reads the signed, already narrowed list. Until
 2026-11-12 the scope left the corpus out of any project not placed in Austria, and an
 unplaced project's answer said a released OIB text could not be read.
 

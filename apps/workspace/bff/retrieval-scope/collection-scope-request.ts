@@ -16,7 +16,7 @@ import {
 } from '@/lib/retrieval-scope/collection-scope'
 import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
-import { baseCorpusCountries } from './base-entry'
+import { baseCorpusCountries, projectCorpusCountries } from './base-entry'
 
 export interface RequestContext {
   projectId?: string
@@ -311,16 +311,20 @@ export async function buildCollectionScopeFromRequest(
     restrictedCollections,
   } satisfies ScopeContext)
 
-  // The countries the office may read of the base corpus (ADR-0173), signed onto its entry;
-  // an office entitled to nothing reads none of it (ADR-0175). The entry is in every scope, a
-  // project's too, whatever its site: which of those countries a turn or a run reads is its
-  // knowledge context's to say (`knowledge_context.corpus_countries`), never the project's site
-  // here. An unplaced project reads the office's countries as information (gate `site_unknown`);
-  // leaving the entry out made its answer say a released text could not be read (2026-11-12). A request with no organization (an
-  // anonymous deployment) is signed an empty list, never no field: the agent tier reads a base entry
-  // without `countries` as "says nothing" and refuses it too, but the signature should say it out loud.
-  const corpusCountries =
-    scope.includes(baseCollection) && !anonymous ? await baseCorpusCountries(session?.organizationId) : []
+  // The countries this request may read of the base corpus (ADR-0173), signed onto its entry; an office
+  // entitled to nothing reads none of it (ADR-0175). The entry is in every scope, a project's too, whatever
+  // its site; for a project it carries the office's countries its knowledge context reads
+  // (`projectCorpusCountries`), so a door or proxy read that binds no context is narrowed like a turn. An
+  // unplaced project reads the office's countries as information (gate `site_unknown`); leaving the entry out
+  // made its answer say a released text could not be read (2026-11-12). A request with no organization (an
+  // anonymous deployment) is signed an empty list, never no field: the agent tier reads a base entry without
+  // `countries` as "says nothing" and refuses it too, but the signature should say it out loud.
+  const signsBase = scope.includes(baseCollection) && !anonymous
+  const corpusCountries = !signsBase
+    ? []
+    : projectId
+      ? await projectCorpusCountries(session?.organizationId, projectId)
+      : await baseCorpusCountries(session?.organizationId)
   const scopedCollections: ScopedCollection[] = scope.map((collection) => {
     const shelf = shelfByCollection.get(collection)
     // No shelf → omit the field. Unknown stays unknown; it is never defaulted.
