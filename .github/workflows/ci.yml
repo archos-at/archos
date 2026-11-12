@@ -472,7 +472,11 @@ jobs:
         image: qdrant/qdrant:v1.19.2
         # Storage in memory: on the container disk every payload index is a
         # sync, and a test collection creates about forty (core suite with the
-        # server on 4 cores: 144 s on disk, 104 s on tmpfs, 2026-11-11).
+        # server on 4 cores: 144 s on disk, 104 s on tmpfs, 2026-11-11). The
+        # tmpfs is half the runner's memory and an empty test collection takes
+        # about 300 MiB of it, so the store fixture keeps one module's pair per
+        # process (knowledge_layer_testing/vector_store.py); full, Qdrant
+        # refuses every write with "WAL buffer size exceeds available disk space".
         options: --tmpfs /qdrant/storage
         # WARN, not the default INFO: the runner prints the service's log after the
         # job, and thousands of request lines buried the pytest failure out of reach.
