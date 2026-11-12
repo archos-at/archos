@@ -193,6 +193,22 @@
         },
         {
           "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Your office's standards, commentaries and directives now have a place of their own beside the Büroablage, with folders, filters for what still needs confirming or checking, and a page per standard. You find a standard and its state in seconds, and the Büroablage marks these files as Grundlage.",
+            "de": "Die Normen, Kommentare und Richtlinien Ihres Büros haben nun neben der Büroablage einen eigenen Bereich – mit Ordnern, Filtern für noch zu bestätigende oder zu prüfende Inhalte und einer Seite pro Norm. Sie finden eine Norm und ihren Status in Sekunden; in der Büroablage sind diese Dateien als Grundlage gekennzeichnet."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "A newer edition of a standard is added beside the earlier one, and answers use the edition that applied when the project was filed. Running projects keep their edition, by the same rule as the standards the platform holds.",
+            "de": "Eine neuere Ausgabe einer Norm wird neben der bisherigen ergänzt; Antworten beziehen sich auf die Ausgabe, die bei Einreichung des Projekts galt. Laufende Projekte behalten ihre Ausgabe – nach derselben Regel wie die von der Plattform geführten Normen."
+          }
+        },
+        {
+          "section": "features",
           "area": "building-law",
           "text": {
             "en": "When you create a project you can state its country and, in Austria, its Bundesland. Left empty, the postal code of an Austrian address suggests the Bundesland, and you confirm it during setup.",
