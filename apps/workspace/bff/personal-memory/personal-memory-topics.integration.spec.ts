@@ -110,4 +110,25 @@ describe.skipIf(!url)('personal memory topics against live Postgres', () => {
     expect(await contentsOf(A, { topic: '' })).toEqual(['A: Answers in short paragraphs.'])
     expect(await contentsOf(B, { topic: 'Parken' })).toEqual([])
   })
+
+  it('a restatement files a note with no topic once, and two restatements at once never overwrite the topic one of them set', async () => {
+    const content = 'A: Keeps the stamp register.'
+    const topicOfNote = async (): Promise<string | null> =>
+      as(A, async () => {
+        const [row] = [...(await db.execute(sql`select topic from personal_memory where organization_id = ${ORG} and content = ${content}`))]
+        return row?.topic == null ? null : String(row.topic)
+      })
+
+    await as(A, () => service.createPersonalMemoryItem(A, { kind: 'preference', content, provenanceType: 'agent' }))
+    await Promise.all([
+      as(A, () => service.createPersonalMemoryItem(A, { kind: 'preference', content, provenanceType: 'agent', topic: 'Brandschutz' })),
+      as(A, () => service.createPersonalMemoryItem(A, { kind: 'preference', content, provenanceType: 'agent', topic: 'Stellplätze' })),
+    ])
+    const filed = await topicOfNote()
+    expect(['Brandschutz', 'Stellplätze']).toContain(filed)
+
+    // A later restatement naming another topic leaves the one the note holds.
+    await as(A, () => service.createPersonalMemoryItem(A, { kind: 'preference', content, provenanceType: 'agent', topic: 'Parken' }))
+    expect(await topicOfNote()).toBe(filed)
+  })
 })

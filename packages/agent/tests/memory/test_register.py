@@ -1058,3 +1058,27 @@ async def test_a_topic_too_long_to_keep_is_left_off_the_card(monkeypatch, propos
 
     (card,) = proposals.registry.snapshot()
     assert "topic" not in card
+
+
+@pytest.mark.asyncio
+async def test_an_org_denied_note_carries_its_topic_in_the_proposal(monkeypatch, proposals):
+    transport = proposals.install({"id": _PROPOSAL_ID, "status": "proposed"})
+    insert = MagicMock(side_effect=pm.OrgMemoryDisabledError("disabled"))
+
+    await _remember(monkeypatch, insert, scope="organization", topic="Brandschutz")
+
+    (body,) = transport.bodies()
+    assert _contract_errors(body) == []
+    assert body["payload"]["topic"] == "Brandschutz"
+
+
+@pytest.mark.asyncio
+async def test_a_topic_too_long_to_keep_is_not_sent_in_the_proposal(monkeypatch, proposals):
+    transport = proposals.install({"id": _PROPOSAL_ID, "status": "proposed"})
+    insert = MagicMock(side_effect=pm.OrgMemoryDisabledError("disabled"))
+
+    await _remember(monkeypatch, insert, scope="organization", topic="T" * 41)
+
+    (body,) = transport.bodies()
+    assert _contract_errors(body) == []
+    assert "topic" not in body["payload"]

@@ -506,6 +506,7 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
           content={card.content}
           kind={card.kind}
           confidence={card.confidence}
+          topic={card.topic}
           supersedes={card.supersedes}
           proposalId={card.proposal_id}
           messageId={messageId}

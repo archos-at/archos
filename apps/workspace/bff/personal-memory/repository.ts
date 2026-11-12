@@ -81,11 +81,23 @@ export async function insertPersonalMemory(values: NewPersonalMemoryItem): Promi
   return row
 }
 
-/** Mark a note the agent restated as current again, without changing what it says. */
-export async function touchPersonalMemory(owner: PersonalMemoryOwner, id: string): Promise<PersonalMemoryItem | null> {
+/**
+ * Mark a note the agent restated as current again, without changing what it says.
+ * A `topic` (already resolved) is filed on the note only where it has none: the
+ * COALESCE is in this one statement, so two restatements at once cannot overwrite
+ * a topic one of them set, and no read decides it first.
+ */
+export async function touchPersonalMemory(
+  owner: PersonalMemoryOwner,
+  id: string,
+  topic: string | null = null
+): Promise<PersonalMemoryItem | null> {
   const [row] = await getDb()
     .update(personalMemory)
-    .set({ updatedAt: new Date() })
+    .set({
+      updatedAt: new Date(),
+      ...(topic === null ? {} : { topic: sql<string>`coalesce(${personalMemory.topic}, ${topic})` }),
+    })
     .where(and(eq(personalMemory.id, id), ownedBy(owner)))
     .returning()
   return row ?? null

@@ -221,10 +221,10 @@ describe('removePersonalMemoryTopic', () => {
 describe('a restated personal note takes the topic it names when it has none', () => {
   const existing = storedNote({ id: '33333333-3333-4333-8333-333333333333', topic: null })
 
-  it('files the note under the shelf topic the restatement names, in its spelling', async () => {
+  it('files the note under the shelf topic the restatement names, in its spelling, in the refresh itself', async () => {
     shelf('Brandschutz')
     vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(existing)
-    vi.mocked(updatePersonalMemory).mockResolvedValue({ ...existing, topic: 'Brandschutz' })
+    vi.mocked(touchPersonalMemory).mockResolvedValue({ ...existing, topic: 'Brandschutz' })
 
     const result = await createPersonalMemoryItem(OWNER, {
       kind: 'profile',
@@ -233,12 +233,13 @@ describe('a restated personal note takes the topic it names when it has none', (
       topic: 'brandschutz',
     })
 
-    expect(updatePersonalMemory).toHaveBeenCalledWith(OWNER, existing.id, { topic: 'Brandschutz' })
-    expect(touchPersonalMemory).not.toHaveBeenCalled()
+    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id, 'Brandschutz')
+    // No separate read-then-write: the refresh is the only write of the restatement.
+    expect(updatePersonalMemory).not.toHaveBeenCalled()
     expect(result).toEqual({ item: { ...existing, topic: 'Brandschutz' }, created: false })
   })
 
-  it('keeps the topic the note already holds, and only refreshes it', async () => {
+  it('hands the topic to the refresh even when the note already holds one: the statement keeps the held topic', async () => {
     shelf('Brandschutz', 'Stellplätze')
     vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue({ ...existing, topic: 'Stellplätze' })
     vi.mocked(touchPersonalMemory).mockResolvedValue({ ...existing, topic: 'Stellplätze' })
@@ -250,8 +251,9 @@ describe('a restated personal note takes the topic it names when it has none', (
       topic: 'Brandschutz',
     })
 
+    // The repository's COALESCE keeps 'Stellplätze' (integration spec); the service never decides it.
+    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id, 'Brandschutz')
     expect(updatePersonalMemory).not.toHaveBeenCalled()
-    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id)
   })
 
   it('only refreshes a note that has no topic when the restatement names none', async () => {
@@ -261,6 +263,6 @@ describe('a restated personal note takes the topic it names when it has none', (
     await createPersonalMemoryItem(OWNER, { kind: 'profile', content: existing.content, provenanceType: 'agent' })
 
     expect(updatePersonalMemory).not.toHaveBeenCalled()
-    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id)
+    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id, null)
   })
 })

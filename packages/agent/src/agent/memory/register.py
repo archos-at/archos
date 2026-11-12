@@ -308,6 +308,9 @@ async def _emit_memory_proposal_card(
     payload = {"scope": "organization", "kind": kind, "content": content, "confidence": confidence}
     if supersedes:
         payload["supersedes"] = supersedes
+    # The BFF resolves the topic against the shelf the note lands on (accepting it); absent when none.
+    if kept_topic := memory_client.memory_topic(topic):
+        payload["topic"] = kept_topic
     proposal_id = await add_card(registry, validated, kind="memory", payload=payload)
     logger.info(
         "Emitted memory_proposal card (kind=%s, proposal=%s) for user-authorized memory write", kind, proposal_id

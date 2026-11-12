@@ -26,6 +26,7 @@ import { requireMayLeaveConversation } from '@/lib/conversations/restricted-egre
 import { requireConversationKeepsMemory } from '@/lib/conversations/temporary'
 import { requireResourceAccess } from '@/lib/sharing/access'
 import { patchProjectProfile } from '@/lib/project-profile/profile-service'
+import { withOfficeTopic } from '@/lib/projects/office-memory-topics'
 import { addProjectMemoryItem, createOrganizationMemoryItem } from '@/lib/projects/service'
 import type { MemoryPayload, ProjectProfilePayload, ProposedChangeResult } from './types'
 
@@ -81,13 +82,20 @@ export async function applyMemory(payload: MemoryPayload, context: ApplyContext)
     content: payload.content,
     confidence: payload.confidence,
     sourceConversationId: originConversationId,
+    topic: payload.topic,
   }
   const options = { supersedesContent: payload.supersedes ?? null }
   const scope = context.memoryScope ?? payload.scope
+  // The topic is resolved against the shelf the note lands on, as a create does: a project
+  // note's by `addProjectMemoryItem`, an office note's here (its create does not resolve it).
   const item =
     scope === 'project'
       ? await addProjectMemoryItem(session, projectId, input, options)
-      : await createOrganizationMemoryItem(session, input, options)
+      : await createOrganizationMemoryItem(
+          session,
+          await withOfficeTopic(session.organizationId, input),
+          options
+        )
   return [{ label: noteLabel(payload.content), ok: true, itemId: item.id, scope }]
 }
 

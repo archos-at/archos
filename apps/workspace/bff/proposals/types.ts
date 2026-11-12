@@ -14,6 +14,7 @@
 import { z } from 'zod'
 import { ProjectProfilePatchOperationSchema } from '@/lib/project-profile/types'
 import { PROJECT_MEMORY_CONFIDENCES, PROJECT_MEMORY_KINDS } from '@/lib/projects/memory-vocabulary'
+import { memoryTopicField } from '@/lib/memory-topics/topic'
 
 /**
  * `file_operation`: move, rename, create a folder, assign (0140).
@@ -127,7 +128,9 @@ export type MemoryScope = (typeof MEMORY_SCOPES)[number]
  * A note Piloti proposes to remember (`project_memory_remember`, when it may
  * not write it itself). `supersedes` quotes the earlier note it corrects,
  * verbatim, so accepting the correction retires that note
- * (`createProjectMemoryItem`'s `supersedesContent`).
+ * (`createProjectMemoryItem`'s `supersedesContent`). `topic` files the note
+ * under a topic of its shelf, resolved there when the note is applied, as any
+ * create is; absent when the note has none.
  */
 export const memoryPayloadSchema = z
   .object({
@@ -136,6 +139,7 @@ export const memoryPayloadSchema = z
     content: text(500),
     confidence: z.enum(PROJECT_MEMORY_CONFIDENCES),
     supersedes: z.string().trim().max(500).nullish(),
+    topic: memoryTopicField.optional(),
   })
   .strict()
 export type MemoryPayload = z.infer<typeof memoryPayloadSchema>

@@ -23,6 +23,7 @@ import type { PersonalMemoryItem } from '@/lib/db/schema/personal-memory'
 import { assertStorableNote } from '@/lib/knowledge/note-content-guard'
 import { maskChatText } from '@/lib/upload-screening/service'
 import {
+  distinctTopicNames,
   requireRenameFrom,
   resolveTopic,
   summarizeTopics,
@@ -70,8 +71,7 @@ export interface NewPersonalNote {
 
 /** The names of the person's topics, for `resolveTopic`: every note's topic, each name once. */
 async function ownerTopicNames(owner: PersonalMemoryOwner): Promise<string[]> {
-  const rows = await selectPersonalTopics(owner)
-  return [...new Set(rows.flatMap((row) => (row.topic === null ? [] : [row.topic])))]
+  return distinctTopicNames(await selectPersonalTopics(owner))
 }
 
 /**
@@ -133,12 +133,10 @@ export async function createPersonalMemoryItem(
   const { content, contentKey } = await storable(owner.organizationId, note.content)
   const existing = await findPersonalMemoryByContentKey(owner, contentKey)
   if (existing) {
-    // A restatement that names a topic files a note that has none under it; a topic the note holds stays.
-    const filed =
-      existing.topic === null && note.topic ? resolveTopic(note.topic, await ownerTopicNames(owner)) : null
-    const item = filed
-      ? await updatePersonalMemory(owner, existing.id, { topic: filed })
-      : await touchPersonalMemory(owner, existing.id)
+    // A restatement that names a topic files a note that has none under it. The refresh
+    // itself sets it, only where the note has none (one statement, no read first).
+    const topic = note.topic ? resolveTopic(note.topic, await ownerTopicNames(owner)) : null
+    const item = await touchPersonalMemory(owner, existing.id, topic)
     return { item: item ?? existing, created: false }
   }
   const topic =

@@ -151,7 +151,7 @@ describe('createPersonalMemoryItem', () => {
     })
 
     expect(findPersonalMemoryByContentKey).toHaveBeenCalledWith(OWNER, 'answers in short paragraphs')
-    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id)
+    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id, null)
     expect(result).toEqual({ item: touched, created: false })
     expect(insertPersonalMemory).not.toHaveBeenCalled()
   })
