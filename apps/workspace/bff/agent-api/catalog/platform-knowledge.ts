@@ -19,6 +19,7 @@
  */
 
 import { z } from 'zod'
+import { corpusQuerySchema } from '@/lib/knowledge/corpus-query'
 import {
   approvalBodySchema,
   captureBodySchema,
@@ -208,9 +209,11 @@ export const platformKnowledgeOperations = [
     summary: 'See the whole base corpus, released or not',
     description:
       'The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. ' +
-      'It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.',
+      'It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list. ' +
+      'The whole store with summaries is longer than one result: narrow it with `nameContains` and `countryId` (or `none`), leave out the summaries with `brief: true`, and page with `limit` and `offset` (`matched`, `nextOffset`).',
     method: 'GET',
     path: '/api/platform/knowledge/documents',
+    query: corpusQuerySchema,
     load: () => import('@/app/api/platform/knowledge/documents/route'),
   },
   {

@@ -29152,9 +29152,78 @@
       "get": {
         "operationId": "platform-knowledge-base-get",
         "summary": "See the whole base corpus, released or not",
-        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.",
+        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list. The whole store with summaries is longer than one result: narrow it with `nameContains` and `countryId` (or `none`), leave out the summaries with `brief: true`, and page with `limit` and `offset` (`matched`, `nextOffset`).",
         "tags": [
           "platform"
+        ],
+        "parameters": [
+          {
+            "name": "nameContains",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only files whose name contains this text, ignoring case.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Only files whose name contains this text, ignoring case."
+          },
+          {
+            "name": "countryId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the files a release marked with this country (ISO 3166-1 alpha-2), or `none` for the files no release marked.",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                },
+                {
+                  "const": "none"
+                }
+              ]
+            },
+            "description": "Only the files a release marked with this country (ISO 3166-1 alpha-2), or `none` for the files no release marked."
+          },
+          {
+            "name": "brief",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "true leaves out each file’s summary, which is most of the answer’s length.",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "true leaves out each file’s summary, which is most of the answer’s length."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "At most this many files (up to 500).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "At most this many files (up to 500)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Skip this many of the matching files: the previous answer’s nextOffset.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Skip this many of the matching files: the previous answer’s nextOffset."
+          }
         ],
         "responses": {
           "200": {
@@ -30249,8 +30318,8 @@
     "/api/platform/knowledge/documents/{fileName}": {
       "delete": {
         "operationId": "platform-knowledge-document-delete",
-        "summary": "Delete an uploaded base-corpus document",
-        "description": "Removes an admin-uploaded PDF from the shared base corpus for every organization: source file, registry entry and indexed chunks. It cannot be undone, and repo-shipped corpus files cannot be deleted. The file name comes from the corpus listing.",
+        "summary": "Delete a base-corpus document",
+        "description": "Removes a PDF from the shared base corpus for every organization: stored file, registry entry and indexed chunks. It cannot be undone. A file a platform record names as its text is refused (409) until that request is rolled back or rejected. The file name comes from platform-knowledge-base-get.",
         "tags": [
           "platform"
         ],
@@ -30292,7 +30361,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Delete an uploaded base-corpus document",
+          "title": "Delete a base-corpus document",
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": true,

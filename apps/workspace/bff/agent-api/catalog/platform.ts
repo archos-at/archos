@@ -634,10 +634,10 @@ export const platformOperations = [
   {
     name: 'platform-knowledge-document-delete',
     domain: 'platform',
-    summary: 'Delete an uploaded base-corpus document',
+    summary: 'Delete a base-corpus document',
     description:
-      'Removes an admin-uploaded PDF from the shared base corpus for every organization: source file, registry entry and ' +
-      'indexed chunks. It cannot be undone, and repo-shipped corpus files cannot be deleted. The file name comes from the corpus listing.',
+      'Removes a PDF from the shared base corpus for every organization: stored file, registry entry and indexed chunks. It cannot be undone. ' +
+      'A file a platform record names as its text is refused (409) until that request is rolled back or rejected. The file name comes from platform-knowledge-base-get.',
     method: 'DELETE',
     path: '/api/platform/knowledge/documents/[fileName]',
     params: fileNameParams,
