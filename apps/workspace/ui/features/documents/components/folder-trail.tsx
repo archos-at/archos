@@ -5,6 +5,7 @@ import { Fragment, useMemo } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { ActionMenu } from '@/components/ui/action-menu'
 import { ProjectSectionPlace } from '@/components/shell/project-section-frame'
+import { useSectionPlaceRoot } from '@/components/shell/section-place'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { navCopy } from '@/i18n/namespaces/nav'
@@ -67,7 +68,8 @@ export function FolderPlaceInHeader({
   const nav = useTranslations(navCopy)
   const current = path[path.length - 1]
   const parent = path.length > 1 ? path[path.length - 2] : null
-  const root = nav('sections.files')
+  // The store's name (the Büroablage hands its own), or a project's „Dateien“.
+  const root = useSectionPlaceRoot() ?? nav('sections.files')
   const { shown, hidden } = trailSteps(path)
   const step = (folderId: string | null, label: string): ReactNode =>
     wrapStep(

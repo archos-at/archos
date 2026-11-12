@@ -386,25 +386,23 @@ function AppSidebarFrame({
         <SidebarContent
           className={cn(
             // 12px under the selector: the rows are what it heads, and a
-            // press does not touch the sheet of the row under it. `py-px`, or this scroll box, flush with the
-            // first row, cuts the current row's 1px edge to its corners
-            // (gotchas.md, „a sheet's edge is cut“).
-            'mt-3 flex-1 gap-0 py-px',
-            column,
-            // overflow-y-auto here used to replace the primitive's
-            // group-data-[collapsible=icon]:overflow-hidden, so labels kept
-            // painting past the 64px rail.
-            iconRail ? 'overflow-hidden' : 'overflow-y-auto'
+            // press does not touch the sheet of the row under it. `py-px`, or a
+            // box flush with the first row cuts the current row's 1px edge to
+            // its corners (gotchas.md, „a sheet's edge is cut“).
+            // The sections stand still; only the chats below them scroll
+            // (`RailChatList`), so the box itself does not.
+            'mt-3 min-h-0 flex-1 gap-0 overflow-hidden',
+            column
           )}
         >
-          <nav aria-label={t('projectSections')}>
-            <SidebarMenu className="gap-0.5">
-              {projectItems.flatMap((item) =>
-                // The icon rail has no room for a title: there „Chat“ is its glyph, and the chat's toolbar names its door.
-                item.key === 'chat' && railChats && !iconRail ? [railItem(item), <RailChatList key="chats" chats={railChats} pillId={activePillId} />] : [railItem(item)]
-              )}
-            </SidebarMenu>
+          <nav aria-label={t('projectSections')} className="shrink-0 py-px">
+            <SidebarMenu className="gap-0.5">{projectItems.map(railItem)}</SidebarMenu>
           </nav>
+          {/* The project's last chats, as a list of their own under the sections (owner decision 2026-11-11,
+              as a chat app lists its recent chats): headed „Letzte Chats“, scrolling between the sections
+              and the office's doorways, which both stay put. The icon rail has no room for a title: there
+              „Chat“ is its glyph, and the chat's toolbar names its door. */}
+          {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} />}
         </SidebarContent>
 
         <SidebarFooter
@@ -421,7 +419,8 @@ function AppSidebarFrame({
               band is held at both. Stacked under the project's sections the
               two heads fought and the lower 60% of the band stood empty. */}
           {orgGroup && (
-            <nav aria-label={orgGroup.label} className={cn('mb-2', iconRail ? 'w-9' : 'w-full')}>
+            // 20px over the person (owner decision 2026-11-11: at 8px the doorways hung on the name).
+            <nav aria-label={orgGroup.label} className={cn('mb-5', iconRail ? 'w-9' : 'w-full')}>
               <SidebarGroup className="p-0">
                 {/* The organisation's name as the group's label (12/16/500
                     muted, the app's `SectionLabel` step), on the icons' edge. */}
@@ -518,26 +517,25 @@ function RailNavItem({
         className={cn(
           // 36px under a mouse; 44px under a finger, grown rather than given a
           // catchment, because the rows sit 2px apart.
-          // 14px in ink at 500, the size of a page's own tabs (Dateien's):
-          // a muted label at 440 read as a row that is switched off.
-          'text-foreground h-9 gap-[11px] rounded-control px-3 text-sm font-medium pointer-coarse:h-11',
+          // 13px, muted at the body's 440 at rest; where the reader is, ink at
+          // 500 (owner decision 2026-11-11: 14px ink at 500 and 600 for the
+          // current row read as too large and too heavy beside the page).
+          'text-muted-foreground h-9 gap-[11px] rounded-control px-3 text-[13px] font-normal hover:text-foreground pointer-coarse:h-11',
           'group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center',
           // The active SURFACE lives on the pill below, so every fill the
           // primitive would otherwise paint under it is turned off explicitly.
           // Only the INK stays here: colour and weight are a tween's business,
           // never a spring's.
-          // 600 is the weight of state (Paper on a desk, „Hard numbers“):
-          // where the reader is.
           active
-            ? 'hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent font-semibold data-[active=true]:font-semibold'
+            ? 'text-foreground data-[active=true]:text-foreground hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent font-medium data-[active=true]:font-medium'
             : door?.open
               ? // The Postfach docked open beside the page: open is the picked
                 // grey, one step down the ladder from the desk; white stays
                 // where the page is.
-                'bg-selected hover:bg-selected'
+                'text-foreground bg-selected hover:bg-selected'
               : // The pointer's fill is one step down from the plane it lies
                 // on (the picked grey on the desk), the press one more.
-                cn('hover:bg-selected active:bg-pressed', within && 'font-semibold')
+                cn('hover:bg-selected active:bg-pressed', within && 'text-foreground font-medium')
         )}
       >
         <Link href={href} aria-current={active ? 'page' : undefined} aria-expanded={door?.open} data-dock-door={door?.panel} data-tour={tourAnchor} onClick={door?.onClick}>

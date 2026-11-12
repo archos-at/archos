@@ -62,7 +62,7 @@ export default function RouteError({
               never be hidden behind a dead-end, and even a genuine access
               denial can be transient (a role grant that just landed, a stale
               cache). */}
-          <Button variant="outline" onClick={reset}>
+          <Button variant="secondary" onClick={reset}>
             {t('appError.action')}
           </Button>
           {isAccess ? (

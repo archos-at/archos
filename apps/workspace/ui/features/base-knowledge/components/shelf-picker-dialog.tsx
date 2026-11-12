@@ -114,7 +114,7 @@ export function ShelfPickerDialog({
                 <span className="min-w-0 truncate text-sm">{candidate.name}</span>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="secondary"
                   disabled={busy !== null}
                   onClick={() => void take(candidate)}
                 >

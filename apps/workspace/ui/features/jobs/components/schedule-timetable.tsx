@@ -181,7 +181,7 @@ export function ScheduleTimetable({
           {weekOffset === 0 ? `${t('timetable.thisWeek')} · ${weekLabel}` : weekLabel}
         </p>
         {weekOffset !== 0 && (
-          <Button variant="outline" size="sm" onClick={() => setWeekOffset(0)}>
+          <Button variant="secondary" size="sm" onClick={() => setWeekOffset(0)}>
             {t('timetable.today')}
           </Button>
         )}
@@ -462,7 +462,7 @@ function ScheduleBlock({
       onClick={() => onSelect(block.jobId)}
       title={`${time} · ${name}`}
       data-testid="timetable-block"
-      className="focus-visible:ring-ring/60 absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left transition-shadow duration-quick ease-out hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+      className="focus-visible:ring-ring/60 absolute overflow-hidden rounded-[5px] border px-1.5 py-0.5 text-left transition-[filter] duration-quick ease-out hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
       style={{
         top: `${top + 1}px`,
         height: `${(BLOCK_MINUTES / 60) * HOUR_PX - 2}px`,

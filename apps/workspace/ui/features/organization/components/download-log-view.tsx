@@ -215,7 +215,7 @@ export const DownloadLogView: FC<DownloadLogViewProps> = ({ people }) => {
         <EmptyState
           title={t('downloadLog.loadError')}
           action={
-            <Button variant="outline" size="sm" onClick={() => void load(applied, null)}>
+            <Button variant="secondary" size="sm" onClick={() => void load(applied, null)}>
               {t('downloadLog.retry')}
             </Button>
           }
@@ -292,7 +292,7 @@ export const DownloadLogView: FC<DownloadLogViewProps> = ({ people }) => {
           {failed && <p role="alert" className="text-error text-sm">{t('downloadLog.loadError')}</p>}
           {nextCursor && (
             <div>
-              <Button variant="outline" onClick={() => void load(applied, nextCursor)} disabled={loading}>
+              <Button variant="secondary" onClick={() => void load(applied, nextCursor)} disabled={loading}>
                 <History aria-hidden />
                 {loading ? t('downloadLog.loading') : t('downloadLog.loadMore')}
               </Button>

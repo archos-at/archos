@@ -448,7 +448,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
             // The WHOLE row is the highlight — 12px radius, full-bleed inside the
             // list padding — which is what makes selection legible at a glance.
             'items-center gap-3 rounded-lg px-2.5 py-2 transition-colors duration-snap ease-out motion-reduce:transition-none',
-            'data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground',
+            'data-[selected=true]:bg-hover data-[selected=true]:text-accent-foreground',
             blocked && 'opacity-55',
           )}
         >
@@ -509,7 +509,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
           // over it hid the conversation the mention was about. Radix measures
           // that room (`--radix-popover-content-available-height`); outside a
           // popover the 320px stands alone.
-          'bg-popover text-popover-foreground flex max-h-[min(20rem,var(--radix-popover-content-available-height,20rem))] w-full flex-col overflow-hidden rounded-xl border shadow-lg',
+          'bg-popover text-popover-foreground flex max-h-[min(20rem,var(--radix-popover-content-available-height,20rem))] w-full flex-col overflow-hidden rounded-xl shadow-lg',
           'animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none',
           className,
         )}

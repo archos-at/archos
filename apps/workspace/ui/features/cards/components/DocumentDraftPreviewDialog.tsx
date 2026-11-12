@@ -103,7 +103,7 @@ export const DocumentDraftPreviewDialog: FC<DocumentDraftPreviewDialogProps> = (
                 type="button"
                 onClick={onRetry}
                 data-testid="document-draft-preview-retry"
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-control border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-control border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-desk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 <RotateCcw className="size-3.5" aria-hidden />
                 {t('cards.documentDraft.previewRetry')}

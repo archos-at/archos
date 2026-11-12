@@ -108,7 +108,7 @@ const Row: FC<{ entry: ViewerActionEntry }> = ({ entry }) => {
       )}
       {(entry.status === 'held' || entry.status === 'offered' || entry.status === 'undone') && (
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="h-6 shrink-0 px-2"
           aria-label={t('viewerActions.showAria', { what })}

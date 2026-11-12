@@ -131,6 +131,17 @@ describe('buildCitationModel', () => {
     ])
   })
 
+  it('keeps a live law\'s own title when a later observation of it carries none', () => {
+    // A live law can name a held edition of its work (`use_for_source_ref`); its own title stands, and an
+    // observation that omits the title says nothing about it.
+    const line = { work_id: 'work:xa-act', edition_id: 'edition:xa-act-2023', designation: 'XA Act', edition_label: 'LGBl. 37/2023' }
+    const accumulator = new CitationAccumulator()
+    accumulator.add({ identity: { url: 'https://law.example/xa-act' }, url: 'https://law.example/xa-act', title: 'XA Building Act § 108', line })
+    accumulator.add({ identity: { url: 'https://law.example/xa-act' }, url: 'https://law.example/xa-act', line })
+
+    expect(accumulator.build().map((doc) => doc.title)).toEqual(['XA Building Act § 108'])
+  })
+
   it('refuses the merge when the citation sits on another shelf', () => {
     // A Richtlinie is base law. A label naming one must never attach itself to
     // a project upload that carries the corpus filename — that is somebody's

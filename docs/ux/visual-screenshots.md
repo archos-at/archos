@@ -122,6 +122,39 @@ insights) that `devIndicators: false` does not hide; it lives in a
 `agent-browser eval "document.querySelectorAll('nextjs-portal').forEach((e)=>e.remove())"`
 (seen 2026-10-27 in the E-Mail-Eingang captures).
 
+## Every state at once
+
+A pointer is over one thing at a time, so a capture of a page shows one hover.
+`/dev/interaction-states` lays every interactive element of the kit out by
+state (rest, pointer, pressed, keys, chosen) and marks each cell with
+`data-force`; `scripts/capture-forced-states.mjs` forces that pseudo-class on
+all of them through the browser's protocol (`CSS.forcePseudoState`), so one
+image shows the real components under a real `:hover`, `:active` and
+`:focus-visible`.
+
+```bash
+cd apps/workspace
+CHROMIUM_PATH=/opt/pw-browsers/chromium node scripts/capture-forced-states.mjs \
+  http://localhost:3311/dev/interaction-states ./states            # add --dark for the dark theme
+```
+
+It writes `page.png` and one image per family. Any preview can
+be captured this way: wrap what should be shown in a state in an element with
+`data-force="hover" | "active" | "focus"`, and narrow it to one descendant with
+`data-force-target="<selector>"` (one tab of a strip). A pointer's state is
+forced on the target and everything inside it, so a `group-hover` answers. The
+keys' state goes to ONE control, the target or the first focusable element of
+the cell that is drawn: forced on the cell, the capture showed a square frame
+round the cell and not the control's ring, and forced on everything inside,
+every glyph of a button drew its own outline (both seen 2026-11-11, and the
+first was published as the product's focus ring before it was noticed). The script uses `playwright-core` and needs
+`CHROMIUM_PATH` wherever Playwright has no browser of its own, which is every
+cloud session.
+
+A change to how any control answers the pointer is checked on that page, and a
+new kind of control gets a row there: it is where a button that answers with a
+shadow stands next to a row that answers with a fill.
+
 ## Publish
 
 Capture a *before* from the base branch and an *after* from yours, then hand

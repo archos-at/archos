@@ -84,6 +84,7 @@ interface WorkRow extends Record<string, unknown> {
   kind: KnowledgeWorkKind
   title: string
   designation: string | null
+  issuer: string | null
   identifiers: Record<string, unknown> | null
   territory_ids: string[]
   addressee_territory_ids: string[] | null
@@ -166,7 +167,7 @@ async function worksFor(organizationId: string, chain: readonly string[], named:
       SELECT e.work_id FROM knowledge_records er JOIN knowledge_edition_revisions e ON e.revision_id = er.head_revision_id
       WHERE er.id = ANY(${sqlTextArray(named)})
     )
-    SELECT r.id, r.organization_id, w.kind, w.title, w.identifiers ->> 'designation' AS designation, w.identifiers, w.territory_ids,
+    SELECT r.id, r.organization_id, w.kind, w.title, w.identifiers ->> 'designation' AS designation, w.issuer, w.identifiers, w.territory_ids,
       (SELECT array_agg(a ->> 'territoryId') FROM jsonb_array_elements(w.addressees) AS a) AS addressee_territory_ids,
       w.connects_by, w.history_available_from
     FROM knowledge_records r JOIN knowledge_work_revisions w ON w.revision_id = r.head_revision_id
@@ -250,6 +251,7 @@ function toWork(row: WorkRow): GraphWork {
     kind: row.kind,
     title: row.title,
     designation: row.designation,
+    issuer: row.issuer ?? null,
     territoryIds: row.territory_ids,
     addresseeTerritoryIds: (row.addressee_territory_ids ?? []).filter((id): id is string => typeof id === 'string'),
     connectsBy: row.connects_by ?? ['site'],

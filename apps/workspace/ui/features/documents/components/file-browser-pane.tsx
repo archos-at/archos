@@ -754,7 +754,7 @@ export function FileBrowserPane({
       )}
       {/* Under the tabs where the root's row went (tabs, ⋯). While picking the bar owns the action: no „Ordner anlegen“. */}
       {brief && !semantic.active && !searching && (
-        <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone && !currentFolder?.description ? 'pt-0' : 'pt-4')}>{brief}</div>
+        <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone && !currentFolder?.description ? 'pt-2' /* its line 24px under the header's rule */ : 'pt-4')}>{brief}</div>
       )}
       {/* Piloti's filing suggestions for the documents of this level, one line
           per target folder, when one folder would collect two or more: the

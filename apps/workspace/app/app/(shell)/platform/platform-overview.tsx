@@ -658,7 +658,7 @@ const OrganizationRow: FC<{
       </TableCell>
       <TableCell className={cn('text-right', COLUMN_VISIBILITY.allowance)}>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={onOpenBudget}
           aria-label={t(canManage ? 'orgBudgets.openEdit' : 'orgBudgets.open', { name: org.name })}

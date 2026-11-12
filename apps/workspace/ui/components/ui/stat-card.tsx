@@ -92,7 +92,7 @@ export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
   icon?: React.ReactNode
 }
 
-const STAT_CARD_CLASS = 'flex h-full min-h-28 flex-col rounded-surface border bg-card p-5 shadow-xs'
+const STAT_CARD_CLASS = 'flex h-full min-h-28 flex-col rounded-surface bg-card p-5 shadow-xs'
 
 export function StatCard({
   label,

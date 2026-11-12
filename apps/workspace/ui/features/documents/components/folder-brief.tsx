@@ -294,7 +294,7 @@ function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect:
           key={state}
           type="button"
           onClick={() => onSelect({ kind: 'state', state })}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring touch-target inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+          className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring touch-target inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
           title={t('brief.showState', { state: t(`brief.slice.${state}`) })}
           data-testid={`folder-brief-state-${state}`}
         >
@@ -618,7 +618,7 @@ function HotspotSection({
             <button data-attr="files-open-folder"
               type="button"
               onClick={() => onOpenFolder(folder.id)}
-              className="hover:bg-accent focus-visible:ring-ring touch-target group flex w-full min-w-0 items-center gap-2 rounded-control px-1.5 py-1 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+              className="hover:bg-hover focus-visible:ring-ring touch-target group flex w-full min-w-0 items-center gap-2 rounded-control px-1.5 py-1 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
               data-testid={`folder-brief-hotspot-${folder.id}`}
             >
               <CornerDownRight className="text-muted-foreground size-3.5 shrink-0" aria-hidden />

@@ -53,8 +53,8 @@ wheels/
 MANIFEST
 
 # Virtual Environment
-.venv/
-venv/
+.venv
+venv
 ENV/
 /env/
 

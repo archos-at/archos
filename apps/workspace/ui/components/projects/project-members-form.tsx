@@ -671,7 +671,7 @@ export function ProjectMembersForm({
                 description={t('roster.noMatchDescription')}
                 action={
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={() => searchForm.setFieldValue('query', '')}
                   >

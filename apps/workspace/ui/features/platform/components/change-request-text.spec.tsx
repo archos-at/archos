@@ -51,6 +51,7 @@ const request = (status: string, texts: unknown[]) => ({
   releases: [],
   captures: [],
   sourcesUnchecked: false,
+  warnings: [],
   texts,
   revisions: [
     {

@@ -209,7 +209,7 @@ function BrowserWrittenMemoryCard({
             {projectId && (
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={handleSaveProject}
                 aria-disabled={isSubmitting || undefined}
@@ -225,7 +225,7 @@ function BrowserWrittenMemoryCard({
             )}
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={handleDismiss}
               aria-disabled={isSubmitting || undefined}

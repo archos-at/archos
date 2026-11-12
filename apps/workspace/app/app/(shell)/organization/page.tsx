@@ -262,7 +262,7 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
           {/* The standards have a place of their own now, beside the Büroablage;
               a settings card was where nobody looked for documents. */}
           <CardContent>
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="secondary" size="sm">
               <Link href="/app/base-knowledge">{t('baseKnowledge.open')}</Link>
             </Button>
           </CardContent>

@@ -1,0 +1,8 @@
+---
+# area: building-law
+fixes:
+  - >
+    An answer that names which edition of a guideline applies at your site, and
+    since when, is no longer rated low confidence just for that statement. The
+    confidence check now reads the same record of what applies at the site that
+    the answer was written from.

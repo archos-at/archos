@@ -175,7 +175,7 @@ export function InboxReviewDecision({ item, reviewClient, onOpen }: InboxReviewD
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             className="h-7 text-xs"
             disabled={reviewBusy}
             data-testid="inbox-review-request-changes"
@@ -191,7 +191,7 @@ export function InboxReviewDecision({ item, reviewClient, onOpen }: InboxReviewD
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             className="h-7 text-xs"
             disabled={reviewBusy}
             data-testid="inbox-review-reject"

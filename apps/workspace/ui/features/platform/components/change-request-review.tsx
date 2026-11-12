@@ -143,7 +143,7 @@ function RecordCard({ revision, captures, canDecide, busy, onDecide, unfetchedTe
         {canDecide && open.length > 0 ? (
           <Button
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={busy}
             onClick={() => onDecide(open.map((claim) => ({ path: claim.path, decision: 'accepted' })), pasted)}
           >

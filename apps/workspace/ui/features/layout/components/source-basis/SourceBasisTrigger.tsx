@@ -5,7 +5,7 @@
  * (`gap-[7px]`, `px-[11px]`, `text-xs`, `size-3.5`, `size-3`) and an
  * `active:scale-95` with no `motion-reduce` escape — all of it a direct
  * design-language violation introduced purely by not reaching for
- * `<Button variant="outline" size="sm">`, which is what it is now.
+ * `<Button variant="secondary" size="sm">`, which is what it is now.
  *
  * ## Never a naked integer
  *
@@ -167,7 +167,7 @@ export const SourceBasisTrigger = forwardRef<HTMLButtonElement, SourceBasisTrigg
       <Button
         ref={ref}
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         className={cn('max-w-[min(15rem,60vw)] shrink-0 gap-2 text-muted-foreground', className)}
         aria-label={t('sourceBasis.triggerAria', { summary: label })}

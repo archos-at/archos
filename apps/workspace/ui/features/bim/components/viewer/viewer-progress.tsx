@@ -105,7 +105,7 @@ export function ViewerProgress({
       {cancel && (
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="pointer-events-auto"
           onClick={cancel.onClick}
