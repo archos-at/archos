@@ -665,6 +665,14 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Every page in a project now opens the same way: the project's name, the page's title, its tabs and a line, on the same edge as the content below. The office filing looks and navigates like a project's files, with the open folder named at the top and a way back up.",
+            "de": "Jede Seite in einem Projekt öffnet sich jetzt auf dieselbe Weise: mit dem Projektnamen, dem Seitentitel, den Tabs und einer Linie, die mit dem darunterliegenden Inhalt bündig abschließt. Die Büroablage sieht aus und funktioniert wie die Dateien eines Projekts: Der geöffnete Ordner wird oben angezeigt, und Sie können zur übergeordneten Ebene zurückkehren."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "Files, project mail, open points and the bin now read as sheets lying on a desk: documents are white with a soft edge, buttons are raised, headings are bolder and mail that needs you stands out. Where every row offers the same action, it shows as a small icon until you point at the row.",
