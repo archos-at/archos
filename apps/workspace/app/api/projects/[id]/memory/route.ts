@@ -5,20 +5,31 @@
 
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { offsetPageOf } from '@/lib/api/offset-page'
-import { addProjectMemoryItem, getProjectMemoryPage, getProjectMemoryTopics } from '@/lib/projects/service'
+import {
+  addProjectMemoryItem,
+  getProjectMemory,
+  getProjectMemoryPage,
+  getProjectMemoryTopics,
+} from '@/lib/projects/service'
 import { canWriteProjectMemory } from '@/lib/projects/settings-access'
 import { createMemorySchema, listMemoryQuerySchema, toMemoryWireItem } from '@/lib/projects/project-memory-wire'
+import { pageOfTopic } from '@/lib/memory-topics/topic'
 
 type Params = { id: string }
 
 export const GET = apiRoute<Params>(
   async ({ session, params, request }) => {
     const query = parseQuery(request, listMemoryQuerySchema)
-    const { items, nextCursor } = await getProjectMemoryPage(session, params.id, {
+    const options = {
       includeArchived: query.includeArchived === 'true',
       sourceConversationId: query.conversationId || undefined,
-      page: offsetPageOf(query),
-    })
+    }
+    const page = offsetPageOf(query)
+    // `topic` filters after visibility: the visible list, then one page of that topic.
+    const { items, nextCursor } =
+      query.topic === undefined
+        ? await getProjectMemoryPage(session, params.id, { ...options, page })
+        : pageOfTopic(await getProjectMemory(session, params.id, options), query.topic, page)
     // `canWrite`: whether the caller may edit and remove these notes, so a
     // surface that lists them (the answer's noted chip) offers no action the
     // item route would refuse.

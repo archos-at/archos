@@ -19,13 +19,13 @@ import {
   normalizeContent,
   type AssertionRelation,
 } from '@/lib/knowledge/consolidation'
-import { formatBoundedDigest } from '@/lib/knowledge/digest-format'
 import { embedNote, enrichForEmbedding, toVectorLiteral, type EmbeddedNote } from '@/lib/knowledge/embeddings'
 import { assertStorableNote } from '@/lib/knowledge/note-content-guard'
 import { daysSince, fuseHybridRelevance, rankByRecallScore } from '@/lib/knowledge/recall-scoring'
 import { STALE_VECTOR, backfillAfterRecall, embedStoredNote } from './memory-embedding'
 import { refuseStatusMove, statusMayBecome, supersedable } from './memory-status'
 import { RECALL_CANDIDATE_LIMIT, selectRecallCandidates, type DigestTiming } from './memory-recall'
+import { formatTopicDigest } from './memory-digest'
 import { maskChatText } from '@/lib/upload-screening/service'
 
 /** Re-exported so a route reads the bound without importing the schema (ADR-0017). */
@@ -828,42 +828,18 @@ export type DigestItem = Pick<
 > & {
   /** Set on a restricted item, which the line then marks `restricted` (ADR-0087). */
   restrictedFolderIds?: readonly string[] | null
+  /** The note's topic (migration 0237): its line's first tag, and a name in the digest's index. */
+  topic?: string | null
 }
 
 /**
- * Pure digest formatter (exported for tests). Each item becomes one line:
- *   - [scope-tag kind | confidence | verification] "content"
- * Content is whitespace-collapsed and wrapped in double quotes with internal
- * quotes escaped (\"), so stored content can never forge an additional
- * `- [...]` tag line or break out of its own entry. Lines are appended in
- * order until DIGEST_MAX_CHARS would be exceeded.
+ * Pure digest formatter (exported for tests): the header, the topic index and
+ * one line per item, `- [topic | scope-tag kind | confidence | verification] "content"`
+ * (`./memory-digest.ts`). Content is quoted and escaped, so stored content can
+ * never forge an additional tag line; the whole text is bounded by DIGEST_MAX_CHARS.
  */
 export function formatDigestLines(items: DigestItem[], omitted = 0): string | null {
-  // The escaping/bounding mechanics live in the shared formatter; this wrapper
-  // decides the header, the per-item tag set, and the truncation notice.
-  const digest = formatBoundedDigest(
-    'PROJECT_MEMORY v1',
-    items.map((item) => ({
-      tags: [
-        ...(item.scope === 'organization' ? ['org-wide'] : []),
-        // Only ever reaches a turn cleared for it; the tag tells the model the
-        // note is confidential, so it is not written into anything shared.
-        ...(item.restrictedFolderIds && item.restrictedFolderIds.length > 0 ? ['restricted'] : []),
-        item.kind,
-        item.confidence,
-        item.verification,
-      ],
-      content: item.content,
-    })),
-    DIGEST_MAX_CHARS
-  )
-  if (!digest) return null
-  // A cap says so in the text the MODEL reads, not only in the operator's log
-  // — otherwise the agent presents a truncated shelf as the whole shelf and
-  // answers "what do you remember" confidently and wrongly (gotchas.md).
-  return omitted > 0
-    ? `${digest}\n(+${omitted} weitere Notizen zu diesem Projekt, hier nicht gezeigt — frag nach, wenn eine davon zählen könnte.)`
-    : digest
+  return formatTopicDigest(items, omitted, DIGEST_MAX_CHARS)
 }
 
 /**
@@ -1039,6 +1015,7 @@ export async function buildProjectMemoryDigest(
   const candidates: RecallCandidate[] = rows.map((row) => ({
     id: row.id,
     scope: row.scope,
+    topic: row.topic,
     kind: row.kind,
     content: row.content,
     confidence: row.confidence,

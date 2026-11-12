@@ -1,0 +1,235 @@
+'use client'
+
+/**
+ * The actions on the topics of „Mein Gedächtnis“ (ADR-0180): rename or merge a
+ * topic, ungroup it, remove it with every note on it, and move one note to
+ * another topic. Only the person's own notes are touched: the routes read and
+ * write as the person, and the names are normalized and resolved on the server
+ * (`resolveTopic`), so the client only refuses a name too long to be a topic.
+ *
+ * Each write calls `onChanged` after it lands, and the panel reads the list
+ * again: the topic counts come from that list, not from here.
+ */
+
+import type { JSX } from 'react'
+import { useId, useState } from 'react'
+import { Pencil, Trash2, Ungroup } from 'lucide-react'
+import { toast } from 'sonner'
+import { ApiRequestError } from '@/adapters/api/api-error'
+import { TopicPicker } from '@/components/memory/topic-picker'
+import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { useTranslations } from '@/i18n'
+import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
+import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
+import { normalizeTopic } from '@/lib/memory-topics/topic'
+
+const TOPICS_PATH = '/api/user/memory/topics'
+const notePath = (itemId: string): string => `/api/user/memory/${encodeURIComponent(itemId)}`
+
+/** One write to the personal memory routes. A refusal throws its status, as the panel's client does. */
+async function send(path: string, method: 'PATCH' | 'DELETE', body: unknown): Promise<void> {
+  const response = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) throw new ApiRequestError(`Failed to ${method} ${path}: ${response.status}`, response.status)
+}
+
+/** The topic a typed name means in its normal form (null for no name), or null when it is too long to be one. */
+function normalizedOrNull(raw: string): { topic: string | null } | null {
+  try {
+    return { topic: normalizeTopic(raw) }
+  } catch {
+    return null
+  }
+}
+
+/** The topic's own actions, in the topic's heading. The no-topic group has none: there is nothing to rename, merge or remove. */
+export function PersonalTopicActions({
+  topic,
+  count,
+  onChanged,
+}: {
+  topic: string | null
+  /** How many of the person's notes are on the topic: what the removal says it deletes. */
+  count: number
+  onChanged: () => void
+}): JSX.Element | null {
+  const t = useTranslations(memoryTopicsCopy)
+  const shared = useTranslations(personalMemoryCopy)
+  const generatedId = useId()
+  const [busy, setBusy] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [name, setName] = useState('')
+  const [removing, setRemoving] = useState(false)
+
+  if (topic === null) return null
+
+  const typed = normalizedOrNull(name)
+  const nameTooLong = typed === null
+  const nameEmpty = typed !== null && typed.topic === null
+  // A new spelling of the same topic (only the case differs) is no change: the server resolves it to the topic it has.
+  const unchanged = typed?.topic?.toLocaleLowerCase('de') === topic.toLocaleLowerCase('de')
+  const nameErrorId = `${generatedId}-name-error`
+
+  /** Runs one write, then reads the list again; a failure says so and changes nothing. */
+  const runWrite = async (task: () => Promise<void>, failure: string): Promise<void> => {
+    setBusy(true)
+    try {
+      await task()
+      onChanged()
+    } catch {
+      toast.error(failure)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const openRename = (): void => {
+    setName(topic)
+    setRenaming(true)
+  }
+
+  const rename = (): Promise<void> => {
+    if (!typed || typed.topic === null) return Promise.resolve()
+    if (unchanged) {
+      setRenaming(false)
+      return Promise.resolve()
+    }
+    const to = typed.topic
+    return runWrite(async () => {
+      // A name another topic has merges the notes into it; the server answers how many moved.
+      await send(TOPICS_PATH, 'PATCH', { from: topic, to })
+      setRenaming(false)
+    }, shared('errors.saveFailed'))
+  }
+
+  const ungroup = (): Promise<void> =>
+    runWrite(() => send(TOPICS_PATH, 'PATCH', { from: topic, to: null }), shared('errors.saveFailed'))
+
+  const remove = (): Promise<void> =>
+    runWrite(async () => {
+      await send(TOPICS_PATH, 'DELETE', { name: topic })
+      setRemoving(false)
+    }, shared('errors.removeFailed'))
+
+  return (
+    <div className="flex flex-wrap items-center gap-1" data-testid="personal-topic-actions">
+      <Button variant="ghost" size="sm" onClick={openRename} disabled={busy}>
+        <Pencil className="size-4" aria-hidden />
+        {t('rename')}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => void ungroup()} disabled={busy}>
+        <Ungroup className="size-4" aria-hidden />
+        {t('ungroup')}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => setRemoving(true)} disabled={busy}>
+        <Trash2 className="text-destructive size-4" aria-hidden />
+        {t('removeTopic')}
+      </Button>
+
+      <Dialog open={renaming} onOpenChange={setRenaming}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('rename')}</DialogTitle>
+            <DialogDescription>{t('mergeHint')}</DialogDescription>
+          </DialogHeader>
+          <Field>
+            <FieldLabel htmlFor={`${generatedId}-name`}>{t('renamePlaceholder')}</FieldLabel>
+            <Input
+              id={`${generatedId}-name`}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  void rename()
+                }
+              }}
+              placeholder={t('renamePlaceholder')}
+              aria-invalid={nameTooLong || undefined}
+              aria-describedby={nameTooLong ? nameErrorId : undefined}
+              autoFocus
+            />
+            {nameTooLong && (
+              <p id={nameErrorId} className="text-destructive mt-1 text-xs">
+                {t('topicTooLong')}
+              </p>
+            )}
+          </Field>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setRenaming(false)} disabled={busy}>
+              {shared('cancel')}
+            </Button>
+            <Button size="sm" onClick={() => void rename()} disabled={busy || nameTooLong || nameEmpty}>
+              {shared('save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={removing}
+        onOpenChange={setRemoving}
+        tone="destructive"
+        title={t('removeTopic')}
+        description={t('removeTopicConfirm', { count, name: topic })}
+        confirmLabel={t('removeTopic')}
+        cancelLabel={shared('cancel')}
+        pending={busy}
+        onConfirm={remove}
+      />
+    </div>
+  )
+}
+
+/**
+ * One note's topic, changed in place: a topic field that offers the shelf's
+ * topics. A change PATCHes the note, and a failure puts the field back on the
+ * note's own topic.
+ */
+export function PersonalNoteTopicMove({
+  item,
+  topics,
+  onChanged,
+}: {
+  item: { id: string; topic: string | null }
+  topics: string[]
+  onChanged: () => void
+}): JSX.Element {
+  const t = useTranslations(memoryTopicsCopy)
+  const shared = useTranslations(personalMemoryCopy)
+  const [busy, setBusy] = useState(false)
+  /** Bumped on a failure: the picker is keyed by it, so it shows the note's topic again. */
+  const [attempt, setAttempt] = useState(0)
+
+  const move = async (topic: string | null): Promise<void> => {
+    setBusy(true)
+    try {
+      await send(notePath(item.id), 'PATCH', { topic })
+      onChanged()
+    } catch {
+      setAttempt((count) => count + 1)
+      toast.error(shared('errors.saveFailed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <TopicPicker
+      key={attempt}
+      topics={topics}
+      value={item.topic}
+      label={t('moveTo')}
+      disabled={busy}
+      onChange={(topic) => void move(topic)}
+      data-testid="personal-note-topic"
+    />
+  )
+}

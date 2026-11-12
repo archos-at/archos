@@ -465,7 +465,7 @@ export const collaborationOperations = [
       'The notes kept about the person themself (how they want answers, their role and recurring topics), ' +
       'pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the ' +
       'organization sees them. Each note carries its `topic` (null for none); `topics` lists the person’s topics with how many notes each holds, ' +
-      'over all their notes, not this page. Item ids feed personal-memory-update and personal-memory-delete.',
+      'over all their notes, not this page. `topic` narrows the page to one topic, as `topics` names it (empty: the notes with no topic). Item ids feed personal-memory-update and personal-memory-delete.',
     method: 'GET',
     path: '/api/user/memory',
     query: listPersonalMemoryQuerySchema,

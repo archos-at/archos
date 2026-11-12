@@ -11,6 +11,7 @@
 
 import { z } from 'zod'
 import { BadRequestError } from '@/lib/api/errors'
+import { pageOfList, type OffsetPage, type PageOf } from '@/lib/api/offset-page'
 
 /** The longest topic, in characters (code points): the CHECK of migration 0237 holds the same number. */
 export const MEMORY_TOPIC_MAX_LENGTH = 40
@@ -92,3 +93,32 @@ export const memoryTopicRenameSchema = z.object({
 })
 
 export type MemoryTopicRenameInput = z.infer<typeof memoryTopicRenameSchema>
+
+/**
+ * The `topic` a list filters on, as the query names it: one topic's name, or
+ * the empty string for the notes with no topic. The list resolves it against
+ * the shelf's own topics (`resolveTopic`), so "brandschutz" finds "Brandschutz".
+ */
+export const memoryTopicQueryField = z
+  .string()
+  .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
+  .optional()
+  .describe('Only the notes on this topic, as topics names it. Empty: the notes with no topic.')
+
+/**
+ * One page of a list's visible items, filtered to a topic: the items of that
+ * topic in the order given, then the page. The filter runs after visibility, on
+ * the items the reader may see; a topic only restricted notes hold selects nothing.
+ * `topic` is the query's value; null (no topic) selects the notes with no topic.
+ */
+export function pageOfTopic<T extends { topic: string | null }>(
+  items: readonly T[],
+  topic: string,
+  page: OffsetPage
+): PageOf<T> {
+  const names = [...new Set(items.flatMap((item) => (item.topic === null ? [] : [item.topic])))]
+  const wanted = resolveTopic(topic, names)
+  const onTopic = items.filter((item) => item.topic === wanted)
+  const { rows, nextCursor } = pageOfList(onTopic, page)
+  return { items: rows, nextCursor }
+}

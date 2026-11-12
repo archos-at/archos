@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { personalMemory, type NewPersonalMemoryItem, type PersonalMemoryItem } from '@/lib/db/schema/personal-memory'
 
@@ -15,9 +15,13 @@ export interface PersonalMemoryOwner {
   userId: string
 }
 
-/** Narrows a list to the notes saved from one conversation. */
+/**
+ * Narrows a list. `sourceConversationId`: the notes saved from one conversation.
+ * `topic`: the notes on that topic; null is the notes with no topic; undefined is no filter.
+ */
 export interface PersonalMemoryFilter {
   sourceConversationId?: string
+  topic?: string | null
 }
 
 /** The most notes one page answers: the page limit of `@/lib/api/offset-page`. */
@@ -25,6 +29,17 @@ export const PERSONAL_MEMORY_LIST_LIMIT = 200
 
 function ownedBy(owner: PersonalMemoryOwner) {
   return and(eq(personalMemory.organizationId, owner.organizationId), eq(personalMemory.userId, owner.userId))
+}
+
+/** The conditions a list's filter adds to the owner's rows; none for an empty filter. */
+function filterConditions(filter: PersonalMemoryFilter): SQL[] {
+  const conditions: SQL[] = []
+  if (filter.sourceConversationId) {
+    conditions.push(eq(personalMemory.sourceConversationId, filter.sourceConversationId))
+  }
+  if (filter.topic === null) conditions.push(isNull(personalMemory.topic))
+  else if (filter.topic !== undefined) conditions.push(eq(personalMemory.topic, filter.topic))
+  return conditions
 }
 
 /**
@@ -39,11 +54,10 @@ export async function selectPersonalMemory(
   offset: number = 0,
   filter: PersonalMemoryFilter = {}
 ): Promise<PersonalMemoryItem[]> {
-  const from = filter.sourceConversationId
   return getDb()
     .select()
     .from(personalMemory)
-    .where(from ? and(ownedBy(owner), eq(personalMemory.sourceConversationId, from)) : ownedBy(owner))
+    .where(and(ownedBy(owner), ...filterConditions(filter)))
     .orderBy(desc(personalMemory.pinned), desc(personalMemory.updatedAt), desc(personalMemory.id))
     .limit(Math.min(limit, PERSONAL_MEMORY_LIST_LIMIT + 1))
     .offset(offset)

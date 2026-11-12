@@ -6,7 +6,11 @@
 
 import { z } from 'zod'
 import { pageQueryShape } from '@/lib/api/offset-page'
-import { memoryTopicField, memoryTopicRenameSchema } from '@/lib/memory-topics/topic'
+import {
+  memoryTopicField,
+  memoryTopicQueryField,
+  memoryTopicRenameSchema,
+} from '@/lib/memory-topics/topic'
 import { PERSONAL_MEMORY_KINDS, PERSONAL_MEMORY_MAX_CONTENT_CHARS } from './vocabulary'
 
 const content = z
@@ -26,6 +30,7 @@ const kind = z
  * `GET /api/user/memory`: one lean page, `limit` and the previous page's
  * `nextCursor`. With `sourceConversationId`, only the notes saved from that
  * conversation: each carries `sourceMessageId`, the answer it was saved under.
+ * With `topic`, only the notes on that topic (an empty value: those with none).
  */
 export const listPersonalMemoryQuerySchema = z.object({
   ...pageQueryShape,
@@ -37,6 +42,7 @@ export const listPersonalMemoryQuerySchema = z.object({
     .describe(
       'Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`.'
     ),
+  topic: memoryTopicQueryField,
 })
 
 export const createPersonalMemorySchema = z.object({

@@ -15,7 +15,6 @@ import { ConflictError } from '@/lib/api/errors'
 import { DEFAULT_PAGE_LIMIT, nextOffsetCursor, type OffsetPage, type PageOf } from '@/lib/api/offset-page'
 import { isUniqueViolation } from '@/lib/db/errors'
 import type { PersonalMemoryItem } from '@/lib/db/schema/personal-memory'
-import { formatBoundedDigestWithKept } from '@/lib/knowledge/digest-format'
 import { assertStorableNote } from '@/lib/knowledge/note-content-guard'
 import { maskChatText } from '@/lib/upload-screening/service'
 import { resolveTopic, summarizeTopics, type MemoryTopicCount } from '@/lib/memory-topics/topic'
@@ -34,16 +33,11 @@ import {
   type PersonalMemoryOwner,
 } from './repository'
 import { personalContentKey, requirePersonalContentKey } from './content-key'
+import { PERSONAL_DIGEST_MAX_ITEMS, renderPersonalMemoryDigest } from './digest'
 import type { PersonalMemoryKind, PersonalMemoryProvenance } from './vocabulary'
 
 export type { PersonalMemoryOwner }
-
-/** The header the agent's prompt names; the version moves when the line format does. */
-export const PERSONAL_MEMORY_DIGEST_HEADER = 'PERSONAL_MEMORY v1'
-/** The most notes one turn is given. */
-export const PERSONAL_DIGEST_MAX_ITEMS = 20
-/** The block's character budget, footer included. */
-export const PERSONAL_DIGEST_MAX_CHARS = 1500
+export { PERSONAL_DIGEST_MAX_CHARS, PERSONAL_DIGEST_MAX_ITEMS, PERSONAL_MEMORY_DIGEST_HEADER } from './digest'
 
 export interface NewPersonalNote {
   kind: PersonalMemoryKind
@@ -88,6 +82,22 @@ export async function listPersonalMemory(
 ): Promise<PageOf<PersonalMemoryItem>> {
   const rows = await selectPersonalMemory(owner, page.limit + 1, page.offset, filter)
   return { items: rows.slice(0, page.limit), nextCursor: nextOffsetCursor(page, rows.length) }
+}
+
+/**
+ * A list's filter as its query states it: the conversation, and the topic
+ * resolved against the person's topics. `topic: ''` is the notes with no topic.
+ */
+export async function personalListFilter(
+  owner: PersonalMemoryOwner,
+  query: { sourceConversationId?: string; topic?: string }
+): Promise<PersonalMemoryFilter> {
+  const topic =
+    query.topic === undefined ? undefined : resolveTopic(query.topic, await ownerTopicNames(owner))
+  return {
+    sourceConversationId: query.sourceConversationId,
+    ...(topic === undefined ? {} : { topic }),
+  }
 }
 
 /**
@@ -221,30 +231,19 @@ export async function clearPersonalMemory(owner: PersonalMemoryOwner): Promise<n
 /**
  * The block a turn of this person starts from, or null when they hold no note.
  *
- * One line per note, `- [kind] "content"`, quoted and escaped by the shared
- * formatter so a note's text cannot forge a line. Bounded twice (items, then
- * characters), and a cut is said in the block itself, in English because the
- * agent reads it. The formatter stops at the first note that does not fit, so
- * a long note ahead of short ones cuts those too; the footer counts them all.
+ * The notes the block shows are the newest twenty, pinned first; the topic index
+ * and the footer count the whole shelf (`renderPersonalMemoryDigest`, in
+ * `digest.ts`, says how the block is laid out). The shelf's topics are read from
+ * every note of the person, so the index matches the topics list on the screen.
  */
 export async function buildPersonalMemoryDigest(owner: PersonalMemoryOwner): Promise<string | null> {
-  const rows = await selectPersonalMemory(owner, PERSONAL_DIGEST_MAX_ITEMS + 1)
+  const [rows, topicRows] = await Promise.all([
+    selectPersonalMemory(owner, PERSONAL_DIGEST_MAX_ITEMS + 1),
+    selectPersonalTopics(owner),
+  ])
   if (rows.length === 0) return null
-  const candidates = rows.slice(0, PERSONAL_DIGEST_MAX_ITEMS).map((row) => ({
-    tags: row.pinned ? ['pinned', row.kind] : [row.kind],
-    content: row.content,
-  }))
-  const footer = (omitted: number) => `(+${omitted} more personal notes, not shown.)`
-  // Reserve the footer's room up front, so adding it never breaks the budget.
-  const reserve = footer(rows.length).length + 1
-  const { digest, kept } = formatBoundedDigestWithKept(
-    PERSONAL_MEMORY_DIGEST_HEADER,
-    candidates,
-    PERSONAL_DIGEST_MAX_CHARS - reserve
-  )
-  const omitted = rows.length - kept.length
-  // Not even the first note fits (one note may hold 2,000 characters): the
-  // block still says the person holds notes, instead of reading as "none".
-  if (!digest) return `${PERSONAL_MEMORY_DIGEST_HEADER}\n${footer(omitted)}`
-  return omitted > 0 ? `${digest}\n${footer(omitted)}` : digest
+  return renderPersonalMemoryDigest(rows.slice(0, PERSONAL_DIGEST_MAX_ITEMS), {
+    topics: summarizeTopics(topicRows),
+    total: Math.max(topicRows.length, rows.length),
+  })
 }

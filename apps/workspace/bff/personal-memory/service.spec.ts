@@ -31,9 +31,11 @@ import {
   findPersonalMemoryByContentKey,
   insertPersonalMemory,
   selectPersonalMemory,
+  selectPersonalTopics,
   touchPersonalMemory,
   updatePersonalMemory,
 } from './repository'
+import { PERSONAL_DIGEST_MAX_TOPICS } from './digest'
 import {
   PERSONAL_DIGEST_MAX_CHARS,
   PERSONAL_DIGEST_MAX_ITEMS,
@@ -432,5 +434,24 @@ describe('buildPersonalMemoryDigest', () => {
 
     vi.mocked(selectPersonalMemory).mockResolvedValue([note({ content: 'y'.repeat(2000) }), note({ content: 'Short.' })])
     expect(await buildPersonalMemoryDigest(OWNER)).toBe('PERSONAL_MEMORY v1\n(+2 more personal notes, not shown.)')
+  })
+
+  it('groups the block by topic under an index read from every note of the shelf, not only the shown ones', async () => {
+    vi.mocked(selectPersonalMemory).mockResolvedValueOnce([
+      note({ kind: 'profile', content: 'Leads the fire-safety reviews.', pinned: true, topic: 'Brandschutz' }),
+      note({ content: 'Answers in short paragraphs.', topic: null }),
+    ])
+    vi.mocked(selectPersonalTopics).mockResolvedValueOnce([{ topic: 'Brandschutz' }, { topic: null }])
+
+    expect(await buildPersonalMemoryDigest(OWNER)).toBe(
+      [
+        PERSONAL_MEMORY_DIGEST_HEADER,
+        `topics of the person's 2 notes (at most ${PERSONAL_DIGEST_MAX_TOPICS} named): "Brandschutz" (1)`,
+        'Topic "Brandschutz":',
+        '- [pinned | profile] "Leads the fire-safety reviews."',
+        'No topic:',
+        '- [preference] "Answers in short paragraphs."',
+      ].join('\n')
+    )
   })
 })

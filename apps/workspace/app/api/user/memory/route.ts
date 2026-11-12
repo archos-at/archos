@@ -12,6 +12,7 @@ import {
   createPersonalMemoryItem,
   listPersonalMemory,
   listPersonalMemoryTopics,
+  personalListFilter,
 } from '@/lib/personal-memory/service'
 import { createPersonalMemorySchema, listPersonalMemoryQuerySchema } from '@/lib/personal-memory/wire'
 
@@ -20,14 +21,15 @@ const WHY = 'the caller’s own notes, keyed to session.userId and held by row-l
 
 /**
  * One page of the caller's notes, and `topics`: every topic of the caller's
- * notes with how many hold it (the whole shelf, not the page).
+ * notes with how many hold it (the whole shelf, not the page). `topic` narrows
+ * the page to one topic.
  */
 export const GET = apiRoute(
   async ({ session, request }) => {
     const query = parseQuery(request, listPersonalMemoryQuerySchema)
     const owner = { organizationId: session.organizationId, userId: session.userId }
     const [page, topics] = await Promise.all([
-      listPersonalMemory(owner, offsetPageOf(query), { sourceConversationId: query.sourceConversationId }),
+      listPersonalMemory(owner, offsetPageOf(query), await personalListFilter(owner, query)),
       listPersonalMemoryTopics(owner),
     ])
     return { ...page, topics }

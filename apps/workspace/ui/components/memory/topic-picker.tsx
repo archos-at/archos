@@ -1,0 +1,114 @@
+'use client'
+
+/**
+ * TopicPicker: the topic of one memory note, picked or typed (ADR-0180). The
+ * field offers the shelf's existing topics as the person types, with „Ohne
+ * Thema“ first while it is empty; Enter or leaving the field takes what is
+ * typed, through `resolveTopic`, so "brandschutz" lands in the shelf's
+ * "Brandschutz" and not in a second topic. Longer than the topic bound the
+ * field says so and takes nothing.
+ *
+ * Knows no shelf: the caller passes the topics it may show and what a choice
+ * does. The one door for a topic's spelling is `@/lib/memory-topics/topic`.
+ */
+
+import type { JSX } from 'react'
+import { useId, useMemo, useState } from 'react'
+import { SuggestInput, type SuggestOption } from '@/components/ui/suggest-input'
+import { useTranslations } from '@/i18n'
+import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
+import { resolveTopic } from '@/lib/memory-topics/topic'
+
+/** The option that means no topic. A topic is never empty, so the value cannot collide with one. */
+const NO_TOPIC = ''
+
+export interface TopicPickerProps {
+  /** The shelf's topics, the ones the field offers. */
+  topics: string[]
+  /** The note's topic now; null for no topic. */
+  value: string | null
+  onChange: (topic: string | null) => void
+  disabled?: boolean
+  /** The field's accessible name. Default: the topic label. */
+  label?: string
+  id?: string
+  'data-testid'?: string
+}
+
+/** The topic a raw entry means on this shelf, or null when it is too long to be one. */
+function topicFor(raw: string, topics: readonly string[]): { topic: string | null } | null {
+  try {
+    return { topic: resolveTopic(raw, topics) }
+  } catch {
+    return null
+  }
+}
+
+export function TopicPicker({
+  topics,
+  value,
+  onChange,
+  disabled = false,
+  label,
+  id,
+  'data-testid': testId,
+}: TopicPickerProps): JSX.Element {
+  const t = useTranslations(memoryTopicsCopy)
+  const generatedId = useId()
+  const [draft, setDraft] = useState(value ?? '')
+  // The field follows the note when its topic changes from outside (a list reload, another action).
+  const [shownValue, setShownValue] = useState(value)
+  if (shownValue !== value) {
+    setShownValue(value)
+    setDraft(value ?? '')
+  }
+
+  const tooLong = topicFor(draft, topics) === null
+  const errorId = `${generatedId}-error`
+  const noTopicLabel = t('noTopic')
+
+  const options = useMemo<SuggestOption[]>(() => {
+    const query = draft.trim().toLocaleLowerCase('de')
+    if (query === '') {
+      return [{ value: NO_TOPIC, label: noTopicLabel }, ...topics.map((name) => ({ value: name, label: name }))]
+    }
+    return topics
+      .filter((name) => name.toLocaleLowerCase('de').includes(query))
+      .map((name) => ({ value: name, label: name }))
+  }, [draft, topics, noTopicLabel])
+
+  /** Hands a topic to the caller, unless it is the note's own; the field shows what was taken. */
+  const apply = (topic: string | null): void => {
+    setDraft(topic ?? '')
+    if (topic !== value) onChange(topic)
+  }
+
+  const commit = (): void => {
+    const resolved = topicFor(draft, topics)
+    if (resolved) apply(resolved.topic)
+  }
+
+  return (
+    <div className="min-w-0" data-testid={testId}>
+      <SuggestInput
+        id={id}
+        value={draft}
+        onValueChange={setDraft}
+        options={options}
+        onPick={(option) => apply(option.value === NO_TOPIC ? null : option.value)}
+        onCommit={commit}
+        listLabel={label ?? t('filterLabel')}
+        aria-label={label ?? t('filterLabel')}
+        placeholder={value === null ? noTopicLabel : t('newTopic')}
+        disabled={disabled}
+        aria-invalid={tooLong || undefined}
+        aria-describedby={tooLong ? errorId : undefined}
+      />
+      {tooLong && (
+        <p id={errorId} className="text-destructive mt-1 text-xs">
+          {t('topicTooLong')}
+        </p>
+      )}
+    </div>
+  )
+}

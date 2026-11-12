@@ -98,4 +98,16 @@ describe.skipIf(!url)('personal memory topics against live Postgres', () => {
     expect(await topicsSeenBy(B)).toEqual(['Brandschutz'])
     expect(await topicsSeenBy(A)).toEqual(['-', 'Parken'])
   })
+
+  it('filters a list to one topic of the caller’s notes, and the empty value to the notes with none', async () => {
+    const contentsOf = (owner: typeof A, query: { topic?: string }) =>
+      as(owner, async () => {
+        const filter = await service.personalListFilter(owner, query)
+        const page = await service.listPersonalMemory(owner, { limit: 10, offset: 0 }, filter)
+        return page.items.map((item) => item.content)
+      })
+    expect(await contentsOf(A, { topic: 'parken' })).toEqual(['A: Checks the parking count.'])
+    expect(await contentsOf(A, { topic: '' })).toEqual(['A: Answers in short paragraphs.'])
+    expect(await contentsOf(B, { topic: 'Parken' })).toEqual([])
+  })
 })

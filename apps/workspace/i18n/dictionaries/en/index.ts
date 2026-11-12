@@ -55,6 +55,7 @@ import { search } from './search'
 import { whatsNew } from './whats-new'
 import { personalMemory } from './personal-memory'
 import { memoryNotes } from './memory-notes'
+import { memoryTopics } from './memory-topics'
 
 export const en = {
   common,
@@ -106,4 +107,5 @@ export const en = {
   whatsNew,
   personalMemory,
   memoryNotes,
+  memoryTopics,
 } as const

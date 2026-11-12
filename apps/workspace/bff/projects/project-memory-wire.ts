@@ -6,7 +6,7 @@
 
 import { z } from 'zod'
 import { pageQueryShape } from '@/lib/api/offset-page'
-import { memoryTopicField } from '@/lib/memory-topics/topic'
+import { memoryTopicField, memoryTopicQueryField } from '@/lib/memory-topics/topic'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 import {
   PROJECT_MEMORY_CONFIDENCES,
@@ -19,6 +19,7 @@ export const listMemoryQuerySchema = z.object({
   includeArchived: z.string().optional(),
   // Optional: scope to a single conversation (the chat "Piloti noted N" chip).
   conversationId: z.string().optional(),
+  topic: memoryTopicQueryField,
   ...pageQueryShape,
 })
 
