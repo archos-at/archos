@@ -38,6 +38,13 @@ vi.mock('./memory-topics', () => ({
   resolveProjectTopicForWrite: vi.fn(async (_p: string, _o: string, raw: string | null) => raw),
 }))
 
+// The office shelf's spelling: the create resolves it (`withOfficeTopic`), here a stand-in that capitalises.
+vi.mock('./office-memory-topics', () => ({
+  withOfficeTopic: vi.fn(async (_organizationId: string, input: { topic?: string | null }) =>
+    input.topic ? { ...input, topic: 'Brandschutz' } : input
+  ),
+}))
+
 vi.mock('./memory-service', () => ({
   createProjectMemoryItem: vi.fn(),
   deleteProjectMemoryItem: vi.fn(async () => true),
@@ -57,9 +64,11 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { NotFoundError } from '@/lib/api/errors'
 import { makeMemoryItem } from '@/test-utils/db-fixtures'
 import { withServedEvidence, type EvidenceReader } from './memory-evidence'
-import { deleteProjectMemoryItem, listProjectMemory, updateProjectMemoryItem } from './memory-service'
+import { createProjectMemoryItem, deleteProjectMemoryItem, listProjectMemory, updateProjectMemoryItem } from './memory-service'
+import { withOfficeTopic } from './office-memory-topics'
 import { isRestrictedShelfNote, projectTopicsOf, renameProjectShelfTopic, resolveProjectTopicForWrite } from './memory-topics'
 import {
+  createOrganizationMemoryItem,
   editProjectMemoryItem,
   getProjectMemory,
   getProjectMemoryShelf,
@@ -291,5 +300,19 @@ describe('the topic of an edited note', () => {
 
     expect(isRestrictedShelfNote).not.toHaveBeenCalled()
     expect(resolveProjectTopicForWrite).not.toHaveBeenCalled()
+  })
+})
+
+describe('an office note', () => {
+  it('resolves its topic in the office create itself, so no caller stores a raw spelling', async () => {
+    vi.mocked(createProjectMemoryItem).mockResolvedValue(makeMemoryItem({ scope: 'organization', projectId: null }))
+
+    await createOrganizationMemoryItem(SESSION, { kind: 'decision', content: 'Die Bauordnung gilt für jedes Projekt.', topic: 'BRANDSCHUTZ' })
+
+    expect(withOfficeTopic).toHaveBeenCalledWith(SESSION.organizationId, expect.objectContaining({ topic: 'BRANDSCHUTZ' }))
+    expect(createProjectMemoryItem).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'organization', projectId: null, topic: 'Brandschutz' }),
+      {}
+    )
   })
 })

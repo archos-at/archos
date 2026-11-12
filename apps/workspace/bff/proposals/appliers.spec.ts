@@ -71,23 +71,16 @@ describe('applying a proposed memory note: its topic', () => {
     expect(createOrganizationMemoryItem).not.toHaveBeenCalled()
   })
 
-  it('resolves an office note’s topic against the office shelf before the office create', async () => {
-    officeRows.rows = [{ topic: 'Brandschutz' }, { topic: null }]
-
+  // The office create resolves the spelling itself (`createOrganizationMemoryItem`), so the applier hands the topic on as named.
+  it('hands an office note’s topic to the office create, which resolves it', async () => {
     await applyMemory(note({ scope: 'organization', topic: 'BRANDSCHUTZ' }), context())
 
     expect(createOrganizationMemoryItem).toHaveBeenCalledWith(
       SESSION,
-      expect.objectContaining({ topic: 'Brandschutz' }),
+      expect.objectContaining({ topic: 'BRANDSCHUTZ' }),
       { supersedesContent: null }
     )
     expect(addProjectMemoryItem).not.toHaveBeenCalled()
-  })
-
-  it('files an office note under a new office topic as the person named it, trimmed', async () => {
-    await applyMemory(note({ scope: 'organization', topic: '  Stellplätze  ' }), context())
-
-    expect(officeNoteSent().topic).toBe('Stellplätze')
   })
 
   it('sends no topic when the note names none, so the create files it under none', async () => {

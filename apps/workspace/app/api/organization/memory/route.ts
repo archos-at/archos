@@ -14,7 +14,7 @@ import { createOrganizationMemoryItem } from '@/lib/projects/service'
 import { createOrgMemorySchema } from '@/lib/organizations/organization-wire'
 import { offsetPageOf, nextOffsetCursor } from '@/lib/api/offset-page'
 import { listOrganizationMemoryQuerySchema, toMemoryWireItem } from '@/lib/projects/project-memory-wire'
-import { officeTopicsOf, withOfficeTopic } from '@/lib/projects/office-memory-topics'
+import { officeTopicsOf } from '@/lib/projects/office-memory-topics'
 
 export const GET = apiRoute(
   async ({ session, request }) => {
@@ -44,10 +44,7 @@ export const GET = apiRoute(
 
 export const POST = apiRoute(
   async ({ session, request }) => {
-    const input = await withOfficeTopic(
-      session.organizationId,
-      await parseJsonBody(request, createOrgMemorySchema)
-    )
+    const input = await parseJsonBody(request, createOrgMemorySchema)
     const item = await createOrganizationMemoryItem(session, input)
     return { item: toMemoryWireItem(item) }
   },

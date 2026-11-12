@@ -22,7 +22,7 @@ import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 import { listOrganizationMemory } from '@/lib/projects/memory-service'
 import { createOrganizationMemoryItem } from '@/lib/projects/service'
-import { officeTopicsOf, withOfficeTopic } from '@/lib/projects/office-memory-topics'
+import { officeTopicsOf } from '@/lib/projects/office-memory-topics'
 import { GET, POST } from './route'
 
 const context = { params: Promise.resolve({}) }
@@ -62,7 +62,7 @@ describe('GET /api/organization/memory', () => {
 })
 
 describe('POST /api/organization/memory', () => {
-  it('resolves a named topic against the office shelf before the write', async () => {
+  it('hands a named topic to the office create, which resolves it against the office shelf', async () => {
     vi.mocked(createOrganizationMemoryItem).mockResolvedValue({ id: 'mem_org' } as Partial<ProjectMemoryItem> as ProjectMemoryItem)
 
     const response = await POST(
@@ -75,7 +75,6 @@ describe('POST /api/organization/memory', () => {
     )
 
     expect(response.status).toBe(201)
-    expect(withOfficeTopic).toHaveBeenCalledWith('org_1', expect.objectContaining({ topic: 'brandschutz' }))
     expect(createOrganizationMemoryItem).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ topic: 'brandschutz' })

@@ -83,6 +83,7 @@ import {
   type ProjectProfileState,
   type ProjectStatusWrite,
 } from './repository'
+import { withOfficeTopic } from './office-memory-topics'
 
 /**
  * Projects the caller can actually reach, not merely the ones their tenant owns.
@@ -853,7 +854,9 @@ export async function createOrganizationMemoryItem(
   input: PersonMemoryInput,
   options: Pick<CreateMemoryOptions, 'supersedesContent'> = {}
 ): Promise<ProjectMemoryItem> {
-  return createProjectMemoryItem({ scope: 'organization', projectId: null, ...personNote(session, input) }, options)
+  // The office create resolves its own topic, so no caller can store a raw spelling.
+  const resolved = await withOfficeTopic(session.organizationId, input)
+  return createProjectMemoryItem({ scope: 'organization', projectId: null, ...personNote(session, resolved) }, options)
 }
 
 export async function editProjectMemoryItem(
