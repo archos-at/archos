@@ -1152,6 +1152,10 @@
     "de": "Eine Antwort, die angibt, welche Ausgabe einer Richtlinie an Ihrem Standort gilt und seit wann, wird nicht mehr allein für diese Aussage mit geringer Konfidenz bewertet. Die Konfidenzprüfung greift jetzt auf denselben Datensatz zu, der festhält, was an dem Standort gilt, auf dessen Grundlage die Antwort erstellt wurde."
   },
   {
+    "en": "An answer to a question asked by a connected agent, woken by a reply, or still running when you closed the chat now shows its steps after a reload, like an answer you watched arrive. An answer that failed or was handed to a run still shows none.",
+    "de": "Eine Antwort auf eine Frage eines verbundenen Agenten zeigt nach einem erneuten Laden jetzt ihre Schritte an, wenn der Agent durch eine Antwort geweckt wurde oder beim Schließen des Chats noch lief – wie eine Antwort, deren Eintreffen Sie live mitverfolgt haben. Bei fehlgeschlagenen Antworten oder Antworten, die an einen Run übergeben wurden, werden weiterhin keine Schritte angezeigt."
+  },
+  {
     "en": "An answer with a card now takes one step less.",
     "de": "Eine Antwort mit Karte braucht jetzt einen Schritt weniger."
   },
