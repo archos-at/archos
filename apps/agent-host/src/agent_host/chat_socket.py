@@ -53,7 +53,8 @@ them back with ``attach``, and the finished answer is persisted server-side with
 a deterministic id, so the browser's own write of it is a no-op.
 
 What follows a terminal goes out off the turn's path, in order, once
-(:func:`_after_terminal`): the answer row; the answer into an Anmerkung's thread
+(:func:`_after_terminal`): the answer row, and the question's Herleitung
+(``turn_record``); the answer into an Anmerkung's thread
 when the turn was asked there and the model did not reply in it
 (``agent.turn.annotation_reply``); and, for a turn a headless caller (the
 BFF's wake job, ``X-Chat-Mode: headless``) started, how it ended
@@ -74,11 +75,11 @@ import logging
 import os
 import re
 import time
-from collections import deque
 from collections.abc import AsyncIterator
 from collections.abc import Awaitable
 from collections.abc import Callable
 from collections.abc import Mapping
+from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import field
 from typing import TYPE_CHECKING
@@ -154,10 +155,8 @@ from agent.observability.turn_outcome import end_turn_outcome
 from agent.observability.turn_outcome import record_turn_error
 from agent.observability.turn_outcome import record_turn_finished
 from agent.observability.turn_outcome import turn_tagged
-from agent.observability.turn_trace import TRACE_ID_METADATA_KEY
 from agent.observability.turn_trace import pinned_trace
 from agent.observability.turn_trace import trace_id_for_message
-from agent.observability.turn_trace import trace_id_hex
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import RequestContext
@@ -195,6 +194,7 @@ from agent_host.internal_api import ChatScreening
 from agent_host.internal_api import chat_screening_for
 from agent_host.internal_api import post_internal_conversation_message
 from agent_host.internal_api import post_internal_turn_outcome
+from agent_host.internal_api import post_internal_turn_steps
 from agent_host.socket_identity import may_act_for
 from agent_host.socket_identity import token_expired
 from agent_host.socket_identity import trace_user_id
@@ -204,6 +204,8 @@ from agent_host.startup_banner import deployed_sha
 from agent_host.tool_calls import tool_called_by
 from agent_host.turn_fence import TurnFence
 from agent_host.turn_fence import validate_running_ttl
+from agent_host.turn_record import TurnFrames
+from agent_host.turn_record import turn_row_metadata
 from agent_host.workflow_stream import stream_workflow
 from nat.plugin_api import HumanResponse
 from nat.plugin_api import InteractionPrompt
@@ -452,35 +454,15 @@ def _org_id_from_scope(scope: Mapping[str, Any]) -> str | None:
 # Persistence: the finished answer is the server's to keep
 # ---------------------------------------------------------------------------
 
-#: What the row does not keep: id and text are columns, cards unkeyed, a queue notice or run hand-off no answer.
-_NOT_METADATA = {"message_id", "text", "cards", "job_admission_rejected", "retry_after_seconds", "run"}
-
-
-def turn_row_metadata(finished: RunFinishedBody) -> dict[str, Any] | None:
-    """The message row's metadata for a finished turn, or None when nothing is written.
-
-    Pure, from the typed result alone, in the wire spellings
-    ``agent-answer-metadata.ts`` maps. A job-admission rejection is a transient
-    notice, and a turn with no text and no cards (a run hand-off) has nothing
-    to show.
-    """
-    result = finished.result
-    if result.job_admission_rejected or not (result.text.strip() or result.cards):
-        return None
-    metadata = result.model_dump(mode="json", exclude_defaults=True, exclude=_NOT_METADATA)
-    if result.cards:
-        metadata["cards"] = [keyed.card for keyed in result.cards]
-    if finished.outcome == "cancelled":
-        metadata["stopped"] = True
-    # The trace `_drive` pinned from the same id, so the BFF can score and link it (`observability.turn_trace`).
-    trace_id = trace_id_hex(trace_id_for_message(result.message_id))
-    if trace_id:
-        metadata[TRACE_ID_METADATA_KEY] = trace_id
-    return metadata
-
 
 async def persist_turn_result(
-    *, conversation_id: str, organization_id: str | None, finished: RunFinishedBody, guard: WriteFence | None = None
+    *,
+    conversation_id: str,
+    organization_id: str | None,
+    finished: RunFinishedBody,
+    guard: WriteFence | None = None,
+    turn_id: str | None = None,
+    step_frames: Sequence[dict[str, Any]] = (),
 ) -> bool:
     """Write a finished turn to the BFF, whether or not a socket took its frame. Fail-soft.
 
@@ -501,7 +483,7 @@ async def persist_turn_result(
     except TurnFenced:
         logger.warning("Turn %s lost its conversation: its outcome is not persisted", finished.result.message_id)
         return False
-    return await post_internal_conversation_message(
+    written = await post_internal_conversation_message(
         conversation_id=conversation_id,
         organization_id=organization_id,
         message_id=finished.result.message_id,
@@ -510,15 +492,23 @@ async def persist_turn_result(
         message_type="agent_response",
         metadata=metadata,
     )
+    if written and turn_id and step_frames:  # the Herleitung, on the question; nothing waits on it (`turn_record`)
+        in_background(post_internal_turn_steps(conversation_id, organization_id, turn_id, step_frames))
+    return written
 
 
 def _persist_in_background(
-    conversation_id: str, organization_id: str | None, finished: RunFinishedBody, guard: WriteFence | None = None
+    wire: TurnWire, organization_id: str | None, finished: RunFinishedBody, guard: WriteFence | None = None
 ) -> asyncio.Task[Any]:
     """Persist off the frame's path; its task copies the turn's context, so the turn-outcome box's tags too."""
     return in_background(
         persist_turn_result(
-            conversation_id=conversation_id, organization_id=organization_id, finished=finished, guard=guard
+            conversation_id=wire.conversation_id,
+            organization_id=organization_id,
+            finished=finished,
+            guard=guard,
+            turn_id=wire.turn_id,
+            step_frames=wire.step_frames(),
         )
     )
 
@@ -636,7 +626,7 @@ class TurnWire:
         self._publish = publish
         self._lock = asyncio.Lock()
         self._held_stages: list[StageBody] = []
-        self._frames: deque[dict[str, Any]] = deque(maxlen=LOCAL_REPLAY_FRAMES)
+        self._frames = TurnFrames(LOCAL_REPLAY_FRAMES)
         #: Told each body with the seq it was stamped, under the lock: so a fold
         #: of them sees exactly the frames a reader saw, in their order.
         self.on_stamp: Callable[[EventBody, int], None] | None = None
@@ -644,6 +634,10 @@ class TurnWire:
     def replay(self) -> list[dict[str, Any]]:
         """Every frame this sequencer stamped (the last ``LOCAL_REPLAY_FRAMES``), in ``seq`` order."""
         return list(self._frames)
+
+    def step_frames(self) -> list[dict[str, Any]]:
+        """Every frame this sequencer stamped that the Herleitung is folded from, in ``seq`` order."""
+        return list(self._frames.steps)
 
     async def send(self, body: EventBody) -> bool:
         """Stamp ``body`` with the next ``seq`` and publish it. Whether a local socket took it.
@@ -820,7 +814,7 @@ class RunningTurn:
             logger.warning("Turn %s already ended; a second terminal is dropped", self.wire.turn_id)
             return
         await self.wire.send(finished)
-        self.persisting = _persist_in_background(self.wire.conversation_id, self.organization_id, finished, self.guard)
+        self.persisting = _persist_in_background(self.wire, self.organization_id, finished, self.guard)
 
     def after_terminal(self) -> None:
         """Start what follows the terminal (:func:`_after_terminal`), once, and only once there is one."""

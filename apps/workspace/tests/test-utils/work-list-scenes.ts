@@ -6,7 +6,7 @@
  */
 
 import { parseWireEvent } from '@/adapters/api/wire-v2'
-import { foldTurnEvents } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
 import type { CitationSource } from '@/features/chat/types'
 

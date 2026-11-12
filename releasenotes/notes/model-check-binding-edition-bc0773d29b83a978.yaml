@@ -1,0 +1,9 @@
+---
+# area: bim
+improvements:
+  - >
+    The model check now gives a pass or a fail only where the edition its
+    threshold comes from applies at your project's site. Elsewhere it shows
+    the value it read as a note, says which edition applies there instead,
+    and puts nothing on the list of properties to add in your CAD model or up
+    for confirmation in the Prüfbuch.

@@ -28,7 +28,8 @@ import { getHiddenFolderIds, isFolderVisibleTo } from '@/lib/authz/folder-access
 const BIM_WRITE: readonly ProjectPermission[] = ['project:documents:write', 'project:edit']
 import { requireResourceAccess } from '@/lib/sharing/access'
 import { isIfcModelsEnabled } from '@/lib/authz/feature-flags'
-import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
 import { findDocumentForSession, getAccessibleDocument } from '@/lib/documents/access'
 import { internalRead, type DocumentReader } from '@/lib/documents/document-reader'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
@@ -37,7 +38,8 @@ import { findProjectInOrg } from '@/lib/projects/repository'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { buildComplianceBcf, type BcfExport } from './bcf'
 import { buildBimDerivedKeys } from './service'
-import { attachConfirmations, canonicalBimRuleId } from './rules'
+import { attachConfirmations, BIM_RULES, canonicalBimRuleId } from './rules'
+import { ruleBasis } from './rule-basis'
 import { revisionSeriesKey } from './revision-series'
 import {
   deleteBimCheckConfirmation,
@@ -389,10 +391,17 @@ export async function confirmAccessibleCheck(
   // un-withdrawable, because `withdrawAccessibleCheck` deletes by the sibling
   // ids of a model in THIS project. A permanent orphan in a signed-off ledger.
   assertModelInProject(model, projectId)
+  const ruleId = canonicalBimRuleId(input.ruleId)
+  // A hint judges nothing, and a confirmation is keyed on rule and revision
+  // only: one given on a hint would still count once the rule judges.
+  const rule = BIM_RULES.find((candidate) => candidate.id === ruleId)
+  if (rule && ruleBasis(rule, await contextForPage(session.organizationId, projectId)).kind === 'hint') {
+    throw new ConflictError('The rule gives a hint at this project site, not a verdict, so there is nothing to confirm')
+  }
   await upsertBimCheckConfirmation({
     organizationId: session.organizationId,
     projectId,
-    ruleId: canonicalBimRuleId(input.ruleId),
+    ruleId,
     modelId: model.id,
     confirmedBy: session.userId,
     note: input.note,

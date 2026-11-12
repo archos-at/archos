@@ -519,7 +519,7 @@ the server's `hello`, sends client messages, reconnects with jittered backoff an
 an auth refresh before each attempt, and sends `attach` for every open turn once
 the hello has arrived. Every event is parsed with `parseWireEvent`
 (`adapters/api/wire-v2.ts`) and folded by `foldTurnEvent`
-(`features/chat/lib/turn-fold.ts`), the one interpretation of the wire: the live
+(`bff/turns/turn-fold.ts`), the one interpretation of the wire: the live
 socket, the replay after `attach` and the spectator stream all use it. Design:
 [`design/chat-wire-v2.md`](../design/chat-wire-v2.md) §e.
 

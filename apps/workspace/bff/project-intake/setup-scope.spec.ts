@@ -15,7 +15,6 @@ import {
   factSourcesOf,
   hasSetupRecords,
   setupScopeOf,
-  siteOfProfile,
   subdivisionTerritories,
 } from './setup-scope'
 import { AT_SETUP_RECORDS } from './at-setup.fixtures'
@@ -123,28 +122,6 @@ describe('only its own country’s options', () => {
     const twice = [...THREE_COUNTRIES, { ...classification, id: 'test:de-classification-2' }]
     expect(buildingClassificationOf(scope({ country: 'de' }, twice))).toBeNull()
     expect(buildingClassificationOf(scope({ country: 'de' }))).not.toBeNull()
-  })
-})
-
-describe('siteOfProfile, for the BIM rules', () => {
-  const records = THREE_COUNTRIES
-
-  it('places, leaves unplaced, and reads a contradiction as unknown rather than as abroad', () => {
-    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'vienna' }), { records })).toEqual({ chain: ['AT-9', 'AT'] })
-    expect(siteOfProfile(placedProfile({ country: 'other' }), { records })).toEqual({ chain: [] })
-    expect(siteOfProfile(placedProfile({}), { records })).toBeNull()
-    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'outside_austria' }), { records })).toBeNull()
-  })
-
-  it('reads the geocoded Land the intake reads, where the profile states none', () => {
-    // An Austrian project placed only by geocoding: without its Land every OIB rule stays open.
-    expect(siteOfProfile(placedProfile({ country: 'at' }), { records, location: { federalState: 'styria' } })).toEqual({ chain: ['AT-6', 'AT'] })
-    expect(siteOfProfile(placedProfile({}), { records, location: { federalState: 'styria' } })).toEqual({ chain: ['AT-6', 'AT'] })
-    expect(siteOfProfile(placedProfile({ country: 'at' }), { records })).toEqual({ chain: ['AT'] })
-    // A stated Land outranks the geocoder's.
-    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'vienna' }), { records, location: { federalState: 'styria' } })).toEqual({
-      chain: ['AT-9', 'AT'],
-    })
   })
 })
 

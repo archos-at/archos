@@ -25,6 +25,11 @@ import { readZipEntries } from '@/test-utils/read-zip'
 import { REVIEWER_READER } from '@/lib/documents/document-reader'
 
 vi.mock('server-only', () => ({}))
+// The test database holds no published records: the model's project reads a context where every rule's edition binds.
+vi.mock('@/lib/base-knowledge/context/service', async () => {
+  const { settledContext } = await import('./rule-basis.fixtures')
+  return { contextForPage: vi.fn(async () => settledContext()) }
+})
 
 const url = process.env.TEST_DATABASE_URL
 const ORG = `org_bim_${Date.now()}`

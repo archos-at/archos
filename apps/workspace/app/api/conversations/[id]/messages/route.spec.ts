@@ -24,9 +24,22 @@ vi.mock('@/lib/auth/require-auth', () => ({
 vi.mock('server-only', () => ({}))
 
 const createConversationMessages = vi.fn()
+const listConversationMessages = vi.fn()
 vi.mock('@/lib/conversations/service', () => ({
   createConversationMessages: (...args: unknown[]) => createConversationMessages(...args),
-  listConversationMessages: vi.fn(),
+  listConversationMessages: (...args: unknown[]) => listConversationMessages(...args),
+}))
+
+const actingReaderIsAgent = vi.fn(() => false)
+vi.mock('@/lib/agent-api/acting-session', () => ({ actingReaderIsAgent: () => actingReaderIsAgent() }))
+vi.mock('@/lib/conversations/repository', () => ({
+  findConversationTenancy: vi.fn(async () => ({ projectId: 'p1' })),
+}))
+vi.mock('@/lib/projects/repository', () => ({
+  findProjectProfile: vi.fn(async () => ({
+    version: 1,
+    facts: { building_class: { value: 'gk5', confidence: 'confirmed', source: 'onboarding', updatedAt: '' } },
+  })),
 }))
 
 import {
@@ -35,7 +48,7 @@ import {
   createInProcessStore,
   setLimitStore,
 } from '@/lib/limits'
-import { POST } from './route'
+import { GET, POST } from './route'
 
 let orgCounter = 0
 /** A distinct org per test, so each starts with a full budget. */
@@ -137,5 +150,51 @@ describe('POST /api/conversations/[id]/messages batch metering', () => {
       'c1',
       [expect.objectContaining({ id: 'm1' })]
     )
+  })
+})
+
+/**
+ * A stored answer as its reader gets it. The answer is the one live QA found
+ * raw (2026-11-12): asked through `agent-ask-create`, read back through
+ * `conversation-message-list`, its `[[card:1]]` reached the agent as text,
+ * pointing at a card the list does not even carry without `include=metadata`.
+ */
+describe('GET /api/conversations/[id]/messages: the stored answer by reader', () => {
+  const STORED =
+    'In Wien beträgt die Mindesthöhe **1,00 m** [1].\n\n[[card:1]]\n\n' +
+    'Gebäudeklasse :project[building_class] [Beleg nicht verifiziert].'
+  const page = () => ({
+    messages: [
+      { id: 'q', role: 'user', content: 'Wie hoch? [[card:1]] bleibt, wie getippt.' },
+      { id: 'a', role: 'assistant', content: STORED, metadata: { cards: [{ type: 'guardrail_check' }] } },
+    ],
+    nextCursor: null,
+  })
+  const read = async () =>
+    (await GET(new Request('https://grid.test/api/conversations/c1/messages?include=metadata'), context)).json()
+
+  beforeEach(() => {
+    listConversationMessages.mockReset()
+    listConversationMessages.mockResolvedValue(page())
+    actingReaderIsAgent.mockReset()
+  })
+
+  it('hands an agent plain Markdown: no card marker, no binding, no German verifier label', async () => {
+    actingReaderIsAgent.mockReturnValue(true)
+    const body = await read()
+    // The profile prints its value with a no-break space („GK 5“), as the copy button does.
+    const answer = (body.messages[1].content as string).replace(/\u00a0/g, ' ')
+    expect(answer).not.toMatch(/\[\[card:\d+\]\]/)
+    expect(answer).not.toContain(':project[')
+    expect(answer).toBe('In Wien beträgt die Mindesthöhe **1,00 m** [1].\n\nGebäudeklasse GK 5 (citation not verified).')
+    // A person's words are theirs, and the cards still ride along for whoever asked for them.
+    expect(body.messages[0].content).toBe('Wie hoch? [[card:1]] bleibt, wie getippt.')
+    expect(body.messages[1].metadata.cards).toHaveLength(1)
+  })
+
+  it('keeps the dialect for the browser, which places the card at its marker', async () => {
+    actingReaderIsAgent.mockReturnValue(false)
+    const body = await read()
+    expect(body.messages[1].content).toBe(STORED)
   })
 })

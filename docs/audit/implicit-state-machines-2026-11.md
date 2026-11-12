@@ -137,7 +137,7 @@ Paths are under `apps/workspace/` unless they start with a package.
 
 | Flow | States | Where (`ui/` unless noted) | Note |
 |---|---|---|---|
-| Chat turn view | running, finished, failed + streaming, interaction, outcome | `features/chat/lib/turn-fold.ts` | statechart candidate |
+| Chat turn view | running, finished, failed + streaming, interaction, outcome | `bff/turns/turn-fold.ts` | statechart candidate |
 | Composer flags (two definitions of "streaming") | stop, sending, send | `messages-store.ts`, `turn-projection.ts` | |
 | Thinking header | nine labels from six inputs | `features/chat/components/ChatThinking.tsx` | a priority ladder |
 | Turn socket | connecting, open, reconnecting, failed, incompatible, outdated, suspended, offline, closed | `adapters/api/turn-socket-machine.ts` | on XState since this sweep (read) |

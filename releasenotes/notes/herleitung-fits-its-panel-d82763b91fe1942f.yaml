@@ -1,0 +1,7 @@
+---
+# area: answers
+fixes:
+  - >
+    The Herleitung under an answer stays inside its panel when the chat comes
+    back into view or the page is captured whole. Before, its question, source
+    cards and Grundlagen could run past the right edge and lose their last words.

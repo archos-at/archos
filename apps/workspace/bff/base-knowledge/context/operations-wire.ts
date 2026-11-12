@@ -7,6 +7,7 @@
 
 import { z } from 'zod'
 import { projectLawSchema } from '../wire/project-law'
+import { queryDay } from '../wire/time'
 import { COVERAGE_LEVELS } from '../wire/vocab'
 import { knowledgeContextSchema } from './wire'
 
@@ -57,6 +58,15 @@ export const baseKnowledgeReportBodySchema = z
 
 export const baseKnowledgeReportResultSchema = z.object({ changeRequestId: z.uuid(), status: z.literal('draft') }).strict()
 
+/** `project-base-get`'s query: the day to resolve on, when it is not the turn's own (today, or a filing day that has come). */
+export const projectBaseQuerySchema = z
+  .object({
+    asOf: queryDay
+      .optional()
+      .describe('Resolve on this day instead: which editions bound at the site on a day a question names, e.g. a submission on 2026-10-01.'),
+  })
+  .strict()
+
 export const projectBaseViewSchema = z
   .object({
     context: knowledgeContextSchema,
@@ -85,6 +95,7 @@ export type CoverageQuery = z.infer<typeof coverageQuerySchema>
 export type CoverageView = z.infer<typeof coverageViewSchema>
 export type BaseKnowledgeReportBody = z.infer<typeof baseKnowledgeReportBodySchema>
 export type BaseKnowledgeReportResult = z.infer<typeof baseKnowledgeReportResultSchema>
+export type ProjectBaseQuery = z.infer<typeof projectBaseQuerySchema>
 export type ProjectBaseView = z.infer<typeof projectBaseViewSchema>
 export type { ProjectLaw, ProjectLawUse } from '../wire/project-law'
 export type ProjectBaseConfirmBody = z.infer<typeof projectBaseConfirmBodySchema>

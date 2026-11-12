@@ -354,7 +354,7 @@ const settleCards = (cards: TurnView['cards'], final: readonly KeyedCard[]): Key
 }
 
 /** Every open row closed: the turn is over, nothing is still running. */
-const closeSteps = (steps: TurnView['steps']): TurnView['steps'] =>
+export const closeSteps = (steps: TurnView['steps']): TurnView['steps'] =>
   Object.values(steps).every((step) => step.isComplete)
     ? steps
     : Object.fromEntries(Object.entries(steps).map(([id, step]) => [id, step.isComplete ? step : { ...step, isComplete: true }]))

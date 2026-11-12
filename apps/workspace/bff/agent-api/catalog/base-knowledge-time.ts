@@ -16,7 +16,9 @@ export const baseKnowledgeTimeOperations = [
       'Answers "what applied when this was submitted" with the edition named. Ask by `asOf`, by `projectId` and ' +
       '`procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s ' +
       'reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown ' +
-      'date is never taken as today. An edition’s `inForceTo` is the first day it no longer holds (exclusive), not its last day.',
+      'date is never taken as today. An edition’s `inForceTo` is the first day it no longer holds (exclusive), not its last day. ' +
+      'It reads the work’s own editions: which edition a law made binding at a project’s site on a day (a guideline or ' +
+      'standard a law names) is project-base-get with `asOf`.',
     method: 'GET',
     path: '/api/base-knowledge/editions/as-of',
     query: asOfQuerySchema,

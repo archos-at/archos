@@ -27,15 +27,16 @@ import {
   missingPropertyShoppingList,
   renderBimRules,
   runBimRules as runOnSite,
+  rulesWithOpenWork,
   type BimRuleFacts,
   summarizeBimRules,
 } from './rules'
+import { SETTLED_BASES } from './rule-basis.fixtures'
 import type { BimElement } from './types'
 
-/** Every rule here is an OIB-Richtlinie: judged for a building in Vienna unless a test places it elsewhere. */
-const VIENNA = { chain: ['AT-9', 'AT'] }
+/** Every rule judged where its edition binds at a settled site, unless a test states another basis. */
 const runBimRules = (elements: readonly BimElement[], facts: Partial<BimRuleFacts> = {}) =>
-  runOnSite(elements, { site: VIENNA, ...facts })
+  runOnSite(elements, { bases: SETTLED_BASES, ...facts })
 
 function element(overrides: Partial<BimElement> & Pick<BimElement, 'ifcType'>): BimElement {
   return {
@@ -471,7 +472,8 @@ describe('the catalog itself', () => {
       // check the RULE, not just the result. A rule without one is a rule that
       // asks to be trusted.
       expect(rule.thresholdDe.length).toBeGreaterThan(0)
-      expect(rule.richtlinie).toMatch(/^OIB /)
+      expect(rule.designation.length).toBeGreaterThan(0)
+      expect(rule.edition.length).toBeGreaterThan(0)
       expect(rule.clause.length).toBeGreaterThan(0)
     }
   })
@@ -1591,35 +1593,40 @@ describe('outstandingRules', () => {
   })
 })
 
-describe('where a rule binds (ADR-0169)', () => {
+describe('a rule judges only on its basis at the site', () => {
+  const FIRE = 'oib2-fire-resistance-load-bearing'
   const wall = (fireRating: string): BimElement =>
     ({
       globalId: 'W1',
       name: 'W1',
       ifcType: 'IfcWall',
-      storeyName: 'EG',
+      storeyName: 'Erdgeschoss',
       properties: { Pset_WallCommon: { LoadBearing: true, FireRating: fireRating } },
     }) as unknown as BimElement
-  const fire = (site: BimRuleFacts['site']) =>
-    runOnSite([wall('REI 30')], { site, buildingClass: 5 }).find((rule) => rule.ruleId === 'oib2-fire-resistance-load-bearing')
+  const on = (basis: BimRuleFacts['bases'][string], fireRating = 'REI 30') =>
+    runOnSite([wall(fireRating)], { bases: { ...SETTLED_BASES, [FIRE]: basis }, buildingClass: 5, storeys: STOREYS })
+  const fire = (results: ReturnType<typeof on>) => results.find((rule) => rule.ruleId === FIRE)
 
-  it('judges an OIB rule in Austria, the positive control', () => {
-    expect(fire({ chain: ['AT-9', 'AT'] })).toMatchObject({ applicable: true })
+  it('gives a verdict where its edition binds, the positive control', () => {
+    expect(fire(on({ kind: 'verdict' }))).toMatchObject({ applicable: true, failed: 1 })
+    expect(fire(on({ kind: 'verdict' }))?.richtlinie).toBe('OIB-Richtlinie 2, Ausgabe Mai 2023')
   })
 
-  it('does not apply the OIB anywhere else, and says why', () => {
-    for (const site of [{ chain: ['DE-BY', 'DE'] }, { chain: ['CH'] }, { chain: [] }]) {
-      const result = fire(site)
-      expect(result).toMatchObject({ applicable: false, passed: 0, failed: 0 })
-      expect(result?.notApplicableReason).toMatch(/gilt in Österreich/)
+  it('reads every element as a hint: no pass, no fail, no to-do, the reason on the reading and the line', () => {
+    const reason = 'Hinweis: Schwellwerte aus Ausgabe Mai 2023; am Standort gilt Ausgabe April 2019 über StBTV'
+    for (const rating of ['REI 30', 'REI 90', '']) {
+      const results = on({ kind: 'hint', reason }, rating)
+      const result = fire(results)
+      expect(result).toMatchObject({ applicable: true, passed: 0, failed: 0, undecidable: 1, missing: [], hint: reason })
+      expect(result?.unknowns[0]?.reading).toContain(reason)
+      expect(rulesWithOpenWork(results).map((rule) => rule.ruleId)).not.toContain(FIRE)
+      // Nothing to sign off either: a confirmation on a hint would outlive it.
+      expect(outstandingRules(attachConfirmations(results, [], 'rev-3')).map((rule) => rule.ruleId)).not.toContain(FIRE)
+      expect(renderBimRules(results)).toContain(`OIB-Richtlinie 2, Ausgabe Mai 2023 3 — Tragende Bauteile — Feuerwiderstand: ${reason}`)
     }
   })
 
-  it('leaves every element open for a project nothing places: never passed, never out of scope', () => {
-    const results = runOnSite([wall('REI 90')], { site: null, buildingClass: 4 })
-    const result = results.find((rule) => rule.ruleId === 'oib2-fire-resistance-load-bearing')
-    expect(result).toMatchObject({ applicable: true, passed: 0, failed: 0, undecidable: 1 })
-    expect(result?.missing).toEqual([{ path: 'Projektangabe: Standort (Land)', elements: 1 }])
-    expect(results.every((rule) => rule.passed === 0)).toBe(true)
+  it('treats a rule with no basis as a hint, never a verdict', () => {
+    expect(fire(runOnSite([wall('REI 90')], { bases: {}, buildingClass: 4 }))).toMatchObject({ passed: 0, failed: 0, undecidable: 1 })
   })
 })

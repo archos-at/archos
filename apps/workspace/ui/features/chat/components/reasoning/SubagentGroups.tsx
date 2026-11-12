@@ -22,7 +22,7 @@ import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
-import { subagentStepId } from '../../lib/turn-fold'
+import { subagentStepId } from '@/lib/turns/turn-fold'
 
 /** How a group ended. `ended`: still running when the turn ended, so it never said. */
 export type SubagentGroupStatus = 'running' | 'ok' | 'error' | 'ended'

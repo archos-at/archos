@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { canvasChatSender, canvasChatSteerer } from '@/features/chat/lib/canvas-bridge'
-import type { TurnView } from '@/features/chat/lib/turn-fold'
+import type { TurnView } from '@/lib/turns/turn-fold'
 import { useChatStore } from '@/features/chat/store'
 import { runningTurnIn } from '@/features/chat/stores/messages-store'
 import { useTranslations } from '@/i18n'

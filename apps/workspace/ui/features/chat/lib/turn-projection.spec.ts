@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 import type { WireEvent } from '@/adapters/api/wire-v2'
 import { eventOf, frameOf } from '@/test-utils/wire-v2-fixtures'
 import type { ChatMessage } from '../types'
-import { foldTurnEvent, type TurnView } from './turn-fold'
+import { foldTurnEvent, type TurnView } from '@/lib/turns/turn-fold'
 import { projectTurn, provisionalRunMessage } from './turn-projection'
 
 const body = (seq: number, raw: Record<string, unknown>): WireEvent => eventOf(frameOf(seq, raw))

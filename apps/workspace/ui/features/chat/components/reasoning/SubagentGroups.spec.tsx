@@ -5,7 +5,7 @@
 import { render, screen, within } from '@/test-utils'
 import { describe, expect, test } from 'vitest'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
-import { foldTurnEvents } from '../../lib/turn-fold'
+import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import { wireEvents } from '@/test-utils/wire-v2-fixtures'
 import { SubagentGroups, subagentGroups } from './SubagentGroups'
 

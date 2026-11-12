@@ -1084,6 +1084,10 @@
     "de": "Ein Agent, der die Mitglieder eines Projekts auflistet, erhält jetzt Personen mit einer Rolle samt der zum Entfernen benötigten ID; lange Listen aus dem Langzeitgedächtnis werden seitenweise ausgegeben."
   },
   {
+    "en": "An agent you connect that reads one of your conversations back now gets each answer as plain text, the same as when it asked the question itself. Before, it saw placeholders such as [[card:1]] where the chat shows a card, and project values as their internal names.",
+    "de": "Ein Agent, den Sie anbinden und der eine Ihrer Unterhaltungen ausliest, erhält jetzt jede Antwort als Klartext – genauso, wie wenn er die Frage selbst gestellt hätte. Bisher sah er Platzhalter wie [[card:1]], wo der Chat eine Karte anzeigt, und Projektwerte unter ihren internen Namen."
+  },
+  {
     "en": "An answer being written no longer stalls while someone in the office loads the document list, deletes files or starts a research with a follow-up question.",
     "de": "Eine entstehende Antwort stockt nicht mehr, während im Büro jemand die Dokumentliste lädt, Dateien löscht oder eine Recherche mit Rückfrage beginnt."
   },
@@ -3708,6 +3712,10 @@
     "de": "Die Herleitung zeigt zu jedem Rechercheschritt, was in welchem Dokument geöffnet wurde, nach Seite oder Punkt."
   },
   {
+    "en": "The Herleitung under an answer stays inside its panel when the chat comes back into view or the page is captured whole. Before, its question, source cards and Grundlagen could run past the right edge and lose their last words.",
+    "de": "Die Herleitung unter einer Antwort bleibt in ihrem Panel, wenn der Chat wieder in den sichtbaren Bereich kommt oder die gesamte Seite erfasst wird. Zuvor konnten ihre Frage, Quellenkarten und Grundlagen über den rechten Rand hinausragen, sodass die letzten Wörter abgeschnitten wurden."
+  },
+  {
     "en": "The Inbox, the Archiv and the chat history now open as panels you can pull down to close, by dragging the handle at the top on your phone or with the mouse. Closing plays out smoothly instead of cutting away.",
     "de": "Die Inbox, das Archiv und der Chat-Verlauf öffnen sich jetzt als Panels, die Sie zum Schließen nach unten ziehen: am Griff oben, auf dem Telefon oder mit der Maus. Das Schließen läuft sanft ab, statt abrupt zu verschwinden."
   },
@@ -4174,6 +4182,10 @@
   {
     "en": "The model area is now reachable from the office archive, with structure, quantities and revisions. The Prüfbuch still needs a project, because it checks against building class and main use.",
     "de": "Der Modellbereich ist jetzt auch aus dem Büroarchiv erreichbar, mit Struktur, Mengen und Revisionen. Das Prüfbuch braucht weiterhin ein Projekt, weil es gegen Gebäudeklasse und Hauptnutzung prüft."
+  },
+  {
+    "en": "The model check now gives a pass or a fail only where the edition its threshold comes from applies at your project's site. Elsewhere it shows the value it read as a note, says which edition applies there instead, and puts nothing on the list of properties to add in your CAD model or up for confirmation in the Prüfbuch.",
+    "de": "Der Modellcheck liefert nur dort ein positives oder negatives Ergebnis, wo die Ausgabe, aus der der Grenzwert stammt, am Standort Ihres Projekts gilt. Andernorts zeigt er den ausgelesenen Wert als Hinweis an, nennt die dort stattdessen geltende Ausgabe und nimmt keine Eigenschaften in die Liste auf, die Sie Ihrem CAD-Modell hinzufügen oder im Prüfbuch bestätigen müssen."
   },
   {
     "en": "The model check places a project by the Land its address search found, as the project setup does: an Austrian project whose Land was never entered by hand no longer gets every OIB rule left open.",
@@ -5030,6 +5042,10 @@
   {
     "en": "When you ask whether something appears in your own documents, Piloti can now search only the project or only the office shelf, and the answer says how many documents it searched and how many matched on each shelf. A pattern search also lists each distinct match with its count and pages, and folder overviews name the files of small folders.",
     "de": "Wenn Sie fragen, ob etwas in Ihren eigenen Dokumenten vorkommt, kann Piloti jetzt nur im Projekt oder nur in der Büroablage suchen. Die Antwort gibt an, wie viele Dokumente in jeder Ablage durchsucht wurden und wie viele Treffer es gab. Eine Mustersuche führt außerdem jeden eindeutigen Treffer samt Anzahl und Seiten auf, und Ordnerübersichten nennen bei kleinen Ordnern die Dateinamen."
+  },
+  {
+    "en": "When you ask which edition of a guideline or standard applied at your project's site on a particular day, for example for a submission on 1 October, the assistant now names the edition that was binding there on that day and says which day it means. Before, it named only today's edition and called the earlier one undeterminable.",
+    "de": "Wenn Sie fragen, welche Fassung einer Richtlinie oder Norm am Standort Ihres Projekts an einem bestimmten Tag galt, etwa bei einer Einreichung am 1. Oktober, nennt der Assistent nun die an diesem Tag dort verbindliche Fassung und gibt an, auf welchen Tag er sich bezieht. Bisher nennt er nur die aktuelle Fassung und erklärt die frühere für nicht bestimmbar."
   },
   {
     "en": "When you close a project, Piloti can read its documents and suggest its Bundesland, building class, construction, uses, OIB edition and the decisions it made, each with the document and page it comes from. You confirm each one, and similar projects are then found by what they are.",

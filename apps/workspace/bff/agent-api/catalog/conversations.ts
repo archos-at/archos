@@ -130,7 +130,8 @@ export const conversationsOperations = [
     summary: 'Read the messages of a conversation',
     description:
       'The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, ' +
-      'content, author, time and mentions; `include` adds citations, steps or metadata. Message ids feed conversation-message-changes.',
+      'content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. ' +
+      'Message ids feed conversation-message-changes.',
     method: 'GET',
     path: '/api/conversations/[id]/messages',
     params: conversationParams,
