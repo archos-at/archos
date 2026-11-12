@@ -34,6 +34,7 @@ const editionUse = (workId: string, editionId: string | null, corpusFiles: strin
   corpusFiles,
   designation: null,
   editionLabel: null,
+  issuer: null,
   sourceRefs: [],
   sourceUrl: null,
   route: null,

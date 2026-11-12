@@ -61,7 +61,7 @@ export function OutlineRow({
   )
   const className = cn('grid w-full grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 border-b py-3 text-left', size === 'sm' && 'py-2.5', size === 'lg' && 'border-b-0 pb-1.5')
   return onClick ? (
-    <button type="button" onClick={onClick} aria-expanded={expanded} className={cn(className, 'hover:bg-accent/60')} data-testid={testId}>
+    <button type="button" onClick={onClick} aria-expanded={expanded} className={cn(className, 'hover:bg-hover')} data-testid={testId}>
       {body}
     </button>
   ) : (

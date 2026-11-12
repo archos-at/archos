@@ -143,12 +143,23 @@ drifted. Change a token or a brand string in `packages/brand`, then sync.
 Reference media from the eight-page reference site, renamed in English by what each file shows.
 The tables give the source file and where it appears.
 
-**Rendered media** are in `src/assets/media/`, as full-resolution masters: 2560 px on the long
+**Rendered media** are in `src/assets/media/`, as full-resolution masters: 3840 px on the long
 edge at most, never shrunk by hand, WebP at quality 92 (photos) or 95 (screenshots), in sRGB.
 Views take them from `src/lib/media.ts` and render them with Astro's `<Image>`, which builds
 variants from 320 px (photos) or 640 px (screenshots) up to the master's width, with a `srcset` and
-`sizes`, so a phone loads the variant its layout needs (the hero at 390 px: 57 KB instead of 181 KB;
-a gallery card stays 2560 px, because on a phone it shows its image 500 px high and 1250 px wide).
+`sizes`, so a phone loads the variant its layout needs (the hero at 390 px: 57 KB instead of 181 KB).
+
+A master must carry the device pixels of its widest drawing, or the browser enlarges it and it looks
+soft. Measured on dev.archos.tech (2026-11-12, Playwright, drawn width × device pixel ratio against
+the file the `srcset` chose): with 2560 px masters the hero was enlarged 1.08× on a 14-inch MacBook
+(1512 × 2), 1.25× on a 16-inch (1728 × 2) and 1.9× on a 5K screen; a gallery card 1.29× on a phone
+(390 × 3: 500 px high at 5:2 is about 3300 device pixels); `ai-search-compare-photo` (1104 px) 1.27×
+on every retina screen; the founder portraits (560 and 380 px) up to 2.8× on a phone. Everything else
+was drawn at or below its file's size. The hero, the gallery, the floor plan and the demo background
+are now 3840 px masters from the Drive originals; `ai-search-compare-photo` and the founder portraits
+still want larger originals. Images uploaded into a Claude chat
+arrive at 2000 px on the long edge, smaller than these masters: replace a master only from the
+original file (Drive, or committed to the branch), never from a chat upload.
 The video is imported with `?url`, so it is served from `/_astro/` like the images. The built files
 have hashed names, so a replaced master reaches every visitor at once. Photos show in their own
 colours and brightness: no CSS filter darkens or tints them. Where text sits on a photo, the design
@@ -159,20 +170,20 @@ section order there.
 
 | File in `src/assets/media/` | Source | Where it is used |
 |---|---|---|
-| `product-plan-revision-changes.webp` | `b3c4660c81.webp`, the composer hint retouched to the current name (Inter Regular 15.6 px, the app's face when it was captured); 2560 × 1460 | Home and „Planstände vergleichen“, hero image (plan revision with sources) |
-| `product-search-derivation.webp` | Drive `02_Startseite_Galerie-1_Eine-Frage.png` (4960 × 1984), 2560 × 1024 | Home, gallery slide 1, "Suchen" |
-| `product-compare-clearance.webp` | Drive `03_Startseite_Galerie-2_Planstand-und-Anforderungen.png` (4960 × 1984), 2560 × 1024 | Home, gallery slide 2, "Vergleichen"; „Planstände vergleichen“, requirements |
-| `product-model-check.webp` | Drive `04_Startseite_Galerie-3_Komplexe-Modelle.png` (4960 × 1984), 2560 × 1024 | Home, gallery slide 3, "Prüfen" (3D model check) |
-| `product-floor-plan-query.webp` | Drive `07_Startseite_Gebaut-fuer-Planungsbueros.png` (4864 × 1620), 2560 × 853 | Home, "Gebaut für Architektur- & Planungsbüros." (floor plan with questions); „Baurecht durchsuchen“ and „KI für Architekturbüros“ (the escape-route question) |
+| `product-plan-revision-changes.webp` | Drive `01_Startseite_Hero.png` (5248 × 2992, from the owner's zip 2026-11-12), the composer hint retouched from the old name to the current one (Inter Regular 32.1 px, fitted to the original line by least squares); 3840 × 2189 | Home and „Planstände vergleichen“, hero image (plan revision with sources) |
+| `product-search-derivation.webp` | Drive `02_Startseite_Galerie-1_Eine-Frage.png` (4960 × 1984), 3840 × 1536 | Home, gallery slide 1, "Suchen" |
+| `product-compare-clearance.webp` | Drive `03_Startseite_Galerie-2_Planstand-und-Anforderungen.png` (4960 × 1984), 3840 × 1536 | Home, gallery slide 2, "Vergleichen"; „Planstände vergleichen“, requirements |
+| `product-model-check.webp` | Drive `04_Startseite_Galerie-3_Komplexe-Modelle.png` (4960 × 1984), 3840 × 1536 | Home, gallery slide 3, "Prüfen" (3D model check) |
+| `product-floor-plan-query.webp` | Drive `07_Startseite_Gebaut-fuer-Planungsbueros.png` (4864 × 1620), 3840 × 1279 | Home, "Gebaut für Architektur- & Planungsbüros." (floor plan with questions); „Baurecht durchsuchen“ and „KI für Architekturbüros“ (the escape-route question) |
 | `planner-design-photo.webp` | Drive `05_Startseite_Planerinnen-entwerfen.png` (2576 × 1940), 2560 × 1928 | Home, duo card "Planer:innen entwerfen." (photo, white text on the scrim) |
-| `ai-search-compare-photo.webp` | Drive `06_Startseite_KI-sucht-vergleicht-prueft.png`, 1104 × 1424 (the original's size) | Home, duo card "KI sucht, vergleicht und prüft." (dark card, photo) |
+| `ai-search-compare-photo.webp` | Drive `06_Startseite_KI-sucht-vergleicht-prueft.png`, 1104 × 1424 (the original's size; the Drive file is no larger, so it stays enlarged about 1.3× on a retina screen until a larger export exists) | Home, duo card "KI sucht, vergleicht und prüft." (dark card, photo) |
 | `knowledge-video.mp4` | Drive `archos_wissen_final_C_2432.mp4` (video folder), unchanged (H.264, 2432 × 1216, 34 s; a provisional cut) | German home only (its frames carry German text; the English home has no visual there until an English cut exists), the video "Das Wissen Ihres Büros wird nutzbar." H.264 MP4 plays in every current browser, so there is no WebM twin |
 | `knowledge-video-poster.webp` | The video's frame at 6 s ("Doch es liegt verstreut."), 2432 × 1216 | Same video, poster |
-| `team-conversation-photo.webp` | Drive `08_Startseite_Zitat-Foto.png` (grayscale), 1080 × 1350 | Home, portrait beside the feld72 quote |
+| `feld72-team-photo.webp` | The feld72 team photo the owner sent in the chat (JPEG, 2000 × 1294, sRGB), as WebP quality 92; © Vilma Pflaum Photography, credited under the photo. 2000 px is enough here: the widest drawing is about 1400 device pixels | Home, beside the feld72 quote, wide (`Quote` with `wide`, in its own proportions, never cropped) |
 | `jonathan-uhlemann.webp` | Drive `Founder/Unknown.jpg` (702 × 700), cropped to 4:5, 560 × 700 | Home, founders row "Das Planungsbüro der Zukunft entsteht heute." (portrait, 4:5) |
 | `matthias-bigl.webp` | the retired site's original portrait (git history, 1086 × 1448, colour), cropped to 4:5 and set in greyscale like the others, 560 × 700 | Home, founders row (portrait, 4:5) |
 | `ferdinand-rubenbauer.webp` | the retired site's team graphic (git history, `team.png`, right card, duotone), cropped to 4:5 and set in greyscale, 380 × 475; the largest version that exists, a new photo is still welcome | Home, founders row (portrait, 4:5) |
-| `demo-panel-background.webp` | Drive `11_Demo_Hintergrund.png` (too large for the Drive connector), as the owner exported it: 2000 × 1140 WebP, sRGB, unchanged | Demo, background of the form panel |
+| `demo-panel-background.webp` | Drive `11_Demo_Hintergrund.png` (5248 × 2992, from the owner's zip), 3840 × 2189 | Demo, background of the form panel |
 | `example-module-plan-rev-c.svg`, `example-module-plan-rev-d.svg` | Drawn for the blocks page with the blog covers' pens (`packages/brand/docs/blog-covers.md`): one residential module in plan, 1600 × 1000, as two plan states. Rev. D adds a desk to the kitchen counter, a built-in cabinet and an installation wall. Vector, so no `<Image>` variants; imported with `?url` | „Bausteine für Blogbeiträge“ (`/blog-bausteine/`, unlisted): the before/after comparison and the annotated image |
 
 | File in `public/media/` | Reference file | Where it is used |

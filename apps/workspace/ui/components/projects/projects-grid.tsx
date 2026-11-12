@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import { CountPill } from '@/components/ui/count-pill'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ItemList } from '@/components/ui/item'
+import { PAGE_TITLE_CLASS } from '@/components/ui/page-header'
 import { SearchField } from '@/components/ui/search-field'
 import { SectionLabel } from '@/components/ui/section-label'
 import { projectMatchesQuery } from '@/features/projects/lib/project-search'
@@ -150,7 +151,7 @@ export function ProjectsGrid({
           beside a full-width field), so this is a grid of three: title, search,
           action, placed per breakpoint. The h1 is the ramp's page title. */}
       <header className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:gap-x-2.5">
-        <h1 className="min-w-0 text-balance text-xl font-medium">{t('list.heading')}</h1>
+        <h1 className={`min-w-0 text-balance ${PAGE_TITLE_CLASS}`}>{t('list.heading')}</h1>
         {hasProjects && (
           // The one search molecule: magnifier + input with the phone keyboard
           // already told what Enter does. It matches name, address, Gemeinde and
@@ -220,7 +221,7 @@ export function ProjectsGrid({
             title={t(`list.noneInFilter.${activeFilter === 'all' ? 'active' : activeFilter}`)}
             description={t('list.noneInFilter.description')}
             action={
-              <Button variant="outline" size="sm" onClick={() => setStatusFilter('all')}>
+              <Button variant="secondary" size="sm" onClick={() => setStatusFilter('all')}>
                 {t('list.noneInFilter.showAll')}
               </Button>
             }
@@ -233,7 +234,7 @@ export function ProjectsGrid({
               title={t('list.noMatch.title')}
               description={t('list.noMatch.description')}
               action={
-                <Button variant="outline" size="sm" onClick={() => setQuery('')}>
+                <Button variant="secondary" size="sm" onClick={() => setQuery('')}>
                   {t('list.noMatch.clear')}
                 </Button>
               }

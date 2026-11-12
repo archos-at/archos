@@ -157,7 +157,7 @@ export function ViewerRailItem({
         // the muted wash. Colour carries provenance here — blue means
         // Rechtsquelle — so a coloured "selected" row would be making a claim
         // about where the model came from.
-        selected ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        selected ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:bg-hover hover:text-foreground',
         disabled && 'pointer-events-none opacity-50'
       )}
     >

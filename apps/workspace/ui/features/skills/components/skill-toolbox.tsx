@@ -284,7 +284,7 @@ export function SkillToolbox({
           icon={Search}
           title={t('toolbox.search.noMatches', { query: query.trim() })}
           action={
-            <Button variant="outline" size="sm" onClick={() => setQuery('')}>
+            <Button variant="secondary" size="sm" onClick={() => setQuery('')}>
               {t('toolbox.search.showAll')}
             </Button>
           }
@@ -547,7 +547,7 @@ function CategorySection({
                 >
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => onEdit(skill)}
                     disabled={togglingIds.includes(selectionKey(skill))}
                   >

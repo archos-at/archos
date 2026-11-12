@@ -29,6 +29,10 @@
         "project-table": {
           "line": "Baubeschreibung, Tabelle 3, S. 2 [Baubeschreibung_2024.pdf].",
           "quote": "„Geschoßhöhe 3,10 m“ — Baubeschreibung, S. 2"
+        },
+        "recorded-text": {
+          "line": "OIB-Richtlinie 6, Ausgabe März 2015, Pkt. 3.1, S. 9 (Österreichisches Institut für Bautechnik, Wien).",
+          "quote": "„Der Heizwärmebedarf ist nachzuweisen.“ — OIB-Richtlinie 6, Ausgabe März 2015, S. 9"
         }
       }
     },
@@ -59,6 +63,10 @@
         "project-table": {
           "line": "Baubeschreibung, Tabelle 3, p. 2 (file Baubeschreibung_2024.pdf)",
           "quote": "\"Geschoßhöhe 3,10 m\" (Baubeschreibung, p. 2)"
+        },
+        "recorded-text": {
+          "line": "OIB-Richtlinie 6, Ausgabe März 2015, s. 3.1, p. 9. Österreichisches Institut für Bautechnik",
+          "quote": "\"Der Heizwärmebedarf ist nachzuweisen.\" (OIB-Richtlinie 6, Ausgabe März 2015, p. 9)"
         }
       }
     },
@@ -89,6 +97,10 @@
         "project-table": {
           "line": "Baubeschreibung, Tabelle 3, p. 2",
           "quote": "« Geschoßhöhe 3,10 m » — Baubeschreibung, p. 2"
+        },
+        "recorded-text": {
+          "line": "OIB-Richtlinie 6, Ausgabe März 2015, ch. 3.1, p. 9 (Österreichisches Institut für Bautechnik)",
+          "quote": "« Der Heizwärmebedarf ist nachzuweisen. » — OIB-Richtlinie 6, Ausgabe März 2015, p. 9"
         }
       }
     }

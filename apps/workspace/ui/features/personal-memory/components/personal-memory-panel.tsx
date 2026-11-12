@@ -216,7 +216,7 @@ export function PersonalMemoryPanel(): JSX.Element {
           {t('audience')}
         </FactLine>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={() => setAdding(true)}
           className={adding ? 'pointer-events-none invisible' : undefined}
@@ -370,7 +370,7 @@ export function PersonalMemoryPanel(): JSX.Element {
           number of notes and that it cannot be undone. */}
       {!loadFailed && notes !== null && notes.length > 0 && (
         <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={() => setConfirmingClear(true)} disabled={clearing}>
+          <Button variant="secondary" size="sm" onClick={() => setConfirmingClear(true)} disabled={clearing}>
             <Trash2 className="text-destructive size-4" aria-hidden />
             {t('removeAll')}
           </Button>

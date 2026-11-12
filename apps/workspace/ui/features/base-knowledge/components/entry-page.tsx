@@ -206,7 +206,7 @@ function LicenceSection({
           {canManage && (
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={busy}
               onClick={() =>
                 void run(() =>
@@ -247,7 +247,7 @@ function BoughtAfterAll({ entry, busy, run }: { entry: BaseKnowledgeEntry; busy:
       <section className="space-y-2" data-testid="base-knowledge-licence">
         <SectionLabel as="h3">{t('detail.licenceSection')}</SectionLabel>
         <p className="text-muted-foreground text-sm">{t('detail.publicNow')}</p>
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => setOpen(true)}>
+        <Button size="sm" variant="secondary" disabled={busy} onClick={() => setOpen(true)}>
           {t('detail.markLicensed')}
         </Button>
       </section>
@@ -345,7 +345,7 @@ function CheckSection({
             />
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={busy}
               onClick={() => file.current?.click()}
             >

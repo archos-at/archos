@@ -250,7 +250,7 @@ describe('SessionsPanel', () => {
     const firstSession = screen.getByRole('button', { name: /chat: first session/i })
     // The selected treatment sits on the card row the button stretches over,
     // and the row also announces itself to AT.
-    expect(rowOf(firstSession)).toHaveClass('bg-accent')
+    expect(rowOf(firstSession)).toHaveClass('bg-selected')
     expect(firstSession).toHaveAttribute('aria-current', 'true')
   })
 
@@ -324,7 +324,8 @@ describe('SessionsPanel', () => {
 
       await user.hover(screen.getByRole('button', { name: /chat: first session/i }))
 
-      const overlay = screen.getByRole('button', { name: /rename chat/i }).parentElement
+      // Two layers: the sheet, and the pointer's wash over it that holds the buttons.
+      const overlay = screen.getByRole('button', { name: /rename chat/i }).parentElement?.parentElement
       expect(overlay?.className).toContain('pointer-coarse:hidden')
     })
 

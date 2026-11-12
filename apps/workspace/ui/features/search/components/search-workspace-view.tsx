@@ -268,12 +268,12 @@ export function SearchWorkspaceView({
   // An empty answer offers the ways out that can change it, not a sentence about them.
   const emptyActions = [
     filterCount > 0 ? (
-      <Button key="clear" type="button" variant="outline" size="sm" onClick={() => onStateChange(clearFilters(state))} data-testid="search-empty-clear">
+      <Button key="clear" type="button" variant="secondary" size="sm" onClick={() => onStateChange(clearFilters(state))} data-testid="search-empty-clear">
         {t('filters.clearAll')}
       </Button>
     ) : null,
     oneKind ? (
-      <Button key="kinds" type="button" variant="outline" size="sm" onClick={() => onStateChange({ ...state, kinds: null })} data-testid="search-empty-all-kinds">
+      <Button key="kinds" type="button" variant="secondary" size="sm" onClick={() => onStateChange({ ...state, kinds: null })} data-testid="search-empty-all-kinds">
         {t('empty.allKinds')}
       </Button>
     ) : null,
@@ -281,7 +281,7 @@ export function SearchWorkspaceView({
       <Button
         key="archived"
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         onClick={() => onStateChange({ ...state, filters: { ...state.filters, includeArchived: true } })}
         data-testid="search-empty-archived"
@@ -290,7 +290,7 @@ export function SearchWorkspaceView({
       </Button>
     ),
     officeWide ? null : (
-      <Button key="office" asChild variant="outline" size="sm">
+      <Button key="office" asChild variant="secondary" size="sm">
         <Link href={officeSearchHref(state)} data-testid="search-empty-office">
           {t('empty.wholeOffice')}
         </Link>
@@ -350,7 +350,7 @@ export function SearchWorkspaceView({
                 {sheetLayout ? (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     aria-haspopup="dialog"
                     aria-expanded={sheetOpen}

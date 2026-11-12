@@ -132,7 +132,7 @@ export function QuarantineSelection({
               {t('quarantine.recheck')}
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={onRelease}
               data-testid="quarantine-release-selected"

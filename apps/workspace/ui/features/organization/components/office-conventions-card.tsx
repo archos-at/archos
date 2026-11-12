@@ -82,7 +82,7 @@ const LineRow: FC<LineRowProps> = ({ view, busy, onDecide }) => {
         {decision === 'declined' && <Badge variant="secondary">{t('officeConventions.declined')}</Badge>}
         {decision === null ? (
           <>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => onDecide(line.key, 'confirmed')}>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => onDecide(line.key, 'confirmed')}>
               {t('officeConventions.confirm')}
             </Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDecide(line.key, 'declined')}>

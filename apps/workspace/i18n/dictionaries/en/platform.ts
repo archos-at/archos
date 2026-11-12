@@ -163,6 +163,9 @@ export const platform = {
       alone: 'You wrote in this request: a second person approves it, or you approve it alone with a reason.',
       wrong: 'Entries not correct: {count}. A request with a wrong entry cannot be approved.',
     },
+    warnings: {
+      country_states_no_coverage: 'The country states no coverage: a site in it stays at gate none, without binding editions, unless a region on its chain states one.',
+    },
     acceptAll: 'All correct',
     acceptChecked: 'Checked against the source, all correct',
     pastedHint: 'This page was pasted, or fetched through a source nobody else has reviewed. Open the source and compare: “correct” here also says the text matches the source.',

@@ -140,7 +140,7 @@ export function UploadHistory({
       <Alert variant="destructive" data-testid="upload-history-error">
         <AlertDescription className="flex flex-col items-start gap-3">
           {t('history.error')}
-          <Button variant="outline" size="sm" onClick={retry}>
+          <Button variant="secondary" size="sm" onClick={retry}>
             {tCommon('actions.retry')}
           </Button>
         </AlertDescription>
@@ -162,7 +162,7 @@ export function UploadHistory({
             </p>
           )}
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={loadMore}
             disabled={state.more === 'loading'}

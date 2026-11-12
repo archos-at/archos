@@ -240,7 +240,7 @@ export function ClosingDebrief({ projectId, profile, canWriteMemory }: ClosingDe
               <span>{valueText(key, suggestion.value)}</span>
               {canWriteMemory && (
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   disabled={busy !== null}
                   onClick={() => void accept(key, suggestion.value)}
@@ -277,7 +277,7 @@ export function ClosingDebrief({ projectId, profile, canWriteMemory }: ClosingDe
 
       {canWriteMemory && (
         <div className="space-y-2">
-          <Button variant="outline" size="sm" disabled={extracting || busy !== null} onClick={() => void extract()}>
+          <Button variant="secondary" size="sm" disabled={extracting || busy !== null} onClick={() => void extract()}>
             {t('lifecycle.debrief.extract.action')}
           </Button>
           {extractionText && (
@@ -364,7 +364,7 @@ export function ClosingDebrief({ projectId, profile, canWriteMemory }: ClosingDe
                     ) : (
                       canWriteMemory && (
                         <>
-                          <Button variant="outline" size="sm" disabled={busy !== null} onClick={() => void confirm(item)}>
+                          <Button variant="secondary" size="sm" disabled={busy !== null} onClick={() => void confirm(item)}>
                             {t('lifecycle.debrief.decisions.confirm')}
                           </Button>
                           {grounded && (
@@ -394,7 +394,7 @@ export function ClosingDebrief({ projectId, profile, canWriteMemory }: ClosingDe
               placeholder={t('lifecycle.debrief.lesson.placeholder')}
               onChange={(event) => setLesson(event.target.value)}
             />
-            <Button variant="outline" size="sm" disabled={busy !== null || !lesson.trim()} onClick={() => void record()}>
+            <Button variant="secondary" size="sm" disabled={busy !== null || !lesson.trim()} onClick={() => void record()}>
               {t('lifecycle.debrief.lesson.add')}
             </Button>
           </div>

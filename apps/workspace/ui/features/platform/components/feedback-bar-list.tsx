@@ -83,7 +83,7 @@ export function FeedbackBarRow({
           'duration-quick pointer-coarse:min-h-11 transition-colors ease-out motion-reduce:transition-none',
           'outline-none',
           FOCUS_RING_INSET,
-          selected ? 'bg-accent text-foreground' : 'text-foreground hover:bg-accent/50'
+          selected ? 'bg-accent text-foreground' : 'text-foreground hover:bg-hover'
         )}
       >
         <span className={cn('truncate', selected && 'font-medium')}>{label}</span>

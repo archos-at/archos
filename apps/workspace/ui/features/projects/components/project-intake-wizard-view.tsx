@@ -7,6 +7,7 @@ import { LoadError } from '@/components/ui/load-error'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 import { Button } from '@/components/ui/button'
+import { PAGE_TITLE_CLASS } from '@/components/ui/page-header'
 import { Progress } from '@/components/ui/progress'
 import { SectionLabel } from '@/components/ui/section-label'
 
@@ -65,7 +66,7 @@ export function ProjectIntakeWizardView({ controller }: { controller: ProjectInt
           <SectionLabel>
             {isEdit ? t('intake.eyebrowEdit') : t('intake.eyebrowCreate')}
           </SectionLabel>
-          <h1 className="mt-1 truncate text-xl font-medium">
+          <h1 className={cn('mt-1 truncate', PAGE_TITLE_CLASS)}>
             {projectName || t('intake.titleFallback')}
           </h1>
           <p className="text-muted-foreground mt-1 hidden max-w-prose text-sm sm:[@media(min-height:32rem)]:block">
@@ -307,7 +308,7 @@ export function ProjectIntakeWizardView({ controller }: { controller: ProjectInt
                 >
                   <span>{error}</span>
                   {conflict && (
-                    <Button type="button" variant="outline" size="sm" onClick={reloadAfterConflict}>
+                    <Button type="button" variant="secondary" size="sm" onClick={reloadAfterConflict}>
                       {t('intake.conflictReload')}
                     </Button>
                   )}
@@ -324,7 +325,7 @@ export function ProjectIntakeWizardView({ controller }: { controller: ProjectInt
             <div className="bg-background/85 sticky bottom-0 z-20 -mx-4 mt-10 flex items-center justify-between gap-3 border-t px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md sm:gap-4 sm:pt-4 [@media(max-height:31rem)]:pb-[max(0.5rem,env(safe-area-inset-bottom))] [@media(max-height:31rem)]:pt-2">
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => goToStep(currentStep - 1)}
                 disabled={currentStep === 0 || saving}
               >

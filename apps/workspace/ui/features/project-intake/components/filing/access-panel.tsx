@@ -167,7 +167,7 @@ function AccessSheet({
                         <Button
                           type="button"
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           aria-label={t('access.changeAria', { name: row.name })}
                           onClick={() => row.folder && change(row.folder)}
                         >
@@ -177,7 +177,7 @@ function AccessSheet({
                         <BusyButton
                           type="button"
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           icon={<Lock aria-hidden />}
                           busy={creating === row.path}
                           blocked={creating !== null}

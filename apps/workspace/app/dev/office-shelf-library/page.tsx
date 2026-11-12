@@ -150,7 +150,7 @@ export default function OfficeShelfLibraryDevPage(): JSX.Element {
     <main className="mx-auto flex max-w-6xl flex-col p-6">
       <BackLink fallbackHref="/app/projects" fallbackLabel="Back to projects" />
       <div className="shadow-xs mt-3 flex h-[820px] flex-col overflow-hidden rounded-xl border">
-        <OfficeShelfWorkspace canManage={!readOnly} />
+        <OfficeShelfWorkspace canManage={!readOnly} organizationName="Atelier Nord" />
       </div>
     </main>
   )

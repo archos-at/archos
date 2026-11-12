@@ -190,6 +190,30 @@ class TestTheCall:
         assert any("PROJECT_CONTEXT v1" in part for part in check.context)
         assert turn_check(state, None).judge is None
 
+    def test_the_check_reads_the_turns_building_law_where_the_gate_lets_it_bind(self):
+        """Dev QC 2026-11-12, Eisenstadt: the answer stated the binding edition from the chain text, and a check
+        that never saw it found that statement unbacked and graded the answer low."""
+        from agent.common.knowledge_context import KnowledgeContext
+        from agent.common.knowledge_context import set_turn_knowledge_context
+
+        chain = "OIB-Richtlinie 4, Ausgabe April 2019: binding since 2021-04-10 (Bgld. BauVO 2008 idF LGBl. 22/2021)"
+        state = ResearchAgentState(messages=[])
+        try:
+            set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", text=chain))
+            assert any(chain in part and "<building_law>" in part for part in turn_check(state, None).context)
+            set_turn_knowledge_context(KnowledgeContext(gate="not_entitled", site_country="AT", text=chain))
+            assert not any(chain in part for part in turn_check(state, None).context)
+        finally:
+            set_turn_knowledge_context(None)
+
+    def test_the_grader_is_told_what_the_building_law_entry_backs(self):
+        """The check is handed the <building_law> block; the grader's rule that a record never backs what a
+        regulation requires must not swallow it, or a binding edition stated from it stays unbacked."""
+        from agent.common.claim_judge import SYSTEM_PROMPT
+
+        assert "<building_law>" in SYSTEM_PROMPT
+        assert "which edition" in SYSTEM_PROMPT and "never one of what" in SYSTEM_PROMPT
+
 
 @pytest.mark.parametrize("answer", stored_answers(), ids=lambda answer: answer["id"])
 def test_every_stored_answer_reaches_the_check_whole(answer):

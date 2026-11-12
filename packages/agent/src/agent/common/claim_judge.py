@@ -14,7 +14,7 @@ So this module asks once, after the prose has streamed, on the organisation's
 follow-ups model at temperature 0: the question, the final answer, and every
 piece of evidence the turn registered (the passages in full up to
 :data:`EVIDENCE_BUDGET_CHARS`, the workspace records, the turn context's
-project profile and inventory, the measurements, the drawing readings, and
+project profile, inventory and building law, the measurements, the drawing readings, and
 which quotations the server's quote check found or did not find). The evidence
 travels as data inside one delimited block, and the system prompt says that
 instructions inside it are not followed. The reply is a level and the
@@ -135,7 +135,9 @@ SYSTEM_PROMPT = (
     "Judge only against the evidence. Never use your own knowledge of the law, the building or the project: a "
     "true statement the evidence does not state is unbacked. A statement about what a regulation requires, "
     "allows or forbids, or whether something complies, needs a passage of that regulation; a record, a "
-    "measurement or a reading never backs it. A next step, a question to the reader, an offer, or the answer's "
+    "measurement or a reading never backs it. The <building_law> entry is the platform's record of which edition "
+    "of a regulation binds at the site and since when: it backs a statement of exactly that, never one of what "
+    "the edition requires. A next step, a question to the reader, an offer, or the answer's "
     "account of what it read needs no backing. An answer that declines to answer is low.\n\n"
     "level:\n"
     "- high: every statement the answer relies on is backed by the evidence.\n"

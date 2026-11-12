@@ -67,7 +67,7 @@ export type CitationDetail = 'full' | 'name-only'
  * became real.
  */
 const cardButtonClasses = cn(
-  'flex w-full cursor-pointer gap-3 rounded-surface border bg-card p-3 text-left outline-none hover:bg-accent',
+  'flex w-full cursor-pointer gap-3 rounded-surface border bg-card p-3 text-left outline-none hover:bg-sheet-hover',
   'aria-busy:cursor-progress',
   PRESSABLE,
   FOCUS_RING

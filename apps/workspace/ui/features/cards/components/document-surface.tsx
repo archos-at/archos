@@ -35,7 +35,7 @@ export const UnresolvedCard: FC<{ entry: ResolvedSurfacedDocument; projectId?: s
     <a
       href={href}
       data-testid="document-answer-unresolved"
-      className="group flex h-full min-w-0 flex-col overflow-hidden rounded-surface border border-dashed bg-muted/40 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      className="group flex h-full min-w-0 flex-col overflow-hidden rounded-surface border border-dashed bg-muted/40 text-left transition-colors hover:bg-desk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
     >
       <div className="w-full flex-1 overflow-hidden rounded-b-lg bg-card/60 shadow-2xs">
         <div className="flex h-[124px] w-full items-center justify-center border-b bg-card/40 text-muted-foreground/45">
@@ -71,7 +71,7 @@ export const ResolveErrorState: FC<{ onRetry: () => void }> = ({ onRetry }) => {
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-1.5 rounded-control border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        className="inline-flex items-center gap-1.5 rounded-control border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-desk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
       >
         <RotateCcw className="size-3.5" aria-hidden />
         {t('documentAnswer.retry')}

@@ -428,7 +428,7 @@ export function FeedbackTriage({
           <Alert variant="destructive">
             <AlertDescription>
               <p>{t('platform.loadError')}</p>
-              <Button variant="outline" size="sm" onClick={() => void load()}>
+              <Button variant="secondary" size="sm" onClick={() => void load()}>
                 {t('platform.retry')}
               </Button>
             </AlertDescription>
@@ -499,7 +499,7 @@ export function FeedbackTriage({
 
         {data?.nextCursor && (
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={() => void loadMore()}
             loading={loadingMore}
             className="self-center"
@@ -787,7 +787,7 @@ function CaseLine({
       </span>
       {canClaim && onClaim ? (
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="ml-auto"
           loading={claiming}

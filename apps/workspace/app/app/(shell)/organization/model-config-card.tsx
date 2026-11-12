@@ -475,7 +475,7 @@ export const ModelConfigCard: FC = () => {
                   onOpenChange={(open) => setPickerGroup(open ? group.id : null)}
                 >
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm">
+                    <Button variant="secondary" size="sm">
                       {t('models.change')}
                       <ChevronDown className="ml-1 size-3.5" aria-hidden />
                     </Button>
@@ -545,7 +545,7 @@ export const ModelConfigCard: FC = () => {
               <EmptyState variant="bare" title={t('models.historyEmpty')} />
             )}
             {versions !== null && versions.length > 0 && activeVersionId !== null && (
-              <Button variant="outline" size="sm" className="self-start" onClick={() => setPendingActivate('none')}>
+              <Button variant="secondary" size="sm" className="self-start" onClick={() => setPendingActivate('none')}>
                 <RotateCcw className="mr-1.5 size-3.5" aria-hidden />
                 {t('models.useDefaults')}
               </Button>
@@ -572,7 +572,7 @@ export const ModelConfigCard: FC = () => {
                   ))}
                 </ul>
                 {version.id !== activeVersionId && (
-                  <Button variant="outline" size="sm" className="mt-2" onClick={() => setPendingActivate(version)}>
+                  <Button variant="secondary" size="sm" className="mt-2" onClick={() => setPendingActivate(version)}>
                     {t('models.activate')}
                   </Button>
                 )}

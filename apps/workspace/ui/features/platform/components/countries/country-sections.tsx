@@ -33,7 +33,7 @@ const AGENTS_HREF = '/app/platform/agents'
 function ConnectAssistant(): JSX.Element {
   const t = useTranslations(platformCopy)
   return (
-    <Button asChild size="sm" variant="outline">
+    <Button asChild size="sm" variant="secondary">
       <Link href={AGENTS_HREF}>
         <Plug className="size-3.5" aria-hidden />
         {t('countryPages.connectAssistant')}
@@ -148,7 +148,7 @@ export function WorksSection({
               {drafts.map((draft) => (
                 <li key={draft.id} className="flex items-center justify-between gap-3">
                   <span className="font-medium">{draft.title}</span>
-                  <Button size="sm" variant="outline" onClick={() => onOpen(draft.id)}>
+                  <Button size="sm" variant="secondary" onClick={() => onOpen(draft.id)}>
                     {t('countryPages.works.attach')}
                   </Button>
                 </li>
@@ -331,7 +331,7 @@ export function ReviewSection({
                           {t('countryPages.review.records', { count: request.revisionCount })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button size="sm" variant={group === 'waiting' ? 'default' : 'outline'} onClick={() => onOpen(request.id)}>
+                          <Button size="sm" variant={group === 'waiting' ? 'default' : 'secondary'} onClick={() => onOpen(request.id)}>
                             {t(`countryPages.review.open.${group}`)}
                           </Button>
                         </TableCell>

@@ -75,6 +75,13 @@ describe('OrgHeader — the org scope in one slim band', () => {
     expect(screen.getByTestId('user-menu')).toBeInTheDocument()
   })
 
+  test('ends in one rule, as a project page\u2019s header does', () => {
+    // The bar stays put while the page scrolls under it; without a line its doorways read as the page's first row
+    // (review of 2026-11-12). The handover has none under a header: the app's deviation (packages/brand/README.md).
+    render(<OrgHeader {...baseProps} />)
+    expect(screen.getByRole('banner')).toHaveClass('border-b', 'border-border')
+  })
+
   test('drops each doorway with its own gate', () => {
     render(<OrgHeader {...baseProps} canAccessOfficeShelf={false} canAccessInbox={false} />)
     expect(screen.queryByLabelText('Office filing')).not.toBeInTheDocument()

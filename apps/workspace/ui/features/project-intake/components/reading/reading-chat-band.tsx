@@ -40,7 +40,7 @@ export function ReadingChatBand({
         {notify && <BellRing aria-hidden className="mt-0.5 size-[18px] shrink-0 sm:mt-0" />}
         <p className="min-w-0 text-sm">{message}</p>
       </div>
-      <Button asChild variant="outline" className="bg-card h-11 shrink-0 text-[13px] sm:h-[34px] sm:px-3">
+      <Button asChild variant="secondary" className="bg-card h-11 shrink-0 text-[13px] sm:h-[34px] sm:px-3">
         <Link href={projectChatHref(projectId)} aria-label={t('chat.aria')} data-testid="reading-ask-chat">
           <MessageSquare aria-hidden className="size-3.5" />
           {early ? t('chat.early') : t('chat.label')}

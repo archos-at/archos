@@ -179,7 +179,7 @@ function EntryItem({ item, onArchive, children }: { item: InboxItemView; onArchi
           title={t('inbox.archive')}
           onClick={() => onArchive(item.id)}
           className={cn(
-            'absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-control text-muted-foreground hover:bg-background hover:text-foreground',
+            'absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-control text-muted-foreground hover:bg-hover hover:text-foreground',
             // A finger gets the 44px control itself (`touch-target` would make it `relative` and lose its corner).
             'pointer-coarse:top-0 pointer-coarse:right-0 pointer-coarse:size-11',
             'opacity-0 transition-opacity duration-snap group-hover/entry:opacity-100 group-focus-within/entry:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none',
@@ -197,8 +197,8 @@ function EntryItem({ item, onArchive, children }: { item: InboxItemView; onArchi
 function EntryFrame({ item, href, current, onFollow, className, children }: EntryProps & { className: string; children: ReactNode }): JSX.Element {
   const frame = cn(
     'flex w-full min-w-0 rounded-control text-left outline-none transition-colors duration-snap motion-reduce:transition-none',
-    'hover:bg-muted',
-    current && 'bg-accent hover:bg-accent',
+    'hover:bg-hover',
+    current && 'bg-selected hover:bg-selected',
     className,
     // Room at the end for the archive control that comes up over it. Last, so
     // an entry's own `px-*` cannot merge it away and put the text under it.

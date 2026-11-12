@@ -91,7 +91,7 @@ export function InboxDock(): JSX.Element {
       <footer className="shrink-0 border-t px-3 py-2">
         <Link
           href="/app/inbox?filter=all"
-          className="group/all flex items-center justify-between rounded-control px-2 py-1.5 text-xs text-muted-foreground transition-colors duration-snap hover:bg-muted hover:text-foreground motion-reduce:transition-none"
+          className="group/all flex items-center justify-between rounded-control px-2 py-1.5 text-xs text-muted-foreground transition-colors duration-snap hover:bg-hover hover:text-foreground motion-reduce:transition-none"
           data-testid="inbox-dock-all"
         >
           {t('inbox.dock.all')}

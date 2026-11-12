@@ -17,6 +17,10 @@ describe('releasedTextTitle', () => {
     expect(releasedTextTitle(null, null, 'Ausgabe Mai 2023')).toBeNull()
   })
 
+  it('says a label that repeats the designation once', () => {
+    expect(releasedTextTitle('Regulation 305/2011', null, 'Regulation 305/2011')).toBe('Regulation 305/2011')
+  })
+
   it('flattens control characters and markup out of record text', () => {
     expect(releasedTextTitle('OIB-Richtlinie\n2 <b>', null, 'Ausgabe\tMai 2023')).toBe('OIB-Richtlinie 2 b, Ausgabe Mai 2023')
   })
