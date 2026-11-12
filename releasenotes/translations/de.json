@@ -72,6 +72,10 @@
     "de": "Eine kurze Verbindungsunterbrechung beim Einlesen einer Datei führt nicht mehr dazu, dass Seitenvorschauen, Bilder oder Thumbnails fehlen. Bei großen Plänen und langen Dokumenten bleiben Dokumenttyp und wichtige Fakten erhalten, die {productName} daraus ausliest."
   },
   {
+    "en": "A building-law text from a country release is now cited by its name, for example \"OIB-Richtlinie 4, Ausgabe Mai 2023\", instead of by its stored file name. The name comes from the work and edition the release reviewed, and a title someone set by hand is kept.",
+    "de": "Ein baurechtlicher Text aus einem Länder-Release wird nun mit seinem Namen zitiert, zum Beispiel „OIB-Richtlinie 4, Ausgabe Mai 2023“, statt mit seinem gespeicherten Dateinamen. Der Name stammt aus dem Werk und der Ausgabe, die im Release geprüft wurden; ein manuell festgelegter Titel bleibt erhalten."
+  },
+  {
     "en": "A cancelled upload in a chat's files now reads as cancelled instead of still uploading and can be removed with one click, and a file that finished reading just as you stopped it stays read.",
     "de": "Ein abgebrochener Upload in den Dateien eines Chats wird jetzt als abgebrochen statt weiterhin als laufend angezeigt und lässt sich mit einem Klick entfernen; eine Datei, deren Einlesen genau beim Abbrechen abgeschlossen wurde, bleibt als eingelesen markiert."
   },

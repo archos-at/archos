@@ -1217,6 +1217,14 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A building-law text from a country release is now cited by its name, for example \"OIB-Richtlinie 4, Ausgabe Mai 2023\", instead of by its stored file name. The name comes from the work and edition the release reviewed, and a title someone set by hand is kept.",
+            "de": "Ein baurechtlicher Text aus einem Länder-Release wird nun mit seinem Namen zitiert, zum Beispiel „OIB-Richtlinie 4, Ausgabe Mai 2023“, statt mit seinem gespeicherten Dateinamen. Der Name stammt aus dem Werk und der Ausgabe, die im Release geprüft wurden; ein manuell festgelegter Titel bleibt erhalten."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "collaboration",
           "text": {
             "en": "Switching the inbox filter no longer shows the previous filter's rows for a moment, and a failed background refresh keeps the list on screen.",
