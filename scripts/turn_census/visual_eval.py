@@ -1,7 +1,8 @@
 """The visual eval: does Piloti look at the place a question is about, and does looking change the answer (ADR-0128).
 
 ``suite.py --set visual`` runs ``tests/fixtures/visual/visual_questions.yaml`` through the real agent in
-the fixture project of ``fixture_visual.py``: three drawings rendered from ``drawings.json`` at suite
+the fixture project of ``fixture_visual.py``: the drawings rendered from ``drawings.json`` (three raster
+sheets and one vector) at suite
 start, whose figures are on the page and not in the indexed text. It is the office-file set's shape
 (``files_eval.py``, whose tool-call matching, loader and checks this reuses): the checks read the
 MODEL's own tool calls, and a judge is not needed because a value is a string.

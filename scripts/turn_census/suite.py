@@ -42,7 +42,8 @@ comparable exists, and flagged an older edition
 OIB-RL edition binds in an Austrian Land on a given day, with no project; `--only r3` runs one group.
 
 `--set visual` (`tests/fixtures/visual/visual_questions.yaml`, ADR-0128) asks questions answered by looking
-at a drawing: three sheets are rendered from `drawings.json` into the output directory and served by the
+at a drawing: the sheets (three raster, one vector) are rendered from `drawings.json` into the output
+directory and served by the
 fixture BFF, and the report counts looks and the IoU of their regions against the gold boxes. `--look off`
 is its paired arm (`VIEW_IMAGES_ENABLED=0`). Needs `QDRANT_URL` and `SUMMARY_DB` like `--set files`.
 
