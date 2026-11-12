@@ -19,7 +19,7 @@ export const memoryTopicField = z
   .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
   .nullable()
   .describe(
-    `Subject, 1–3 words in the person's language; reuse a topic. null: none.`
+    `1–3 words in the person's language; reuse a topic. null: none.`
   )
 
 /** `PATCH …/memory/topics`: every note with topic `from` gets topic `to`; a `to` another topic has merges them. */
@@ -44,4 +44,4 @@ export const memoryTopicQueryField = z
   .string()
   .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
   .optional()
-  .describe('Only this topic. Empty: no topic.')
+  .describe('This topic only; empty: none.')
