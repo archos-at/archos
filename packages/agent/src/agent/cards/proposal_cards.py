@@ -133,8 +133,9 @@ class MemoryProposalCard(CardModel):
         max_length=500,
         description="The earlier note this one corrects, quoted verbatim; accepting the proposal retires it",
     )
+    # default_factory, not default: an absent topic is an optional field in the generated schema, not a null default.
     topic: str | None = Field(
-        default=None,
+        default_factory=lambda: None,
         max_length=40,
         description="The subject the note is filed under on its shelf; the browser sends it with the note",
     )

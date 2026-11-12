@@ -2990,7 +2990,6 @@
               "type": "null"
             }
           ],
-          "default": null,
           "description": "The subject the note is filed under on its shelf; the browser sends it with the note",
           "title": "Topic"
         },
