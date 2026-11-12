@@ -222,9 +222,11 @@ Two layers. Each stops the ordinary failure; what they leave open is stated belo
 offices can be in flight on the same pod at once. A script that escaped its isolate
 could read another run's inputs in that pod's memory and copy them into its own
 output files, which go back to its own office; the missing network does not stop
-that path. Accepted for now, because an escape needs a bug in the isolate engine,
-runs last well under a second, and the output check sees only file types, not
-contents. The way to close it is one runner deployment per organization: each office's
+that path. Accepted for now, because an escape needs a bug in the isolate engine.
+The window is not small: the office files measured take well under a second, but the
+limit lets a run hold a pod for 60 s by default and 180 s at most, so an escaped
+script can wait for other runs to arrive. The output check sees only file types,
+not contents, so it does not catch the copy. The way to close it is one runner deployment per organization: each office's
 runs on pods of its own, at the cost of a minimum of pods per office instead of a
 shared pool. This is decision 5 below.
 
