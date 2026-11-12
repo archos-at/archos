@@ -8,8 +8,9 @@ one-off: it orders the steps that the area runbooks
 and adds what none of them covers because it only shows when all of it lands
 at once.
 
-Read at `origin/develop` `0a5cb0a6f` and `origin/prod` `f48bdcc4c` on
-2026-11-12. Prod runs `sha-331b9d9117661b201c762a7017f9c0d17ec21866` (content
+Read at `origin/develop` `cfc79f264` and `origin/prod` `f48bdcc4c` on
+2026-11-12 (first written at `0a5cb0a6f`; the 42 commits since add no
+migration and no prod config, and are folded in below). Prod runs `sha-331b9d9117661b201c762a7017f9c0d17ec21866` (content
 of develop `8cb6cf646`), migrations through `0191`. Nothing in this document was
 run against prod. Statements marked **unverified** come from reading code, not
 from the cluster, ESC or WorkOS.
@@ -324,13 +325,26 @@ recreates them empty. The `app` dump above keeps them.
 
 ## Phase 2: between the promotions
 
-1. **Finish Austria on dev.** The AT change request `5907f5cb` predates
-   0228–0235 and five pack files (`at-setup`, `at-sources`, `at-scopes`,
-   `at-golden-cases`, `at-citation-styles`). Re-validate it, review it (the law
-   map), publish it to preview and stable on dev, and pass
-   [dev-acceptance.md](../design/international/dev-acceptance.md) "after"
-   (A1–A8, D1–D5). Export reads stable heads only: **without AT stable on dev,
-   Promotion B's window has no end.**
+1. **Austria on dev: stable since 2026-11-12** (release sequence 636 from
+   `5907f5cb` and `d76b4ca3`, coverage `core`, 312 records, 49 texts). The QC
+   run of that day ([dev-acceptance.md, run of 2026-11-12](../design/international/dev-acceptance.md#run-of-2026-11-12-austria-after-coverage-core))
+   found the binding matrix correct and left work that decides what prod
+   offices see after B. Settle these before exporting:
+   - **No platform edition is ever checked** (finding 1). Every AT turn tells
+     the model to say the edition was never checked against its source, and
+     with #1700 an answer that names an open point is capped at medium. So AT
+     answers stay mostly medium after B until a check operation writes
+     `knowledge_checks` for platform editions. That needs an owner decision and
+     a PR; it is not a promotion step.
+   - **Titles and doc classes** (findings 2, 3). #1682 stamps a title at
+     publish; the 49 texts released before it need
+     `platform-knowledge-title-update` once, and every text its doc class, or
+     citations show file names and a doc-class search finds only the legacy
+     copies. Do it on dev before the export, so the bundle carries them.
+   - **Drafts still to review and publish on dev**: `c72e03ea` (five
+     Erläuterungen with no text), `b79ef256` (Salzburg RL 6 2015 binding
+     2016–2026, a gap until then), `9dd4d3f0` (the 28 golden cases).
+   - Then pass the "after" column again. Export reads stable heads only.
 2. **Export and rehearse.**
    `platform-knowledge-release-export {countryId:"EU"}` and `{countryId:"AT"}`.
    Keep the files. Import them into a fresh local database
@@ -350,7 +364,7 @@ recreates them empty. The `app` dump above keeps them.
    `task workspace:provision:authz -- --apply` from B's sha before B.
 6. **Book the reviewer** for the whole window. Plan a full working day: every
    imported capture arrives `operator_supplied`, so the prod reviewer
-   source-checks each of them (about 50 texts).
+   source-checks each of them (49 texts).
 
 ## Phase 3: Promotion B (the law cut-over)
 
@@ -380,7 +394,7 @@ recreates them empty. The `app` dump above keeps them.
      (`text-import` or `text-upload`), `platform-knowledge-validate` until green,
      submit. The second person reviews and approves as `domain_expert` with
      four eyes. Publish to `preview`, then `stable`.
-   - AT: the same, with about 50 texts. AT import is refused with
+   - AT: the same, with 49 texts and any follow-up release of Phase 2. AT import is refused with
      `REFERENCE_NOT_RELEASED` until EU is stable.
    - Green when `platform-knowledge-index-status` shows every text `indexed`.
      The gate changes on the next turn.
@@ -406,6 +420,9 @@ From B's deploy until step 8:
   `classification-evaluate` answers `undetermined`.
 - Formula cards (U-value, stair, escape route, daylight) show a hint, not a
   verdict.
+- The IFC model check gives no pass or fail either (#1657): it shows the value
+  it read as a note, and puts nothing on "Was dem Modell fehlt" or up for
+  confirmation in the Prüfbuch.
 - The setup's law card reads "Für diesen Standort ist noch kein Recht erfasst."
 - **A loss that stays:** a document reading that writes intake values on an
   Austrian project in the window removes the stored derived building-class
@@ -413,8 +430,9 @@ From B's deploy until step 8:
   They come back only on a later reading after AT is stable. A class a document
   stated or a person confirmed stays. Read in the code, not exercised.
 
-The cap lifts on the first turn after AT is stable. Answers stored in the
-window keep their level.
+The gate's cap lifts on the first turn after AT is stable. Answers stored in
+the window keep their level, and until platform editions are checked (Phase 2,
+finding 1) most AT answers stay at medium for that reason instead.
 
 ## Phase 4: project mail (separate, later)
 
