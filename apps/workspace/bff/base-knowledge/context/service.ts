@@ -77,6 +77,8 @@ export interface ContextDigestInputs {
   recordsStamp?: string
   /** The project's buildings, read by each edition's scope (ADR-0178): in the digest, so a changed answer re-resolves. */
   buildings?: BuildingScope
+  /** A day a caller asks about (`project-base-get` `asOf`): the context resolves on it, before a filing day or today. */
+  asOf?: string
 }
 
 /** A stable hash of the inputs: same inputs, same digest, in any key order. */
@@ -90,6 +92,7 @@ export function contextDigest(inputs: ContextDigestInputs): string {
     procedures: inputs.procedures,
     recordsStamp: inputs.recordsStamp ?? null,
     buildings: inputs.buildings?.buildings ?? [],
+    ...(inputs.asOf ? { asOf: inputs.asOf } : {}),
   })
   return createHash('sha256').update(canonical).digest('hex').slice(0, 32)
 }
@@ -169,8 +172,9 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
     sites: inputs.sites,
     graph,
     truncated: loaded?.truncated ?? false,
-    date: reference?.date ?? inputs.date,
-    dateBasis: reference?.basis,
+    // A day the caller names wins: the question is about that day, not about the filing day or today.
+    date: inputs.asOf ?? reference?.date ?? inputs.date,
+    dateBasis: inputs.asOf ? undefined : reference?.basis,
     now: new Date(),
     procedures: inputs.procedures,
     packSeqs: inputs.packSeqs,
@@ -185,9 +189,10 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
   }
 }
 
-/** The cached resolution for an office and project; throws what a read throws. */
-async function resolution(organizationId: string, projectId: string | null, time: PhaseTimer): Promise<KnowledgeContext> {
-  const inputs = await readContextInputs(organizationId, projectId)
+/** The cached resolution for an office and project, on `asOf` when a caller names a day; throws what a read throws. */
+async function resolution(organizationId: string, projectId: string | null, time: PhaseTimer, asOf?: string): Promise<KnowledgeContext> {
+  const read = await readContextInputs(organizationId, projectId)
+  const inputs = asOf ? { ...read, asOf } : read
   const key = contextCacheKey(organizationId, projectId, contextDigest(inputs))
   return getCached(key, CONTEXT_TTL_MS, () => resolveFor(organizationId, inputs, time))
 }
@@ -195,13 +200,15 @@ async function resolution(organizationId: string, projectId: string | null, time
 /**
  * The context of a project as a person's page reads it (`projectLawFor`,
  * `project-base-get`): the same resolution the turn reads, from the same
- * cache. Fails closed like the turn: a read that throws is
- * `knowledge_unavailable`. Logged under its own marker, never the turn
- * alert's (ADR-0173): an intake polls every few seconds.
+ * cache. On `asOf`, resolved on that day: a question about a past or coming
+ * submission reads the editions binding then, labelled with that day. Fails
+ * closed like the turn: a read that throws is `knowledge_unavailable`. Logged
+ * under its own marker, never the turn alert's (ADR-0173): an intake polls
+ * every few seconds.
  */
-export async function contextForPage(organizationId: string, projectId: string): Promise<KnowledgeContext> {
+export async function contextForPage(organizationId: string, projectId: string, asOf?: string): Promise<KnowledgeContext> {
   try {
-    return await resolution(organizationId, projectId, untimed)
+    return await resolution(organizationId, projectId, untimed, asOf)
   } catch (error) {
     console.error('[knowledge_context_page_read=false] the knowledge context could not be read for a page', { organizationId, projectId, error })
     return unavailableContext(calendarDayIn('UTC'))

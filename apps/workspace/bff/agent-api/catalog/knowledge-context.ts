@@ -9,6 +9,7 @@ import {
   baseKnowledgeReportBodySchema,
   coverageQuerySchema,
   projectBaseConfirmBodySchema,
+  projectBaseQuerySchema,
 } from '@/lib/base-knowledge/context/operations-wire'
 import type { AgentOperation } from '../operation'
 
@@ -52,10 +53,12 @@ export const knowledgeContextOperations = [
       'knowledge_unavailable, or coverage none to full), each leaf’s chain, every edition with its role, qualifier and ' +
       'freshness, the procedures, the packs with their release sequence, and the newest confirmation; and `law`: the gate and ' +
       'each edition the context names with its role, qualifier, designation and edition label, empty where the gate refuses. ' +
-      'Needs project:view.',
+      'It resolves on the turn’s day (today, or a filing day that has come); `asOf` resolves it on another day, so a question ' +
+      'naming a day (a submission on 1 October) reads the editions binding at the site that day, labelled with it. Needs project:view.',
     method: 'GET',
     path: '/api/projects/[id]/base',
     params: projectParams,
+    query: projectBaseQuerySchema,
     readOnly: true,
     load: () => import('@/app/api/projects/[id]/base/route'),
   },

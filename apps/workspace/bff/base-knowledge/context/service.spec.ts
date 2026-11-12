@@ -10,7 +10,7 @@
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/project-intake/setup-records', async () => ({
@@ -46,7 +46,7 @@ vi.mock('./last-answer', async (original) => ({ ...(await original<typeof import
 
 import { graphFromProposals } from '../chain/from-proposals'
 import { proposedRecordSchema } from '../platform/wire'
-import { contextCacheKey, contextDigest, knowledgeContextForStatedSite, knowledgeContextForTurn, referenceDateOf } from './service'
+import { contextCacheKey, contextDigest, contextForPage, knowledgeContextForStatedSite, knowledgeContextForTurn, referenceDateOf } from './service'
 
 const AUSTRIA = {
   territories: new Map([['AT', { id: 'AT', kind: 'country', name: 'AT', parents: [], validFrom: null, validTo: null, coverageLevel: 'core' }]]),
@@ -129,6 +129,11 @@ describe('contextDigest', () => {
     expect(contextDigest(stamped)).not.toBe(contextDigest({ ...stamped, recordsStamp: '2026-12-14T09:00:00.000Z/2026-12-14T08:00:00.000Z' }))
   })
 
+  it('changes with a day a caller asks about, so that day never shares the turn’s cached context', () => {
+    expect(contextDigest({ ...inputs, asOf: '2026-10-01' })).not.toBe(contextDigest(inputs))
+    expect(contextDigest({ ...inputs, asOf: '2026-10-01' })).not.toBe(contextDigest({ ...inputs, asOf: '2026-10-02' }))
+  })
+
   it('changes with the project’s buildings, so a new use is read by each edition’s scope on the next turn (ADR-0178)', () => {
     const house = { buildingId: 'bldg1', inputs: { uses: ['residential'] } }
     const withGarage = { buildingId: 'bldg1', inputs: { uses: ['residential', 'garage'] } }
@@ -202,6 +207,52 @@ describe('a filed project’s context resolves on its filing day (country-as-dat
     expect(context.date).not.toBe('2023-06-01')
     expect(context.date >= '2026-11-11').toBe(true)
     expect(oibRl2(context)['edition:oib-rl-2-2023']?.role).toBe('binding')
+    expect(context.text).not.toContain('filing day')
+  })
+})
+
+/**
+ * A question that names a day reads the chain on that day (dev acceptance, run of 2026-11-12): in Eisenstadt
+ * „Welche OIB-RL 6 galt für eine Einreichung am 1. Oktober 2026?“ was answered „nicht bestimmbar“, because the
+ * context resolved on today only and nothing resolved it on the day asked. `project-base-get` `asOf` does.
+ */
+describe('a project’s context on a day a question names (`asOf`)', () => {
+  const eisenstadt = (facts: Record<string, { value: string }> = {}) => ({
+    profile: { facts: { country: { value: 'at' }, federal_state: { value: 'burgenland' }, ...facts }, assumptions: {}, goals: {}, unknowns: [] },
+  })
+  const bindingRl6 = (context: Awaited<ReturnType<typeof contextForPage>>) =>
+    context.uses.filter((use) => use.workId === 'work:oib-rl-6' && use.role === 'binding').map((use) => use.editionId)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    cache.clear()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-12T09:00:00Z'))
+    officeTimeZone.mockResolvedValue('Europe/Vienna')
+    readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
+    loadGraph.mockResolvedValue({ graph: AUSTRIA_PACKS, truncated: false })
+    findProjectProfileInOrg.mockResolvedValue(eisenstadt())
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('binds OIB-RL 6 April 2019 in Burgenland on 1 October 2026, labelled with that day, and September 2025 today', async () => {
+    const then = await contextForPage('org_a', 'project_1', '2026-10-01')
+    expect(then.date).toBe('2026-10-01')
+    expect(bindingRl6(then)).toEqual(['edition:oib-rl-6-2019'])
+    expect(then.text).toContain('on 2026-10-01')
+    expect(then.text).not.toContain('filing day')
+
+    const today = await contextForPage('org_a', 'project_1')
+    expect(today.date).toBe('2026-11-12')
+    expect(bindingRl6(today)).toEqual(['edition:oib-rl-6-2025'])
+    expect(today.uses.find((use) => use.editionId === 'edition:oib-rl-6-2025')?.roleSince).toBe('2026-11-05')
+  })
+
+  it('reads the day asked before a filing day, and says nothing of the filing day', async () => {
+    findProjectProfileInOrg.mockResolvedValue(eisenstadt({ 'filed_on@p1': { value: '2026-11-06' } }))
+    const context = await contextForPage('org_a', 'project_1', '2026-10-01')
+    expect(context.date).toBe('2026-10-01')
+    expect(bindingRl6(context)).toEqual(['edition:oib-rl-6-2019'])
     expect(context.text).not.toContain('filing day')
   })
 })
