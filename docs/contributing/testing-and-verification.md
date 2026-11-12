@@ -637,6 +637,42 @@ surfaces is a deliberate run rather than a per-commit tax.
 
 ## The answer suite
 
+### Which run gates a change
+
+A change that shapes an answer (the prompt, the card or envelope contract,
+retrieval, ingestion, the answer pipeline, a model or effort default) is
+measured on dev, after it is deployed there: the AT golden run before and after.
+
+1. Before the deploy, start a run: `platform-knowledge-golden-run` with
+   `{ "countryId": "AT" }` on the platform door, then
+   `platform-knowledge-golden-run-advance` until `finishedAt` is set. The latest
+   finished run on the release that answered it can serve as the before, if no
+   other answer-shaping change was deployed since.
+2. After the deploy, the same run again.
+3. Put both `platform-knowledge-golden-run-get` summaries in the PR, or in a
+   follow-up comment once it has merged: cases passed and failed, which case
+   changed, `medianSeconds`, `medianCostUsd` and the release (`releaseSeq`). Add
+   live asks on dev (`agent-ask-create`) for the questions the change was made
+   for, where the golden cases hold none.
+
+The run asks through the real answer path with the platform organization's own
+model key, on the released records, and scores each answer in Langfuse
+(`golden-case-passed` and the rows beside it in
+[`langfuse.md`](../observability/langfuse.md)). A worse "after" is a regression
+of the change, the same as a failing test.
+
+**Why dev, not the local suite.** On 2026-11-12 the owner moved the gate here.
+The local suite needs an OpenRouter key with credit, the operator's PDFs in
+`data/oib` and a local Qdrant. Its key ran out (402) while five answer fixes
+waited on it, and it reads the law from a fixture of the packs rather than the
+records dev has released. The golden run needs none of that and reads what a
+customer's turn reads. The local `task be:eval:answer-suite` described below stays
+useful before a change can be deployed: for timings and reasoning spikes per
+call, for its other sets (editions, workspace, files), and for a run on a branch.
+It is no longer the gate.
+
+### Running the suite locally
+
 `task be:eval:answer-suite` is the end-to-end check: the reference questions
 through the real agent, several runs each, timed call by call and checked
 against what the answer must say. The loop eval asks how the turn looked for
@@ -1162,7 +1198,8 @@ and `light` modes that replayed it, are gone with the v2 cut.
 
 | Question | Tool | Needs | Cost |
 |---|---|---|---|
-| Is the answer right, and did it get slower or more variable? | `task be:eval:answer-suite` | key and ingested corpus | about 4 minutes for the core set at two runs |
+| Did a deployed change keep the answers right, as fast and as cheap? (the gate) | `platform-knowledge-golden-run` on dev, before and after the deploy ([which run gates a change](#which-run-gates-a-change)) | platform door on dev | minutes; the platform organization's model budget |
+| Is the answer right, and did it get slower or more variable, before it can deploy? | `task be:eval:answer-suite` | key and ingested corpus | about 4 minutes for the core set at two runs |
 | What did one turn cost, call by call? | `task be:eval:turn-census -- "<question>"` | key and ingested corpus | one turn per run (`--runs`, default 1); writes to `/tmp/turn_census` unless `--out`; `--override KEY VALUE` per census |
 | What happens in the milliseconds before the first model call? | `scripts/turn_census/startup_probe.py` | key, corpus and document inventory | several questions in one process; the first turn is cold |
 | Does Qdrant retrieval still clear gates G1b, G2 and G6, beside the numbers the Chroma path recorded? | `task be:eval:qdrant-parity` (`-- --variants all` adds the ranking sweep) | `data/oib`, a Qdrant 1.19 server, the embeddings key | about 15 minutes on 4 CPUs; the corpus embedding (~$0.12) is cached after the first run. [The gate report](../audit/qdrant-gates-2026-10.md) |
