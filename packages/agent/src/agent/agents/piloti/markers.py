@@ -180,8 +180,8 @@ def detect_and_strip_confidence_marker(content: Any) -> tuple[Any, ConfidenceLev
 #
 # - **Chat** (:func:`surface_checked_confidence`, ADR-0139): the level the
 #   answer check (``common/claim_judge.py``) gave, under the hard quote gate,
-#   the law gate and the open-point cap. The self-report does not set the level;
-#   below ``high`` it is the answer naming a gap of its own, and caps it.
+#   the law gate and the answer's own ceiling (:func:`answer_ceiling`): the
+#   self-report is a ceiling the check may lower, never raise.
 #   No check, no level.
 # - **Deep research** (:func:`surface_answer_confidence`, rule 1): the
 #   answer-level floors over the self-report. Every chat turn stored before the
@@ -200,8 +200,8 @@ CONFIDENCE_RULE_VERSION = 2
 #: - ``quote_unverified``       a quoted span matched no retrieved passage.
 #: - ``law_unsettled``          the answer rests on building law the turn's records do not settle: the gate
 #:   withholds a binding claim, or the coverage is open (ADR-0175). Capped to ``medium``.
-#: - ``open_point``             the answer itself names an open point: the check read one in its prose or its
-#:   confidence reason, or the answer rated itself below ``high``. Capped to ``medium``.
+#: - ``open_point``             the answer's own words hold it lower: the check read an open point in its prose or
+#:   its confidence reason (at most ``medium``), or the answer rated itself lower (at most its own level).
 #: - ``normative_claim_uncited``, ``measurement_only``, ``citation_fallback``:
 #:   no longer produced (rules 1 and 2 as chat ran them). Kept because stored
 #:   turns carry them.
@@ -266,13 +266,16 @@ def _quote_cap(quotes_verified: bool, citation_grounded: bool) -> ConfidenceLeve
     return MEASUREMENT_CONFIDENCE_CEILING if citation_grounded else "low"
 
 
-def answer_names_open_point(open_points: Sequence[str], self_reported: ConfidenceLevel | None) -> bool:
-    """Whether the answer itself names a gap: the check read an open point, or the answer rated itself below high.
+def answer_ceiling(open_points: Sequence[str], self_reported: ConfidenceLevel | None) -> ConfidenceLevel:
+    """The most the answer's own words allow: ``medium`` for an open point it names, never above its self-report.
 
-    The prompt's ``medium`` is „an inference or a named gap", its ``low`` missing or conflicting evidence: either
-    self-report is the answer saying it is not settled, whatever the check found backed.
+    The check grades whether the evidence backs each statement, and „die Bindung ist nicht geprüft" is backed by a
+    record that says so; what the answer itself says is open, or the level it gave itself (the prompt's ``medium``
+    is „an inference or a named gap", its ``low`` missing or conflicting evidence), is the answer saying it is not
+    settled. A check may lower that level, never raise it.
     """
-    return bool(open_points) or self_reported in ("low", "medium")
+    named = MEASUREMENT_CONFIDENCE_CEILING if open_points else "high"
+    return _at_most(named, self_reported) if self_reported is not None else named
 
 
 def surface_checked_confidence(
@@ -281,20 +284,19 @@ def surface_checked_confidence(
     quotes_verified: bool = True,
     citation_grounded: bool = False,
     law_unsettled: bool = False,
-    open_point: bool = False,
+    ceiling: ConfidenceLevel = "high",
 ) -> ConfidenceLevel | None:
-    """The answer check's level under the quote gate, the law gate and the open-point cap; ``None`` without a level.
+    """The answer check's level under the quote gate, the law gate and the answer's own ceiling; ``None`` without one.
 
     The law gate is structural, like the quote gate: an answer that rests on building law the records do
-    not settle (``law_unsettled``) is at most ``medium``, whatever the grader read (staging QC, F6). So is
-    an answer that names an open point of its own (``open_point``, :func:`answer_names_open_point`): the
-    check grades whether the evidence backs each statement, and „die Bindung ist nicht geprüft" is backed
-    by evidence that says so, so the level alone read such an answer ``high`` beside a reason naming the gap.
+    not settle (``law_unsettled``) is at most ``medium``, whatever the grader read (staging QC, F6). The
+    answer's own ``ceiling`` (:func:`answer_ceiling`) holds the level to what the answer itself claims.
     """
     if checked is None:
         return None
     quoted = _at_most(checked, _quote_cap(quotes_verified, citation_grounded))
-    return _at_most(quoted, MEASUREMENT_CONFIDENCE_CEILING) if law_unsettled or open_point else quoted
+    gated = _at_most(quoted, MEASUREMENT_CONFIDENCE_CEILING) if law_unsettled else quoted
+    return _at_most(gated, ceiling)
 
 
 def checked_confidence_capped_reason(
@@ -303,14 +305,22 @@ def checked_confidence_capped_reason(
     quotes_verified: bool = True,
     citation_grounded: bool = False,
     law_unsettled: bool = False,
-    open_point: bool = False,
+    ceiling: ConfidenceLevel = "high",
 ) -> CappedReason | None:
-    """The gate that lowered the check's level, quote gate first, then the law gate, then the open point; else None."""
+    """The gate that lowered the check's level: the quote gate, then the law gate, then the answer's own ceiling."""
     quoted = surface_checked_confidence(checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded)
     if quoted != checked:
         return "quote_unverified"
-    if quoted is None or _at_most(quoted, MEASUREMENT_CONFIDENCE_CEILING) == quoted:
-        return None
-    if law_unsettled:
+    gated = surface_checked_confidence(
+        checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded, law_unsettled=law_unsettled
+    )
+    if gated != quoted:
         return "law_unsettled"
-    return "open_point" if open_point else None
+    surfaced = surface_checked_confidence(
+        checked,
+        quotes_verified=quotes_verified,
+        citation_grounded=citation_grounded,
+        law_unsettled=law_unsettled,
+        ceiling=ceiling,
+    )
+    return "open_point" if surfaced != gated else None

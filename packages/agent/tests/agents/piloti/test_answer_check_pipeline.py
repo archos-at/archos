@@ -546,10 +546,12 @@ async def test_an_open_point_the_check_reads_holds_a_backed_answer_to_medium():
     assert state.answer_confidence_marker_reason == UNCHECKED
 
 
-async def test_a_self_report_below_high_holds_the_checks_high_to_medium():
+async def test_a_self_report_is_a_ceiling_the_check_never_raises():
     _, state = await _reasoned("medium", UNCHECKED, stub_judge("high"))
-
     assert state.answer_confidence == "medium" and state.answer_confidence_capped_reason == "open_point"
+
+    _, state = await _reasoned("low", "Kein Beleg für die Gebäudeklasse gefunden", stub_judge("high"))
+    assert state.answer_confidence == "low" and state.answer_confidence_capped_reason == "open_point"
 
 
 async def test_an_answer_that_names_no_open_point_keeps_the_checks_high():

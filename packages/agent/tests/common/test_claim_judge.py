@@ -185,6 +185,17 @@ class TestTheReply:
 
         assert check is not None and check.open_points == ()
 
+    @pytest.mark.parametrize("value", [None, "Bindung nicht geprüft", [None, 3, {"x": 1}]])
+    def test_open_points_that_are_no_list_of_strings_name_none_and_keep_the_level(self, value):
+        check = parse_reply(json.dumps({"level": "high", "findings": [], "open_points": value}))
+
+        assert check is not None and check.level == "high" and check.open_points == ()
+
+    def test_the_strings_among_mixed_open_points_are_kept(self):
+        check = parse_reply(json.dumps({"level": "high", "findings": [], "open_points": [1, "offen: Bindung"]}))
+
+        assert check.open_points == ("offen: Bindung",)
+
     def test_open_points_are_required_by_the_structured_format(self):
         assert "open_points" in claim_judge.CheckReply.model_json_schema()["required"]
 

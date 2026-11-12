@@ -3628,7 +3628,8 @@
             }
           ],
           "default": null,
-          "title": "Answer Confidence Capped Reason"
+          "title": "Answer Confidence Capped Reason",
+          "x-unknown-as-null": true
         },
         "answer_confidence_reason": {
           "anyOf": [

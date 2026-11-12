@@ -577,7 +577,7 @@ const EXPORT_GLOSSARY: Record<string, string> = {
   'confidence.quote_unverified': 'Capped to low: a quoted span matched no retrieved passage.',
   'confidence.law_unsettled':
     "Confidence capped to medium: the answer cites building law the turn's knowledge records do not settle (no curated coverage at the site).",
-  'confidence.open_point': 'Capped to medium: the answer itself names an open point it rests on.',
+  'confidence.open_point': 'Capped by the answer: an open point it names (medium) or its own lower level.',
   'confidence.normative_claim_uncited':
     'Confidence capped: the answer was grounded in a measurement but also made a legal claim without a verified citation.',
   'confidence.measurement_only':

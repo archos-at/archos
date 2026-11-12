@@ -16,7 +16,7 @@ from agent.knowledge import AvailableDocument
 from ..markers import CONFIDENCE_RULE_VERSION
 from ..markers import CappedReason
 from ..markers import ConfidenceLevel
-from ..markers import answer_names_open_point
+from ..markers import answer_ceiling
 from ..markers import checked_confidence_capped_reason
 from ..markers import surface_checked_confidence
 
@@ -192,8 +192,8 @@ class ResearchAgentState(BaseModel):
     # caps the surfaced level to medium with the ``law_unsettled`` reason (``markers``).
     answer_law_unsettled: bool = False
     # What the answer itself names as open, unchecked or unresolved, as the answer check read its prose and
-    # its confidence reason (``common/claim_judge.py``). Any one, or a self-report below high, caps the
-    # surfaced level to medium with the ``open_point`` reason (``markers``).
+    # its confidence reason (``common/claim_judge.py``). Any one caps the surfaced level to medium, and the
+    # self-report caps it to its own level, both with the ``open_point`` reason (``markers.answer_ceiling``).
     answer_open_points: list[str] = []
     # The SECOND kind of grounding: whether THIS turn produced at least one
     # `declared`/`computed` answer from the IFC model (see
@@ -378,16 +378,16 @@ class ResearchAgentState(BaseModel):
     def answer_confidence(self) -> ConfidenceLevel | None:
         """The answer check's level under the gates (ADR-0139); None when no check graded the answer.
 
-        The self-report ``answer_confidence_marker`` sets no level: it says the
-        answer is one to grade, and below ``high`` it is the answer naming a gap
-        of its own, which caps the check's level like an open point the check read.
+        The self-report ``answer_confidence_marker`` says the answer is one to
+        grade and is a ceiling: the check may lower it, never raise it. An open
+        point the check read in the answer holds it to medium.
         """
         return surface_checked_confidence(
             _checked_level(self.confidence_check),
             quotes_verified=self.answer_quotes_verified,
             citation_grounded=self.answer_citation_grounded,
             law_unsettled=self.answer_law_unsettled,
-            open_point=answer_names_open_point(self.answer_open_points, self.answer_confidence_marker),
+            ceiling=answer_ceiling(self.answer_open_points, self.answer_confidence_marker),
         )
 
     @property
@@ -398,5 +398,5 @@ class ResearchAgentState(BaseModel):
             quotes_verified=self.answer_quotes_verified,
             citation_grounded=self.answer_citation_grounded,
             law_unsettled=self.answer_law_unsettled,
-            open_point=answer_names_open_point(self.answer_open_points, self.answer_confidence_marker),
+            ceiling=answer_ceiling(self.answer_open_points, self.answer_confidence_marker),
         )

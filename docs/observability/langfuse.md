@@ -305,7 +305,7 @@ a name is written but not declared, or declared but not listed here.
 | `citation-fallback` | boolean | agent | retired with the single-source fallback (ADR-0125); no longer written, kept so older traces chart |
 | `sources-empty` | boolean | agent | a lookup ran and found nothing |
 | `answer-confidence` | categorical | agent | `low`, `medium`, `high` as shown |
-| `confidence-capped` | categorical | agent | which guard lowered it, or `none`: `quote_unverified` (a quote no passage holds), `law_unsettled` (law the records do not settle), `open_point` (the answer itself names an open point, or rated itself below high; `markers.answer_names_open_point`) |
+| `confidence-capped` | categorical | agent | which guard lowered it, or `none`: `quote_unverified` (a quote no passage holds), `law_unsettled` (law the records do not settle), `open_point` (the answer's own ceiling: an open point it names holds it at medium, and its self-report is a ceiling the check never raises; `markers.answer_ceiling`) |
 | `quotes-verbatim-rate` | numeric 0–1 | agent | checked quote lines held verbatim |
 | `quotes-patched` | numeric | agent | misremembered quotes the repair corrected (ADR-0067) |
 | `licensed-quote-capped` | numeric | agent | on a turn that read licensed text, the quotes of it a reply had cut at the licence's quote cap; absent when no licensed text was read (ADR-0164) |

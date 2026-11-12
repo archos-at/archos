@@ -57,11 +57,11 @@ citing building law the records do not settle is at most medium, ADR-0139's
 amendment), or stating law without the records: a sentence that cites only web
 pages and names law, or says a text binds while the gate may not bind
 (`common/binding_claims.py`, its words in `configs/norms/*/claim_terms.yml`,
-never in code); and the open-point cap (`open_point`: the check also reads the
-answer's own confidence reason and lists the open points the answer itself names
-that its main point depends on; any one, or a self-report below high, holds the
-level at medium, `markers.answer_names_open_point`). The self-report sets no
-level of its own. No model, a timeout, an
+never in code); and the answer's own ceiling (`open_point`,
+`markers.answer_ceiling`): the check also reads the answer's confidence reason
+and lists the open points the answer itself names that its main point depends
+on, and any one holds the level at medium; the self-report is a ceiling the
+check may lower, never raise. No model, a timeout, an
 error or an unreadable reply surfaces NO level, never a guessed one. Do not put
 rules back in front of the grader: five rounds of word lists, sentence classes
 and aggregation each moved the errors to the other side (ADR-0139). Deep

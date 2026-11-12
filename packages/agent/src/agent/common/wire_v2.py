@@ -440,8 +440,9 @@ class TurnResult(_Model):
     answer_meta: dict[str, Any] | None = None
     answer_confidence: Literal["low", "medium", "high"] | None = None
     answer_confidence_reason: str | None = Field(default=None, max_length=300)
+    #: Read leniently by the client (``x-unknown-as-null``): a reason an older bundle does not know is null there.
     answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled", "open_point"] | None = (
-        None
+        Field(default=None, json_schema_extra={"x-unknown-as-null": True})
     )
     routing_decision: Literal["meta", "shallow", "deep", "error"] | None = None
     escalation_reason: str | None = None

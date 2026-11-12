@@ -211,7 +211,7 @@ describe('ConfidenceChip for a checked answer (ADR-0139)', () => {
 
     await user.hover(screen.getByRole('button'))
 
-    expect((await screen.findAllByText(/The answer itself names an open point it relies on/)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText(/Capped by the answer itself: an open point it names/)).length).toBeGreaterThan(0)
   })
 
   test('an unavailable check shows no level and says the check did not run', async () => {

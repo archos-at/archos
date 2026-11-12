@@ -49,6 +49,7 @@ from typing import Literal
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import ValidationError
+from pydantic import field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +65,8 @@ JUDGE_TIMEOUT_S = 12.0
 #: go in whole, the answer's own citations first; one that does not fit is
 #: left out and counted, never cut in the middle.
 EVIDENCE_BUDGET_CHARS = 60_000
-#: Room for the level and a handful of findings.
-MAX_OUTPUT_TOKENS = 1024
+#: Room for the level, a handful of findings and the open points.
+MAX_OUTPUT_TOKENS = 1536
 #: The findings the chip names; a longer list is cut here.
 MAX_FINDINGS = 8
 #: The open points one answer names; one is enough to cap, the rest are for the trace.
@@ -135,6 +136,12 @@ class CheckReply(BaseModel):
     open_points: list[str] = Field(
         description="Each point the answer itself names as open, unchecked or unresolved, its main point resting on it."
     )
+
+    @field_validator("open_points", mode="before")
+    @classmethod
+    def _only_strings(cls, value: Any) -> list[str]:
+        """A null, a bare string or a non-string item names no open point; it never costs the whole check."""
+        return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
 
 #: Checks one answer against its evidence; ``None`` when it could not.

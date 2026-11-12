@@ -268,22 +268,31 @@ def test_the_law_gate_holds_a_checked_high_to_medium_and_names_itself():
     assert checked_confidence_capped_reason("high", quotes_verified=False, law_unsettled=True) == "quote_unverified"
 
 
-# The open-point cap (golden at-a6, 2026-11-12): an answer that names a gap of its own is not high.
-answer_names_open_point = _markers.answer_names_open_point
+# The answer's own ceiling (golden at-a6, 2026-11-12): an answer that names a gap of its own is not high,
+# and a check never raises a level above the one the answer gave itself.
+answer_ceiling = _markers.answer_ceiling
 
 
-def test_an_open_point_the_answer_names_holds_a_checked_high_to_medium_and_names_itself():
-    assert surface_checked_confidence("high", open_point=True) == "medium"
-    assert checked_confidence_capped_reason("high", open_point=True) == "open_point"
-    assert surface_checked_confidence("low", open_point=True) == "low"
-    assert checked_confidence_capped_reason("low", open_point=True) is None
-    assert checked_confidence_capped_reason("high", law_unsettled=True, open_point=True) == "law_unsettled"
-    assert checked_confidence_capped_reason("high", quotes_verified=False, open_point=True) == "quote_unverified"
+def test_the_answers_own_ceiling_holds_a_checked_high_and_names_itself():
+    assert surface_checked_confidence("high", ceiling="medium") == "medium"
+    assert checked_confidence_capped_reason("high", ceiling="medium") == "open_point"
+    assert surface_checked_confidence("high", ceiling="low") == "low"
+    assert checked_confidence_capped_reason("high", ceiling="low") == "open_point"
+    assert surface_checked_confidence("low", ceiling="medium") == "low"
+    assert checked_confidence_capped_reason("low", ceiling="medium") is None
 
 
-def test_an_open_point_is_one_the_check_read_or_a_self_report_below_high():
-    assert answer_names_open_point(["Bindung nicht geprüft"], "high") is True
-    assert answer_names_open_point([], "medium") is True
-    assert answer_names_open_point([], "low") is True
-    assert answer_names_open_point([], "high") is False
-    assert answer_names_open_point([], None) is False
+def test_the_gates_speak_first():
+    assert checked_confidence_capped_reason("high", law_unsettled=True, ceiling="medium") == "law_unsettled"
+    assert checked_confidence_capped_reason("high", quotes_verified=False, ceiling="medium") == "quote_unverified"
+    # The law gate leaves medium; a self-reported low lowers it further, and says so.
+    assert surface_checked_confidence("high", law_unsettled=True, ceiling="low") == "low"
+
+
+def test_an_open_point_caps_at_medium_and_a_self_report_at_its_own_level():
+    assert answer_ceiling(["Bindung nicht geprüft"], "high") == "medium"
+    assert answer_ceiling(["Bindung nicht geprüft"], "low") == "low"
+    assert answer_ceiling([], "medium") == "medium"
+    assert answer_ceiling([], "low") == "low"
+    assert answer_ceiling([], "high") == "high"
+    assert answer_ceiling([], None) == "high"
