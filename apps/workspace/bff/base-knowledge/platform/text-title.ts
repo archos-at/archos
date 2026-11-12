@@ -11,5 +11,6 @@ export function releasedTextTitle(designation: string | null, workTitle: string 
   const work = nameOf(designation) || nameOf(workTitle)
   const label = nameOf(editionLabel)
   if (!work) return null
-  return label ? `${work}, ${label}` : work
+  // A label that repeats the designation (a regulation's number is both) is said once, as the citation line says it.
+  return label && label !== work ? `${work}, ${label}` : work
 }

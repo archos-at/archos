@@ -665,6 +665,22 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Cards, menus, popovers, dialogs and notices across the app draw one thin edge again instead of two lines on top of each other, so pages such as the project overview, the chat and the settings look calmer.",
+            "de": "Karten, Menüs, Popovers, Dialoge und Hinweise zeigen appweit wieder nur eine dünne Linie statt zweier übereinanderliegender Linien, sodass Seiten wie die Projektübersicht, der Chat und die Einstellungen ruhiger wirken."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Every page in a project now opens the same way: the project's name, the page's title, its tabs and a line, on the same edge as the content below. The office filing looks and navigates like a project's files, with the open folder named at the top and a way back up.",
+            "de": "Jede Seite in einem Projekt öffnet sich jetzt auf dieselbe Weise: mit dem Projektnamen, dem Seitentitel, den Tabs und einer Linie, die mit dem darunterliegenden Inhalt bündig abschließt. Die Büroablage sieht aus und funktioniert wie die Dateien eines Projekts: Der geöffnete Ordner wird oben angezeigt, und Sie können zur übergeordneten Ebene zurückkehren."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "Files, project mail, open points and the bin now read as sheets lying on a desk: documents are white with a soft edge, buttons are raised, headings are bolder and mail that needs you stands out. Where every row offers the same action, it shows as a small icon until you point at the row.",
@@ -825,6 +841,30 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The sidebar inside a project reads lighter again: smaller, quieter text, a thin line along its edge, and more room between the office's places and your name at the bottom.",
+            "de": "Die Sidebar innerhalb eines Projekts wirkt wieder leichter: mit kleinerer, dezenterer Schrift, einer dünnen Linie am Rand und mehr Abstand zwischen den Bürobereichen und Ihrem Namen am unteren Rand."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Your ten most recent chats now stand under „Letzte Chats“ below the project's sections, while the sections above and the office's places below stay where they are; „Alle Chats“ at the end of the list opens the whole chat history, and a click on „Letzte Chats“ folds the list away.",
+            "de": "Ihre zehn letzten Chats finden Sie jetzt unter „Letzte Chats“ unterhalb der Projektbereiche; die Bereiche darüber und die Standorte des Büros darunter bleiben an ihrem Platz. „Alle Chats“ am Ende der Liste öffnet den gesamten Chatverlauf, und ein Klick auf „Letzte Chats“ klappt die Liste ein."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The project list that opens from the project's name is as wide as the sidebar's button instead of running past its edge.",
+            "de": "Die über den Projektnamen geöffnete Projektliste ist nun so breit wie die Schaltfläche in der Seitenleiste und ragt nicht mehr über deren Rand hinaus."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "collaboration",
           "text": {
             "en": "The inbox opens in one movement. It used to slide up twice, and its placeholder now has the shape of the list that replaces it.",
@@ -933,6 +973,14 @@
           "text": {
             "en": "A paragraph of a law that an answer read in the legal database now shows whether it binds at your site, from the published records, and its source chip opens the law at its official address. Before, such a chip showed no status and opened nothing.",
             "de": "Ein Gesetzesabsatz, den eine Antwort in der Rechtsdatenbank herangezogen hat, zeigt jetzt anhand der veröffentlichten Datensätze, ob er an Ihrem Standort gilt. Über den Quellen-Chip öffnen Sie das Gesetz an seiner offiziellen Adresse. Bisher zeigte ein solcher Chip keinen Status und öffnete nichts."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A guideline the platform holds as a released edition is now cited by its name and edition, such as „OIB-Richtlinie 6, Ausgabe März 2015“, with the body that issues it as publisher, instead of by its file name with the federal legal database as its source. This holds wherever the records of the site state its coverage.",
+            "de": "Eine Richtlinie, die auf der Plattform als veröffentlichte Ausgabe hinterlegt ist, wird nun mit ihrem Namen und ihrer Ausgabe zitiert, etwa als „OIB-Richtlinie 6, Ausgabe März 2015“, wobei die herausgebende Stelle als Herausgeber angegeben wird, statt mit ihrem Dateinamen und der Bundesrechtsdatenbank als Quelle. Dies gilt überall dort, wo die Datensätze der Website ihren Geltungsbereich ausweisen."
           }
         },
         {
@@ -1241,6 +1289,14 @@
         },
         {
           "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "A project you set up yourself now keeps the country and Bundesland it was created with. Before, they were dropped and the first question asked for the Land again; an agent creating a project through the agent door hit the same gap.",
+            "de": "Ein Projekt, das Sie selbst anlegen, behält jetzt das Land und Bundesland, mit denen es erstellt wurde. Bisher gingen diese Angaben verloren und in der ersten Frage wurde erneut nach dem Land gefragt; bei Projekten, die ein Agent über den Agentenzugang anlegt, trat dieselbe Lücke auf."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "After you upload a corrected IFC file under the same name, the Prüfbuch now judges the new file as soon as it has been read. It could keep showing the previous file's results for up to an hour longer.",
@@ -1277,6 +1333,22 @@
           "text": {
             "en": "The Subprocessors page is corrected after a full review: the hosting provider appears under its current company name, sign-in is shown to also send invitation e-mails and to keep an office's own AI keys, and address search is marked optional. Session recording is no longer called sampled.",
             "de": "Die Seite „Subprocessors“ ist nach einer vollständigen Überprüfung korrigiert: Der Hosting-Anbieter erscheint unter seinem aktuellen Unternehmensnamen, beim Login ist nun auch angegeben, dass Einladungs-E-Mails versendet und die eigenen KI-Schlüssel eines Büros gespeichert werden, und die Adresssuche ist als optional gekennzeichnet. Die Sitzungsaufzeichnung wird nicht mehr als stichprobenbasiert bezeichnet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "In a project whose site is not set yet, the assistant now searches the building-law texts your office holds, quotes them as information and asks for the site before naming the edition that applies. It no longer says a guideline's text could not be read when the text is there.",
+            "de": "In einem Projekt, dessen Standort noch nicht festgelegt ist, durchsucht der Assistent jetzt die in Ihrem Büro hinterlegten baurechtlichen Texte, zitiert sie als Information und fragt nach dem Standort, bevor er die geltende Fassung nennt. Er behauptet nicht mehr, der Text einer Richtlinie sei nicht lesbar, wenn er vorliegt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "An answer that names which edition of a guideline applies at your site, and since when, is no longer rated low confidence just for that statement. The confidence check now reads the same record of what applies at the site that the answer was written from.",
+            "de": "Eine Antwort, die angibt, welche Ausgabe einer Richtlinie an Ihrem Standort gilt und seit wann, wird nicht mehr allein für diese Aussage mit geringer Konfidenz bewertet. Die Konfidenzprüfung greift jetzt auf denselben Datensatz zu, der festhält, was an dem Standort gilt, auf dessen Grundlage die Antwort erstellt wurde."
           }
         },
         {

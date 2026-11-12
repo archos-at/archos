@@ -59,7 +59,7 @@ export function RaisedCard({
   const card = (
     <div
       className={cn(
-        'border-border bg-desk shadow-sm relative flex h-full min-w-0 flex-col overflow-hidden rounded-surface border',
+        'bg-desk shadow-sm relative flex h-full min-w-0 flex-col overflow-hidden rounded-surface',
         'transition-colors duration-quick ease-out motion-reduce:transition-none',
         // The tray is the desk, so under the pointer it is the picked grey; the sheet on it takes its own step
         // (`RaisedCardBody`). It lifted 2px with a deeper shadow until 2026-11-12: a second language beside the fill,

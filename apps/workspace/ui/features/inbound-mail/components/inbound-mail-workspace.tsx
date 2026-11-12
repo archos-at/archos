@@ -463,7 +463,9 @@ export function InboundMailWorkspace({
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
       {/* At the split two whole objects on the title's edges (32px in): the list on the desk, the reader a sheet, 16px
           apart and 24px off the foot, so both show their corners. The rows sit 8px inside the desk's edge. */}
-      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)] @3xl:gap-4 @3xl:px-8 @3xl:pb-6')}>
+      {/* 24px under the header's rule (16px on a phone): the list's desk and the open mail started on the rule and
+          read as hung from it (review of 2026-11-11). */}
+      <div className={cn('flex min-h-0 flex-1 flex-col pt-4 @3xl:pt-6', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)] @3xl:gap-4 @3xl:px-8 @3xl:pb-6')}>
         <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:rounded-surface @3xl:bg-desk @3xl:px-2', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}

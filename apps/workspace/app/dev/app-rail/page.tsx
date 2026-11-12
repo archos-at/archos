@@ -45,7 +45,7 @@
  * Dateien. Two more states for the phone: `?open=more`, „Mehr" with the project
  * selector as its first row, and `?open=switcher`, the project list it opens.
  *
- * The reader's last chats stand under „Chat“ (`?active=chat` opens one of them, the current place);
+ * The reader’s last chats stand under „Letzte Chats“ below the sections (`?active=chat` opens one of them, the current place);
  * `?chats=empty` is a project with no chats yet, where the rail lists none.
  */
 

@@ -160,6 +160,10 @@ export const platform: typeof en.platform = {
       alone: 'Sie haben in diesem Antrag geschrieben: eine zweite Person gibt ihn frei, oder Sie geben ihn mit Grund ohne Zweitprüfung frei.',
       wrong: 'Nicht richtig: {count}. Ein Antrag mit falschem Eintrag kann nicht freigegeben werden.',
     },
+    warnings: {
+      country_states_no_coverage:
+        'Das Land nennt keine Abdeckung: Ein Standort darin bleibt beim Gate „none“, ohne verbindliche Ausgaben, außer eine Region auf seiner Kette nennt eine.',
+    },
     acceptAll: 'Alle richtig',
     acceptChecked: 'Mit der Quelle verglichen, alles richtig',
     pastedHint:

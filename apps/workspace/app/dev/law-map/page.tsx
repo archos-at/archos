@@ -64,7 +64,7 @@ const OTHERS = [
   },
 ]
 const SUMMARY = { id: REQUEST_ID, title: 'Austria: Länder, building laws, OIB-Richtlinien and their adoption per Land', countryId: 'AT', status: 'submitted', createdBy: 'user_a', createdAt: '2026-11-10T16:42:01Z', origin: 'operator', sourceRecordId: null, monitorFinding: null, approval: 'four_eyes', secondReview: null, revisionCount: LAW_MAP_AT_REVISIONS.length + OTHERS.length }
-const VIEW = { ...SUMMARY, submittedAt: '2026-11-10T17:00:00Z', publishedAt: null, revisions: [...LAW_MAP_AT_REVISIONS, ...OTHERS], texts: [], captures: [], sourcesUnchecked: false, secondReviewRoles: [], approvals: [], releases: [] }
+const VIEW = { ...SUMMARY, submittedAt: '2026-11-10T17:00:00Z', publishedAt: null, revisions: [...LAW_MAP_AT_REVISIONS, ...OTHERS], texts: [], captures: [], sourcesUnchecked: false, warnings: [], secondReviewRoles: [], approvals: [], releases: [] }
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __lawMapShim?: boolean }

@@ -17,7 +17,7 @@ export function Listbox({ className, ...props }: React.ComponentProps<'ul'>): Re
     <ul
       role="listbox"
       data-slot="listbox"
-      className={cn('bg-popover text-popover-foreground border-border max-h-64 overflow-y-auto rounded-surface border p-1 shadow-xs', className)}
+      className={cn('bg-popover text-popover-foreground max-h-64 overflow-y-auto rounded-surface p-1 shadow-xs', className)}
       {...props}
     />
   )

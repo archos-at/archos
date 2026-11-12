@@ -33,6 +33,7 @@
 import { mergePageRegions, type PageRegion } from '@/features/knowledge/lib/page-region'
 import type { CitationProject, CitationSource } from '../../types'
 import type { CitationLineWire } from '@/shared/citation-line'
+import { recordedName } from '@/shared/citation-style'
 import { hostnameOf, isHttpUrl, normalizeUrl } from './text'
 export { isHttpUrl } // `bff/agent-asks/answer-evidence.ts` imports it from here
 import {
@@ -860,6 +861,13 @@ export class CitationAccumulator {
         label: observation.identity.label,
       }) || incomingTitle
     if (title && (!doc.title || looksLikeFilename(doc.title))) doc.title = title
+    // A text of an edition the records name, with no title of its own, is called what they call it, never by
+    // its file name; law read live keeps its own title.
+    // Judged on an observation that carries a title: one that omits it says nothing about the document's own name,
+    // so a live law's title, or a name the records already gave, stays.
+    if (observation.title != null) {
+      doc.title = recordedName({ title: observation.title, fileName: doc.fileName, line: observation.line ?? doc.line }) ?? doc.title
+    }
 
     if (observation.locus) this.mergeLocus(doc, observation.locus)
 

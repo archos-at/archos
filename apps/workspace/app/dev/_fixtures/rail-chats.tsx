@@ -2,9 +2,8 @@
 
 /**
  * A project's chat history for a preview of the rail: the chat store seeded with the reader's chats in the previewed project
- * (newest first: the rail lists five, „Alle Chats“ the rest), and the rail's source round the page, lit for the
- * route the preview names. `?chats=empty` is a project nobody has chatted in yet: the rail shows nothing under
- * „Chat“. The open chat is the newest but one, so the shot shows the current place below the top row.
+ * (newest first: more than the rail's ten, so „Alle Chats“ ends a full list), and the rail's source round the page, lit for the
+ * route the preview names. `?chats=empty` is a project nobody has chatted in yet: the rail shows no „Letzte Chats“. The open chat is the newest but one, so the shot shows the current place below the top row.
  */
 
 import type { JSX, ReactNode } from 'react'
@@ -26,6 +25,17 @@ const TITLES = [
   'Barrierefreiheit Sanitärräume',
   'Schallschutz Trennwände Wohnbau',
   'Stellplatzverpflichtung Wien Bauordnung',
+  'Abstandsflächen zur Nachbargrundgrenze',
+  'Bebauungsplan 7B — zulässige Gebäudehöhe',
+  'Wärmeschutz Außenwand OIB-RL 6',
+  'Dachausbau — Fluchtweg über Dachterrasse',
+  'Kinderspielplatz Pflicht ab wie vielen Wohnungen',
+  'Aufzug Mindestmaße Kabine',
+  'Belichtung Aufenthaltsräume Souterrain',
+  'Fahrradabstellplätze Wiener Garagengesetz',
+  'Lüftung innenliegender Bäder',
+  'Brandschutz Holzfassade GK4',
+  'Einreichplan — fehlende Unterlagen',
 ]
 
 const conversation = (projectId: string) => (title: string, index: number): Conversation => ({

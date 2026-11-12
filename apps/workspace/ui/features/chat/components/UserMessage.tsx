@@ -196,7 +196,7 @@ export const UserMessage: FC<UserMessageProps> = ({
         {/* Three corners are the token radius; the 4px top-right is the
             bubble's tail-side notch — the one deliberate value, and what makes
             an input bubble identifiable at a glance. */}
-        <div className="group relative w-[400px] max-w-full rounded-bubble rounded-tr-[4px] border border-input bg-card px-[14px] py-[11px] text-sm leading-[1.55] text-default shadow-xs pointer-coarse:pr-14">
+        <div className="group relative w-[400px] max-w-full rounded-bubble rounded-tr-[4px] bg-card px-[14px] py-[11px] text-sm leading-[1.55] text-default shadow-xs pointer-coarse:pr-14">
           {/* No visible "Eingabe" tab: the bubble's side and notch already say
               it on screen (Notion #38, topic 9). A screen reader has neither,
               so it still hears whose turn this is. */}
@@ -269,7 +269,7 @@ export const UserMessage: FC<UserMessageProps> = ({
           // says who is speaking, the layout says "a person is asking Piloti".
           // Three corners are the token radius; the 4px top-right is the
           // bubble's tail-side notch — the one deliberate value.
-          'group relative w-[400px] max-w-full rounded-bubble border border-input',
+          'group relative w-[400px] max-w-full rounded-bubble',
           'px-[14px] py-[11px] text-sm leading-[1.55] text-default shadow-xs',
           // The notch points at the header, on whichever side the bubble sits;
           // the other party of a two-party thread speaks on the muted surface.

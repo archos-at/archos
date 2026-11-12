@@ -128,7 +128,7 @@ export function NotificationPromptView({
     <section
       aria-label={t('prompt.title')}
       className={cn(
-        'flex items-start gap-3 rounded-lg border bg-card px-4 py-3.5 shadow-xs',
+        'flex items-start gap-3 rounded-lg bg-card px-4 py-3.5 shadow-xs',
         'animate-in fade-in-0 duration-snap ease-out motion-reduce:animate-none',
         className
       )}

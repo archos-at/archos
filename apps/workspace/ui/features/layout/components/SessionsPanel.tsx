@@ -2,7 +2,7 @@
  * SessionsPanel Component
  *
  * The history sheet: this project's chats AND its deep-research runs, newest
- * first, grouped by day. Opened from „Chats“ in the toolbar or „Alle Chats“ in the rail, it rises
+ * first, grouped by day. Opened from „Chats“ in the toolbar or „Alle Chats“ under the rail's „Letzte Chats“, it rises
  * as a page sheet over the chat — the History page it replaced is gone, and
  * this one surface is the whole record of the project's past.
  *
@@ -592,7 +592,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
               ) : deepResearchError ? (
                 // A failed fetch must never read as "no runs": one quiet line
                 // with the way to try again, beside the lists that still work.
-                <div className="border-border bg-card flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-surface border px-4 py-2.5  shadow-xs">
+                <div className="bg-card flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-surface px-4 py-2.5 shadow-xs">
                   <p className="text-muted-foreground text-xs">
                     {t('sessionsPanel.researchLoadFailed')}
                   </p>
@@ -624,7 +624,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   />
                 )
               ) : (
-                <ItemList as="ul" className="bg-card  shadow-xs">
+                <ItemList as="ul" className="border-0 bg-card shadow-xs">
                   {filteredRuns.map((run) => {
                     const status = run.status
                     const href = runHref(run)
@@ -728,7 +728,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                 <SectionLabel className="bg-background sticky top-0 z-10 -mx-2 px-2 pb-1.5 pt-1">
                   {dateLabel}
                 </SectionLabel>
-                <ItemList as="ul" className="border-border bg-card shadow-xs">
+                <ItemList as="ul" className="border-0 bg-card shadow-xs">
                   {/*Deleting a row removes it, so the list needs an exit —
                       which CSS cannot give it — and `layout` so the rows below
                       close the gap instead of jumping. The inbox's pattern,

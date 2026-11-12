@@ -1,7 +1,7 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest'
 import { cleanup, render, screen } from '@/test-utils'
 import type { ReactNode } from 'react'
-import { ProjectSectionActions, ProjectSectionBack, ProjectSectionFrame } from './project-section-frame'
+import { ProjectSectionActions, ProjectSectionBack, ProjectSectionFrame, ProjectSectionTabs } from './project-section-frame'
 
 let pathname = '/app/projects/p1/files'
 
@@ -132,10 +132,26 @@ describe('ProjectSectionFrame', () => {
     }
     const titleLine = (): HTMLElement => screen.getByRole('banner').querySelector<HTMLElement>('[data-slot="page-header-title-line"]')!
 
-    test('shows no project name: no crumb outside Dateien, and Dateien’s is the desk’s alone', () => {
+    test('a section’s own tabs stand in the header, under the title, and no sentence stands over them', async () => {
+      // The Übersicht's pages and the Automatisierung's Aufgaben and Skills were a strip in the page, under the header
+      // (review of 2026-11-11): one head for every project page.
+      show('/app/projects/p1/settings', <ProjectSectionTabs><nav aria-label="places">tabs</nav></ProjectSectionTabs>)
+      const slot = await screen.findByTestId('section-tabs-slot')
+      expect(slot).toContainElement(await screen.findByRole('navigation', { name: 'places' }))
+      expect(screen.getByRole('banner').parentElement).toContainElement(slot)
+      expect(screen.getByRole('banner').querySelector('p.text-sm')).toBeNull()
+      cleanup()
+
+      // Outside the frame the tabs render where they are written.
+      render(<ProjectSectionTabs><nav aria-label="places">tabs</nav></ProjectSectionTabs>)
+      expect(screen.getByRole('navigation', { name: 'places' })).toBeInTheDocument()
+    })
+
+    test('shows no project name: every section’s crumb is the desk’s alone', () => {
+      // Every section names its project over its title at desk width, as Dateien does (review of 2026-11-11: the
+      // title keeps its line from one section to the next); below the rail's width none does.
       show('/app/projects/p1/automation')
-      expect(screen.queryByTestId('page-header-crumb')).toBeNull()
-      expect(screen.getByRole('banner')).not.toHaveTextContent('Stadthaus Wien')
+      expect(screen.getByTestId('page-header-crumb')).toHaveClass('max-md:hidden')
       cleanup()
 
       show('/app/projects/p1/files/points')

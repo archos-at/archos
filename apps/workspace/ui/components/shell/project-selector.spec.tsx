@@ -40,7 +40,7 @@ describe('the project selector is one press', () => {
     // One line that loses its middle and keeps its end; the whole name is its title.
     const name = selector().querySelector('.whitespace-nowrap')!
     expect(name).toHaveAttribute('title', 'Wohnbau Seestadt Baufeld D12')
-    expect(name).toHaveClass('text-sm', 'font-semibold')
+    expect(name).toHaveClass('text-[13px]', 'font-medium')
     expect(selector().innerHTML).not.toMatch(/line-clamp/)
     expect(selector().querySelector('[data-slot="project-initials"]')).toBeNull()
   })
