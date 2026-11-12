@@ -26,6 +26,7 @@ describe('ProjectMemoryPanel', () => {
       'fetch',
       vi.fn(async () =>
         Response.json({
+          topics: [],
           items: [
             wire({ id: 'open', content: 'Flachdach extensiv begrünt.' }),
             wire({
@@ -61,6 +62,22 @@ describe('ProjectMemoryPanel', () => {
     expect(screen.getByText('Flachdach extensiv begrünt.')).toBeInTheDocument()
   })
 
+  test('files the notes under the topics the shelf names, with the count', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({
+          topics: [{ name: 'Brandschutz', count: 1 }],
+          items: [wire({ id: 'fire', content: 'Fluchtweg Treppenhaus 2 offen.', topic: 'Brandschutz' })],
+        })
+      )
+    )
+    render(<ProjectMemoryPanel projectId="p1" />)
+
+    await screen.findByText('Fluchtweg Treppenhaus 2 offen.')
+    expect(screen.getByText('Brandschutz')).toBeInTheDocument()
+  })
+
   test('a closed project: the notes, and no control that would change them (ADR-0090)', async () => {
     render(<ProjectMemoryPanel projectId="p1" readOnly />)
 
@@ -94,7 +111,7 @@ describe('ProjectMemoryPanel', () => {
   test('a confidence this build does not know is shown as it is', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => Response.json({ items: [wire({ id: 'odd', content: 'Sonderfall.', confidence: 'certain' as 'high' })] }))
+      vi.fn(async () => Response.json({ topics: [], items: [wire({ id: 'odd', content: 'Sonderfall.', confidence: 'certain' as 'high' })] }))
     )
     render(<ProjectMemoryPanel projectId="p1" />)
 
@@ -122,7 +139,7 @@ describe('ProjectMemoryPanel', () => {
               { error: 'A note in shared memory cannot hold a phone number.', code: 'BAD_REQUEST', details: { reason: 'note_refused', kind: 'phone' } },
               { status: 400 }
             )
-          : Response.json({ items: [] })
+          : Response.json({ topics: [], items: [] })
       )
     )
     render(<ProjectMemoryPanel projectId="proj-1" />)
