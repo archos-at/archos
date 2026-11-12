@@ -1369,6 +1369,14 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "Citations of the published OIB-Richtlinien name the Punkt the quoted text stands in again, such as \"Pkt. 5.1.1, S. 13\" for the escape route length in OIB-Richtlinie 2, instead of only the heading above it (\"Pkt. 5.1\"). The cover page's document number is no longer cited as a Punkt, and the forms in the annex of OIB-Richtlinie 6 no longer as its last Punkt.",
+            "de": "Bei Verweisen auf die veröffentlichten OIB-Richtlinien wird nun der Punkt angegeben, in dem der zitierte Text steht, etwa „Pkt. 5.1.1, S. 13“ für die Fluchtweglänge in OIB-Richtlinie 2 statt nur der darüberstehenden Überschrift („Pkt. 5.1“). Die Dokumentnummer auf dem Deckblatt wird nicht mehr als Punkt angeführt, die Formulare im Anhang der OIB-Richtlinie 6 nicht mehr als deren letzter Punkt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",

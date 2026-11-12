@@ -1636,6 +1636,10 @@
     "de": "Wer auf der Piloti-Website die Anmeldung startet, landet wieder auf der Anmeldeseite."
   },
   {
+    "en": "Citations of the published OIB-Richtlinien name the Punkt the quoted text stands in again, such as \"Pkt. 5.1.1, S. 13\" for the escape route length in OIB-Richtlinie 2, instead of only the heading above it (\"Pkt. 5.1\"). The cover page's document number is no longer cited as a Punkt, and the forms in the annex of OIB-Richtlinie 6 no longer as its last Punkt.",
+    "de": "Bei Verweisen auf die veröffentlichten OIB-Richtlinien wird nun der Punkt angegeben, in dem der zitierte Text steht, etwa „Pkt. 5.1.1, S. 13“ für die Fluchtweglänge in OIB-Richtlinie 2 statt nur der darüberstehenden Überschrift („Pkt. 5.1“). Die Dokumentnummer auf dem Deckblatt wird nicht mehr als Punkt angeführt, die Formulare im Anhang der OIB-Richtlinie 6 nicht mehr als deren letzter Punkt."
+  },
+  {
     "en": "Claude, Cursor and other assistants connected to Piloti now find your office's skills on their own and read the right one before they start a task, so they work the way your office has written down.",
     "de": "Claude, Cursor und andere mit Piloti verbundene Assistenten finden jetzt selbstständig die Skills Ihres Büros und lesen vor Beginn einer Aufgabe den passenden Skill, damit sie so arbeiten, wie Ihr Büro es festgelegt hat."
   },
