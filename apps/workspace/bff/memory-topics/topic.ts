@@ -13,7 +13,7 @@ import { z } from 'zod'
 import { BadRequestError } from '@/lib/api/errors'
 import { pageOfList, type OffsetPage, type PageOf } from '@/lib/api/offset-page'
 
-/** The longest topic, in characters (code points): the CHECK of migration 0237 holds the same number. */
+/** The longest topic, in characters (code points): the CHECK of migration 0238 holds the same number. */
 export const MEMORY_TOPIC_MAX_LENGTH = 40
 
 /** The longest raw text the wire takes; `normalizeTopic` refuses what is still longer than the topic bound once spaces are collapsed. */

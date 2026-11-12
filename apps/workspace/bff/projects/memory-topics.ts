@@ -1,5 +1,5 @@
 /**
- * The topics of a project's memory shelf (ADR-0180, migration 0237): what the
+ * The topics of a project's memory shelf (ADR-0180, migration 0238): what the
  * shelf's list counts, the names a write resolves a topic against, and the bulk
  * rename. The access checks and the folder clearance are the caller's
  * (`service.ts`); here the clearance arrives as `readable`, the folders the

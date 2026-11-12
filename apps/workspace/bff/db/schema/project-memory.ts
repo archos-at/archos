@@ -114,7 +114,7 @@ export const projectMemory = pgTable(
      * quote. NULL for every other item; when set, always a JSON array.
      */
     evidence: jsonb('evidence').$type<{ fileName: string; page: string | null }[] | null>(),
-    /** What the note is about (migration 0237): a short subject, reused across the shelf's notes; null is "no topic". */
+    /** What the note is about (migration 0238): a short subject, reused across the shelf's notes; null is "no topic". */
     topic: text('topic'),
     salience: real('salience').notNull().default(0.5),
     pinned: boolean('pinned').notNull().default(false),

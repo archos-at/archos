@@ -324,7 +324,7 @@ The shelf is still the reader's, so a topic never crosses a shelf: "Brandschutz"
 on Mein Gedächtnis and "Brandschutz" on a project shelf are two topics.
 
 - **A column, not a table.** `topic` is a nullable text column on
-  `personal_memory` and `project_memory` (migration `0237_memory_topics`), with a
+  `personal_memory` and `project_memory` (migration `0238_memory_topics`), with a
   CHECK of 1 to 40 characters without outer spaces. No topics table, no foreign
   key, no new row-level-security policy: the note's policy covers its topic, so a
   topic a reader may not see is not shown to them. A table would give a topic its

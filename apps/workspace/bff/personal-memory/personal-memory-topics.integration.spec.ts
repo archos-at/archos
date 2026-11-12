@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 /**
- * A personal topic is the person’s own (ADR-0180, migration 0237): against a
+ * A personal topic is the person’s own (ADR-0180, migration 0238): against a
  * REAL Postgres with the full migration chain, as the restricted runtime role.
  * Removing or renaming a topic as person A never touches person B’s notes on
  * the same topic, in the same organization, even though the service’s WHERE

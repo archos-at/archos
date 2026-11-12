@@ -830,7 +830,7 @@ export type DigestItem = Pick<
 > & {
   /** Set on a restricted item, which the line then marks `restricted` (ADR-0087). */
   restrictedFolderIds?: readonly string[] | null
-  /** The note's topic (migration 0237): its line's first tag, and a name in the digest's index. */
+  /** The note's topic (migration 0238): its line's first tag, and a name in the digest's index. */
   topic?: string | null
 }
 
