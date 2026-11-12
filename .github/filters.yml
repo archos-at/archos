@@ -136,6 +136,7 @@ backend:
   - 'apps/workspace/tests/fixtures/run-ledger.schema.json'
   - 'apps/workspace/tests/fixtures/surface-parity.json'
   - 'apps/workspace/tests/fixtures/turn-outcome.schema.json'
+  - 'apps/workspace/tests/fixtures/workspace/catalog.json'
   - 'apps/workspace/tests/fixtures/workspace/rendered.json'
   - 'apps/workspace/tests/fixtures/workspace_mcp_requests.json'
   - 'apps/workspace/tests/fixtures/workspace_mcp_responses.json'
