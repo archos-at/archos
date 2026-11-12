@@ -6,11 +6,7 @@
 
 import { z } from 'zod'
 import { pageQueryShape } from '@/lib/api/offset-page'
-import {
-  memoryTopicField,
-  memoryTopicQueryField,
-  memoryTopicRenameSchema,
-} from '@/lib/memory-topics/topic'
+import { memoryTopicField, memoryTopicQueryField, memoryTopicRenameSchema } from '@/lib/memory-topics/wire'
 import { PERSONAL_MEMORY_KINDS, PERSONAL_MEMORY_MAX_CONTENT_CHARS } from './vocabulary'
 
 const content = z

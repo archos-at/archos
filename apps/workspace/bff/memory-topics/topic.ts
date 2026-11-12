@@ -9,14 +9,10 @@
  * lands in the shelf's "Brandschutz" and never in a second topic of its own.
  */
 
-import { z } from 'zod'
 import { BadRequestError } from '@/lib/api/errors'
+import { MEMORY_TOPIC_MAX_LENGTH } from './wire'
 
-/** The longest topic, in characters (code points): the CHECK of migration 0238 holds the same number. */
-export const MEMORY_TOPIC_MAX_LENGTH = 40
-
-/** The longest raw text the wire takes; `normalizeTopic` refuses what is still longer than the topic bound once spaces are collapsed. */
-export const MEMORY_TOPIC_WIRE_MAX_CHARS = 200
+export * from './wire'
 
 /**
  * The normal form of a topic, or null for no topic. Unicode-normalized (NFC, so a
@@ -82,29 +78,6 @@ export function distinctTopicNames(items: readonly { topic: string | null }[]): 
   return [...new Set(items.flatMap((item) => (item.topic === null ? [] : [item.topic])))]
 }
 
-/** The topic field of a note on the wire: text up to the wire bound, or null to take the note out of its topic. */
-export const memoryTopicField = z
-  .string()
-  .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
-  .nullable()
-  .describe(
-    `Subject, 1–3 words in the person's language; reuse a topic. null: none.`
-  )
-
-/** `PATCH …/memory/topics`: every note with topic `from` gets topic `to`; a `to` another topic has merges them. */
-export const memoryTopicRenameSchema = z.object({
-  from: z
-    .string()
-    .min(1)
-    .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
-    .nullable()
-    .describe('Topic to rename. null: no topic.'),
-  to: memoryTopicField.describe(
-    'New name; an existing one merges. null: none.'
-  ),
-})
-
-export type MemoryTopicRenameInput = z.infer<typeof memoryTopicRenameSchema>
 
 /**
  * A rename's `from`, checked before anything is read or written: null is the notes
@@ -116,14 +89,3 @@ export function requireRenameFrom(from: string | null): void {
     throw new BadRequestError('The topic to rename is named by its text, or null for the notes with no topic.')
   }
 }
-
-/**
- * The `topic` a list filters on, as the query names it: one topic's name, or
- * the empty string for the notes with no topic. The list resolves it against
- * the shelf's own topics (`resolveTopic`), so "brandschutz" finds "Brandschutz".
- */
-export const memoryTopicQueryField = z
-  .string()
-  .max(MEMORY_TOPIC_WIRE_MAX_CHARS)
-  .optional()
-  .describe('Only this topic. Empty: no topic.')

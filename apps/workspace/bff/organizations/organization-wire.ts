@@ -6,7 +6,7 @@
 
 import { z } from 'zod'
 import { locales } from '@/i18n/config'
-import { memoryTopicField } from '@/lib/memory-topics/topic'
+import { memoryTopicField } from '@/lib/memory-topics/wire'
 import { DELETED_FOLDER_CONTENT_POLICIES } from '@/lib/authz/folder-access-rule'
 import {
   PROJECT_MEMORY_CONFIDENCES,

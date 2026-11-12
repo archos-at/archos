@@ -6,7 +6,7 @@
 
 import { z } from 'zod'
 import { pageQueryShape } from '@/lib/api/offset-page'
-import { memoryTopicField, memoryTopicQueryField } from '@/lib/memory-topics/topic'
+import { memoryTopicField, memoryTopicQueryField } from '@/lib/memory-topics/wire'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 import {
   PROJECT_MEMORY_CONFIDENCES,

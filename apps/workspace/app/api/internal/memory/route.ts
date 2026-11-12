@@ -21,7 +21,7 @@ import {
   organizationExists,
 } from '@/lib/projects/memory-service'
 import { resolveOfficeTopicForWrite, resolveTopicForAgentProjectWrite } from '@/lib/projects/memory-topics'
-import { memoryTopicField } from '@/lib/memory-topics/topic'
+import { memoryTopicField } from '@/lib/memory-topics/wire'
 import {
   memoryJudgeVerdictSchema,
   recordMemoryJudgeVerdict,

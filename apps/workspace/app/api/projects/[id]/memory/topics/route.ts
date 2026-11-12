@@ -6,7 +6,7 @@
 
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { renameProjectMemoryTopic } from '@/lib/projects/service'
-import { memoryTopicRenameSchema } from '@/lib/memory-topics/topic'
+import { memoryTopicRenameSchema } from '@/lib/memory-topics/wire'
 
 type Params = { id: string }
 

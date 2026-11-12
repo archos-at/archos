@@ -14,7 +14,7 @@
 import { z } from 'zod'
 import { ProjectProfilePatchOperationSchema } from '@/lib/project-profile/types'
 import { PROJECT_MEMORY_CONFIDENCES, PROJECT_MEMORY_KINDS } from '@/lib/projects/memory-vocabulary'
-import { memoryTopicField } from '@/lib/memory-topics/topic'
+import { memoryTopicField } from '@/lib/memory-topics/wire'
 
 /**
  * `file_operation`: move, rename, create a folder, assign (0140).

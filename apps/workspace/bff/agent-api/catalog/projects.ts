@@ -32,7 +32,7 @@ import {
   listMemoryQuerySchema,
   patchMemorySchema,
 } from '@/lib/projects/project-memory-wire'
-import { memoryTopicRenameSchema } from '@/lib/memory-topics/topic'
+import { memoryTopicRenameSchema } from '@/lib/memory-topics/wire'
 import { projectPeriodSchema, projectPersonSchema } from '@/lib/projects/project-record-types'
 import {
   deleteProjectSchema,
