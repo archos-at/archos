@@ -235,9 +235,11 @@ For each file:
 
    | Source | Unit | Locator (`clause_id`) | `page_label` |
    |---|---|---|---|
-   | OIB Richtlinie (`oib_doc_class` set) | a Punkt (`clause_chunking`) | `3.5.2`, `Tabelle 3` | first page |
+   | OIB Richtlinie (`oib_doc_class` set), or a released text: a file the platform's records name as an edition's text, known by the `knowledge_edition_id` its ingest job carries (ADR-0173), whatever its name (`oib-rl-2-2023-text-80c174ce27a0.pdf`) or its human-set `doc_class` (`chunking_choice.text_documents_for_pages`) | a Punkt (`clause_chunking`); an annex the contents page lists after the last Punkt, and the colophon, are per-page chunks | `3.5.2`, `Tabelle 3` | first page |
    | Any other PDF with a heading structure | chunks of ~640 tokens inside a section that may span pages, 96 tokens of overlap inside the section, heading breadcrumb as the first line (`section_chunking`) | the heading's number (`3.2`, `§ 4`, `Artikel 2`), else its title path (`Brandschutz › Allgemeines`) | page the chunk's own text starts on; `page_end` where it ends |
    | A PDF without one | one Document per page, split by `SentenceSplitter` | none | the page |
+
+   A released text the Punkt chunker cannot read (a glossary, a list of standards) takes the heading path; a corpus file named the old way keeps its pages. `platform-knowledge-sync` skips unchanged bytes, so a change here reaches an indexed file only through `platform-knowledge-reingest`, which keeps the file's stored mark.
    | `.md` (the IFC digest too) | one section per ATX heading, packed to the same budget, breadcrumb first | the heading path under the document title (`Geschoße › EG`) | none |
    | `.txt` | paragraph blocks packed to the budget | `Zeilen 12-30` | none |
    | `.csv`/`.tsv` | row groups that each repeat the header | `Zeilen 2-41` (file lines) | none |

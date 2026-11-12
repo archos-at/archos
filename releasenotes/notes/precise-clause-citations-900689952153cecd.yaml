@@ -1,0 +1,15 @@
+---
+fixes:
+  - >
+    Citations of the published OIB-Richtlinien name the Punkt the quoted text
+    stands in again, such as "Pkt. 5.1.1, S. 13" for the escape route length
+    in OIB-Richtlinie 2, instead of only the heading above it ("Pkt. 5.1").
+    The cover page's document number is no longer cited as a Punkt, and the
+    forms in the annex of OIB-Richtlinie 6 no longer as its last Punkt.
+operators:
+  - >
+    Chunks built before this release keep the coarser Punkt. After deploying,
+    rebuild the released texts once per environment with
+    platform-knowledge-reingest, naming every corpusFile that
+    platform-knowledge-text-list lists; platform-knowledge-sync skips them
+    because their bytes have not changed.

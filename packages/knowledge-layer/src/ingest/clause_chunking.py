@@ -51,12 +51,17 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # the same two lines is pure noise in a vector, and worse, it is noise that *matches*
 # every query mentioning "OIB-Richtlinie".
 _HEADER_RE = re.compile(r"^Österreichisches Institut für Bautechnik\b")
-_FOOTER_RE = re.compile(r"^.{0,90}?\bAusgabe\s+Mai\s+\d{4}\b(?:\s+Rev\.\s*[\d.]+)?(?:\s+Seite\s+\d+\s+von\s+\d+)?\s*$")
+#: The edition as the footer and the title page print it, in any month: ``Ausgabe Mai 2023``,
+#: ``Ausgabe März 2015``, ``Ausgabe September 2025``. Matched on May alone, the footer of
+#: every other edition stayed in its Punkte as text and the breadcrumb fell back to the
+#: file's name (measured on the released 2015, 2019 and 2025 texts, 2026-11-12).
+_EDITION = r"Ausgabe\s+[A-ZÄÖÜ][a-zäöü]+\s+\d{4}\b"
+_FOOTER_RE = re.compile(rf"^.{{0,90}}?\b{_EDITION}(?:\s+Rev\.\s*[\d.]+)?(?:\s+Seite\s+\d+\s+von\s+\d+)?\s*$")
 #: Same shape as ``_FOOTER_RE`` but capturing the document label in front of the date,
 #: which is the most reliable name for the Richtlinie: it recurs on nearly every page,
 #: whereas the cover page is rotated/garbled by pdfplumber ("neinilthcir").
 _FOOTER_LABEL_RE = re.compile(
-    r"^(?P<label>\S.{0,88}?)\s+Ausgabe\s+Mai\s+\d{4}\b(?:\s+Rev\.\s*[\d.]+)?(?:\s+Seite\s+\d+\s+von\s+\d+)?\s*$"
+    rf"^(?P<label>\S.{{0,88}}?)\s+{_EDITION}(?:\s+Rev\.\s*[\d.]+)?(?:\s+Seite\s+\d+\s+von\s+\d+)?\s*$"
 )
 
 #: A run of dots is the table-of-contents leader ("3.1 Brandabschnitte ......... 3").
@@ -218,7 +223,7 @@ def _document_label(lines: list[str]) -> str:
 def _document_subject(lines: list[str]) -> str:
     """The Richtlinie's subject ("Brandschutz"), read off the title page.
 
-    Every title page in the corpus ends its masthead with ``Ausgabe: Mai <year>`` and puts
+    Every title page in the corpus ends its masthead with ``Ausgabe: <month> <year>`` and puts
     the subject on the one to three lines directly above it, below a marker line that is
     either the ``Oia``/``O ia`` logo fragment, the ``-Richtlinie n`` continuation or the
     ``Erläuternde Bemerkungen zu`` lead-in. Walking backwards from the date to that marker
@@ -228,7 +233,7 @@ def _document_subject(lines: list[str]) -> str:
     """
     marker = re.compile(r"^(?:-|O\s?ia\b|Erläuternde\b|Bemerkungen\b)")
     for index, line in enumerate(lines):
-        if not re.match(r"^Ausgabe:\s*Mai\s*\d{4}\s*$", line):
+        if not re.match(r"^Ausgabe:\s*[A-ZÄÖÜ][a-zäöü]+\s*\d{4}\s*$", line):
             continue
         collected: list[str] = []
         for candidate in reversed(lines[max(0, index - 4) : index]):
@@ -477,11 +482,44 @@ def _best_chain(
     return chain
 
 
+def _back_matter(text_pages: list[dict[str, Any]]) -> tuple[str, ...]:
+    """Title keys of the unnumbered entries the contents page lists after its last numbered one (``Anhang``).
+
+    They are the document's back matter: an annex of forms after the last Punkt. Without
+    this, the Punkt run ran on to the colophon, and the annex was filed under the last
+    Punkt: twelve pages of Energieausweis forms cited as "8.3.2" (OIB-RL 6, Ausgabe Mai
+    2023 and September 2025, measured 2026-11-12).
+    """
+    trailing: list[str] = []
+    for page in text_pages:
+        text = page.get("text") or ""
+        if not _is_toc_page(text):
+            continue
+        for line in (stripped for stripped in map(str.strip, text.splitlines()) if _TOC_ENTRY_RE.search(stripped)):
+            match = _CLAUSE_RE.match(line)
+            numbered = match is not None and _parse_clause_id(match.group(1)) is not None
+            trailing = [] if numbered else [*trailing, _title_key(line)]
+    return tuple(key for key in trailing if key)
+
+
+def _cut_back_matter(segments: list[_Segment], postamble: list[tuple[int, str]], keys: tuple[str, ...]) -> None:
+    """Move the last Punkt's lines from the first one that opens a back-matter entry on into the postamble."""
+    if not segments or not keys:
+        return
+    last = segments[-1].lines
+    for index, (_page, line) in enumerate(last[1:], start=1):
+        if _DOT_LEADER_RE.search(line) is None and _title_key(line).startswith(keys):
+            postamble[:0] = last[index:]
+            del last[index:]
+            return
+
+
 def _split_into_segments(
     lines: list[tuple[int, str]],
     listed: dict[str, str] | None = None,
+    back_matter: tuple[str, ...] = (),
 ) -> tuple[list[tuple[int, str]], list[_Segment], list[tuple[int, str]]]:
-    """Cut the line stream into preamble, Punkt segments and postamble."""
+    """Cut the line stream into preamble, Punkt segments and postamble (``_back_matter`` included)."""
     body_end = len(lines)
     for index, (_page_number, line) in enumerate(lines):
         if _END_OF_BODY_RE.match(line):
@@ -510,6 +548,7 @@ def _split_into_segments(
         else:
             preamble.append((page_number, line))
 
+    _cut_back_matter(segments, postamble, back_matter)
     return preamble, segments, postamble
 
 
@@ -615,11 +654,11 @@ def clause_documents(text_pages: list[dict[str, Any]], file_name: str, file_size
     if not lines:
         return None
 
-    preamble, segments, postamble = _split_into_segments(lines, _listed_headings(text_pages))
+    preamble, segments, postamble = _split_into_segments(lines, _listed_headings(text_pages), _back_matter(text_pages))
     if len(segments) < _MIN_CLAUSES:
         return None
 
-    body_characters = sum(len(line) for _page, line in lines)
+    body_characters = sum(len(line) for _page, line in lines) - sum(len(line) for _page, line in postamble)
     clause_characters = sum(len(line) for segment in segments for _page, line in segment.lines)
     if not body_characters or clause_characters / body_characters < _MIN_CLAUSE_COVERAGE:
         return None
