@@ -16,6 +16,12 @@
  */
 
 import { formatBoundedDigestWithKept, type DigestLineItem } from '@/lib/knowledge/digest-format'
+import {
+  quoted,
+  TOPIC_INDEX_MAX_CHARS,
+  TOPIC_INDEX_MAX_TOPICS,
+  topicIndexLine as indexLineOf,
+} from '@/lib/knowledge/topic-index'
 import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
 
 /** The header the agent's prompt names; the version moves when the line format does. */
@@ -24,10 +30,10 @@ export const PERSONAL_MEMORY_DIGEST_HEADER = 'PERSONAL_MEMORY v1'
 export const PERSONAL_DIGEST_MAX_ITEMS = 20
 /** The block's character budget, footer included. */
 export const PERSONAL_DIGEST_MAX_CHARS = 1500
-/** The most topics the index names; any further topic is counted in the index, not named. */
-export const PERSONAL_DIGEST_MAX_TOPICS = 20
+/** The most topics the index names (the bound `topic-index.ts` shares with the project digest). */
+export const PERSONAL_DIGEST_MAX_TOPICS = TOPIC_INDEX_MAX_TOPICS
 /** The index line's own budget, so long topic names cannot take the room of the notes. */
-export const PERSONAL_DIGEST_INDEX_MAX_CHARS = 300
+export const PERSONAL_DIGEST_INDEX_MAX_CHARS = TOPIC_INDEX_MAX_CHARS
 
 /** A note as the block needs it: what it says, its kind, whether it is pinned, and its topic. */
 export interface PersonalDigestNote {
@@ -47,27 +53,9 @@ export interface PersonalDigestShelf {
 
 const footer = (omitted: number): string => `(+${omitted} more personal notes, not shown.)`
 
-/** A text as the block quotes it: one line, quotes and backslashes escaped. The rule of `digest-format.ts`. */
-function quoted(text: string): string {
-  const line = text.replace(/\s+/g, ' ').trim()
-  return `"${line.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
-}
-
 /** The topic index line, or null when the shelf has no topic. Bounded in topics and in characters, and says so. */
 export function topicIndexLine(shelf: PersonalDigestShelf): string | null {
-  if (shelf.topics.length === 0) return null
-  const head = `topics of the person's ${shelf.total} notes (at most ${PERSONAL_DIGEST_MAX_TOPICS} named):`
-  const parts: string[] = []
-  let used = head.length
-  for (const topic of shelf.topics.slice(0, PERSONAL_DIGEST_MAX_TOPICS)) {
-    const part = `${quoted(topic.name)} (${topic.count})`
-    if (used + part.length + 1 > PERSONAL_DIGEST_INDEX_MAX_CHARS) break
-    parts.push(part)
-    used += part.length + 1
-  }
-  const more = shelf.topics.length - parts.length
-  if (more > 0) parts.push(`(+${more} more topics, not named)`)
-  return `${head} ${parts.join(', ')}`
+  return indexLineOf(`topics of the person's ${shelf.total} notes`, shelf.topics)
 }
 
 /** The heading of one topic's group; the notes with no topic are the last group. */

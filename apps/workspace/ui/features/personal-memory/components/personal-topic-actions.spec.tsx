@@ -56,7 +56,7 @@ describe('PersonalTopicActions', () => {
 
   test('renaming a topic sends the new name to the topic route and reads the list again', async () => {
     const onChanged = vi.fn()
-    render(<PersonalTopicActions topic="Brandschutz" count={3} onChanged={onChanged} />)
+    render(<PersonalTopicActions topic="Brandschutz" count={3} topics={['Brandschutz']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
     const input = screen.getByLabelText('Topic name')
@@ -70,7 +70,7 @@ describe('PersonalTopicActions', () => {
   })
 
   test('a name over the topic bound is refused on the screen and sends nothing', async () => {
-    render(<PersonalTopicActions topic="Brandschutz" count={3} onChanged={vi.fn()} />)
+    render(<PersonalTopicActions topic="Brandschutz" count={3} topics={['Brandschutz']} onChanged={vi.fn()} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
     await userEvent.clear(screen.getByLabelText('Topic name'))
@@ -83,7 +83,7 @@ describe('PersonalTopicActions', () => {
 
   test('the same topic name is no change and sends nothing', async () => {
     const onChanged = vi.fn()
-    render(<PersonalTopicActions topic="Brandschutz" count={3} onChanged={onChanged} />)
+    render(<PersonalTopicActions topic="Brandschutz" count={3} topics={['Brandschutz']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -94,7 +94,7 @@ describe('PersonalTopicActions', () => {
 
   test('a case-only change of a topic is a rename the server takes', async () => {
     const onChanged = vi.fn()
-    render(<PersonalTopicActions topic="brandschutz" count={3} onChanged={onChanged} />)
+    render(<PersonalTopicActions topic="brandschutz" count={3} topics={['Brandschutz']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
     await userEvent.clear(screen.getByLabelText('Topic name'))
@@ -107,7 +107,7 @@ describe('PersonalTopicActions', () => {
 
   test('ungrouping sends no topic for the notes, which keep their text', async () => {
     const onChanged = vi.fn()
-    render(<PersonalTopicActions topic="Brandschutz" count={3} onChanged={onChanged} />)
+    render(<PersonalTopicActions topic="Brandschutz" count={3} topics={['Brandschutz']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Ungroup' }))
 
@@ -117,7 +117,7 @@ describe('PersonalTopicActions', () => {
 
   test('removing a topic says how many notes go before it deletes them', async () => {
     const onChanged = vi.fn()
-    render(<PersonalTopicActions topic="Brandschutz" count={3} onChanged={onChanged} />)
+    render(<PersonalTopicActions topic="Brandschutz" count={3} topics={['Brandschutz']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove topic and all its notes' }))
     const dialog = screen.getByRole('dialog')
@@ -132,7 +132,7 @@ describe('PersonalTopicActions', () => {
   test('a refused write says so, changes nothing on the screen and reads nothing again', async () => {
     renameMock.mockRejectedValue(new ApiRequestError('Failed to rename topic in personal memory: 500', 500))
     const onChanged = vi.fn()
-    render(<PersonalTopicActions topic="Brandschutz" count={3} onChanged={onChanged} />)
+    render(<PersonalTopicActions topic="Brandschutz" count={3} topics={['Brandschutz']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Ungroup' }))
 

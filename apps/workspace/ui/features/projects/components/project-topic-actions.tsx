@@ -1,26 +1,16 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import type { JSX } from 'react'
 import { toast } from 'sonner'
 import { TopicPicker } from '@/components/memory/topic-picker'
+import { TopicRenameDialog } from '@/components/memory/topic-rename-dialog'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Field, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { useTranslations } from '@/i18n'
-import { commonCopy } from '@/i18n/namespaces/common'
 import { memoryTopicsCopy } from '@/i18n/namespaces/memory-topics'
 import { projectsCopy } from '@/i18n/namespaces/projects'
-import { normalizeTopic } from '@/lib/memory-topics/topic'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
+import { moveProjectMemoryNote, renameProjectMemoryTopic } from '@/adapters/api/project-memory-client'
 
 /**
  * The topic actions of the project memory shelf (ADR-0180, the topics amendment):
@@ -29,118 +19,12 @@ import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
  * PATCH; there is no remove-topic on the team shelf (a team's notes go one by one).
  */
 
-const topicsUrl = (projectId: string): string => `/api/projects/${encodeURIComponent(projectId)}/memory/topics`
-
-const itemUrl = (projectId: string, itemId: string): string =>
-  `/api/projects/${encodeURIComponent(projectId)}/memory/${encodeURIComponent(itemId)}`
-
-/** A note's own PATCH. An office note is the organization's, so it goes where the panel sends it (`project-memory-panel.tsx`). */
-const noteUrl = (projectId: string, item: Pick<ProjectMemoryItem, 'id' | 'scope'>): string =>
-  item.scope === 'organization'
-    ? `/api/organization/memory/${encodeURIComponent(item.id)}`
-    : itemUrl(projectId, item.id)
-
-/** A PATCH that answers JSON, or throws for any status the shelf refuses. */
-async function patchJson<T>(url: string, body: unknown): Promise<T> {
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!response.ok) throw new Error(`Request failed (${response.status})`)
-  return (await response.json()) as T
-}
-
-/** The topic a typed name stands for, or why it does not: longer than the bound. Empty is no topic. */
-function typedTopic(raw: string): { topic: string | null; tooLong: boolean } {
-  try {
-    return { topic: normalizeTopic(raw), tooLong: false }
-  } catch {
-    return { topic: null, tooLong: true }
-  }
-}
-
-interface TopicRenameDialogProps {
-  topic: string
-  count: number
-  pending: boolean
-  onClose: () => void
-  /** Resolves true when the shelf took the change. */
-  onSubmit: (to: string) => Promise<boolean>
-}
-
-/**
- * Rename a topic. A name another topic already has merges the notes into it; the
- * hint says so before the person saves. Mounted only while open, so the field
- * starts from the topic's current name.
- */
-function TopicRenameDialog({ topic, count, pending, onClose, onSubmit }: TopicRenameDialogProps): JSX.Element {
-  const t = useTranslations(memoryTopicsCopy)
-  const tCommon = useTranslations(commonCopy)
-  const inputId = useId()
-  const [name, setName] = useState(topic)
-
-  const typed = typedTopic(name)
-  const canSave = typed.topic !== null && typed.topic !== topic && !pending
-
-  const save = async () => {
-    const to = typed.topic
-    if (to === null || to === topic) return
-    if (await onSubmit(to)) onClose()
-  }
-
-  return (
-    <Dialog
-      open
-      onOpenChange={(next) => {
-        if (!next && !pending) onClose()
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('rename')}</DialogTitle>
-          <DialogDescription>{t('topicCount', { count })}</DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (canSave) void save()
-          }}
-        >
-          <Field>
-            <FieldLabel htmlFor={inputId}>{t('renamePlaceholder')}</FieldLabel>
-            <Input
-              id={inputId}
-              value={name}
-              autoFocus
-              enterKeyHint="done"
-              aria-invalid={typed.tooLong || undefined}
-              onChange={(event) => setName(event.target.value)}
-            />
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              {typed.tooLong ? t('topicTooLong') : t('mergeHint')}
-            </p>
-          </Field>
-          <DialogFooter className="mt-5">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
-              {tCommon('actions.cancel')}
-            </Button>
-            <Button type="submit" disabled={!canSave}>
-              {tCommon('actions.save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 export interface ProjectTopicActionsProps {
   projectId: string
   /** The group's topic; the group of notes with no topic has nothing to rename or ungroup. */
   topic: string | null
-  /** How many notes the reader sees on the topic. */
-  count: number
+  /** The topics a rename may merge into: the ones open notes hold, never a restricted topic's name. */
+  mergeTargets: readonly string[]
   /** Called after the shelf took a change, so the list reloads the groups. */
   onChanged: () => void
 }
@@ -149,7 +33,7 @@ export interface ProjectTopicActionsProps {
 export function ProjectTopicActions({
   projectId,
   topic,
-  count,
+  mergeTargets,
   onChanged,
 }: ProjectTopicActionsProps): JSX.Element | null {
   const t = useTranslations(memoryTopicsCopy)
@@ -163,7 +47,7 @@ export function ProjectTopicActions({
   const change = async (to: string | null): Promise<boolean> => {
     setPending(true)
     try {
-      await patchJson<{ moved: number }>(topicsUrl(projectId), { from: topic, to })
+      await renameProjectMemoryTopic(projectId, { from: topic, to })
       onChanged()
       return true
     } catch {
@@ -184,15 +68,13 @@ export function ProjectTopicActions({
           {t('ungroup')}
         </Button>
       </div>
-      {renaming && (
-        <TopicRenameDialog
-          topic={topic}
-          count={count}
-          pending={pending}
-          onClose={() => setRenaming(false)}
-          onSubmit={change}
-        />
-      )}
+      <TopicRenameDialog
+        open={renaming}
+        topic={topic}
+        topics={mergeTargets}
+        onOpenChange={setRenaming}
+        onRename={(to) => change(to)}
+      />
     </>
   )
 }
@@ -200,13 +82,13 @@ export function ProjectTopicActions({
 export interface ProjectNoteTopicMoveProps {
   projectId: string
   item: Pick<ProjectMemoryItem, 'id' | 'scope' | 'topic'>
-  /** The topics the shelf has, as the list names them. */
+  /** The topics the note may move to: all the reader sees for a restricted note, the open ones for an open note. */
   topics: string[]
   /** Called after the note took its new topic. */
   onChanged: () => void
 }
 
-/** Move one note (project or office) to another topic, or to none, with the note's own PATCH. */
+/** Move one note (project or office) to another topic, or to none: a compact control that opens the picker. */
 export function ProjectNoteTopicMove({ projectId, item, topics, onChanged }: ProjectNoteTopicMoveProps): JSX.Element {
   const t = useTranslations(memoryTopicsCopy)
   const tProject = useTranslations(projectsCopy)
@@ -218,7 +100,7 @@ export function ProjectNoteTopicMove({ projectId, item, topics, onChanged }: Pro
     if (topic === item.topic) return
     setPending(true)
     try {
-      await patchJson<{ item: unknown }>(noteUrl(projectId, item), { topic })
+      await moveProjectMemoryNote(projectId, item, topic)
       onChanged()
     } catch {
       setAttempt((count) => count + 1)
@@ -229,14 +111,14 @@ export function ProjectNoteTopicMove({ projectId, item, topics, onChanged }: Pro
   }
 
   return (
-    <div role="group" aria-label={t('moveTo')}>
-      <TopicPicker
-        key={attempt}
-        topics={topics}
-        value={item.topic}
-        disabled={pending}
-        onChange={(topic) => void move(topic)}
-      />
-    </div>
+    <TopicPicker
+      key={attempt}
+      compact
+      topics={topics}
+      value={item.topic}
+      label={t('moveTo')}
+      disabled={pending}
+      onChange={(topic) => void move(topic)}
+    />
   )
 }

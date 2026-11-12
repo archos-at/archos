@@ -297,6 +297,8 @@ async def _emit_memory_proposal_card(
         "kind": kind,
         "confidence": confidence,
         "supersedes": supersedes or None,
+        # The browser files the note under it when the proposal is not stored (the fallback).
+        "topic": memory_client.memory_topic(topic) or None,
     }
     try:
         validated = answer_card_adapter.validate_python(card).model_dump(exclude_none=True)
@@ -314,7 +316,14 @@ async def _emit_memory_proposal_card(
 
 
 async def _write_failed(
-    exc: Exception, *, kind: str, content: str, confidence: str, supersedes: str = "", restricted: bool = False
+    exc: Exception,
+    *,
+    kind: str,
+    content: str,
+    confidence: str,
+    supersedes: str = "",
+    restricted: bool = False,
+    topic: str = "",
 ) -> str:
     """The tool result for a failed write, after offering a confirmation card when one helps.
 
@@ -334,7 +343,9 @@ async def _write_failed(
     if (
         not restricted
         and isinstance(exc, memory_client.OrgMemoryDisabledError)
-        and await _emit_memory_proposal_card(content=content, kind=kind, confidence=confidence, supersedes=supersedes)
+        and await _emit_memory_proposal_card(
+            content=content, kind=kind, confidence=confidence, supersedes=supersedes, topic=topic
+        )
     ):
         logger.warning("Org-scoped remember denied by frontend policy (org memory disabled); proposed instead")
         return _CARD_SHOWN_RESULT
@@ -507,7 +518,13 @@ async def _remember_shared(
         )
     except _WRITE_FAILURES as exc:
         return await _write_failed(
-            exc, kind=kind, content=content, confidence=confidence, supersedes=supersedes, restricted=bool(restriction)
+            exc,
+            kind=kind,
+            content=content,
+            confidence=confidence,
+            supersedes=supersedes,
+            restricted=bool(restriction),
+            topic=topic,
         )
     if item_id is None:
         # The personal-data shapes were refused before the write, so None is the 404.

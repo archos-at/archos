@@ -79,7 +79,7 @@ REFLECTION_SYSTEM_PROMPT = (
     "answers.\n"
     "supersedes is the verbatim content of the memory entry being replaced, or an empty string: "
     "a project memory entry with about: project, a personal memory entry with about: person.\n"
-    "topic is one to three words naming the subject, or an empty string.\n"
+    "topic is one to three words naming the subject, in the language the person wrote in, or an empty string.\n"
     "When the person asks to drop, undo or forget one of their personal notes, return a finding "
     "with about: person, that note VERBATIM in supersedes and an EMPTY content: the note is "
     'removed. Never record a note that negates an earlier one ("no longer X") in its place.\n\n'

@@ -50,14 +50,14 @@ describe('ProjectTopicActions', () => {
 
   test('the group of notes with no topic has no topic actions', () => {
     const { container } = render(
-      <ProjectTopicActions projectId={PROJECT} topic={null} count={2} onChanged={vi.fn()} />
+      <ProjectTopicActions projectId={PROJECT} topic={null} mergeTargets={[]} onChanged={vi.fn()} />
     )
     expect(container).toBeEmptyDOMElement()
   })
 
   test('ungroup PATCHes the topic with a null target and reports the change', async () => {
     const onChanged = vi.fn()
-    render(<ProjectTopicActions projectId={PROJECT} topic="Brandschutz" count={3} onChanged={onChanged} />)
+    render(<ProjectTopicActions projectId={PROJECT} topic="Brandschutz" mergeTargets={['Stellplätze']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Ungroup' }))
 
@@ -68,7 +68,7 @@ describe('ProjectTopicActions', () => {
 
   test('rename sends the normalized new name, and merges when it is another topic', async () => {
     const onChanged = vi.fn()
-    render(<ProjectTopicActions projectId={PROJECT} topic="Brandschutz" count={3} onChanged={onChanged} />)
+    render(<ProjectTopicActions projectId={PROJECT} topic="Brandschutz" mergeTargets={['Stellplätze']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
     const input = screen.getByLabelText('Topic name')
@@ -82,7 +82,7 @@ describe('ProjectTopicActions', () => {
   })
 
   test('save stays disabled for an unchanged name and for a name over the bound', async () => {
-    render(<ProjectTopicActions projectId={PROJECT} topic="Brandschutz" count={3} onChanged={vi.fn()} />)
+    render(<ProjectTopicActions projectId={PROJECT} topic="Brandschutz" mergeTargets={['Stellplätze']} onChanged={vi.fn()} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
     const save = screen.getByRole('button', { name: 'Save' })
@@ -103,7 +103,7 @@ describe('ProjectTopicActions', () => {
   test('a refused change reports the failure and does not reload the groups', async () => {
     fetchMock.mockImplementationOnce(async () => new Response(null, { status: 500 }))
     const onChanged = vi.fn()
-    render(<ProjectTopicActions projectId={PROJECT} topic="Brandschutz" count={3} onChanged={onChanged} />)
+    render(<ProjectTopicActions projectId={PROJECT} topic="Brandschutz" mergeTargets={['Stellplätze']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Ungroup' }))
 

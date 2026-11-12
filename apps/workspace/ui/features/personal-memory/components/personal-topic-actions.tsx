@@ -51,7 +51,7 @@ export function PersonalTopicActions({
   if (topic === null) return null
 
   /** Runs one write, then reads the list again; a failure says so, changes nothing and resolves false. */
-  const runWrite = async (task: () => Promise<void>, failure: string): Promise<boolean> => {
+  const runWrite = async (task: () => Promise<unknown>, failure: string): Promise<boolean> => {
     setBusy(true)
     try {
       await task()
@@ -67,16 +67,17 @@ export function PersonalTopicActions({
 
   // A name another topic has merges the notes into it; the server resolves the spelling against the shelf.
   const rename = (to: string): Promise<boolean> =>
-    runWrite(() => renamePersonalMemoryTopic({ from: topic, to }).then(() => undefined), shared('errors.saveFailed'))
+    runWrite(() => renamePersonalMemoryTopic({ from: topic, to }), shared('errors.saveFailed'))
 
   const ungroup = (): Promise<boolean> =>
-    runWrite(() => renamePersonalMemoryTopic({ from: topic, to: null }).then(() => undefined), shared('errors.saveFailed'))
+    runWrite(() => renamePersonalMemoryTopic({ from: topic, to: null }), shared('errors.saveFailed'))
 
-  const remove = (): Promise<void> =>
-    runWrite(async () => {
+  const remove = async (): Promise<void> => {
+    await runWrite(async () => {
       await removePersonalMemoryTopic(topic)
       setRemoving(false)
-    }, shared('errors.removeFailed')).then(() => undefined)
+    }, shared('errors.removeFailed'))
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-1" data-testid="personal-topic-actions">
@@ -130,7 +131,6 @@ export function PersonalNoteTopicMove({
   topics: string[]
   onChanged: () => void
 }): JSX.Element {
-  const t = useTranslations(memoryTopicsCopy)
   const shared = useTranslations(personalMemoryCopy)
   const [busy, setBusy] = useState(false)
   /** Bumped on a failure: the picker is keyed by it, so it shows the note's topic again. */
@@ -152,9 +152,9 @@ export function PersonalNoteTopicMove({
   return (
     <TopicPicker
       key={attempt}
+      compact
       topics={topics}
       value={item.topic}
-      label={t('moveTo')}
       disabled={busy}
       onChange={(topic) => void move(topic)}
       data-testid="personal-note-topic"

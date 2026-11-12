@@ -302,7 +302,7 @@ export function PersonalMemoryPanel(): JSX.Element {
   const renderTopicActions = (topic: string | null): JSX.Element | null => {
     if (topic === null) return null
     const count = topics.find((entry) => entry.name === topic)?.count ?? 0
-    return <PersonalTopicActions topic={topic} count={count} onChanged={reload} />
+    return <PersonalTopicActions topic={topic} count={count} topics={topicNames} onChanged={reload} />
   }
 
   return (
