@@ -278,7 +278,7 @@ function SelectionMark({ checked }: { checked: boolean }) {
       aria-hidden
       className={cn(
         // A square, as every other checkbox of the page (the list's, the E-Mail-Eingang's): one shape for one pick.
-        'pointer-events-none absolute right-3.5 top-3.5 z-[1] flex size-5 items-center justify-center rounded-inline border shadow-2xs transition-colors duration-quick ease-out motion-reduce:transition-none',
+        'pointer-events-none absolute right-3.5 top-3.5 z-[1] flex size-5 items-center justify-center rounded-inline border transition-colors duration-quick ease-out motion-reduce:transition-none',
         checked ? 'border-primary bg-primary text-primary-foreground' : 'border-(--ds-line-strong) bg-background'
       )}
       data-testid="file-card-check"
@@ -352,7 +352,7 @@ export const FileCard = memo(function FileCard({
       className={cn(
         'group/card',
         // Chosen: the hover's fill held (the keyboard's own ring is the button's focus-visible).
-        (isSelected || selection?.checked) && 'bg-accent',
+        (isSelected || selection?.checked) && 'bg-selected',
         isBusy && 'cursor-progress opacity-70',
         lit && HIGHLIGHT_OUTLINE
       )}
@@ -367,7 +367,7 @@ export const FileCard = memo(function FileCard({
           since it is a press of its own that opens the review. A line of its own under the summary left every other
           tile of its row a 50px hole. */}
       <div className={cn('absolute left-3.5 z-[1] max-w-[calc(100%-1.75rem)]', showStatus ? 'top-[78px]' : 'top-[102px]')}>
-        <OpenMarksChip file={file} name={name} className="bg-background" />
+        <OpenMarksChip file={file} name={name} className="bg-background hover:bg-desk" />
       </div>
       {actions && !selection && (
         <div

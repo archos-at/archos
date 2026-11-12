@@ -123,7 +123,7 @@ export function AwaitingBanner({
       data-awaiting-me={awaitingMe ? 'true' : 'false'}
       aria-live="polite"
       className={cn(
-        'rounded-lg border px-4 py-3 shadow-xs',
+        'rounded-lg border px-4 py-3',
         // `border-warning` / `bg-warning-*` are static `@utility` blocks in
         // globals.css with no `--modifier()`, so a slash-opacity form
         // (`border-warning/40`) matches nothing and silently fell back to the
@@ -302,7 +302,7 @@ export function AwaitingBanner({
                 composer's own `@` is the right tool then. */}
             {awaitingMe && onAskBack && single?.requestedBy && (
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className="h-8 gap-1.5"
                 onClick={() => onAskBack(single.requestedBy!)}
@@ -313,7 +313,7 @@ export function AwaitingBanner({
             )}
             {onAskAgent && (
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className="h-8 gap-1.5"
                 onClick={onAskAgent}

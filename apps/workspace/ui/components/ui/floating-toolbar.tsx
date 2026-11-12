@@ -25,7 +25,9 @@ export function FloatingToolbar({ className, ...props }: ComponentProps<typeof B
     <ButtonGroup
       data-slot="floating-toolbar"
       className={cn(
-        'border-base bg-popover/95 gap-0.5 shadow-md backdrop-blur-md',
+        // The group's border goes clear: the shadow's ring is the edge (design-language.md, „One edge“), and
+        // high contrast still draws the border below.
+        'border-transparent bg-popover/95 gap-0.5 shadow-md backdrop-blur-md',
         'contrast-more:bg-popover contrast-more:border-foreground/40',
         className,
       )}
@@ -159,8 +161,8 @@ export function FloatingNote({ className, ...props }: ComponentProps<'p'>): JSX.
     <p
       data-slot="floating-note"
       className={cn(
-        'border-base bg-popover/95 text-muted-foreground flex max-w-full min-w-0 items-center gap-1.5 rounded-surface border px-2.5 py-1.5 text-xs shadow-md backdrop-blur-md',
-        'contrast-more:bg-popover contrast-more:border-foreground/40 contrast-more:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0',
+        'bg-popover/95 text-muted-foreground flex max-w-full min-w-0 items-center gap-1.5 rounded-surface px-2.5 py-1.5 text-xs shadow-md backdrop-blur-md',
+        'contrast-more:bg-popover contrast-more:border contrast-more:border-foreground/40 contrast-more:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0',
         className,
       )}
       {...props}

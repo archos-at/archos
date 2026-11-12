@@ -230,7 +230,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           if (files.length > 0) void upload(files)
         }}
       />
-      <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
+      <Button variant="secondary" size="sm" onClick={() => setPicking(true)}>
         <FolderInput className="size-4" aria-hidden />
         {t('fromShelf')}
       </Button>

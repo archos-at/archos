@@ -142,7 +142,7 @@ function SheetBody({
                   aria-label={t('knowledge.displayTitleFor', { name: file.fileName })}
                   placeholder={t('knowledge.displayTitlePlaceholder')}
                 />
-                <Button variant="outline" onClick={() => onRename(file, titleDraft)}>
+                <Button variant="secondary" onClick={() => onRename(file, titleDraft)}>
                   {t('knowledge.displayTitleSave')}
                 </Button>
               </div>
@@ -175,7 +175,7 @@ function SheetBody({
                   <span>{t('knowledge.docClassSuggestion', { label: label(suggestion) })}</span>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => onReclassify(file, suggestion)}
                   >
                     {t('knowledge.docClassSuggestionAccept')}
@@ -221,7 +221,7 @@ function SheetBody({
       <SheetFooter className="pt-2">
         {/* A file the corpus no longer lists has no PDF left to open. */}
         {file.state !== 'removed' ? (
-          <Button variant="outline" onClick={() => onView(file)}>
+          <Button variant="secondary" onClick={() => onView(file)}>
             <Eye className="size-3.5" aria-hidden />
             {t('knowledge.viewPdf')}
           </Button>

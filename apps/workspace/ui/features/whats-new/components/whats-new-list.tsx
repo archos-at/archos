@@ -261,7 +261,7 @@ function Pager({ list, address, t }: { list: LocalizedReleaseNoteList; address: 
   return (
     <nav aria-label={t('pageLabel')} className="flex items-center justify-between gap-2">
       {list.cursor ? (
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="secondary" size="sm">
           <Link href={whatsNewHref(address.basePath, list.area, null, address.keep)}>
             <ChevronLeft className="size-4" aria-hidden />
             {t('newer')}
@@ -271,7 +271,7 @@ function Pager({ list, address, t }: { list: LocalizedReleaseNoteList; address: 
         <span />
       )}
       {list.nextCursor && (
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="secondary" size="sm">
           <Link href={whatsNewHref(address.basePath, list.area, list.nextCursor, address.keep)}>
             {t('older')}
             <ChevronRight className="size-4" aria-hidden />

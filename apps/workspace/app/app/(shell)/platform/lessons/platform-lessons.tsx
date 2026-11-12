@@ -269,7 +269,7 @@ export const PlatformLessons: FC = () => {
       action={
         canManage ? (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => void handleSweep()}
             disabled={sweeping}
@@ -430,7 +430,7 @@ export const PlatformLessons: FC = () => {
                     <div className="flex flex-wrap items-center gap-1.5">
                       {canManage && lesson.status !== 'active' ? (
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           loading={busy}
                           onClick={() => void patchLesson(lesson, { status: 'active' })}
@@ -440,7 +440,7 @@ export const PlatformLessons: FC = () => {
                       ) : null}
                       {canManage && lesson.status === 'active' ? (
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           disabled={busy}
                           onClick={() => setRetireTarget(lesson)}

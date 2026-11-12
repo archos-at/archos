@@ -247,9 +247,9 @@ export function IfcRoomSchedule({
                         onClick={onSelect ? () => onSelect(room.globalId) : undefined}
                         className={`border-t ${
                           onSelect
-                            ? 'cursor-pointer transition-colors duration-quick ease-out hover:bg-muted motion-reduce:transition-none'
+                            ? 'cursor-pointer transition-colors duration-quick ease-out hover:bg-hover motion-reduce:transition-none'
                             : ''
-                        } ${room.globalId === selectedGlobalId ? 'bg-muted' : ''}`}
+                        } ${room.globalId === selectedGlobalId ? 'bg-selected hover:bg-selected' : ''}`}
                       >
                         <td className="px-2 py-1">
                           {/*

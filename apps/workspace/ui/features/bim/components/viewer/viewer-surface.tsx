@@ -38,16 +38,15 @@ export const ViewerSurface = forwardRef<HTMLDivElement, ViewerSurfaceProps>(
         ref={ref}
         data-slot="viewer-surface"
         className={cn(
-          'rounded-2xl border border-border',
+          'rounded-2xl',
           tone === 'raised'
             // The alpha pair is load-bearing: these panels FLOAT over the 3D
             // canvas and `backdrop-blur-md` needs something to blur; the
-            // `supports-` step is the no-blur fallback.
+            // `supports-` step is the no-blur fallback. The shadow's ring is the
+            // edge: a border beside it drew a second line (design-language.md, „One edge“).
             ? 'bg-card/80 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-card/70'
-            // Flat sits INSIDE another surface and states no chrome of its own:
-            // a lone border with nothing behind it over the 3D canvas is a
-            // ghost box, so the border goes transparent with the background.
-            : 'border-transparent bg-transparent',
+            // Flat sits INSIDE another surface and states no chrome of its own.
+            : 'bg-transparent',
           className
         )}
         {...props}

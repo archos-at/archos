@@ -353,7 +353,7 @@ export function FilePreviewHost({
           !parked && !peeking && 'group z-40',
           !parked &&
             !peeking &&
-            'bg-popover text-popover-foreground fixed left-[calc(50%+var(--page-inset-start,0px)/2)] top-[calc(50%+var(--page-inset-top,0px)/2)] z-50 h-[min(85dvh,calc(100dvh-var(--page-inset-top,0px)-2rem))] w-[min(960px,calc(100%-var(--page-inset-start,0px)-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-overlay border shadow-lg',
+            'bg-popover text-popover-foreground fixed left-[calc(50%+var(--page-inset-start,0px)/2)] top-[calc(50%+var(--page-inset-top,0px)/2)] z-50 h-[min(85dvh,calc(100dvh-var(--page-inset-top,0px)-2rem))] w-[min(960px,calc(100%-var(--page-inset-start,0px)-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-overlay shadow-lg',
           // On a phone, portrait or on its side, the document is the screen:
           // one presentation however it was opened (Dateien, the chat's file
           // pill, a citation), not a card with the page dimmed around it.
@@ -668,7 +668,7 @@ function PeekToolbar({
               // A real hit area, not a text run: this is the only way out of
               // the one state on this surface that does not resolve itself,
               // and it was six pixels tall plus its line-height.
-              'text-foreground hover:bg-accent flex h-7 shrink-0 items-center rounded-full px-2 font-medium underline-offset-2 hover:underline',
+              'text-foreground hover:bg-hover flex h-7 shrink-0 items-center rounded-full px-2 font-medium underline-offset-2 hover:underline',
               FOCUS_RING,
             )}
           >

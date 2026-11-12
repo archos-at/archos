@@ -117,14 +117,17 @@
   --secondary-foreground: var(--ink);
   --muted: var(--ds-surface-sunken); /* #f2f1f0 */
   --muted-foreground: var(--ds-ink-muted); /* #5e5b57 — mid ink (ink-muted) */
-  --accent: color-mix(in oklch, var(--ds-surface-sunken), var(--ds-ink) 2%); /* #ececea — inset / hover fill */
+  --accent: color-mix(in oklch, var(--ds-surface-sunken), var(--ds-ink) 2%); /* #ececea — inset fill (the hover is --hover) */
   --accent-foreground: var(--ink);
   --destructive: var(--signal-error); /* #c14a38 */
   --destructive-foreground: var(--ds-surface); /* #fafaf9 */
   --border: color-mix(in oklch, var(--ink-border) 8%, transparent); /* hairline .08, composites everywhere */
   --input: color-mix(in oklch, var(--ink-border) 12%, transparent); /* .12 */
   --input-background: var(--ds-surface); /* #fafaf9 — a field on a card; the hairline border marks it */
-  --ring: color-mix(in oklch, var(--ink) 64%, transparent); /* ink-based focus ring */
+  /* The keyboard's ring and a focused field's border: a mid grey of the ink ramp, opaque, 3:1 or more on every step of
+     the ladder (sheet 4.3, paper 4.1, desk 3.8, picked 3.4, pressed 3.1) and 4.5:1 beside an ink button. It was ink at
+     64%, and with a control's own ring laid over the page's outline it read as a black frame (owner review, 2026-11-12). */
+  --ring: #7d7a76;
   --overlay: color-mix(in oklch, var(--ink) 35%, transparent); /* modal/backdrop scrim */
 
 
@@ -259,7 +262,7 @@
   --secondary-foreground: oklch(0.967 0.003 84.6);
   --muted: color-mix(in oklch, var(--ds-surface-raised), var(--ds-ink) 10%);
   --muted-foreground: var(--ds-ink-muted); /* #a6a39e */
-  --accent: color-mix(in oklch, var(--ds-surface-raised), var(--ds-ink) 13%); /* hover / inset fill */
+  --accent: color-mix(in oklch, var(--ds-surface-raised), var(--ds-ink) 13%); /* inset fill (the hover is --hover) */
   --accent-foreground: oklch(0.967 0.003 84.6);
   --destructive: var(--signal-error);
   --destructive-foreground: oklch(0.175 0.005 80);
@@ -271,7 +274,7 @@
      token: 14% × 30% ≈ 4% paper alpha, so every input, textarea and select in
      dark mode rendered as an all-but-invisible wash instead of a field. */
   --input-background: oklch(0.214 0.002 67.7);
-  --ring: color-mix(in oklch, var(--foreground) 55%, transparent); /* paper-based focus ring */
+  --ring: #8f8b86; /* the same mid grey, on charcoal: paper 5.7, desk 4.9, sheet 3.7, a menu 3.3 */
   /* A real scrim. Previously `--background` at 92% — the app's own plane at
      near-full opacity, which (with the dialog's backdrop-blur) erased the page
      behind a modal instead of dimming it, so a dialog lost all sense of
@@ -345,6 +348,7 @@
     --border: color-mix(in oklch, var(--ink-border) 28%, transparent);
     --input: color-mix(in oklch, var(--ink-border) 40%, transparent);
     --border-color-base: color-mix(in oklch, var(--ink-border) 28%, transparent);
+    --ring: var(--ink); /* asked for more contrast: the ring is ink again */
   }
 
   .dark {
@@ -354,6 +358,7 @@
     --border: color-mix(in oklch, var(--foreground) 34%, transparent);
     --input: color-mix(in oklch, var(--foreground) 45%, transparent);
     --border-color-base: color-mix(in oklch, var(--foreground) 34%, transparent);
+    --ring: var(--foreground);
   }
 }
 
@@ -504,6 +509,8 @@
   --color-desk: var(--desk);
   --color-selected: var(--selected);
   --color-pressed: var(--pressed);
+  --color-hover: var(--hover);
+  --color-sheet-hover: var(--sheet-hover);
   --color-hairline: var(--hairline);
   --color-edge: var(--edge);
   --color-field-border: var(--field-border);
@@ -574,6 +581,7 @@
   --shadow-press: var(--elevation-press);
   --shadow-xs: var(--elevation-xs);
   --shadow-thumb: var(--elevation-thumb);
+  --shadow-sheet-pointer: var(--elevation-1-pointer);
   --shadow-sm: var(--elevation-sm);
   --shadow-md: var(--elevation-md);
   --shadow-lg: var(--elevation-lg);
@@ -682,6 +690,12 @@
   --desk: #f2f1f0; /* the brand's sunken surface: rail, list columns, the canvas behind a document, hover (1.08:1 under the paper) */
   --selected: #e7e5e3; /* a picked row or tile: one step under the desk (1.11:1), 1.26:1 under the open row's sheet */
   --pressed: #dcdad7; /* a control while the button is down: one step under picked (1.11:1) */
+  /* The pointer's fill: one step down the ladder from whatever plane it lies on. The ladder's steps are each 5.5% ink
+     over the one above (sheet to desk, desk to selected, selected to pressed, each within 2 of 255), so one wash is the
+     desk on a sheet, the selected grey on the desk and the pressed grey on a picked row, and a control inside a
+     hovered row still shows its own step. `hover:bg-hover`; an element with a fill of its own names its next step. */
+  --hover: rgb(15 14 13 / 0.055);
+  --sheet-hover: color-mix(in srgb, var(--sheet) 94.5%, rgb(15 14 13)); /* a sheet under the pointer: the wash laid on the sheet, opaque, for a sheet that answers itself (a folder, a white chip) */
   --hairline: rgb(15 14 13 / 0.08); /* between list rows */
   --edge: rgb(15 14 13 / 0.12); /* the 1px edge of a sheet or a raised press */
   --field-border: #8a8784; /* a field's border: 3.4:1 on the paper, 3.2:1 on the desk, the 3:1 a control's boundary needs */
@@ -696,10 +710,12 @@
   --overlay: rgb(15 14 13 / 0.4); /* the scrim under a dialog */
 
   --elevation-1: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06), 0 2px 6px rgb(15 14 13 / 0.04); /* a sheet always carries the 12% edge */
+  /* A sheet that cannot fill under the pointer (a thumbnail is a picture): its edge goes one step toward ink, the field's border. */
+  --elevation-1-pointer: 0 0 0 1px var(--field-border), 0 1px 2px rgb(15 14 13 / 0.06), 0 2px 6px rgb(15 14 13 / 0.04);
   --elevation-2: 0 0 0 1px rgb(15 14 13 / 0.08), 0 4px 12px rgb(15 14 13 / 0.1), 0 12px 32px rgb(15 14 13 / 0.08);
   --elevation-3: 0 0 0 1px rgb(15 14 13 / 0.1), 0 24px 64px rgb(15 14 13 / 0.22);
-  --elevation-press: 0 0 0 1px var(--edge); /* a press at rest: its edge, no drop shadow */
-  --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06); /* a press under the pointer, a track's thumb */
+  --elevation-press: 0 0 0 1px var(--edge); /* a press: its edge, no drop shadow, at rest and under the pointer */
+  --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06); /* a track's thumb (a press fills under the pointer, it gains no shadow) */
   --elevation-thumb: var(--elevation-xs); /* the current choice on a track (a tab, a view): white, its edge and 1px shadow */
   --elevation-sm: var(--elevation-1); /* a sheet */
   --elevation-md: var(--elevation-2); /* menu, popover, floating bar */
@@ -716,6 +732,8 @@
   --desk: #1f1e1c;
   --selected: #262422; /* a picked row: one step up from the desk, still under the open row's sheet */
   --pressed: #3a3734;
+  --hover: rgb(245 244 242 / 0.06); /* dark: a white wash one step up under the pointer */
+  --sheet-hover: color-mix(in srgb, var(--sheet) 94%, rgb(245 244 242)); /* lighter than the sheet: the desk would be a hole in it */
   --hairline: rgb(245 244 242 / 0.1);
   --edge: rgb(245 244 242 / 0.16);
   --field-border: #77736e; /* 3.5:1 on the dark paper, 3.2:1 on the desk */
@@ -728,6 +746,7 @@
   --overlay: rgb(0 0 0 / 0.6);
 
   --elevation-1: 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 6px rgb(0 0 0 / 0.3);
+  --elevation-1-pointer: 0 0 0 1px var(--field-border), 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 6px rgb(0 0 0 / 0.3);
   /* A shadow is invisible on charcoal: a floating bar lifts by its edge at 14% and a lit top edge. */
   --elevation-2: 0 0 0 1px rgb(245 244 242 / 0.14), inset 0 1px 0 rgb(245 244 242 / 0.06), 0 4px 12px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.4);
   --elevation-3: 0 0 0 1px rgb(245 244 242 / 0.14), 0 24px 64px rgb(0 0 0 / 0.6);
@@ -741,9 +760,14 @@
   --elevation-lg: var(--elevation-3);
 }
 
-/* The type scale (size / line / weight). Weights are 440, 500 and 600 only:
-   600 is for headings and for state (unread, needs you). `text-section`,
-   `text-pane-title` and `text-page-title` carry their weight. */
+/* The type scale (size / line / weight). Weights are 440, 500 and 600 only.
+   A title carries its rank by size, at 500: the page title (20) and the pane
+   title (18). 600 is for the small heading, where size alone does not lift it
+   off 14px body (`text-section`, 16), and for state (unread, needs you). The
+   titles were 24/600 from 2026-11-10 and read heavy beside every page that still
+   set its own 20/500 title (review of 2026-11-11: „die Headline ist zu dick“,
+   and the headers before were „übersichtlicher“): back to 20/500.
+   Each step carries its weight. */
 @theme static {
   --text-meta: 0.75rem;
   --text-meta--line-height: 1rem;
@@ -753,10 +777,10 @@
   --text-section: 1rem;
   --text-section--line-height: 1.5rem;
   --text-section--font-weight: 600;
-  --text-pane-title: 1.25rem;
-  --text-pane-title--line-height: 1.75rem;
-  --text-pane-title--font-weight: 600;
-  --text-page-title: 1.5rem;
-  --text-page-title--line-height: 2rem;
-  --text-page-title--font-weight: 600;
+  --text-pane-title: 1.125rem;
+  --text-pane-title--line-height: 1.625rem;
+  --text-pane-title--font-weight: 500;
+  --text-page-title: 1.25rem;
+  --text-page-title--line-height: 1.75rem;
+  --text-page-title--font-weight: 500;
 }

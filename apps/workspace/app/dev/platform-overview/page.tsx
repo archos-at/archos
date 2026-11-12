@@ -293,7 +293,7 @@ export default function PlatformOverviewDevPage(): JSX.Element {
       className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-8"
     >
       <div>
-        <h1 className="text-lg font-semibold">Platform — Overview</h1>
+        <h1 className="text-page-title font-medium phone:text-section">Platform — Overview</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Headline figures, the 30-day cost trend, the organization directory (columns drop by
           container width; on a phone revenue and the allowance action fold into the remaining

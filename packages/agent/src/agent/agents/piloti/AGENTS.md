@@ -43,9 +43,11 @@ to need.
 `finalize_answer` hands ONE model call (`common/claim_judge.py`, the org's
 follow-ups model, temperature 0, after the prose streamed, bounded by
 `JUDGE_TIMEOUT_S`) the question, the final answer and everything the turn
-registered (`answer_pipeline._evidence`): the passages in full up to a budget,
-this turn's workspace records and the turn context's profile and inventory
-(`common/workspace_records.py`, never the `SourceRegistry`), the measurements,
+registered (`answer_check.evidence_for`, `answer_check.turn_check`): the passages in full up to a budget,
+this turn's workspace records and the turn context's profile, inventory and
+`<building_law>` block (`common/workspace_records.py`, never the `SourceRegistry`;
+the block is the records' statement of which edition binds, so an answer that
+names it is not graded unbacked), the measurements,
 the readings, and which quotations the quote check found. The evidence is
 delimited data; an instruction inside it is ignored. The reply is a level and
 the statements the answer relies on that are unbacked or contradicted

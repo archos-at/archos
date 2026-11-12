@@ -392,7 +392,7 @@ const FileListRowItem = memo(function FileListRowItem({
         'group/row cursor-pointer border-b-0 focus-visible:outline-none [--row-end:8px] [--row-lead:50px]', TABLE_ROW_HAIRLINE,
         lit && HIGHLIGHT_OUTLINE_INSET,
         'transition-colors duration-snap ease-out motion-reduce:transition-none',
-        isSelected || checked ? 'bg-accent hover:bg-accent data-[state=selected]:bg-accent' : 'hover:bg-desk',
+        isSelected || checked ? 'bg-selected hover:bg-selected data-[state=selected]:bg-selected' : 'hover:bg-hover',
         'focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50'
       )}
     >

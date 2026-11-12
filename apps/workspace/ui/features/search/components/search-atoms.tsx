@@ -115,7 +115,7 @@ export function FilterSheet({
           {children}
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClear} disabled={!canClear} data-testid="search-sheet-clear">
+          <Button type="button" variant="secondary" onClick={onClear} disabled={!canClear} data-testid="search-sheet-clear">
             {clearLabel}
           </Button>
           <Button type="button" onClick={() => onOpenChange(false)} data-testid="search-sheet-show">
@@ -246,7 +246,7 @@ export function FacetOption({
         // ending in an ellipsis whose rest only a tooltip knew.
         'flex min-h-7 w-full min-w-0 items-start gap-2 rounded-sm px-1 py-1 text-left text-sm leading-5 transition-colors duration-snap ease-out motion-reduce:transition-none pointer-coarse:min-h-11 pointer-coarse:items-center',
         FOCUS_RING_INSET,
-        active ? 'bg-secondary font-medium text-foreground' : 'text-foreground/80 hover:bg-secondary/60 hover:text-foreground'
+        active ? 'bg-secondary font-medium text-foreground' : 'text-foreground/80 hover:bg-hover hover:text-foreground'
       )}
     >
       <span
@@ -877,7 +877,7 @@ export function RegisterRow({ children, active = false, testId, id }: { children
       // Hairlines separate the rows, no stripes: a stripe competed with the
       // selection. The row the arrow keys are on takes the list's selected
       // fill and its 2px ink rule, on the first cell (a row draws no shadow of its own).
-      className="h-9 border-b-0 [&>td]:border-b [&>td]:border-border/50 aria-selected:bg-accent aria-selected:hover:bg-accent aria-selected:[&>td:first-child]:shadow-[inset_2px_0_0_0_var(--foreground)]"
+      className="h-9 border-b-0 [&>td]:border-b [&>td]:border-border/50 aria-selected:bg-selected aria-selected:hover:bg-selected aria-selected:[&>td:first-child]:shadow-[inset_2px_0_0_0_var(--foreground)]"
       data-testid={testId}
     >
       {children}
@@ -996,7 +996,7 @@ export function RegisterStackRow({
         aria-selected={active}
         data-testid={testId}
         className={cn(
-          'flex min-w-0 flex-col gap-0.5 px-1 py-2.5 transition-colors duration-snap ease-out hover:bg-secondary/60 motion-reduce:transition-none',
+          'flex min-w-0 flex-col gap-0.5 px-1 py-2.5 transition-colors duration-snap ease-out hover:bg-hover motion-reduce:transition-none',
           FOCUS_RING_INSET,
           ACTIVE_ROW,
           actions && ROW_ACTIONS_ROOM
@@ -1132,7 +1132,7 @@ export const REGISTER_ACTIONS_WIDTH = 2.75
 export function ComposerPickerFrame({ children, hints, testId }: { children: ReactNode; hints: CommandHintLabels; testId?: string }): JSX.Element {
   return (
     <div
-      className="flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none"
+      className="flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none"
       data-testid={testId}
     >
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>

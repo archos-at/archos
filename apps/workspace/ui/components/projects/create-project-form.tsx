@@ -543,7 +543,7 @@ function FolderZone({
           />
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => input.current?.click()}
             disabled={disabled}

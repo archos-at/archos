@@ -33,7 +33,7 @@ export function BriefDisclosure({
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="hover:bg-accent focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
+              className="hover:bg-hover focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
               data-testid={`${id}-toggle`}
             >
               <span className="text-muted-foreground min-w-28 shrink-0 text-xs" /* one column: summaries on one edge; muted, its value ink */>{title}</span>

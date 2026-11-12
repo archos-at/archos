@@ -132,7 +132,7 @@ export function StageViewMenu({
                 'focus-visible:ring-ring/60 pointer-coarse:min-h-11 duration-quick flex items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm font-medium outline-none transition-colors ease-out focus-visible:ring-2',
                 view === candidate
                   ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  : 'text-muted-foreground hover:bg-hover hover:text-foreground'
               )}
             >
               {t(`viewer.view.${candidate}`)}
@@ -145,7 +145,7 @@ export function StageViewMenu({
             type="button"
             aria-pressed={orthographic}
             onClick={() => onOrthographicChange(!orthographic)}
-            className="focus-visible:ring-ring/60 text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:min-h-11 duration-quick flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm font-medium outline-none transition-colors ease-out focus-visible:ring-2"
+            className="focus-visible:ring-ring/60 text-muted-foreground hover:bg-hover hover:text-foreground pointer-coarse:min-h-11 duration-quick flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm font-medium outline-none transition-colors ease-out focus-visible:ring-2"
           >
             {t('viewer.projection.parallel')}
             {orthographic && <Check className="size-3.5" aria-hidden="true" />}

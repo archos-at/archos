@@ -216,7 +216,7 @@ export const QuarantineQueue: FC = () => {
       <EmptyState
         title={t('quarantine.loadError')}
         action={
-          <Button variant="outline" size="sm" onClick={() => void load()}>
+          <Button variant="secondary" size="sm" onClick={() => void load()}>
             {tc('actions.retry')}
           </Button>
         }
@@ -390,7 +390,7 @@ const QuarantineRow: FC<{
             </Link>
           </Button>
         )}
-        <Button variant="outline" size="sm" onClick={onRelease} data-testid={`quarantine-release-${item.id}`}>
+        <Button variant="secondary" size="sm" onClick={onRelease} data-testid={`quarantine-release-${item.id}`}>
           {t('quarantine.release')}
         </Button>
         <Button variant="ghost" size="sm" onClick={onDelete} data-testid={`quarantine-delete-${item.id}`}>
