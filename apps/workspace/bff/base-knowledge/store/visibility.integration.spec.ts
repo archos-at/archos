@@ -91,6 +91,12 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
         db.execute(sql`INSERT INTO organizations (workos_organization_id, home_country) VALUES (${organizationId}, ${home})`),
       )
     }
+    // A country the platform gave the German office, which no fixture publishes: the entitlement's
+    // organization_countries branch, exercised however this spec is run.
+    await withPlatformAccess('visibility spec: a given country', () =>
+      db.execute(sql`INSERT INTO organization_countries (organization_id, country_id, entitled_by, decision_source)
+                     VALUES (${GERMAN}, 'LI', 'visibility spec', 'app')`),
+    )
     // The Austria and EU packs, unless a suite before this one in the same database published them.
     const held = await withPlatformAccess('visibility spec: are the packs published', () =>
       db.execute(sql`SELECT 1 FROM knowledge_records WHERE id = 'work:wbtv' AND head_revision_id IS NOT NULL`),
@@ -138,6 +144,7 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
   afterAll(async () => {
     await owner?.end()
     await withPlatformAccess('visibility spec cleanup', async () => {
+      await db.execute(sql`DELETE FROM organization_countries WHERE organization_id = ${GERMAN}`)
       await db.execute(sql`DELETE FROM organizations WHERE workos_organization_id IN (${AUSTRIAN}, ${GERMAN})`)
     })
   })
@@ -190,7 +197,8 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
 
   // Migration 0236 reads the entitlement as one set too; the per-row function stays defined, and is the oracle: for
   // every office, every country a record names (and the EU) is in the set exactly where the function answers true.
-  // A record with no country is entitled to no one: `NULL IN (...)` is NULL, which the policy's OR reads as false.
+  // A record with no country is entitled to no one: `NULL IN (...)` is NULL, which the policy's OR reads as false;
+  // the set itself never holds a NULL, which the coalesce would otherwise hide.
   it('reads the entitled countries as one set that answers what the per-row entitlement answers, for every office', async () => {
     const offices = (
       await withPlatformAccess('visibility spec: every office', () =>
@@ -205,6 +213,11 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
           WHERE knowledge_country_entitled(c.country) IS DISTINCT FROM coalesce(c.country IN (SELECT knowledge_entitled_countries()), false)`)
       })
       expect(disagreements, organizationId).toEqual([])
+      const nulls = await drizzle(owner).transaction(async (tx) => {
+        await tx.execute(sql`SELECT set_config(${ORGANIZATION_SETTING}, ${organizationId}, true)`)
+        return tx.execute(sql`SELECT 1 FROM knowledge_entitled_countries() c WHERE c IS NULL`)
+      })
+      expect(nulls, organizationId).toHaveLength(0)
     }
     const entitled = async (organizationId: string) =>
       drizzle(owner).transaction(async (tx) => {
@@ -212,7 +225,7 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
         return (await tx.execute<{ country: string }>(sql`SELECT knowledge_entitled_countries() AS country`)).map((row) => row.country).sort()
       })
     expect(await entitled(AUSTRIAN)).toEqual(['AT', 'EU'])
-    expect(await entitled(GERMAN)).toEqual(['DE'])
+    expect(await entitled(GERMAN)).toEqual(['DE', 'LI'])
   })
 
   it('is not vacuous: an Austrian office reads the reached Swiss standard and the EU pack, a German office neither', async () => {

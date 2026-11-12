@@ -25,8 +25,8 @@
 -- `knowledge_country_entitled(c)` answers true for: the office's home country,
 -- the countries it was given, and `EU` while it is a member (0219's rule,
 -- called once). `knowledge_reached_ids()` walks FORWARD once from the entitled
--- records a step can leave from (a work, an edition, a relation's
--- from-instrument; the rest of a pack takes no step) and answers exactly the
+-- records a step can leave from (a work or an edition: a relation's
+-- from-instrument is one by a CHECK; the rest of a pack takes no step) and answers exactly the
 -- records `knowledge_reached_by_relation` answers true for: the same edges (an
 -- edition and its work at the same depth; a released platform
 -- `makes_binding`, `deviates_from` or `interprets` relation one step further),
@@ -67,7 +67,9 @@ CREATE OR REPLACE FUNCTION knowledge_reached_ids() RETURNS SETOF text
     FROM knowledge_records r
     WHERE r.organization_id IS NULL AND r.head_revision_id IS NOT NULL
       AND r.country_id IN (SELECT knowledge_entitled_countries())
-      AND (r.type IN ('work', 'edition') OR r.id IN (SELECT x.from_id FROM knowledge_relation_revisions x))
+      -- A relation's from-instrument is a work or an edition (knowledge_relation_revisions_from_type), and an
+      -- edition's work a work, so no other record takes a step.
+      AND r.type IN ('work', 'edition')
     UNION
     SELECT step.id, step.depth FROM reach CROSS JOIN LATERAL (
       -- A work is reached where one of its editions is, and an edition where its work is.
