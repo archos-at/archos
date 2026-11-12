@@ -320,7 +320,11 @@ ends, each pinned by a test in `apps/agent-host/tests/test_chat_socket.py`:
   `RUN_ERROR{workflow_error, details: "turn_deadline_exceeded: …"}`.
 - **A bounded teardown.** A Stop waits at most `PRODUCER_TEARDOWN_SECONDS`
   (`workflow_stream`, 10 s) for the workflow's `finally` blocks, then ends the
-  turn without them.
+  turn without them, and without its admission slots: whatever the workflow
+  still holds goes back then (`turn_admission.TurnSlots`), so a teardown that
+  hangs does not keep an organization's slot. A draining replica waits that
+  bound plus `DRAIN_CANCEL_MARGIN_SECONDS` (5 s) for the turns it cancelled,
+  so their terminals and outcome notices go out before it exits.
 - **No hidden queue.** The chat runs with the runtime's per-replica semaphore off; the
   one concurrency gate is ADR-0040's admission (`MAX_ACTIVE_TURNS`), which
   refuses a turn at once with a retry hint rather than holding it after

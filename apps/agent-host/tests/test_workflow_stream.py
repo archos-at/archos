@@ -255,3 +255,108 @@ async def test_a_failed_run_is_raised_to_the_consumer():
 
         assert [item.n for item in got] == [0]
         assert loop_errors == []
+
+
+class _AdmittedWorkflow:
+    """A session whose workflow takes an admission slot, as ``answer_turn`` does, and whose teardown hangs.
+
+    The hang is the case the teardown bound exists for: a checkpoint flush or a
+    call on a dead connection in a ``finally``. It is shielded, as such an await
+    would be from the one cancel the stream sends.
+    """
+
+    def __init__(self, organization_id: str) -> None:
+        self.organization_id = organization_id
+        self.admitted = asyncio.Event()
+        self.unstuck = asyncio.Event()
+
+    async def _result_stream(self):
+        from agent.common.turn_admission import admit_turn_async
+
+        async with admit_turn_async(self.organization_id):
+            self.admitted.set()
+            try:
+                while True:
+                    await asyncio.sleep(0)
+                    yield _Chunk(n=0)
+            finally:
+                await asyncio.shield(self.unstuck.wait())
+
+    @asynccontextmanager
+    async def run(self, payload):
+        yield SimpleNamespace(result_stream=lambda to_type=None: self._result_stream())
+
+
+@pytest.mark.asyncio
+async def test_a_turn_whose_teardown_hangs_gives_its_admission_slot_back_when_it_ends(monkeypatch):
+    """dev, 2026-11-12: an organization was told "several answers in progress" with nothing running.
+
+    The slot was taken inside the workflow and renewed by it, so a teardown the
+    stream stopped waiting for kept it for as long as the teardown ran, with no
+    bound at all. Now the stream hands it back when the turn ends.
+    """
+    from agent.common import turn_admission
+
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.setattr(turn_admission, "MAX_ACTIVE_TURNS", 10)
+    monkeypatch.setattr(turn_admission, "MAX_ACTIVE_TURNS_PER_ORG", 1)
+    monkeypatch.setattr(turn_admission, "TURN_LEASE_SECONDS", 0.3)  # renewed every 0.1 s
+    monkeypatch.setattr(workflow_stream, "PRODUCER_TEARDOWN_SECONDS", 0.05)
+    turn_admission.reset_local_slots()
+    wf = _AdmittedWorkflow("org_1")
+    try:
+        await _read_then_stop(workflow_stream.stream_workflow({"q": 1}, session=wf), count=2)
+        assert wf.admitted.is_set()
+        # At once, well inside a lease: the slot was given back, not left to age out.
+        with turn_admission.admit_turn("org_1"):
+            pass
+        await asyncio.sleep(0.5)  # longer than a lease: only a renewal could still hold the slot
+
+        with turn_admission.admit_turn("org_1"):  # refused while the slot was the teardown's
+            pass
+    finally:
+        wf.unstuck.set()
+        await _settle(0.2)
+        turn_admission.reset_local_slots()
+
+
+@pytest.mark.asyncio
+async def test_a_second_cancel_during_the_teardown_wait_still_gives_the_slot_back(monkeypatch):
+    """A Stop pressed again, or a supersede the owner republishes every 2 s, cancels the consumer a second time.
+
+    That cancel ends the wait for the producer's teardown with CancelledError;
+    the slots must go back on that path too.
+    """
+    from agent.common import turn_admission
+
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.setattr(turn_admission, "MAX_ACTIVE_TURNS", 10)
+    monkeypatch.setattr(turn_admission, "MAX_ACTIVE_TURNS_PER_ORG", 1)
+    monkeypatch.setattr(turn_admission, "TURN_LEASE_SECONDS", 0.3)
+    monkeypatch.setattr(workflow_stream, "PRODUCER_TEARDOWN_SECONDS", 1.0)
+    turn_admission.reset_local_slots()
+    wf = _AdmittedWorkflow("org_1")
+
+    async def consume() -> None:
+        async with contextlib.aclosing(workflow_stream.stream_workflow({"q": 1}, session=wf)) as items:
+            async for _ in items:
+                pass
+
+    task = asyncio.create_task(consume())
+    try:
+        await wf.admitted.wait()
+        await asyncio.sleep(0.05)
+        task.cancel()  # the Stop
+        await asyncio.sleep(0.2)  # inside the teardown wait
+        task.cancel()  # the second cancel
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        with turn_admission.admit_turn("org_1"):
+            pass
+        await asyncio.sleep(0.5)  # longer than a lease: no renewal holds it either
+        with turn_admission.admit_turn("org_1"):
+            pass
+    finally:
+        wf.unstuck.set()
+        await _settle(0.2)
+        turn_admission.reset_local_slots()

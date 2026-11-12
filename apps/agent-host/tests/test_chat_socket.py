@@ -3050,6 +3050,53 @@ async def test_a_drain_ends_only_once_the_outcome_of_its_headless_turn_is_report
     assert reported == (["answered"] if drain_timeout > 1 else ["stopped"])
 
 
+def test_a_drain_waits_longer_than_the_workflow_teardown_of_the_turns_it_cancels():
+    """A cancelled turn sends its terminal, and starts the outcome notice, only once its teardown ends or runs out.
+
+    The wait was a flat 10 s, the teardown bound itself: a turn whose teardown
+    ran out reached its terminal after the drain had stopped waiting, the
+    process exited before the notice started, and six asks on dev read
+    `working` until a read ended them 47 minutes on (2026-11-12).
+    """
+    from agent_host import workflow_stream
+
+    assert after_terminal_writes.drain_cancel_grace() > workflow_stream.PRODUCER_TEARDOWN_SECONDS
+
+
+async def test_a_drain_reports_the_outcome_of_a_headless_turn_whose_teardown_hangs(harness, monkeypatch):
+    from agent_host import workflow_stream
+
+    monkeypatch.setattr(workflow_stream, "PRODUCER_TEARDOWN_SECONDS", 0.2)
+    monkeypatch.setattr(after_terminal_writes, "DRAIN_CANCEL_MARGIN_SECONDS", 0.3)
+    reported: list[str] = []
+
+    async def notice(**report):
+        reported.append(report["outcome"])
+        return True
+
+    monkeypatch.setattr(chat_socket, "post_internal_turn_outcome", notice)
+    started, unstuck = asyncio.Event(), asyncio.Event()
+
+    async def stubborn(request, ask):
+        try:
+            yield TextMessageStartBody(message_id="m")
+            started.set()
+            await asyncio.sleep(3600)
+        finally:
+            await asyncio.shield(unstuck.wait())  # a call on a connection that went away with its pod
+
+    h = harness(stubborn)
+    sock = h.connect(headers=HEADLESS)
+    sock.client(type="user_message", message_id=WAKE, text="?")
+    await until(started.is_set)
+    try:
+        assert await h.registry.drain(timeout=0.01) == 1
+    finally:
+        unstuck.set()
+
+    assert reported == ["stopped"]
+
+
 async def test_a_headless_turn_whose_id_no_wake_mints_reports_nothing(harness, bff, persisted):
     sock = harness().connect(headers=HEADLESS)
     sock.client(type="user_message", message_id="t1", text="?")

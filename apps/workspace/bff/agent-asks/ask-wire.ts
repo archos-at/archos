@@ -73,8 +73,9 @@ export const CHAT_TURN_DEADLINE_SECONDS = 2_700
 const OUTCOME_NOTICE_GRACE_SECONDS = 120
 
 /**
- * How long an ask may stay open before it is ended `failed` when it is next read:
- * the turn's outcome notice was lost (a replica died mid-turn). The turn's own
+ * How long an ask may stay open before it is ended `failed`, by the `agent-ask-expiry`
+ * sweep or by its next read, whichever comes first: the turn's outcome notice was lost
+ * (a replica died mid-turn, or exited before it sent the notice). The turn's own
  * deadline and the notice's grace, so an ask is never ended while its turn may
  * still answer, and never outlives it; `AGENT_ASK_MAX_SECONDS` overrides it.
  */
