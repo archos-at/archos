@@ -1123,6 +1123,9 @@ class TestTopics:
     def test_the_prompt_asks_for_a_topic_reused_from_memory(self):
         assert "Reuse a topic already shown in the memory" in R.REFLECTION_SYSTEM_PROMPT
         assert "not a kind" in R.REFLECTION_SYSTEM_PROMPT
+        assert "in the spelling the memory uses" in R.REFLECTION_SYSTEM_PROMPT
+        # A project line may open with its topic: the supersede quote names the content, never the tag.
+        assert '`- ["Topic" | kind | confidence | verification]`' in R.REFLECTION_SYSTEM_PROMPT
 
     @pytest.mark.asyncio
     async def test_the_topic_reaches_both_writers(self, monkeypatch):

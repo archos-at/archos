@@ -57,8 +57,9 @@ REFLECTION_SYSTEM_PROMPT = (
     "RETIRE WHAT YOU CORRECT. A correction that merely gets added leaves the outdated entry "
     "sitting in memory next to it, and a later conversation may read either one. So when a "
     "finding replaces an existing entry, copy that entry's content VERBATIM into `supersedes` "
-    "— exactly as it appears below, without the leading `- [kind | confidence | verification]` "
-    "tag and without the surrounding quotes. The old entry is then retired and the new one takes "
+    "— exactly as it appears below, without the leading tag and without the surrounding quotes. "
+    'The tag is `- [kind | confidence | verification]`, or `- ["Topic" | kind | confidence | verification]` '
+    "when the note has a topic (the topic is optional). The old entry is then retired and the new one takes "
     "its place. Use `supersedes` ONLY for an entry this finding genuinely makes wrong or "
     "obsolete: a finding that adds detail alongside an entry, or covers a different aspect of "
     "the same topic, must leave `supersedes` as an empty string. Never quote an entry that is "
@@ -66,7 +67,8 @@ REFLECTION_SYSTEM_PROMPT = (
     "EVERY FINDING NAMES ITS TOPIC, in `topic`: the subject it is filed under on its shelf, so the "
     "shelf reads as folders. One to three words in the language the person wrote in, a subject and "
     'not a kind ("Brandschutz", not "Entscheidung"). Reuse a topic already shown in the memory '
-    "below when one fits; an empty string when none does.\n\n"
+    "below when one fits, in the spelling the memory uses (a line's first quoted tag, or the index "
+    "line); an empty string when none does.\n\n"
     "about must be one of: project, person.\n"
     "kind must be one of: decision, constraint, open_question, derived_fact, preference, profile "
     "(profile only with about: person).\n"

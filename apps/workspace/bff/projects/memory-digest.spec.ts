@@ -188,16 +188,14 @@ describe("formatTopicDigest with the shelf's open topics", () => {
   })
 
   it('names no topic of a restricted note the caller did not pass (not admitted)', () => {
-    // The caller drops a restricted note it does not admit before it formats, so its topic
-    // reaches the index only through the shelf's OPEN topics, which never hold it.
-    const digest = formatTopicDigest(
-      [note({ content: 'Dach in Holz', topic: 'Dach' })],
-      1,
-      BUDGET,
-      [{ name: 'Brandschutz', count: 2 }]
-    ) as string
+    // The caller leaves a restricted note out of `items` when its folders are not admitted, so its
+    // topic can reach the index only through the shelf's OPEN topics, which never hold a restricted topic.
+    const digest = formatTopicDigest([note({ content: 'Dach in Holz', topic: 'Dach' })], 1, BUDGET, [
+      { name: 'Dach', count: 1 },
+      { name: 'Brandschutz', count: 2 },
+    ]) as string
 
-    expect(digest.split('\n')[1]).not.toContain('Geheim')
+    expect(digest.split('\n')[1]).toBe(`${INDEX_HEAD} "Brandschutz" (2), "Dach" (1)`)
     expect(digest).not.toContain('Geheim')
   })
 

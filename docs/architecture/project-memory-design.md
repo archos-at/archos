@@ -745,11 +745,18 @@ cannot see is not listed to them. The decision and its reasons are in
   the table, so a restricted note's topic does not reveal the note (ADR-0087).
 - **The team shelf renames, merges and ungroups a topic, but does not remove one.**
   A team's notes are removed one by one, as before. The personal shelf can remove a
-  topic with all its notes. The organization (office) shelf follows the team shelf's
-  rules, resolved in `bff/projects/office-memory-topics.ts`.
+  topic with all its notes. The organization (office) shelf has no topic rename or
+  removal route: there is no office `…/memory/topics` route. A note's topic is set
+  per note on create and update (`app/api/organization/memory`), and the office list
+  counts its topics the same way (`officeTopicsOf` in
+  `bff/projects/office-memory-topics.ts`). A project topic rename leaves office notes
+  alone.
 - **The digest shows topics.** Each printed note carries its topic as the first tag
-  of its line, and the digest opens with an index of the topics of the notes it
-  prints: at most 20 named, the rest counted and said so. A shelf with no topic
-  prints exactly as before.
+  of its line, and the digest opens with a bounded index: the project shelf's open
+  topics (its notes and the office's open notes), plus the topics of the restricted
+  notes the turn admitted and printed. At most 20 named, the rest counted and said
+  so. A restricted note that is not admitted names no topic. Lines keep recall
+  order; they are not grouped into sections. A shelf with no topic prints exactly
+  as before.
 - **Not done.** A topic cannot be ordered or coloured by hand, and one name on the
   personal and the project shelf is two topics.

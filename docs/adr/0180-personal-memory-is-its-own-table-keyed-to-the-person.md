@@ -348,9 +348,13 @@ on Mein Gedächtnis and "Brandschutz" on a project shelf are two topics.
 - **The agent files notes under topics and reads them through an index.** The
   `remember` tool and the reflection carry an optional `topic`, one to three words
   naming a subject ("Brandschutz", not "Entscheidung"), reusing a topic the shelf
-  already shows. The personal block and the project digest open with a bounded
-  topic index and group their lines by topic. A shelf without any topic is
-  rendered exactly as before.
+  already shows. The personal block opens with a bounded topic index and groups
+  its lines by topic. The project digest opens with a bounded topic index too:
+  the shelf's open topics, plus the topics of the restricted notes the turn
+  admitted and printed, so a restricted topic no admitted note carries is not
+  named. It tags each line with its topic and keeps recall order; it does not
+  group its lines into sections. A shelf without any topic is rendered exactly
+  as before.
 
 Not done: a topic cannot be ordered or coloured by hand; a topic is not a
 shelf of its own, so one name on two shelves is two topics; a person cannot
