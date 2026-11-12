@@ -46,7 +46,7 @@ export interface TopicRenameDialogProps {
   topic: string
   /** The merge targets the field offers. The caller passes only what the reader may see here; `topic` itself is left out. */
   topics: readonly string[]
-  /** The shelf keeps some notes under the topic's name: the office's, which a project's rename leaves alone. */
+  /** The folder holds office notes, which a project's rename leaves under the topic's name. */
   officeKeepsTopic?: boolean
   onOpenChange: (open: boolean) => void
   /**
