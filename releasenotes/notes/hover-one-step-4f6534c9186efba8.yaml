@@ -6,3 +6,15 @@ improvements:
     point at them, everywhere in the app. The entry under the pointer no longer
     looks like the one that is open, and the three-dot button of a file shows
     when you point at it.
+  - >
+    The tabs of the project settings now look and work like the tabs of the
+    files page: a grey track with the open tab in white. A tab or a view you
+    point at darkens, where only its lettering changed before.
+  - >
+    Every white button now has one look and darkens when you point at it.
+    Cards and folders darken too instead of lifting, and a file tile answers
+    with the edge of its preview, with no grey laid behind it.
+  - >
+    The frame that shows where the keyboard is, and the border of a text field
+    you click into, are now a mid grey where they were almost black. Fields,
+    checkboxes and switches also answer when you point at them.

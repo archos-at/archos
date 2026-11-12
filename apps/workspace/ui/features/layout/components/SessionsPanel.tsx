@@ -453,7 +453,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
           )}
 
           <Button
-            variant="outline"
+            variant="secondary"
             className="h-9 w-full justify-start gap-2 pointer-coarse:h-11"
             onClick={handleNewSession}
             disabled={isNavigationBlocked}
@@ -593,7 +593,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   <p className="text-muted-foreground text-xs">
                     {t('sessionsPanel.researchLoadFailed')}
                   </p>
-                  <Button variant="outline" size="sm" onClick={fetchDeepResearchRuns}>
+                  <Button variant="secondary" size="sm" onClick={fetchDeepResearchRuns}>
                     {tCommon('actions.retry')}
                   </Button>
                 </div>
@@ -607,7 +607,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                     title={t('sessionsPanel.noMatching')}
                     description={t('sessionsPanel.noMatchingDescription', { query: trimmedQuery })}
                     action={
-                      <Button variant="outline" size="sm" onClick={handleClearSearch}>
+                      <Button variant="secondary" size="sm" onClick={handleClearSearch}>
                         {t('sessionsPanel.clearSearch')}
                       </Button>
                     }
@@ -761,7 +761,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   title={t('sessionsPanel.noMatching')}
                   description={t('sessionsPanel.noMatchingDescription', { query: trimmedQuery })}
                   action={
-                    <Button variant="outline" size="sm" onClick={handleClearSearch}>
+                    <Button variant="secondary" size="sm" onClick={handleClearSearch}>
                       {t('sessionsPanel.clearSearch')}
                     </Button>
                   }

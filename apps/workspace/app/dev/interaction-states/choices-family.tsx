@@ -141,7 +141,7 @@ export function ChoicesFamily(): JSX.Element {
     <Family
       id="choices"
       title="3 · Auswählen"
-      rule="Eine Auswahl ändert, was der Ort zeigt, nicht wo man ist. Heute: der Regler (weißer Daumen auf grauem Track) sieht aus wie die Reiter der Dateien-Seite, Kästchen, Optionsfeld, Schalter und Auswahlfeld antworten dem Zeiger gar nicht."
+      rule="Eine Auswahl ändert, was der Ort zeigt. Auf dem Track nimmt das nicht Gewählte unter dem Zeiger eine Stufe, das Gewählte bleibt der weiße Daumen. Ein leeres Kästchen oder Optionsfeld füllt sich, ein Feld zeigt es an seinem Rand."
       columns={COLUMNS}
       rows={ROWS}
     />

@@ -668,7 +668,7 @@ export function BaseKnowledge(): JSX.Element {
         contentClassName="w-64"
         trigger={
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="w-8 px-0"
             aria-label={t('knowledgeAdmin.moreActions')}
@@ -755,7 +755,7 @@ export function BaseKnowledge(): JSX.Element {
                     </SelectContent>
                   </Select>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={() => setPendingReingest([...selected])}
                     loading={isReingesting}
@@ -766,7 +766,7 @@ export function BaseKnowledge(): JSX.Element {
                       : t('knowledgeAdmin.bulkReingest')}
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     className="text-destructive"
                     onClick={() =>
@@ -857,7 +857,7 @@ export function BaseKnowledge(): JSX.Element {
               icon={FileText}
               title={t('knowledge.noMatch')}
               action={
-                <Button variant="outline" size="sm" onClick={clearFilters}>
+                <Button variant="secondary" size="sm" onClick={clearFilters}>
                   {t('knowledge.clearFilters')}
                 </Button>
               }

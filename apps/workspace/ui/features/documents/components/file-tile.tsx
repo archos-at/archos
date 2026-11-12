@@ -35,9 +35,8 @@ const OFF_SCREEN_SKIP = '[content-visibility:auto] [contain-intrinsic-block-size
  * lines around every document, a card in a card, sixteen times a screen. Now a
  * tile is the page itself. The thumbnail is the one object on it (a sheet with
  * a soft shadow, as a page lies on a desk), the name and the facts sit under it
- * in ink and muted ink, and the tile answers the pointer with a fill, not a
- * lift: the same quiet tone a list row takes (`Item`), so a grid and a list
- * hover the same way. Whitespace separates the tiles, not borders
+ * in ink and muted ink, and the tile answers the pointer with the edge of its
+ * sheet, not a lift and not a fill behind it. Whitespace separates the tiles, not borders
  * (`design-language.md` principle 4; the UI revision's „keine Karte in der
  * Karte, weniger Linien“).
  *
@@ -53,8 +52,10 @@ export function TileShell({ interactive = true, className, children, ...rest }: 
         'relative flex h-full min-w-0 flex-col rounded-surface p-1.5',
         OFF_SCREEN_SKIP,
         'transition-colors duration-quick ease-out motion-reduce:transition-none',
-        // The hover is the pointer's fill, as a list row's; the open or picked tile holds the selected grey under it too.
-        interactive && 'hover:bg-hover',
+        // No fill under the pointer: a grey laid behind the thumbnail's white sheet read as a second box (the folder's
+        // case, then V4 of the interaction review). The sheet answers with its edge (`FileTileMedia`, `group/tile`);
+        // the open or picked tile holds the selected grey in this inset.
+        interactive && 'group/tile',
         className,
       )}
       {...rest}
@@ -64,7 +65,7 @@ export function TileShell({ interactive = true, className, children, ...rest }: 
   )
 
   if (!interactive) return shell
-  // The press is the only motion: a fill already answers the hover, and a lift on top of it moved sixteen tiles per sweep.
+  // The press is the only motion: the sheet's edge already answers the hover, and a lift on top of it moved sixteen tiles per sweep.
   return (
     <motion.div className="h-full min-w-0 will-change-transform" whileTap={{ scale: 0.99, transition: springPress }}>
       {shell}
@@ -72,10 +73,13 @@ export function TileShell({ interactive = true, className, children, ...rest }: 
   )
 }
 
-/** The thumbnail: a white sheet with its edge and elevation 1 (paper on a desk), the document lying on the desk; every tile's the same size. */
+/**
+ * The thumbnail: a white sheet with its edge and elevation 1 (paper on a desk), the document lying on the desk; every
+ * tile's the same size. Under the pointer its edge goes one step toward ink: a picture has no fill to give.
+ */
 export function FileTileMedia({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('bg-sheet shadow-sm relative w-full overflow-hidden rounded-surface', className)} {...rest}>
+    <div className={cn('bg-sheet shadow-sm relative w-full overflow-hidden rounded-surface transition-shadow duration-quick ease-out group-hover/tile:shadow-sheet-pointer motion-reduce:transition-none', className)} {...rest}>
       {children}
     </div>
   )

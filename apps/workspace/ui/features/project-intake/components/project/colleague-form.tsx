@@ -63,7 +63,7 @@ export function ColleagueForm({
         <FieldLabel htmlFor={`${id}-who`}>{t('people.colleague')}</FieldLabel>
         <Popover open={picking} onOpenChange={setPicking}>
           <PopoverTrigger asChild>
-            <Button id={`${id}-who`} type="button" variant="outline" role="combobox" aria-expanded={picking} aria-controls={`${id}-list`} className="w-full justify-between font-normal">
+            <Button id={`${id}-who`} type="button" variant="secondary" role="combobox" aria-expanded={picking} aria-controls={`${id}-list`} className="w-full justify-between font-normal">
               <span className="truncate">{member?.name ?? t('people.colleaguePick')}</span>
               <ChevronDown className="size-4 opacity-70" aria-hidden />
             </Button>

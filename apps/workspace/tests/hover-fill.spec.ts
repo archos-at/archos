@@ -54,6 +54,7 @@ const OWN_FAMILY = /^(primary|destructive|danger-subtle|interaction-primary-hove
 const ALLOWED: Record<string, string> = {
   'ui/components/ui/resizable.tsx': 'a 1px divider darkening to ink: a line, not a fill',
   'ui/features/chat/components/AnswerFeedback.tsx': 'the chosen verdict is an ink disc and holds its ink under the pointer',
+  'ui/components/ui/switch.tsx': 'an off switch is a track of ink at 12%, not a plane: it steps to 20%',
 }
 
 describe('hover is one step down the ladder', () => {
@@ -102,16 +103,20 @@ describe('hover is one step down the ladder', () => {
     expect(tokens).toMatch(/\.dark \{[^}]*--sheet-hover: color-mix\(in srgb, var\(--sheet\) 94%, rgb\(245 244 242\)\);/)
   })
 
-  it('a folder answers the pointer with its own sheet, and nothing is laid behind it', () => {
+  it('a folder and a file tile answer the pointer with their own sheet, and nothing is laid behind it', () => {
     const documents = (name: string): string => withoutComments(readFileSync(join(ROOT, 'ui/features/documents/components', name), 'utf8'))
     expect(documents('folder-card-frame.tsx')).toMatch(/cn\(FOLDER_SHEET, '[^']*group-hover:bg-sheet-hover /)
-    expect(documents('folder-navigation.tsx')).toMatch(/cn\('group hover:bg-transparent /)
+    // Nor behind a file's thumbnail: the tile's shell takes no fill, the sheet's edge goes one step toward ink.
+    expect(documents('file-tile.tsx')).not.toMatch(/hover:bg-/)
+    expect(documents('file-tile.tsx')).toMatch(/group-hover\/tile:shadow-sheet-pointer/)
   })
 
-  it('the kit hovers by the wash: a ghost, an outline, a row, a table row and a menu item', () => {
+  it('the kit hovers by the wash: a ghost, a row, a table row and a menu item; the white press by the sheet’s own step', () => {
     const kit = (name: string): string => withoutComments(readFileSync(join(ROOT, 'ui/components/ui', name), 'utf8'))
     expect(kit('button.tsx')).toMatch(/ghost: 'hover:bg-hover /)
-    expect(kit('button.tsx')).toMatch(/'border border-input bg-transparent hover:bg-hover /)
+    // One press beside the primary: the outline, a second form for the same role, is gone.
+    expect(kit('button.tsx')).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:bg-sheet-hover /)
+    expect(kit('button.tsx')).not.toMatch(/\boutline:\s*'/)
     expect(kit('item.tsx')).toMatch(/ hover:bg-hover /)
     expect(kit('table.tsx')).toMatch(/hover:bg-hover data-\[state=selected\]:bg-selected/)
     for (const menu of ['dropdown-menu.tsx', 'context-menu.tsx', 'select.tsx']) expect(kit(menu), menu).toMatch(/focus:bg-hover /)

@@ -715,7 +715,7 @@ export function RunBlock({
     onWriteNow && live && activePhase(ledger) === 'researching' ? (
       <Button
         size="sm"
-        variant="outline"
+        variant="secondary"
         className="h-7 px-2 text-xs"
         onClick={() => void onWriteNow()}
         data-testid="run-action-write-now"

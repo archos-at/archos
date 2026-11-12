@@ -303,7 +303,7 @@ describe('the secondary press', () => {
   // button.
   it('the kit draws secondary as the raised white press', () => {
     const kit = withoutComments(files.find((f) => f.name === 'ui/components/ui/button.tsx')?.text ?? '')
-    expect(kit).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press /)
+    expect(kit).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:bg-sheet-hover active:bg-pressed /)
     expect(kit).not.toMatch(/in-data-\[surface=sunken\]/)
   })
   it('Dateien and the E-Mail-Eingang set no outline button', () => {
@@ -645,14 +645,14 @@ describe('press, thumb and sheet', () => {
   // label. Now each has its own shape: the press is its edge and no shadow at rest (32px, radius 6), the thumb keeps
   // the 1px shadow and lives only on a track, the sheet is radius 10 at elevation 1 and says it opens (a chevron).
   const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
-  it('the press rests on its edge alone and lifts under the pointer', () => {
+  it('the press rests on its edge alone and fills one step under the pointer', () => {
     expect(tokens).toMatch(/--elevation-press: 0 0 0 1px var\(--edge\);/)
     expect(tokens).toMatch(/--shadow-press: var\(--elevation-press\);/)
-    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press dark:/)
+    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:bg-sheet-hover active:bg-pressed dark:/)
   })
   it('in dark only a sheet or a thumb is lighter than its plane: a press is its plane’s fill with the 16% edge', () => {
     // Round 3: the dark press took the sheet's fill, so a press, a folder sheet and a chip were one filled box.
-    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'[^']*dark:bg-transparent dark:hover:bg-hover dark:hover:shadow-press/)
+    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'[^']*dark:bg-transparent dark:hover:bg-hover dark:active:bg-foreground\/\[0\.1\]/)
   })
   it('a chip is never the press’s shape: a 28px pill of the desk, no edge; picked, the selected grey and a tick', () => {
     // Round 3 drew Offene Punkte's filter chips as the press: „Für Sie“ read as a command beside „Protokoll exportieren“.

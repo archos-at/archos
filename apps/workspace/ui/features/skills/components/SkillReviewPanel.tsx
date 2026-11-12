@@ -105,7 +105,7 @@ export const SkillReviewPanel: FC<SkillReviewPanelProps> = ({
         </h3>
         <Button
           type="button"
-          variant={stale && ranBefore ? 'default' : 'outline'}
+          variant={stale && ranBefore ? 'default' : 'secondary'}
           size="sm"
           onClick={onRun}
           disabled={running}

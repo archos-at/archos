@@ -277,7 +277,7 @@ export function QuickStartToggle({
     <div className="flex items-start gap-3">
       <Button
         type="button"
-        variant={enabled ? 'default' : 'outline'}
+        variant={enabled ? 'default' : 'secondary'}
         size="sm"
         onClick={onToggle}
         aria-pressed={enabled}

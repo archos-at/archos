@@ -219,7 +219,7 @@ export const ProfileControls: FC<ProfileControlsProps> = ({
               </div>
               <p className="text-xs text-muted-foreground">{t('security.managedByWorkos')}</p>
               <div>
-                <Button variant="outline" onClick={() => signOut()} className="gap-2">
+                <Button variant="secondary" onClick={() => signOut()} className="gap-2">
                   <LogOut className="size-4" aria-hidden />
                   {t('security.signOutEverywhere')}
                 </Button>

@@ -47,7 +47,7 @@ export function OrgReingestFailedCard(): JSX.Element {
         <CardDescription>{t('advanced.reingestFailed.description')}</CardDescription>
       </CardHeader>
       <CardContent>
-        <Button variant="outline" onClick={handleRescan} disabled={isRescanning}>
+        <Button variant="secondary" onClick={handleRescan} disabled={isRescanning}>
           <RefreshCw
             className={isRescanning ? 'size-4 animate-spin motion-reduce:animate-none' : 'size-4'}
             aria-hidden="true"

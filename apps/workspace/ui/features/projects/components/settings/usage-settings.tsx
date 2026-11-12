@@ -171,7 +171,7 @@ export function UsageSettings({ projectId, usage, canEditLimit }: UsageSettingsP
               unitWord={unitWord}
               onSaved={async () => router.refresh()}
               trigger={
-                <Button variant="outline" size="sm">
+                <Button variant="secondary" size="sm">
                   <Pencil className="size-3.5" aria-hidden />
                   {projectLimit ? t('project.usage.editLimit') : t('project.usage.setLimit')}
                 </Button>

@@ -10,7 +10,8 @@
  * real component under a real `:hover`, not a class that imitates one.
  * `data-force-target` narrows a cell's state to some of its descendants (one
  * tab of a strip). A pointer's state reaches a target's own descendants too,
- * so a `group-hover` inside it answers; the keys' state stays on the target.
+ * so a `group-hover` inside it answers; the keys' state goes to one control,
+ * the target or the first focusable element of the cell.
  *
  *   node scripts/capture-forced-states.mjs <url> <out-dir> [--dark] [--parts <selector>]
  *
@@ -40,12 +41,21 @@ const parts = option('--parts', '[data-family], [data-variant]')
 
 /** In the page: copy each cell's state onto its targets and everything inside them. */
 function markForced() {
+  const FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
   for (const cell of document.querySelectorAll('[data-force]')) {
     const state = cell.getAttribute('data-force')
     const target = cell.getAttribute('data-force-target')
+    if (state === 'focus') {
+      // The keys are on ONE control: the cell's target, or the first thing in it a Tab would reach. Never the cell
+      // (a frame round the whole cell is not the control's ring) and never what is inside the control.
+      // The first one that is drawn: a nav renders its strip and its rail, and hides one of them.
+      const control = [...cell.querySelectorAll(target ?? FOCUSABLE)].find((node) => node.getClientRects().length > 0)
+      if (control) control.setAttribute('data-forced', state)
+      continue
+    }
+    // The pointer is over an element and everything inside it.
     const roots = target ? [...cell.querySelectorAll(target)] : [cell]
-    // The keys are on one element; the pointer is over an element and everything inside it.
-    for (const root of roots) for (const node of state === 'focus' ? [root] : [root, ...root.querySelectorAll('*')]) node.setAttribute('data-forced', state)
+    for (const root of roots) for (const node of [root, ...root.querySelectorAll('*')]) node.setAttribute('data-forced', state)
   }
 }
 

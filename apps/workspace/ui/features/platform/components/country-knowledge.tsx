@@ -198,7 +198,7 @@ export function CountryKnowledge(): JSX.Element {
                   <TableCell>{countryName(request.countryId, locale)}</TableCell>
                   <TableCell className="text-right tabular-nums">{request.revisionCount}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" onClick={() => setOpenId(request.id)}>
+                    <Button size="sm" variant="secondary" onClick={() => setOpenId(request.id)}>
                       {t('countryKnowledge.open')}
                     </Button>
                   </TableCell>
@@ -223,7 +223,7 @@ export function CountryKnowledge(): JSX.Element {
                   <TableCell>{countryName(request.countryId, locale)}</TableCell>
                   <TableCell className="text-right tabular-nums">{request.revisionCount}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" onClick={() => setOpenId(request.id)}>
+                    <Button size="sm" variant="secondary" onClick={() => setOpenId(request.id)}>
                       {t('countryKnowledge.open')}
                     </Button>
                   </TableCell>

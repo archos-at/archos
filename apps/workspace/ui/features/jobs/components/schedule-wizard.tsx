@@ -771,7 +771,7 @@ function WizardNav({
               one that is working. Both are disabled while it saves. */}
           <Button
             type="submit"
-            variant="outline"
+            variant="secondary"
             disabled={!canSubmit || isSubmitting}
             onClick={onRunAfterSave}
             data-testid="wizard-save-and-run"

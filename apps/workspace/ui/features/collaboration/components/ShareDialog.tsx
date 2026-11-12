@@ -196,7 +196,7 @@ function ShareLink({ url }: { url: string }): JSX.Element {
     <section className="space-y-2" data-testid="share-link">
       <SectionLabel as="h3">{t('sharing.link.heading')}</SectionLabel>
       <Button
-        variant="outline"
+        variant="secondary"
         className="w-full justify-center gap-2 sm:w-auto"
         onClick={() => void pass()}
         data-testid="share-link-button"
@@ -520,7 +520,7 @@ export function ShareDialog({
                 truncates this sentence in German at a laptop width. */}
             <AlertTitle className="line-clamp-none">{t('sharing.errors.loadFailed')}</AlertTitle>
             <AlertDescription>
-              <Button variant="outline" size="sm" className="mt-2" onClick={refresh}>
+              <Button variant="secondary" size="sm" className="mt-2" onClick={refresh}>
                 {t('sharing.errors.tryAgain')}
               </Button>
             </AlertDescription>
@@ -648,7 +648,7 @@ export function ShareDialog({
                         {t('sharing.errors.loadFailed')}
                       </AlertTitle>
                       <AlertDescription>
-                        <Button variant="outline" size="sm" className="mt-2" onClick={reloadCandidates}>
+                        <Button variant="secondary" size="sm" className="mt-2" onClick={reloadCandidates}>
                           {t('sharing.errors.tryAgain')}
                         </Button>
                       </AlertDescription>
@@ -734,7 +734,7 @@ export function ShareDialog({
                             </Chip>
                           ) : (
                             <Button
-                              variant="outline"
+                              variant="secondary"
                               size="sm"
                               className="shrink-0 gap-1.5"
                               disabled={saving}
@@ -778,7 +778,7 @@ export function ShareDialog({
                 <Separator />
                 <section className="space-y-2">
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     className="gap-1.5"
                     disabled={saving}

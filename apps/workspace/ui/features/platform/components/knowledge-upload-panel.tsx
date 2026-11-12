@@ -197,7 +197,7 @@ export function KnowledgeUploadPanel({
           <AlertTitle className="line-clamp-none">{t('knowledge.pollTimeoutTitle')}</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-2">
             <span>{t('knowledge.pollTimeoutDescription')}</span>
-            <Button variant="outline" size="sm" onClick={onRearm}>
+            <Button variant="secondary" size="sm" onClick={onRearm}>
               <RefreshCw className="size-3.5" aria-hidden />
               {t('knowledge.pollTimeoutRefresh')}
             </Button>
@@ -220,7 +220,7 @@ export function KnowledgeUploadPanel({
                 </li>
               ))}
             </ul>
-            <Button variant="outline" size="sm" onClick={onDismissMissing}>
+            <Button variant="secondary" size="sm" onClick={onDismissMissing}>
               {t('knowledge.missingDismiss')}
             </Button>
           </AlertDescription>

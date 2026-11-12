@@ -2,7 +2,7 @@
 
 /**
  * Dev preview: every interactive element of the kit in every state it has, by
- * family, and the open decisions drawn as variants side by side.
+ * family.
  *
  * It exists because the hover of a control was decided control by control: a
  * button answered the pointer with a shadow, a card with a lift, a row with a
@@ -21,9 +21,7 @@
 import type { JSX } from 'react'
 import { ActionsFamily } from './actions-family'
 import { ChoicesFamily } from './choices-family'
-import { CardVariants, FieldVariants, PressVariants, SegmentVariants, TileVariants } from './control-variants'
 import { ObjectsFamily, SmallFamily } from './objects-family'
-import { PlaceVariants } from './place-variants'
 import { PlacesFamily } from './places-family'
 
 export default function InteractionStatesDevPage(): JSX.Element {
@@ -32,8 +30,8 @@ export default function InteractionStatesDevPage(): JSX.Element {
       <header className="grid gap-1 px-8 pb-2 pt-8">
         <h1 className="text-page-title">Zustände aller klickbaren Elemente</h1>
         <p className="text-muted-foreground max-w-[72ch] text-sm">
-          Oben der Stand von heute, nach Familien: was ein Element ist, bestimmt, wie es dem Zeiger antwortet. Unten die
-          offenen Entscheidungen als Varianten, jede in Ruhe und unter dem Zeiger.
+          Nach Familien: was ein Element ist, bestimmt seine Form, und unter dem Zeiger geht es selbst genau eine Stufe.
+          Eine Fläche füllt sich; wo nichts zu füllen ist, geht die Kante Richtung Tinte.
         </p>
       </header>
       <div className="divide-hairline grid divide-y" data-part="inventory">
@@ -42,14 +40,6 @@ export default function InteractionStatesDevPage(): JSX.Element {
         <ChoicesFamily />
         <ObjectsFamily />
         <SmallFamily />
-      </div>
-      <div className="divide-hairline border-hairline grid divide-y border-t" data-part="variants">
-        <PlaceVariants />
-        <PressVariants />
-        <CardVariants />
-        <TileVariants />
-        <SegmentVariants />
-        <FieldVariants />
       </div>
     </main>
   )

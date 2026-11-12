@@ -549,7 +549,7 @@ export function FolderCard({
       // full-width sheets put the first thumbnail at y=475.
       data-folder-tile=""
       // A drag has to say where it will land, or it is a guess with a cursor.
-      className={cn('group hover:bg-transparent [contain-intrinsic-block-size:auto_64px]', dropRing(drop))}
+      className={cn('group [contain-intrinsic-block-size:auto_64px]', dropRing(drop))}
       data-testid={`folder-card-${folder.id}`}
       data-drop-over={drop.isOver ? '' : undefined}
       // Source as well as target: a folder is moved by dragging it onto

@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { Bug, FileText, Lightbulb } from 'lucide-react'
+import { Bug, ChevronRight, FileText, Folder, Lightbulb } from 'lucide-react'
 import { BreadcrumbLink } from '@/components/ui/breadcrumb'
 import { Chip, type ChipProps } from '@/components/ui/chip'
 import { ChoiceCard, ChoiceCardGroup } from '@/components/ui/choice-card'
@@ -10,6 +10,8 @@ import { Item, ItemContent, ItemDescription, ItemList, ItemMedia, ItemTitle } fr
 import { Listbox, ListboxOption } from '@/components/ui/listbox'
 import { RaisedCard, RaisedCardBody } from '@/components/ui/raised-card'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
+import { FolderCardFrame } from '@/features/documents/components/folder-card-frame'
+import { FileTileBody, FileTileMedia, TileShell } from '@/features/documents/components/file-tile'
 import { Family, Forced, type ForcedState, type StateRowSpec } from './state-table'
 
 /** A list row that opens something: the kit's `Item` as a button, in a list of one. */
@@ -83,6 +85,45 @@ function Options({ state, target }: { state?: ForcedState; target?: string }): J
   )
 }
 
+/** A folder as Dateien draws it: the sheet in its tile, which names the group the sheet answers in. */
+function FolderSheet({ state }: { state?: ForcedState }): JSX.Element {
+  return (
+    <Forced state={state} className="w-full">
+      <div className="group w-full">
+        <FolderCardFrame editing={false} onOpen={() => undefined} openLabel="Brandschutz 2 Elemente öffnen">
+          <span className="flex h-14 min-w-0 flex-1 items-center gap-3 px-3">
+            <Folder className="text-muted-foreground size-[18px] shrink-0" strokeWidth={1.6} aria-hidden />
+            <span className="grid min-w-0 flex-1">
+              <span className="text-name truncate">Brandschutz</span>{' '}
+              <span className="text-muted-foreground text-meta">2 Elemente</span>
+            </span>
+            <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
+          </span>
+        </FolderCardFrame>
+      </div>
+    </Forced>
+  )
+}
+
+/** A file tile as Dateien draws it: the thumbnail's sheet, the name under it. */
+function FileTile({ state, picked = false }: { state?: ForcedState; picked?: boolean }): JSX.Element {
+  return (
+    <Forced state={state} className="w-full">
+      <TileShell className={picked ? 'bg-selected w-full' : 'w-full'}>
+        <FileTileMedia className="grid h-20 content-center gap-1.5 px-4">
+          <span className="bg-selected h-1.5 w-2/3 rounded-full" />
+          <span className="bg-desk h-1.5 rounded-full" />
+          <span className="bg-desk h-1.5 w-5/6 rounded-full" />
+        </FileTileMedia>
+        <FileTileBody className="grid gap-0.5 pt-2">
+          <span className="text-name truncate">Energieausweis.pdf</span>
+          <span className="text-muted-foreground text-meta truncate">PDF · 900 kB</span>
+        </FileTileBody>
+      </TileShell>
+    </Forced>
+  )
+}
+
 const ROWS: readonly StateRowSpec[] = [
   {
     label: 'Listenzeile',
@@ -105,6 +146,16 @@ const ROWS: readonly StateRowSpec[] = [
     cells: [<OpeningCard key="rest" />, <OpeningCard key="hover" state="hover" />, null, null, null, null],
   },
   {
+    label: 'Ordner',
+    note: 'Dateien: ein weißes Blatt, das sich öffnet',
+    cells: [<FolderSheet key="rest" />, <FolderSheet key="hover" state="hover" />, null, <FolderSheet key="focus" state="focus" />, null, null],
+  },
+  {
+    label: 'Dateikachel',
+    note: 'Vorschau als Blatt, der Name darunter: die Kante antwortet',
+    cells: [<FileTile key="rest" />, <FileTile key="hover" state="hover" />, null, null, null, <FileTile key="picked" picked />],
+  },
+  {
     label: 'Auswahlkarte',
     note: 'Eine Frage, große Antworten (Projektanlage, Feedback)',
     cells: [<Options key="rest" />, <Options key="hover" state="hover" target='[data-state="unchecked"]' />, null, <Options key="focus" state="focus" target='[data-state="unchecked"]' />, null, null],
@@ -117,7 +168,7 @@ export function ObjectsFamily(): JSX.Element {
     <Family
       id="objects"
       title="4 · Zeilen und Karten"
-      rule="Eine Zeile oder Karte ist ein Ding, das sich öffnet. Zeilen und Menüeinträge nehmen seit dem letzten Stand denselben Hover-Ton. Karten antworten noch auf drei Arten: die Projektkarte hebt sich (Schatten), die Auswahlkarte und der Ordner füllen sich, die Dateikachel bekommt ein Grau hinter die Vorschau."
+      rule="Eine Zeile oder Karte ist ein Ding, das sich öffnet. Was keine eigene Fläche hat, nimmt den Hover-Ton; ein weißes Blatt füllt sich selbst eine Stufe dunkler. Nichts hebt sich, und hinter ein Blatt wird kein Grau gelegt."
       columns={['Ruhe', 'Zeiger', 'Gedrückt', 'Tastatur', 'Offen', 'Gewählt']}
       rows={ROWS}
       wide
@@ -164,7 +215,7 @@ export function SmallFamily(): JSX.Element {
     <Family
       id="small"
       title="5 · Chips, Felder, Links"
-      rule="Ein grauer Chip geht eine Stufe dunkler, ein Chip mit Farbton behält ihn und zeigt nur seine Kante, ein stiller Link wird Tinte. Das Textfeld antwortet dem Zeiger nicht."
+      rule="Ein grauer Chip geht eine Stufe dunkler, ein Chip mit Farbton behält ihn und zeigt nur seine Kante, ein stiller Link wird Tinte. Ein Feld hat keine Fläche zum Füllen: sein Rand geht eine Stufe Richtung Tinte, mit der Tastatur wird er das Grau des Fokusrings."
       columns={['Ruhe', 'Zeiger', 'Tastatur']}
       rows={SMALL_ROWS}
     />

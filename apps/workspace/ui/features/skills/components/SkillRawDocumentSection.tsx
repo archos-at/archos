@@ -137,7 +137,7 @@ export const SkillRawDocumentSection: FC<SkillRawDocumentSectionProps> = ({
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={apply}
               disabled={!parsed.ok || !dirty}

@@ -43,8 +43,8 @@ function KitTabs(): JSX.Element {
 
 const ROWS: readonly StateRowSpec[] = [
   {
-    label: 'Reiter auf dem Track',
-    note: 'Dateien: Ordner, E-Mail-Eingang, Offene Punkte, Papierkorb',
+    label: 'Reiter, Dateien',
+    note: 'Ordner, E-Mail-Eingang, Offene Punkte, Papierkorb',
     cells: [
       <Forced key="rest">
         <SectionNav label="Dateien" items={FILES} rootHref="/p/files" pathname="/p/files" pillId="states-files-rest" orientation="tabs" track />
@@ -55,14 +55,14 @@ const ROWS: readonly StateRowSpec[] = [
     ],
   },
   {
-    label: 'Reiter als Pille',
-    note: 'Projekteinstellungen: Übersicht, Mitglieder, Gedächtnis',
+    label: 'Reiter, Projekteinstellungen',
+    note: 'Übersicht, Mitglieder, Gedächtnis: dieselbe Form',
     cells: [
       <Forced key="rest">
-        <SectionNav label="Projekt" items={SETTINGS} rootHref="/p/settings" pathname="/p/settings" pillId="states-settings-rest" orientation="tabs" />
+        <SectionNav label="Projekt" items={SETTINGS} rootHref="/p/settings" pathname="/p/settings" pillId="states-settings-rest" orientation="tabs" track />
       </Forced>,
       <Forced key="hover" state="hover" target='a[href="/p/settings/members"]'>
-        <SectionNav label="Projekt" items={SETTINGS} rootHref="/p/settings" pathname="/p/settings" pillId="states-settings-hover" orientation="tabs" />
+        <SectionNav label="Projekt" items={SETTINGS} rootHref="/p/settings" pathname="/p/settings" pillId="states-settings-hover" orientation="tabs" track />
       </Forced>,
     ],
   },
@@ -92,13 +92,47 @@ const ROWS: readonly StateRowSpec[] = [
   },
 ]
 
+/** The keys on the second place: on a track the ring is drawn inside the tab, beside the content round the row. */
+const KEY_ROWS: readonly StateRowSpec[] = [
+  {
+    label: 'Reiter auf dem Track',
+    cells: [
+      <Forced key="focus" state="focus" target='a[href="/p/settings/members"]'>
+        <SectionNav label="Projekt" items={SETTINGS} rootHref="/p/settings" pathname="/p/settings" pillId="states-settings-focus" orientation="tabs" track />
+      </Forced>,
+      <Forced key="kit" state="focus" target='[role="tab"]:nth-of-type(2)'>
+        <KitTabs />
+      </Forced>,
+      <Forced key="rail" state="focus" target='a[href="/o/people"]' className="items-start">
+        <SectionNav label="Organisation" items={ORGANIZATION} rootHref="/o" pathname="/o" pillId="states-org-focus" />
+      </Forced>,
+    ],
+  },
+]
+
 /** Everything that moves the reader to another place of the same page or tier. */
 export function PlacesFamily(): JSX.Element {
+  return (
+    <>
+      <PlacesByPointer />
+      <Family
+        id="places-keys"
+        title="2b · Orte mit der Tastatur"
+        rule="Der Ring ist ein mittleres Grau, nie Schwarz. Auf einem Track liegt er im Reiter, weil der Track seitlich rollt und einen Ring außen abschneiden würde."
+        columns={['Reiter einer Seite', 'Tabs des Kits', 'Leiste neben dem Inhalt']}
+        rows={KEY_ROWS}
+        wide
+      />
+    </>
+  )
+}
+
+function PlacesByPointer(): JSX.Element {
   return (
     <Family
       id="places"
       title="2 · Orte wechseln"
-      rule="Ein Reiter führt an einen anderen Ort derselben Seite. Heute: vier Formen. Auf dem Track ist der offene Reiter weiß und der Zeiger färbt nur die Schrift; als Pille ist der offene Reiter grau gefüllt und der Zeiger füllt ebenfalls."
+      rule="Ein Reiter führt an einen anderen Ort derselben Seite. Eine Form: ein grauer Track, der offene Reiter ein weißer Daumen. Unter dem Zeiger wird ein Reiter Tinte und eine Stufe dunkler. Neben einem Formular steht dieselbe Auswahl als Leiste."
       columns={['Ruhe (erster Reiter offen)', 'Zeiger auf dem zweiten Reiter']}
       rows={ROWS}
       wide

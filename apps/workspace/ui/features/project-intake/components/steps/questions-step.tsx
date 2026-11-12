@@ -64,7 +64,7 @@ export function QuestionsStep({ view, canDecide, busy, canUpload, onDecide, onFi
   const progress = { done, total, label: t('progress', { done, total }) }
   const allDone = current === null
   const desk: ReactNode = onNext ? (
-    <Button type="button" variant={allDone ? 'default' : 'outline'} className={PRIMARY_ACTION_CLASS} onClick={onNext}>
+    <Button type="button" variant={allDone ? 'default' : 'secondary'} className={PRIMARY_ACTION_CLASS} onClick={onNext}>
       {allDone ? t('next') : t('rest')}
       <ArrowRight aria-hidden />
     </Button>

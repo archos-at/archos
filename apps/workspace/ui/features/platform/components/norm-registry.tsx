@@ -291,9 +291,10 @@ export function NormRegistry(): JSX.Element {
                   // As a filter it stays one click away without duplicating the
                   // list — and the count is still visible without opening it.
                   <Button
-                    variant={onlyReviews ? 'secondary' : 'outline'}
+                    variant="secondary"
                     size="sm"
                     aria-pressed={onlyReviews}
+                    className="aria-pressed:bg-selected aria-pressed:hover:bg-selected"
                     onClick={() => {
                       setOnlyReviews((prev) => !prev)
                       resetPaging()

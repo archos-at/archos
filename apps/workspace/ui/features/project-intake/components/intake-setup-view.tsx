@@ -273,7 +273,7 @@ export function IntakeSetupView({
                     <TriangleAlert aria-hidden />
                     <AlertDescription className="text-current">
                       <p>{t('errors.load')}</p>
-                      <Button type="button" size="sm" variant="outline" onClick={onRetry}>
+                      <Button type="button" size="sm" variant="secondary" onClick={onRetry}>
                         {t('errors.retry')}
                       </Button>
                     </AlertDescription>
@@ -342,7 +342,7 @@ function FailedReading({
           <BusyButton
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             className="mt-2"
             icon={<RefreshCw aria-hidden />}
             busy={retrying}

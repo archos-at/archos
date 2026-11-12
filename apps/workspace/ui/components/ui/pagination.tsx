@@ -53,7 +53,7 @@ export function Pagination({
       <p className="text-xs tabular-nums text-muted-foreground">{rangeLabel(from, to, total)}</p>
       <div className="flex items-center gap-1">
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={offset === 0}
           onClick={() => onOffsetChange(Math.max(0, offset - pageSize))}
@@ -62,7 +62,7 @@ export function Pagination({
           {previousLabel}
         </Button>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={to >= total}
           onClick={() => onOffsetChange(offset + pageSize)}

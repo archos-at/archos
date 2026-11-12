@@ -49,21 +49,19 @@ const buttonVariants = cva(
         default: 'bg-primary text-primary-foreground shadow-xs hover:bg-interaction-primary-hover',
         destructive:
           'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/40',
-        // Outline keeps its hairline and takes the pointer's fill, one step down
-        // from its plane. It filled to card white until 2026-11: nothing on a
-        // sheet, and lighter than the paper it lay on.
-        outline:
-          'border border-input bg-transparent hover:bg-hover hover:text-accent-foreground',
         // The press (paper on a desk, „white with an edge means you can touch
         // it; its shape says what happens“): white, its 1px edge at 12% ink and
-        // no drop shadow at rest, the 1px shadow under the pointer, the pressed
-        // grey while down. A track's thumb keeps the shadow at rest and a
+        // no drop shadow, one step down the ladder under the pointer (the sheet's
+        // own hover, as a folder's), the pressed grey while down. It gained a 1px
+        // shadow under the pointer until 2026-11-12, which nobody saw on white.
+        // It is the ONE press beside the primary: `outline`, a second form for the
+        // same role at 230 sites, is gone (V2 of the interaction review). A track's thumb keeps the shadow at rest and a
         // sheet is elevation 1 at radius 10, so the three never share a look.
         // Replaces the tonal secondary (D4, 2026-11-10). In dark only a sheet or a thumb is lighter than its plane:
         // a press is its plane's own fill with the 16% edge, a white wash one step up under the pointer. Round 3's
         // dark press was the sheet's fill, and a press, a folder sheet and a chip were one filled box.
         secondary:
-          'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press dark:bg-transparent dark:hover:bg-hover dark:hover:shadow-press dark:active:bg-foreground/[0.1]',
+          'bg-sheet text-foreground shadow-press hover:bg-sheet-hover active:bg-pressed dark:bg-transparent dark:hover:bg-hover dark:active:bg-foreground/[0.1]',
         // Ghost is the quietest action: the pointer's fill and nothing else. The wash, not a named grey, so a ghost
         // inside a hovered row still shows (a file row's ⋯ was the desk on the desk until 2026-11).
         ghost: 'hover:bg-hover hover:text-accent-foreground',

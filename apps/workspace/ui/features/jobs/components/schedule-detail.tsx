@@ -266,7 +266,7 @@ function ScheduleDetailBody({
               {tj('actions.runNow')}
             </Button>
             {onEdit && (
-              <Button size="sm" variant="outline" onClick={() => onEdit(job)} data-testid="schedule-detail-edit">
+              <Button size="sm" variant="secondary" onClick={() => onEdit(job)} data-testid="schedule-detail-edit">
                 <Pencil className="size-3.5" aria-hidden />
                 {t('detail.edit')}
               </Button>

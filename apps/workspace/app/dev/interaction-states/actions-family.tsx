@@ -38,13 +38,8 @@ const ROWS: readonly StateRowSpec[] = [
   },
   {
     label: 'Sekundär',
-    note: 'Weiß mit Kante: jede weitere Aktion („Ordner anlegen“)',
+    note: 'Weiß mit Kante: jede weitere Aktion („Ordner anlegen“, „Exportieren“)',
     cells: states({ size: 'sm', variant: 'secondary' }, 'Ordner anlegen'),
-  },
-  {
-    label: 'Outline',
-    note: 'Rahmen ohne Füllung: dieselbe Rolle wie Sekundär, 230 Stellen',
-    cells: states({ size: 'sm', variant: 'outline' }, 'Exportieren'),
   },
   {
     label: 'Ghost',
@@ -79,7 +74,7 @@ export function ActionsFamily(): JSX.Element {
     <Family
       id="actions"
       title="1 · Aktionen"
-      rule="Ein Button tut etwas. Heute: sieben Formen, zwei davon (Sekundär und Outline) für dieselbe Rolle, und drei verschiedene Antworten auf den Zeiger: heller (Primär), Schatten (Sekundär), Füllung (Outline, Ghost)."
+      rule="Ein Button tut etwas. Drei Lautstärken: Primär (Tinte), Sekundär (weiß mit Kante), Ghost (nur Wort oder Glyphe). Unter dem Zeiger geht jede eine Stufe: Tinte wird heller, Weiß füllt sich, Ghost nimmt den Hover-Ton."
       columns={COLUMNS}
       rows={ROWS}
     />

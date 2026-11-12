@@ -692,7 +692,7 @@ export function NormEntryEditor({
                         </span>
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           onClick={handleVerify}
                           disabled={isVerifying}
@@ -746,7 +746,7 @@ export function NormEntryEditor({
                         </span>
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           onClick={() => setSearching(true)}
                         >
@@ -1089,7 +1089,7 @@ export function NormEntryEditor({
 
         {readOnly ? (
           <SheetFooter className="flex-row justify-end">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="secondary" onClick={onCancel}>
               {t('norms.sheet.close')}
             </Button>
           </SheetFooter>
@@ -1114,7 +1114,7 @@ export function NormEntryEditor({
                   {t(`norms.rankShort.${entry.rank}`)}
                 </Badge>
               )}
-              <Button type="button" variant="outline" onClick={onCancel}>
+              <Button type="button" variant="secondary" onClick={onCancel}>
                 {t('norms.sheet.cancel')}
               </Button>
               <form.AppForm>

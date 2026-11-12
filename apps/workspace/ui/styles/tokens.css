@@ -124,7 +124,10 @@
   --border: color-mix(in oklch, var(--ink-border) 8%, transparent); /* hairline .08, composites everywhere */
   --input: color-mix(in oklch, var(--ink-border) 12%, transparent); /* .12 */
   --input-background: var(--ds-surface); /* #fafaf9 — a field on a card; the hairline border marks it */
-  --ring: color-mix(in oklch, var(--ink) 64%, transparent); /* ink-based focus ring */
+  /* The keyboard's ring and a focused field's border: a mid grey of the ink ramp, opaque, 3:1 or more on every step of
+     the ladder (sheet 4.3, paper 4.1, desk 3.8, picked 3.4, pressed 3.1) and 4.5:1 beside an ink button. It was ink at
+     64%, and with a control's own ring laid over the page's outline it read as a black frame (owner review, 2026-11-12). */
+  --ring: #7d7a76;
   --overlay: color-mix(in oklch, var(--ink) 35%, transparent); /* modal/backdrop scrim */
 
 
@@ -271,7 +274,7 @@
      token: 14% × 30% ≈ 4% paper alpha, so every input, textarea and select in
      dark mode rendered as an all-but-invisible wash instead of a field. */
   --input-background: oklch(0.214 0.002 67.7);
-  --ring: color-mix(in oklch, var(--foreground) 55%, transparent); /* paper-based focus ring */
+  --ring: #8f8b86; /* the same mid grey, on charcoal: paper 5.7, desk 4.9, sheet 3.7, a menu 3.3 */
   /* A real scrim. Previously `--background` at 92% — the app's own plane at
      near-full opacity, which (with the dialog's backdrop-blur) erased the page
      behind a modal instead of dimming it, so a dialog lost all sense of
@@ -345,6 +348,7 @@
     --border: color-mix(in oklch, var(--ink-border) 28%, transparent);
     --input: color-mix(in oklch, var(--ink-border) 40%, transparent);
     --border-color-base: color-mix(in oklch, var(--ink-border) 28%, transparent);
+    --ring: var(--ink); /* asked for more contrast: the ring is ink again */
   }
 
   .dark {
@@ -354,6 +358,7 @@
     --border: color-mix(in oklch, var(--foreground) 34%, transparent);
     --input: color-mix(in oklch, var(--foreground) 45%, transparent);
     --border-color-base: color-mix(in oklch, var(--foreground) 34%, transparent);
+    --ring: var(--foreground);
   }
 }
 
@@ -576,6 +581,7 @@
   --shadow-press: var(--elevation-press);
   --shadow-xs: var(--elevation-xs);
   --shadow-thumb: var(--elevation-thumb);
+  --shadow-sheet-pointer: var(--elevation-1-pointer);
   --shadow-sm: var(--elevation-sm);
   --shadow-md: var(--elevation-md);
   --shadow-lg: var(--elevation-lg);
@@ -704,10 +710,12 @@
   --overlay: rgb(15 14 13 / 0.4); /* the scrim under a dialog */
 
   --elevation-1: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06), 0 2px 6px rgb(15 14 13 / 0.04); /* a sheet always carries the 12% edge */
+  /* A sheet that cannot fill under the pointer (a thumbnail is a picture): its edge goes one step toward ink, the field's border. */
+  --elevation-1-pointer: 0 0 0 1px var(--field-border), 0 1px 2px rgb(15 14 13 / 0.06), 0 2px 6px rgb(15 14 13 / 0.04);
   --elevation-2: 0 0 0 1px rgb(15 14 13 / 0.08), 0 4px 12px rgb(15 14 13 / 0.1), 0 12px 32px rgb(15 14 13 / 0.08);
   --elevation-3: 0 0 0 1px rgb(15 14 13 / 0.1), 0 24px 64px rgb(15 14 13 / 0.22);
-  --elevation-press: 0 0 0 1px var(--edge); /* a press at rest: its edge, no drop shadow */
-  --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06); /* a press under the pointer, a track's thumb */
+  --elevation-press: 0 0 0 1px var(--edge); /* a press: its edge, no drop shadow, at rest and under the pointer */
+  --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06); /* a track's thumb (a press fills under the pointer, it gains no shadow) */
   --elevation-thumb: var(--elevation-xs); /* the current choice on a track (a tab, a view): white, its edge and 1px shadow */
   --elevation-sm: var(--elevation-1); /* a sheet */
   --elevation-md: var(--elevation-2); /* menu, popover, floating bar */
@@ -738,6 +746,7 @@
   --overlay: rgb(0 0 0 / 0.6);
 
   --elevation-1: 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 6px rgb(0 0 0 / 0.3);
+  --elevation-1-pointer: 0 0 0 1px var(--field-border), 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 6px rgb(0 0 0 / 0.3);
   /* A shadow is invisible on charcoal: a floating bar lifts by its edge at 14% and a lit top edge. */
   --elevation-2: 0 0 0 1px rgb(245 244 242 / 0.14), inset 0 1px 0 rgb(245 244 242 / 0.06), 0 4px 12px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.4);
   --elevation-3: 0 0 0 1px rgb(245 244 242 / 0.14), 0 24px 64px rgb(0 0 0 / 0.6);

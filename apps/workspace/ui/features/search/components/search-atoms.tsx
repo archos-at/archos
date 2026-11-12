@@ -115,7 +115,7 @@ export function FilterSheet({
           {children}
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClear} disabled={!canClear} data-testid="search-sheet-clear">
+          <Button type="button" variant="secondary" onClick={onClear} disabled={!canClear} data-testid="search-sheet-clear">
             {clearLabel}
           </Button>
           <Button type="button" onClick={() => onOpenChange(false)} data-testid="search-sheet-show">

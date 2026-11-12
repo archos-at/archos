@@ -95,13 +95,13 @@ const ConfirmedRow: FC<RowProps> = ({ entry, canManage, busy, onCheck, onAllowAi
         {values.licenceClass === 'licensed' && <Badge variant="info">{t('baseKnowledge.licensed')}</Badge>}
         {entry.textUse === 'metadata_only' && <Badge variant="secondary">{t('baseKnowledge.metadataOnly')}</Badge>}
         {canManage && entry.textUse === 'metadata_only' && (
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => onAllowAi(entry)}>
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => onAllowAi(entry)}>
             {t('baseKnowledge.allowAi')}
           </Button>
         )}
         {canManage && (
           <>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => onCheck(entry)}>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => onCheck(entry)}>
               {t('baseKnowledge.check')}
             </Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRemove(entry)}>
