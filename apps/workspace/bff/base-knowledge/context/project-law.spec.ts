@@ -37,6 +37,7 @@ import { lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
 import { AT_SETUP_RECORDS } from '@/lib/project-intake/at-setup.fixtures'
 import { knowledgeContextSchema } from './wire'
+import { BINDING_HEADER } from '../chain/text'
 
 /** A synthetic scope shaped like a guideline for production buildings (ADR-0178); the real one is a record citing its clause. */
 const PRODUCTION_ONLY = {
@@ -194,7 +195,7 @@ describe('the one payload a turn reads (ADR-0175)', () => {
   it('writes the chain text in the roles its uses carry: guidance where curated, information where nobody curated it', async () => {
     loadGraph.mockResolvedValue({ graph: graphAt('core'), truncated: false })
     const core = await knowledgeContextForTurn('org_at', 'project_wien')
-    expect(core.text).toContain('Binding here (')
+    expect(core.text).toContain(BINDING_HEADER)
     expect(core.text).toContain('BO für Wien „Bauordnung für Wien“, edition LGBl. 2024/1')
     expect(core.text).toContain('OIB-RL 2 „Brandschutz“, edition 2023: guidance only')
     loadGraph.mockResolvedValue({ graph: graphAt('open'), truncated: false })

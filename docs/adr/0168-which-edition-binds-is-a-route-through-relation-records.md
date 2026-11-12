@@ -88,6 +88,17 @@ records a step can leave from. Each is built once per subplan that needs it
 (two to four in a query) rather than once per row;
 `visibility.integration.spec.ts` holds both to the per-row functions.
 
+Amended 2026-11-12 (the owner's decision): an answer that names a binding
+edition always says since when it binds, and through which instrument where the
+route names one, whether or not the question asked „seit wann“. The day is the
+records' (`roleSinceOf`: the edition's entry into force, or the declaring
+relation's if later), never a web page's; a line with no day is said to have
+none. On a line by territory (a law of the site) the day is that edition's, its
+Fassung, not the law's own entry into force; the header says which is which. The rule is the header of the chain text's binding section
+(`BINDING_HEADER` in `chain/text.ts`), which the model reads in the turn's
+`<building_law>` block and in `project-base-get` for an `asOf` day, rather than a
+line in `chat_static.md`, which sits at its 5,000-token budget.
+
 **Austria is pack 1, the EU pack 0.** `configs/knowledge-packs/{eu,at}.json`
 are proposals in the records format, generated once from the OIB's own table
 of in-force dates and checked Land by Land against it in `chain/packs.spec.ts`.
