@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Archive, Bell, FolderKanban, MessageSquarePlus, Search } from 'lucide-react'
+import { Archive, Bell, FolderKanban, Library, MessageSquarePlus, Search } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -123,6 +123,16 @@ export function OrgHeader({
               icon={Archive}
               tourAnchor={TOUR_ANCHORS.officeShelf}
               active={pathname === '/app/office-shelf' || pathname.startsWith('/app/office-shelf/')}
+            />
+          )}
+          {/* The office's standards beside the Büroablage they are filed in:
+              a place of their own, so a standard is not one file among many. */}
+          {canAccessOfficeShelf && (
+            <OrgHeaderIconLink
+              href="/app/base-knowledge"
+              label={t('sections.baseKnowledge')}
+              icon={Library}
+              active={pathname === '/app/base-knowledge' || pathname.startsWith('/app/base-knowledge/')}
             />
           )}
           {/* The workspace search (ADR-0136); ⌘K reaches it from anywhere too. */}

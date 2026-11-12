@@ -54,6 +54,7 @@ const EXTRA_PROJECT_SEGMENTS: Record<string, PathLabel> = {
 /** Org-level routes, matched on their first segment below `/app`. */
 const APP_SECTIONS: Record<string, PathLabel> = {
   'office-shelf': { namespace: 'nav', key: 'sections.officeShelf' },
+  'base-knowledge': { namespace: 'nav', key: 'sections.baseKnowledge' },
   // A trail recorded before the rename still names `/app/archiv`. Remove after one release.
   archiv: { namespace: 'nav', key: 'sections.officeShelf' },
   // The inbox's copy lives in the collaboration dictionary (ADR-0035); it is

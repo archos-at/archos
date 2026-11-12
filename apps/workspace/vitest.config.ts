@@ -92,6 +92,10 @@ export default defineConfig({
       happyDOM: { settings: { navigation: { disableChildFrameNavigation: true } } },
     },
     testTimeout: 50000,
+    // A hook gets what a test gets. Vitest's own 10 s ran out in the Postgres
+    // suites' `beforeAll`, which imports a module graph cold while every other
+    // file loads the same runner (gotchas.md, "Hook timed out in 10000ms").
+    hookTimeout: 50000,
     root: './',
     setupFiles: ['./config/vitest/polyfills.ts', './config/vitest/disk-inputs.ts', './config/vitest/vitest.setup.ts'],
     clearMocks: true,

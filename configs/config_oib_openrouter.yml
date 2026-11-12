@@ -51,7 +51,7 @@ general:
     db_url: ${NAT_JOB_STORE_DB_URL:-sqlite+aiosqlite:///./jobs.db}
     expiry_seconds: 86400
     cors:
-      # Env-overridable so a deployed instance (e.g. a Coolify preview) can allow
+      # Env-overridable so a deployed instance (e.g. a preview deployment) can allow
       # its own https origin. Default keeps local dev working. Set
       # CORS_ALLOW_ORIGIN_REGEX to a regex matching your frontend origin(s).
       allow_origin_regex: '${CORS_ALLOW_ORIGIN_REGEX:-http://localhost(:\d+)?|http://127.0.0.1(:\d+)?}'
@@ -425,9 +425,10 @@ functions:
         tools:
           # All four, deliberately: `get_source_id_for_tool` must resolve the
           # name a tool result arrives under, or nothing it returned is captured
-          # as a citable source. `ris_lookup_tool` is the chat surface's one RIS
-          # tool; the other three are deep research's (and its own internals).
-          - ris_lookup_tool
+          # as a citable source. `law_lookup` is the chat surface's law tool and
+          # stays under this source (and its switch) until a country-neutral
+          # picker exists (#1644); the other three are deep research's.
+          - law_lookup
           - ris_search_tool
           - ris_fetch_tool
           - ris_catalog_lookup_tool
@@ -485,15 +486,22 @@ functions:
     max_chars: 40000
     ingest_into_knowledge: true
 
-  # The chat surface's single RIS tool: question in, citable passages out.
-  # Its bounds are its own (candidates 3, fetches 2, passages 6) and live in
-  # `packages/ris-adapter/src/lookup/`, one module per stage — they are not
-  # tunable here, because each is a claim about what one charged call may cost.
-  # `planner_llm` serves BOTH internal LLM calls: planning a live search and
-  # picking the answering §§ out of a law's headings. Neither happens when the
-  # catalog answers and the caller named a §.
-  ris_lookup_tool:
-    _type: ris_lookup
+  # The chat surface's law lookup: question in, citable passages out. The
+  # country-neutral lookup (`agent.knowledge.law_lookup`, ADR-0174 amendment
+  # 2026-11-11) reads the source the turn's knowledge context carries for its
+  # country; `source` is the repository record it falls back to while no
+  # released record reaches the turn. `tool_name` is the name its errors,
+  # sources step and `retrieve.law_lookup` span state; a turn stored before the
+  # rename says `ris_lookup`, which the citation parser and the evals still read.
+  # Its bounds are its own (candidates 3, fetches 2, passages 6), one module per
+  # stage; they are not tunable here, because each is a claim about what one
+  # charged call may cost. `planner_llm` serves BOTH internal model calls:
+  # planning a live search and picking the answering provisions out of a law's
+  # headings. Neither happens when the catalog answers and the caller named one.
+  law_lookup:
+    _type: law_lookup
+    source: at-ris
+    tool_name: law_lookup
     planner_llm: ris_planner_llm
     ingest_into_knowledge: true
 
@@ -822,14 +830,14 @@ functions:
       - list_files
       - look
       - show_in_viewer
-      # ONE RIS tool on the chat surface. Search → pick → fetch → find the
+      # ONE law tool on the chat surface. Search → pick → fetch → find the
       # paragraph was three charged calls and a 40 000-character blob that
       # carried no Citation key, so nothing downstream could treat it as
-      # evidence; `ris_lookup` runs that path inside itself and returns passages
-      # in the knowledge layer's own grounding grammar. The other three stay
-      # registered and stay bound to deep research below, which has its own
-      # budget shape.
-      - ris_lookup_tool
+      # evidence; `law_lookup` runs that path inside itself and returns passages
+      # in the knowledge layer's own grounding grammar. The three older RIS
+      # tools stay registered and stay bound to deep research below, which has
+      # its own budget shape.
+      - law_lookup
       - remember
       # No `emit_card`: every chat card travels in the answer envelope's
       # `cards` field (cards/envelope.py), at no extra call. Bound, the tool

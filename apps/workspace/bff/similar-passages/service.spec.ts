@@ -20,10 +20,20 @@ const state = vi.hoisted(() => ({
   cleared: new Map<string, string[]>(),
   /** What the backend was asked, per call. */
   asked: [] as string[][],
+  /** What each backend call's request context was signed for. */
+  signed: [] as Array<{ collectionScope?: unknown[]; organizationId?: string }>,
 }))
 
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
-vi.mock('@/lib/request-context', () => ({ buildRequestContextWireHeaders: () => ({}) }))
+vi.mock('@/lib/request-context', () => ({
+  buildRequestContextWireHeaders: (input: { collectionScope?: unknown[]; organizationId?: string }) => {
+    state.signed.push(input)
+    return {}
+  },
+}))
+vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({
+  corpusCountriesFor: vi.fn(async (organizationId: string) => (organizationId === 'org_1' ? ['QA'] : [])),
+}))
 vi.mock('@/lib/documents/access', () => ({
   getAccessibleDocument: vi.fn(async (_session: unknown, id: string) => ({
     id,
@@ -76,6 +86,7 @@ beforeEach(() => {
   )
   state.cleared = new Map()
   state.asked = []
+  state.signed = []
   vi.stubGlobal(
     'fetch',
     vi.fn(async (_url: string, init: RequestInit) => {
@@ -111,6 +122,26 @@ describe('the backend’s collection cap', () => {
     expect(collections[0]).toBe('proj_1')
     expect(collections).toContain('archiv_org_1')
     expect(response.projectsSearched).toBe(0)
+  })
+})
+
+describe('the base corpus in the signed scope', () => {
+  const legal = { ...request, document: { kind: 'base' as const, fileName: 'oib-rl_2_ausgabe_mai_2023.pdf' } }
+  const baseEntry = () =>
+    (state.signed[0].collectionScope ?? []).find(
+      (entry) => typeof entry === 'object' && (entry as { shelf?: string }).shelf === 'base',
+    )
+
+  it('signs the base entry with the office’s entitled countries, so a base source is found for them', async () => {
+    await findSimilarPassages(session, legal)
+
+    expect(baseEntry()).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: ['QA'] })
+  })
+
+  it('signs an empty country list for an office entitled to none, so another country’s base text is not read', async () => {
+    await findSimilarPassages({ ...session, organizationId: 'org_2' } as AuthorizedSession, legal)
+
+    expect(baseEntry()).toEqual({ collection: 'oib_knowledge', shelf: 'base', countries: [] })
   })
 })
 

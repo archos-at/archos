@@ -30,11 +30,6 @@ from types import SimpleNamespace
 import pytest
 from knowledge_layer.search import format_results
 from knowledge_layer.search.grounding_hits import _CHUNK_TRUNCATE_CHARS
-from ris_adapter.lookup.address import Address
-from ris_adapter.lookup.passages import SCORE_ADDRESSED
-from ris_adapter.lookup.passages import SCORE_RANKED_TOP
-from ris_adapter.lookup.passages import Passage
-from ris_adapter.lookup.render import format_passages
 
 from agent.citations.entries import SourceEntry
 from agent.citations.extraction import extract_sources_from_tool_result
@@ -48,7 +43,20 @@ from agent.common.grounding_block import begin_grounding_capture
 from agent.common.grounding_block import end_grounding_capture
 from agent.common.knowledge_context import EditionUse
 from agent.common.knowledge_context import KnowledgeContext
+from agent.common.knowledge_context import UseRoute
 from agent.common.knowledge_context import set_turn_knowledge_context
+from agent.knowledge.law_lookup.address import Address
+from agent.knowledge.law_lookup.passages import SCORE_ADDRESSED
+from agent.knowledge.law_lookup.passages import SCORE_RANKED_TOP
+from agent.knowledge.law_lookup.passages import Passage
+from agent.knowledge.law_lookup.render import format_passages as _format_passages
+from agent.knowledge.law_lookup.source import law_source
+
+
+def format_passages(passages, ingested_name, address):
+    """The law lookup's renderer, reading RIS from its record and bound under the name the chat tool has."""
+    return _format_passages(passages, ingested_name, address, law_source("at-ris"), "ris_lookup")
+
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "citation_pipeline"
@@ -362,6 +370,18 @@ GOLDEN_KNOWLEDGE_CONTEXT = KnowledgeContext(
             role="binding",
             via="relation",
             corpus_files=("oib-rl_2_ausgabe_mai_2023.pdf",),
+            # What the citation's line states, as the records give it (design §6.7).
+            designation="OIB-RL 2",
+            edition_label="Ausgabe Mai 2023",
+            route=UseRoute(work_id="work:wbtv", designation="WBTV", provision="WBTV 2023, LGBl. 14/2024"),
+            role_since="2024-02-23",
+            date="2026-11-10",
+            last_checked_at="2026-10-30",
+            freshness="check_due",
+            labels=("check_overdue",),
+            source_url="https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+            language="de",
+            text_status="authentic",
         ),
     ),
 )
@@ -504,9 +524,16 @@ class TestTheNoticeIsInsideTheBytes:
         assert [entry.citation_key for entry in block.hits] == [hit.citation_key]
 
 
+#: What only the record carries, never a header line: a replayed turn's text read has none of it. The
+#: public address is unprinted on purpose (a link beside the key was what the answer copied), and
+#: ``retrieved_at`` is the registry's stamp, not the producer's.
+RECORD_ONLY_FIELDS = ("regions", "public_url", "revision_index", "revision_date", "work_id", "edition_id")
+
+
 def _without_regions(entry: SourceEntry) -> dict[str, object]:
     fields = dataclasses.asdict(entry)
-    fields.pop("regions")
+    for name in RECORD_ONLY_FIELDS:
+        fields.pop(name)
     return fields
 
 
@@ -658,7 +685,7 @@ class TestTheTwoReadersAgree:
         from agent.common.grounding_block import begin_grounding_capture
         from agent.common.grounding_block import end_grounding_capture
 
-        address = Address(kind="§", number="63", subsection="1", federal_state="W", federal_state_source="the question")
+        address = Address(kind="§", number="63", subsection="1", territory="W", territory_source="the question")
         token = begin_grounding_capture()
         try:
             tool_output = format_passages(self.RIS_PASSAGES, None, address)
@@ -668,8 +695,20 @@ class TestTheTwoReadersAgree:
         return structured, extract_sources_from_tool_result("ris_lookup", tool_output)
 
     def test_a_ris_block_reads_identically_field_by_field(self):
+        """Every field the text states; the record-only ones are pinned below."""
         structured, parsed = self.read_ris_both_ways()
-        assert [dataclasses.asdict(entry) for entry in structured] == [dataclasses.asdict(entry) for entry in parsed]
+        assert [_without_regions(entry) for entry in structured] == [_without_regions(entry) for entry in parsed]
+
+    def test_the_public_address_travels_on_the_record_and_is_printed_nowhere(self):
+        """The address a passage was read at reaches the registry beside the entry, never as its identity
+        (``url``) and never in the text the model reads: printed, it was what the answer copied."""
+        structured, parsed = self.read_ris_both_ways()
+        assert [entry.public_url for entry in structured] == [passage.url for passage in self.RIS_PASSAGES]
+        assert all(entry.url is None for entry in structured)
+        assert all(entry.public_url is None for entry in parsed)
+        address = Address(kind="§", number="63", subsection="1", territory="W", territory_source="the question")
+        text = format_passages(self.RIS_PASSAGES, None, address)
+        assert all(passage.url not in text for passage in self.RIS_PASSAGES)
 
     def test_the_structured_read_carries_what_ris_stated(self):
         """Guards the premise above, and pins the § as the Punkt it is."""

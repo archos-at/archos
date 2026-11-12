@@ -33,12 +33,13 @@ The last two were added after the table (`_ADDED_FILE_COLUMNS`): a table created
 ```
 oib_corpus_marks                            -- ADR-0173: the platform record a file is the text of
   file_name    text pk
-  country_id   text null                    -- its pack's country (ISO 3166-1); ZZ for none
+  country_id   text null                    -- its pack's country (ISO 3166-1); ZZ on a row a rollback withdrew before `released`
   edition_id   text null                    -- its knowledge edition's record id
+  released     boolean null                 -- a release writes true, a rollback false; NULL (a row from before it) reads by country
   marked_at    timestamptz not null default now()
 ```
 
-The platform's indexing job (`platform_text_index`, `bff/base-knowledge/platform/indexing.ts`) sends a published text's country and edition with its re-ingest (`marks` on `POST /v1/admin/oib/reingest`); every ingest job of the file carries them, and each chunk gets `country_id` and `knowledge_edition_id`. Every base-corpus read filters by the countries its request may see (`vector_store.scope.scope_filter`): the turn's gate, or the office's entitled countries signed onto the base corpus's scope entry. A chunk without `country_id` is read by nobody: a base-corpus ingest job that names no country stamps `ZZ`, and the first sync after the deploy marks the corpus that predates the field as Austrian, once (`backfill_legacy_marks`, recorded by a marker row). A rollback that leaves a text unreleased marks its chunks and its row `ZZ` (`platform_text_deindex`, through `PUT …/knowledge-mark` with `country_id` alone, which leaves the licence fields as they are), so a re-ingest keeps it unread until a re-release sends its country again.
+The platform's indexing job (`platform_text_index`, `bff/base-knowledge/platform/indexing.ts`) sends a published text's country and edition with its re-ingest (`marks` on `POST /v1/admin/oib/reingest`); every ingest job of the file carries them, and each chunk gets `country_id` and `knowledge_edition_id`. Every base-corpus read filters by the countries its request may see (`vector_store.scope.scope_filter`): the turn's gate, or the office's entitled countries signed onto the base corpus's scope entry. A chunk without `country_id` is read by nobody: a base-corpus ingest job that names no country writes `released: false`, and the first sync after the deploy marks the corpus that predates the field as Austrian and released, once (`backfill_legacy_marks`, recorded by a marker row). A rollback that leaves a text unreleased marks its chunks and its row `released: false` and keeps their country (`platform_text_deindex`, through `PUT …/knowledge-mark` with `released` alone, which leaves the licence fields as they are; the BFF checks the answer echoes it), so a re-ingest keeps it unread until a re-release marks it released again. A chunk or row from before the flag has none and is read by its country alone, so the flag hides nothing that was readable; a rollback before it marked the country `ZZ`, which no office is entitled to. `released` (`ADDED_MARK_COLUMNS`) is added to an older mark table on first use, like the file table's columns. While an image from before the flag still serves (a rolling deploy, a revert), the BFF refuses its answers so the job retries on the new one: a withdrawal must echo `released: false` and may not answer 404 (the new route writes the row and answers 200 with 0 chunks), and a re-index with release marks must list each marked file under `released`, since the old upsert leaves a withdrawn row withdrawn. What the flag does not hold across a revert: an image from before it reads a withdrawn text by its country. The prod revert target named in the rollover predates the country filter altogether, so `ZZ` held nothing there either.
 
 Without `SUMMARY_DB` the store fails with an error. It does not fall back to a local SQLite file, which would recreate the per-replica state it exists to remove.
 
@@ -74,7 +75,7 @@ The hash and version are written only after the file's job reached `FileStatus.S
 
 **The ingest workers do.** A file that needs ingestion becomes exactly one ingest job, an `ingest-document` run on Hatchet (ADR-0150, [`hatchet.md`](../deployment/hatchet.md)) with no organisation and `bulk` priority. The rest of this paragraph describes the claim queue it replaced, `ingest_job_queue`, kept until the cutover drains it: one job on that table, the queue `POST /v1/ingest` uses (`agent.knowledge.ingest_queue`), in the platform lane (no organisation) at `bulk` priority. It is claimed by the ingest-worker tier, and by nothing else: the `chat` and `api` roles only enqueue (ADR-0082 step B). Kubernetes runs it as the `ingest-worker` Deployment and both Compose files as the `ingest-worker` service, with the queue's heartbeat, stale-claim reclaim, attempt limit, dead rows and drain behaviour. The queue is on whenever `SUMMARY_DB` is set, which the corpus needs anyway.
 
-**There is no in-process path.** `oib_sync` never calls `upload_file`, `submit_job` or `run_prepared`, and has no thread pool (a test greps for it). If the queue is off or cannot take the job (`INGEST_QUEUE=off`, no database, a write error), `ingest_dispatch.enqueue_only` (the API tier's own enqueue, which its routes hand to `oib_sync` as `enqueue`, so the agent tier never imports the API tier) raises `QueueUnavailable`: the upload route answers 500, the sync cycle fails loudly, and the next cycle queues the file once the queue is back.
+**There is no in-process path.** `oib_sync` never calls `upload_file`, `submit_job` or `run_prepared`, and has no thread pool (a test greps for it). If the queue is off or cannot take the job (no database, a write error), `ingest_dispatch.enqueue_only` (the API tier's own enqueue, which its routes hand to `oib_sync` as `enqueue`, so the agent tier never imports the API tier) raises `QueueUnavailable`: the upload route answers 500, the sync cycle fails loudly, and the next cycle queues the file once the queue is back.
 
 **The job** is built like `POST /v1/ingest` builds one: `ingestor.prepare_job(...)` records a `PENDING` status and `ingest_dispatch.enqueue_only(prepared)` stores it. Its pieces:
 
@@ -121,7 +122,7 @@ Run twice, the second cycle queues nothing: the job exists, waiting or running. 
 - A name the table does not list returns `None`, and any copy this process still holds is deleted: the table says what exists.
 - A listed file that cannot be fetched (the object is gone, the hash does not match) raises `CorpusStoreError`; a table that cannot be read raises too. Neither is "not in the corpus", and nothing is deleted on a guess.
 
-What calls it: ingestion, `GET /v1/oib/documents/{file_name}` (the PDF viewer; 404 for a name the table does not list, 503 for a listed one the store cannot serve), the corpus export (`GET /v1/admin/oib/corpus.tar.gz`, which fails rather than ship half a corpus) and the chat tool `look`.
+What calls it: ingestion, the two PDF reads (`GET /v1/corpus/documents/{file_name}` for an office, which serves a file only to a reader of a country its release marked it with and answers 404 otherwise, and `GET /v1/admin/corpus/documents/{file_name}` for the platform operator, which serves any listed file; both 404 for a name the table does not list and 503 for a listed one the store cannot serve), the corpus export (`GET /v1/admin/oib/corpus.tar.gz`, which fails rather than ship half a corpus) and the chat tool `look`.
 
 ---
 
@@ -173,7 +174,6 @@ The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `inge
 | `SUMMARY_DB` | none | The knowledge database; holds `oib_corpus_files`. Required |
 | `FRONTEND_INTERNAL_URL`, `INTERNAL_API_TOKEN` | none | How the backend reaches the BFF to write and delete objects |
 | `SEAWEED_ENDPOINT`, `SEAWEED_ACCESS_KEY`, `SEAWEED_SECRET_KEY`, `SEAWEED_BUCKET` | none, none, none, `grid-documents` | The read-only credential and bucket the backend downloads with |
-| `INGEST_QUEUE` | on when a database is set | `off` turns the durable ingest queue off. The base corpus then cannot be ingested: uploads and sync cycles fail loudly |
 | `OIB_COLLECTION_NAME` | `oib_knowledge` | Target collection (a scope in Qdrant's corpus collection) |
 | `QDRANT_URL` | none (required) | The Qdrant cluster every chunk is stored in |
 

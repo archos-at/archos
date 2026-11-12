@@ -438,12 +438,16 @@ describe('InputArea', () => {
     await user.tab()
     expect(input).toHaveFocus()
 
-    // Order: the effort dial, attach, dictation beside send, then send (the files
+    // Order: the temporary switch, the effort dial, attach, dictation beside send, then send (the files
     // counter appears only once files are attached, so it is absent here). The
     // Datengrundlage trigger is withheld with the picker — see the
     // commented-out block in InputArea. Nothing offers to choose deep research:
     // Piloti decides whether a question needs a run, and says so with the block.
     await user.type(input, 'Hello')
+
+    // The temporary switch (ADR-0180): whether anything from this chat is kept.
+    await user.tab()
+    expect(screen.getByRole('button', { name: /turn on temporary chat/i })).toHaveFocus()
 
     // The Aufwand dial: how hard Piloti thinks, for this chat.
     await user.tab()

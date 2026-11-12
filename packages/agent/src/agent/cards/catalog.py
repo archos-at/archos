@@ -701,12 +701,12 @@ def _is_discriminator(field_name: str, field_info: Any) -> bool:
 
 def _shape(model_cls: type, nested: list[type], *, with_desc: bool) -> str:
     """Render a model's fields as `{ name*: type (desc; constraints), ... }`."""
-    from agent.cards.proposal_cards import SERVER_FILLED_CARD_FIELDS  # models import this module
+    from agent.cards.proposal_cards import SERVER_SET_CARD_FIELDS  # models import this module
 
     parts: list[str] = []
     for field_name, field_info in model_cls.model_fields.items():
-        # A field only the server fills (`proposal_id`) is not the model's to write.
-        if _is_discriminator(field_name, field_info) or field_name in SERVER_FILLED_CARD_FIELDS:
+        # A field only the server fills (`proposal_id`, `site_binding`) is not the model's to write.
+        if _is_discriminator(field_name, field_info) or field_name in SERVER_SET_CARD_FIELDS:
             continue
         req = "*" if field_info.is_required() else ""
         type_str = _annotation_str(field_info.annotation, nested)

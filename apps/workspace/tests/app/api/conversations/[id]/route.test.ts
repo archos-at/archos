@@ -99,6 +99,7 @@ const conversation = {
   jobId: null,
   subjectResourceType: null,
   subjectResourceId: null,
+  temporary: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 }

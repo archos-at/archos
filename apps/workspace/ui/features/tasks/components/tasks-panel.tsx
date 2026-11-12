@@ -476,7 +476,7 @@ export function TasksPanel({
                 the server still enforces on send. The title rides the wrapping span
                 because a disabled button takes no pointer events. */}
             {canChatInProject ? (
-              <Button size="sm" variant="outline" asChild title={t('create.delegateHint')}>
+              <Button size="sm" variant="secondary" asChild title={t('create.delegateHint')}>
                 <Link href={chatHref} data-testid="tasks-delegate">
                   <MessageSquare className="size-4" aria-hidden />
                   {t('create.delegate')}
@@ -484,7 +484,7 @@ export function TasksPanel({
               </Button>
             ) : (
               <span title={tChat('composer.noProjectChatPermission')}>
-                <Button size="sm" variant="outline" disabled data-testid="tasks-delegate">
+                <Button size="sm" variant="secondary" disabled data-testid="tasks-delegate">
                   <MessageSquare className="size-4" aria-hidden />
                   {t('create.delegate')}
                 </Button>
@@ -671,7 +671,7 @@ function StandingTasksSection({
           tone="destructive"
           title={tJobs('loadError')}
           action={
-            <Button variant="outline" size="sm" onClick={onRetry} data-attr="jobs-retry">
+            <Button variant="secondary" size="sm" onClick={onRetry} data-attr="jobs-retry">
               {tJobs('tryAgain')}
             </Button>
           }

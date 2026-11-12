@@ -47,6 +47,8 @@ const EXPECTED: Record<string, string> = {
   'knowledge/documents/[fileName]/display-title/route.ts PATCH': 'knowledgeWrite',
   'knowledge/documents/[fileName]/doc-class/route.ts PATCH': 'knowledgeWrite',
   'knowledge/documents/[fileName]/route.ts DELETE': 'knowledgeWrite',
+  'knowledge/documents/[fileName]/route.ts GET': 'settingsView',
+  'knowledge/documents/route.ts GET': 'settingsView',
   'knowledge/documents/route.ts POST': 'knowledgeWrite',
   // The platform's base knowledge (ADR-0165): read on settings:view; drafting on knowledge:write, review and release on knowledge:review.
   'knowledge/route.ts GET': 'settingsView',
@@ -60,11 +62,17 @@ const EXPECTED: Record<string, string> = {
   'knowledge/change-requests/[changeRequestId]/texts/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/texts/upload/route.ts POST': 'knowledgeWrite',
   'knowledge/texts/route.ts GET': 'settingsView',
+  'knowledge/countries/[countryId]/works/route.ts GET': 'settingsView',
+  'knowledge/countries/[countryId]/documents/route.ts POST': 'knowledgeWrite',
+  'knowledge/countries/[countryId]/documents/upload/route.ts POST': 'knowledgeWrite',
   'knowledge/sources/route.ts GET': 'settingsView',
   // A POST that can fetch live: the operator's permission, as the change requests' writes.
   'knowledge/sources/[sourceKey]/test/route.ts POST': 'knowledgeWrite',
   'knowledge/sources/[sourceKey]/credential/route.ts PUT': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/validation/route.ts GET': 'settingsView',
+  // A country's release between deployments: the export carries capture texts (a reviewer's read), the import writes a draft.
+  'knowledge/releases/[countryId]/route.ts GET': 'knowledgeReview',
+  'knowledge/releases/route.ts POST': 'knowledgeWrite',
   'knowledge/schemas/route.ts GET': 'settingsView',
   'knowledge/change-requests/[changeRequestId]/submit/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/review/route.ts POST': 'knowledgeReview',
@@ -72,6 +80,11 @@ const EXPECTED: Record<string, string> = {
   'knowledge/change-requests/[changeRequestId]/publish/route.ts POST': 'knowledgeReview',
   'knowledge/change-requests/[changeRequestId]/rollback/route.ts POST': 'knowledgeReview',
   'knowledge/change-requests/[changeRequestId]/index-status/route.ts GET': 'settingsView',
+  // A golden run asks as the operator and spends the platform organization's budget: the drafting permission.
+  // Reading a run is a read like the change requests'.
+  'knowledge/golden-runs/route.ts POST': 'knowledgeWrite',
+  'knowledge/golden-runs/[runId]/advance/route.ts POST': 'knowledgeWrite',
+  'knowledge/golden-runs/[runId]/route.ts GET': 'settingsView',
   // Which countries an office is entitled to, and its seat: an organization's platform settings.
   'organizations/[organizationId]/countries/route.ts POST': 'organizationsManage',
   'organizations/countries/route.ts GET': 'organizationsView',

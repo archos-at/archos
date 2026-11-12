@@ -89,7 +89,7 @@ export function GlobalErrorScreen({
       description={t('appError.description')}
       actions={
         <>
-          <Button variant="outline" onClick={retry}>
+          <Button variant="secondary" onClick={retry}>
             {t('appError.action')}
           </Button>
           <Button asChild>

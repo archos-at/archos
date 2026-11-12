@@ -556,7 +556,7 @@ export function AgentProfiler({
                 const active = conversation.conversationId === selectedId
                 return (
                   <li key={conversation.conversationId}>
-                    <Item asChild className={cn('w-full', active && 'bg-accent hover:bg-accent')}>
+                    <Item asChild className={cn('w-full', active && 'bg-selected hover:bg-selected')}>
                       <button
                         type="button"
                         aria-pressed={active}

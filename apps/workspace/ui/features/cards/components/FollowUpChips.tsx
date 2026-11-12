@@ -79,7 +79,7 @@ const CHIP = cn(
   // at once is the whole affordance.
   'max-sm:min-w-[12rem] border border-border bg-card text-foreground/85 shadow-xs card-caption font-medium',
   'transition-colors duration-quick ease-out motion-reduce:transition-none',
-  'hover:bg-accent hover:text-foreground',
+  'hover:bg-sheet-hover hover:text-foreground',
   'focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-2',
   'pointer-coarse:min-h-11',
 )

@@ -59,6 +59,7 @@ import { projectFactResolver } from '@/lib/project-profile/answer-bindings'
 import { findProjectProfile } from '@/lib/projects/repository'
 import { projectKeysIn, type ProjectKey } from '@/lib/text/answer-directives'
 import { answerEvidence } from './answer-evidence'
+import { citationStylesFor } from '@/lib/citations/style'
 import { answerTextForAgent } from './answer-text'
 import {
   ASK_WAIT_SECONDS,
@@ -286,6 +287,7 @@ async function viewOf(session: AuthorizedSession, row: AgentAskRow): Promise<Ask
         conversationId: row.conversationId,
         projectId: conversation?.projectId ?? null,
         origin: configuredAppOrigin(),
+        styles: (await citationStylesFor(row.organizationId)) ?? undefined,
       })
       const projectValue = await projectValuesFor(message.content, conversation?.projectId ?? null, row.organizationId)
       answer = { messageId, text: answerTextForAgent(message.content, { projectValue }), ...evidence }
@@ -362,7 +364,7 @@ async function endUnstarted(
 export async function askAgent(
   session: AuthorizedSession,
   input: CreateAskRequest,
-  options: { waitMs?: number } = {},
+  options: { waitMs?: number; beforeTurn?: (ask: { id: string; conversationId: string }) => Promise<void> } = {},
 ): Promise<AskView> {
   requireEnabled(session)
   const deadline = Date.now() + (options.waitMs ?? (input.waitSeconds ?? ASK_WAIT_SECONDS) * 1_000)
@@ -384,6 +386,8 @@ export async function askAgent(
 
   let started: Awaited<ReturnType<typeof startTurn>>
   try {
+    // What must be in place before the turn reads its context (a golden run names the case this conversation answers).
+    await options.beforeTurn?.({ id, conversationId })
     started = await startTurn(session, ask, projectId, input.question)
   } catch (error) {
     // Never a 500 that leaves the ask `submitted` with no id handed out.

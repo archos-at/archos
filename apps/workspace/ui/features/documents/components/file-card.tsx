@@ -23,6 +23,7 @@ import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revis
 import { revisionCount } from '../lib/revision-chain'
 import { documentBadgeState } from '../lib/document-lifecycle'
 import { DocumentStatusBadge, isCitableStatus, isSettlingStatus } from './document-status'
+import { BaseKnowledgeChip } from './base-knowledge-chip'
 import { SemanticMatch } from './semantic-match'
 import { useIngestFailureText } from './ingest-failure-notice'
 import { FileTileBody, FileTileFooter, FileTileMedia, TileShell } from './file-tile'
@@ -351,7 +352,7 @@ export const FileCard = memo(function FileCard({
       className={cn(
         'group/card',
         // Chosen: the hover's fill held (the keyboard's own ring is the button's focus-visible).
-        (isSelected || selection?.checked) && 'bg-accent',
+        (isSelected || selection?.checked) && 'bg-selected',
         isBusy && 'cursor-progress opacity-70',
         lit && HIGHLIGHT_OUTLINE
       )}
@@ -366,7 +367,7 @@ export const FileCard = memo(function FileCard({
           since it is a press of its own that opens the review. A line of its own under the summary left every other
           tile of its row a 50px hole. */}
       <div className={cn('absolute left-3.5 z-[1] max-w-[calc(100%-1.75rem)]', showStatus ? 'top-[78px]' : 'top-[102px]')}>
-        <OpenMarksChip file={file} name={name} className="bg-background" />
+        <OpenMarksChip file={file} name={name} className="bg-background hover:bg-desk" />
       </div>
       {actions && !selection && (
         <div
@@ -533,6 +534,8 @@ export const FileCard = memo(function FileCard({
           {/* Left, under the name: one edge for everything on the tile. */}
           <span className="flex min-w-0 items-center gap-1.5 empty:hidden">
             <FilingSuggestionSlot documentId={file.id} className="min-w-[4.5rem]" />
+            {/* A link of its own, so it sits here beside the card's button and never inside it. */}
+            <BaseKnowledgeChip file={file} />
             {/* Who has it, then the facts, one line joined by the dot: „Unvergeben PNG“ read as one phrase. */}
             {footerLead}{footerLead && <FactDot />}
           </span>

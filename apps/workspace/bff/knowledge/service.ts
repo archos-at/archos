@@ -23,7 +23,7 @@ export interface KnowledgeFile {
   chunkCount: number
   ingestedSha256: string | null
   currentSha256: string | null
-  /** The country a release marked the file with (ADR-0173); null when none did, `ZZ` when a rollback left it unreleased. */
+  /** The country a release marked the file with (ADR-0173); null when none did or a rollback left it unreleased; `ZZ` for a rollback from before the released flag. */
   countryId: string | null
   ingestedAt: string | null
   summary: string | null
@@ -56,7 +56,7 @@ export interface KnowledgeBaseStatus {
   files: KnowledgeFile[]
 }
 
-const KNOWLEDGE_STATUS_TIMEOUT_MS = 30_000
+export const KNOWLEDGE_STATUS_TIMEOUT_MS = 30_000
 
 interface BackendFileEntry {
   file_name?: unknown
@@ -108,6 +108,27 @@ function mapFile(entry: BackendFileEntry): KnowledgeFile {
  * authenticated user may see it — the corpus is the shared, non-tenant
  * regulatory knowledge every chat answer is grounded on.
  */
+/** Longest backend reason a failure carries; the rest is in the backend's log. */
+const BACKEND_REASON_CHARS = 300
+
+/**
+ * A non-OK backend answer as an error whose message says why: the backend's
+ * own `detail` (FastAPI's error body), so an index run records "returned 500:
+ * QueueUnavailable: …" and not a bare status (the AT publish of 2026-11-12).
+ */
+async function backendFailure(res: Response): Promise<UpstreamError> {
+  const text = await res.text().catch(() => '')
+  let reason = text
+  try {
+    const detail = (JSON.parse(text) as { detail?: unknown })?.detail
+    if (typeof detail === 'string') reason = detail
+  } catch {
+    // Not JSON: the body as it came.
+  }
+  reason = reason.replace(/\s+/g, ' ').trim().slice(0, BACKEND_REASON_CHARS)
+  return new UpstreamError(reason ? `Knowledge backend returned ${res.status}: ${reason}` : `Knowledge backend returned ${res.status}`)
+}
+
 export async function getKnowledgeBaseStatus(): Promise<KnowledgeBaseStatus> {
   let res: Response
   try {
@@ -117,9 +138,7 @@ export async function getKnowledgeBaseStatus(): Promise<KnowledgeBaseStatus> {
   } catch (error) {
     throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
 
   const body = await res.json().catch(() => {
     throw new UpstreamError('Knowledge backend returned malformed JSON')
@@ -147,17 +166,46 @@ export async function getKnowledgeBaseStatus(): Promise<KnowledgeBaseStatus> {
 }
 
 /**
+ * The base corpus as a reader of `countries` sees it (ADR-0173): the files a
+ * release marked with one of them, and counts over those alone. A file no
+ * release marked, one a rollback withdrew and another country's file are not
+ * listed, by the rule that keeps their chunks out of every search
+ * (`corpus_country_condition`) and their PDF out of the viewer
+ * (`streamReleasedKnowledgeBaseDocument`). A reader of no country reads nothing.
+ * `getKnowledgeBaseStatus` is the whole corpus, for the platform's own readers.
+ */
+export async function getReleasedKnowledgeBaseStatus(countries: readonly string[]): Promise<KnowledgeBaseStatus> {
+  const status = await getKnowledgeBaseStatus()
+  const files = status.files.filter((file) => file.countryId !== null && countries.includes(file.countryId))
+  const count = (state: KnowledgeFileState): number => files.filter((file) => file.state === state).length
+  return {
+    ...status,
+    summary: {
+      totalFiles: files.length,
+      ingested: count('ingested'),
+      stale: count('stale'),
+      pending: count('pending'),
+      failed: count('failed'),
+      removed: count('removed'),
+      inconsistent: count('inconsistent'),
+      totalChunks: files.reduce((sum, file) => sum + file.chunkCount, 0),
+    },
+    files,
+  }
+}
+
+/**
  * Admin-token header for the backend's `/v1/admin/oib/*` endpoints. The token
  * is optional in dev (the backend fails open when its own token is unset);
  * production deployments must set ADMIN_TOKEN on both services.
  */
-function adminHeaders(): Record<string, string> {
+export function adminHeaders(): Record<string, string> {
   const token = process.env.ADMIN_TOKEN
   return token ? { 'X-Admin-Token': token } : {}
 }
 
 /** Basename-only, `.pdf`-only — anything else is rejected before it travels. */
-function requirePdfBasename(fileName: string): string {
+export function requirePdfBasename(fileName: string): string {
   const name = fileName.trim()
   if (!name || name !== name.replace(/[/\\]/g, '') || !name.toLowerCase().endsWith('.pdf')) {
     throw new BadRequestError('A .pdf file name without path segments is required')
@@ -291,9 +339,7 @@ export async function updateKnowledgeBaseDocClass(fileName: string, docClass: st
   if (res.status === 404) {
     throw new NotFoundError('No summary found for that document')
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
 }
 
 /**
@@ -320,9 +366,7 @@ export async function updateKnowledgeBaseDisplayTitle(
   if (res.status === 404) {
     throw new NotFoundError('No summary found for that document')
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
 }
 
 /**
@@ -345,9 +389,7 @@ export async function deleteKnowledgeBaseDocument(fileName: string): Promise<voi
   if (res.status === 404) {
     throw new NotFoundError('No base-corpus document with that name')
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
 }
 
 export interface KnowledgeSyncResult {
@@ -369,9 +411,7 @@ export async function syncKnowledgeBase(): Promise<KnowledgeSyncResult> {
   } catch (error) {
     throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
   const body = await res.json().catch(() => ({}))
   return {
     filesAdded: asCount(body?.files_added),
@@ -398,7 +438,7 @@ export interface KnowledgeReingestResult {
  * including VLM captioning) to rebuild three of them.
  *
  * Returns as soon as the work is QUEUED, like an upload: the backend ingests in the
- * background and the caller polls `/api/knowledge-base`, where each queued document reads
+ * background and the caller polls `/api/platform/knowledge/documents`, where each queued document reads
  * `pending` until its chunks exist again. Unknown names come back in `unknown` rather than
  * failing the call — one stale name must not discard a selection of twenty.
  */
@@ -433,13 +473,17 @@ export async function reingestKnowledgeBaseDocuments(
   } catch (error) {
     throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
   }
-  if (!res.ok) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
+  if (!res.ok) throw await backendFailure(res)
   const body = await res.json().catch(() => ({}))
+  const queued: string[] = Array.isArray(body?.queued) ? body.queued.map(String) : []
+  // A release mark must land as released: a backend from before the flag records the country and leaves a
+  // withdrawn row withdrawn, so its answer is refused and the indexing job retries (ADR-0173).
+  const released = new Set(Array.isArray(body?.released) ? body.released.map(String) : [])
+  const unreleased = queued.filter((name) => Object.hasOwn(marks, name) && !released.has(name))
+  if (unreleased.length > 0) throw new UpstreamError(`Knowledge backend did not release ${unreleased.join(', ')}`)
   return {
     status: body?.status === 'noop' ? 'noop' : 'pending',
-    queued: Array.isArray(body?.queued) ? body.queued.map(String) : [],
+    queued,
     unknown: Array.isArray(body?.unknown) ? body.unknown.map(String) : [],
     message: asString(body?.message) ?? '',
   }
@@ -476,63 +520,24 @@ export async function streamKnowledgeBaseCorpus(): Promise<Response> {
 }
 
 /**
- * Stream a corpus source PDF from the backend (for the citation/source
- * viewer). Returns a Response suitable to hand straight back to the browser.
+ * Withdraw a base-corpus file (ADR-0173): mark its chunks and its corpus row
+ * unreleased (`released: false`), so no office reads it and a later re-ingest
+ * stamps it again; its country and licence fields stay as they are. The backend
+ * writes the row even for a file with no chunks and answers 200 then. Throws on
+ * any failure, a 404 included, and on an answer that does not echo the flag:
+ * a backend from before the flag ignores it, so the job retries it.
  */
-export async function streamKnowledgeBaseDocument(fileName: string): Promise<Response> {
-  const name = requirePdfBasename(fileName)
-  let res: Response
-  try {
-    res = await fetch(`${getBackendUrl()}/v1/oib/documents/${encodeURIComponent(name)}`, {
-      // Corpus source PDFs are small and cached (5 min); bound the call so an
-      // unreachable backend rejects promptly instead of hanging the viewer.
-      signal: AbortSignal.timeout(KNOWLEDGE_STATUS_TIMEOUT_MS),
-    })
-  } catch (error) {
-    throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
-  }
-  if (res.status === 404) {
-    throw new NotFoundError('Source PDF not available on this deployment')
-  }
-  if (!res.ok || !res.body) {
-    throw new UpstreamError(`Knowledge backend returned ${res.status}`)
-  }
-  // ASCII-safe filename for the header; the viewer only needs inline display.
-  const asciiName = name.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '_')
-  return new Response(res.body, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${asciiName}"`,
-      'Cache-Control': 'private, max-age=300',
-      // The in-app viewer renders this stream in a same-origin iframe. The
-      // global next.config rule sets X-Frame-Options: DENY on every route;
-      // override it here (with a matching CSP frame-ancestors directive for
-      // modern browsers) so the preview is allowed to frame. next.config also
-      // carries a route-scoped override for this path — these headers keep the
-      // guarantee on the Response itself.
-      'X-Frame-Options': 'SAMEORIGIN',
-      'Content-Security-Policy': "frame-ancestors 'self'",
-    },
-  })
-}
-
-/**
- * Set a base-corpus file's country on its chunks and its corpus row (ADR-0173),
- * so a later re-ingest stamps it again; its licence fields stay as they are. A
- * file with no chunks is nothing to mark. Throws on any other failure, so a job
- * retries it.
- */
-export async function markCorpusFileCountry(fileName: string, countryId: string): Promise<void> {
+export async function withdrawCorpusFile(fileName: string): Promise<void> {
   const name = requirePdfBasename(fileName)
   const backendUrl = getBackendUrl()
   const collection = process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
   const res = await fetch(`${backendUrl}/v1/collections/${encodeURIComponent(collection)}/knowledge-mark`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(backendUrl) },
-    body: JSON.stringify({ file_name: name, country_id: countryId }),
+    body: JSON.stringify({ file_name: name, released: false }),
     signal: AbortSignal.timeout(KNOWLEDGE_STATUS_TIMEOUT_MS),
   })
-  if (res.status === 404) return
   if (!res.ok) throw new UpstreamError(`Knowledge backend returned ${res.status} marking ${name}`)
+  const result = (await res.json().catch(() => null)) as { released?: unknown } | null
+  if (result?.released !== false) throw new UpstreamError(`Knowledge backend did not withdraw ${name}`)
 }

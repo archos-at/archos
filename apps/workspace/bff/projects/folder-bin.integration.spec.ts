@@ -1054,25 +1054,19 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       expect(await claimable()).toContain(folder.plans)
     })
 
-    it('the purger gives a row stranded pending at the cap its last attempt back, and then claims it', async () => {
-      // What the release wrote before it was fixed, still in a database.
+    it('the database refuses a pending row at the cap, so no row waits for a claim that never comes (migration 0227)', async () => {
+      // What the release wrote before it was fixed. The purger's claim asks
+      // `attempts < 10`, so such a row would read as waiting for ever.
       await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
       await giveUpOn(folder.plans)
-      await withPlatformAccess('test: stranded by the old release', () =>
-        db.execute(sql`UPDATE deletion_queue SET status = 'pending', attempts = 11 WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
-      )
-      expect(await claimable()).not.toContain(folder.plans)
 
-      const { reofferExhausted } = await import('../../purger/db.js')
-      const client = postgres(url as string, { prepare: false, max: 1 })
-      try {
-        expect(await reofferExhausted(client as never)).toBe(1)
-      } finally {
-        await client.end()
-      }
+      await expect(
+        withPlatformAccess('test: strand the row as the old release did', () =>
+          db.execute(sql`UPDATE deletion_queue SET status = 'pending', attempts = 11 WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
+        )
+      ).rejects.toThrow()
 
-      expect(await attemptsOf(folder.plans)).toEqual({ status: 'pending', attempts: 9 })
-      expect(await claimable()).toContain(folder.plans)
+      expect(await attemptsOf(folder.plans)).toEqual({ status: 'failed', attempts: 10 })
     })
 
     it('a purge finished in a request is not pulled back by the late answer of a second holder', async () => {
@@ -1087,14 +1081,186 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       // its own call failed after the request had closed the row.
       const { markFailed, releaseHeld } = await import('../../purger/db.js')
       const client = postgres(url as string, { prepare: false, max: 1 })
+      const claim = { id, claim_token: new Date().toISOString() }
       try {
-        await markFailed(client as never, id, 'folder purge answered 502')
-        await releaseHeld(client as never, id)
+        await markFailed(client as never, claim, 'folder purge answered 502')
+        await releaseHeld(client as never, claim)
       } finally {
         await client.end()
       }
 
       expect((await attemptsOf(folder.plans)).status).toBe('purged')
+    })
+  })
+
+  describe('a claim is a token: a holder whose claim was taken over changes nothing', () => {
+    type Claim = { id: string; entity_id: string; claim_token: string }
+
+    /** Run purger queue code as the purger does: its own connection, stepped up per transaction. */
+    async function asPurger<T>(run: (client: never, queue: typeof import('../../purger/db.js')) => Promise<T>): Promise<T> {
+      const queue = await import('../../purger/db.js')
+      const client = postgres(url as string, { prepare: false, max: 1 })
+      try {
+        return await run(client as never, queue)
+      } finally {
+        await client.end()
+      }
+    }
+
+    /** The purger's claim of this folder's row, committed. Every test starts from a wiped queue, so it is the one due. */
+    async function purgerClaims(folderId: string): Promise<Claim> {
+      const entry = await asPurger((client, queue) =>
+        (client as unknown as ReturnType<typeof postgres>).begin(async (tx) => {
+          await tx.unsafe('SET LOCAL ROLE app_platform')
+          return (await queue.claimNext(tx as never)) as unknown as Claim | null
+        })
+      )
+      expect(entry?.entity_id).toBe(folderId)
+      return entry as Claim
+    }
+
+    async function setRow(folderId: string, set: ReturnType<typeof sql>): Promise<void> {
+      await withPlatformAccess('test: age or move the queue row', () =>
+        db.execute(sql`UPDATE deletion_queue SET ${set} WHERE entity_type = 'folder' AND entity_id = ${folderId}`)
+      )
+    }
+    const statusOf = async (folderId: string) => (await queueRow(folderId))[0].status
+    const giveUpOn = (folderId: string) =>
+      setRow(folderId, sql`status = 'failed', attempts = 10, claimed_at = now() - interval '2 hours', purge_after = now() - interval '1 day'`)
+    async function attemptsOf(folderId: string): Promise<{ status: string; attempts: number }> {
+      const [row] = await withPlatformAccess('test: read the attempts', () =>
+        db.execute<{ status: string; attempts: number }>(sql`
+          SELECT status, attempts FROM deletion_queue WHERE entity_type = 'folder' AND entity_id = ${folderId}`)
+      )
+      return { status: row.status, attempts: Number(row.attempts) }
+    }
+
+    it('every claim writes a new token, the takeover of a stale claim included', async () => {
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await setRow(folder.plans, sql`purge_after = now() - interval '1 minute'`)
+
+      const first = await purgerClaims(folder.plans)
+      await setRow(folder.plans, sql`claimed_at = now() - interval '16 minutes'`)
+      const second = await purgerClaims(folder.plans)
+
+      expect(first.claim_token).toMatch(/^\d{4}-\d{2}-\d{2} /)
+      expect(second.claim_token).not.toBe(first.claim_token)
+
+      // The first holder's late answers move nothing, whichever it gives.
+      await asPurger(async (client, queue) => {
+        await queue.markFailed(client, first, 'folder purge answered 502')
+        await queue.markFailedPermanent(client, first, 'not in the bin')
+        await queue.releaseHeld(client, first)
+        await (client as unknown as ReturnType<typeof postgres>).begin(async (tx) => {
+          await tx.unsafe('SET LOCAL ROLE app_platform')
+          await queue.markPurged(tx as never, first)
+        })
+      })
+      expect(await statusOf(folder.plans)).toBe('purging')
+
+      // The holder of the claim closes it.
+      await asPurger((client, queue) =>
+        (client as unknown as ReturnType<typeof postgres>).begin(async (tx) => {
+          await tx.unsafe('SET LOCAL ROLE app_platform')
+          await queue.markPurged(tx as never, second)
+        })
+      )
+      expect(await statusOf(folder.plans)).toBe('purged')
+    })
+
+    it('a request that fails after the purger took its claim over and purged does not fail the row of the erased folder', async () => {
+      const edits = await import('@/lib/documents/document-edits')
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      // The request's claim is the ninth, the takeover the tenth: the request's release would write `failed`.
+      await setRow(folder.plans, sql`attempts = 8`)
+      let purger: Claim | undefined
+      const erase = vi.mocked(edits.eraseProjectDocument).getMockImplementation()
+      vi.mocked(edits.eraseProjectDocument).mockImplementationOnce(async () => {
+        // The request's purge has run for more than 15 minutes; the purger takes the stale claim.
+        await setRow(folder.plans, sql`claimed_at = now() - interval '16 minutes'`)
+        purger = await purgerClaims(folder.plans)
+        throw new Error('object store down')
+      })
+
+      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).rejects.toThrow('object store down')
+      // The row is the purger's: the request's failure is not written onto it.
+      expect(await attemptsOf(folder.plans)).toEqual({ status: 'purging', attempts: 10 })
+
+      // The purger's purge, and its closing write in the transaction it ends with.
+      vi.mocked(edits.eraseProjectDocument).mockImplementation(erase!)
+      await inOrg(() => bin.purgeBinnedFolder(ORG, folder.plans))
+      await asPurger((client, queue) =>
+        (client as unknown as ReturnType<typeof postgres>).begin(async (tx) => {
+          await tx.unsafe('SET LOCAL ROLE app_platform')
+          await queue.markPurged(tx as never, purger as Claim)
+        })
+      )
+
+      expect(await statusOf(folder.plans)).toBe('purged')
+    })
+
+    it('a request on the last attempt that the reap failed while it still ran closes its own row when it finishes', async () => {
+      const edits = await import('@/lib/documents/document-edits')
+      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await giveUpOn(folder.plans)
+      const erase = vi.mocked(edits.eraseProjectDocument).getMockImplementation()
+      vi.mocked(edits.eraseProjectDocument).mockImplementationOnce(async (...args) => {
+        // What the purger's reap writes on a claim at the cap that is 15 minutes old. The claim stays this request's.
+        await setRow(folder.plans, sql`status = 'failed', last_error = 'stranded in purging after max attempts (presumed purger crash)'`)
+        return erase!(...args)
+      })
+
+      await expect(bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })).resolves.toMatchObject({ status: 'purged' })
+
+      expect(await statusOf(folder.plans)).toBe('purged')
+    })
+
+    describe('a row that reads failed, or would be reaped, for a folder the BFF provably purged', () => {
+      /** The BFF's purge committed; the purger's transaction that closes the row did not. */
+      async function purgedButNotClosed(set: ReturnType<typeof sql>): Promise<void> {
+        await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+        await inOrg(() => bin.purgeBinnedFolder(ORG, folder.plans))
+        await setRow(folder.plans, set)
+      }
+      const stranded = sql`status = 'purging', attempts = 10, claimed_at = now() - interval '16 minutes'`
+
+      it('is closed purged before the reap would fail it', async () => {
+        await purgedButNotClosed(stranded)
+
+        const counts = await asPurger(async (client, queue) => [await queue.closeErased(client), await queue.reapStranded(client)])
+
+        expect(counts).toEqual([1, 0])
+        expect(await statusOf(folder.plans)).toBe('purged')
+      })
+
+      it('is closed purged when the failed attempt was recorded as failed', async () => {
+        await purgedButNotClosed(sql`status = 'failed', attempts = 10, last_error = 'the database system is shutting down'`)
+
+        expect(await asPurger((client, queue) => queue.closeErased(client))).toBe(1)
+        expect(await statusOf(folder.plans)).toBe('purged')
+      })
+
+      it('stays failed while the removal still owes traces: that cannot be told from the database', async () => {
+        await purgedButNotClosed(sql`status = 'purging', attempts = 10, claimed_at = now() - interval '16 minutes',
+          payload = coalesce(payload, '{}'::jsonb) || '{"derivedRemoval": {"removedAt": "2026-11-11T00:00:00.000Z", "conversationIds": ["s_owed"]}}'::jsonb`)
+
+        const counts = await asPurger(async (client, queue) => [await queue.closeErased(client), await queue.reapStranded(client)])
+
+        expect(counts).toEqual([0, 1])
+        expect(await statusOf(folder.plans)).toBe('failed')
+      })
+
+      it('leaves a stranded row whose folder is not purged to the reap, and a live final attempt alone', async () => {
+        await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+        await setRow(folder.plans, sql`status = 'purging', attempts = 10, claimed_at = now() - interval '1 minute'`)
+        expect(await asPurger((client, queue) => queue.closeErased(client))).toBe(0)
+        expect(await statusOf(folder.plans)).toBe('purging')
+
+        await setRow(folder.plans, stranded)
+        const counts = await asPurger(async (client, queue) => [await queue.closeErased(client), await queue.reapStranded(client)])
+        expect(counts).toEqual([0, 1])
+        expect(await statusOf(folder.plans)).toBe('failed')
+      })
     })
   })
 

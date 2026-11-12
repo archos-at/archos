@@ -61,6 +61,8 @@ export const APP_ONLY = {
 export const NATIVE_READ = 'The agent reads with this native tool itself; the door offers it to outside agents'
 export const MEMORY =
   'The agent keeps a note with its own `remember`, which records where the finding came from and keeps a restricted one in its project'
+export const PERSONAL_MEMORY =
+  'The agent keeps a note about the person with its own `remember` (scope `personal`), which records the conversation it came from'
 export const TASK = 'The agent proposes a task, or commissions a run, with its own `create_task`, whose card the person confirms'
 export const SKILL_READ =
   'The agent is given the office’s skills at turn start and reads one with its own `read_file`, which the turn records; the door offers them to outside agents'

@@ -6,6 +6,7 @@
 
 import 'server-only'
 import { findProjectIntake } from '@/lib/project-intake/repository'
+import { readSetupRecords } from '@/lib/project-intake/setup-records'
 import { siteOfProfile } from '@/lib/project-intake/setup-scope'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import { readComplianceCache, writeComplianceCache, type CachedCompliance } from './compliance-cache'
@@ -30,13 +31,14 @@ import {
  */
 export async function siteOfModel(header: BimModelHeader, organizationId: string): Promise<BimSite> {
   if (!header.projectId) return null
-  const [state, intake] = await Promise.all([
+  const [state, intake, records] = await Promise.all([
     findProjectProfileInOrg(header.projectId, organizationId),
     findProjectIntake(organizationId, header.projectId),
+    readSetupRecords(organizationId),
   ])
   if (!state) return null
   // The geocoder's Land, where the profile states none: what the intake places the project by.
-  return siteOfProfile(state.profile, intake?.location)
+  return siteOfProfile(state.profile, { location: intake?.location, records })
 }
 
 /** The cache's spelling of a site. */

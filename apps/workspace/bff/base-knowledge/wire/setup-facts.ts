@@ -17,6 +17,7 @@
  * reaches a prompt"); it reaches a person, in the setup's own views.
  */
 
+import safeRegex from 'safe-regex2'
 import { z } from 'zod'
 import { FACT_TYPES, SETUP_DETERMINANTS } from './vocab'
 
@@ -77,8 +78,72 @@ export const derivationDefinitionSchema = z
   .strict()
 export type DerivationDefinition = z.infer<typeof derivationDefinitionSchema>
 
+/**
+ * The one place a record's pattern becomes a RegExp. A pattern is data the operator publishes, so it
+ * is anchored, short and checked for catastrophic backtracking (`safe-regex2`, a maintained star-height
+ * and repetition-limit checker, chosen over writing our own) before anything compiles it. Null: refused.
+ */
+export function compileRecordPattern(pattern: string): RegExp | null {
+  if (pattern.length < 3 || pattern.length > 200 || !pattern.startsWith('^') || !pattern.endsWith('$')) return null
+  try {
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- validated just below: anchored, at most 200 characters, safe-regex2
+    const compiled = new RegExp(pattern)
+    return safeRegex(compiled) ? compiled : null
+  } catch {
+    return null
+  }
+}
+
+/** A regular expression an operator's record carries: it compiles, is anchored, stays short and cannot backtrack catastrophically (it runs on every lookup). */
+const patternSchema = z
+  .string()
+  .min(3)
+  .max(200)
+  .refine((pattern) => pattern.startsWith('^') && pattern.endsWith('$'), 'anchored: starts with ^ and ends with $')
+  .refine((pattern) => compileRecordPattern(pattern) !== null, 'a regular expression that compiles and is safe to run (no nested repetition)')
+
+/**
+ * How a country's official address register places a site (ADR-0172): who
+ * publishes it, how one of its rows names a municipality's territory and its
+ * state, which postcodes it covers, and where its bulk file is downloaded.
+ * Data of the country, read from the released record: the resolver, the
+ * routes and the importer hold no register of their own.
+ *
+ * The register's own id is the `register` column of `address_register_releases`.
+ */
+export const addressRegisterSchema = z
+  .object({
+    id: z.string().regex(/^[a-z]{2}-[a-z0-9-]{1,40}$/, '`<country>-<publisher>` in lower case, e.g. at-bev'),
+    publisher: label.describe('Who publishes it, for a person reading where an address was confirmed.'),
+    municipalityTerritory: z
+      .string()
+      .regex(/^[A-Z]{2}:[a-z][a-z0-9_]{0,15}:\{code\}$/, 'a territory id template ending with {code}, e.g. AT:gkz:{code}')
+      .describe('The territory id of a municipality by its official code in a register row.'),
+    postcodePattern: patternSchema.describe('A postcode of this country’s shape: a filter on the register’s rows.'),
+    crossBorderPostcodePattern: patternSchema
+      .optional()
+      .describe('A neighbour’s postcodes this country’s addresses are written with: not a filter, and not evidence of the neighbour.'),
+    stateFromCode: z
+      .object({
+        pattern: patternSchema.describe('Matched against the municipality code; the first group is {1}.'),
+        territory: z.string().regex(/^[A-Z]{2}-\{1\}$/, 'a state territory template such as AT-{1}'),
+      })
+      .strict()
+      .optional()
+      .describe('The state (Land) a municipality lies in, from its code alone; absent when the code names none.'),
+    downloadUrl: z
+      .url()
+      .max(500)
+      .refine((url) => url.includes('{yyyymmdd}'), 'names the reference date as {yyyymmdd}')
+      .describe('The bulk file the importer reads: an official download, never a query.'),
+  })
+  .strict()
+export type AddressRegisterRecord = z.infer<typeof addressRegisterSchema>
+
 export const factDefinitionsSchema = z
   .object({
+    /** The register of the country that places a site by an address. */
+    addressRegister: addressRegisterSchema.optional(),
     /** The profile key that names the subdivision (`federal_state`), its options, and the one that places a site outside. */
     subdivisions: z
       .object({

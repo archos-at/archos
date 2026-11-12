@@ -7,6 +7,7 @@ only says what the tables are. Both are created on first use, under the schema l
 from __future__ import annotations
 
 from sqlalchemy import BigInteger
+from sqlalchemy import Boolean
 from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Integer
@@ -47,17 +48,34 @@ marks = Table(
     Column("file_name", Text, primary_key=True),
     Column("country_id", Text, nullable=True),
     Column("edition_id", Text, nullable=True),
+    # Whether the text is released (a release writes true, a rollback false); NULL on a row from before the
+    # column, which is read by its country alone, as every row was then.
+    Column("released", Boolean, nullable=True),
     Column("marked_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
 
-def create_files(conn) -> None:
-    """The file table, and the columns one created before them lacks (additive; old replicas ignore them)."""
-    conn.execute(CreateTable(files, if_not_exists=True))
+#: The same for the mark table.
+ADDED_MARK_COLUMNS = {"released": "BOOLEAN"}
+
+
+def _create(conn, table: Table, added: dict[str, str]) -> None:
+    """``table``, and the columns one created before them lacks (additive; old replicas ignore them)."""
+    conn.execute(CreateTable(table, if_not_exists=True))
     # Looked up first: ADD COLUMN takes the table's exclusive lock even for a column that exists (`present_columns`).
-    present = present_columns(conn, files.name)
-    for name, column_type in ADDED_FILE_COLUMNS.items():
+    present = present_columns(conn, table.name)
+    for name, column_type in added.items():
         if name not in present:
-            # Both come from the module constant above; no user input.
+            # Both come from the module constants above; no user input.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            conn.execute(text(f"ALTER TABLE {files.name} ADD COLUMN {name} {column_type}"))
+            conn.execute(text(f"ALTER TABLE {table.name} ADD COLUMN {name} {column_type}"))
+
+
+def create_files(conn) -> None:
+    """The file table, and the columns one created before them lacks."""
+    _create(conn, files, ADDED_FILE_COLUMNS)
+
+
+def create_marks(conn) -> None:
+    """The mark table, and the columns one created before them lacks."""
+    _create(conn, marks, ADDED_MARK_COLUMNS)

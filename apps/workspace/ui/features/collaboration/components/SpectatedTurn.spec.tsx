@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@/test-utils'
+import { render, screen, waitFor } from '@/test-utils'
 import { initialTurnView, type KeyedCard, type TurnView } from '@/features/chat/lib/turn-fold'
 import { eventOf, frameOf } from '@/test-utils/wire-v2-fixtures'
 import { foldSpectatedEvent } from '../lib/spectator-frames'
@@ -126,10 +126,11 @@ describe('SpectatedTurn', () => {
     expect(screen.getByTestId('pending-card-slot')).toBeInTheDocument()
   })
 
-  it('draws a turn that carries cards and no prose', () => {
+  it('draws a turn that carries cards and no prose', async () => {
     const stair = keyed({ ...CARD_PREVIEW_FIXTURES.stair_diagram!, title: 'Treppe Haus A' })
     render(<SpectatedTurn turn={turn({ cards: [stair] })} label={LABEL} />)
-    expect(screen.getByTestId('spectated-turn')).toHaveTextContent('Treppe Haus A')
+    // The card arrives behind its skeleton (CardSlotArrival); on a cold module cache, as in CI, that is a tick later.
+    await waitFor(() => expect(screen.getByTestId('spectated-turn')).toHaveTextContent('Treppe Haus A'))
   })
 
   it('offers no copy controls once the turn is done', () => {

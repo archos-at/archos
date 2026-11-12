@@ -24,7 +24,8 @@ import { houseKeysOf, narrow, outcomeOf, placeKeysOf } from './match'
 import { streetKey } from './normalize'
 import { parseAddress } from './parse'
 import { siteProfileOperations } from './profile'
-import { BEV_ADDRESS_REGISTER, federalStateToken, registerFor } from './registers'
+import { AT_SITE_REFERENCE, BEV_ADDRESS_REGISTER } from '@/lib/project-intake/at-setup.fixtures'
+import { registerFor, siteReferenceOf } from './registers'
 import type { RegisterRow } from './store'
 import type { RegisterSite } from './wire'
 
@@ -90,12 +91,26 @@ describe('the territory chain of a register address', () => {
     expect(BEV_ADDRESS_REGISTER.municipalityTerritory('60101')).toBe('AT:gkz:60101')
     expect(BEV_ADDRESS_REGISTER.stateOf('90001')).toBe('AT-9')
     expect(BEV_ADDRESS_REGISTER.stateOf('00001')).toBeNull()
-    expect(federalStateToken('AT-6')).toBe('styria')
+    expect(AT_SITE_REFERENCE.federalStateToken('AT-6')).toBe('styria')
+    expect(AT_SITE_REFERENCE.stateNames['AT-6']).toBe('Steiermark')
   })
 
-  it('hosts a register for Austria only: Germany is E31, not built', () => {
-    expect(registerFor('AT')?.id).toBe('at-bev')
-    expect(registerFor('DE')).toBeNull()
+  it('hosts the registers the published records describe: Austria’s, and none for a country without one', () => {
+    expect(registerFor(AT_SITE_REFERENCE, 'AT')?.id).toBe('at-bev')
+    expect(registerFor(AT_SITE_REFERENCE, 'DE')).toBeNull()
+    // Nothing published, no register and no Land: fail closed, never Austria's.
+    const none = siteReferenceOf([], '2026-11-10')
+    expect(registerFor(none, 'AT')).toBeNull()
+    expect(none.federalStateToken('AT-6')).toBeNull()
+  })
+
+  it('reads the BEV’s rules from the record: postcodes, the neighbour’s, the download', () => {
+    expect(BEV_ADDRESS_REGISTER.postcodeShape.test('1070')).toBe(true)
+    expect(BEV_ADDRESS_REGISTER.postcodeShape.test('10115')).toBe(false)
+    expect(BEV_ADDRESS_REGISTER.crossBorderPostcodes?.test('87567')).toBe(true)
+    expect(BEV_ADDRESS_REGISTER.downloadUrl('2025-10-01')).toBe(
+      'https://data.bev.gv.at/download/Adressregister/Archiv_Adressregister/Adresse_Relationale_Tabellen_Stichtagsdaten_20251001.zip'
+    )
   })
 })
 

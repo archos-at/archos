@@ -45,6 +45,8 @@ dependencies = [
     "aiofiles>=23.0.0",
     "python-multipart>=0.0.27,<0.1",
     "knowledge-layer[all]",
+    # The law sources a law lookup reads, as records (`agent.knowledge.law_lookup`, ADR-0162).
+    "public-sources",
     # Prompt management only (`common/prompt_store.py`): constructed with
     # `tracing_enabled=False`, so it never registers a tracer provider or hangs
     # a span processor on ours. Traces keep going out through NAT + the OTel
@@ -66,6 +68,9 @@ dependencies = [
     # Pure Python on numpy, a 4 MB wheel with its model inside: lingua's wheel is
     # 160 MB and fast-langdetect downloads its model at runtime.
     "py3langid>=0.4.0,<0.5",
+    # A source's address is a public DNS name (`common/url_safety.py`): the host-name grammar and
+    # the IANA top-level-domain list it ships. Pure Python, MIT, no network at import or at call.
+    "validators>=0.35,<0.37",
     # The `otel` extra brings `HatchetInstrumentor` (`observability/orchestrator_tracing.py`).
     "hatchet-sdk[otel]==1.44.0",
 ]
@@ -170,8 +175,12 @@ project_intake = "agent.agents.intake.register"
 # lose this tool alone rather than `ris_search` and `ris_fetch_document` with
 # it — the `bim_measure` split, for the same reason.
 ris_lookup = "ris_adapter.lookup"
+# The country-neutral law lookup: the RIS tool's pipeline, reading every source-specific
+# value from the source record's `lookup` block (configs/sources/, public_sources.lookup).
+law_lookup = "agent.knowledge.law_lookup"
 otel_logs = "agent.observability.otlp_logging_method"
 otel_redaction = "agent.observability.otel_header_redaction_exporter"
 
 [tool.uv.sources]
 knowledge-layer = { workspace = true }
+public-sources = { workspace = true }

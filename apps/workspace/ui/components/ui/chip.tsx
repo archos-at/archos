@@ -73,15 +73,16 @@ const chipVariants = cva(
       },
     },
     // Hover is interactive-only: a static status chip lighting up on hover
-    // would promise a click that does not exist. Neutrals step one surface up
-    // (secondary/muted → accent, outline → secondary, ink wash → deeper wash);
+    // would promise a click that does not exist. Neutrals step one down the ladder
+    // (secondary/muted, a fill of the desk, → the selected grey; outline, no fill, → the pointer's wash; ink wash →
+    // deeper wash);
     // provenance variants keep their tint and gain a signal hairline instead,
     // so the hue that carries the meaning is never replaced.
     compoundVariants: [
       { interactive: true, variant: 'default', className: 'hover:bg-primary/15' },
-      { interactive: true, variant: 'secondary', className: 'hover:bg-accent' },
-      { interactive: true, variant: 'outline', className: 'hover:bg-secondary' },
-      { interactive: true, variant: 'muted', className: 'hover:bg-accent' },
+      { interactive: true, variant: 'secondary', className: 'hover:bg-selected' },
+      { interactive: true, variant: 'outline', className: 'hover:bg-hover' },
+      { interactive: true, variant: 'muted', className: 'hover:bg-selected' },
       { interactive: true, variant: 'success', className: 'hover:border-success' },
       { interactive: true, variant: 'warning', className: 'hover:border-warning' },
       { interactive: true, variant: 'info', className: 'hover:border-info' },

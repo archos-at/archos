@@ -42,6 +42,8 @@ export function referencesOf(record: ProposedRecord): { id: string; type: Knowle
         ...record.values.workIds.map((id) => ({ id, type: 'work' as const })),
         ...(record.values.basisEditionId ? [{ id: record.values.basisEditionId, type: 'edition' as const }] : []),
       ]
+    case 'golden_case':
+      return record.expected.edition ? [{ id: `edition:${record.expected.edition.editionKey}`, type: 'edition' }] : []
     default:
       return []
   }
@@ -100,6 +102,8 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         // Only a stated coverage is a claim a reviewer decides; unstated inherits (0213).
         ...(record.coverageLevel === null ? {} : { coverageLevel: record.coverageLevel }),
         ...(record.municipalLaw === null ? {} : { municipalLaw: record.municipalLaw }),
+        // Only a stated zone is a claim; unstated inherits from the parent (0235).
+        ...(record.zone === null ? {} : { zone: record.zone }),
       }
     case 'relation':
       return {
@@ -137,15 +141,24 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         licence: record.terms.licence,
         config: sourceConfigOf(record),
       }
+    case 'golden_case':
+      return {
+        question: record.question,
+        language: record.language,
+        context: record.context,
+        expected: record.expected,
+        mustNot: record.mustNot,
+        tags: record.tags,
+      }
   }
 }
 
 /** Body columns that are no claim a reviewer decides: keys and the copy's licence statements. */
 const NOT_CLAIMS = new Set(['revisionId', 'recordId', 'organizationId', 'terms', 'sha256', 'textStatus', 'parentIds', 'datedParents'])
 
-/** A column 0213 added, left at what it says when nobody stated it: no claim, so older proposals review as they did. */
+/** A column 0213 or 0235 added, left at what it says when nobody stated it: no claim, so older proposals review as they did. */
 function unstated(path: string, value: unknown): boolean {
-  if (path === 'coverageLevel' || path === 'municipalLaw') return value === null || value === undefined
+  if (path === 'coverageLevel' || path === 'municipalLaw' || path === 'zone') return value === null || value === undefined
   if (path === 'connectsBy') return Array.isArray(value) && isSiteOnly(value as string[])
   return false
 }

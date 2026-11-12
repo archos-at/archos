@@ -60,6 +60,7 @@ class OgcConfig(AccessConfig):
 
 
 class Ogc(AccessType):
+    served_operations = ("features", "collection")
     name = "ogc"
     config_model = OgcConfig
 

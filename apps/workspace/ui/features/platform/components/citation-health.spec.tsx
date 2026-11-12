@@ -437,7 +437,7 @@ describe('CitationHealth', () => {
     const card = await screen.findByTestId('citation-missing-sources')
     expect(
       within(card).getByRole('link', { name: 'Add to base knowledge' }).getAttribute('href')
-    ).toBe('/app/platform/knowledge')
+    ).toBe('/app/platform/countries')
   })
 
   test('disables the add actions for read-only platform staff and says why', async () => {
@@ -472,7 +472,7 @@ describe('CitationHealth', () => {
     )
 
     const card = await screen.findByTestId('citation-missing-sources')
-    expect(within(card).getByRole('link', { name: 'Add to base knowledge' }).getAttribute('href')).toBe('/app/platform/knowledge')
+    expect(within(card).getByRole('link', { name: 'Add to base knowledge' }).getAttribute('href')).toBe('/app/platform/countries')
   })
 
   test('claims nothing about held sources when the inventory could not be checked', async () => {

@@ -301,7 +301,7 @@ class TestSync:
         assert _sync().ingested_recorded == 1
 
     def test_an_empty_store_waiting_for_its_import_is_not_taken_for_a_reset(self, ingestor, monkeypatch):
-        """Compose and Coolify start the new release before the import: no re-embedding of the corpus meanwhile."""
+        """Compose starts the new release before the import: no re-embedding of the corpus meanwhile."""
         corpus_store.put("a.pdf", b"a")
         _sync()
         run_worker()
@@ -749,8 +749,8 @@ class TestLegacyCountryBackfill:
         corpus_store.set_mark("marked.pdf", corpus_store.FileMark(country_id="DE"))
 
         assert oib_sync.backfill_legacy_marks(store.mark) == 1
-        assert corpus_store.get_mark("old.pdf") == corpus_store.FileMark(country_id="AT")
-        assert store.payloads == [(oib_sync.COLLECTION_NAME, {"old.pdf": {"country_id": "AT"}})]
+        assert corpus_store.get_mark("old.pdf") == corpus_store.FileMark(country_id="AT", released=True)
+        assert store.payloads == [(oib_sync.COLLECTION_NAME, {"old.pdf": {"country_id": "AT", "released": True}})]
 
         corpus_store.put("new.pdf", b"beta")
         assert oib_sync.backfill_legacy_marks(store.mark) == 0

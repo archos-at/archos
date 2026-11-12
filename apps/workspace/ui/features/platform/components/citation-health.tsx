@@ -236,8 +236,9 @@ interface SnapshotDto {
  * candidate copied beats duplicating, or bypassing, those checks.
  */
 const ACTION_ANCHOR: Partial<Record<MissingSourceAction, string>> = {
-  upload_to_base_knowledge: '/app/platform/knowledge',
-  add_to_norm_catalog: '/app/platform/norms',
+  // A missing text or norm is a record of its country, added through a change request there.
+  upload_to_base_knowledge: '/app/platform/countries',
+  add_to_norm_catalog: '/app/platform/countries',
 }
 
 /** The timing tab of Platform → Answer quality, preselecting one conversation. */
@@ -397,7 +398,7 @@ function FindingRow({
       <li className="group/finding">
         <CollapsibleTrigger
           className={cn(
-            'duration-snap hover:bg-muted/40 flex w-full items-start gap-3 px-6 py-3 text-left transition-colors motion-reduce:transition-none',
+            'duration-snap hover:bg-hover flex w-full items-start gap-3 px-6 py-3 text-left transition-colors motion-reduce:transition-none',
             'outline-none',
             FOCUS_RING_INSET
           )}
@@ -618,7 +619,7 @@ function MissingSourcesCard({
                     {anchor && can[candidate.action === 'add_to_norm_catalog' ? 'norms' : 'corpus'] ? (
                       <Button
                         asChild
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => {
                           // The identifier on the clipboard fills the target
@@ -637,7 +638,7 @@ function MissingSourcesCard({
                       </Button>
                     ) : anchor ? (
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         disabled
                         aria-label={actionLabel}
@@ -1053,7 +1054,7 @@ export function CitationHealth({ scope }: { scope: QualityScope }): JSX.Element 
 
   const toolbar = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <Button variant="outline" size="sm" onClick={() => load(scopeQuery)} disabled={loading}>
+      <Button variant="secondary" size="sm" onClick={() => load(scopeQuery)} disabled={loading}>
         <RefreshCw
           className={cn('size-3.5', loading && 'animate-spin motion-reduce:animate-none')}
           aria-hidden
@@ -1062,7 +1063,7 @@ export function CitationHealth({ scope }: { scope: QualityScope }): JSX.Element 
       </Button>
       {/* A plain link, not a fetch: the route sets Content-Disposition, so the
           browser downloads without buffering the bundle in JS. */}
-      <Button asChild variant="outline" size="sm">
+      <Button asChild variant="secondary" size="sm">
         <a href={`/api/platform/citation-health/export?${scopeQuery}`} download>
           <Download className="size-3.5" aria-hidden />
           {t('citations.export')}

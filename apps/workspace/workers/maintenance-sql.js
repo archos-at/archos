@@ -45,7 +45,8 @@ async function pruneOldRuns(sql, retentionDays) {
 /**
  * How long after a chat was erased its traces are still looked for. The BFF
  * erases a chat in the delete request and closes its queue row as 'purged';
- * this is the window in which the conversation trace sweep goes back for the traces. Past it
+ * this is the window in which the conversation trace sweep goes back for the traces
+ * (for a row that ended 'failed' with the chat gone, counted from its last attempt). Past it
  * the retention sweep (`TRACE_RETENTION_DAYS`) is what removes
  * them, so it need only outlast the longest outage worth recovering from.
  */
@@ -58,11 +59,23 @@ const TRACE_ERASURE_WINDOW_DAYS = 35
 const TRACE_ERASURE_SETTLE_MINUTES = 15
 
 /**
- * Conversations the BFF has erased (its queue row is 'purged') whose Langfuse
- * traces have not been erased yet, oldest first. A chat the purger erased
- * itself is in here too: its traces were just erased, the repeat is a list
- * that finds nothing, and one code path is cheaper than a second one to tell
- * them apart.
+ * Conversations that are erased and whose Langfuse traces have not been erased
+ * yet, oldest first. Two kinds of queue row say a chat is erased:
+ *
+ * - `purged`: the BFF erased it in the delete request, or the purger did. A
+ *   chat the purger erased itself is in here too: its traces were just erased,
+ *   the repeat is a list that finds nothing, and one code path is cheaper than
+ *   a second one to tell them apart.
+ * - `failed`, with no `conversations` row left: the BFF erased the chat on the
+ *   purger's call, and what failed up to the attempt cap came after the row
+ *   delete, which in practice is the purger's own trace step
+ *   (`purger/purge-conversation.js`). The missing row is the durable fact; a
+ *   `failed` row whose chat still exists (the erasure itself failed, or the
+ *   row names a live chat) is not returned, and its traces stay. Its clock is
+ *   `claimed_at`, the last attempt: the same window and the same settle delay,
+ *   which also lets a final attempt that is still running finish first.
+ *
+ * `pending` and `purging` rows belong to the purger, which still has attempts.
  *
  * A conversation under a legal hold is not returned: the hold keeps its traces,
  * exactly as it keeps everything else (`legal_hold_blocks`, the one
@@ -71,21 +84,31 @@ const TRACE_ERASURE_SETTLE_MINUTES = 15
  *
  * @param {object} sql  postgres.js client (or fake) exposing `.begin`
  * @param {number} limit
- * @returns {Promise<{ id: string, entity_id: string, organization_id: string }[]>}
+ * @returns {Promise<{ id: string, entity_id: string, organization_id: string, status: 'purged' | 'failed' }[]>}
  */
 async function findConversationsAwaitingTraceErasure(sql, limit) {
   return sql.begin(async (tx) => {
     await enterPlatformScope(tx)
     return tx`
-      SELECT q.id, q.entity_id, q.organization_id
+      SELECT q.id, q.entity_id, q.organization_id, q.status
       FROM deletion_queue q
       WHERE q.entity_type = 'conversation'
-        AND q.status = 'purged'
-        AND q.purged_at >= now() - make_interval(days => ${TRACE_ERASURE_WINDOW_DAYS})
-        AND q.purged_at <= now() - make_interval(mins => ${TRACE_ERASURE_SETTLE_MINUTES})
+        AND (
+          (
+            q.status = 'purged'
+            AND q.purged_at >= now() - make_interval(days => ${TRACE_ERASURE_WINDOW_DAYS})
+            AND q.purged_at <= now() - make_interval(mins => ${TRACE_ERASURE_SETTLE_MINUTES})
+          )
+          OR (
+            q.status = 'failed'
+            AND q.claimed_at >= now() - make_interval(days => ${TRACE_ERASURE_WINDOW_DAYS})
+            AND q.claimed_at <= now() - make_interval(mins => ${TRACE_ERASURE_SETTLE_MINUTES})
+            AND NOT EXISTS (SELECT 1 FROM conversations c WHERE c.id = q.entity_id)
+          )
+        )
         AND (q.payload IS NULL OR q.payload->>'langfuseTracesErasedAt' IS NULL)
         AND NOT legal_hold_blocks(q.entity_type, q.entity_id, q.organization_id)
-      ORDER BY q.purged_at
+      ORDER BY COALESCE(q.purged_at, q.claimed_at)
       LIMIT ${limit}
     `
   })
@@ -110,9 +133,33 @@ async function conversationIsHeld(sql, row) {
 }
 
 /**
+ * Whether the conversation's row is (still, or again) there. Asked right before
+ * the traces of a `failed` row are deleted: a chat that exists keeps them.
+ *
+ * @param {object} sql
+ * @param {{ entity_id: string }} row
+ * @returns {Promise<boolean>}
+ */
+async function conversationExists(sql, row) {
+  const rows = await sql.begin(async (tx) => {
+    await enterPlatformScope(tx)
+    return tx`
+      SELECT EXISTS (SELECT 1 FROM conversations c WHERE c.id = ${row.entity_id}) AS present
+    `
+  })
+  return rows[0]?.present === true
+}
+
+/**
  * Record that a conversation's traces were erased, on its queue row
  * (`payload.langfuseTracesErasedAt`), so no later run repeats it. A payload
  * that is not a JSON object is replaced rather than appended to.
+ *
+ * A `failed` row whose chat is gone is closed `purged` in the same transaction
+ * (the lifecycle's `close`, `DELETION_LIFECYCLE` in
+ * `bff/db/schema/deletion-queue.ts`): the chat and now its traces are erased,
+ * and the record must not keep saying otherwise. The close asks for the missing
+ * row once more, so it never closes the row of a chat that exists.
  *
  * @param {object} sql
  * @param {string} queueId
@@ -126,6 +173,14 @@ async function markConversationTracesErased(sql, queueId) {
       SET payload = (CASE WHEN jsonb_typeof(payload) = 'object' THEN payload ELSE '{}'::jsonb END)
                     || jsonb_build_object('langfuseTracesErasedAt', now())
       WHERE id = ${queueId}
+    `
+    await tx`
+      UPDATE deletion_queue q
+      SET status = 'purged', purged_at = now(), last_error = NULL
+      WHERE q.id = ${queueId}
+        AND q.entity_type = 'conversation'
+        AND q.status = 'failed'
+        AND NOT EXISTS (SELECT 1 FROM conversations c WHERE c.id = q.entity_id)
     `
   })
 }
@@ -232,6 +287,7 @@ module.exports = {
   DOWNLOAD_LOG_MIN_DAYS,
   pruneOldRuns,
   findConversationsAwaitingTraceErasure,
+  conversationExists,
   conversationIsHeld,
   markConversationTracesErased,
   PRUNE_BATCH,

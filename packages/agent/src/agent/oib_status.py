@@ -71,7 +71,8 @@ class OibFileEntry(BaseModel):
         None,
         description=(
             "The country a release marked the file with (ADR-0173): its entitled offices read it. "
-            "None for a file no release marked; 'ZZ' for one a rollback left unreleased."
+            "None for a file no release marked or one a rollback left unreleased; 'ZZ' for a rollback from before "
+            "the released flag."
         ),
     )
     ingested_at: datetime | None = Field(None, description="Completion time of the last ingestion, if tracked.")
@@ -234,7 +235,7 @@ def get_status(ingestor=None) -> OibKnowledgeStatus:
     marks = corpus_store.list_marks()
     for entry in entries:
         mark = marks.get(entry.file_name)
-        entry.country_id = mark.country_id if mark else None
+        entry.country_id = mark.country_id if mark and mark.released is not False else None
 
     counts = OibStatusSummary(
         total_files=len(entries),

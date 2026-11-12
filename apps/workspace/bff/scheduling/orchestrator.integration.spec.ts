@@ -8,7 +8,8 @@
  *     and the fire schedules the next one;
  *   - a change to the definition replaces its scheduled run, and deleting it
  *     deletes the run;
- *   - a sweep runs once and does not overlap itself.
+ *   - a sweep runs once and does not overlap itself;
+ *   - a cron with a `CRON_TZ=<zone> ` prefix starts on that zone's clock.
  *
  *   HATCHET_CLIENT_TOKEN=… HATCHET_CLIENT_HOST_PORT=localhost:7077 HATCHET_CLIENT_TLS_STRATEGY=none \
  *     npx vitest run bff/scheduling/orchestrator.integration.spec.ts
@@ -136,6 +137,7 @@ describe.skipIf(!configured)('scheduling on a real Hatchet engine', () => {
     }))
     advanceDueDefinition.mockResolvedValue(null)
 
+    const warned = vi.spyOn(console, 'warn')
     await scheduling.syncScheduledRun(definition)
     const fired = String(lastScheduledRunId())
     await eventually(() => fireScheduledJob.mock.calls.length > 0)
@@ -145,8 +147,36 @@ describe.skipIf(!configured)('scheduling on a real Hatchet engine', () => {
     await eventually(() => lastScheduledRunId() !== fired)
     const rearmed = await hatchet.scheduled.get(String(lastScheduledRunId()))
     expect(new Date(rearmed.triggerAt).getTime()).toBe(next.getTime())
+    // The fire re-arms holding the id of the run that just fired, which the engine no longer has: not worth a line.
+    expect(await gone(fired)).toBe(true)
+    expect(warned.mock.calls.filter(([line]) => String(line).includes('could not delete scheduled run'))).toEqual([])
+    warned.mockRestore()
     await scheduling.dropScheduledRun({ scheduledRunId: String(lastScheduledRunId()) })
   }, 90_000)
+
+  it('starts a cron on the clock of the zone its CRON_TZ prefix names, which is how the Frist reminder stays on 06:45', async () => {
+    // The minute after next, written as Tokyo's wall clock (UTC+9, no daylight saving): the same digits read as UTC
+    // are nine hours away, so only an engine that honours the prefix runs it now.
+    const at = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
+    const tokyo = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    const [hour, minute] = tokyo.format(at).split(':').map(Number)
+    let zonedRuns = 0
+    let plainRuns = 0
+    const { sweepTask } = await import('./tasks')
+    const spec = { reason: 'test', run: async () => {} }
+    const zoned = sweepTask(hatchet, { ...spec, name: `zoned-cron-${STAMP}`, cron: `CRON_TZ=Asia/Tokyo ${minute} ${hour} * * *`, run: async () => void (zonedRuns += 1) })
+    const plain = sweepTask(hatchet, { ...spec, name: `plain-cron-${STAMP}`, cron: `${minute} ${hour} * * *`, run: async () => void (plainRuns += 1) })
+    const zonedWorker = await hatchet.worker(`zoned-cron-spec-${STAMP}`, { workflows: [zoned, plain] })
+    void zonedWorker.start()
+    try {
+      await zonedWorker.waitUntilReady(30_000)
+      await eventually(() => zonedRuns > 0, at.getTime() - Date.now() + 60_000)
+      expect(Date.now()).toBeGreaterThanOrEqual(at.getTime())
+      expect(plainRuns).toBe(0)
+    } finally {
+      await zonedWorker.stop()
+    }
+  }, 240_000)
 
   it('runs a sweep once and drops a second run that comes due while the first is going', async () => {
     const first = await overlapping.runNoWait({})

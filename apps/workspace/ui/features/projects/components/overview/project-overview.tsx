@@ -320,14 +320,14 @@ function HeroTile({
             {t('project.overview.askAgent')}
           </Link>
         </Button>
-        <Button asChild variant="outline">
+        <Button asChild variant="secondary">
           <Link href={`${projectPath}/files`}>
             <FileText className="size-4" aria-hidden />
             {t('project.overview.openFiles')}
           </Link>
         </Button>
         {setupOpen && (
-          <Button asChild variant="outline">
+          <Button asChild variant="secondary">
             <Link href={`${projectPath}/setup`}>
               <Sparkles className="size-4" aria-hidden />
               {t('project.overview.openSetup')}
@@ -343,7 +343,7 @@ function HeroTile({
             where the profile is filled, and a second button to the wizard read
             as a second, different thing to do. */}
         {access.editProfile && !setupOpen && (
-          <Button asChild variant="outline">
+          <Button asChild variant="secondary">
             <Link href={`${projectPath}/intake`}>
               <ClipboardList className="size-4" aria-hidden />
               {data.profileDisplay != null

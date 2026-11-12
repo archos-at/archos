@@ -107,7 +107,7 @@ export function ProjectRenameDialog({
           <DialogFooter className="mt-5">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => handleOpenChange(false)}
               disabled={pending}
             >

@@ -19,7 +19,7 @@ function Item({
       data-slot="item"
       className={cn(
         // A row is `px-4 py-3` — the design language's list-row padding.
-        'flex items-center gap-3 px-4 py-3 text-left transition-colors duration-snap ease-out hover:bg-accent/40 motion-reduce:transition-none',
+        'flex items-center gap-3 px-4 py-3 text-left transition-colors duration-snap ease-out hover:bg-hover motion-reduce:transition-none',
         // Keyboard focus must not be the same pixel as hover. It used to be
         // exactly that — `outline-none` plus the hover background — so a
         // keyboard reader could not tell which row they were on when the
@@ -38,7 +38,7 @@ function Item({
         // and below it, the detachment the hover-without-lift rule exists to
         // prevent. A plain `div` row is gated out, since `:active` fires on
         // any element under a held pointer.
-        '[&:is(a,button)]:active:bg-accent/70',
+        '[&:is(a,button)]:active:bg-selected',
         // THE SELECTED ROW of a list whose detail is open beside it (a
         // two-pane inbox, the E-Mail-Eingang): `aria-current="true"` on the
         // row, or `data-current` where the row's link carries `aria-current`

@@ -19,6 +19,12 @@ import { cn } from '@/lib/utils'
 export interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLElement>, 'title'> {
   title: React.ReactNode
   subtitle?: React.ReactNode
+  /**
+   * Keep the subtitle on a phone. Off by default: there the tab bar and the page
+   * say where this is. On for a page the tab bar does not name, whose sentence
+   * says what the page is for („Mein Gedächtnis“: what is kept about you).
+   */
+  subtitleOnPhone?: boolean
   /** Optional primary action rendered on the right of the header row. */
   action?: React.ReactNode
   /**
@@ -106,6 +112,7 @@ export const PAGE_TITLE_CLASS = 'text-page-title font-medium phone:text-section'
 export function PageHeader({
   title,
   subtitle,
+  subtitleOnPhone = false,
   action,
   crumb,
   crumbClassName,
@@ -152,7 +159,7 @@ export function PageHeader({
           heading
         )}
         {subtitle && (
-          <p className="mt-1 text-pretty text-sm text-muted-foreground phone:hidden">{subtitle}</p>
+          <p className={cn('mt-1 text-pretty text-sm text-muted-foreground', !subtitleOnPhone && 'phone:hidden')}>{subtitle}</p>
         )}
       </div>
       {/* Inline, a 44px ⋯ hangs into the title's line height (-8px each side), so it costs the header no height. */}

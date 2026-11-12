@@ -43,6 +43,10 @@ const RULES_ALLOWED: Record<string, { pattern: RegExp; reason: string }[]> = {
   // Paper bar on paper page above a project: the rule is the only edge between the scrolling
   // page and the fixed bar. Inside a project the bar is the desk and draws none.
   'ui/components/shell/phone-tab-bar.tsx': [{ pattern: /'border-border bg-background border-t'/, reason: 'paper on paper' }],
+  // The top bar above a project stays put while the page scrolls, so it takes the one rule a
+  // workspace header takes (design-language.md, „Headers: two kinds, one anatomy each“; the
+  // deviation from the handover is recorded in packages/brand/README.md).
+  'ui/components/shell/org-header.tsx': [{ pattern: /border-border bg-background flex w-full shrink-0 flex-col border-b /, reason: 'a header that stays put' }],
 }
 
 /**

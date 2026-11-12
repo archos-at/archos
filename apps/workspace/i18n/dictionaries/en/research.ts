@@ -330,6 +330,9 @@ export const research = {
     sessionLabel: 'Chat: {title}',
     /** Same row, plus the state its leading icon depicts. */
     sessionLabelWithStatus: 'Chat: {title} — {status}',
+    /** A temporary chat's row (ADR-0180): the mark's tooltip, and the row's label with it. */
+    temporaryMark: 'Temporary chat: nothing from it is kept.',
+    sessionLabelTemporary: '{label} (temporary chat, nothing from it is kept)',
     // FB-10: Deep Research section folded into the sessions panel. The count
     // rides in a CountPill beside the heading, not in the string.
     deepResearchHeading: 'Deep Research',

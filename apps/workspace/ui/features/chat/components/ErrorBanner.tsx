@@ -140,7 +140,7 @@ export const ErrorBanner: FC<ErrorBannerProps> = ({
           {onRetry && errorMeta.retryable !== false && (
             <div className="mt-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={onRetry}
                 aria-label={t('error.retry')}

@@ -281,7 +281,7 @@ export function ProjectRecordPeople({
       )}
 
       {projectRecord.canEdit && !editing && (
-        <Button variant="outline" size="sm" onClick={() => setEditing({ kind: 'new' })}>
+        <Button variant="secondary" size="sm" onClick={() => setEditing({ kind: 'new' })}>
           <UserPlus className="size-4" aria-hidden />
           {t('projectRecord.add')}
         </Button>

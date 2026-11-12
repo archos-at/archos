@@ -282,7 +282,7 @@ export async function getDocumentPreview(
  * download, an iframe. It is not fine for anything the browser FETCHES: the
  * in-app PDF viewer reads the file with XHR to build a text layer, which makes
  * the request cross-origin and subject to CORS, and the S3 gateway this deploys
- * against (SeaweedFS, `deploy/compose/docker-compose.coolify.yaml`) publishes no
+ * against (SeaweedFS, `deploy/compose/docker-compose.yaml`) publishes no
  * CORS policy at all. Every project upload and every org-Archiv document would
  * therefore fail to load in the viewer and silently drop to the fallback frame —
  * losing the cited-passage highlight on exactly the documents users uploaded
@@ -353,7 +353,7 @@ export async function streamDocumentFile(
       // The viewer's fallback renders this stream in a same-origin iframe, and
       // the global next.config rule stamps X-Frame-Options: DENY on every
       // route. Override it here, with a matching CSP directive for modern
-      // browsers — the same pairing `streamKnowledgeBaseDocument` carries, and
+      // browsers — the same pairing `streamCorpusPdf` (knowledge/source-pdf.ts) carries, and
       // next.config carries a route-scoped override to match.
       'X-Frame-Options': 'SAMEORIGIN',
       'Content-Security-Policy': "frame-ancestors 'self'",

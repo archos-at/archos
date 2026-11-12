@@ -11,6 +11,7 @@ from datetime import datetime
 
 import pytest
 
+from agent.knowledge import ingest_run_hold
 from agent.knowledge import ingest_status_store
 from agent.knowledge.schema import FileProgress
 from agent.knowledge.schema import FileStatus
@@ -134,6 +135,17 @@ def _age_heartbeat(url: str, job_id: str, *, legacy: bool = False) -> None:
                 {"t": "2000-01-01 00:00:00", "j": job_id},
             )
     engine.dispose()
+
+
+def _held_until(url: str, job_id: str) -> object:
+    from sqlalchemy import create_engine
+    from sqlalchemy import text
+
+    engine = create_engine(url)
+    with engine.connect() as conn:
+        held = conn.execute(text("SELECT held_until FROM ingest_jobs WHERE job_id = :j"), {"j": job_id}).scalar_one()
+    engine.dispose()
+    return held
 
 
 def _with_file(job_id: str, state: JobState) -> IngestionJobStatus:
@@ -424,6 +436,27 @@ class TestCancelledJobs:
 
         assert ingest_status_store.settle_cancelled("job-1") is False
         assert ingest_status_store.get("job-1").status == JobState.COMPLETED
+
+    def test_a_cancel_stops_vouching_for_the_row(self, sqlite_db):
+        """The hold outlasts the run's whole schedule; a cancelled run has none left."""
+        ingest_status_store.put(_with_file("job-1", JobState.PROCESSING))
+        assert ingest_run_hold.hold("job-1", "run-1", 3600) is True
+
+        ingest_status_store.settle_cancelled("job-1")
+
+        assert _held_until(sqlite_db, "job-1") is None
+
+    def test_a_cancelled_row_a_dead_worker_wrote_live_again_reads_interrupted(self, sqlite_db):
+        """Its write landed before the cancel reached it, then it died: nobody beats, and nothing holds the row."""
+        ingest_status_store.put(_with_file("job-1", JobState.PROCESSING))
+        ingest_run_hold.hold("job-1", "run-1", 3600)
+        ingest_status_store.settle_cancelled("job-1")
+        ingest_status_store.put(_with_file("job-1", JobState.PROCESSING))
+        _age_heartbeat(sqlite_db, "job-1")
+
+        got = ingest_status_store.get("job-1")
+
+        assert (got.status, got.metadata["failure_reason"]) == (JobState.FAILED, "interrupted")
 
     def test_settle_cancelled_says_no_for_a_row_that_is_not_there(self, sqlite_db):
         assert ingest_status_store.settle_cancelled("never-written") is False

@@ -18,7 +18,7 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[1]
 COMPOSE_DIR = REPO / "deploy" / "compose"
-COMPOSE_FILES = ["docker-compose.yaml", "docker-compose.coolify.yaml"]
+COMPOSE_FILES = ["docker-compose.yaml"]
 PULUMI_CONFIG = REPO / "deploy" / "pulumi" / "src" / "app" / "config.ts"
 
 ROLES = ("chat", "api", "worker", "ingest-worker")

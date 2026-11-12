@@ -1,16 +1,22 @@
-"""The folder card builder's loop: claim, hash, skip or build, write, climb (ADR-0127).
+"""What the folder card builder does: one collection's due folders, the sweep that finds them, the reconcile (ADR-0127).
 
-Runs in the ingest-worker role (``agent_host.jobs.ingest_worker``) beside the ingest
-queue's claim loop, for the organizations with the ``folder-cards`` WorkOS flag. Each pass:
+The step functions of the ``folder-cards-*`` tasks (``workflow``, the only module
+here that imports the orchestrator's SDK). They run on the standard ingest
+worker, for the organizations with the ``folder-cards`` WorkOS flag.
 
-1. claims up to :data:`CLAIM_LIMIT` folders that went quiet (``queue.claim``:
-   deepest first, never a folder while one below it is queued);
-2. reads the collection's rows (``document_metadata``) and its stored cards (the BFF);
-3. drops the card of a folder that is empty or too small to deserve one;
-4. skips a folder whose input hash is the stored card's: nothing it reads changed;
-5. over the organization's monthly token budget, marks the stored card ``stale``
+:func:`sweep`, once a minute, asks the dirty set (``queue.due``) which
+collections hold a folder that went quiet and starts one run for each; a
+collection whose run is still live starts none. :func:`build_collection` is that
+run. Until nothing of the collection is due, deepest folder first, it:
+
+1. reads the collection's rows (``document_metadata``) and its stored cards (the
+   BFF) once, and keeps the cards current as it writes, so a parent built in the
+   same run reads its child's new abstract;
+2. drops the card of a folder that is empty or too small to deserve one;
+3. skips a folder whose input hash is the stored card's: nothing it reads changed;
+4. over the organization's monthly token budget, marks the stored card ``stale``
    and builds nothing;
-6. otherwise updates the card the way ``incremental.plan`` says: ``prune`` (only
+5. otherwise updates the card the way ``incremental.plan`` says: ``prune`` (only
    documents left: their key facts go, the abstract stays, no model call),
    ``incremental`` (one observed generation over the old card and the diff), or
    ``full`` (one generation over the whole folder: a new card, a new prompt version
@@ -19,10 +25,19 @@ queue's claim loop, for the organizations with the ``folder-cards`` WorkOS flag.
    the parent only when the abstract came out different: an identical abstract
    stops the climb.
 
+One folder's failure never stops the others. The run then ends by raising the
+first of them and the engine tries it again, where only the failed folders are
+left; on its last attempt a folder that fails is given up instead: out of the
+dirty set, its stored card marked ``failed``. A run that never gets that far (it
+dies on every attempt) is counted on its folders, which leave the dirty set
+after ``queue.GIVE_UP_ROUNDS`` such runs (:func:`give_up_run`). The nightly
+reconcile marks every card that is not ``fresh`` or no longer matches its
+inputs, so given up either way is until tomorrow.
+
 Spend lands twice, by design: on the organization's usage ledger as ingest
 activity (``track_llm_costs``, like every summary ingestion writes), and in
-``folder_card_usage``, which is what the budget reads. A pass that built anything
-writes ``folder-card-fresh`` (the share of claimed folders whose card is fresh
+``folder_card_usage``, which is what the budget reads. A run that built anything
+writes ``folder-card-fresh`` (the share of its folders whose card is fresh
 afterwards) on its first generation's trace.
 
 Every card the BFF accepted is also a Qdrant point ``kind = folder`` in its folder's own
@@ -38,6 +53,7 @@ import asyncio
 import logging
 import os
 import time
+from collections.abc import Callable
 from collections.abc import Iterable
 from dataclasses import dataclass
 from dataclasses import field
@@ -59,25 +75,33 @@ logger = logging.getLogger(__name__)
 MONTHLY_TOKENS_ENV = "FOLDER_CARDS_MONTHLY_TOKENS"
 #: About 400 folder builds of 5k tokens a month, a few dollars on a mid-tier summary model.
 DEFAULT_MONTHLY_TOKENS = 2_000_000
-CLAIM_LIMIT = 20
-POLL_SECONDS = 60
-RECONCILE_EVERY_SECONDS = 24 * 3600
+#: How long one run starts new folders. What is still due afterwards is the next sweep's run.
+RUN_BUDGET_SECONDS = 20 * 60
+#: A collection reconciled less than this ago is skipped: under a day, so the nightly
+#: run finds every collection due; long enough that a retried run repeats nothing.
+RECONCILE_EVERY_SECONDS = 20 * 3600
 SCORE_WRITER = "folder-card-worker"
 
 Outcome = Literal["fresh", "unchanged", "stale", "failed", "skipped"]
 
 
+#: Starts a run for a collection: (collection, organization id) -> whether this call started one.
+Trigger = Callable[[str, str], bool]
+
+
 @dataclass
 class RunReport:
     outcomes: dict[str, int] = field(default_factory=dict)
-    #: The first generation's trace, where the pass's score is written.
+    #: The first generation's trace, where the run's score is written.
     trace_id: str | None = None
+    #: What each failed folder raised, in order. Never the folder: its path is a person's words.
+    failures: list[Exception] = field(default_factory=list)
 
     def count(self, outcome: Outcome) -> None:
         self.outcomes[outcome] = self.outcomes.get(outcome, 0) + 1
 
     def fresh_share(self) -> float | None:
-        """Fresh cards among the claimed folders that should have one; ``None`` when there were none."""
+        """Fresh cards among the run's folders that should have one; ``None`` when there were none."""
         fresh = self.outcomes.get("fresh", 0) + self.outcomes.get("unchanged", 0)
         due = fresh + self.outcomes.get("stale", 0) + self.outcomes.get("failed", 0)
         return fresh / due if due else None
@@ -118,18 +142,10 @@ def collection_rows(collection: str) -> list[Any]:
     return file_rows([{**doc.model_dump(), "collection": collection} for doc in get_available_documents(collection)])
 
 
-def _load(claim: queue.Claim) -> _Collection | None:
-    from agent.knowledge.folder_cards import organization_hint
-
-    organization_id = (
-        claim.organization_id or queue.organization_of(claim.collection) or organization_hint(claim.collection)
-    )
-    if not organization_id:
-        logger.warning("folder cards: no organization known for %s; its folders wait", claim.collection)
-        return None
-    queue.remember_collection(claim.collection, organization_id)
-    cards, descriptions, owned = client.read_collection(organization_id, claim.collection)
-    return _Collection(organization_id, collection_rows(claim.collection), cards, descriptions, owned)
+def _load(collection: str, organization_id: str) -> _Collection:
+    queue.remember_collection(collection, organization_id)
+    cards, descriptions, owned = client.read_collection(organization_id, collection)
+    return _Collection(organization_id, collection_rows(collection), cards, descriptions, owned)
 
 
 # ---------------------------------------------------------------------------
@@ -178,20 +194,20 @@ def _drop_point(collection: str, folder_path: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _mark_parent(claim: queue.Claim, context: _Collection) -> None:
-    parent = queue.parent_of(claim.folder_path)
+def _mark_parent(folder: queue.Due, context: _Collection) -> None:
+    parent = queue.parent_of(folder.folder_path)
     if parent:
-        queue.mark(claim.collection, [parent], context.organization_id, with_ancestors=False)
+        queue.mark(folder.collection, [parent], context.organization_id, with_ancestors=False)
 
 
-def _restamp(claim: queue.Claim, context: _Collection, existing: dict[str, Any], status: str) -> None:
+def _restamp(folder: queue.Due, context: _Collection, existing: dict[str, Any], status: str) -> None:
     """Keep a stored card's content and change only its status (``stale``, ``failed``)."""
     if existing.get("status") == status:
         return
     body = client.put_request(
         organization_id=context.organization_id,
-        collection=claim.collection,
-        folder_path=claim.folder_path,
+        collection=folder.collection,
+        folder_path=folder.folder_path,
         abstract=existing.get("abstract"),
         key_facts=existing.get("key_facts") or [],
         input_hash=existing["input_hash"],
@@ -201,23 +217,23 @@ def _restamp(claim: queue.Claim, context: _Collection, existing: dict[str, Any],
         status=status,
     )
     if client.put_card(body):
-        context.cards[claim.folder_path] = {**existing, "status": status}
-        _restamp_point(claim.collection, claim.folder_path, status)
+        context.cards[folder.folder_path] = {**existing, "status": status}
+        _restamp_point(folder.collection, folder.folder_path, status)
 
 
-def _drop(claim: queue.Claim, context: _Collection, existing: dict[str, Any] | None) -> Outcome:
+def _drop(folder: queue.Due, context: _Collection, existing: dict[str, Any] | None) -> Outcome:
     """An empty or tiny folder: its listing is its card, so a stored card goes."""
     if existing is not None:
-        client.delete_card(context.organization_id, claim.collection, claim.folder_path)
-        _drop_point(claim.collection, claim.folder_path)
-        queue.delete_manifest(claim.collection, claim.folder_path)
-        context.cards.pop(claim.folder_path, None)
-        _mark_parent(claim, context)
+        client.delete_card(context.organization_id, folder.collection, folder.folder_path)
+        _drop_point(folder.collection, folder.folder_path)
+        queue.delete_manifest(folder.collection, folder.folder_path)
+        context.cards.pop(folder.folder_path, None)
+        _mark_parent(folder, context)
     return "skipped"
 
 
 def _store(
-    claim: queue.Claim,
+    folder: queue.Due,
     context: _Collection,
     existing: dict[str, Any] | None,
     digest: str,
@@ -228,8 +244,8 @@ def _store(
     """``PUT`` the card; ``False`` when the BFF refused it (no folder of this collection lives at that path)."""
     body = client.put_request(
         organization_id=context.organization_id,
-        collection=claim.collection,
-        folder_path=claim.folder_path,
+        collection=folder.collection,
+        folder_path=folder.folder_path,
         abstract=draft.abstract,
         key_facts=[fact.wire() for fact in draft.key_facts],
         input_hash=digest,
@@ -239,13 +255,13 @@ def _store(
         status="fresh",
     )
     if not client.put_card(body):
-        logger.info("folder cards: %s in %s is no folder the BFF knows", claim.folder_path, claim.collection)
+        logger.info("folder cards: %s in %s is no folder the BFF knows", folder.folder_path, folder.collection)
         return False
-    queue.put_manifest(claim.collection, claim.folder_path, manifest.to_json())
-    context.cards[claim.folder_path] = {**(existing or {}), **body}
-    _publish_point(claim.collection, body)
+    queue.put_manifest(folder.collection, folder.folder_path, manifest.to_json())
+    context.cards[folder.folder_path] = {**(existing or {}), **body}
+    _publish_point(folder.collection, body)
     if (existing or {}).get("abstract_hash") != draft.abstract_hash:
-        _mark_parent(claim, context)
+        _mark_parent(folder, context)
     return True
 
 
@@ -274,8 +290,8 @@ def _decide(inputs: FolderInputs, existing: dict[str, Any] | None) -> tuple[Outc
     return None, digest
 
 
-def _stored_manifest(claim: queue.Claim) -> incremental.Manifest | None:
-    stored = queue.get_manifest(claim.collection, claim.folder_path)
+def _stored_manifest(folder: queue.Due) -> incremental.Manifest | None:
+    stored = queue.get_manifest(folder.collection, folder.folder_path)
     try:
         return incremental.Manifest.from_json(stored) if stored else None
     except ValueError, TypeError, AttributeError:  # unreadable: a full rebuild writes a new one
@@ -283,7 +299,7 @@ def _stored_manifest(claim: queue.Claim) -> incremental.Manifest | None:
 
 
 def _prune(
-    claim: queue.Claim,
+    folder: queue.Due,
     context: _Collection,
     existing: dict[str, Any],
     inputs: FolderInputs,
@@ -299,7 +315,7 @@ def _prune(
         existing.get("abstract_hash") or build.abstract_hash(abstract),
     )
     manifest = incremental.manifest_of(inputs, increments=update.increments)
-    return _store(claim, context, existing, digest, draft, existing.get("model") or "", manifest)
+    return _store(folder, context, existing, digest, draft, existing.get("model") or "", manifest)
 
 
 #: A stem shorter than this ("A", "Nr 1") is too common a word to prove the abstract names the document.
@@ -328,28 +344,28 @@ async def _write(
     return await build.generate(inputs, llm, prompt=prompt, mode="incremental", diff_counts=counts)
 
 
-async def _build(claim: queue.Claim, context: _Collection, llm: Any, report: RunReport) -> Outcome:
-    if context.owned is not None and claim.folder_path not in context.owned:
+async def _build(folder: queue.Due, context: _Collection, llm: Any, report: RunReport) -> Outcome:
+    if context.owned is not None and folder.folder_path not in context.owned:
         # Marked here, but its documents live in another collection (a restricted child marks its open ancestors).
         return "skipped"
-    inputs = folder_inputs(claim.collection, claim.folder_path, context.rows, context.cards, context.descriptions)
+    inputs = folder_inputs(folder.collection, folder.folder_path, context.rows, context.cards, context.descriptions)
     existing = context.cards.get(inputs.folder_path)
     outcome, digest = _decide(inputs, existing)
     if outcome == "skipped":
-        return await asyncio.to_thread(_drop, claim, context, existing)
+        return await asyncio.to_thread(_drop, folder, context, existing)
     if outcome is not None:
         return outcome
-    update = incremental.plan(existing, await asyncio.to_thread(_stored_manifest, claim), inputs)
+    update = incremental.plan(existing, await asyncio.to_thread(_stored_manifest, folder), inputs)
     if update.mode == "prune" and existing is not None and names_removed(existing["abstract"], update.diff.removed):
         # The abstract speaks of a document that is gone: the model rewrites it from the diff.
         update = incremental.Plan("incremental", update.diff, increments=update.increments + 1, reason="named removal")
     if update.mode == "prune" and existing is not None:
-        stored = await asyncio.to_thread(_prune, claim, context, existing, inputs, digest, update)
+        stored = await asyncio.to_thread(_prune, folder, context, existing, inputs, digest, update)
         return "fresh" if stored else "skipped"
     if await asyncio.to_thread(queue.tokens_used, context.organization_id) >= monthly_token_cap():
         logger.info("folder cards: %s is over its monthly budget", context.organization_id)
         if existing is not None:
-            await asyncio.to_thread(_restamp, claim, context, existing, "stale")
+            await asyncio.to_thread(_restamp, folder, context, existing, "stale")
         return "stale"
     with _ledger(context.organization_id):
         try:
@@ -361,55 +377,33 @@ async def _build(claim: queue.Claim, context: _Collection, llm: Any, report: Run
     await asyncio.to_thread(queue.add_tokens, context.organization_id, generation.tokens)
     draft = build.validate(generation.reply, inputs)
     manifest = incremental.manifest_of(inputs, increments=update.increments)
-    stored = await asyncio.to_thread(_store, claim, context, existing, digest, draft, generation.model, manifest)
+    stored = await asyncio.to_thread(_store, folder, context, existing, digest, draft, generation.model, manifest)
     return "fresh" if stored else "skipped"
 
 
-def _give_up(claim: queue.Claim, context: _Collection | None) -> None:
-    existing = context.cards.get(claim.folder_path) if context else None
-    if context is not None and existing is not None:
-        _restamp(claim, context, existing, "failed")
-
-
-def _flag_off(claim: queue.Claim) -> bool:
-    """Whether the claimed folder's organization lacks the ``folder-cards`` flag. Raises when the BFF cannot be asked.
-
-    An organization nobody can name yet is not off: ``_load`` keeps the claim for a retry.
-    """
-    from agent.knowledge.folder_cards import gate
-    from agent.knowledge.folder_cards import organization_hint
-
-    organization_id = (
-        claim.organization_id or queue.organization_of(claim.collection) or organization_hint(claim.collection)
-    )
-    return organization_id is not None and not gate.check(organization_id)
-
-
-async def _settle(claim: queue.Claim, loaded: dict[str, _Collection | None], llm: Any, report: RunReport) -> Outcome:
-    """Build one claimed folder and settle its queue row. Never raises."""
+def _give_up(folder: queue.Due, context: _Collection) -> None:
+    """The run's last attempt failed on this folder: out of the dirty set, its stored card ``failed``. Never raises."""
     try:
-        if await asyncio.to_thread(_flag_off, claim):
-            # Switched off for the organization: nothing is built, and the row goes. Switching it on
-            # again is found by the nightly reconcile, which marks what lacks a card.
-            await asyncio.to_thread(queue.finish, claim)
-            return "skipped"
-        if claim.collection not in loaded:
-            loaded[claim.collection] = await asyncio.to_thread(_load, claim)
-        context = loaded[claim.collection]
-        if context is None:
-            # Kept for a few retries: a later mark from an ingest may name the organization.
-            await asyncio.to_thread(queue.fail, claim)
-            return "skipped"
-        outcome = await _build(claim, context, llm, report)
-    except Exception:  # noqa: BLE001 — one folder never stops the pass
-        logger.warning("folder cards: %s in %s failed", claim.folder_path, claim.collection, exc_info=True)
-        try:
-            if await asyncio.to_thread(queue.fail, claim):
-                await asyncio.to_thread(_give_up, claim, loaded.get(claim.collection))
-        except Exception:  # noqa: BLE001
-            logger.warning("folder cards: could not settle a failed claim", exc_info=True)
+        queue.drop(folder.collection, folder.folder_path)
+        existing = context.cards.get(folder.folder_path)
+        if existing is not None:
+            _restamp(folder, context, existing, "failed")
+    except Exception:  # noqa: BLE001
+        logger.warning("folder cards: could not give a folder up", exc_info=True)
+
+
+async def _settle(folder: queue.Due, context: _Collection, llm: Any, report: RunReport, final: bool) -> Outcome:
+    """Build one due folder and take it out of the dirty set. Never raises: one folder never stops the run."""
+    started = time.time()
+    try:
+        outcome = await _build(folder, context, llm, report)
+    except Exception as error:  # noqa: BLE001
+        logger.warning("folder cards: %s in %s failed", folder.folder_path, folder.collection, exc_info=True)
+        report.failures.append(error)
+        if final:
+            await asyncio.to_thread(_give_up, folder, context)
         return "failed"
-    await asyncio.to_thread(queue.finish, claim)
+    await asyncio.to_thread(queue.finish, folder.collection, folder.folder_path, started)
     return outcome
 
 
@@ -426,24 +420,120 @@ def _emit_freshness(report: RunReport) -> None:
     )
 
 
-async def run_once(limit: int = CLAIM_LIMIT, *, llm: Any | None = None) -> RunReport:
-    """One pass over the folders that are due. Never raises for one folder."""
+async def _next_folders(collection: str, seen: set[str]) -> list[queue.Due]:
+    """The collection's due folders this run has not met; each is met once, so a run always ends."""
+    due = [folder for folder in await asyncio.to_thread(queue.due, collection) if folder.folder_path not in seen]
+    seen.update(folder.folder_path for folder in due)
+    return due
+
+
+async def build_collection(
+    collection: str,
+    organization_id: str,
+    *,
+    final: bool = False,
+    llm: Any | None = None,
+    should_stop: Callable[[], bool] = lambda: False,
+) -> RunReport:
+    """Build every due folder of ``collection``, children before parents; the folders it left are still dirty.
+
+    Raises what the first failed folder raised when ``final`` is not set; on the
+    final attempt a failed folder is given up and the run ends well.
+    Raises as well when the flag or the collection cannot be read: nothing was
+    built, and the next attempt asks again.
+    """
     report = RunReport()
     llm = llm if llm is not None else summary_llm()
     if llm is None:
         logger.info("folder cards: no summary model is configured; nothing is built")
         return report
-    loaded: dict[str, _Collection | None] = {}
-    for claim in await asyncio.to_thread(queue.claim, limit):
-        report.count(await _settle(claim, loaded, llm, report))
+    if not await asyncio.to_thread(gate.check, organization_id):
+        # Switched off for the organization: nothing is built, and its folders go. Switching it on
+        # again is found by the nightly reconcile, which marks what lacks a card.
+        report.outcomes["skipped"] = await asyncio.to_thread(queue.drop, collection)
+        return report
+    context = await asyncio.to_thread(_load, collection, organization_id)
+    deadline = time.monotonic() + RUN_BUDGET_SECONDS
+
+    def stopped() -> bool:
+        return should_stop() or time.monotonic() >= deadline
+
+    seen: set[str] = set()
+    while not stopped() and (folders := await _next_folders(collection, seen)):
+        await _build_round(folders, context, llm, report, final, stopped)
+    return _ended(report, final)
+
+
+async def _build_round(
+    folders: list[queue.Due],
+    context: _Collection,
+    llm: Any,
+    report: RunReport,
+    final: bool,
+    stopped: Callable[[], bool],
+) -> None:
+    """One round of due folders, in order, until the run is told to stop; their parents are the next round."""
+    for folder in folders:
+        if stopped():
+            return
+        report.count(await _settle(folder, context, llm, report, final))
+
+
+def _ended(report: RunReport, final: bool) -> RunReport:
     if report.outcomes:
         logger.info("folder cards: %s", report.outcomes)
     _emit_freshness(report)
+    if report.failures and not final:
+        raise report.failures[0]
     return report
 
 
+def sweep(trigger: Trigger) -> int:
+    """Start a run for every collection that holds a due folder; how many this call started.
+
+    ``trigger`` answers ``False`` for a collection whose run is still live. A
+    collection nobody can name an organization for leaves the dirty set: no hook
+    writes such a row, and the reconcile knows the organization of every
+    collection it has seen.
+    """
+    if summary_llm() is None:
+        return 0
+    from agent.knowledge.folder_cards import organization_hint
+
+    organizations: dict[str, str | None] = {}
+    for folder in queue.due():
+        organizations[folder.collection] = organizations.get(folder.collection) or folder.organization_id
+    started = 0
+    for collection, known in organizations.items():
+        organization_id = known or queue.organization_of(collection) or organization_hint(collection)
+        if not organization_id:
+            logger.warning("folder cards: no organization known for %s; its folders are dropped", collection)
+            queue.drop(collection)
+            continue
+        started += bool(trigger(collection, organization_id))
+    return started
+
+
+def give_up_run(collection: str) -> dict[str, int]:
+    """A run failed for good without settling its folders (it died on every attempt): how many wait again.
+
+    And how many were dropped instead, having seen ``queue.GIVE_UP_ROUNDS`` such
+    runs: the bound on a build that can never pass. The nightly reconcile marks
+    what is still stale, so a dropped folder is tried again tomorrow.
+    """
+    deferred, dropped = queue.defer(collection)
+    if dropped:
+        logger.warning(
+            "folder cards: %d folder(s) of %s left the dirty set after %d runs failed for good",
+            dropped,
+            collection,
+            queue.GIVE_UP_ROUNDS,
+        )
+    return {"deferred": deferred, "dropped": dropped}
+
+
 # ---------------------------------------------------------------------------
-# The nightly reconcile and the loop
+# The nightly reconcile
 # ---------------------------------------------------------------------------
 
 
@@ -484,20 +574,3 @@ async def reconcile() -> int:
         except Exception:  # noqa: BLE001 — the next night tries again
             logger.warning("folder cards: could not reconcile %s", collection, exc_info=True)
     return marked
-
-
-async def loop(stop: asyncio.Event) -> None:
-    """Build until ``stop``: a pass every :data:`POLL_SECONDS`, a reconcile once a day."""
-    last_reconcile = float("-inf")
-    while not stop.is_set():
-        try:
-            await run_once()
-            if time.monotonic() - last_reconcile >= RECONCILE_EVERY_SECONDS:
-                last_reconcile = time.monotonic()
-                await reconcile()
-        except Exception:  # noqa: BLE001 — the loop outlives a bad pass
-            logger.warning("folder cards: a pass failed", exc_info=True)
-        try:
-            await asyncio.wait_for(stop.wait(), timeout=POLL_SECONDS)
-        except TimeoutError:
-            pass

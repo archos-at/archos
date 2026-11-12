@@ -24,7 +24,9 @@ export const platformSourceOperations = [
       'Runs the source record’s recorded fixtures through its access type and engine with no live call (what KC-7 ' +
       'checks), and with `live: true` fetches its monitor probe once through the fetcher. Pass `changeRequestId` to ' +
       'test the source as that open request proposes it: its hosts are usable by that request alone, for 24 hours ' +
-      'from the proposal. Without it, the published source. Nothing is stored. 404 for a key nothing registers.',
+      'from the proposal. Without it, the published source. Nothing is stored. 404 for a key nothing registers. ' +
+      'A fixture whose response names a capture is read from that capture; one that names none yet (`captureId: null`) ' +
+      'is not run: `awaiting` lists the URLs to capture, and it is not `ok`.',
     method: 'POST',
     path: '/api/platform/knowledge/sources/[sourceKey]/test',
     params: sourceParamsSchema,

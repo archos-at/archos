@@ -23,7 +23,7 @@ vi.mock('./ingest-recovery', () => ({
 import { getTenantContext } from '@/lib/db/tenant-context'
 import { listStuckProcessingDocuments, markDocumentIngestFailed, type StuckProcessingDocument } from './repository'
 import { redispatchStuckDocument } from './ingest-recovery'
-import { STUCK_AFTER_MINUTES, STUCK_BATCH, recoverStuckProcessing } from './stuck-processing'
+import { STUCK_AFTER_MINUTES, STUCK_BATCH, failDocumentsOfDeadJob, recoverStuckProcessing } from './stuck-processing'
 
 const row = (over: Partial<StuckProcessingDocument> = {}): StuckProcessingDocument => ({
   id: 'doc-1',
@@ -128,5 +128,38 @@ describe('recoverStuckProcessing', () => {
       gone: 0,
       errors: 0,
     })
+  })
+})
+
+describe('failDocumentsOfDeadJob', () => {
+  it('asks for that job’s rows without the wait, and fails each with the write the sweep makes', async () => {
+    vi.mocked(listStuckProcessingDocuments).mockResolvedValue([
+      row({ id: 'a', jobStatus: 'dead', jobId: 'job-dead', lastError: 'converter down' }),
+    ])
+    let scope: ReturnType<typeof getTenantContext>
+    vi.mocked(markDocumentIngestFailed).mockImplementation(async () => {
+      scope = getTenantContext()
+      return true
+    })
+
+    const result = await failDocumentsOfDeadJob('job-dead')
+
+    expect(listStuckProcessingDocuments).toHaveBeenCalledWith({ deadJobId: 'job-dead' }, STUCK_BATCH)
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith('a', 'org_1', 'Ingestion could not be started', {
+      backgroundJobId: 'job-dead',
+    })
+    expect(scope).toMatchObject({ organizationId: 'org_1' })
+    expect(redispatchStuckDocument).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ checked: 1, failed: 1, gone: 0, errors: 0 })
+  })
+
+  it('counts a row that moved on meanwhile as gone, and a write that throws as an error, without throwing', async () => {
+    vi.mocked(listStuckProcessingDocuments).mockResolvedValue([
+      row({ id: 'a', jobStatus: 'dead', jobId: 'job-dead' }),
+      row({ id: 'b', jobStatus: 'dead', jobId: 'job-dead' }),
+    ])
+    vi.mocked(markDocumentIngestFailed).mockResolvedValueOnce(false).mockRejectedValueOnce(new Error('database gone'))
+
+    await expect(failDocumentsOfDeadJob('job-dead')).resolves.toMatchObject({ failed: 0, gone: 1, errors: 1 })
   })
 })

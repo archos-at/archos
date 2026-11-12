@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * The parity harness of ADR-0169 for `derivations.ts`: the product classifies
- * an Austrian project's Building on the shipped records (the site selects the
+ * an Austrian project's Building on the records an operator publishes (the site selects the
  * OIB 2023 table and Austria's fact definitions, the one evaluator runs it), and
  * must give exactly what the retired coded derivation gives, kept as the
  * oracle (`derivations.oracle.ts`). First on the derivation's own cases
@@ -22,14 +22,13 @@ import { BUILDING_CLASS_INPUTS, deriveBuildingClass } from '@/lib/project-intake
 import { deriveBuildingClass as classify } from '@/lib/project-intake/derivations'
 import { buildingClassificationOf, setupScopeOf } from '@/lib/project-intake/setup-scope'
 import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
-import seed from './seeds/at-oib-2023-building-class.json'
-import { AT_OIB_2023_BUILDING_CLASS } from './building-class'
+import { AT_BUILDING_CLASS_VALUES, AT_SETUP_RECORDS } from '@/lib/project-intake/at-setup.fixtures'
 import { failingExamples } from './decision-table'
 
 const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: '2026-11-10T00:00:00Z' })
 
-/** What an Austrian project's site selects from the shipped records, through the product's own path. */
-const AUSTRIA = buildingClassificationOf(setupScopeOf({ facts: { country: fact('at') }, assumptions: {} }))
+/** What an Austrian project's site selects from Austria's records, through the product's own path. */
+const AUSTRIA = buildingClassificationOf(setupScopeOf({ facts: { country: fact('at') }, assumptions: {} }, { records: AT_SETUP_RECORDS }))
 if (!AUSTRIA) throw new Error('an Austrian project selects the OIB 2023 classification')
 const AT_CLASSIFICATION = AUSTRIA
 
@@ -37,17 +36,17 @@ const buildingClassFromRuleset = (inputs: Inputs) => classify(AT_CLASSIFICATION,
 
 describe('the OIB 2023 building class ruleset', () => {
   it('is what an Austrian site selects, in every Land', () => {
-    expect(AT_CLASSIFICATION.rulesetId).toBe('shipped:at-oib-2023-building-class')
+    expect(AT_CLASSIFICATION.rulesetId).toBe('ruleset:at-oib-2023-building-class')
     const vienna = buildingClassificationOf(
-      setupScopeOf({ facts: { country: fact('at'), federal_state: fact('vienna') }, assumptions: {} })
+      setupScopeOf({ facts: { country: fact('at'), federal_state: fact('vienna') }, assumptions: {} }, { records: AT_SETUP_RECORDS })
     )
-    expect(vienna?.rulesetId).toBe('shipped:at-oib-2023-building-class')
+    expect(vienna?.rulesetId).toBe('ruleset:at-oib-2023-building-class')
   })
 
   it('is a valid ruleset whose own examples pass', () => {
-    expect(rulesetValuesSchema.safeParse(seed).success).toBe(true)
-    if (AT_OIB_2023_BUILDING_CLASS.body.kind !== 'table') throw new Error('a table')
-    expect(failingExamples(AT_OIB_2023_BUILDING_CLASS.body.payload)).toEqual([])
+    expect(rulesetValuesSchema.safeParse(AT_BUILDING_CLASS_VALUES).success).toBe(true)
+    if (AT_BUILDING_CLASS_VALUES.body.kind !== 'table') throw new Error('a table')
+    expect(failingExamples(AT_BUILDING_CLASS_VALUES.body.payload)).toEqual([])
   })
 
   it.each(BUILDING_CLASS_CASES)('%s, as the derivation says', (_name, inputs, expected) => {

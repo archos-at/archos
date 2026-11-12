@@ -232,7 +232,8 @@ def cancel(job_id: str) -> str:
     check before it reads or writes, and settles its status the same way.
 
     Returns ``CANCEL_STOPPED`` when a live job was stopped, ``CANCEL_FINISHED``
-    when its status is no longer live (done, or never known), and
+    when its status is no longer live (done, never known, or completed or failed
+    while this call was cancelling its run), and
     ``CANCEL_UNAVAILABLE`` when the job has no run to cancel (it runs in the
     pool of a process this one cannot reach) or Hatchet could not be reached.
     """
@@ -249,7 +250,12 @@ def cancel(job_id: str) -> str:
     except Exception as error:  # noqa: BLE001 - the route reports it; the job runs on
         logger.warning("Could not cancel the run of ingestion job %s: %s", job_id, type(error).__name__)
         return CANCEL_UNAVAILABLE
-    ingest_status_store.settle_cancelled(job_id)
+    if not ingest_status_store.settle_cancelled(job_id):
+        # Nothing live was left to settle. The job ended between the read above and here, or the
+        # write failed: then the row is still live, and the cancelled run settles it itself.
+        after = ingest_status_store.get(job_id)
+        if after is not None and after.status in (JobState.COMPLETED, JobState.FAILED):
+            return CANCEL_FINISHED
     return CANCEL_STOPPED
 
 

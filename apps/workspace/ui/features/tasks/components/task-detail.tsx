@@ -257,7 +257,7 @@ function TaskDetailBody({
         {promotable && (
           <section aria-label={t('detail.promote')}>
             <Button
-              variant="outline"
+              variant="secondary"
               className="w-full"
               onClick={() => onPromoteToTask?.({ name: task.title, prompt: task.goal ?? '' })}
               data-testid="task-detail-promote"
@@ -305,7 +305,7 @@ function TaskDetailBody({
               when the result IS the conversation: then the two links point
               at the same place and the second one is dropped. */}
           {threadHref && result?.kind !== 'conversation' && (
-            <Button variant="outline" asChild data-testid="task-detail-thread">
+            <Button variant="secondary" asChild data-testid="task-detail-thread">
               <Link href={threadHref}>
                 <MessagesSquare aria-hidden />
                 {t('detail.openThread')}

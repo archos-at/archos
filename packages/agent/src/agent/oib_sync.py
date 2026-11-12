@@ -464,7 +464,7 @@ def _forget_everything_if_the_index_was_reset(rows: dict[str, corpus_store.FileR
 
 #: Sets payload fields on every chunk of each named base-corpus file; the API tier hands it in
 #: (``agent_host.jobs.corpus_payloads``), since this package does not reach the vector store itself.
-MarkCorpusChunks = Callable[[dict[str, dict[str, str]]], None]
+MarkCorpusChunks = Callable[[dict[str, dict[str, str | bool]]], None]
 
 
 def backfill_legacy_marks(mark_chunks: MarkCorpusChunks | None) -> int:
@@ -474,7 +474,7 @@ def backfill_legacy_marks(mark_chunks: MarkCorpusChunks | None) -> int:
     deploy finds unmarked are the Austria pack's. Each row gets the mark (a later ingest job carries
     it) and its chunks get ``country_id``, so nothing turns unreadable once the filter reads unmarked
     chunks as nobody's. Then the backfill records that it ran, and never runs again: a file uploaded
-    later carries the mark its release gives it, or ``ZZ``. Without ``mark_chunks``, or with a store
+    later carries the mark its release gives it, or none. Without ``mark_chunks``, or with a store
     that refuses, it waits for the next cycle, with nothing half-written in the table.
     """
     if mark_chunks is None:
@@ -482,13 +482,13 @@ def backfill_legacy_marks(mark_chunks: MarkCorpusChunks | None) -> int:
     names = corpus_store.legacy_unmarked()
     try:
         if names:
-            mark_chunks({name: {"country_id": corpus_store.LEGACY_CORPUS_COUNTRY} for name in names})
+            mark_chunks({name: {"country_id": corpus_store.LEGACY_CORPUS_COUNTRY, "released": True} for name in names})
     except Exception:  # noqa: BLE001 - the next cycle tries again; nothing below has run
         logger.warning(
             "The legacy country backfill could not reach the vector store; it runs next cycle", exc_info=True
         )
         return 0
-    mark = corpus_store.FileMark(country_id=corpus_store.LEGACY_CORPUS_COUNTRY)
+    mark = corpus_store.FileMark(country_id=corpus_store.LEGACY_CORPUS_COUNTRY, released=True)
     for name in names:
         corpus_store.set_mark(name, mark)
     corpus_store.record_legacy_backfill()

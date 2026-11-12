@@ -88,4 +88,19 @@ describe('useSessionRows', () => {
     expect(result.current[0]!.title).toBe('Umbenannt')
     expect(result.current[1]).toBe(olderBefore)
   })
+
+  test('a chat switched to temporary yields a new row that says so (ADR-0180)', () => {
+    const { result } = renderHook(() => useSessionRows())
+    const [openBefore, olderBefore] = result.current
+    expect(openBefore!.temporary).toBe(false)
+
+    act(() => {
+      const { conversations } = useChatStore.getState()
+      useChatStore.setState({ conversations: [conversations[0]!, { ...conversations[1]!, temporary: true }] })
+    })
+
+    expect(result.current[0]).not.toBe(openBefore)
+    expect(result.current[0]!.temporary).toBe(true)
+    expect(result.current[1]).toBe(olderBefore)
+  })
 })

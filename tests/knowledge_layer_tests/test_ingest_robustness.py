@@ -431,6 +431,87 @@ def test_a_retry_writes_the_job_as_it_is_now(status_db, monkeypatch, held_ingest
 
 
 # ---------------------------------------------------------------------------
+# A run that was told to stop writes no live or failed status again
+# ---------------------------------------------------------------------------
+
+
+def _hatchet_run_job(ingestor, job_id: str, *, told_to_stop: bool) -> IngestionJobStatus:
+    """A job a worker runs for Hatchet: tracked, written live, and asked through its claim guard."""
+    job = _tracked_job(ingestor, job_id, JobState.PROCESSING)
+    ingestor._claim_guards[job_id] = lambda: not told_to_stop
+    ingest_status_store.put(job)
+    return job
+
+
+def test_a_persons_cancel_is_not_turned_back_to_processing_by_the_stopped_runs_heartbeat(status_db, held_ingestor):
+    """The cancel cleared `owner`, so the beat refreshes no row: to the worker that looks like a wrong `interrupted`."""
+    _hatchet_run_job(held_ingestor, "job-1", told_to_stop=True)
+    assert ingest_status_store.settle_cancelled("job-1") is True
+
+    held_ingestor._beat()
+
+    assert ingest_status_store.get("job-1").status == JobState.CANCELLED
+    # Skipped, not failed: nothing is left for the next beat to try again.
+    assert held_ingestor._unpersisted == set()
+
+
+def test_a_persons_cancel_is_not_turned_back_to_processing_by_the_stopped_runs_progress(status_db, held_ingestor):
+    job = _hatchet_run_job(held_ingestor, "job-1", told_to_stop=True)
+    ingest_status_store.settle_cancelled("job-1")
+
+    held_ingestor._update_file_status(job, 0, FileStatus.SUCCESS, chunks_created=3)
+
+    assert ingest_status_store.get("job-1").status == JobState.CANCELLED
+
+
+def test_a_stopped_run_that_finishes_still_writes_completed_over_cancelled(status_db, held_ingestor):
+    """Past its last ownership check the chunks are indexed; the BFF heals the document from this row."""
+    job = _hatchet_run_job(held_ingestor, "job-1", told_to_stop=True)
+    ingest_status_store.settle_cancelled("job-1")
+    _finish(held_ingestor, job)
+
+    held_ingestor._persist(job)
+
+    stored = ingest_status_store.get("job-1")
+    assert stored.status == JobState.COMPLETED
+    assert stored.file_details[0].status == FileStatus.SUCCESS
+
+
+def test_a_stopped_run_that_then_fails_leaves_the_row_cancelled(tmp_path, status_db, monkeypatch, held_ingestor):
+    """An exception outside the per-file catch used to end a person's stop as `failed: <exception text>`."""
+    upload = tmp_path / "a.txt"
+    upload.write_text("x", encoding="utf-8")
+    prepared = held_ingestor.prepare_job([str(upload)], "proj_1")
+
+    def stopped_then_broken() -> None:
+        ingest_status_store.settle_cancelled(prepared.job_id)
+        raise RuntimeError("the embedder is away")
+
+    monkeypatch.setattr(held_ingestor, "_ensure_initialized", stopped_then_broken)
+    answers = iter([True])  # the PROCESSING write is the owner's; every later question finds the run stopped
+
+    held_ingestor.run_prepared(prepared, still_owner=lambda: next(answers, False))
+
+    stored = ingest_status_store.get(prepared.job_id)
+    assert stored.status == JobState.CANCELLED
+    assert stored.error_message.startswith("cancelled:")
+    assert held_ingestor._unpersisted == set()
+
+
+def test_an_owner_hatchet_runs_whose_row_another_replica_settled_writes_again_and_wins(status_db, held_ingestor):
+    """THE OWNER, WHILE IT LIVES, IS RIGHT ABOUT ITS JOB: a guard that says "go on" changes nothing about that."""
+    _hatchet_run_job(held_ingestor, "job-1", told_to_stop=False)
+    _age_row(status_db, "job-1")
+    settled = ingest_status_store.get("job-1")
+    assert (settled.status, settled.metadata["failure_reason"]) == (JobState.FAILED, "interrupted")
+
+    held_ingestor._beat()
+
+    assert ingest_status_store.get("job-1").status == JobState.PROCESSING
+    assert ingest_status_store.heartbeat(["job-1"]) == 1
+
+
+# ---------------------------------------------------------------------------
 # A job that runs in another process than the one that took it
 # ---------------------------------------------------------------------------
 

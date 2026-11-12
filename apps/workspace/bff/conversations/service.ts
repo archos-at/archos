@@ -88,7 +88,8 @@ import {
   updateConversationTitleInOrg,
   upsertConversationRead,
 } from './repository'
-import { CONVERSATION_PAGE_MAX, MESSAGE_PAGE_MAX } from './conversation-wire'
+import type { z } from 'zod'
+import { CONVERSATION_PAGE_MAX, MESSAGE_PAGE_MAX, type createConversationSchema } from './conversation-wire'
 import { parseMessageIncludes, toMessageView, type MessageListResponse } from './message-view'
 import { resolvePeople } from '@/lib/sharing/directory'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -112,13 +113,7 @@ export interface GenerateConversationTitleResult {
   error?: string
 }
 
-export interface CreateConversationInput {
-  id: string
-  title?: string | null
-  projectId?: string | null
-  subjectResourceType?: 'document' | null
-  subjectResourceId?: string | null
-}
+export type CreateConversationInput = z.infer<typeof createConversationSchema>
 
 export interface CreateMessageInput {
   id: string
@@ -330,7 +325,8 @@ export async function updateConversationEngagement(
  *
  * Visibility is NOT set here: the column defaults to `private`, which is the
  * conversation descriptor's `defaultVisibility` (spec MG-2, ADR-0032). Sharing
- * is a deliberate act, so that the access chip means something.
+ * is a deliberate act, so that the access chip means something. `temporary`
+ * (ADR-0180) is set here when the caller starts the conversation that way.
  */
 export async function createConversation(
   session: AuthorizedSession,
@@ -348,6 +344,7 @@ export async function createConversation(
     projectId: input.projectId ?? null,
     subjectResourceType: input.subjectResourceType ?? null,
     subjectResourceId: input.subjectResourceId ?? null,
+    temporary: input.temporary ?? false,
   })
   if (inserted) return inserted
 

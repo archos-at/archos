@@ -11,10 +11,10 @@ from agent.common.wire_v2 import QuoteStamp
 from agent.common.wire_v2 import TurnResult
 from agent.observability import langfuse_scores
 from agent.observability.answer_scores import dialect_scores
+from agent.observability.citation_scores import citation_scores
 from agent.observability.langfuse_scores import SCORE_DEFINITIONS
 from agent.observability.langfuse_scores import RuntimeScore
 from agent.observability.langfuse_scores import card_validity_score
-from agent.observability.langfuse_scores import citation_scores
 from agent.observability.langfuse_scores import emit_scores
 from agent.observability.langfuse_scores import score_body
 from agent.observability.langfuse_scores import score_id

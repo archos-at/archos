@@ -40,7 +40,9 @@ describe('the scheduling tasks', () => {
       'usage-export': '*/10 * * * *',
       'trace-retention': '17 2 * * *',
       'download-log-retention': '37 2 * * *',
-      'frist-reminder': '45 * * * *',
+      'collaboration-retention': '23 * * * *',
+      'platform-lessons-sweep': '53 * * * *',
+      'frist-reminder': 'CRON_TZ=Europe/Vienna 45 6 * * *',
     })
     for (const sweep of sweeps) {
       expect(sweep.concurrency).toEqual({
