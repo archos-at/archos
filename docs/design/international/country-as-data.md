@@ -237,7 +237,7 @@ The dev-acceptance table is better: A1 to A8 state expected values and "fails if
 
 ## 7. The plan: from today to Germany with no code change
 
-Each PR is one deployable step. "Serves" names the part of the scene in section 1. Every PR that changes what shapes an answer runs `task be:eval:answer-suite` before and after and attaches the report.
+Each PR is one deployable step. "Serves" names the part of the scene in section 1. Every PR that changes what shapes an answer is measured by the AT golden run on dev before and after its deploy, both summaries in the PR or its follow-up (since 2026-11-12, [which run gates a change](../../contributing/testing-and-verification.md#which-run-gates-a-change)).
 
 | # | PR | Serves | Gate that proves no regression |
 |---|---|---|---|
