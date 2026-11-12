@@ -24,7 +24,7 @@
     "apps/workspace/bff/inbox/repository.ts": 846,
     "apps/workspace/bff/inbox/service.ts": 610,
     "apps/workspace/bff/product-feedback/service.ts": 624,
-    "apps/workspace/bff/projects/memory-service.ts": 787,
+    "apps/workspace/bff/projects/memory-service.ts": 772,
     "apps/workspace/bff/upload-screening/content-screen.ts": 682,
     "apps/workspace/shared/components/MarkdownRenderer/MarkdownRenderer.tsx": 787,
     "apps/workspace/shared/components/MarkdownRenderer/answer-atoms.tsx": 748,
