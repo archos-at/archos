@@ -1728,6 +1728,7 @@ export const chat: typeof en.chat = {
         open: 'Offen',
         clause: 'Pkt.\u00A0{clause}',
         page: 'S.\u00A0{page}',
+        more: '+{count} weitere',
         // Eine Ausgabe, die ein Rechtsakt hier für verbindlich erklärt: der Akt, wie ihn die Daten nennen.
         binding: 'verbindlich über {act}',
         bindingSince: 'verbindlich über {act} seit {since}',

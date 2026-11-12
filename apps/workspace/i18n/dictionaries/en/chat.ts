@@ -1709,6 +1709,7 @@ export const chat = {
         open: 'Open',
         clause: 'Sec.\u00A0{clause}',
         page: 'p.\u00A0{page}',
+        more: '+{count} more',
         // An edition an act declares binding here: the act as its records name it.
         binding: 'binding through {act}',
         bindingSince: 'binding through {act} since {since}',

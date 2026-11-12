@@ -53,28 +53,87 @@ const SHELF_KEYS: Record<string, string> = {
 }
 
 /**
+ * A clause a reader can write down: a numbered point, a paragraph, a table, a
+ * figure, an annex, a Ziffer. Anything else the chunker put in `clause` (a
+ * heading trail „Anforderungen … › U-Wert Bauteil (2)“, a cover number, the
+ * Vorbemerkungen „0“) is no address; the card leaves it to the hover.
+ */
+const ADDRESS = /^(?:§|Art(?:ikel|\.)|Tab(?:elle|\.)|Abb(?:ildung|\.)|Anh(?:ang|\.)|Abs\.|Pkt\.|Punkt|Z\.?\s?\d|\d+(?:\.\d+)*[a-z]?$)/
+const MAX_ADDRESS = 32
+
+export const isAddress = (clause: string | undefined): clause is string => {
+  const text = clause?.trim()
+  return !!text && text !== '0' && text.length <= MAX_ADDRESS && !text.includes('›') && ADDRESS.test(text)
+}
+
+const addressLabel = (t: Translator, clause: string): string =>
+  /^\d/.test(clause) ? t('thinking.node.basis.clause', { clause }) : clause
+
+/**
  * „Pkt. 3.1.1“, „§ 1“, „Tabelle 3, S. 10“ or „S. 7“: the address of one passage.
  * Only a numbered point is called one, and it is address enough; a clause that
- * names its own kind (a paragraph sign, a table, a heading) is said as it is
- * written, never „Pkt. § 1“, and keeps its page, which a table's name does not
- * replace.
+ * names its own kind (a paragraph sign, a table) is said as it is written,
+ * never „Pkt. § 1“, and keeps its page. A clause that is no address (see
+ * `isAddress`) leaves the page alone.
  */
 export const locusLabel = (t: Translator, locus: CitationLocus): string | undefined => {
   const clause = locus.clause?.trim()
   const page = typeof locus.page === 'number' ? t('thinking.node.basis.page', { page: locus.page }) : undefined
-  if (!clause) return page
-  if (/^\d/.test(clause)) return t('thinking.node.basis.clause', { clause })
+  if (!isAddress(clause)) return page
+  if (/^\d/.test(clause)) return addressLabel(t, clause)
   return [clause, page].filter(Boolean).join(', ')
 }
 
+/** „7–8, 10“: pages sorted, a run of consecutive pages said as a range. */
+export const pageRanges = (pages: readonly number[]): string => {
+  const sorted = [...new Set(pages)].sort((a, b) => a - b)
+  const runs: string[] = []
+  for (let i = 0; i < sorted.length; ) {
+    let j = i
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j]! + 1) j += 1
+    runs.push(j === i ? String(sorted[i]) : `${sorted[i]}\u2013${sorted[j]}`)
+    i = j + 1
+  }
+  return runs.join(', ')
+}
+
+/** The most addresses a card names before it says how many more there are. */
+const MAX_ADDRESSES = 2
+
 /**
- * Where in the document the answer stands: the cited passages, else the
- * passages read, at most two, deduplicated. A count of hits is no place.
+ * Where in the document the answer stands, short enough to read at a glance:
+ * the addresses a reader would write down and the pages to open, „Tabelle 2 ·
+ * S. 7–8“. The cited passages, else the passages read. Which page carries which
+ * `[N]`, and the heading around it, is `documentLocationDetail`'s, for the hover.
  */
 export const documentLocation = (t: Translator, doc: CitedDocument): string | undefined => {
   const loci = isCited(doc) ? citedLoci(doc) : doc.loci
-  const labels = [...new Set(loci.flatMap((locus) => locusLabel(t, locus) ?? []))]
-  return labels.length > 0 ? labels.slice(0, 2).join(', ') : undefined
+  const addresses = [...new Set(loci.flatMap((locus) => (isAddress(locus.clause) ? [addressLabel(t, locus.clause.trim())] : [])))]
+  const pages = loci.flatMap((locus) => (typeof locus.page === 'number' ? [locus.page] : []))
+  const named = addresses.slice(0, MAX_ADDRESSES)
+  if (addresses.length > MAX_ADDRESSES) named.push(t('thinking.node.basis.more', { count: addresses.length - MAX_ADDRESSES }))
+  const parts = [named.join(', '), pages.length > 0 ? t('thinking.node.basis.page', { page: pageRanges(pages) }) : '']
+  const label = parts.filter(Boolean).join(' · ')
+  return label || undefined
+}
+
+/**
+ * Every passage the card stands for, one per line, for the hover: its `[N]`,
+ * its page and the clause as the document gives it, heading trail included
+ * („[3] S. 8 · Anforderungen an wärmeübertragende Bauteile › U-Wert Bauteil“).
+ */
+export const documentLocationDetail = (t: Translator, doc: CitedDocument): string | undefined => {
+  const loci = isCited(doc) ? citedLoci(doc) : doc.loci
+  const lines = loci.flatMap((locus) => {
+    const parts = [
+      typeof locus.number === 'number' ? `[${locus.number}]` : '',
+      typeof locus.page === 'number' ? t('thinking.node.basis.page', { page: locus.page }) : '',
+      locus.clause?.trim() && locus.clause.trim() !== '0' ? locus.clause.trim() : '',
+    ].filter(Boolean)
+    return parts.length > 0 ? [parts.join(' · ')] : []
+  })
+  const unique = [...new Set(lines)]
+  return unique.length > 0 ? unique.join('\n') : undefined
 }
 
 /**
