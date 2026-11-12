@@ -23,7 +23,7 @@ const TOPICS = [
   { name: 'Stellplätze', count: 1 },
 ]
 
-const folders = (): string[] => screen.getAllByTestId('topic-folder').map((folder) => folder.textContent ?? '')
+const folders = (): string[] => screen.queryAllByTestId('topic-folder').map((folder) => folder.textContent ?? '')
 
 describe('TopicFolders', () => {
   test('one folder per topic in the summary order, the notes without a topic last', () => {

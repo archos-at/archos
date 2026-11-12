@@ -131,10 +131,33 @@ describe('PersonalMemoryPanel', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/user/memory', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: 'preference', content: 'Ist für Brandschutz zuständig.' }),
+      body: JSON.stringify({ kind: 'preference', content: 'Ist für Brandschutz zuständig.', topic: null }),
     })
     expect(rows()[0]).toContain('Ist für Brandschutz zuständig.')
     expect(toast.success).toHaveBeenCalledWith('Note added.')
+  })
+
+  test('a note added under a topic is sent with it, the topic the shelf already has', async () => {
+    const created = note('n-new', 'Brandschutzklasse F30.', { topic: 'Brandschutz', provenanceType: 'user' })
+    serve([note('n-one', 'Fluchtweg Nord.', { topic: 'Brandschutz' })], () =>
+      Response.json({ item: created, created: true }, { status: 201 })
+    )
+    render(<PersonalMemoryPanel />)
+    await screen.findByText('Fluchtweg Nord.')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add note' }))
+    await userEvent.type(screen.getByLabelText('Note'), 'Brandschutzklasse F30.')
+    await userEvent.type(screen.getByRole('combobox', { name: 'Topic' }), 'brand')
+    await userEvent.click(screen.getByRole('option', { name: 'Brandschutz' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('Brandschutzklasse F30.')
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/user/memory',
+      expect.objectContaining({
+        body: JSON.stringify({ kind: 'preference', content: 'Brandschutzklasse F30.', topic: 'Brandschutz' }),
+      })
+    )
   })
 
   test('a text an existing note already says answers that note: the list holds it once', async () => {

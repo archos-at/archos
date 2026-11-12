@@ -97,8 +97,9 @@ describe('PersonalTopicActions', () => {
     render(<PersonalTopicActions topic="brandschutz" count={3} topics={['Brandschutz']} onChanged={onChanged} />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Rename topic' }))
-    await userEvent.clear(screen.getByLabelText('Topic name'))
-    await userEvent.type(screen.getByLabelText('Topic name'), 'Brandschutz')
+    // The field is a combobox; its option list is labelled the same, so the field is asked for by role.
+    await userEvent.clear(screen.getByRole('combobox', { name: 'Topic name' }))
+    await userEvent.type(screen.getByRole('combobox', { name: 'Topic name' }), 'Brandschutz')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1))

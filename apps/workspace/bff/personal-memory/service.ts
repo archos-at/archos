@@ -133,7 +133,13 @@ export async function createPersonalMemoryItem(
   const { content, contentKey } = await storable(owner.organizationId, note.content)
   const existing = await findPersonalMemoryByContentKey(owner, contentKey)
   if (existing) {
-    return { item: (await touchPersonalMemory(owner, existing.id)) ?? existing, created: false }
+    // A restatement that names a topic files a note that has none under it; a topic the note holds stays.
+    const filed =
+      existing.topic === null && note.topic ? resolveTopic(note.topic, await ownerTopicNames(owner)) : null
+    const item = filed
+      ? await updatePersonalMemory(owner, existing.id, { topic: filed })
+      : await touchPersonalMemory(owner, existing.id)
+    return { item: item ?? existing, created: false }
   }
   const topic =
     note.topic === undefined ? null : resolveTopic(note.topic, await ownerTopicNames(owner))
