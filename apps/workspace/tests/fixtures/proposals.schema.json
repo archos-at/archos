@@ -294,7 +294,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Subject, 1–3 words in the person's language; reuse a topic. null: none."
+                  "description": "1–3 words in the person's language; reuse a topic. null: none."
                 }
               },
               "required": [
@@ -665,7 +665,7 @@
               "type": "null"
             }
           ],
-          "description": "Subject, 1–3 words in the person's language; reuse a topic. null: none."
+          "description": "1–3 words in the person's language; reuse a topic. null: none."
         }
       },
       "required": [
@@ -1238,7 +1238,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Subject, 1–3 words in the person's language; reuse a topic. null: none."
+                  "description": "1–3 words in the person's language; reuse a topic. null: none."
                 }
               },
               "required": [
@@ -2182,7 +2182,7 @@
                           "type": "null"
                         }
                       ],
-                      "description": "Subject, 1–3 words in the person's language; reuse a topic. null: none."
+                      "description": "1–3 words in the person's language; reuse a topic. null: none."
                     }
                   },
                   "required": [
