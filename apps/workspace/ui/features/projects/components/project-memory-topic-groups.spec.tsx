@@ -13,7 +13,7 @@ import {
   type ProjectMemoryNoteControls,
 } from './project-memory-topic-groups'
 
-vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 const note = (overrides: Parameters<typeof makeMemoryItem>[0]): MemoryItem => ({
   ...makeMemoryItem(overrides),
