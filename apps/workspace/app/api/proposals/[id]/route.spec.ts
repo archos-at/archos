@@ -65,6 +65,10 @@ vi.mock('@/lib/projects/service', () => ({
 vi.mock('@/lib/project-profile/profile-service', () => ({ patchProjectProfile: vi.fn() }))
 vi.mock('@/lib/conversations/cross-project-use', () => ({ requireMayRememberFrom: vi.fn(async () => undefined) }))
 vi.mock('@/lib/conversations/restricted-egress', () => ({ requireMayLeaveConversation: vi.fn(async () => undefined) }))
+vi.mock('@/lib/conversations/temporary-repository', () => ({
+  readConversationTemporary: vi.fn(async () => false),
+  updateConversationTemporaryInOrg: vi.fn(),
+}))
 vi.mock('@/i18n/server', () => ({ getLocale: vi.fn(async () => 'de') }))
 // Every spec here clicks as the same person; the mutation budget is not under test.
 vi.mock('@/lib/limits/enforce', async (original) => ({
@@ -96,6 +100,7 @@ import { requireMayRememberFrom } from '@/lib/conversations/cross-project-use'
 import { findConversationInOrg } from '@/lib/conversations/repository'
 import type { Conversation } from '@/lib/db/schema/conversations'
 import { requireMayLeaveConversation } from '@/lib/conversations/restricted-egress'
+import { readConversationTemporary } from '@/lib/conversations/temporary-repository'
 import type { ProjectMemoryItem } from '@/lib/db/schema/project-memory'
 import type { ProposedChangeRow } from '@/lib/db/schema/proposed-changes'
 import { patchProjectProfile, type PatchedProjectProfile } from '@/lib/project-profile/profile-service'
@@ -864,6 +869,21 @@ describe('applying a memory note', () => {
     )
     expect(addProjectMemoryItem).not.toHaveBeenCalled()
     expect(store.get(ID)).toMatchObject({ status: 'proposed', applyingBy: null, applyingSince: null })
+  })
+
+  it('refuses a note from a temporary conversation with the named 403, writes nothing, and leaves the proposal open', async () => {
+    store.set(ID, memoryRow({ scope: 'organization' }))
+    vi.mocked(readConversationTemporary).mockResolvedValueOnce(true)
+
+    await expect(applyProposal(ID, run)).rejects.toMatchObject({ status: 403, code: 'TEMPORARY_CONVERSATION' })
+    expect(readConversationTemporary).toHaveBeenCalledWith(CONVERSATION, 'org_1')
+    expect(addProjectMemoryItem).not.toHaveBeenCalled()
+    expect(createOrganizationMemoryItem).not.toHaveBeenCalled()
+    expect(store.get(ID)).toMatchObject({ status: 'proposed', applyingBy: null, applyingSince: null })
+
+    // Switched back, the same proposal is accepted.
+    const { proposal } = await applyProposal(ID, run)
+    expect(proposal.status).toBe('applied')
   })
 
   it('gives the claim back when the memory service refuses the decider', async () => {

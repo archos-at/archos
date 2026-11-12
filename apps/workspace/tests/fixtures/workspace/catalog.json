@@ -171,7 +171,7 @@
    "description": "Changes any of a memory item’s kind, content, status, confidence, verification or pinned flag; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"project-memory-update\",\"domain\":\"projects\",\"summary\":\"Edit a memory item\",\"description\":\"Changes any of a memory item’s kind, content, status, confidence, verification or pinned flag; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.\",\"annotations\":{\"title\":\"Edit a memory item\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"},\"itemId\":{\"type\":\"string\",\"description\":\"The memory item id, from project-memory-list (items[].id).\"}},\"required\":[\"id\",\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"decision\",\"constraint\",\"open_question\",\"derived_fact\",\"preference\"]},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000},\"status\":{\"type\":\"string\",\"enum\":[\"proposed\",\"active\",\"superseded\",\"dismissed\"]},\"confidence\":{\"type\":\"string\",\"enum\":[\"low\",\"medium\",\"high\"]},\"verification\":{\"type\":\"string\",\"enum\":[\"unverified\",\"source_grounded\",\"user_confirmed\"]},\"pinned\":{\"type\":\"boolean\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+   "describe": "{\"name\":\"project-memory-update\",\"domain\":\"projects\",\"summary\":\"Edit a memory item\",\"description\":\"Changes any of a memory item’s kind, content, status, confidence, verification or pinned flag; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.\",\"annotations\":{\"title\":\"Edit a memory item\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"},\"itemId\":{\"type\":\"string\",\"description\":\"The memory item id, from project-memory-list (items[].id).\"}},\"required\":[\"id\",\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"decision\",\"constraint\",\"open_question\",\"derived_fact\",\"preference\"]},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000},\"status\":{\"type\":\"string\",\"enum\":[\"active\",\"superseded\",\"dismissed\"]},\"confidence\":{\"type\":\"string\",\"enum\":[\"low\",\"medium\",\"high\"]},\"verification\":{\"type\":\"string\",\"enum\":[\"unverified\",\"source_grounded\",\"user_confirmed\"]},\"pinned\":{\"type\":\"boolean\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
    "name": "project-overview-get",
@@ -393,10 +393,10 @@
    "name": "document-ingest-cancel",
    "domain": "documents",
    "summary": "Cancel a document’s running ingestion",
-   "description": "Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.",
+   "description": "Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. `result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` is the status the document holds afterwards, which is not `cancelled` when the read ended first.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"document-ingest-cancel\",\"domain\":\"documents\",\"summary\":\"Cancel a document’s running ingestion\",\"description\":\"Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.\",\"annotations\":{\"title\":\"Cancel a document’s running ingestion\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The document id, from document-list or workspace-search.\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+   "describe": "{\"name\":\"document-ingest-cancel\",\"domain\":\"documents\",\"summary\":\"Cancel a document’s running ingestion\",\"description\":\"Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. `result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` is the status the document holds afterwards, which is not `cancelled` when the read ended first.\",\"annotations\":{\"title\":\"Cancel a document’s running ingestion\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The document id, from document-list or workspace-search.\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
    "name": "document-list",
@@ -1299,13 +1299,22 @@
    "describe": "{\"name\":\"answer-feedback-submit\",\"domain\":\"conversations\",\"summary\":\"Vote on an answer\",\"description\":\"Votes on one answer (messageId from conversation-message-list); voting again replaces the vote. A down-vote feeds ARCHOS’s failure learning: add the reason.\",\"annotations\":{\"title\":\"Vote on an answer\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"messageId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},\"verdict\":{\"type\":\"string\",\"enum\":[\"up\",\"down\"]},\"reason\":{\"anyOf\":[{\"type\":\"string\",\"enum\":[\"inaccurate\",\"too_slow\",\"wrong_source\",\"other\"]},{\"type\":\"null\"}]},\"comment\":{\"anyOf\":[{\"type\":\"string\",\"maxLength\":2000},{\"type\":\"null\"}]},\"expectedAnswer\":{\"anyOf\":[{\"type\":\"string\",\"maxLength\":2000},{\"type\":\"null\"}]},\"conversationId\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},{\"type\":\"null\"}]},\"projectId\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"uuid\"},{\"type\":\"null\"}]}},\"required\":[\"messageId\",\"verdict\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
   },
   {
+   "name": "citation-style-get",
+   "domain": "conversations",
+   "summary": "Read how the office’s country writes a citation",
+   "description": "The citation style released for the office’s home country, per language: which sources are a standard or a law, the line template per kind, the locus and page labels, the edition phrase and the date form. Write references in it. Returns `{ style }`, null while the country has none released.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"citation-style-get\",\"domain\":\"conversations\",\"summary\":\"Read how the office’s country writes a citation\",\"description\":\"The citation style released for the office’s home country, per language: which sources are a standard or a law, the line template per kind, the locus and page labels, the edition phrase and the date form. Write references in it. Returns `{ style }`, null while the country has none released.\",\"annotations\":{\"title\":\"Read how the office’s country writes a citation\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
+  },
+  {
    "name": "conversation-create",
    "domain": "conversations",
    "summary": "Start a new conversation",
-   "description": "Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document. You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.",
+   "description": "Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document, and optionally `temporary` (nothing from it is kept in memory). You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"conversation-create\",\"domain\":\"conversations\",\"summary\":\"Start a new conversation\",\"description\":\"Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document. You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.\",\"annotations\":{\"title\":\"Start a new conversation\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},\"title\":{\"type\":[\"string\",\"null\"]},\"projectId\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"uuid\"},{\"type\":\"null\"}]},\"subjectResourceType\":{\"anyOf\":[{\"const\":\"document\"},{\"type\":\"null\"}]},\"subjectResourceId\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},{\"type\":\"null\"}]}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+   "describe": "{\"name\":\"conversation-create\",\"domain\":\"conversations\",\"summary\":\"Start a new conversation\",\"description\":\"Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document, and optionally `temporary` (nothing from it is kept in memory). You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.\",\"annotations\":{\"title\":\"Start a new conversation\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},\"title\":{\"type\":[\"string\",\"null\"]},\"projectId\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"uuid\"},{\"type\":\"null\"}]},\"subjectResourceType\":{\"anyOf\":[{\"const\":\"document\"},{\"type\":\"null\"}]},\"subjectResourceId\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},{\"type\":\"null\"}]},\"temporary\":{\"description\":\"True starts a temporary conversation: nothing from it is kept in project, organization or personal memory.\",\"type\":\"boolean\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
   },
   {
    "name": "conversation-delete",
@@ -1400,11 +1409,11 @@
   {
    "name": "conversation-update",
    "domain": "conversations",
-   "summary": "Rename a conversation or change when ARCHOS answers",
-   "description": "Sets `title` (owner role) and/or the `engagement` mode that decides when ARCHOS answers (collaborator role); at least one. Returns it.",
+   "summary": "Rename a conversation, make it temporary, or change when ARCHOS answers",
+   "description": "Sets `title` (owner role), `temporary` (owner role) and/or the `engagement` mode that decides when ARCHOS answers (collaborator role); at least one. A temporary conversation keeps nothing in project, organization or personal memory; switching it off keeps nothing from earlier turns. Returns it.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"conversation-update\",\"domain\":\"conversations\",\"summary\":\"Rename a conversation or change when ARCHOS answers\",\"description\":\"Sets `title` (owner role) and/or the `engagement` mode that decides when ARCHOS answers (collaborator role); at least one. Returns it.\",\"annotations\":{\"title\":\"Rename a conversation or change when ARCHOS answers\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"body\":{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\",\"minLength\":1},\"engagement\":{\"type\":\"string\",\"enum\":[\"ask\",\"mention\"]}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+   "describe": "{\"name\":\"conversation-update\",\"domain\":\"conversations\",\"summary\":\"Rename a conversation, make it temporary, or change when ARCHOS answers\",\"description\":\"Sets `title` (owner role), `temporary` (owner role) and/or the `engagement` mode that decides when ARCHOS answers (collaborator role); at least one. A temporary conversation keeps nothing in project, organization or personal memory; switching it off keeps nothing from earlier turns. Returns it.\",\"annotations\":{\"title\":\"Rename a conversation, make it temporary, or change when ARCHOS answers\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"body\":{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\",\"minLength\":1},\"engagement\":{\"type\":\"string\",\"enum\":[\"ask\",\"mention\"]},\"temporary\":{\"description\":\"True makes the conversation temporary: from now on nothing from it is kept in project, organization or personal memory. False keeps memory again from the next turn; nothing from the turns before is kept.\",\"type\":\"boolean\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
    "name": "feedback-office-report-list",
@@ -1521,7 +1530,7 @@
    "description": "The person’s own inbox, newest first. `filter`: `requests` (waits on them), `unread`, `pending` (unread OR open request), `archived`, `all` (default); `type` and `projectId` narrow it. Page with `nextCursor`. An `upload.completed` item of a project upload carries `uploadReport`: documents read by document type, new findings (read them with project-document-findings), references the project cannot resolve and pages not read in full.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"inbox-list\",\"domain\":\"collaboration\",\"summary\":\"List the person’s inbox\",\"description\":\"The person’s own inbox, newest first. `filter`: `requests` (waits on them), `unread`, `pending` (unread OR open request), `archived`, `all` (default); `type` and `projectId` narrow it. Page with `nextCursor`. An `upload.completed` item of a project upload carries `uploadReport`: documents read by document type, new findings (read them with project-document-findings), references the project cannot resolve and pages not read in full.\",\"annotations\":{\"title\":\"List the person’s inbox\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"filter\":{\"description\":\"The slice; `all` (unarchived) is the default.\",\"type\":\"string\",\"enum\":[\"pending\",\"requests\",\"unread\",\"all\",\"archived\"]},\"type\":{\"description\":\"Only this item type.\",\"type\":\"string\",\"enum\":[\"mention.requested\",\"mention.answered\",\"conversation.shared_with_you\",\"conversation.activity\",\"storage.quota_warning\",\"document.assigned_to_you\",\"task_run.completed\",\"task_run.failed\",\"task_run.waiting\",\"document.review_requested\",\"feedback.submitted\",\"feedback.replied\",\"upload.completed\",\"document.quarantined\",\"document.release_requested\",\"mail_import.completed\",\"mail_import.failed\",\"document.new_revision\",\"piloti.work_done\",\"piloti.work_failed\",\"piloti.asks_you\",\"piloti.proposal_waiting\",\"piloti.intake_ready\",\"piloti.revision_checked\",\"annotation.assigned_to_you\",\"annotation.activity\",\"annotation.mentioned\",\"root_sort.ready\",\"root_sort.failed\",\"inbound_mail.waiting\",\"inbound_mail.expiring\",\"inbound_mail.decided\",\"inbound_mail.filing_failed\",\"inbound_mail.cap_reached\",\"inbound_mail.appended\",\"mail_thread.follow_expiring\",\"inbound_mail.held\",\"inbound_mail.held_for_writers\",\"inbound_mail.rejected\",\"inbound_mail.expired\"]},\"projectId\":{\"description\":\"Only items about this project or its conversations and documents.\",\"type\":\"string\",\"format\":\"uuid\"},\"limit\":{\"default\":50,\"description\":\"Page size (default and most 50).\",\"type\":\"integer\",\"minimum\":1,\"maximum\":50},\"cursor\":{\"description\":\"The previous `nextCursor`.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":200}}}},\"additionalProperties\":false}}"
+   "describe": "{\"name\":\"inbox-list\",\"domain\":\"collaboration\",\"summary\":\"List the person’s inbox\",\"description\":\"The person’s own inbox, newest first. `filter`: `requests` (waits on them), `unread`, `pending` (unread OR open request), `archived`, `all` (default); `type` and `projectId` narrow it. Page with `nextCursor`. An `upload.completed` item of a project upload carries `uploadReport`: documents read by document type, new findings (read them with project-document-findings), references the project cannot resolve and pages not read in full.\",\"annotations\":{\"title\":\"List the person’s inbox\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"filter\":{\"description\":\"The slice; `all` (unarchived) is the default.\",\"type\":\"string\",\"enum\":[\"pending\",\"requests\",\"unread\",\"all\",\"archived\"]},\"type\":{\"description\":\"Only this item type.\",\"type\":\"string\",\"enum\":[\"mention.requested\",\"mention.answered\",\"conversation.shared_with_you\",\"conversation.activity\",\"storage.quota_warning\",\"document.assigned_to_you\",\"resource.ownership_taken\",\"task_run.completed\",\"task_run.failed\",\"task_run.waiting\",\"document.review_requested\",\"feedback.submitted\",\"feedback.replied\",\"upload.completed\",\"document.quarantined\",\"document.release_requested\",\"mail_import.completed\",\"mail_import.failed\",\"document.new_revision\",\"piloti.work_done\",\"piloti.work_failed\",\"piloti.asks_you\",\"piloti.proposal_waiting\",\"piloti.intake_ready\",\"piloti.revision_checked\",\"annotation.assigned_to_you\",\"annotation.activity\",\"annotation.mentioned\",\"root_sort.ready\",\"root_sort.failed\",\"inbound_mail.waiting\",\"inbound_mail.expiring\",\"inbound_mail.decided\",\"inbound_mail.filing_failed\",\"inbound_mail.cap_reached\",\"inbound_mail.appended\",\"mail_thread.follow_expiring\",\"inbound_mail.held\",\"inbound_mail.held_for_writers\",\"inbound_mail.rejected\",\"inbound_mail.expired\"]},\"projectId\":{\"description\":\"Only items about this project or its conversations and documents.\",\"type\":\"string\",\"format\":\"uuid\"},\"limit\":{\"default\":50,\"description\":\"Page size (default and most 50).\",\"type\":\"integer\",\"minimum\":1,\"maximum\":50},\"cursor\":{\"description\":\"The previous `nextCursor`.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":200}}}},\"additionalProperties\":false}}"
   },
   {
    "name": "inbox-summary-get",
@@ -1540,6 +1549,42 @@
    "readOnly": false,
    "destructive": true,
    "describe": "{\"name\":\"mention-request-release\",\"domain\":\"collaboration\",\"summary\":\"Carry on without the person a thread waits on\",\"description\":\"Releases an open hand-off (id from conversation-awaiting-get) so the thread stops waiting. Any contributor may. The colleague’s inbox item is settled.\",\"annotations\":{\"title\":\"Carry on without the person a thread waits on\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"requestId\":{\"type\":\"string\",\"description\":\"The mention request id, from conversation-awaiting-get.\"}},\"required\":[\"requestId\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+  },
+  {
+   "name": "personal-memory-clear",
+   "domain": "collaboration",
+   "summary": "Delete all personal memory notes",
+   "description": "Removes every personal note of the person for good, pinned ones included; it cannot be undone. Notes of the project and of the organization are not touched. Answers `{ removed }`, the number of notes removed (0 when there were none). To remove one note use personal-memory-delete.",
+   "readOnly": false,
+   "destructive": true,
+   "describe": "{\"name\":\"personal-memory-clear\",\"domain\":\"collaboration\",\"summary\":\"Delete all personal memory notes\",\"description\":\"Removes every personal note of the person for good, pinned ones included; it cannot be undone. Notes of the project and of the organization are not touched. Answers `{ removed }`, the number of notes removed (0 when there were none). To remove one note use personal-memory-delete.\",\"annotations\":{\"title\":\"Delete all personal memory notes\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false}}"
+  },
+  {
+   "name": "personal-memory-delete",
+   "domain": "collaboration",
+   "summary": "Delete a personal memory note",
+   "description": "Removes one personal note for good; it cannot be undone. `itemId` is from personal-memory-list.",
+   "readOnly": false,
+   "destructive": true,
+   "describe": "{\"name\":\"personal-memory-delete\",\"domain\":\"collaboration\",\"summary\":\"Delete a personal memory note\",\"description\":\"Removes one personal note for good; it cannot be undone. `itemId` is from personal-memory-list.\",\"annotations\":{\"title\":\"Delete a personal memory note\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"itemId\":{\"type\":\"string\",\"description\":\"The personal memory note id (a UUID), from personal-memory-list.\"}},\"required\":[\"itemId\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+  },
+  {
+   "name": "personal-memory-list",
+   "domain": "collaboration",
+   "summary": "List the person’s personal memory",
+   "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Item ids feed personal-memory-update and personal-memory-delete.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"personal-memory-list\",\"domain\":\"collaboration\",\"summary\":\"List the person’s personal memory\",\"description\":\"The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Item ids feed personal-memory-update and personal-memory-delete.\",\"annotations\":{\"title\":\"List the person’s personal memory\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"type\":\"string\",\"maxLength\":64},\"sourceConversationId\":{\"description\":\"Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":255}}}},\"additionalProperties\":false}}"
+  },
+  {
+   "name": "personal-memory-update",
+   "domain": "collaboration",
+   "summary": "Edit a personal memory note",
+   "description": "Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
+   "readOnly": false,
+   "destructive": false,
+   "describe": "{\"name\":\"personal-memory-update\",\"domain\":\"collaboration\",\"summary\":\"Edit a personal memory note\",\"description\":\"Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.\",\"annotations\":{\"title\":\"Edit a personal memory note\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"itemId\":{\"type\":\"string\",\"description\":\"The personal memory note id (a UUID), from personal-memory-list.\"}},\"required\":[\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"preference\",\"profile\"],\"description\":\"`preference`: how the person wants the agent to work. `profile`: their role, responsibilities and recurring topics.\"},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000,\"description\":\"One self-contained sentence about the person, max 2000 characters.\"},\"pinned\":{\"type\":\"boolean\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
    "name": "proposal-get",
@@ -1776,6 +1821,15 @@
    "describe": "{\"name\":\"skill-update\",\"domain\":\"skills\",\"summary\":\"Change an organization skill\",\"description\":\"Patch any of an org skill’s name, description, body, metadata, enabled flag or category (`categoryId: null` removes it from its category). Platform skills have no id here; a person switches those on or off. Needs org:skills:manage.\",\"annotations\":{\"title\":\"Change an organization skill\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"skillId\":{\"type\":\"string\",\"description\":\"The org skill id, from skill-list.\"}},\"required\":[\"skillId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":64,\"pattern\":\"^[a-z0-9]+(-[a-z0-9]+)*$\"},\"description\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":1024},\"body\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":32000},\"metadata\":{\"type\":\"object\",\"additionalProperties\":{\"type\":\"string\"}},\"enabled\":{\"type\":\"boolean\"},\"categoryId\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"uuid\"},{\"type\":\"null\"}]}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
+   "name": "base-knowledge-bulk",
+   "domain": "knowledge",
+   "summary": "Check, move or remove many base-knowledge entries at once",
+   "description": "One action over up to 50 entries: `check` records a check with its result, `move` files them into a folder from base-knowledge-folder-list, `remove` deletes them and their documents. Answers one result per entry; a refused entry does not stop the others. Needs org:office_shelf:manage.",
+   "readOnly": false,
+   "destructive": true,
+   "describe": "{\"name\":\"base-knowledge-bulk\",\"domain\":\"knowledge\",\"summary\":\"Check, move or remove many base-knowledge entries at once\",\"description\":\"One action over up to 50 entries: `check` records a check with its result, `move` files them into a folder from base-knowledge-folder-list, `remove` deletes them and their documents. Answers one result per entry; a refused entry does not stop the others. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Check, move or remove many base-knowledge entries at once\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"entryIds\":{\"minItems\":1,\"maxItems\":50,\"type\":\"array\",\"items\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"description\":\"From base-knowledge-list; at most 50.\"},\"action\":{\"oneOf\":[{\"type\":\"object\",\"properties\":{\"type\":{\"const\":\"check\"},\"result\":{\"type\":\"string\",\"enum\":[\"current\",\"newer_known\",\"withdrawn\",\"source_unreachable\"],\"description\":\"current: still the edition in force.\"},\"note\":{\"description\":\"Where it was checked.\",\"type\":\"string\",\"maxLength\":1000}},\"required\":[\"type\",\"result\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"type\":{\"const\":\"move\"},\"folderId\":{\"type\":\"string\",\"format\":\"uuid\",\"description\":\"From base-knowledge-folder-list.\"}},\"required\":[\"type\",\"folderId\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"type\":{\"const\":\"remove\"}},\"required\":[\"type\"],\"additionalProperties\":false}],\"discriminator\":{\"propertyName\":\"type\"}}},\"required\":[\"entryIds\",\"action\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+  },
+  {
    "name": "base-knowledge-check-record",
    "domain": "knowledge",
    "summary": "Record that a base-knowledge entry was checked",
@@ -1785,6 +1839,15 @@
    "describe": "{\"name\":\"base-knowledge-check-record\",\"domain\":\"knowledge\",\"summary\":\"Record that a base-knowledge entry was checked\",\"description\":\"Records that somebody checked whether the copy is still the edition in force, and the result; anything but `current` keeps it overdue. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Record that a base-knowledge entry was checked\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"entryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"From base-knowledge-list.\"}},\"required\":[\"entryId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"result\":{\"type\":\"string\",\"enum\":[\"current\",\"newer_known\",\"withdrawn\",\"source_unreachable\"],\"description\":\"current: still the edition in force.\"},\"note\":{\"description\":\"Where it was checked.\",\"type\":\"string\",\"maxLength\":1000}},\"required\":[\"result\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
+   "name": "base-knowledge-edition-add",
+   "domain": "knowledge",
+   "summary": "Upload a newer edition of a base-knowledge entry",
+   "description": "Uploads the newer edition into the entry’s folder as a second edition of the same work (its edition read from the file name), proposed until a person confirms it. Answers then take the edition in force on the project’s reference day; the earlier entry stays for projects filed before, with a check that found a newer edition. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.",
+   "readOnly": false,
+   "destructive": false,
+   "describe": "{\"name\":\"base-knowledge-edition-add\",\"domain\":\"knowledge\",\"summary\":\"Upload a newer edition of a base-knowledge entry\",\"description\":\"Uploads the newer edition into the entry’s folder as a second edition of the same work (its edition read from the file name), proposed until a person confirms it. Answers then take the edition in force on the project’s reference day; the earlier entry stays for projects filed before, with a check that found a newer edition. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Upload a newer edition of a base-knowledge entry\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"entryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"From base-knowledge-list.\"}},\"required\":[\"entryId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"files\":{\"minItems\":1,\"maxItems\":1,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":255,\"description\":\"The file name, with its extension, e.g. \\\"Grundriss EG.pdf\\\".\"},\"mimeType\":{\"description\":\"The media type, e.g. \\\"application/pdf\\\". Defaults to application/octet-stream.\",\"type\":\"string\",\"maxLength\":255},\"contentBase64\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":44739244,\"pattern\":\"^[A-Za-z0-9+/]*={0,2}$\",\"description\":\"The file's bytes as standard base64 (RFC 4648, with padding), at most 33554432 bytes decoded.\"}},\"required\":[\"name\",\"contentBase64\"]},\"description\":\"The file to upload. Exactly one file.\"},\"fields\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false,\"description\":\"The route’s text fields, sent beside the file as form parts.\"}},\"required\":[\"files\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+  },
+  {
    "name": "base-knowledge-edition-as-of",
    "domain": "knowledge",
    "summary": "Which edition of a law or norm applied on a date or to a permit procedure",
@@ -1792,6 +1855,24 @@
    "readOnly": true,
    "destructive": false,
    "describe": "{\"name\":\"base-knowledge-edition-as-of\",\"domain\":\"knowledge\",\"summary\":\"Which edition of a law or norm applied on a date or to a permit procedure\",\"description\":\"Answers \\\"what applied when this was submitted\\\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today. An edition’s `inForceTo` is the first day it no longer holds (exclusive), not its last day.\",\"annotations\":{\"title\":\"Which edition of a law or norm applied on a date or to a permit procedure\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"workId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. work:at-wien-bo\"},\"territoryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80,\"description\":\"The legislating node, e.g. AT-9.\"},\"asOf\":{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},\"projectId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"procedureId\":{\"type\":\"string\",\"pattern\":\"^p[0-9]{1,3}$\"},\"procedureType\":{\"type\":\"string\",\"pattern\":\"^[a-z][a-z0-9_]{0,63}$\"},\"filedOn\":{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},\"decidedOn\":{\"anyOf\":[{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},{\"const\":\"pending\"}]},\"worksStartedOn\":{\"anyOf\":[{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},{\"const\":\"not_started\"}]}},\"required\":[\"workId\",\"territoryId\"],\"additionalProperties\":false}},\"additionalProperties\":false,\"required\":[\"query\"]}}"
+  },
+  {
+   "name": "base-knowledge-folder-create",
+   "domain": "knowledge",
+   "summary": "Create a folder for the office’s base knowledge",
+   "description": "Creates a folder under the base-knowledge root (created on first use) or under one of its folders, e.g. by trade or by standards body. Refused when a sibling has the name. Needs org:office_shelf:manage.",
+   "readOnly": false,
+   "destructive": false,
+   "describe": "{\"name\":\"base-knowledge-folder-create\",\"domain\":\"knowledge\",\"summary\":\"Create a folder for the office’s base knowledge\",\"description\":\"Creates a folder under the base-knowledge root (created on first use) or under one of its folders, e.g. by trade or by standards body. Refused when a sibling has the name. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Create a folder for the office’s base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":255,\"description\":\"e.g. a trade, a topic or a standards body.\"},\"parentId\":{\"description\":\"A folder from base-knowledge-folder-list; omit for the top level.\",\"type\":\"string\",\"format\":\"uuid\"},\"description\":{\"description\":\"What belongs in it, in the office’s words.\",\"type\":\"string\",\"maxLength\":500}},\"required\":[\"name\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+  },
+  {
+   "name": "base-knowledge-folder-list",
+   "domain": "knowledge",
+   "summary": "List the folders of the office’s base knowledge",
+   "description": "The base-knowledge root folder on the office shelf (`rootId`, null until first used) and every folder below it. They are office shelf folders: rename or delete one with office-shelf-folder-update or -delete; the root keeps its name and place. Any member may read.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"base-knowledge-folder-list\",\"domain\":\"knowledge\",\"summary\":\"List the folders of the office’s base knowledge\",\"description\":\"The base-knowledge root folder on the office shelf (`rootId`, null until first used) and every folder below it. They are office shelf folders: rename or delete one with office-shelf-folder-update or -delete; the root keeps its name and place. Any member may read.\",\"annotations\":{\"title\":\"List the folders of the office’s base knowledge\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"default\":200,\"description\":\"Default and max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous page’s `nextCursor`.\",\"type\":\"string\",\"pattern\":\"^\\\\d{1,5}$\"}},\"additionalProperties\":false}},\"additionalProperties\":false}}"
   },
   {
    "name": "base-knowledge-get",
@@ -1806,10 +1887,10 @@
    "name": "base-knowledge-list",
    "domain": "knowledge",
    "summary": "List the office’s base knowledge: its standards, commentaries and directives",
-   "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Only confirmed entries reach answers. Any member may read.",
+   "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"base-knowledge-list\",\"domain\":\"knowledge\",\"summary\":\"List the office’s base knowledge: its standards, commentaries and directives\",\"description\":\"An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Only confirmed entries reach answers. Any member may read.\",\"annotations\":{\"title\":\"List the office’s base knowledge: its standards, commentaries and directives\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\",\"enum\":[\"proposed\",\"confirmed\"]},\"designation\":{\"description\":\"Part of a designation or title.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"limit\":{\"default\":50,\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous page’s `nextCursor`.\",\"type\":\"string\",\"pattern\":\"^\\\\d{1,4}$\"}},\"additionalProperties\":false}},\"additionalProperties\":false}}"
+   "describe": "{\"name\":\"base-knowledge-list\",\"domain\":\"knowledge\",\"summary\":\"List the office’s base knowledge: its standards, commentaries and directives\",\"description\":\"An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.\",\"annotations\":{\"title\":\"List the office’s base knowledge: its standards, commentaries and directives\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\",\"enum\":[\"proposed\",\"confirmed\"]},\"designation\":{\"description\":\"Part of a designation or title.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"q\":{\"description\":\"Part of a designation, title or file name.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"kind\":{\"type\":\"string\",\"enum\":[\"technical_standard\",\"guideline\",\"commentary\",\"authority_directive\",\"statute\"]},\"attention\":{\"description\":\"proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used.\",\"type\":\"string\",\"enum\":[\"proposed\",\"check_due\",\"metadata_only\"]},\"folderId\":{\"description\":\"A folder from base-knowledge-folder-list: its entries and those of its subfolders.\",\"type\":\"string\",\"format\":\"uuid\"},\"limit\":{\"default\":50,\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous page’s `nextCursor`.\",\"type\":\"string\",\"pattern\":\"^\\\\d{1,4}$\"}},\"additionalProperties\":false}},\"additionalProperties\":false}}"
   },
   {
    "name": "base-knowledge-propose",
@@ -1818,7 +1899,7 @@
    "description": "Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law): give the values you read from its masthead; the rest come from its reading. It reaches no answer until a person confirms it. 409 when the document already has an entry. Needs org:office_shelf:manage.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"base-knowledge-propose\",\"domain\":\"knowledge\",\"summary\":\"Propose an office shelf document as base knowledge\",\"description\":\"Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law): give the values you read from its masthead; the rest come from its reading. It reaches no answer until a person confirms it. 409 when the document already has an entry. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Propose an office shelf document as base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"technical_standard\",\"guideline\",\"commentary\",\"authority_directive\",\"statute\"],\"description\":\"A commentary only interprets.\"},\"title\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":300,\"description\":\"The title as the document prints it.\"},\"designation\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},{\"type\":\"null\"}],\"description\":\"e.g. \\\"ÖNORM B 1600:2017\\\".\"},\"editionLabel\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"The edition as the masthead prints it, e.g. \\\"2017-04-01\\\".\"},\"issuedOn\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}]},\"territoryIds\":{\"maxItems\":20,\"type\":\"array\",\"items\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\"},\"description\":\"Where it applies; empty for a standard.\"},\"issuer\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},{\"type\":\"null\"}]},\"addressees\":{\"maxItems\":10,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. \\\"MA 37\\\".\"},\"territoryId\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\",\"description\":\"Where it decides, e.g. AT-9.\"}},\"required\":[\"name\",\"territoryId\"]},\"description\":\"A directive’s authorities; empty otherwise.\"},\"licenceClass\":{\"type\":\"string\",\"enum\":[\"public_open\",\"public_restricted\",\"licensed\"],\"description\":\"licensed for a purchased copy.\"},\"documentId\":{\"type\":\"string\",\"format\":\"uuid\",\"description\":\"An office shelf document id, from document-list.\"}},\"required\":[\"documentId\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+   "describe": "{\"name\":\"base-knowledge-propose\",\"domain\":\"knowledge\",\"summary\":\"Propose an office shelf document as base knowledge\",\"description\":\"Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law): give the values you read from its masthead; the rest come from its reading. It reaches no answer until a person confirms it. 409 when the document already has an entry. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Propose an office shelf document as base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"technical_standard\",\"guideline\",\"commentary\",\"authority_directive\",\"statute\"],\"description\":\"A commentary only interprets.\"},\"title\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":300,\"description\":\"The title as the document prints it.\"},\"designation\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},{\"type\":\"null\"}],\"description\":\"e.g. \\\"ÖNORM B 1600:2017\\\".\"},\"editionLabel\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"The edition as the masthead prints it, e.g. \\\"2017-04-01\\\".\"},\"issuedOn\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}]},\"inForceFrom\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}],\"description\":\"When this edition took effect; null: from issuedOn.\"},\"inForceTo\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}],\"description\":\"When it stopped applying, if withdrawn; a later edition ends it by itself.\"},\"territoryIds\":{\"maxItems\":20,\"type\":\"array\",\"items\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\"},\"description\":\"Where it applies; empty for a standard.\"},\"issuer\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},{\"type\":\"null\"}]},\"addressees\":{\"maxItems\":10,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. \\\"MA 37\\\".\"},\"territoryId\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\",\"description\":\"Where it decides, e.g. AT-9.\"}},\"required\":[\"name\",\"territoryId\"]},\"description\":\"A directive’s authorities; empty otherwise.\"},\"licenceClass\":{\"type\":\"string\",\"enum\":[\"public_open\",\"public_restricted\",\"licensed\"],\"description\":\"licensed for a purchased copy.\"},\"documentId\":{\"type\":\"string\",\"format\":\"uuid\",\"description\":\"An office shelf document id, from document-list.\"}},\"required\":[\"documentId\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
   },
   {
    "name": "base-knowledge-remove",
@@ -1845,7 +1926,7 @@
    "description": "Changes a confirmed entry’s descriptive values; the earlier values stay in its history. The licence is not among them: only the person changes it. 409 for a proposal. Needs org:office_shelf:manage.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"base-knowledge-update\",\"domain\":\"knowledge\",\"summary\":\"Change a confirmed base-knowledge entry\",\"description\":\"Changes a confirmed entry’s descriptive values; the earlier values stay in its history. The licence is not among them: only the person changes it. 409 for a proposal. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Change a confirmed base-knowledge entry\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"entryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"From base-knowledge-list.\"}},\"required\":[\"entryId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"technical_standard\",\"guideline\",\"commentary\",\"authority_directive\",\"statute\"],\"description\":\"A commentary only interprets.\"},\"title\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":300,\"description\":\"The title as the document prints it.\"},\"designation\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},{\"type\":\"null\"}],\"description\":\"e.g. \\\"ÖNORM B 1600:2017\\\".\"},\"editionLabel\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"The edition as the masthead prints it, e.g. \\\"2017-04-01\\\".\"},\"issuedOn\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}]},\"territoryIds\":{\"maxItems\":20,\"type\":\"array\",\"items\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\"},\"description\":\"Where it applies; empty for a standard.\"},\"issuer\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},{\"type\":\"null\"}]},\"addressees\":{\"maxItems\":10,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. \\\"MA 37\\\".\"},\"territoryId\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\",\"description\":\"Where it decides, e.g. AT-9.\"}},\"required\":[\"name\",\"territoryId\"]},\"description\":\"A directive’s authorities; empty otherwise.\"}},\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+   "describe": "{\"name\":\"base-knowledge-update\",\"domain\":\"knowledge\",\"summary\":\"Change a confirmed base-knowledge entry\",\"description\":\"Changes a confirmed entry’s descriptive values; the earlier values stay in its history. The licence is not among them: only the person changes it. 409 for a proposal. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Change a confirmed base-knowledge entry\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"entryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"From base-knowledge-list.\"}},\"required\":[\"entryId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"technical_standard\",\"guideline\",\"commentary\",\"authority_directive\",\"statute\"],\"description\":\"A commentary only interprets.\"},\"title\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":300,\"description\":\"The title as the document prints it.\"},\"designation\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},{\"type\":\"null\"}],\"description\":\"e.g. \\\"ÖNORM B 1600:2017\\\".\"},\"editionLabel\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"The edition as the masthead prints it, e.g. \\\"2017-04-01\\\".\"},\"issuedOn\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}]},\"inForceFrom\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}],\"description\":\"When this edition took effect; null: from issuedOn.\"},\"inForceTo\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"},{\"type\":\"null\"}],\"description\":\"When it stopped applying, if withdrawn; a later edition ends it by itself.\"},\"territoryIds\":{\"maxItems\":20,\"type\":\"array\",\"items\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\"},\"description\":\"Where it applies; empty for a standard.\"},\"issuer\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},{\"type\":\"null\"}]},\"addressees\":{\"maxItems\":10,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. \\\"MA 37\\\".\"},\"territoryId\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}(-[A-Z0-9]{1,3})?$\",\"description\":\"Where it decides, e.g. AT-9.\"}},\"required\":[\"name\",\"territoryId\"]},\"description\":\"A directive’s authorities; empty otherwise.\"}},\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
    "name": "base-knowledge-upload",
@@ -1854,7 +1935,7 @@
    "description": "Stores one file on the office shelf and proposes it from its file name. Its text is not read (no index, no summary) until a person confirms the copy. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"base-knowledge-upload\",\"domain\":\"knowledge\",\"summary\":\"Upload a standard, commentary or directive as base knowledge\",\"description\":\"Stores one file on the office shelf and proposes it from its file name. Its text is not read (no index, no summary) until a person confirms the copy. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Upload a standard, commentary or directive as base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"files\":{\"minItems\":1,\"maxItems\":1,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":255,\"description\":\"The file name, with its extension, e.g. \\\"Grundriss EG.pdf\\\".\"},\"mimeType\":{\"description\":\"The media type, e.g. \\\"application/pdf\\\". Defaults to application/octet-stream.\",\"type\":\"string\",\"maxLength\":255},\"contentBase64\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":44739244,\"pattern\":\"^[A-Za-z0-9+/]*={0,2}$\",\"description\":\"The file's bytes as standard base64 (RFC 4648, with padding), at most 33554432 bytes decoded.\"}},\"required\":[\"name\",\"contentBase64\"]},\"description\":\"The file to upload. Exactly one file.\"},\"fields\":{\"type\":\"object\",\"properties\":{\"folderId\":{\"description\":\"From office-shelf-folder-list; omit for the root.\",\"type\":\"string\"}},\"additionalProperties\":false,\"description\":\"The route’s text fields, sent beside the file as form parts.\"}},\"required\":[\"files\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+   "describe": "{\"name\":\"base-knowledge-upload\",\"domain\":\"knowledge\",\"summary\":\"Upload a standard, commentary or directive as base knowledge\",\"description\":\"Stores one file on the office shelf and proposes it from its file name. Its text is not read (no index, no summary) until a person confirms the copy. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Upload a standard, commentary or directive as base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"files\":{\"minItems\":1,\"maxItems\":1,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":255,\"description\":\"The file name, with its extension, e.g. \\\"Grundriss EG.pdf\\\".\"},\"mimeType\":{\"description\":\"The media type, e.g. \\\"application/pdf\\\". Defaults to application/octet-stream.\",\"type\":\"string\",\"maxLength\":255},\"contentBase64\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":44739244,\"pattern\":\"^[A-Za-z0-9+/]*={0,2}$\",\"description\":\"The file's bytes as standard base64 (RFC 4648, with padding), at most 33554432 bytes decoded.\"}},\"required\":[\"name\",\"contentBase64\"]},\"description\":\"The file to upload. Exactly one file.\"},\"fields\":{\"type\":\"object\",\"properties\":{\"folderId\":{\"description\":\"From base-knowledge-folder-list; omit for the base-knowledge root folder.\",\"type\":\"string\"}},\"additionalProperties\":false,\"description\":\"The route’s text fields, sent beside the file as form parts.\"}},\"required\":[\"files\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
   },
   {
    "name": "coverage-get",
@@ -1869,19 +1950,19 @@
    "name": "knowledge-base-get",
    "domain": "knowledge",
    "summary": "See what the building-law corpus contains",
-   "description": "The status of the platform-owned base corpus (OIB guidelines and the like): which documents it holds and whether they are indexed. Identical for every organization. To search it use the document search with `shelf: \"base\"` (no project needed); for Austrian law itself the law lookup. This only lists what is there.",
+   "description": "The base corpus as this organization reads it: the documents released in a country the organization is entitled to, and whether each is indexed. An organization entitled to no country gets an empty list. To search it use the document search with `shelf: \"base\"` (no project needed); for the law itself the law lookup. This only lists what is there.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"knowledge-base-get\",\"domain\":\"knowledge\",\"summary\":\"See what the building-law corpus contains\",\"description\":\"The status of the platform-owned base corpus (OIB guidelines and the like): which documents it holds and whether they are indexed. Identical for every organization. To search it use the document search with `shelf: \\\"base\\\"` (no project needed); for Austrian law itself the law lookup. This only lists what is there.\",\"annotations\":{\"title\":\"See what the building-law corpus contains\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
+   "describe": "{\"name\":\"knowledge-base-get\",\"domain\":\"knowledge\",\"summary\":\"See what the building-law corpus contains\",\"description\":\"The base corpus as this organization reads it: the documents released in a country the organization is entitled to, and whether each is indexed. An organization entitled to no country gets an empty list. To search it use the document search with `shelf: \\\"base\\\"` (no project needed); for the law itself the law lookup. This only lists what is there.\",\"annotations\":{\"title\":\"See what the building-law corpus contains\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
   },
   {
    "name": "knowledge-document-get",
    "domain": "knowledge",
    "summary": "Read a base-corpus PDF",
-   "description": "The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Identical for every organization. Use it to quote a source a citation points at.",
+   "description": "The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Only a document released in a country the organization is entitled to; any other name answers 404, whether or not such a file exists. Use it to quote a source a citation points at.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"knowledge-document-get\",\"domain\":\"knowledge\",\"summary\":\"Read a base-corpus PDF\",\"description\":\"The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Identical for every organization. Use it to quote a source a citation points at.\",\"annotations\":{\"title\":\"Read a base-corpus PDF\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"fileName\":{\"type\":\"string\",\"description\":\"The base-corpus file name, exactly as knowledge-base-get lists it.\"}},\"required\":[\"fileName\"]}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+   "describe": "{\"name\":\"knowledge-document-get\",\"domain\":\"knowledge\",\"summary\":\"Read a base-corpus PDF\",\"description\":\"The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Only a document released in a country the organization is entitled to; any other name answers 404, whether or not such a file exists. Use it to quote a source a citation points at.\",\"annotations\":{\"title\":\"Read a base-corpus PDF\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"fileName\":{\"type\":\"string\",\"description\":\"The base-corpus file name, exactly as knowledge-base-get lists it.\"}},\"required\":[\"fileName\"]}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
    "name": "norm-list",
@@ -2043,7 +2124,7 @@
    "description": "The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. Any member may read. Item ids feed organization-memory-update and organization-memory-delete.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"organization-memory-list\",\"domain\":\"organization\",\"summary\":\"List organization memory\",\"description\":\"The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. Any member may read. Item ids feed organization-memory-update and organization-memory-delete.\",\"annotations\":{\"title\":\"List organization memory\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"includeArchived\":{\"description\":\"\\\"true\\\" also returns archived items.\",\"type\":\"string\",\"enum\":[\"true\",\"false\"]},\"limit\":{\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"type\":\"string\",\"maxLength\":64}}}},\"additionalProperties\":false}}"
+   "describe": "{\"name\":\"organization-memory-list\",\"domain\":\"organization\",\"summary\":\"List organization memory\",\"description\":\"The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. Any member may read. Item ids feed organization-memory-update and organization-memory-delete.\",\"annotations\":{\"title\":\"List organization memory\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"includeArchived\":{\"description\":\"\\\"true\\\" also returns archived items.\",\"type\":\"string\",\"enum\":[\"true\",\"false\"]},\"conversationId\":{\"description\":\"Only the notes written from this conversation.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":255},\"limit\":{\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"type\":\"string\",\"maxLength\":64}}}},\"additionalProperties\":false}}"
   },
   {
    "name": "organization-memory-update",
@@ -2052,7 +2133,7 @@
    "description": "Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned). At least one field is required. The id comes from organization-memory-list.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"organization-memory-update\",\"domain\":\"organization\",\"summary\":\"Edit an organization memory item\",\"description\":\"Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned). At least one field is required. The id comes from organization-memory-list.\",\"annotations\":{\"title\":\"Edit an organization memory item\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"itemId\":{\"type\":\"string\",\"description\":\"The organization memory item id, from organization-memory-list.\"}},\"required\":[\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"decision\",\"constraint\",\"open_question\",\"derived_fact\",\"preference\"]},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000},\"status\":{\"type\":\"string\",\"enum\":[\"proposed\",\"active\",\"superseded\",\"dismissed\"]},\"confidence\":{\"type\":\"string\",\"enum\":[\"low\",\"medium\",\"high\"]},\"verification\":{\"type\":\"string\",\"enum\":[\"unverified\",\"source_grounded\",\"user_confirmed\"]},\"pinned\":{\"type\":\"boolean\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+   "describe": "{\"name\":\"organization-memory-update\",\"domain\":\"organization\",\"summary\":\"Edit an organization memory item\",\"description\":\"Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned). At least one field is required. The id comes from organization-memory-list.\",\"annotations\":{\"title\":\"Edit an organization memory item\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"itemId\":{\"type\":\"string\",\"description\":\"The organization memory item id, from organization-memory-list.\"}},\"required\":[\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"decision\",\"constraint\",\"open_question\",\"derived_fact\",\"preference\"]},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000},\"status\":{\"type\":\"string\",\"enum\":[\"active\",\"superseded\",\"dismissed\"]},\"confidence\":{\"type\":\"string\",\"enum\":[\"low\",\"medium\",\"high\"]},\"verification\":{\"type\":\"string\",\"enum\":[\"unverified\",\"source_grounded\",\"user_confirmed\"]},\"pinned\":{\"type\":\"boolean\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
    "name": "organization-role-list",
@@ -2086,26 +2167,26 @@
   "add member project": [
    "project-person-add",
    "project-member-list",
+   "base-knowledge-edition-add",
    "project-create",
    "assignment-candidate-list",
    "project-record-get",
    "task-run-document-add",
    "project-profile-patch",
    "organization-member-list",
-   "inbound-mail-list",
-   "conversation-message-add"
+   "inbound-mail-list"
   ],
   "Mitglied zu Projekt hinzufügen": [
    "project-person-add",
    "project-member-list",
+   "base-knowledge-edition-add",
    "project-create",
    "assignment-candidate-list",
    "project-record-get",
    "task-run-document-add",
    "project-profile-patch",
    "organization-member-list",
-   "inbound-mail-list",
-   "conversation-message-add"
+   "inbound-mail-list"
   ],
   "list project members": [
    "project-member-list",
@@ -2159,25 +2240,25 @@
    "project-create",
    "office-shelf-folder-create",
    "project-folder-create",
+   "base-knowledge-folder-create",
    "project-task-run-list",
    "task-delete",
    "task-get",
    "task-list",
    "task-run-cancel",
-   "task-run-get",
-   "task-run-review"
+   "task-run-get"
   ],
   "Aufgabe erstellen": [
    "project-create",
    "office-shelf-folder-create",
    "project-folder-create",
+   "base-knowledge-folder-create",
    "project-task-run-list",
    "task-delete",
    "task-get",
    "task-list",
    "task-run-cancel",
-   "task-run-get",
-   "task-run-review"
+   "task-run-get"
   ],
   "inbox unread": [
    "inbox-list",
@@ -2228,13 +2309,13 @@
    "document-move",
    "project-folder-delete",
    "project-folder-update",
+   "base-knowledge-bulk",
    "office-shelf-folder-update",
    "document-bin",
    "project-folder-bin-list",
    "document-summary-get",
    "office-shelf-folder-delete",
-   "office-shelf-folder-list",
-   "project-folder-bin-purge"
+   "office-shelf-folder-list"
   ],
   "Datei in Ordner verschieben": [
    "document-move",
@@ -2243,34 +2324,34 @@
    "project-root-sort-start",
    "project-folder-update",
    "root-sort-run-undo",
+   "base-knowledge-bulk",
    "office-shelf-folder-update",
    "document-bin",
-   "project-folder-bin-list",
-   "inbound-mail-file"
+   "project-folder-bin-list"
   ],
   "create folder": [
    "office-shelf-folder-create",
    "project-folder-create",
+   "base-knowledge-folder-create",
    "office-shelf-folder-ensure",
    "hold-create",
    "project-create",
    "skill-category-create",
    "office-shelf-folder-delete",
    "office-shelf-folder-list",
-   "office-shelf-folder-update",
-   "project-folder-access-get"
+   "office-shelf-folder-update"
   ],
   "Ordner anlegen": [
    "office-shelf-folder-create",
    "project-folder-create",
+   "base-knowledge-folder-create",
    "office-shelf-folder-ensure",
    "hold-create",
    "project-create",
    "skill-category-create",
    "office-shelf-folder-delete",
    "office-shelf-folder-list",
-   "office-shelf-folder-update",
-   "project-folder-access-get"
+   "office-shelf-folder-update"
   ],
   "document versions": [
    "document-version-list",
@@ -2303,8 +2384,8 @@
    "document-version-submit",
    "document-review-list",
    "document-version-reviewer-list",
-   "release-note-list",
    "conversation-awaiting-get",
+   "release-note-list",
    "document-quarantine-get",
    "base-knowledge-report"
   ],
@@ -2324,37 +2405,37 @@
    "project-memory-list",
    "project-memory-delete",
    "project-memory-update",
+   "personal-memory-clear",
    "organization-memory-list",
    "project-experience-extract",
-   "organization-memory-delete",
-   "organization-memory-update",
-   "project-intake-start",
-   "project-base-get",
-   "project-create"
+   "personal-memory-delete",
+   "personal-memory-list",
+   "personal-memory-update",
+   "organization-memory-delete"
   ],
   "Projektgedächtnis merken": [
    "project-memory-list",
    "project-memory-delete",
    "project-memory-update",
+   "personal-memory-clear",
    "organization-memory-list",
+   "personal-memory-delete",
+   "personal-memory-list",
+   "personal-memory-update",
    "organization-memory-delete",
-   "organization-memory-update",
-   "project-experience-extract",
-   "project-intake-start",
-   "conversation-message-update",
-   "project-base-get"
+   "organization-memory-update"
   ],
   "list proposals": [
    "proposal-list",
    "annotation-list",
+   "base-knowledge-list",
    "proposal-get",
    "project-list",
    "project-member-list",
    "document-list",
    "quarantine-list",
    "office-shelf-folder-list",
-   "project-folder-list",
-   "conversation-list"
+   "project-folder-list"
   ],
   "offene Vorschläge": [
    "proposal-get",
@@ -2363,6 +2444,7 @@
    "project-cleanup-propose",
    "annotation-list",
    "conversation-message-update",
+   "base-knowledge-list",
    "base-knowledge-update"
   ],
   "assign document responsible": [
@@ -2412,9 +2494,9 @@
    "conversation-get",
    "conversation-message-add",
    "conversation-message-list",
+   "conversation-update",
    "conversation-awaiting-get",
    "conversation-mention-candidate-list",
-   "conversation-update",
    "saved-search-update"
   ],
   "Unterhaltung teilen": [
@@ -2425,9 +2507,9 @@
    "conversation-get",
    "conversation-message-add",
    "conversation-message-list",
+   "conversation-update",
    "conversation-awaiting-get",
-   "conversation-mention-candidate-list",
-   "conversation-update"
+   "conversation-mention-candidate-list"
   ],
   "": [
    "classification-evaluate",

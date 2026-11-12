@@ -201,7 +201,7 @@ const MetaChip = forwardRef<
       {onClear && (
         <button data-attr="files-clear"
           type="button"
-          className="text-muted-foreground hover:text-foreground mr-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="text-muted-foreground hover:text-foreground mr-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/60"
           aria-label={clearLabel}
           onClick={onClear}
         >

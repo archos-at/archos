@@ -108,6 +108,15 @@ documents, Bescheide and uploads) and *Web*. A *Modellmessung* (a value measured
 the project's BIM model) is shown beside them but is never a source for a legal
 verdict.
 
+**Grundlagen des Büros** (office standards):
+The standards, commentaries, authority directives, guidelines and laws an office holds itself, each a
+Büroablage file recorded as base knowledge with its kind, Ausgabe, where it applies, licence and last
+check (ADR-0163). A place of its own beside the Büroablage, with folders under one root folder of that name.
+An *Ausgabe* (edition) is the standard's state, a *Fassung* the state of the uploaded file: a newer Ausgabe
+is added beside the earlier one, and an answer uses the one in force on the project's reference day.
+_Code_: `baseKnowledge` (`/app/base-knowledge`, `/api/base-knowledge`, `base-knowledge-*` operations).
+_Avoid_: „Normen" for the whole place (commentaries and directives are not standards); „Version" for an Ausgabe.
+
 **Shelf**:
 Where a document lives, which decides who may read it and what a search reaches:
 the *Büroablage* (the organization's shelf, formerly „Archiv"; code name
@@ -419,6 +428,19 @@ delivered and never holding it up.
 **Memory** and **knowledge**:
 Memory is the briefing Piloti carries into every turn (what the office and the
 project have told it). Knowledge is the library it searches on demand.
+
+**Personal memory**:
+What the agent keeps about one person: how they want it to work, and their role
+and recurring topics at the office. Only that person reads it, no colleague
+and no administrator of the office. A note's home follows what the note is
+about, so a note about the person is personal even when it was said in a
+project chat. Project memory is read by the project's members and organization
+memory by everyone in the office.
+
+**Temporary conversation**:
+A conversation from which nothing is kept in personal, project or organization
+memory. It still reads what is already known. Its owner switches it on or off;
+switching it off keeps nothing from the turns before.
 
 ## Research
 

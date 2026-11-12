@@ -190,7 +190,7 @@ function CollapsedSlot({
         onClick={() => setOpen((previous) => !previous)}
         aria-expanded={open}
         aria-controls={panelId}
-        className="hover:bg-muted/40 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-quick ease-out motion-reduce:transition-none"
+        className="hover:bg-hover flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-quick ease-out motion-reduce:transition-none"
       >
         <span className="min-w-0 flex-1 truncate text-sm">{slot.label}</span>
         {open ? (

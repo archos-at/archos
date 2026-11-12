@@ -166,7 +166,7 @@ function ClusterCard({ servers, runbookHref }: { servers: readonly McpServerEntr
           <span>{t('cluster.access')}</span>
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="secondary" size="sm">
             <a href={runbookHref} target="_blank" rel="noreferrer">
               <BookOpen aria-hidden />
               {t('runbook')}

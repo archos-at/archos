@@ -668,7 +668,7 @@ function PeekToolbar({
               // A real hit area, not a text run: this is the only way out of
               // the one state on this surface that does not resolve itself,
               // and it was six pixels tall plus its line-height.
-              'text-foreground hover:bg-accent flex h-7 shrink-0 items-center rounded-full px-2 font-medium underline-offset-2 hover:underline',
+              'text-foreground hover:bg-hover flex h-7 shrink-0 items-center rounded-full px-2 font-medium underline-offset-2 hover:underline',
               FOCUS_RING,
             )}
           >

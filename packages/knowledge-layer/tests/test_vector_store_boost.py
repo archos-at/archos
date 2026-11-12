@@ -22,9 +22,9 @@ from knowledge_layer.vector_store import boost_terms
 from knowledge_layer.vector_store import boosted
 from knowledge_layer.vector_store import chunk_metadata
 from knowledge_layer.vector_store import grouped_search
-from knowledge_layer.vector_store import likeness_formula
 from knowledge_layer.vector_store import parse_boost
 from knowledge_layer.vector_store import project_payload
+from knowledge_layer.vector_store import ranking_formula
 from knowledge_layer.vector_store import schema
 from qdrant_client import models
 
@@ -146,14 +146,14 @@ def test_use_steps_cap_at_nutzung_max():
 def test_no_facts_or_no_weights_leaves_the_channel_as_it_is():
     dense = models.Prefetch(query=[0.0] * DIM, using=schema.DENSE, limit=10)
     for boost in (None, {"facts": {}, "weights": WEIGHTS}, {"facts": CURRENT, "weights": {}}):
-        formula = likeness_formula(parse_boost(boost))
+        formula = ranking_formula(parse_boost(boost))
         assert formula is None
         assert boosted(dense, formula) is dense
 
 
 def test_a_full_match_scales_by_one_plus_likeness():
     boost = Boost(facts=project_payload(CURRENT, "active")["project_facts"], weights=FactWeights.from_mapping(WEIGHTS))
-    formula = likeness_formula(boost)
+    formula = ranking_formula(boost)
     [score, factor] = formula.formula.mult
     assert score == "$score"
     one, *terms = factor.sum
@@ -399,7 +399,7 @@ def test_a_full_match_gains_exactly_likeness(store):
     _project(store, "proj_c", CURRENT, _record("c.pdf", _at(query, 0.6, "c")))
     _project(store, "proj_a", {"federal_state": "tirol"}, _record("a.pdf", _at(query, 0.6, "a")))
     served = _served_scores(store, query, ["proj_c", "proj_a"])
-    formula = likeness_formula(parse_boost({"facts": CURRENT, "weights": WEIGHTS}))
+    formula = ranking_formula(parse_boost({"facts": CURRENT, "weights": WEIGHTS}))
     dense = models.Prefetch(query=query, using=schema.DENSE, limit=10)
     result = store.client.query_points(
         store.alias("proj_c"), prefetch=[dense], query=formula, limit=2, with_payload=True

@@ -118,7 +118,7 @@ export function ProjectRecord({ projectId, projectRecord, span = 'wide' }: Proje
           </section>
           <DialogFooter className="items-center sm:justify-between">
             <p className="text-muted-foreground text-xs">{t('projectRecord.privacy')}</p>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="secondary" onClick={() => setOpen(false)}>
               {t('projectRecord.done')}
             </Button>
           </DialogFooter>

@@ -18,6 +18,7 @@ import { findProjectDocumentsByFilenames } from './repository'
 import { SCREENED_ONLY } from './document-reader'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { BACKEND_FETCH_TIMEOUT_MS } from './ingest-dispatch'
+import { signedScopeEntries } from '@/lib/retrieval-scope/base-entry'
 
 /**
  * A single hit from the backend's document-centric semantic search
@@ -79,7 +80,7 @@ export async function fetchGroupedSemanticHits(
   if (unique.length === 0) return []
   const scopeHeaders = buildRequestContextWireHeaders(
     // The office the backend filters every tenant collection's points by (ADR-0116, ADR-0163).
-    { collectionScope: unique, organizationId },
+    { collectionScope: await signedScopeEntries(unique, organizationId), organizationId },
     process.env.INTERNAL_API_TOKEN
   )
   let res: Response

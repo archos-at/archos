@@ -407,7 +407,7 @@ export function DocumentRoleField({
         />
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
@@ -440,7 +440,7 @@ export function DocumentRoleField({
         />
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={busy}
           className="pointer-fine:hidden"

@@ -916,6 +916,11 @@ export function useSharedThread(options: UseSharedThreadOptions): UseSharedThrea
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
 
     let attempts = 0
+    // A retry belongs to the conversation and the message that scheduled it. A
+    // POST can fail after this effect was cleaned up (the reader moved to
+    // another thread, or closed this one): the timer it armed then was one no
+    // cleanup would clear, and it posted the thread they had left as read.
+    let left = false
     const report = () => {
       reportedReadIdRef.current = newest
       void fetch(`${base}/read`, {
@@ -930,17 +935,17 @@ export function useSharedThread(options: UseSharedThreadOptions): UseSharedThrea
           // Reading is not a mutation the user is waiting on, but a silently
           // dropped mark IS visible (the next open anchors the unread divider
           // at the stale server mark), so retry a few times before deferring to
-          // the next arrival or open.
-          reportedReadIdRef.current = null
-          attempts += 1
-          if (attempts < MARK_READ_MAX_ATTEMPTS) {
-            markReadTimerRef.current = setTimeout(report, MARK_READ_RETRY_MS)
-          }
+          // the next arrival or open. The ref is taken back only while it
+          // still names this message: a later effect's mark is not this one's.
+          if (reportedReadIdRef.current === newest) reportedReadIdRef.current = null
+          if (left || ++attempts >= MARK_READ_MAX_ATTEMPTS) return
+          markReadTimerRef.current = setTimeout(report, MARK_READ_RETRY_MS)
         })
     }
     markReadTimerRef.current = setTimeout(report, MARK_READ_DEBOUNCE_MS)
 
     return () => {
+      left = true
       if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current)
       markReadTimerRef.current = null
     }

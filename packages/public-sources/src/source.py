@@ -30,13 +30,16 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 from typing import Literal
+from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
 import yaml
+from public_sources.lookup import Lookup
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import PrivateAttr
+from pydantic import ValidationInfo
 from pydantic import field_validator
 from pydantic import model_validator
 
@@ -63,6 +66,10 @@ def url_on_hosts(url: str, hosts: tuple[str, ...] | list[str]) -> bool:
     except ValueError:  # a port that is not a number
         return False
     return parsed.scheme == "https" and (parsed.hostname or "") in hosts and not parsed.username and port in (None, 443)
+
+
+#: The validation context of a released record read without its fixtures (:func:`parse_released_source`).
+_RELEASED = "released"
 
 
 class SourceError(ValueError):
@@ -128,6 +135,32 @@ class InlineResponse(_Strict):
         return base64.b64decode(self.text) if self.encoding == "base64" else self.text.encode("utf-8")
 
 
+#: The most text a recording carries: what a citation capture keeps (``public_sources.pdf.MAX_TEXT_CHARS``).
+MAX_RECORDING_CHARS = 2_000_000
+
+
+class CapturedResponse(_Strict):
+    """A recorded response the platform took itself: a citation capture of the URL (ADR-0174, amendment 2026-11-11).
+
+    A published document is megabytes, and nobody can paste one honestly. So a
+    record's fixture names the capture the platform fetched through the
+    public-source fetcher, whose bytes, sha256 and time are the platform's own.
+    The record keeps the capture's id and nothing else. For a check, the BFF
+    hands the capture's content type and text over with it; without them the
+    fixture awaits its recording and is not run (:mod:`public_sources.fixtures`).
+    """
+
+    #: The capture's id; ``None`` while it is not taken (a draft is proposed first, so its hosts can be fetched).
+    capture_id: str | None = Field(pattern=r"^[0-9a-fA-F-]{36}$")
+    #: The capture's content type and text, handed over for a check; never kept in a record.
+    content_type: str = ""
+    text: str | None = Field(default=None, max_length=MAX_RECORDING_CHARS)
+
+    @property
+    def recorded(self) -> bool:
+        return self.capture_id is not None and self.text is not None
+
+
 #: Headers a key may never be sent under (held again by the BFF's ``REFUSED_CREDENTIAL_HEADERS``).
 REFUSED_CREDENTIAL_HEADERS = frozenset(
     {
@@ -189,12 +222,20 @@ class Fixture(_Strict):
     name: str
     operation: str
     args: dict[str, str] = Field(default_factory=dict)
-    #: A file under ``fixtures/`` (a repository record), or the response itself (a database record).
-    responses: dict[str, str | InlineResponse]
+    #: A file under ``fixtures/`` (a repository record); the response itself, or the capture the
+    #: platform took of it (a database record).
+    responses: dict[str, str | InlineResponse | CapturedResponse]
     #: What the engine's result must show: ``kind`` (``search`` or ``document``),
     #: ``title``, ``min_hits``/``min_passages``, ``anchors`` (present, in order),
     #: ``contains`` (substrings of the text), ``version``.
     expect: dict[str, Any]
+
+
+class AddressIdentifier(_Strict):
+    """Where an address at this source states one of a work's identifiers."""
+
+    #: The query parameter that carries it, matched without regard to case.
+    query: str = Field(min_length=1, max_length=80)
 
 
 class Source(_Strict):
@@ -209,7 +250,16 @@ class Source(_Strict):
     #: Every host the source may reach, exact DNS names. A redirect off this
     #: list is refused at every hop, and the fetcher refuses it again.
     hosts: tuple[str, ...]
+    #: Hosts that republish this source's texts (a law mirror, an aggregator), exact DNS names, never
+    #: reached by a fetch. A web hit on one is a copy of what this source holds: it is not handed on as
+    #: a source where this source can be read, and labelled as a copy where it cannot
+    #: (``agent.common.web_sources``). A subdomain of a listed host counts as that host.
+    copy_hosts: tuple[str, ...] = ()
     data_flow: DataFlow = "public_only"
+    #: How a work's identifier is read from the address of a passage at this source, by the scheme the
+    #: knowledge records name it under (a work's ``identifiers``). A citation finds its work by it; a scheme
+    #: no source lists is matched nowhere.
+    identifiers: dict[str, AddressIdentifier] = Field(default_factory=dict)
     terms: Terms
     monitor: Monitor = Monitor()
     #: The protocol's configuration, validated by that access type's model.
@@ -219,6 +269,8 @@ class Source(_Strict):
     fixtures: tuple[Fixture, ...]
     #: Where a keyed source takes its key; ``None`` for an open one.
     credential: Credential | None = None
+    #: How a law lookup reads this source (:mod:`public_sources.lookup`); ``None`` for a source no lookup reads.
+    lookup: Lookup | None = None
 
     _directory: Path | None = PrivateAttr(default=None)
 
@@ -246,10 +298,21 @@ class Source(_Strict):
             raise ValueError(f"hosts must be exact lower-case DNS names (no scheme, port or wildcard): {bad}")
         return value
 
+    @field_validator("copy_hosts")
+    @classmethod
+    def _copy_hosts_shape(cls, value: tuple[str, ...], info: ValidationInfo) -> tuple[str, ...]:
+        bad = [host for host in value if not _HOST_RE.fullmatch(host)]
+        if bad:
+            raise ValueError(f"copy_hosts must be exact lower-case DNS names (no scheme, port or wildcard): {bad}")
+        own = sorted(set(value) & set(info.data.get("hosts") or ()))
+        if own:
+            raise ValueError(f"a host is the source's own or a copy of it, never both: {own}")
+        return value
+
     @field_validator("fixtures")
     @classmethod
-    def _has_fixtures(cls, value: tuple[Fixture, ...]) -> tuple[Fixture, ...]:
-        if not value:
+    def _has_fixtures(cls, value: tuple[Fixture, ...], info: ValidationInfo) -> tuple[Fixture, ...]:
+        if not value and not (info.context or {}).get(_RELEASED):
             raise ValueError("a source is used only once a recorded fixture proves it: add at least one")
         return value
 
@@ -264,7 +327,25 @@ class Source(_Strict):
         engine_cls.config_model.model_validate(self.engine)
         for url in config.urls():
             self.require_allowed(url)
+        self._lookup_fits(access_cls, config)
         return self
+
+    def _lookup_fits(self, access_cls, config) -> None:
+        """A lookup block names only operations and tables the access configuration has, for every protocol."""
+        if self.lookup is None:
+            return
+        offered = access_cls.operations_of(config)
+        missing = [op for op in (self.lookup.search, self.lookup.document) if op and op not in offered]
+        if missing:
+            raise ValueError(f"lookup names operations the {self.protocol} access does not offer: {missing}")
+        tables = getattr(config, "tables", None) or {}
+        named = {
+            "lookup.territory.table": self.lookup.territory.table if self.lookup.territory else "",
+            "lookup.reference.prefix_table": self.lookup.reference.prefix_table,
+        }
+        for field, table in named.items():
+            if table and table not in tables:
+                raise ValueError(f"{field} {table!r} is not a table of the access")
 
     # -- reading ----------------------------------------------------------
 
@@ -277,6 +358,16 @@ class Source(_Strict):
     def allows(self, url: str) -> bool:
         """Whether ``url`` is https on one of this source's hosts, on the default port."""
         return url_on_hosts(url, self.hosts)
+
+    def identifier_at(self, url: str, scheme: str) -> str | None:
+        """The identifier ``scheme`` names in ``url``, by this source's ``identifiers``; None when the address
+        is not on this source's hosts, the scheme is not listed, or the address states none."""
+        location = self.identifiers.get(scheme)
+        if location is None or not self.allows(url):
+            return None
+        wanted = location.query.lower()
+        values = next((found for name, found in parse_qs(urlparse(url).query).items() if name.lower() == wanted), [])
+        return values[0] if values else None
 
     def require_allowed(self, url: str) -> None:
         if not self.allows(url):
@@ -334,6 +425,22 @@ def parse_inline_source(raw: dict[str, Any]) -> Source:
     return source
 
 
+def parse_released_source(raw: dict[str, Any]) -> Source:
+    """A released source record as a turn carries it: its fixtures proved it before release and are left out.
+
+    The BFF sends only records whose head revision is released (``context/sources.ts``); everything else a
+    record must be (its protocol, format, hosts, terms, lookup) is checked as for any record, and a licensed
+    source is refused as :func:`parse_inline_source` refuses it.
+    """
+    try:
+        source = Source.model_validate({**raw, "fixtures": raw.get("fixtures") or ()}, context={_RELEASED: True})
+    except Exception as exc:
+        raise SourceError(f"source {raw.get('id', '?')!r} is invalid: {exc}") from exc
+    if source.terms.licence == "licensed":
+        raise SourceError(f"source {source.id!r} is licensed: its text may not be read by a configured record")
+    return source
+
+
 def sources_dir(path: str | os.PathLike[str] | None = None) -> Path:
     """Where the source records live: ``path``, else ``$PUBLIC_SOURCES_DIR``, else ``configs/sources``.
 
@@ -367,6 +474,9 @@ def load_sources(path: str | os.PathLike[str] | None = None) -> dict[str, Source
             source = parse_source(raw, directory=file.parent)
         except SourceError as exc:
             raise SourceError(f"{file}: {exc}") from exc
+        if any(not isinstance(r, str) for fixture in source.fixtures for r in fixture.responses.values()):
+            # A capture belongs to a change request, and a file is what a reviewer of the repository reads.
+            raise SourceError(f"{file}: a repository record's fixtures name files under fixtures/")
         if source.id in sources:
             raise SourceError(f"{file}: source id {source.id!r} is used twice")
         sources[source.id] = source

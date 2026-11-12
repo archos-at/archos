@@ -126,7 +126,7 @@ export function TaskList({
           description={t('list.errorDescription')}
           action={
             onRetry ? (
-              <Button variant="outline" size="sm" onClick={onRetry}>
+              <Button variant="secondary" size="sm" onClick={onRetry}>
                 {t('list.retry')}
               </Button>
             ) : undefined
@@ -185,7 +185,7 @@ export function TaskList({
             description={filter === 'all' ? t('list.emptyDescription') : undefined}
             action={
               filter === 'all' ? undefined : (
-                <Button variant="outline" size="sm" onClick={() => onFilterChange('all')}>
+                <Button variant="secondary" size="sm" onClick={() => onFilterChange('all')}>
                   {t('filters.showAll')}
                 </Button>
               )

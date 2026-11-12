@@ -223,6 +223,8 @@ function SectionNavLink({
       href={item.href}
       replace
       aria-current={active ? 'page' : undefined}
+      // On the track the keyboard's ring is drawn inside the tab: the strip scrolls sideways and clips one outside it.
+      data-focus-inset={onTrack ? '' : undefined}
       title={compactOnPhone && !active ? item.label : undefined}
       className={cn(
         // `relative isolate` + pill `-z-10` is the app-sidebar rail pattern:
@@ -230,6 +232,9 @@ function SectionNavLink({
         'duration-quick focus-visible:ring-ring/60 relative isolate items-center rounded-control text-sm transition-colors ease-out focus-visible:outline-none focus-visible:ring-2',
         // The strip's entries sit 4px apart, so under a finger each grows to
         // 44px rather than borrowing a catchment from its neighbour.
+        // One band, not two: on the track the ring lies in the tab with the page's outline (`data-focus-inset`), beside
+        // the content it lies under that outline, 2px off the row (`FOCUS_RING`'s geometry).
+        onTrack ? 'focus-visible:ring-inset' : 'focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         variant === 'rail'
           ? 'flex gap-2 px-3 py-2 pointer-coarse:min-h-11'
           : cn('inline-flex gap-1.5 px-3 pointer-coarse:min-h-11 pointer-coarse:px-3.5', onTrack ? 'py-1 md:@max-[44rem]/section:px-2.5' : 'py-1.5'),
@@ -237,9 +242,9 @@ function SectionNavLink({
           ? 'text-secondary-foreground font-medium'
           : cn(
               'text-muted-foreground',
-              // On the track an unchosen tab hovers to ink, not to a fill: grey on the track's grey.
-              onTrack ? 'hover:text-foreground' : 'hover:bg-accent',
-              variant === 'rail' && 'hover:text-foreground'
+              // Under the pointer an unchosen tab takes ink and the pointer's fill, one step down from its plane, on the
+              // track as beside the content: ink alone was the faintest answer in the app (V5, 2026-11-12).
+              'hover:bg-hover hover:text-foreground'
             )
       )}
     >

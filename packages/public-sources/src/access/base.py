@@ -126,6 +126,14 @@ class AccessType:
 
     name: ClassVar[str]
     config_model: ClassVar[type[AccessConfig]]
+    #: The operations a protocol with a fixed set serves; empty where the record declares its own (``rest``).
+    served_operations: ClassVar[tuple[str, ...]] = ()
+
+    @classmethod
+    def operations_of(cls, config: AccessConfig) -> tuple[str, ...]:
+        """The operations a record of this type offers: those it declares, else the protocol's fixed set."""
+        declared = getattr(config, "operations", None)
+        return tuple(declared) if declared is not None else cls.served_operations
 
     def __init__(self, source) -> None:  # source: public_sources.source.Source
         self.source = source

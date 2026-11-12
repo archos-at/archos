@@ -8,6 +8,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/project-intake/setup-records', async () => ({
+  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
+  readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
+}))
 vi.mock('../store/repository', () => ({
   documentHasEntry: vi.fn(async () => false),
   insertCopyCheck: vi.fn(),
@@ -21,6 +25,16 @@ vi.mock('./repository', () => ({
   visibleOfficeDocuments: vi.fn(),
 }))
 vi.mock('./mark', () => ({ markCopyPoints: vi.fn(async () => true) }))
+vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn(async () => new Map([['user-1', { name: 'Anna Berger' }]])) }))
+vi.mock('./territory-choices', () => ({ territoryChoices: vi.fn(async () => [{ id: 'AT', label: null }, { id: 'AT-9', label: 'Wien' }]) }))
+vi.mock('./folders', () => ({
+  isStandardsFolder: vi.fn(async (_session: unknown, folderId: string) => folderId === 'folder-brandschutz'),
+  standardsFolderRows: vi.fn(async () => ({
+    root: { id: 'folder-root', parentId: null, name: 'Grundlagen des Büros', path: 'Grundlagen des Büros' },
+    folders: [{ id: 'folder-brandschutz', parentId: 'folder-root', name: 'Brandschutz', path: 'Grundlagen des Büros/Brandschutz' }],
+  })),
+  standardsRoot: vi.fn(async () => ({ id: 'folder-root' })),
+}))
 vi.mock('../http/idempotency', () => ({ forgetKeysFor: vi.fn(async () => true) }))
 vi.mock('./text-effects', () => ({ withholdText: vi.fn(async () => true), releaseText: vi.fn() }))
 vi.mock('@/lib/office-shelf/service', () => ({ deleteOfficeShelfDocument: vi.fn(), uploadOfficeShelfDocument: vi.fn() }))
@@ -77,11 +91,12 @@ const MANAGER: AuthorizedSession = {
 }
 const MEMBER: AuthorizedSession = { ...MANAGER, permissions: [] }
 
-const DOCUMENT = { id: 'doc-1', fileName: 'ÖNORM B 1600.pdf', collectionName: 'archiv_org-1', storedName: 'ÖNORM B 1600.pdf' }
+const DOCUMENT = { id: 'doc-1', fileName: 'ÖNORM B 1600.pdf', collectionName: 'archiv_org-1', storedName: 'ÖNORM B 1600.pdf', folderId: null }
 
 function stored(overrides: Partial<StoredEntry> = {}): StoredEntry {
   return {
     workId: 'work_1',
+    workStandsAlone: false,
     editionId: 'edition_1',
     copyId: 'manifestation_1',
     documentId: 'doc-1',
@@ -96,6 +111,8 @@ function stored(overrides: Partial<StoredEntry> = {}): StoredEntry {
       designation: 'ÖNORM B 1600:2017',
       editionLabel: '2017-04-01',
       issuedOn: '2017-04-01',
+      inForceFrom: null,
+      inForceTo: null,
       territoryIds: [],
       issuer: 'Austrian Standards',
       addressees: [],
@@ -119,7 +136,7 @@ describe('who may do what', () => {
   it('lets any member read and only a shelf manager write', async () => {
     const list = await listBaseKnowledge(MEMBER)
     expect(list.canManage).toBe(false)
-    expect(list.entries.map((entry) => entry.id)).toEqual(['work_1'])
+    expect(list.entries.map((entry) => entry.id)).toEqual(['edition_1'])
     await expect(confirmBaseKnowledge(MEMBER, 'work_1', {})).rejects.toBeInstanceOf(ForbiddenError)
   })
 
@@ -205,6 +222,61 @@ describe('uploading as base knowledge', () => {
     await uploadBaseKnowledge(MANAGER, new File(['%PDF'], 'ÖNORM B 1600.pdf'), new Request('http://localhost/x'))
     expect(insertProposedEntry).toHaveBeenCalled()
     expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+  })
+})
+
+describe('where an upload lands', () => {
+  it('files into the base-knowledge root when no folder is given', async () => {
+    vi.mocked(uploadOfficeShelfDocument).mockResolvedValue({ documentId: 'doc-1', jobId: null, status: 'stored', filename: 'a.pdf' })
+    vi.mocked(readShelfDocument).mockResolvedValue(DOCUMENT)
+    await uploadBaseKnowledge(MANAGER, new File(['%PDF'], 'a.pdf'), new Request('http://localhost/x'))
+    expect(uploadOfficeShelfDocument).toHaveBeenCalledWith(MANAGER, expect.anything(), expect.anything(), expect.objectContaining({ folderId: 'folder-root' }))
+  })
+
+  it('refuses a folder outside the base knowledge before writing any bytes', async () => {
+    const upload = uploadBaseKnowledge(MANAGER, new File(['%PDF'], 'a.pdf'), new Request('http://localhost/x'), { folderId: 'folder-letters' })
+    await expect(upload).rejects.toBeInstanceOf(UnprocessableError)
+    expect(uploadOfficeShelfDocument).not.toHaveBeenCalled()
+  })
+})
+
+describe('listing', () => {
+  const confirmed = (id: string, documentId: string, lastCheck: StoredEntry['lastCheck']) =>
+    stored({ workId: id, editionId: id, documentId, confirmed: true, provenance: { proposedBy: 'person', confirmedBy: 'user-1' }, lastCheck })
+
+  beforeEach(() => {
+    const fresh = { checkedAt: new Date().toISOString(), checkedBy: 'user-1', result: 'current' as const, note: null }
+    vi.mocked(readOfficeEntries).mockResolvedValue([
+      confirmed('work_fresh', 'doc-fresh', fresh),
+      stored({ workId: 'work_proposed', editionId: 'work_proposed', documentId: 'doc-proposed' }),
+      confirmed('work_due', 'doc-due', null),
+    ])
+    vi.mocked(visibleOfficeDocuments).mockResolvedValue(
+      new Map([
+        ['doc-fresh', { ...DOCUMENT, id: 'doc-fresh', folderId: 'folder-brandschutz' }],
+        ['doc-proposed', { ...DOCUMENT, id: 'doc-proposed', folderId: 'folder-root' }],
+        ['doc-due', { ...DOCUMENT, id: 'doc-due', folderId: null }],
+      ]),
+    )
+  })
+
+  it('puts what needs a person first and counts what needs what', async () => {
+    const list = await listBaseKnowledge(MEMBER)
+    expect(list.entries.map((entry) => entry.id)).toEqual(['work_proposed', 'work_due', 'work_fresh'])
+    expect(list.counts).toEqual({ all: 3, proposed: 1, checkDue: 1, metadataOnly: 2 })
+    expect(list.entries[2]).toMatchObject({ folderId: 'folder-brandschutz', confirmedByName: 'Anna Berger' })
+  })
+
+  it('narrows to a folder with its subfolders, counting only there', async () => {
+    const list = await listBaseKnowledge(MEMBER, { folderId: 'folder-root' })
+    expect(list.entries.map((entry) => entry.id)).toEqual(['work_proposed', 'work_fresh'])
+    expect(list.counts.all).toBe(2)
+  })
+
+  it('narrows by attention without changing the counts', async () => {
+    const list = await listBaseKnowledge(MEMBER, { attention: 'check_due' })
+    expect(list.entries.map((entry) => entry.id)).toEqual(['work_due'])
+    expect(list.counts.all).toBe(3)
   })
 })
 
@@ -365,6 +437,23 @@ describe('the turn', () => {
     expect(turn?.labels).toEqual([
       expect.objectContaining({ documentId: 'doc-1', holder: 'office', role: 'requirement_source', editionLabel: '2017-04-01' }),
     ])
+  })
+
+  it('carries, of a standard’s editions, the one in force on the project’s filing day: the platform’s rule', async () => {
+    const edition = (editionId: string, editionLabel: string, documentId: string) =>
+      stored({ workId: 'work_1', editionId, documentId, confirmed: true, workStandsAlone: true, values: { ...stored().values, editionLabel, issuedOn: editionLabel } })
+    vi.mocked(readOfficeEntries).mockResolvedValue([edition('e2017', '2017-04-01', 'doc-1'), edition('e2023', '2023-02-01', 'doc-2')])
+    vi.mocked(visibleOfficeDocuments).mockImplementation(async (_org, ids) => new Map(ids.map((id) => [id, { ...DOCUMENT, id }])))
+    const filed = (day: string | null) =>
+      vi.mocked(findProjectProfileInOrg).mockResolvedValue({
+        profile: { facts: day ? { 'filed_on@p1': { value: day } } : {} },
+      } as unknown as Awaited<ReturnType<typeof findProjectProfileInOrg>>)
+
+    filed('2020-06-01')
+    expect((await baseKnowledgeForTurn('org-1', 'proj-1'))?.labels.map((label) => label.editionLabel)).toEqual(['2017-04-01'])
+    // Positive control: without a filing day the turn resolves on today, where the 2023 edition is in force.
+    filed(null)
+    expect((await baseKnowledgeForTurn('org-1', 'proj-1'))?.labels.map((label) => label.editionLabel)).toEqual(['2023-02-01'])
   })
 
   it('names what the platform lists and the office does not hold, through the one platform interface', async () => {

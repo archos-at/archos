@@ -61,13 +61,13 @@ import { LoadError } from '@/components/ui/load-error'
 import { LoadMore } from '@/components/ui/load-more'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { AnimatePresence } from '@/components/motion'
+import { AnimatePresence, motion, motionQuick, motionQuickExit, useMotionToken } from '@/components/motion'
 import { cn } from '@/lib/utils'
 import { NotificationPrompt } from '@/features/notifications/components/notification-prompt'
 import { focusLost, restoreFocus } from '@/features/documents/components/review/focus-return'
 import { Kbd, KbdGroup } from '@/components/ui/kbd'
 import { SectionLabel } from '@/components/ui/section-label'
-import { inboxSections } from '../lib/inbox-day-groups'
+import { inboxSections, type InboxSection } from '../lib/inbox-day-groups'
 import { InboxItemRow } from './InboxItemRow'
 import { InboxQueue } from './InboxQueue'
 
@@ -112,6 +112,20 @@ function hrefOf(pathname: string, current: string, filter: InboxFilter): string 
   else params.set(FILTER_PARAM, filter)
   const query = params.toString()
   return query ? `${pathname}?${query}` : pathname
+}
+
+/**
+ * Each section with a key that is its span's (`today`), and a count only for a
+ * span that opens twice (rows out of order), so a section keeps its identity
+ * when one above it leaves.
+ */
+function keyedSections<T>(sections: InboxSection<T>[]): { key: string; section: InboxSection<T> }[] {
+  const seen = new Map<string, number>()
+  return sections.map((section) => {
+    const nth = seen.get(section.group) ?? 0
+    seen.set(section.group, nth + 1)
+    return { key: nth === 0 ? section.group : `${section.group}-${nth}`, section }
+  })
 }
 
 /** Whether a key press belongs to whatever has focus rather than to the list. */
@@ -315,6 +329,10 @@ export function InboxList({
   // The count each filter wears: what waits on the reader, and what is unread.
   const filterCount = (key: InboxFilter): number => (key === 'needsMe' ? shownPending : 0)
   const emptyKey = filter
+  // Only a read that left nothing to show is the list's failure.
+  const failed = error && visibleItems.length === 0
+  const move = useMotionToken(motionQuick)
+  const exit = useMotionToken(motionQuickExit)
 
   return (
     // A reading measure: inbox rows are reading material, and a 1400px line of them is not.
@@ -404,7 +422,7 @@ export function InboxList({
           <AlertCircle />
           <AlertTitle className="line-clamp-none">{t('inbox.errors.actionFailed')}</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-3 pt-1">
-            <Button variant="outline" size="sm" onClick={dismissMutationError}>
+            <Button variant="secondary" size="sm" onClick={dismissMutationError}>
               {t('sharing.errors.dismiss')}
             </Button>
           </AlertDescription>
@@ -421,10 +439,20 @@ export function InboxList({
         <InboxQueue enabled={enabled} />
       ) : (
       <div ref={listRef} data-testid="inbox-list" tabIndex={-1} className="outline-none">
-        {error ? (
+        {/* A read that failed with rows on screen keeps them: a re-read in the
+            background (a live nudge, the poll) that failed once used to replace a
+            working list with „konnte nicht geladen werden“. The next read says. */}
+        {failed ? (
           <LoadError title={t('inbox.errors.loadFailed')} onRetry={() => refresh()} />
         ) : loading ? (
-          <ItemList as="ul" data-testid="inbox-skeleton" aria-busy="true" className="border-0 bg-card shadow-xs">
+          // Held back one beat: a filter whose rows arrive at once shows them,
+          // not a skeleton for a frame and then them.
+          <ItemList
+            as="ul"
+            data-testid="inbox-skeleton"
+            aria-busy="true"
+            className="border-0 bg-card shadow-xs animate-in fade-in-0 duration-quick ease-out fill-mode-backwards delay-(--motion-quick) motion-reduce:animate-none"
+          >
             {Array.from({ length: 4 }).map((_, index) => (
               <Item as="li" key={index} className="items-start py-3.5">
                 <ItemMedia>
@@ -450,9 +478,22 @@ export function InboxList({
              reader. The order is the server's; the sections only cut it, so
              j/k walks the rows as drawn. */
           <div className="space-y-5">
-            {inboxSections(visibleItems, new Date()).map((section, index) => (
-              <section key={`${section.group}-${index}`} aria-labelledby={`inbox-section-${index}`} data-testid="inbox-section">
-                <SectionLabel as="h3" id={`inbox-section-${index}`} className="mb-2 block px-1">
+            {/* A section leaves with its last row and the ones under it close
+                the gap (`layout`). It used to unmount in one frame, taking the
+                row's exit with it, and everything below jumped. Keyed by its
+                span, not its place, so the sections under one that left are
+                still themselves. */}
+            <AnimatePresence initial={false} mode="popLayout">
+            {keyedSections(inboxSections(visibleItems, new Date())).map(({ key, section }) => (
+              <motion.section
+                key={key}
+                layout="position"
+                exit={{ opacity: 0, transition: exit }}
+                transition={move}
+                aria-labelledby={`inbox-section-${key}`}
+                data-testid="inbox-section"
+              >
+                <SectionLabel as="h3" id={`inbox-section-${key}`} className="mb-2 block px-1">
                   {t(`inbox.groups.${section.group}`)}
                 </SectionLabel>
                 <ItemList as="ul" className="border-0 bg-card shadow-xs">
@@ -480,12 +521,13 @@ export function InboxList({
                     ))}
                   </AnimatePresence>
                 </ItemList>
-              </section>
+              </motion.section>
             ))}
+            </AnimatePresence>
           </div>
         )}
         {/* The list stopped at a page and used to say nothing about it. */}
-        {!error && !loading && (
+        {!failed && !loading && (
           <LoadMore
             hasMore={hasMore}
             loading={loadingMore}
@@ -502,7 +544,7 @@ export function InboxList({
       {/* The list's keys were there and nowhere said: a quiet line under the
           rows, where a pointer and a keyboard are (a phone has neither). Aria-
           hidden: the shortcuts sheet is where a screen reader learns them. */}
-      {!error && !loading && (queued || visibleItems.length > 0) && (
+      {!failed && !loading && (queued || visibleItems.length > 0) && (
         <p
           aria-hidden
           data-testid="inbox-key-hint"

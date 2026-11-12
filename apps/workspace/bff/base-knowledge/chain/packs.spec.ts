@@ -19,6 +19,7 @@ import { MAX_PROPOSED_RECORDS, proposeRecordsBodySchema, proposedRecordSchema, t
 import { recordIdOf } from '../platform/records'
 import { validateProposal, type KnownRecord } from '../platform/validate'
 import { graphFromProposals } from './from-proposals'
+import { MAX_CONTEXT_USES } from '../context/wire'
 import { resolveChain } from './resolve'
 
 interface PackFile {
@@ -96,8 +97,8 @@ describe('the Austria and EU packs', () => {
     expect(bindingEditions(leaf, '2026-11-10', '6'), 'RL 6').toEqual(expected.rl6 ? [expected.rl6] : [])
   })
 
-  it('resolves every Land within the bound, so no cited edition loses its role', () => {
-    for (const leaf of Object.keys(BINDING_ON_2026_11_10)) expect(resolveChain(graph, leaf, '2026-11-10').truncated, leaf).toBe(false)
+  it('carries every use of every Land on the turn\'s wire, so no cited edition loses its role', () => {
+    for (const leaf of Object.keys(BINDING_ON_2026_11_10)) expect(resolveChain(graph, leaf, '2026-11-10').uses.length, leaf).toBeLessThanOrEqual(MAX_CONTEXT_USES)
   })
 
   it('binds the 2019 edition in Wien before 2024-02-23 and the 2023 edition from that day', () => {

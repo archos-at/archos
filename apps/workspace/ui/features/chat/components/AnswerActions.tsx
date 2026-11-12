@@ -125,7 +125,7 @@ const actionButton = cn(
   // easing colour.
   'text-muted-foreground',
   PRESSABLE,
-  'hover:bg-accent hover:text-foreground',
+  'hover:bg-hover hover:text-foreground',
   FOCUS_RING
 )
 

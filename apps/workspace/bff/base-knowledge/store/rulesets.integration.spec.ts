@@ -271,7 +271,7 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
   })
 
   it('stores a setup record and reads it back as written (migration 0207, ADR-0169)', async () => {
-    const sources = (await import('../rulesets/seeds/at-setup-fact-sources.json')).default as RulesetValuesInput
+    const sources = (await import('@/lib/project-intake/at-setup.fixtures')).AT_FACT_SOURCES_VALUES as RulesetValuesInput
     const recordId = await store.insertOfficeRuleset(ORG, sources, { ...CONTEXT, inForce: true })
     const read = await store.readRulesetsInForce(ORG, { purpose: 'fact_sources', territoryIds: ['AT'] })
     expect(read.unreadable).toEqual([])

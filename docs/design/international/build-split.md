@@ -202,6 +202,8 @@ Waves 1 to 4 built every new path beside the old one, behind a switch whose off 
 2. **Austria onto staging, then production**, through the platform door: an operator's agent proposes `eu.json` and `at.json` with captured sources (KC-6), a domain expert and a second approver approve, preview, stable. AT's coverage level core.
 3. **R1 and R2 merge** once staging has the data and the answer suite passes with the new path on; production gets them in the release after step 2 reached production. Merging them earlier leaves an environment with no Austrian law at all.
 
+**Superseded for production (2026-11-11).** R1 and R2 merged on 2026-11-10 (#1578, #1582, #1584), before step 1 reached production, so no develop commit is "develop with switches off" any more: a promotion of develop now brings the records-only path. The order production follows instead, and the rule it sets for develop, is [rollover-to-prod.md](rollover-to-prod.md).
+
 | Session | Takes out | Contract |
 |---|---|---|
 | R1 agent | `citations/binding.py` and its host regex (callers move to `citations/roles.py`), `knowledge-layer/chat_binding.py`, the static `<building_law>` block (`chat_static.md`, `prompt.py`, `norm_registry.py`) and `test_static_prompt_split.py`'s byte pin, `common/applicability.py`, the Austria defaults in `agent/common` and `agent/citations`, every fallback taken when the turn has no knowledge context | With no context the agent fails closed: no verdict, no edition named binding, the gate's note. The corpus backfill (`LEGACY_CORPUS_COUNTRY`, `backfill_legacy_marks`) stays until it has run in production |

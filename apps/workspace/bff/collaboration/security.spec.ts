@@ -536,6 +536,56 @@ describe('sharing is never a back door into a project (matrix F36, spec SH-5)', 
   })
 })
 
+describe('taking ownership is never a way to read a private resource (spec SH-10, ADR-0032 decision 5)', () => {
+  it('answers 404 to a project admin with no access to a colleague\'s private chat, and writes nothing', async () => {
+    // A project admin who knows the id of a private chat they are not party to.
+    // Before the fix, `canEscalate` was true for them and the POST made them owner.
+    stubConversation({ visibility: 'private', createdBy: ANNA })
+    stubContainer('project-admin')
+    stubMyGrant(null)
+
+    const access = await resolveResourceAccess(session, 'conversation', CONVERSATION_ID)
+    expect(access.role).toBeNull()
+    expect(access.canEscalate).toBe(false)
+
+    const failure = await escalateToOwner(session, 'conversation', CONVERSATION_ID).catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(NotFoundError)
+    expect(upsertGrant).not.toHaveBeenCalled()
+    expect(recordAuditEvent).not.toHaveBeenCalled()
+    expect(publishToUsers).not.toHaveBeenCalled()
+    expect(upsertInboxItems).not.toHaveBeenCalled()
+  })
+
+  it('lets a project admin who can already read a project chat take it over, audited, and tells its owner', async () => {
+    stubConversation({ visibility: 'project', createdBy: ANNA })
+    stubContainer('project-admin')
+    stubMyGrant(null)
+    vi.mocked(listGrantsForResource).mockResolvedValue([])
+
+    await escalateToOwner(session, 'conversation', CONVERSATION_ID)
+
+    expect(upsertGrant).toHaveBeenCalledWith(
+      expect.objectContaining({ subjectUserId: session.userId, role: 'owner' }),
+      undefined,
+    )
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'resource.ownership.escalated',
+        metadata: { previousRole: 'collaborator', via: 'project-admin' },
+      }),
+    )
+    expect(upsertInboxItems).toHaveBeenCalledWith([
+      expect.objectContaining({
+        recipientUserId: ANNA,
+        type: 'resource.ownership_taken',
+        actorUserId: session.userId,
+        resourceId: CONVERSATION_ID,
+      }),
+    ])
+  })
+})
+
 describe('an unregistered resource type (matrix F37)', () => {
   it('is refused before any lookup happens', async () => {
     const unknownType = 'not-a-resource' as ShareableResourceType

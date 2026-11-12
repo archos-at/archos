@@ -20,11 +20,11 @@ const toggleVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground',
+        default: 'bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground',
         outline:
-          'border border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground data-[state=on]:border-border data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-foreground',
+          'border border-border bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground data-[state=on]:border-border data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-foreground',
         inverted:
-          'text-muted-foreground hover:bg-accent hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-2xs',
+          'text-muted-foreground hover:bg-hover hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-2xs',
         // A filter chip (paper on a desk, principle 4): never the press's shape. A 28px pill of the desk's fill and no
         // edge at rest, one step down the ladder under the pointer; picked, the selected grey with its tick (the
         // caller's `Check`, shown `in-data-[state=on]`). Round 3 drew it as the press, and „Für Sie“ read as a command

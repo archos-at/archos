@@ -287,7 +287,7 @@ export function AttachmentRow({
                     // „Vorschlag von …“ above says whose it is: the chip is the target, white on the panel's grey, the same
                     // white chip as the Dokumentart beside it (two facts, one shape; „Ändern“ the one text press).
                     mark={false}
-                    className="bg-background hover:bg-accent"
+                    className="bg-background hover:bg-desk"
                     data-testid="attachment-folder"
                   />
                 ) : (

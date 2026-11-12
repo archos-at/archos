@@ -46,7 +46,7 @@ import { captureServer, getPosthogServer } from './posthog-server'
  * Which path settled the row: `push` (the worker's call to
  * `/api/internal/ingest/settled` when the job ended), `read` (a read that
  * reconciles in passing: a listing, a detail, a filing or placement step),
- * `sweep` (the scheduler's sweeps, for the rows nobody reads). A parameter of
+ * `sweep` (the cron sweeps, for the rows nobody reads). A parameter of
  * every reconcile, so the share each path settles is measured, not guessed.
  */
 export type SettledBy = 'push' | 'read' | 'sweep'

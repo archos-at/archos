@@ -91,7 +91,7 @@ export function HandInRow({
       />
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         className="hidden h-8 shrink-0 text-[13px] font-normal md:inline-flex"
         disabled={disabled}

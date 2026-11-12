@@ -7,6 +7,9 @@ import threading
 import pytest
 
 from agent.common import AgentGroup
+from agent.common import bff_http
+from agent.knowledge.personal_memory import VALID_PERSONAL_KINDS
+from agent.knowledge.personal_memory import PersonalMemoryWrite
 from agent.knowledge.project_memory import VALID_CONFIDENCES
 from agent.knowledge.project_memory import VALID_KINDS
 from agent.memory import reflection as R
@@ -117,7 +120,17 @@ class TestFindingVocabulary:
     side would just start dropping findings — pin them."""
 
     def test_kinds_match_the_write_clients_vocabulary(self):
-        assert set(R._ReflectionFinding.model_fields["kind"].annotation.__args__) == VALID_KINDS
+        kinds = set(R._ReflectionFinding.model_fields["kind"].annotation.__args__)
+        assert kinds == VALID_KINDS | VALID_PERSONAL_KINDS
+
+    def test_the_prompt_and_the_schema_name_the_same_fields(self):
+        """The obligation in ``memory/AGENTS.md``: a field in one and not the
+        other parses nothing, and the pass silently records zero findings."""
+        fields = set(R._ReflectionFinding.model_fields)
+        assert fields == {"about", "kind", "content", "confidence", "importance", "supersedes"}
+        example = R.REFLECTION_SYSTEM_PROMPT[R.REFLECTION_SYSTEM_PROMPT.rindex('{"findings"') :]
+        assert all(f'"{field}":' in example for field in fields)
+        assert set(R.ReflectionOutput.model_json_schema()["$defs"]["_ReflectionFinding"]["required"]) == fields
 
     def test_confidences_match_the_write_clients_vocabulary(self):
         assert set(R._ReflectionFinding.model_fields["confidence"].annotation.__args__) == VALID_CONFIDENCES
@@ -150,7 +163,7 @@ class TestSanitizeFindings:
         # The autonomous stage NEVER writes org-wide memory (audit finding S1),
         # so it carries no scope at all — an extra key the model invents is not
         # a reason to drop an otherwise good finding either.
-        raw = [{"kind": "preference", "content": "Client prefers metric drawings.", "scope": "organization"}]
+        raw = [{"kind": "constraint", "content": "Client requires metric drawings.", "scope": "organization"}]
         items = _sanitize(raw)
         assert len(items) == 1
         assert not hasattr(items[0], "scope")
@@ -350,6 +363,17 @@ class TestReflectionSystemPrompt:
         assert "no longer holds" in prompt
         assert "Never skip a correction because its topic already appears in memory" in prompt
 
+    def test_a_personal_note_names_nobody(self):
+        """„Mein Gedächtnis“ read „Anna Erste wünscht Maße immer in Zentimetern.“: the
+        only reader is the person, so the note is the preference itself."""
+        prompt = R.REFLECTION_SYSTEM_PROMPT
+        assert "WITHOUT their name" in prompt
+        assert "Maße immer in Zentimetern." in prompt
+
+    def test_a_state_of_the_workspace_is_never_a_finding(self):
+        """A real run stored „Für dieses Projekt ist kein Bundesland gesetzt …“ as a constraint."""
+        assert "NOT a state of the workspace or of this conversation" in R.REFLECTION_SYSTEM_PROMPT
+
     def test_instructs_to_retire_the_entry_it_corrects(self):
         prompt = R.REFLECTION_SYSTEM_PROMPT
         assert "RETIRE WHAT YOU CORRECT" in prompt
@@ -442,7 +466,7 @@ class TestRunMemoryReflection:
 
         # What it wrote, not merely how much: the id, the kind and the words —
         # the post-answer stage puts these on the wire, and the chip renders them.
-        assert ids == [{"id": "id-1", "kind": "decision", "content": "Client chose a flat roof."}]
+        assert ids == [{"id": "id-1", "kind": "decision", "content": "Client chose a flat roof.", "about": "project"}]
         assert recorded[0]["scope"] == "project"
         assert recorded[0]["project_id"] == "proj-1"
         assert recorded[0]["kind"] == "decision"
@@ -878,3 +902,154 @@ class TestMemoryReflectionAsAStage:
         )
         outcomes = await self._run(self._facts(), _FakeLLM("{}"))
         assert outcomes["memory_reflection"].status == "timeout"
+
+
+# ADR-0180: every finding says whom it is about. A finding about the person
+# goes to their personal memory and never to the project's.
+_ENVELOPE = bff_http.SignedEnvelope(header="env-header", signature="env-signature")
+
+
+def _person(**fields):
+    return {"about": "person", "kind": "preference", "content": "Prefers short answers without tables.", **fields}
+
+
+class TestWhomAFindingIsAbout:
+    def test_a_person_finding_is_kept_when_the_turn_can_write_personal_memory(self):
+        [finding] = _sanitize([_person()], can_write_personal=True)
+        assert (finding.about, finding.kind) == ("person", "preference")
+
+    def test_a_person_finding_without_an_envelope_is_dropped_not_moved_to_the_project(self):
+        assert _sanitize([_person()]) == []
+
+    @pytest.mark.parametrize("kind", ["decision", "derived_fact", "role", None])
+    def test_any_other_kind_about_the_person_is_a_profile(self, kind):
+        [finding] = _sanitize([_person(kind=kind)], can_write_personal=True)
+        assert finding.kind == "profile"
+
+    @pytest.mark.parametrize("about", [None, "", "team", "both", 3])
+    def test_a_preference_with_no_usable_about_is_dropped(self, about):
+        entry = {"kind": "preference", "content": "Prefers short answers without tables.", "about": about}
+        assert _sanitize([entry], can_write_personal=True) == []
+
+    @pytest.mark.parametrize("kind", ["decision", "constraint", "open_question", "derived_fact"])
+    def test_a_project_kind_with_no_usable_about_is_the_projects(self, kind):
+        [finding] = _sanitize([{"kind": kind, "content": "Flat roof chosen.", "about": "??"}], can_write_personal=True)
+        assert finding.about == "project"
+
+    def test_a_profile_with_no_usable_about_is_the_persons(self):
+        [finding] = _sanitize([{"kind": "profile", "content": "Leads the permit phase."}], can_write_personal=True)
+        assert finding.about == "person"
+
+    def test_a_profile_said_to_be_about_the_project_is_dropped(self):
+        entry = {"about": "project", "kind": "profile", "content": "Leads the permit phase."}
+        assert _sanitize([entry], can_write_personal=True) == []
+
+    def test_about_is_folded_like_the_other_enums(self):
+        [finding] = _sanitize([_person(about=" Person ")], can_write_personal=True)
+        assert finding.about == "person"
+
+    def test_contact_details_pass_for_the_person_and_not_for_the_project(self):
+        content = "Reachable at huber@example.com."
+        assert _sanitize([_person(kind="profile", content=content)], can_write_personal=True)
+        assert _sanitize([{"about": "project", "kind": "derived_fact", "content": content}]) == []
+
+    def test_a_secret_is_dropped_for_the_person_too(self):
+        assert _sanitize([_person(content="The portal password is hunter2.")], can_write_personal=True) == []
+
+    def test_a_note_already_in_personal_memory_is_not_recorded_again(self):
+        block = 'PERSONAL_MEMORY v1\n- [preference] "Prefers short answers without tables."'
+        assert _sanitize([_person()], can_write_personal=True, personal_memory=block) == []
+
+    def test_a_person_finding_never_supersedes_a_project_entry(self):
+        digest = '- [decision | high | unverified] "Client chose a flat roof."'
+        [finding] = _sanitize(
+            [_person(supersedes="Client chose a flat roof.")], can_write_personal=True, memory_digest=digest
+        )
+        assert finding.supersedes == ""
+
+    def test_a_dropped_person_finding_costs_no_slot(self):
+        raw = [_person()] * 3 + [{"kind": "decision", "content": f"Decision {n}."} for n in range(R.MAX_NEW_ITEMS)]
+        assert len(_sanitize(raw)) == R.MAX_NEW_ITEMS
+
+    def test_the_prompt_shows_the_personal_memory_and_bounds_it(self):
+        prompt = R._build_user_prompt("q", "a", None, "PERSONAL_MEMORY v1\n" + "7" * 5000)
+        assert "## Existing personal memory of the person asking" in prompt
+        assert prompt.count("7") < R._MAX_PERSONAL_CHARS
+        assert "(no personal memory recorded yet)" in R._build_user_prompt("q", "a", None)
+
+
+class TestPersonalFindingsAreWrittenToPersonalMemory:
+    _REPLY = (
+        '{"findings": ['
+        '{"about": "person", "kind": "preference", "content": "Prefers short answers without tables.", '
+        '"confidence": "high", "importance": 4, "supersedes": ""}, '
+        '{"about": "project", "kind": "decision", "content": "Client chose a flat roof.", '
+        '"confidence": "high", "importance": 7, "supersedes": ""}]}'
+    )
+
+    async def _run(self, monkeypatch, *, envelope=_ENVELOPE, restriction=None, judged=None):
+        project, personal = [], []
+
+        def insert_project(**kwargs):
+            project.append(kwargs)
+            return f"p-{len(project)}"
+
+        def insert_personal(**kwargs):
+            personal.append(kwargs)
+            return PersonalMemoryWrite(id=f"n-{len(personal)}", created=True)
+
+        async def decisions(contents, evidence, *, llm):
+            if judged is not None:
+                judged.extend(contents)
+            return [R.RestrictionDecision(None)] * len(contents)
+
+        monkeypatch.setattr(R, "insert_memory_item", insert_project)
+        monkeypatch.setattr(R, "insert_personal_memory_item", insert_personal)
+        monkeypatch.setattr(R, "restriction_decisions", decisions)
+        recorded = await R.run_memory_reflection(
+            llm=_FakeLLM(self._REPLY),
+            query="Bitte künftig kurz antworten. Wir nehmen das Flachdach.",
+            answer="Verstanden.",
+            project_id="proj-1",
+            organization_id="org-1",
+            conversation_id="conv-1",
+            memory_digest=None,
+            restriction=restriction,
+            envelope=envelope,
+        )
+        return recorded, project, personal
+
+    @pytest.mark.asyncio
+    async def test_each_finding_goes_to_its_own_memory(self, monkeypatch):
+        recorded, project, personal = await self._run(monkeypatch)
+
+        assert [row["content"] for row in project] == ["Client chose a flat roof."]
+        assert personal == [
+            {
+                "envelope": _ENVELOPE,
+                "kind": "preference",
+                "content": "Prefers short answers without tables.",
+                "conversation_id": "conv-1",
+                "provenance_type": "distillation",
+            }
+        ]
+        assert [(row["id"], row["about"]) for row in recorded] == [("n-1", "person"), ("p-1", "project")]
+
+    @pytest.mark.asyncio
+    async def test_without_an_envelope_the_person_finding_reaches_no_memory(self, monkeypatch):
+        recorded, project, personal = await self._run(monkeypatch, envelope=None)
+
+        assert personal == []
+        assert [row["content"] for row in project] == ["Client chose a flat roof."]
+        assert [row["about"] for row in recorded] == ["project"]
+
+    @pytest.mark.asyncio
+    async def test_only_the_project_finding_is_judged_for_restriction(self, monkeypatch):
+        from agent.memory.restriction import RestrictionEvidence
+
+        judged: list[str] = []
+        evidence = RestrictionEvidence(scope=("proj_1_r0123456789ab",), read=("proj_1_r0123456789ab",))
+        _recorded, project, _personal = await self._run(monkeypatch, restriction=evidence, judged=judged)
+
+        assert judged == ["Client chose a flat roof."]
+        assert project[0]["restricted_collections"] is None

@@ -92,7 +92,10 @@ The paths that went with them:
   contradiction check, the platform reviewer's names, the register's names, the
   reading's token map) read `SITE_SUBDIVISIONS`, from the shipped AT seed of the
   country's `fact_definitions` record (`rulesets/seeds/at-setup-fact-definitions.json`,
-  ADR-0169). The picker still names each Land in the reader's language
+  ADR-0169). Amended by country-as-data step 3: the turn, the register and the
+  reading read the Länder from the released record (`subdivisionTerritories`),
+  the seed only where none is released; the picker's list still reads the seed.
+  The picker still names each Land in the reader's language
   (`form.site.state.<token>`).
 
 ### Kept, and why

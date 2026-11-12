@@ -20,6 +20,7 @@ vi.mock('./repository', () => ({
   heartbeatJob: async () => true,
   releaseJobs: (held: ReadonlyArray<{ jobId: string; holder: string }>) => releaseJobs(held),
 }))
+vi.mock('@/lib/documents/stuck-processing', () => ({ failDocumentsOfDeadJob: async () => undefined }))
 const slice = vi.hoisted(() => ({ finish: null as null | (() => void) }))
 vi.mock('./run', () => ({
   UnknownJobKindError: class extends Error {},

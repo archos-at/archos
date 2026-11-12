@@ -39,7 +39,7 @@ export const PdfFailure: FC<{ href: string; onRetry: () => void }> = ({ href, on
       data-testid="pdf-load-failed"
       action={
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+          <Button type="button" variant="secondary" size="sm" onClick={onRetry}>
             <RotateCcw aria-hidden />
             {t('viewer.retry')}
           </Button>
@@ -155,7 +155,7 @@ export const QuoteBar: FC<{
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             onMouseDown={(event) => event.preventDefault()}
             onClick={onCopy}
             // `bg-card` is load-bearing, not decoration: the outline variant is
@@ -177,7 +177,7 @@ export const QuoteBar: FC<{
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             onMouseDown={(event) => event.preventDefault()}
             onClick={onFindSimilar}
             // On paper-white, as the copy button beside it (see `bg-card` above).

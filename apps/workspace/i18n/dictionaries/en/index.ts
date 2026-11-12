@@ -17,6 +17,8 @@ import { collaboration } from './collaboration'
 import { files } from './files'
 import { dossier } from './dossier'
 import { officeShelf } from './office-shelf'
+import { baseKnowledge } from './base-knowledge'
+import { lawMap } from './law-map'
 import { bim } from './bim'
 import { knowledge } from './knowledge'
 import { research } from './research'
@@ -51,6 +53,8 @@ import { inboundMail } from './inbound-mail'
 import { mailThread } from './mail-thread'
 import { search } from './search'
 import { whatsNew } from './whats-new'
+import { personalMemory } from './personal-memory'
+import { memoryNotes } from './memory-notes'
 
 export const en = {
   common,
@@ -67,6 +71,8 @@ export const en = {
   files,
   dossier,
   officeShelf,
+  baseKnowledge,
+  lawMap,
   bim,
   knowledge,
   research,
@@ -98,4 +104,6 @@ export const en = {
   mailThread,
   search,
   whatsNew,
+  personalMemory,
+  memoryNotes,
 } as const

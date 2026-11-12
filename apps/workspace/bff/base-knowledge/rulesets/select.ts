@@ -37,6 +37,7 @@ export const INHERITANCE_BY_PURPOSE: Record<RulesetPurpose, 'nearest' | 'explici
   fact_sources: 'nearest',
   advice_policy: 'nearest',
   terminology: 'nearest',
+  citation_style: 'nearest',
 }
 
 export interface RulesetQuery {

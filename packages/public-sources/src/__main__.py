@@ -40,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     for result in results:
         print(f"{'ok' if result.ok else 'FAIL'}  {result.source_id}  {result.fixture}")
         print("".join(f"      {failure}\n" for failure in result.failures), end="")
+        print("".join(f"      awaits its capture: {url}\n" for url in result.awaiting), end="")
     return 0 if all(result.ok for result in results) else 1
 
 

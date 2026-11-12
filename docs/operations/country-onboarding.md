@@ -40,7 +40,12 @@ Two kinds of configured source:
 
 - **A platform record** (ADR-0174), proposed through the door as a `source`
   record with its fixtures inline. KC-7 checks it on the api tier (it parses,
-  its URLs are on its hosts, every fixture passes with no live call). While it
+  its URLs are on its hosts, every fixture passes with no live call). A source
+  of PDFs (`pdf_document`) pastes nothing: its fixture names a `fetched`
+  capture the platform took of the document through the draft's own hosts
+  (`{captureId}`; `null` in the first proposal, which opens the hosts, and the
+  capture's id in the second). The reviewer finds that capture, with its
+  sha256, size and time, among the request's captures. It must be a PDF read whole: an HTML page or a text cut at a page boundary is refused (KC-7). While it
   is a draft, its hosts are `testing`: usable by its own request's
   `source-test` and `citation-capture` for 24 hours, by nothing else. Once
   published they are `active`. A `site_keyed` source (it receives a site
@@ -70,6 +75,46 @@ its scope. Austria's are `configs/knowledge-packs/at-scopes.json`: the editions
 again with their scope, proposed as a change request of their own after the
 pack.
 
+## Setup, classification and site placement
+
+What a project's setup asks, its building classification, the documents a site
+needs, the Länder a site is placed in and the register that places an address
+are records too, read by every project of the country and by nothing else
+(ADR-0169): three `ruleset` records (`fact_definitions`, `fact_sources`,
+`classification`), the first carrying the `addressRegister`, and the country's
+territory record stating its `zone` (an IANA time zone). Until a country's are
+published its projects are asked nothing country-specific
+(`classification-evaluate` answers `not_published`) and its addresses stay
+`unverified`; an open procedure's day is `zone_unknown`. Until #1630 deletes
+them once Austria is on stable on prod, the build still carries Austria's three
+rulesets (`rulesets/shipped.ts`) and a zone table for eight countries
+(`time/today.ts`), each read only where nothing released states the same node
+and purpose (or a zone on the chain). Austria's are
+`configs/knowledge-packs/at-setup.json` (the three rulesets) and the `AT`
+territory of `at.json` (with its zone): propose both after the pack, validate,
+review, publish. A second record for one node and purpose makes the selection
+ambiguous and gives nothing.
+
+## The country's quality bar
+
+A country's golden cases are records too (`golden_case`, ADR-0165, amendment
+"golden cases are records"): propose them in a change request once the law they
+name is published, each citing the capture its expectation was read from. Mark
+what you could not check `grounding: unconfirmed`; the reviewer confirms or
+rewrites it, and until then it never decides a case. Austria's are
+`configs/knowledge-packs/at-golden-cases.json` (28 cases, 25 of 66 expectations
+unconfirmed).
+
+`platform-knowledge-golden-run {countryId}` asks the released cases through the
+answer path and scores them; with `changeRequestId` it runs the cases of a
+request published to preview. It asks as you, in the platform organization,
+which must be entitled to the country and have the switch for asking from another agent on, and it spends
+that organization's model budget. Step it with `-golden-run-advance` until it
+is finished. The verdicts are on the run (`-golden-run-get`) and in Langfuse,
+under the dataset `golden-cases`, one dataset run per golden run, so two runs
+compare case by case. Publishing does not wait for a run: read it before you
+ask for the publish.
+
 ## Keeping a country current
 
 The `source-monitor` sweep (every 15 minutes) checks each published source
@@ -87,6 +132,10 @@ A request holding an advice policy needs a `counsel` approval, and one holding
 a site-keyed source a `privacy_reviewer` approval, besides the domain expert's.
 The request stays `submitted` until each has said yes; a trigger refuses a
 publish without them (migration 0212).
+
+## Known limits
+
+- **A large request cannot be read whole through the door.** Every door result is cut at `MAX_RESULT_CHARS` (40,000 characters, `apps/workspace/bff/agent-api/discovery.ts`), and `platform-knowledge-change-request-get` takes no filter or page. Austria's dev request (408 revisions) answers about 400,000 characters, so an agent sees its first records and none of its relations. The platform view reads it through the route, unaffected. What closes it: a `type` filter or a cursor on `change-request-get`, sharing the route's schema.
 
 ## The measure
 

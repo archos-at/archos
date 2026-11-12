@@ -181,7 +181,7 @@ export function ScheduleTimetable({
           {weekOffset === 0 ? `${t('timetable.thisWeek')} · ${weekLabel}` : weekLabel}
         </p>
         {weekOffset !== 0 && (
-          <Button variant="outline" size="sm" onClick={() => setWeekOffset(0)}>
+          <Button variant="secondary" size="sm" onClick={() => setWeekOffset(0)}>
             {t('timetable.today')}
           </Button>
         )}

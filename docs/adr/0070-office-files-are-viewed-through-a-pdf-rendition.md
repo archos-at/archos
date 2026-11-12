@@ -94,8 +94,8 @@ What that means in practice:
   nothing outside the cluster to do it. The network denies it a route where it
   can (an internal Compose network, a NetworkPolicy), and the
   `--libreoffice-deny-private-ips` and `--libreoffice-deny-public-ips` flags
-  make LibreOffice refuse every URL a file links where it cannot (Coolify, a
-  cluster without NetworkPolicies).
+  make LibreOffice refuse every URL a file links where it cannot (Coolify, retired
+  2026-11-11 by ADR-0150; a cluster without NetworkPolicies).
 
 ### Consequences
 

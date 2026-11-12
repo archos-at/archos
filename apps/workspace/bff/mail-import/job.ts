@@ -42,6 +42,7 @@ import { requireFolderWrite } from '@/lib/authz/folder-access'
 import { resolveShelfFolderPath } from '@/lib/documents/folder-path'
 import { requireShelfWrite } from '@/lib/documents/shelf-authz'
 import { projectShelf } from '@/lib/documents/shelf'
+import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { inboxGroupKey } from '@/lib/inbox/registry'
 import { emitInboxItems } from '@/lib/inbox/service'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
@@ -200,6 +201,7 @@ async function fileUntilBudget(session: AuthorizedSession, initial: MailImport):
     }
   }
   const waiting = await renderThreads(context, deadline)
+  announceToShelf(context.mailImport)
   if (filing === 'moved_on') return 'done'
   if (filing === 'busy' || waiting > 0) return { notBefore: new Date(Date.now() + RENDER_LEASE_RETRY_MS) }
   if (filing === 'more') return 'more'
@@ -434,6 +436,7 @@ async function finish(row: MailImport, status: 'completed' | 'failed', failure: 
     inflightFolderId: null,
   })
   if (!ended) return
+  announceToShelf(ended)
   await sealImportBatch(ended)
   try {
     await discardStaging(ended)
@@ -442,6 +445,16 @@ async function finish(row: MailImport, status: 'completed' | 'failed', failure: 
     console.error(`[mail-import] could not delete the staged archive of ${ended.id}:`, cause)
   }
   await announce(ended)
+}
+
+/**
+ * Tell the project's shelf that the import moved: a slice filed folders and
+ * mails and counted them, or the import ended. The import dialog reads its
+ * list again on this hint instead of every five seconds (`useMailImports`);
+ * the hint names nothing, and the list has the shelf's own gate (`project:view`).
+ */
+function announceToShelf(row: MailImport): void {
+  publishShelfChanged(row.organizationId, projectShelf(row.projectId), { folders: true })
 }
 
 async function announce(row: MailImport): Promise<void> {

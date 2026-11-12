@@ -22,10 +22,18 @@ export const PLATFORM_KNOWLEDGE_EXPOSURE = {
   'platform-knowledge-change-request-list': PLATFORM_PUBLIC,
   'platform-knowledge-change-request-review': PLATFORM_PUBLIC,
   'platform-knowledge-change-request-submit': PLATFORM_PUBLIC,
+  // A country's quality bar, run on platform records as the operator in the platform organization (ADR-0165 amendment):
+  // the run answers verdicts and scores, never an answer's text.
+  'platform-knowledge-golden-run': PLATFORM_PUBLIC,
+  'platform-knowledge-golden-run-advance': PLATFORM_PUBLIC,
+  'platform-knowledge-golden-run-get': PLATFORM_PUBLIC,
   'platform-knowledge-index-status': PLATFORM_PUBLIC,
   'platform-knowledge-overview-get': PLATFORM_PUBLIC,
   'platform-knowledge-publish': PLATFORM_PUBLIC,
   'platform-knowledge-records-propose': PLATFORM_PUBLIC,
+  // A country's release between deployments: export reads, import writes a draft only, reviewed and published as any.
+  'platform-knowledge-release-export': PLATFORM_PUBLIC,
+  'platform-knowledge-release-import': PLATFORM_PUBLIC,
   'platform-knowledge-rollback': PLATFORM_PUBLIC,
   'platform-knowledge-schema-get': PLATFORM_PUBLIC,
   // A country's public sources (ADR-0174): platform configuration of public pages, never a tenant's content.
@@ -34,6 +42,12 @@ export const PLATFORM_KNOWLEDGE_EXPOSURE = {
   'platform-knowledge-source-status': PLATFORM_PUBLIC,
   'platform-knowledge-source-test': PLATFORM_PUBLIC,
   // An edition's public text, attached in its draft: fetched by the sandboxed fetcher or uploaded, platform content only.
+  'platform-knowledge-base-get': PLATFORM_PUBLIC,
+  'platform-knowledge-document-get': PLATFORM_PUBLIC,
+  // One document into a country's draft: the capture, records and text steps above in one call, the same checks.
+  'platform-knowledge-document-add': PLATFORM_PUBLIC,
+  'platform-knowledge-document-add-upload': PLATFORM_PUBLIC,
+  'platform-knowledge-work-list': PLATFORM_PUBLIC,
   'platform-knowledge-text-get': PLATFORM_PUBLIC,
   'platform-knowledge-text-import': PLATFORM_PUBLIC,
   'platform-knowledge-text-list': PLATFORM_PUBLIC,

@@ -47,7 +47,7 @@ export function ListboxOption({
       data-active={active || undefined}
       className={cn(
         'flex min-h-9 cursor-pointer flex-col justify-center rounded-control px-2.5 py-1.5 text-sm pointer-coarse:min-h-11',
-        'data-[active]:bg-accent data-[active]:text-accent-foreground hover:bg-accent',
+        'data-[active]:bg-hover data-[active]:text-accent-foreground hover:bg-hover',
         className
       )}
       onMouseDown={(event) => {

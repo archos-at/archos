@@ -7,14 +7,14 @@
 The `REQUIRE_AUTH` environment variable controls whether WorkOS AuthKit login is required:
 
 ```bash
-# Disabled (default): app uses "Default User", no login required
+# Disabled (default): no session at all, only the /dev previews render
 REQUIRE_AUTH=false
 
 # Enabled: users must log in via WorkOS AuthKit
 REQUIRE_AUTH=true
 ```
 
-When auth is disabled, the system runs with a default unauthenticated user context. The Python backend receives no JWT tokens and operates in anonymous mode.
+When auth is disabled there is no session: every page behind a session answers 500 and every session route under `/api` answers 403 (`SessionRequiredError`), so only the `/dev` previews are usable. The Python backend receives no JWT tokens and operates in anonymous mode. To run the app signed in without a WorkOS account, use the [local stack](../contributing/local-stack.md).
 
 The backend reads the same variable. With `REQUIRE_AUTH=true` it enforces:
 
@@ -139,8 +139,8 @@ Two layers hold it:
   roles; out, DNS and public addresses on 443. It holds no secret and no
   service-account token, so a hostile PDF that took the reader reaches nothing.
   In Compose it has a network of its own (`public-sources`) shared with those
-  three roles and no store; Coolify puts every service on one managed network,
-  so there the guard is the only layer.
+  three roles and no store; where every service shares one network, the guard
+  is the only layer.
 
 ### When the fetcher is not there
 

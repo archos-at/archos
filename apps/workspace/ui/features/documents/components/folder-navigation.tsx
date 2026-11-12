@@ -78,7 +78,10 @@ export function FolderBreadcrumbRow({
   itemCount,
   emptyLevel = false,
   searching = false,
+  rootLabel,
 }: Pick<FolderNavProps, 'folders' | 'currentFolderId' | 'onNavigate'> & {
+  /** What the top of the path is called; „Alle Dateien“ unless the place names its own (the office standards). */
+  rootLabel?: string
   /** A query filters the files: the path is not where the reader is then, but the level's tools stay in the tool row. */
   searching?: boolean
   /** What the open folder holds, beside its name in the header („240 Elemente“). */
@@ -114,6 +117,7 @@ export function FolderBreadcrumbRow({
   mayWriteAt?: (folderId: string | null) => boolean
 }): JSX.Element | null {
   const t = useTranslations(filesCopy)
+  const allLabel = rootLabel ?? t('folders.allFiles')
   const path = useMemo(() => folderPath(folders, currentFolderId), [folders, currentFolderId])
   /** Every way up is a drop target, offered while there is somewhere to come back FROM. */
   const crumb = (folderId: string | null, label: string, children: ReactNode) => (
@@ -138,7 +142,7 @@ export function FolderBreadcrumbRow({
    * Null at the root, where there is nothing to go up to.
    */
   const parent = currentFolderId === null ? undefined : path[path.length - 2]
-  const parentLabel = parent ? parent.name : t('folders.allFiles')
+  const parentLabel = parent ? parent.name : allLabel
   const tabSlot = useSectionTabActionsSlot()
   const placeSlot = useSectionPlaceSlot()
   // Where the tool row has no room for „Ordner anlegen“, it is an entry of Hochladen's menu that opens this dialog.
@@ -221,18 +225,18 @@ export function FolderBreadcrumbRow({
         <BreadcrumbList className="flex-nowrap overflow-x-auto">
           <BreadcrumbItem>
             {currentFolderId === null ? (
-              <BreadcrumbPage className="sr-only" /* the tab above says it */>{t('folders.allFiles')}</BreadcrumbPage>
+              <BreadcrumbPage className="sr-only" /* the tab above says it */>{allLabel}</BreadcrumbPage>
             ) : (
               crumb(
                 null,
-                t('folders.allFiles'),
+                allLabel,
                 <BreadcrumbLink asChild>
                   <button data-attr="files-navigate"
                     type="button"
                     onClick={() => onNavigate(null)}
                     className="hover:text-foreground transition-colors rounded-inline whitespace-nowrap px-1"
                   >
-                    {t('folders.allFiles')}
+                    {allLabel}
                   </button>
                 </BreadcrumbLink>
               )
@@ -543,7 +547,7 @@ export function FolderCard({
   return (
     <TileShell
       interactive
-      // A folder is a 56px sheet (glyph, name, what it holds, a chevron) inside the tile's 6px hover inset, its edge
+      // A folder is a 56px sheet (glyph, name, what it holds, a chevron) inside the tile's 6px inset, its edge
       // on the thumbnails' edge: apart from a document by its shape, a strip, not a page. On a phone it is a 48px
       // sheet in the grid's two columns, glyph, name and count, its ⋯ a long press away (the object menu): three
       // full-width sheets put the first thumbnail at y=475.
@@ -586,7 +590,7 @@ export function FolderCard({
             opens, not a press. One line for the name, cut at its end with the whole name as its title: a name of three
             lines made its row 138px beside rows of 82 (finding 6), and a folder's start is what tells it apart. */}
         <FileTileBody className="flex h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-3 pr-3 phone:gap-2.5 phone:pr-10">
-          {/* One glyph, still: what says „this opens“ is the fill under the pointer and the cursor (#1055's tile notes). */}
+          {/* One glyph, still: what says „this opens“ is the sheet's own fill under the pointer and the cursor (#1055's tile notes). */}
           <span className={FOLDER_WELL}>
             <Folder className="size-[18px] text-muted-foreground" strokeWidth={1.6} aria-hidden />
           </span>

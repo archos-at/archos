@@ -298,7 +298,7 @@ export const PlanChecklist: FC<{
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 className="h-7 gap-1 px-2 text-xs pointer-coarse:h-11 pointer-coarse:px-3"
                 onClick={() => setPicking(true)}
                 data-testid="plan-documents-pick"

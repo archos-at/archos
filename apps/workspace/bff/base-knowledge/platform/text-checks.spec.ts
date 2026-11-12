@@ -23,7 +23,7 @@ vi.mock('@/lib/knowledge/service', () => ({
     return { files: corpus.files }
   },
 }))
-vi.mock('./source-checks', () => ({ sourceChecksOf: async () => new Map() }))
+vi.mock('./source-checks', () => ({ sourceChecksOf: async () => ({ checks: new Map(), awaiting: new Map() }) }))
 
 import { checksOutsideKit, textChecksOf } from './text-checks'
 import { type KnownCapture, type KnownRecord, validateProposal } from './validate'

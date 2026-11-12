@@ -82,7 +82,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from '@/components/ui/item'
-import { motion, motionQuick } from '@/components/motion'
+import { motion, motionQuick, motionQuickExit, useMotionToken } from '@/components/motion'
 import { cn } from '@/lib/utils'
 import { documentLifecycleClient } from '@/lib/documents/lifecycle-client'
 import { DiscussDocumentButton } from '@/features/documents/components/discuss-document-button'
@@ -340,6 +340,9 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
   /** What a new Fassung leaves to check, where its sentence gave way to the quote: a fact on the caption line. */
   const openMarks = item.type === 'document.new_revision' && !inert && !showBody ? (item.openMarks ?? 0) : 0
   const dueChip = inboxDue(item, t, locale)
+  const move = useMotionToken(motionQuick)
+  // Leaving starts at once, on the departure curve; under reduced motion both are one frame.
+  const leave = useMotionToken(motionQuickExit)
   return (
     /* The row owns its own <li>, so it is the element that animates — wrapping it
        from the list would nest <li> in <li>, and a `display: contents` wrapper has
@@ -357,19 +360,24 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
           Item's own focus ring, which drew a double black bar against the
           dividers and read as a rendering fault.
         */
-        'hover:bg-muted focus-visible:bg-muted focus-visible:ring-0',
+        'hover:bg-desk focus-visible:bg-desk focus-visible:ring-0',
         // The keyboard's own indicator is the app's focus outline (3:1, WCAG
         // 2.4.11), drawn inside the row's rounded edge (`data-focus-inset`).
         'rounded-control',
         inert && 'bg-muted/60',
-        focused && 'bg-muted',
+        focused && 'bg-desk',
       )}
     >
       <motion.li
         ref={ref}
         layout
-        exit={{ opacity: 0, x: 12 }}
-        transition={motionQuick}
+        // A row that arrives while the list is on screen (an archive taken
+        // back, a live one) fades in where the others made room; the rows the
+        // list opened with stand at once (`AnimatePresence initial={false}`).
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0, x: 12, transition: leave }}
+        transition={move}
         data-testid="inbox-item"
         data-item-id={item.id}
         data-state={item.state}

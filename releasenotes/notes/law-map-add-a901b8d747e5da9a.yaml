@@ -1,0 +1,8 @@
+---
+# area: building-law
+operators:
+  - >
+    On the law map, an operator now adds what a country is missing where it
+    belongs: an act that makes editions binding, under its region, and a new
+    edition with its PDF, under its guideline. Each goes into the country's
+    draft change request with the page it cites, checked before it is written.

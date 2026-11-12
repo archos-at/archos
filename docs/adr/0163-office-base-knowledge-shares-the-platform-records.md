@@ -153,3 +153,45 @@ reading, freshness and authority specs beside the code.
 
 Design `docs/design/international/design.md` §3.4, §4.7, §8.1 (branch
 `claude/intl-design`). Edition selection by a project's reference date is ticket 30.
+
+## Amendment 2026-11-11: a place of their own, folders, and editions on the platform's primitives
+
+The settings card was where nobody looked for documents and could not hold more than a handful of entries.
+The office's standards became a place beside the Büroablage (`/app/base-knowledge`, PR #1671):
+
+- **Folders.** One root folder on the office shelf, „Grundlagen des Büros“, found by name and created on
+  first use as a project's `Berichte` is; the office shelf's folder service refuses its rename, move and
+  delete (`bff/office-shelf/standards-folder.ts`). Its subfolders are ordinary office shelf folders, so the
+  Büroablage shows the same tree. Uploads land there; a record whose document lies elsewhere on the shelf is
+  still an entry. No migration: the folder is where files are put, the records still say what a file is.
+- **A newer edition is an edition of the same work**, as the platform holds editions, so the one rule
+  decides which applies. It supersedes "one office work per copy for now" above. A work was created with
+  its first document, and an edition's revision references its work with ON DELETE CASCADE: removing the
+  first document would take every later edition's revisions with it. So before a second edition joins,
+  the work is made to stand alone (a new work record with no document, a new revision of the first edition
+  naming it; revisions are only appended), and a standalone work is deleted with its last edition
+  (`bff/base-knowledge/store/office-editions.ts`, its Postgres spec). An entry's id is its edition's.
+  Every write to an office edition locks its record and re-reads the work its newest revision names, so two
+  editions added at once end in one work, and an edit read before a join lands on the shared work. A work no
+  edition names any more (its last document deleted from the Büroablage) is never read. A shared work is cited
+  without one edition's date (`ÖNORM B 1600`, not `…:2017`; `workDesignation`), each edition's date being
+  its label. A dated edition is in force on no day before it starts or after it ends; only an undated one
+  answers when the rule finds none. An edition's history shows only the editions the reader may see.
+- **Which edition an answer uses** is the platform's rule for a standard, guideline or commentary
+  (`time/editions.ts` `newestInForce`; an edition starts on its in-force date, else its issue date) at the
+  project's reference day: the filing day once it has come, else today (`referenceDayOfProfile`, which the
+  knowledge context's `referenceDateOf` shares). Replaces "every confirmed entry" in the turn block.
+- **The citation line** of a passage of an office copy carries the same fields a platform edition's does
+  (designation, edition label, ids, role, last check, freshness in the platform's tokens), found by the
+  passage's `knowledge_edition_id` (`packages/agent/src/agent/citations/office_lines.py`). Wording the line
+  is `docs/design/citations.md` slice 2's one formatter; no second form for office copies.
+- **Operations.** `base-knowledge-folder-list`, `-folder-create`, `-bulk` (check, move, remove; at most 50,
+  one short request, each entry through the single-entry service) and `-edition-add`. `base-knowledge-list`
+  narrows by folder (with subfolders), attention, kind and a search, and answers counts, folder counts and
+  the territories the form offers by name.
+
+Deferred, with the reason: a masthead reading for the proposal (the file name and a person's correction
+cover most cases; reading needs the licensed seam's zero-retention call), a measure of how well tables in
+standards are read (needs licensed test documents and an evaluation of its own), a view of norms the
+platform lists and the office does not hold, and replacing a copy's file (a newer edition, or remove and
+upload, covers it).

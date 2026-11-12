@@ -90,7 +90,7 @@ const COPY_BUTTON_CLASS = cn(
   'opacity-0 transition-[opacity,color,background-color,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out group-hover:opacity-100 active:scale-[0.98] motion-reduce:active:scale-100',
   'focus-visible:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none',
   'inline-flex items-center justify-center pointer-coarse:size-11 pointer-coarse:bg-transparent pointer-coarse:p-0',
-  'hover:bg-accent hover:text-foreground',
+  'hover:bg-selected hover:text-foreground',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
 )
 

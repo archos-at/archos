@@ -38,3 +38,8 @@ docs/
 **/conftest.py
 # The test-support packages (`<package>_testing`, ADR-0145 row 5); never in an image.
 **/testing/*_testing/**
+# The table of secret-shaped and harmless notes that the memory content guard
+# is held to in both languages (bff/knowledge/note-content-guard.ts and
+# agent/knowledge/memory_content_guard.py). Its JSON web token, keys and account
+# numbers are invented cases the guard must refuse, not credentials.
+tests/fixtures/memory_note_guard_cases.json

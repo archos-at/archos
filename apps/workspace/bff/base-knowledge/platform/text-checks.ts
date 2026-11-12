@@ -48,6 +48,8 @@ export interface OutsideChecks {
   checks: Map<string, Problem[]>
   /** The sha256 of the bytes each manifestation names, by record id: what its revision is written with. */
   pins: Map<string, string>
+  /** What a proposed source still waits for before it validates (a fixture's capture), by record id. */
+  awaiting: Map<string, string[]>
 }
 
 /** The sha256 of each file the base corpus holds now, by name; a file whose bytes are gone (`removed`) is not one. */
@@ -93,7 +95,8 @@ export async function textChecksOf(
   const texts = records.filter((record): record is TextRecord => record.type === 'manifestation' && record.corpusFile !== null)
   const checks = new Map<string, Problem[]>()
   const pins = new Map<string, string>()
-  if (texts.length === 0) return { checks, pins }
+  const awaiting = new Map<string, string[]>()
+  if (texts.length === 0) return { checks, pins, awaiting }
   // A corpus that did not answer leaves every text unchecked.
   const held = await corpusFileHashes().catch(() => null)
   for (const record of texts) {
@@ -102,15 +105,19 @@ export async function textChecksOf(
     checks.set(id, typeof answer === 'string' ? [] : [answer])
     if (typeof answer === 'string') pins.set(id, answer)
   }
-  return { checks, pins }
+  return { checks, pins, awaiting }
 }
 
-/** Every outside check of `records`, by record id (what `runKit` takes), and the hash each clean text is written with. */
+/**
+ * Every outside check of `records`, by record id (what `runKit` takes), and the hash each clean text is written with.
+ * `pinNew` is a proposal into a draft; `changeRequestId` the request whose captures a source's fixture may name.
+ */
 export async function checksOutsideKit(
   records: readonly ProposedRecord[],
   pinned: ReadonlyMap<string, TextPin> = new Map(),
   pinNew = false,
+  changeRequestId: string | null = null,
 ): Promise<OutsideChecks> {
-  const [sources, texts] = await Promise.all([sourceChecksOf(records), textChecksOf(records, pinned, pinNew)])
-  return { checks: new Map([...sources, ...texts.checks]), pins: texts.pins }
+  const [sources, texts] = await Promise.all([sourceChecksOf(records, changeRequestId, pinNew), textChecksOf(records, pinned, pinNew)])
+  return { checks: new Map([...sources.checks, ...texts.checks]), pins: texts.pins, awaiting: sources.awaiting }
 }

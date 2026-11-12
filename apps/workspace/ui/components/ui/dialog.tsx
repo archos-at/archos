@@ -6,6 +6,8 @@ import { XIcon } from 'lucide-react'
 
 
 import { cn, twMerge } from '@/lib/utils'
+import { useTranslations } from '@/i18n'
+import { commonCopy } from '@/i18n/namespaces/common'
 import { useSheetPull } from '@/components/ui/sheet-pull'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { OVERLAY_MOTION } from '@/components/ui/overlay-motion'
@@ -293,13 +295,16 @@ const DialogContent = React.forwardRef<
       showCloseButton = true,
       mobilePresentation,
       fullScreenOnMobile = false,
-      closeLabel = 'Close',
+      closeLabel,
       instant = false,
       onOpenAutoFocus,
       ...props
     },
     ref
   ) => {
+    // The close button's name in the reader's language, unless the caller names it.
+    const t = useTranslations(commonCopy)
+    const closeName = closeLabel ?? t('actions.close')
     const closeRef = React.useRef<HTMLButtonElement>(null)
     const dismiss = React.useCallback(() => closeRef.current?.click(), [])
     const pull = useSheetPull(dismiss)
@@ -375,7 +380,7 @@ const DialogContent = React.forwardRef<
                   ref={closeRef}
                   data-slot="dialog-close"
                   className={cn(
-                    'text-muted-foreground duration-quick hover:bg-accent hover:text-foreground pointer-coarse:size-11 pointer-coarse:top-2.5 pointer-coarse:right-2.5 absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-control outline-none transition-colors ease-out disabled:pointer-events-none disabled:opacity-50',
+                    'text-muted-foreground duration-quick hover:bg-hover hover:text-foreground pointer-coarse:size-11 pointer-coarse:top-2.5 pointer-coarse:right-2.5 absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-control outline-none transition-colors ease-out disabled:pointer-events-none disabled:opacity-50',
                     // Below the status bar and clear of the Dynamic Island's
                     // side, centred on the title's first line (the full
                     // screen's top padding less half the button).
@@ -385,7 +390,7 @@ const DialogContent = React.forwardRef<
                   )}
                 >
                   <XIcon className="size-4" />
-                  <span className="sr-only">{closeLabel}</span>
+                  <span className="sr-only">{closeName}</span>
                 </DialogPrimitive.Close>
               )}
             </div>

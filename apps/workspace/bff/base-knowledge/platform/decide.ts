@@ -15,6 +15,7 @@ import { getPlatformOrganizationId } from '@/lib/authz/platform'
 import type { ApprovalRole, ChangeRequestApproval, ChangeRequestStatus, PersonDecisionSource, SecondReviewState } from '@/lib/base-knowledge/wire/vocab'
 import type { Tx } from '../store/repository'
 import { retractPreview } from './release'
+import { singleOperator } from './single-operator'
 import {
   awaitedApprovalRoles,
   insertApproval,
@@ -92,9 +93,11 @@ async function rejectRequest(tx: Tx, request: ChangeRequestRow, actor: Actor): P
 
 /**
  * Approve a submitted request, in a role. With `override` its author approves
- * alone: a claim nobody reviewed waits for the second review, one somebody
+ * alone: a claim nobody reviewed waits for the second review (on a deployment set
+ * to one operator alone, where none is due, every claim must be accepted first), one somebody
  * marked edited or rejected still blocks, and the trigger marks the request
- * single with a second review due (migration 0214).
+ * single with a second review due (migration 0214); on a deployment set to one
+ * operator alone it marks it single with none due (migration 0233).
  */
 async function approveSubmitted(tx: Tx, request: ChangeRequestRow, input: Input, actor: Actor): Promise<Decided> {
   if (request.status !== 'submitted') throw new ConflictError(`The change request is ${request.status}; only a submitted one is approved.`)
@@ -105,7 +108,9 @@ async function approveSubmitted(tx: Tx, request: ChangeRequestRow, input: Input,
   if (!authored && input.override) {
     throw new ConflictError('You wrote no revision in this change request, so there is nothing to override; approve it without the override.')
   }
-  const open = notAccepted(revisions, (decision) => (input.override ? decision !== null && decision !== 'accepted' : decision !== 'accepted'))
+  // A claim nobody reviewed may wait for the second review; one operator alone owes none, so it reviews every claim.
+  const waivesUnreviewed = Boolean(input.override) && !singleOperator()
+  const open = notAccepted(revisions, (decision) => (waivesUnreviewed ? decision !== null && decision !== 'accepted' : decision !== 'accepted'))
   if (open.length > 0) throw new ConflictError(`${open.length} claim(s) are not accepted (${open.slice(0, 5).join(', ')}); review them first.`)
   await insertApproval(tx, {
     changeRequestId: request.id,
@@ -114,9 +119,9 @@ async function approveSubmitted(tx: Tx, request: ChangeRequestRow, input: Input,
     decisionSource: actor.decisionSource,
     ...(input.override ? { overrideReason: input.override.reason } : {}),
   })
-  const marks = input.override
-    ? { approval: 'single' as const, secondReview: request.secondReview ?? ('due' as const) }
-    : { approval: request.approval, secondReview: request.secondReview }
+  // The trigger marked an override `single`, with a second review due unless one operator works alone (migration 0233).
+  const marked = (await lockChangeRequest(tx, request.id)) ?? request
+  const marks = { approval: marked.approval, secondReview: marked.secondReview }
   const alone = input.override ? revisions.map((revision) => revision.revisionId) : []
   // Counsel for an advice policy, a privacy reviewer for a site-keyed source (ADR-0174): until each has said
   // yes the request stays submitted, and the publish trigger refuses it whatever path reaches it.

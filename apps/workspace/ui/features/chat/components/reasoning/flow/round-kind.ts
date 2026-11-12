@@ -60,6 +60,8 @@ const SEARCH_TOOLS: ReadonlySet<string> = new Set([
   'advanced_web_search_tool',
   'ris_search_tool',
   'ris_fetch_tool',
+  'law_lookup',
+  // The law lookup's name before the rename; stored turns carry it.
   'ris_lookup_tool',
   'ris_catalog_lookup_tool',
 ])

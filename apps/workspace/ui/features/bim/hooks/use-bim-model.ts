@@ -9,7 +9,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useShelfLive } from '@/features/realtime/use-shelf-live'
 import type { BimProfileSuggestion } from '@/lib/bim/profile'
+import type { LiveShelf } from '@/lib/documents/shelf-live-events'
 import {
   attachConfirmations,
   type BimCheckConfirmation,
@@ -56,13 +58,10 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
-/**
- * How often a page re-asks while an extraction is running.
- *
- * A 60 MB model takes tens of seconds, so this is a handful of requests, and
- * the interval only exists while something is actually extracting.
- */
+/** How often ONE document's model is re-asked while it extracts (`useDocumentBimModel` knows no shelf to listen to). */
 const EXTRACTION_POLL_MS = 4_000
+/** The floor under the project shelf's live hint (`runBimExtractJob`): a lost hint costs a minute, never a spinner. */
+export const EXTRACTION_FALLBACK_POLL_MS = 60_000
 
 /**
  * The model list request currently in flight per project, shared by everything
@@ -167,18 +166,19 @@ export function useProjectBimModels(projectId: string | null): AsyncState<BimMod
     }
   }, [projectId, tick])
 
-  // A model the user just uploaded arrives `pending`/`extracting`, and nothing
-  // told the page when that finished — the upload appeared to hang until
-  // somebody reloaded, on exactly the surface whose whole promise is "drop an
-  // IFC in and ask it questions". Polling stops the moment nothing is in
-  // flight, so a page showing only `ready` models makes no requests at all.
+  // A model just uploaded arrives `pending`/`extracting`. The shelf's hint says
+  // when that ended; the slow poll is for a lost hint and for an office-shelf
+  // model in the list. Both stop the moment nothing is in flight.
+  const reload = useCallback(() => setTick((value) => value + 1), [])
+  const shelf = useMemo<LiveShelf | null>(() => (projectId ? { kind: 'project', projectId } : null), [projectId])
+  useShelfLive(shelf, reload, { enabled: extracting })
   useEffect(() => {
     if (!extracting) return
-    const timer = setInterval(() => setTick((value) => value + 1), EXTRACTION_POLL_MS)
+    const timer = setInterval(reload, EXTRACTION_FALLBACK_POLL_MS)
     return () => clearInterval(timer)
-  }, [extracting])
+  }, [extracting, reload])
 
-  return { ...state, reload: useCallback(() => setTick((value) => value + 1), []) }
+  return { ...state, reload }
 }
 
 /**

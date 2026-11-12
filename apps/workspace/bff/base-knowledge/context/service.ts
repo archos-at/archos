@@ -7,7 +7,7 @@
  * entitlements, the project's site facts, the packs' newest stable sequence,
  * the day); the graph and its resolution are not. So the cheap ones make a
  * digest, and the resolved context is cached under
- * `knowledge-context-v3:<org>:<project>:<digest>`: the organization and the
+ * `knowledge-context-v6:<org>:<project>:<digest>`: the organization and the
  * project are in the key, never only in the digest, so two offices whose
  * inputs hash alike never share an entry (the tenant cache-key rule).
  *
@@ -29,22 +29,27 @@ import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
+import { readSetupRecords } from '@/lib/project-intake/setup-records'
+import { subdivisionTerritories } from '@/lib/project-intake/setup-scope'
 import { projectBuildings } from '../chain/building'
 import type { BuildingScope } from '../rulesets/applicability'
 import { loadGraph } from '../chain/load'
 import { readOrganizationCountries } from '../platform/entitlements'
-import { procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
+import { PROFILE_PROCEDURE_IDS, procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
 import { countryOf, resolveKnowledgeContext, type SiteLeaf } from './resolve'
 import { lastAnswerPackSeqs, packsUpdatedSince } from './last-answer'
 import { rememberTurnContext } from './turn-snapshot'
 import { siteLeaves } from './site'
+import { lookupSourcesFor } from './sources'
 import type { KnowledgeContext, ProcedureContext } from './wire'
+
+type ReferenceDate = ProcedureContext['referenceDates'][string]
 
 /** How long a resolved context is reused: the digest changes with every input that decides it, so this only bounds the cache's size. */
 export const CONTEXT_TTL_MS = 10 * 60 * 1000
 
 /** The procedures a turn carries: the profile's first, as `procedure-*` facts scope them (ADR-0171). */
-const PROCEDURE_IDS = ['p1'] as const
+const PROCEDURE_IDS = PROFILE_PROCEDURE_IDS
 
 /**
  * Turns whose knowledge context could not be read (`knowledge_context_available`
@@ -91,7 +96,7 @@ export function contextDigest(inputs: ContextDigestInputs): string {
 
 /** The cache key of a resolved context: the organization and the project before the digest, always. */
 export function contextCacheKey(organizationId: string, projectId: string | null, digest: string): string {
-  return `knowledge-context-v3:${organizationId}:${projectId ?? '-'}:${digest}`
+  return `knowledge-context-v6:${organizationId}:${projectId ?? '-'}:${digest}`
 }
 
 /**
@@ -128,7 +133,16 @@ export async function recordsStamp(organizationId: string): Promise<string> {
   return [row?.office, row?.checks].map((value) => (value ? new Date(value).toISOString() : '-')).join('/')
 }
 
-function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undefined>>, leaves: readonly SiteLeaf[]): ProcedureContext[] {
+/**
+ * A procedure's reference day until a reviewed reference-date rule names one (design §5.4, country-as-data §3.6): its
+ * filing day once that has come, an assumption the chain text says; otherwise undetermined, and the turn resolves on
+ * today. Pure.
+ */
+export function referenceDateOf(filedOn: string | null, today: string): ReferenceDate {
+  return filedOn && filedOn <= today ? { date: filedOn, basis: 'filed_on' } : { date: null, basis: 'undetermined' }
+}
+
+function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undefined>>, leaves: readonly SiteLeaf[], today: string): ProcedureContext[] {
   return PROCEDURE_IDS.filter((id) => profileHasProcedure(facts, id)).map((id) => {
     const procedure = procedureFromProfile(facts, id)
     return {
@@ -136,8 +150,7 @@ function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undef
       procedureType: procedure.procedureType,
       filedOn: procedure.filedOn,
       decidedOn: procedure.decidedOn,
-      // No reviewed reference-date rule is read here yet: "nicht bestimmt" (design §5.4), never a guess.
-      referenceDates: Object.fromEntries(leaves.map((leaf) => [leaf.territoryId, { date: null, basis: 'undetermined' as const }])),
+      referenceDates: Object.fromEntries(leaves.map((leaf) => [leaf.territoryId, referenceDateOf(procedure.filedOn, today)])),
     }
   })
 }
@@ -149,18 +162,27 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
   const readsGraph = Boolean(inputs.homeCountry && first && country && inputs.entitled.includes(country))
   const loaded = readsGraph && first ? await time('knowledge-graph', () => loadGraph(organizationId, first.territoryId)) : null
   const graph = loaded?.graph ?? (readsGraph ? null : { territories: new Map(), works: new Map(), editions: new Map(), relations: [] })
-  return resolveKnowledgeContext({
+  const reference = first ? inputs.procedures[0]?.referenceDates[first.territoryId] : undefined
+  const context = resolveKnowledgeContext({
     homeCountry: inputs.homeCountry,
     entitled: new Set(inputs.entitled),
     sites: inputs.sites,
     graph,
     truncated: loaded?.truncated ?? false,
-    date: inputs.date,
+    date: reference?.date ?? inputs.date,
+    dateBasis: reference?.basis,
     now: new Date(),
     procedures: inputs.procedures,
     packSeqs: inputs.packSeqs,
     building: inputs.buildings ?? null,
   })
+  // The sources a lookup may read follow what the turn may read: none where it reads no country's law.
+  const { sources, dropped } = await time('knowledge-sources', () => lookupSourcesFor(context.retrieval.countries))
+  return {
+    ...context,
+    ...(sources.length > 0 ? { sources } : {}),
+    ...(dropped.length > 0 ? { sourcesDropped: dropped } : {}),
+  }
 }
 
 /** The cached resolution for an office and project; throws what a read throws. */
@@ -193,14 +215,15 @@ export function unavailableContext(date: string): KnowledgeContext {
 
 /** The inputs that decide a turn's context, read as the office. */
 export async function readContextInputs(organizationId: string, projectId: string | null): Promise<ContextDigestInputs> {
-  const [countries, profile, zone, stamp] = await Promise.all([
+  const [countries, profile, zone, stamp, setupRecords] = await Promise.all([
     readOrganizationCountries(organizationId),
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
     officeTimeZone(organizationId),
     recordsStamp(organizationId),
+    readSetupRecords(organizationId),
   ])
   const entitled = countries.entitled.map((entry) => entry.countryId)
-  const sites = siteLeaves(profile?.profile)
+  const sites = siteLeaves(profile?.profile, subdivisionTerritories(setupRecords))
   const facts = profile?.profile?.facts ?? {}
   const date = calendarDayIn(zone)
   return {
@@ -210,9 +233,45 @@ export async function readContextInputs(organizationId: string, projectId: strin
     date,
     // `EU` follows any entitled member (ADR-0168), so its sequence is read too.
     packSeqs: await packSequences([...entitled, 'EU']),
-    procedures: proceduresOf(facts, sites),
+    procedures: proceduresOf(facts, sites, date),
     recordsStamp: stamp,
-    buildings: projectBuildings(profile?.profile, date),
+    buildings: projectBuildings(profile?.profile, date, setupRecords),
+  }
+}
+
+/** A site a caller states instead of a project's: a golden case's territory and the day its question is about. */
+export interface StatedSite {
+  territoryId: string | null
+  /** A filing day the question is about: the context resolves on it once it has come, as a project's would. */
+  filedOn: string | null
+}
+
+/**
+ * The context an office's turn carries at a stated site with no project (a
+ * golden run, ADR-0165 amendment): the office's own entitlements and the
+ * released records, as {@link knowledgeContextForTurn} resolves them, with the
+ * site and the filing day stated by the caller. Never cached: a run asks each
+ * case once. Fails closed like the turn's.
+ */
+export async function knowledgeContextForStatedSite(organizationId: string, stated: StatedSite): Promise<KnowledgeContext> {
+  try {
+    const inputs = await readContextInputs(organizationId, null)
+    const sites: SiteLeaf[] = stated.territoryId ? [{ territoryId: stated.territoryId, certainty: 'verified' }] : []
+    const procedures: ProcedureContext[] = stated.filedOn
+      ? [
+          {
+            id: PROCEDURE_IDS[0],
+            procedureType: null,
+            filedOn: stated.filedOn,
+            decidedOn: null,
+            referenceDates: Object.fromEntries(sites.map((leaf) => [leaf.territoryId, referenceDateOf(stated.filedOn, inputs.date)])),
+          },
+        ]
+      : []
+    return await resolveFor(organizationId, { ...inputs, sites, procedures }, untimed)
+  } catch (error) {
+    console.error('[knowledge_context_page_read=false] the knowledge context could not be read for a stated site', { organizationId, error })
+    return unavailableContext(calendarDayIn('UTC'))
   }
 }
 

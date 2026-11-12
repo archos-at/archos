@@ -17,6 +17,8 @@
  * Four eyes has one deferral (ADR-0176): an author holding
  * `platform:knowledge:approve_alone` approves their own request with a reason.
  * The request is marked `single`, and another person's second review stays due.
+ * On a deployment set to one operator alone (dev, `./single-operator.ts`) the
+ * author's own verdicts count and no second review is due (migration 0233).
  */
 
 import 'server-only'
@@ -93,13 +95,16 @@ export async function platformKnowledgeOverview(session: UserSession | null): Pr
 
 export async function listPlatformChangeRequests(
   session: UserSession | null,
-  query: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState; limit?: number; cursor?: string },
+  query: { status?: ChangeRequestStatus; countryId?: string; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState; limit?: number; cursor?: string },
 ): Promise<{ changeRequests: ChangeRequestSummary[]; nextCursor: string | null }> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
   const offset = query.cursor ? Number(query.cursor) : 0
   const limit = query.limit ?? CHANGE_REQUEST_PAGE
   // One more than the page says whether another follows.
-  const rows = await listChangeRequests({ status: query.status, origin: query.origin, secondReview: query.secondReview }, { offset, limit: limit + 1 })
+  const rows = await listChangeRequests(
+    { status: query.status, countryId: query.countryId, origin: query.origin, secondReview: query.secondReview },
+    { offset, limit: limit + 1 },
+  )
   return { changeRequests: rows.slice(0, limit), nextCursor: rows.length > limit ? String(offset + limit) : null }
 }
 
@@ -134,7 +139,7 @@ export async function proposePlatformRecords(
   // KC-7 and the texts' files are answered by the api tier, before the request's lock is taken (ADR-0174).
   // A text is held to the bytes its draft revision keeps; one named for the first time is pinned to the corpus's now.
   const pinned = await platformTransaction((tx) => pinnedTexts(tx, requestId))
-  const { checks: sourceChecks, pins } = await checksOutsideKit(body.records, pinned, true)
+  const { checks: sourceChecks, pins, awaiting } = await checksOutsideKit(body.records, pinned, true, requestId)
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
@@ -143,7 +148,8 @@ export async function proposePlatformRecords(
     const results = body.records.map((record, index): ProposalRecordResult => {
       const own = problems.filter((problem) => problem.index === index)
       const status = own.length > 0 ? 'invalid' : 'valid'
-      return { index, key: own[0]?.key ?? keyOf(record), recordId: recordIdOf(record), status, revisionId: null, problems: own }
+      const waits = awaiting.get(recordIdOf(record))
+      return { index, key: own[0]?.key ?? keyOf(record), recordId: recordIdOf(record), status, revisionId: null, problems: own, ...(waits ? { awaiting: waits } : {}) }
     })
     if (body.dryRun) return { dryRun: true, valid: problems.length === 0, results }
     if (problems.length > 0) {

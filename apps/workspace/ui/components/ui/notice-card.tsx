@@ -109,7 +109,7 @@ export function NoticeCard({
                 type="button"
                 onClick={() => onClose('close_button')}
                 aria-label={closeLabel}
-                className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/60 touch-target rounded-control duration-quick -m-1.5 flex size-7 shrink-0 items-center justify-center transition-colors ease-out focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none"
+                className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring/60 touch-target rounded-control duration-quick -m-1.5 flex size-7 shrink-0 items-center justify-center transition-colors ease-out focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none"
               >
                 <X className="size-3.5" aria-hidden />
               </button>

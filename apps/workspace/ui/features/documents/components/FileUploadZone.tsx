@@ -201,7 +201,7 @@ export const FileUploadZone: FC<FileUploadZoneProps> = ({
           'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-control border-2 border-dashed px-6 py-10 text-center transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
           isDragging && isUnsupportedDrag && 'border-destructive bg-destructive/5',
           isDragging && !isUnsupportedDrag && 'border-ring bg-primary/5',
-          !isDragging && 'border-border bg-muted hover:border-ring hover:bg-primary/5',
+          !isDragging && 'border-border bg-muted hover:border-ring hover:bg-selected',
           uploadDisabled && 'pointer-events-none cursor-not-allowed opacity-50'
         )}
       >

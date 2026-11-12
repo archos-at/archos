@@ -232,7 +232,7 @@ export const WorkRowView: FC<{
   )
   const interactive = cn(
     lineClass,
-    'cursor-pointer outline-none transition-[background-color,scale] duration-snap ease-out active:scale-[0.985] motion-reduce:transition-none pointer-fine:hover:bg-muted/60',
+    'cursor-pointer outline-none transition-[background-color,scale] duration-snap ease-out active:scale-[0.985] motion-reduce:transition-none pointer-fine:hover:bg-hover',
     FOCUS_RING
   )
   const group =
@@ -353,7 +353,7 @@ export const RoundCalls: FC<{
             aria-expanded={showMore}
             onClick={() => setShowMore((value) => !value)}
             className={cn(
-              'group text-muted-foreground pointer-fine:hover:text-foreground pointer-fine:hover:bg-muted/60 duration-snap -mx-2 flex min-h-10 w-[calc(100%+1rem)] items-center gap-2.5 rounded-control px-2 text-left text-[13px] outline-none transition-[color,background-color,scale] ease-out active:scale-[0.985] motion-reduce:transition-none pointer-coarse:min-h-11',
+              'group text-muted-foreground pointer-fine:hover:text-foreground pointer-fine:hover:bg-hover duration-snap -mx-2 flex min-h-10 w-[calc(100%+1rem)] items-center gap-2.5 rounded-control px-2 text-left text-[13px] outline-none transition-[color,background-color,scale] ease-out active:scale-[0.985] motion-reduce:transition-none pointer-coarse:min-h-11',
               FOCUS_RING
             )}
           >

@@ -41,6 +41,11 @@ PROPOSAL_ID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F
 SERVER_FILLED_CARD_FIELDS = frozenset({"proposal_id"})
 
 
+#: Fields the server stamps while a card validates (``FormulaCard.site_binding``): replaced whatever the model
+#: wrote, and hidden from the shapes like the fields above.
+SERVER_SET_CARD_FIELDS = SERVER_FILLED_CARD_FIELDS | {"site_binding"}
+
+
 class ProjectProfilePatchOperation(CardModel):
     """A JSON Patch operation targeting a project profile section."""
 

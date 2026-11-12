@@ -2,11 +2,12 @@
  * Today in the legislating node's zone (design §3.6). Pure, given the clock.
  *
  * Only a procedure that is still open reads today: its window runs to now. A
- * node whose country has no zone here gets none, and the resolver answers
- * `zone_unknown` rather than taking the server's day.
+ * node whose chain states no zone, in a country the build lists none for,
+ * gets none, and the resolver answers `zone_unknown` rather than taking the
+ * server's day.
  */
 
-/** The zone of each country a node may legislate in; one zone per country is true for every country listed. */
+/** The zone of each country a node may legislate in, for a chain whose released records state none. */
 const ZONE_BY_COUNTRY: Readonly<Record<string, string>> = {
   AT: 'Europe/Vienna',
   DE: 'Europe/Berlin',
@@ -18,9 +19,15 @@ const ZONE_BY_COUNTRY: Readonly<Record<string, string>> = {
   BE: 'Europe/Brussels',
 }
 
-/** The zone of a territory id (`AT-9`, `AT:gkz:90001`, `DE`), or null for a node with none listed. */
-export function zoneOf(territoryId: string): string | null {
-  const country = /^([A-Z]{2})(?:$|[-:])/.exec(territoryId)?.[1]
+/**
+ * The zone a node's day is read in: the nearest territory on its chain that
+ * states one (the territory record's `zone`, released like any claim); when
+ * none does, the build's zone of the leaf's country, or null.
+ */
+export function zoneOf(chain: readonly string[], zones: Readonly<Record<string, string>>): string | null {
+  for (const territoryId of chain) if (zones[territoryId]) return zones[territoryId]
+  // Fallback to the compiled zone table until Austria is on stable on prod; deleted by #1630.
+  const country = /^([A-Z]{2})(?:$|[-:])/.exec(chain[0] ?? '')?.[1]
   return country ? (ZONE_BY_COUNTRY[country] ?? null) : null
 }
 

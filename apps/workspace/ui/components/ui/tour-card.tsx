@@ -93,7 +93,7 @@ export function TourCard({
           type="button"
           onClick={onClose}
           aria-label={labels.close}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/60 touch-target -m-1.5 flex size-7 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+          className="text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring/60 touch-target -m-1.5 flex size-7 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
         >
           <X className="size-3.5" aria-hidden />
         </button>

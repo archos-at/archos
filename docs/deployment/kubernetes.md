@@ -6,8 +6,8 @@ cluster. The infrastructure is defined as code in
 explains the architecture, the storage/SeaweedFS decisions, how to deploy, and
 — importantly — **how the agent scales**, now and later.
 
-It is the k8s counterpart to [`coolify.md`](./coolify.md) (Docker Compose on
-Coolify remains the other supported target).
+It is the k8s counterpart to [`docker-compose.md`](./docker-compose.md) (Docker
+Compose, the other supported target).
 
 ---
 
@@ -21,7 +21,7 @@ their own namespaces.
 | `aiq-agent` (the **`chat` role**, `PROCESS_ROLE=chat`: the chat socket, the only route a turn runs through, ADR-0082) | **StatefulSet** | N (default 2) | none (no PVC; ADR-0082 step A2) | Horizontally + PDB/spread — §6.4; with `chatAffinity: false` a KEDA ScaledObject on running turns, `backendReplicas`→`backendMaxReplicas` (§6.4b; prod stays at 1) |
 | `aiq-api` (the **`api` role**, `PROCESS_ROLE=api`: every other backend HTTP route; `BACKEND_URL` names its Service, ADR-0082) | Deployment + HPA + PDB | `apiMinReplicas`→`apiMaxReplicas` (default 2→4; prod 1→3, dev 1→2) | — | Horizontally (CPU HPA, `apiHpaCpuTargetPercent`). Stateless: no volume. Drains for 60 s (the SSE close and short requests), not for a chat turn |
 | `frontend` (Next.js + BFF + WS gateway) | Deployment + HPA | `frontendMinReplicas`→`frontendMaxReplicas` (default 2→6; prod and dev 1→3) | — | Horizontally (CPU HPA) |
-| `agent-worker` (research) | Deployment + KEDA ScaledObject | `agentWorkerMinReplicas`→`agentWorkerMaxReplicas` (default 1→8; prod 1→3, dev 0→3) | — | Horizontally, on the `research-run` backlog in Hatchet (§6.3, [`hatchet.md`](hatchet.md)) |
+| `agent-worker` (research) | Deployment + KEDA ScaledObject | `agentWorkerMinReplicas`→`agentWorkerMaxReplicas` (default 1→8; prod 1→3, dev 1→3; never 0, `ingest-worker.spec.ts`) | — | Horizontally, on the `research-run` backlog in Hatchet (§6.3, [`hatchet.md`](hatchet.md)) |
 | `ingest-worker` (ingestion) | Deployment + KEDA ScaledObject | `ingestWorkerMinReplicas`→`ingestWorkerMaxReplicas` (default 1→5; prod 1→8, dev 0→3) | — | Horizontally, on the `ingest-document` backlog in Hatchet; the ceiling is held to the provider budget (§6.3b, §6.3d) |
 | `bff-jobs` (the BFF's background pool: reindex, rescan, IFC, rendition, report filing; no Service, no route) | Deployment + KEDA ScaledObject | `bffJobsMinReplicas`→`bffJobsMaxReplicas` (default 1→4; prod 1→4, dev 1→2; a floor below 1 fails the plan, the scheduling crons run here) | — | Horizontally, on the `bff-job` backlog in Hatchet (§6.3c) |
 | KEDA (`keda` namespace) | Helm release, chart pinned to the release the plan's CRDs are validated against | 1 operator | — | n/a; what it may read and reach is §6.3d |
@@ -760,7 +760,7 @@ Record of runs: none yet.
   (`rereads: … deferred <n>` in its log line counts those left for the next). Alert on the warning
   rate, and on any `sender_unchecked` or `reader_fault_at` row
   (`SELECT count(*) FROM inbound_mails WHERE status = 'waiting' AND (reader_fault_at IS NOT NULL OR 'sender_unchecked' = ANY (sender_flags))`).
-- **Retention sweeps** run in the scheduler's background-work call, one log
+- **Retention sweeps** run in the `inbound-mail-sweep` cron task, one log
   line per sweep that acted (§6.3c).
 - **The scanner's image.** The ClamAV pin lives in `deploy/pulumi/src/config.ts`
   (and the Compose service); read it there rather than from a doc. trivy's

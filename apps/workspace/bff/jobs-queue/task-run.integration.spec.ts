@@ -120,6 +120,36 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
     })
   })
 
+  it('a failed attempt waits once: the row holds the wait for the take and the sweep, Hatchet only times the retry', async () => {
+    const jobId = await enqueue({ id: 'wait-once', mode: 'fail-always' })
+    const due = () =>
+      context.withPlatformAccess('test: the stranded rows', () =>
+        repo.listJobsToDispatch({ graceSeconds: 120, staleSeconds: 600, limit: 500 }),
+      )
+    const backoffEnded = (ago: string) =>
+      context.withPlatformAccess('test: move the backoff', () =>
+        db.execute(sql`UPDATE bff_job_queue SET created_at = now() - interval '1 hour', not_before = now() - ${ago}::interval WHERE job_id = ${jobId}::uuid`),
+      )
+
+    await expect(run(jobId)).rejects.toMatchObject({ name: 'RetryLaterError', afterSeconds: 30 })
+
+    // A run that comes before the backoff is over (an engine that ignores
+    // retry-after, a second run) takes nothing and spends no attempt.
+    await context.withPlatformAccess('test: an old row, mid-backoff', () =>
+      db.execute(sql`UPDATE bff_job_queue SET created_at = now() - interval '1 hour', not_before = now() + interval '10 minutes' WHERE job_id = ${jobId}::uuid`),
+    )
+    await expect(run(jobId, 1)).resolves.toMatchObject({ outcome: 'skipped' })
+    expect(await rowOf(jobId)).toMatchObject({ status: 'queued', attempts: 1 })
+    // The sweep starts no second run during the backoff, nor while Hatchet's retry is due any moment,
+    expect((await due()).map((row) => row.jobId)).not.toContain(jobId)
+    await backoffEnded('60 seconds')
+    expect((await due()).map((row) => row.jobId)).not.toContain(jobId)
+    // and starts the one Hatchet never made, from the take the failed attempt left.
+    await backoffEnded('5 minutes')
+    const stranded = (await due()).find((row) => row.jobId === jobId)
+    expect(stranded?.claimedAt).toBeInstanceOf(Date)
+  })
+
   it('makes a kind nobody knows dead at once, without a retry', async () => {
     const jobId = await enqueue({ id: 'coffee' }, 'make_coffee')
 

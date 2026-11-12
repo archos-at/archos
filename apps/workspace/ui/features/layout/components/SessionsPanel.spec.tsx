@@ -250,7 +250,7 @@ describe('SessionsPanel', () => {
     const firstSession = screen.getByRole('button', { name: /chat: first session/i })
     // The selected treatment sits on the card row the button stretches over,
     // and the row also announces itself to AT.
-    expect(rowOf(firstSession)).toHaveClass('bg-accent')
+    expect(rowOf(firstSession)).toHaveClass('bg-selected')
     expect(firstSession).toHaveAttribute('aria-current', 'true')
   })
 
@@ -271,6 +271,23 @@ describe('SessionsPanel', () => {
     // Delete stays (leaving one's own list); rename is for a title the reader can see.
     expect(screen.getByRole('button', { name: /delete chat/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /rename chat/i })).toBeNull()
+  })
+
+  test('marks a temporary chat quietly and says it in the row’s name; other rows carry no mark (ADR-0180)', () => {
+    render(
+      <SessionsPanel sessions={[...mockSessions, { id: 'session-temp', title: 'Scratch', date: today, temporary: true }]} />
+    )
+
+    const temporary = screen.getByRole('button', {
+      name: 'Chat: Scratch (temporary chat, nothing from it is kept)',
+    })
+    const marks = screen.getAllByTestId('session-temporary-mark')
+    expect(marks).toHaveLength(1)
+    expect(rowOf(temporary)).toContainElement(marks[0])
+    expect(marks[0]).toHaveAttribute('title', 'Temporary chat: nothing from it is kept.')
+    // Decorative: the words are the button's label, so they are not read twice.
+    expect(marks[0].querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByRole('button', { name: 'Chat: First Session' })).toBeInTheDocument()
   })
 
   test('shows edit and delete icons on hover', async () => {
@@ -307,7 +324,8 @@ describe('SessionsPanel', () => {
 
       await user.hover(screen.getByRole('button', { name: /chat: first session/i }))
 
-      const overlay = screen.getByRole('button', { name: /rename chat/i }).parentElement
+      // Two layers: the sheet, and the pointer's wash over it that holds the buttons.
+      const overlay = screen.getByRole('button', { name: /rename chat/i }).parentElement?.parentElement
       expect(overlay?.className).toContain('pointer-coarse:hidden')
     })
 

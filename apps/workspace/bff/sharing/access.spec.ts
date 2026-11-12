@@ -179,16 +179,18 @@ describe('resolveResourceAccess — effective role is the STRONGEST applicable',
     expect(access.reason).toBe('creator')
   })
 
-  it('gives a project admin canEscalate but NOT ownership of a private resource', async () => {
+  it('gives a project admin neither ownership nor canEscalate on a private resource they cannot read', async () => {
     // Spec SH-10: if admins silently owned every private thread, "private" would
-    // be a lie. They get an explicit, audited escalation instead.
+    // be a lie. Nor may they take ownership of one they are not party to
+    // (ADR-0032 decision 5, amended 2026-11-11): the takeover would be a way to
+    // read a colleague's private chat.
     stubConversation({ visibility: 'private', createdBy: 'user_creator' })
     stubContainer('project-admin')
     stubGrant(null)
 
     const access = await resolveResourceAccess(session, 'conversation', 'conv_1')
     expect(access.role).toBeNull()
-    expect(access.canEscalate).toBe(true)
+    expect(access.canEscalate).toBe(false)
 
     // And escalation does not silently satisfy an authorization check.
     await expect(
@@ -222,6 +224,46 @@ describe('resolveResourceAccess — effective role is the STRONGEST applicable',
     const access = await resolveResourceAccess(session, 'conversation', 'conv_1')
     expect(access.role).toBe('collaborator')
     expect(access.canEscalate).toBe(true)
+  })
+
+  it.each([
+    ['a conversation', 'conversation' as const, () => stubConversation({ visibility: 'project' })],
+    [
+      'a document',
+      'document' as const,
+      () =>
+        vi.mocked(findDocumentTenancy).mockResolvedValue({
+          organizationId: 'org_1',
+          projectId: 'proj_1',
+          visibility: 'project',
+          createdBy: 'user_creator',
+          folderId: null,
+        } as never),
+    ],
+  ])('offers canEscalate to a project admin who can already read %s', async (_name, type, stub) => {
+    stub()
+    stubContainer('project-admin')
+
+    const access = await resolveResourceAccess(session, type, 'res_1')
+    expect(access.role).toBe('collaborator')
+    expect(access.canEscalate).toBe(true)
+  })
+
+  it('withholds canEscalate on a legacy private document the admin is not party to', async () => {
+    // The rule is the shared resolution's, not the conversation's: a document row
+    // that still says `private` (refused for new writes) is held the same way.
+    vi.mocked(findDocumentTenancy).mockResolvedValue({
+      organizationId: 'org_1',
+      projectId: 'proj_1',
+      visibility: 'private',
+      createdBy: 'user_creator',
+      folderId: null,
+    } as never)
+    stubContainer('project-admin')
+
+    const access = await resolveResourceAccess(session, 'document', 'doc_1')
+    expect(access.role).toBeNull()
+    expect(access.canEscalate).toBe(false)
   })
 
   it('maps a project admin to collaborator under project visibility', async () => {

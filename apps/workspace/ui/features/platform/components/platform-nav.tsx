@@ -21,7 +21,6 @@ import { usePathname } from 'next/navigation'
 import {
   type LucideIcon,
   Bandage,
-  BookOpenCheck,
   Building2,
   Cpu,
   DatabaseZap,
@@ -30,7 +29,6 @@ import {
   LayoutGrid,
   MessageSquarePlus,
   Plug,
-  Scale,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -71,9 +69,7 @@ export const PLATFORM_SECTION_GROUPS = [
   {
     key: 'content',
     sections: [
-      { key: 'knowledge', href: '/app/platform/knowledge', icon: BookOpenCheck },
-      { key: 'norms', href: '/app/platform/norms', icon: Scale },
-      // Country knowledge as reviewed data releases (ADR-0165).
+      // Each country's knowledge, as reviewed data releases, in one place (ADR-0165).
       { key: 'countries', href: '/app/platform/countries', icon: Globe2 },
       { key: 'cards', href: '/app/platform/cards', icon: LayoutGrid },
     ],
@@ -105,8 +101,8 @@ export type PlatformSectionKey = PlatformSection['key']
  * The overview lives at the bare `/app/platform`, so it must match exactly —
  * a prefix test would light it up on every subsection. Subsections match their
  * own route and anything nested under it, but on a path boundary: a bare
- * `startsWith` would also mark `/app/platform/norms` active on a sibling route
- * such as `/app/platform/norms-draft`.
+ * `startsWith` would also mark `/app/platform/countries` active on a sibling route
+ * such as `/app/platform/countries-draft`.
  */
 function isActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false
@@ -160,7 +156,7 @@ export function PlatformNav(): JSX.Element {
                         'px-3 py-1.5',
                         active
                           ? 'bg-secondary text-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                          : 'text-muted-foreground hover:bg-hover hover:text-foreground'
                       )}
                     >
                       <Icon
