@@ -23,6 +23,7 @@ import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revis
 import { revisionCount } from '../lib/revision-chain'
 import { documentBadgeState } from '../lib/document-lifecycle'
 import { DocumentStatusBadge, isCitableStatus, isSettlingStatus } from './document-status'
+import { BaseKnowledgeChip } from './base-knowledge-chip'
 import { SemanticMatch } from './semantic-match'
 import { useIngestFailureText } from './ingest-failure-notice'
 import { FileTileBody, FileTileFooter, FileTileMedia, TileShell } from './file-tile'
@@ -533,6 +534,8 @@ export const FileCard = memo(function FileCard({
           {/* Left, under the name: one edge for everything on the tile. */}
           <span className="flex min-w-0 items-center gap-1.5 empty:hidden">
             <FilingSuggestionSlot documentId={file.id} className="min-w-[4.5rem]" />
+            {/* A link of its own, so it sits here beside the card's button and never inside it. */}
+            <BaseKnowledgeChip file={file} />
             {/* Who has it, then the facts, one line joined by the dot: „Unvergeben PNG“ read as one phrase. */}
             {footerLead}{footerLead && <FactDot />}
           </span>

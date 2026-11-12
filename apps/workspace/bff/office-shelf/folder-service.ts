@@ -17,9 +17,17 @@ import {
   createShelfFolder,
   deleteShelfFolder,
   ensureShelfFolderPaths,
+  findShelfFolder,
   listShelfFolders,
   updateShelfFolder,
 } from '@/lib/documents/shelf-folders'
+import { isStandardsRoot, STANDARDS_ROOT_FIXED } from './standards-folder'
+
+/** Whether `folderId` is the base-knowledge root, which keeps its name and place (`standards-folder.ts`). */
+async function isFixedFolder(session: AuthorizedSession, folderId: string): Promise<boolean> {
+  const folder = await findShelfFolder(OFFICE_SHELF, session.organizationId, folderId)
+  return folder !== undefined && isStandardsRoot(folder)
+}
 
 export function listOfficeShelfFolders(session: AuthorizedSession) {
   return listShelfFolders(session, OFFICE_SHELF)
@@ -32,14 +40,18 @@ export function createOfficeShelfFolder(
   return createShelfFolder(session, OFFICE_SHELF, input)
 }
 
-export function updateOfficeShelfFolder(
+export async function updateOfficeShelfFolder(
   session: AuthorizedSession,
   input: { folderId: string; name?: string; parentId?: string | null; description?: string | null },
 ) {
+  // Its description may change; its name and place may not.
+  const moves = input.name !== undefined || input.parentId !== undefined
+  if (moves && (await isFixedFolder(session, input.folderId))) return { ok: false as const, error: STANDARDS_ROOT_FIXED }
   return updateShelfFolder(session, OFFICE_SHELF, input)
 }
 
-export function deleteOfficeShelfFolder(session: AuthorizedSession, folderId: string) {
+export async function deleteOfficeShelfFolder(session: AuthorizedSession, folderId: string) {
+  if (await isFixedFolder(session, folderId)) return { ok: false as const, error: STANDARDS_ROOT_FIXED }
   return deleteShelfFolder(session, OFFICE_SHELF, folderId)
 }
 
