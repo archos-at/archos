@@ -6,8 +6,11 @@
  * each.
  *
  * Flat on purpose. The groups were cards in a panel, boxes in a box, and the
- * borders said more than the entries; a group is its name over its entries
- * now, set apart by space alone. What a section holds is said once, in its
+ * borders said more than the entries; a group is its name over its entries.
+ * The name carries its glyph (a file or a chat) and the entries hang from a
+ * rule under it (owner decision 2026-11-12): set apart by space alone, the
+ * name read as one more line of an entry and nothing said where a group
+ * began or which entries were its own. What a section holds is said once, in its
  * heading: how many wait, and how many of them are late. The dock's own header
  * carries no count, and an empty section does not say „wartet auf Sie“ a second
  * time under the heading that already does.
@@ -24,7 +27,7 @@
 
 import type { JSX, MouseEvent, ReactNode } from 'react'
 import Link from 'next/link'
-import { Archive, Clock } from 'lucide-react'
+import { Archive, Clock, FileText, MessageSquare } from 'lucide-react'
 
 import { namespaceRoot, useLocale, useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
@@ -99,12 +102,14 @@ export function InboxQueueList({
               {groups.map((group) => (
                 <HeightArrival key={group.key} as="li" className="py-3 first:pt-0 last:pb-0" testId="inbox-queue-group">
                   {group.subject && (
-                    <p className="flex min-w-0 items-baseline gap-1.5 px-2 pb-0.5 text-xs">
+                    <p className="flex min-w-0 items-center gap-1.5 px-2 pb-1 text-xs" data-testid="inbox-queue-group-heading">
+                      <GroupGlyph chat={group.chat} />
                       <span className="truncate font-medium text-foreground">{group.subject}</span>
                       <span className="shrink-0 text-muted-foreground">{group.chat ? t('inbox.queue.chat') : group.projectName}</span>
                     </p>
                   )}
-                  <ul>
+                  {/* Under a heading the entries hang from a rule that starts under its glyph. */}
+                  <ul className={cn(group.subject && 'border-border/60 ml-[15px] border-l pl-1.5')}>
                     <AnimatePresence initial={false}>
                       {group.items.map((item) => (
                         <EntryItem key={item.id} item={item} onArchive={onArchive}>
@@ -152,6 +157,12 @@ export function InboxQueueList({
       )}
     </div>
   )
+}
+
+/** What a group gathers under: a file or a chat. It marks where a group begins; the words beside it say which one. */
+function GroupGlyph({ chat }: { chat: boolean }): JSX.Element {
+  const Glyph = chat ? MessageSquare : FileText
+  return <Glyph className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
 }
 
 interface EntryProps {

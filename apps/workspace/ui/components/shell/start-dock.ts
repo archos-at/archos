@@ -4,9 +4,11 @@
  *
  * The shell owns the place (`AppShellChrome` wraps the page in a
  * `DockedSplit`), the app layout hands it what may go there (`startDock`, the
- * Postfach), and any door to a panel writes here: the rail's Postfach entry,
- * the org header's bell. A panel is a list worked BESIDE the real page, so
- * opening one never moves the reader; an entry in it navigates the page.
+ * Postfach), and any door to a panel writes here: the rail's Postfach entry.
+ * A panel is a list worked BESIDE the real page, so opening one never moves
+ * the reader; an entry in it navigates the page. It docks inside a project
+ * only: above one, the org header's bell opens the Postfach as its dialog and
+ * the shell puts an open panel away (`AppShellChrome`).
  *
  * A preference, not an overlay: it stays open across pages, and across a
  * reload in the same tab (sessionStorage), the way the rail's own state does.
@@ -165,8 +167,8 @@ export const PAGE_INSET_TOP_VAR = '--page-inset-top'
 
 /**
  * Gives the focus back to the door a panel was opened from, as a disclosure
- * does when it closes: the visible one, since the rail's and the header's
- * doors can both be in the page with one of them hidden.
+ * does when it closes: the visible one, since a door can be in the page twice
+ * with one of them hidden.
  */
 export function focusStartDockDoor(panel: StartDockPanel): void {
   const doors = document.querySelectorAll<HTMLElement>(`[data-dock-door="${panel}"]`)

@@ -9,7 +9,6 @@ import { Archive, Bell, FolderKanban, MessageSquarePlus, Search } from 'lucide-r
 import { Logo } from '@/components/brand/logo'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
-import { useStartDockDoor, type StartDockDoor } from './start-dock'
 import { useFeedbackAvailable, useOpenFeedback } from '@/features/product-feedback/components'
 import { InboxBadge } from '@/features/collaboration/components'
 import { useTranslations } from '@/i18n'
@@ -77,8 +76,6 @@ export function OrgHeader({
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
   const { pending: inboxPending } = useInboxBadge(canAccessInbox)
-  // The bell opens the Postfach beside the page where it fits.
-  const inboxDoor = useStartDockDoor('inbox')
   const tFeedback = useTranslations(feedbackCopy)
   const openFeedback = useOpenFeedback()
   const feedbackAvailable = useFeedbackAvailable()
@@ -130,6 +127,9 @@ export function OrgHeader({
             icon={Search}
             active={pathname === '/app/search' || pathname.startsWith('/app/search/')}
           />
+          {/* The Postfach opens as its dialog here, over the page (owner decision
+              2026-11-12). Docked beside the page is for inside a project, where it
+              stands by the rail; above a project it pushed a full-width page aside. */}
           {canAccessInbox && (
             <OrgHeaderIconLink
               href="/app/inbox"
@@ -138,7 +138,6 @@ export function OrgHeader({
               tourAnchor={TOUR_ANCHORS.inbox}
               active={pathname === '/app/inbox' || pathname.startsWith('/app/inbox/')}
               badgeCount={inboxPending}
-              door={inboxDoor}
             />
           )}
           {feedbackAvailable && (
@@ -180,7 +179,6 @@ function OrgHeaderIconLink({
   active,
   badgeCount = 0,
   tourAnchor,
-  door,
 }: {
   href: string
   label: string
@@ -189,8 +187,6 @@ function OrgHeaderIconLink({
   badgeCount?: number
   /** Marks the link as a product-tour stop. */
   tourAnchor?: TourAnchor
-  /** A door to a panel docked beside the page (the Postfach). */
-  door?: StartDockDoor
 }): JSX.Element {
   return (
     <Tooltip>
@@ -199,16 +195,13 @@ function OrgHeaderIconLink({
           href={href}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
-          aria-expanded={door?.open}
-          data-dock-door={door?.panel}
-          onClick={door?.onClick}
           data-tour={tourAnchor}
           className={cn(
             // From 1280px the doorway carries its word, as the rail's row does
             // inside a project: an icon alone asked the reader to recall which
             // box was the Büroablage.
             'relative hidden size-9 items-center justify-center gap-2 rounded-control text-[13px] transition-colors pointer-coarse:size-11 md:flex xl:w-auto xl:px-2.5 duration-quick ease-out motion-reduce:transition-none',
-            active || door?.open
+            active
               ? // On paper, with no track: open is the picked grey, the pointer the desk.
                 'bg-selected text-foreground'
               : 'text-muted-foreground hover:bg-desk hover:text-foreground',

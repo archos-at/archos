@@ -398,6 +398,23 @@ describe('InputArea', () => {
     expect(screen.queryByRole('button', { name: /query type/i })).not.toBeInTheDocument()
   })
 
+  // Owner decision 2026-11-12: the disclosure's frosted pill lay on the composer's shadow and read as a second,
+  // smudged surface. The sentence stays, whole and always shown (EU AI Act Art. 50); only its fill is gone.
+  test('the AI disclosure is plain text under the composer: no fill, no blur, never hidden', () => {
+    render(<InputArea />)
+    const line = screen.getByTestId('composer-ai-disclosure')
+    expect(line.textContent).toMatch(/AI/)
+    expect(line.textContent?.length).toBeGreaterThan(40)
+    expect([...line.classList].filter((c) => /(^|:)(bg-|backdrop-|shadow|rounded|hidden$|sr-only$|line-clamp|truncate)/.test(c))).toEqual([])
+  })
+
+  test('the composer card carries a sheet’s shadow, not the floating step', () => {
+    render(<InputArea />)
+    const card = screen.getByRole('textbox').closest('[class*="@container"]')
+    expect(card).toHaveClass('shadow-sm')
+    expect(card).not.toHaveClass('shadow-md')
+  })
+
   test('renders text area with default placeholder', () => {
     render(<InputArea isAuthenticated={true} />)
 

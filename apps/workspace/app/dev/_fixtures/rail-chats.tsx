@@ -28,9 +28,9 @@ const TITLES = [
   'Stellplatzverpflichtung Wien Bauordnung',
 ]
 
-const conversation = (projectId: string) => (title: string, index: number): Conversation => ({
+const conversation = (projectId: string, userId: string) => (title: string, index: number): Conversation => ({
   id: `chat-${index + 1}`,
-  userId: USER_ID,
+  userId,
   projectId,
   title,
   messages: [],
@@ -38,10 +38,13 @@ const conversation = (projectId: string) => (title: string, index: number): Conv
   updatedAt: hoursAgo(index * 20 + 1),
 })
 
+/** The same chats as another reader's, for a preview that seeds the chat store itself and still wants the rail to list them. */
+export const devRailConversations = (projectId: string, userId: string): Conversation[] => TITLES.map(conversation(projectId, userId))
+
 export function DevRailChats({ pathname, empty = false, children }: { pathname: string; empty?: boolean; children: ReactNode }): JSX.Element {
   const projectId = projectIdFromPathname(pathname) ?? 'p-1'
   useEffect(() => {
-    const conversations = empty ? [] : TITLES.map(conversation(projectId))
+    const conversations = empty ? [] : devRailConversations(projectId, USER_ID)
     useChatStore.setState({ currentUserId: USER_ID, projectId, conversations, currentConversation: conversations[1] ?? null })
   }, [empty, projectId])
   return <RailChatsProvider pathname={pathname}>{children}</RailChatsProvider>

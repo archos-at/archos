@@ -1,8 +1,9 @@
 import { act, render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
+import type { JSX } from 'react'
 import type { ResourceSharingState } from '@/lib/sharing/types'
-import { ChatToolbar } from './ChatToolbar'
+import { ChatToolbar, RAIL_CHATS_BEFORE_PAGE } from './ChatToolbar'
 import { useShellOverlays } from '@/components/shell/shell-overlays'
 import type { ChatMessage } from '@/features/chat/types'
 import { emptyRunLedger, setRunStatus } from '@/lib/runs/run-ledger'
@@ -337,12 +338,14 @@ describe('ChatToolbar', () => {
   // in aria-label and title alone. Its word is visible at every width, in every state of the chat.
   describe('the history door is never a glyph alone', () => {
     const HIDING = /(^|:)(hidden|sr-only|invisible)$/
+    // The one place it stands down: beside a rail that lists the chats (below).
+    const BESIDE_RAIL = `md:[${RAIL_CHATS_BEFORE_PAGE}_&]:hidden`
 
     test.each([
       ['an empty chat', { isChatStarted: false }],
       ['a chat with a title', { isChatStarted: true, sessionTitle: 'Fluchtweglängen OG2' }],
       ['a chat whose title is not in yet', { isChatStarted: true }],
-    ])('%s: the door says „Chats“ in words, and no breakpoint hides them', (_, props) => {
+    ])('%s: the door says „Chats“ in words, and no breakpoint alone hides them', (_, props) => {
       render(<ChatToolbar {...props} />)
 
       const door = screen.getByTestId('chat-history-door')
@@ -352,8 +355,37 @@ describe('ChatToolbar', () => {
       expect(door).not.toHaveAttribute('aria-label')
       expect(door).toHaveAccessibleName('Chats')
       for (const node of [door, label]) {
-        expect([...(node?.classList ?? [])].filter((c) => HIDING.test(c)), node?.outerHTML.slice(0, 80)).toEqual([])
+        expect([...(node?.classList ?? [])].filter((c) => HIDING.test(c) && c !== BESIDE_RAIL), node?.outerHTML.slice(0, 80)).toEqual([])
       }
+    })
+
+    // Owner decision 2026-11-12: the history moved into the rail („Alle Chats“), so the door beside it was the
+    // same door twice. The rail has its own provider, so the page asks the document: the door stands down only
+    // behind a rail (`sidebar-wrapper`) that draws its chat list (`rail-chats`), which it does while it is wide
+    // and the project has chats. A phone, the icon rail and a project without chats keep the door.
+    const shell = (rail: JSX.Element): JSX.Element => (
+      <div>
+        <div data-slot="sidebar-wrapper">{rail}</div>
+        <main>
+          <ChatToolbar isChatStarted sessionTitle="Fluchtweglängen OG2" />
+        </main>
+      </div>
+    )
+    const behindRailChats = (): Element | null => document.querySelector(`${RAIL_CHATS_BEFORE_PAGE} [data-testid="chat-history-door"]`)
+
+    test('beside a rail that lists the chats, the door and the rule after it stand down from `md`', () => {
+      render(shell(<ul data-testid="rail-chats" />))
+      const door = screen.getByTestId('chat-history-door')
+      expect(behindRailChats()).toBe(door)
+      expect(door).toHaveClass(BESIDE_RAIL)
+      // The rule that parted the door from the title goes with it, or the title would start with a stray line.
+      expect(door.nextElementSibling).toHaveClass('w-px', BESIDE_RAIL)
+    })
+
+    test('beside a rail that lists none (the icon rail, a project without chats), the door stays', () => {
+      render(shell(<nav />))
+      expect(screen.getByTestId('chat-history-door')).toBeInTheDocument()
+      expect(behindRailChats()).toBeNull()
     })
   })
 

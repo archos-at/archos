@@ -106,7 +106,9 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
               // in the textarea shrank the whole composer — text, chips and all — on
               // every mousedown, which reads as the surface flinching away from the
               // click rather than as a control acknowledging a press.
-              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 border-input relative flex flex-col rounded-xl border px-3 py-2.5 shadow-md backdrop-blur-md sm:px-4',
+              // `shadow-sm`, a sheet's elevation: the floating step (`shadow-md`) spread
+              // far enough under the card to reach the disclosure line below it.
+              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 border-input relative flex flex-col rounded-xl border px-3 py-2.5 shadow-sm backdrop-blur-md sm:px-4',
               FIELD_FOCUS_WITHIN_RING,
               controller.isDisabledByAuth && 'opacity-60'
             )}
@@ -188,13 +190,12 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
           standard. That standard is carried by the SENTENCE, which is
           unabridged, always rendered and never collapsed; it used to be led by
           a spark glyph as well, and the glyph was reinforcement rather than the
-          disclosure. The composer floats over the scrolling chat, so a light
-          blurred pill keeps it readable over messages behind it. */}
-      <div className="mt-1.5 flex justify-center">
-        {/* Frosted, not hand-derived: this hint sits ON the transcript, and the
-            alpha pair is what `backdrop-blur-sm` has to blur (the `supports-`
-            step is the no-blur fallback). */}
-        <p className="text-muted-foreground bg-muted/70 supports-[backdrop-filter]:bg-muted/45 inline-flex max-w-[calc(100%-1rem)] items-center rounded-lg px-2.5 py-1 text-center text-xs leading-snug backdrop-blur-sm">
+          disclosure. It is plain text on the page: the floor scrim under the
+          composer (`ComposerScrim`) is solid there, so no message shows behind
+          the line. The frosted pill it had lay on the composer's shadow and
+          read as a second, smudged surface. */}
+      <div className="mt-2 flex justify-center">
+        <p className="text-muted-foreground max-w-[calc(100%-1rem)] text-center text-xs leading-snug" data-testid="composer-ai-disclosure">
           {controller.t('inputArea.aiDisclosure')}
         </p>
       </div>

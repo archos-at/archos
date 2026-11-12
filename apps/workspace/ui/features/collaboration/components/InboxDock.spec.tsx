@@ -14,7 +14,7 @@ vi.mock('next/link', () => ({
 import { useStartDock } from '@/components/shell/start-dock'
 import { InboxDock } from './InboxDock'
 
-/** The door the dock was opened from: any focusable element carrying `data-dock-door`, as the header's bell does. */
+/** The door the dock was opened from: any focusable element carrying `data-dock-door`, as the rail's Postfach entry does. */
 const Door = () => (
   <button type="button" data-dock-door="inbox" data-testid="door">
     Postfach
@@ -29,6 +29,21 @@ describe('InboxDock — its header', () => {
     const header = screen.getByRole('heading', { level: 2 })
     expect(header).toHaveTextContent(/^Inbox$/)
     expect(header.closest('header')).not.toHaveTextContent(/\d/)
+  })
+})
+
+// Owner decision 2026-11-12: in the desk's grey the dock ran into the rail beside it.
+describe('InboxDock — a sheet of its own beside the rail', () => {
+  test('is a sheet on the desk with a sheet’s one edge, its ring, and room round it', () => {
+    render(<InboxDock />)
+    const sheet = screen.getByTestId('inbox-dock').querySelector('[data-slot="inbox-dock-sheet"]')
+    expect(sheet).toHaveClass('bg-sheet', 'shadow-sm', 'rounded-surface')
+    // One edge: the shadow's ring, never a border beside it.
+    expect([...(sheet?.classList ?? [])].filter((c) => /^border(-|$)/.test(c))).toEqual([])
+    expect(screen.getByTestId('inbox-dock')).toHaveClass('p-2')
+    // The header and the foot belong to the sheet, with the queue between them.
+    expect(sheet).toContainElement(screen.getByRole('heading', { level: 2 }))
+    expect(sheet).toContainElement(screen.getByTestId('inbox-dock-all'))
   })
 })
 

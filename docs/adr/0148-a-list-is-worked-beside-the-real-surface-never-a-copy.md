@@ -86,6 +86,11 @@ How it is built:
   that open the panel with a plain click where it fits (`DOCK_LAYOUT_QUERY`,
   `lg`) and follow the link otherwise; open is said as `aria-expanded`, never
   as active, which is the page the reader is on.
+  *Amended 2026-11-12 (owner decision):* a panel docks inside a project only,
+  beside the rail. Above a project (the projects list and the other pages under
+  the org header) the bell is a plain link and the Postfach opens as its dialog
+  over the page: docked there, it pushed a full-width page aside from an edge
+  with no rail. The shell puts an open panel away on the way out of a project.
 * **The list is only a list.** Every Postfach entry is a link to its real
   place; following one replaces the page beside the dock. Which entry is
   current is read from the address (`isAtHref`), not stored.

@@ -121,6 +121,19 @@ describe('InboxQueue — what waits on the reader, and the news', () => {
     expect(screen.getByTestId('inbox-queue-summary')).toHaveTextContent('Waiting on you21 overdue')
   })
 
+  // Owner decision 2026-11-12: set apart by space alone, a group's name read as one more line of an entry.
+  test('a group is its name, with its glyph, over entries that hang from a rule under it', () => {
+    render(<InboxQueue />)
+    const group = screen.getAllByTestId('inbox-queue-group')[0]
+    const heading = within(group).getByTestId('inbox-queue-group-heading')
+    expect(heading).toHaveTextContent('Schnitt A-A')
+    // The glyph marks where the group begins; the name beside it says which one, so it is decoration.
+    expect(heading.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    const entries = within(group).getAllByTestId('inbox-queue-entry')[0].closest('ul')
+    expect(entries).toHaveClass('border-l')
+    expect(heading.compareDocumentPosition(entries as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   test('says how many wait once: in the heading, not again in a line under it', () => {
     render(<InboxQueue />)
     const section = screen.getByTestId('inbox-queue-waiting')

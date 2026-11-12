@@ -105,16 +105,20 @@ export interface AppShellChromeProps {
    * panel the reader may not open is simply absent.
    */
   startDock?: Partial<Record<StartDockPanel, React.ReactNode>>
+  /** The route to read the scope from, for a preview that is not at one (as `AppSidebar` takes it). */
+  pathname?: string
 }
 
 export function AppShellChrome({
   children,
   overlay,
   startDock = {},
+  pathname: pathnameOverride,
   ...chrome
 }: AppShellChromeProps): JSX.Element {
   const t = useTranslations(navCopy)
-  const pathname = usePathname() ?? ''
+  const routerPathname = usePathname()
+  const pathname = pathnameOverride ?? routerPathname ?? ''
 
   // The last non-overlay pathname — the page the sheet covers. A ref written
   // during render is the standard previous-value idiom; the write is
@@ -138,6 +142,9 @@ export function AppShellChrome({
   // keyboard is up (it covers the indicator); the real inset otherwise.
   // The panel docked beside the page: open in this tab, handed over by the
   // layout, and with room for it. Below `lg` its list is a page of its own.
+  // Inside a project only, beside the rail (owner decision 2026-11-12): above a
+  // project the Postfach is its dialog (`OrgHeader`), so a panel left open is
+  // put away on the way out and never stands under the org header.
   const dockedPanel = useStartDock((state) => state.panel)
   const dockWidth = useStartDock((state) => state.width)
   const setDockWidth = useStartDock((state) => state.setWidth)
@@ -145,6 +152,10 @@ export function AppShellChrome({
   const closeDock = useStartDock((state) => state.close)
   const restoreDock = useStartDock((state) => state.restore)
   React.useEffect(() => restoreDock(), [restoreDock])
+  // After the restore above, so a panel stored by this tab is put away too.
+  React.useEffect(() => {
+    if (!inProject) closeDock()
+  }, [inProject, closeDock])
   // A panel that is open because the page loaded that way (restored, or the
   // window found wide enough on hydration) stands; only the reader's own open
   // and close slide. Settled one frame after mount, once both have happened.
@@ -154,7 +165,7 @@ export function AppShellChrome({
     return () => cancelAnimationFrame(frame)
   }, [])
   const dockFits = useMediaQuery(DOCK_LAYOUT_QUERY)
-  const dockContent = dockedPanel && dockFits ? (startDock[dockedPanel] ?? null) : null
+  const dockContent = inProject && dockedPanel && dockFits ? (startDock[dockedPanel] ?? null) : null
 
   // Where the page begins while a panel is docked: the panel's end edge and its
   // top, published on the root so an overlay that belongs to the page (the
@@ -227,6 +238,7 @@ export function AppShellChrome({
           showSkills={chrome.showSkills}
           showModels={chrome.showModels}
           inboundMailEnabled={chrome.inboundMail}
+          pathname={pathnameOverride}
         />
       ) : (
         <OrgHeader
@@ -255,7 +267,8 @@ export function AppShellChrome({
         onDismiss={closeDock}
         restoreWidth={restoreDockWidth}
         resizeLabel={t('resizeDock')}
-        slide={dockSettled}
+        // Leaving the project swaps the chrome in one step; the panel goes with it.
+        slide={dockSettled && inProject}
         panel={dockContent && (
           <div ref={dockFrameRef} className="h-full min-h-0">
             {dockContent}

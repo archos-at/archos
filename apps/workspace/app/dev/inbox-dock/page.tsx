@@ -7,13 +7,19 @@
  * stand-in that says what goes there; in the product it is the entry's own
  * place, the chat at the message or the review at the mark.
  *
+ * The shell stands inside a project, where the Postfach docks beside the rail.
+ * `?scope=org` shows it above a project (the projects list): nothing docks
+ * there and the header's bell is a link to the Postfach's dialog.
+ *
  * `?dock=closed` shows the same shell with the dock put away, which is how a
  * reader without it sees the page. `?page=file` opens the real file preview
  * over the page, as an entry about a mark does: it covers the page from the
  * dock's edge (`--page-inset-start`) and leaves the dock in view and usable.
  * Its document cannot load here (no backend); its frame is what is shown.
  * `?page=chat` puts the real chat beside the dock, as following a chat entry
- * does: the real `ChatArea` on the shared-thread preview's conversation.
+ * does: the real `ChatArea` on the shared-thread preview's conversation, under
+ * the chat's own header. `?chats=empty` is a project nobody has chatted in, so
+ * the rail lists no chats and the header keeps its door to the history.
  */
 
 import type { JSX } from 'react'
@@ -31,7 +37,10 @@ import { useFilePreviewStore } from '@/features/documents/stores/file-preview-st
 import { AppConfigProvider, type AppConfig } from '@/shared/context'
 import { getFileUploadConfigFromEnv } from '@/shared/config/file-upload'
 import { ChatArea } from '@/features/layout/components'
+import { useChatStore } from '@/features/chat/store'
+import { ChatToolbar } from '@/features/layout/components/ChatToolbar'
 import { installInboxShim } from '../_fixtures/inbox-items'
+import { DevRailChats, devRailConversations } from '../_fixtures/rail-chats'
 import { installSharedThreadShim, seedSharedThread } from '../_fixtures/shared-thread'
 
 /** The document an entry about a mark opens. */
@@ -54,6 +63,10 @@ const PLAN: FileItem = {
   capture: null,
 }
 
+// The shared-thread fixture's project, so the chat beside the dock is one of this project's.
+const PROJECT = { id: 'dev', name: 'Wohnbau Seestadt Baufeld D12' }
+const PROJECT_PATH = `/app/projects/${PROJECT.id}/chat`
+
 const config: AppConfig = { authRequired: false, fileUpload: getFileUploadConfigFromEnv() }
 
 installInboxShim()
@@ -65,21 +78,35 @@ export default function InboxDockPreviewPage(): JSX.Element {
   // Opened after mount, as a reader's click would: the server renders the dock closed.
   const [ready, setReady] = useState(false)
   const [page, setPage] = useState<string | null>(null)
+  const [pathname, setPathname] = useState(PROJECT_PATH)
+  const [noChats, setNoChats] = useState(false)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     setPage(params.get('page'))
+    if (params.get('scope') === 'org') setPathname('/app/projects')
+    setNoChats(params.get('chats') === 'empty')
     if (params.get('dock') !== 'closed') useStartDock.getState().open('inbox')
-    if (params.get('page') === 'chat') seedSharedThread()
+    if (params.get('page') === 'chat') {
+      // The thread replaces the store's chats; the rail's go back in beside it, as this reader's own.
+      seedSharedThread()
+      if (params.get('chats') !== 'empty') {
+        useChatStore.setState((state) => ({
+          conversations: [...state.conversations, ...devRailConversations(PROJECT.id, state.currentUserId ?? '')],
+        }))
+      }
+    }
     if (params.get('page') === 'file')
-      useFilePreviewStore.getState().open(PLAN, 'modal', { projectId: 'p1' })
+      useFilePreviewStore.getState().open(PLAN, 'modal', { projectId: PROJECT.id })
     setReady(true)
   }, [])
 
   return (
     <I18nProvider initialLocale="de" fixedLocale>
       <AppConfigProvider config={config}>
+        <DevRailChats pathname={pathname} empty={noChats}>
         <AppShellChrome
-          projects={[]}
+          pathname={pathname}
+          projects={[PROJECT]}
           user={{ name: 'Miriam Hofer', email: 'miriam@buero.at' }}
           organizationName="Architekturbüro Nord"
           authRequired={false}
@@ -100,7 +127,15 @@ export default function InboxDockPreviewPage(): JSX.Element {
           >
             {ready && <FilePreviewHost />}
             {page === 'chat' ? (
-              ready && <ChatArea isAuthenticated canCollaborate />
+              ready && (
+                <>
+                  {/* The chat's own header, as `MainLayout` mounts it: beside a rail
+                      that lists the chats it has no history door (`?chats=empty` is a
+                      rail that lists none, and the door is back). */}
+                  <ChatToolbar sessionTitle="Rettungsweg über das nördliche Treppenhaus" />
+                  <ChatArea isAuthenticated canCollaborate />
+                </>
+              )
             ) : (
               <div
                 className="m-auto max-w-md space-y-2 p-8 text-center"
@@ -117,6 +152,7 @@ export default function InboxDockPreviewPage(): JSX.Element {
             )}
           </main>
         </AppShellChrome>
+        </DevRailChats>
       </AppConfigProvider>
     </I18nProvider>
   )

@@ -20,6 +20,23 @@ This page is how to build one.
 The file peek beside the chat is the same primitive at the other edge
 (`FilePreviewBridge`, `side="end"`); read it for an end-edge panel.
 
+## Where the start dock stands, and how it is drawn
+
+* **Inside a project only** (owner decision 2026-11-12). `AppShellChrome` docks
+  a panel while the reader is in a project, beside the rail. Above a project
+  the org header's bell is a plain link to `/app/inbox`, which opens the
+  Postfach as its dialog over the page; a panel left open is closed when the
+  reader leaves the project (`closeDock` in the shell's effect), so it never
+  stands under the org header and never comes back by itself. An overlay route
+  over a project page (`/app/inbox`, `/app/office-shelf`) keeps the rail and
+  with it the panel.
+* **A sheet on the desk.** The panel's column keeps the desk's grey and its
+  content is a sheet lying on it with 8px round it (`InboxDock`: `bg-sheet`,
+  `shadow-sm`, `rounded-surface`, no border, since the shadow's ring is the
+  one edge). In the desk's grey itself the Postfach ran into the rail beside
+  it. The sheet's header and foot stand still and the list scrolls between
+  them. `--page-inset-start` is still the column's end, not the sheet's.
+
 ## Docking a new list
 
 1. **Name the panel.** Add it to `StartDockPanel` in `start-dock.ts` (one panel

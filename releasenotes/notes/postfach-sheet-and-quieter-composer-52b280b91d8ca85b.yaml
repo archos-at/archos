@@ -1,0 +1,19 @@
+---
+# area: general
+improvements:
+  - >
+    Inside a project, the Postfach that opens from the sidebar is now a sheet
+    of its own with a clear edge, so it no longer runs into the sidebar beside
+    it. Its entries are easier to scan: each file or chat is marked with its
+    symbol, and what waits on you for it hangs from a line under its name.
+  - >
+    On the projects list the bell opens the Postfach as a window over the page
+    instead of pushing the page aside.
+  - >
+    The „Chats“ button above a chat is gone where the sidebar already lists
+    your recent chats and „Alle Chats“. It stays on a phone, beside the narrow
+    icon sidebar and in a project without chats.
+  - >
+    The note under the chat field that you are talking to an AI system is plain
+    text now, without the grey patch behind it, and the chat field's shadow is
+    lighter.

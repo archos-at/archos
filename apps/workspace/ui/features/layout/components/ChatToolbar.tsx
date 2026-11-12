@@ -52,6 +52,25 @@ import { ChatTitleText } from './chat-title-text'
  */
 const MENU_FOCUS_GUARD_MS = 250
 
+/**
+ * Where the rail lists the project's chats, as the shell's sibling before the page.
+ * The rail has its own provider (`AppSidebar`), so the page cannot ask it; the
+ * document can. `rail-chats` is the list the rail draws only while it is wide
+ * and the project has chats, which is exactly when the history has a door there.
+ */
+export const RAIL_CHATS_BEFORE_PAGE = '[data-slot=sidebar-wrapper]:has([data-testid=rail-chats])~*'
+
+/**
+ * Hides the history door, and the rule after it, beside a rail that lists the
+ * chats (owner decision 2026-11-12): the rail is where a person looks for a
+ * place, and „Alle Chats“ there opens the same sheet. The door stays wherever
+ * the rail lists none: on a phone (below `md` there is no rail), beside the
+ * icon rail, and in a project without chats. The class spells out
+ * {@link RAIL_CHATS_BEFORE_PAGE}, as a literal for the stylesheet's scanner;
+ * `ChatToolbar.spec.tsx` holds the two together.
+ */
+const BESIDE_RAIL_CHATS = 'md:[[data-slot=sidebar-wrapper]:has([data-testid=rail-chats])~*_&]:hidden'
+
 interface ChatToolbarProps {
   sessionTitle?: string
   onNewSession?: () => void
@@ -330,9 +349,11 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
             title it read as the title's icon, and none of the pilot offices found it (2026-11-10). The rail
             lists the last chats under „Chat“ and leads here too („Alle Chats“). `ChatToolbar.spec.tsx` („the
             history door is never a glyph alone“) holds it. */}
+        {/* Beside a rail that lists the chats it stands down (`BESIDE_RAIL_CHATS`): the same door twice. */}
         <Button
           variant="ghost"
           className={cn(
+            BESIDE_RAIL_CHATS,
             'h-11 shrink-0 gap-1.5 rounded-control px-3 text-sm font-medium sm:h-7 sm:px-2 sm:text-xs',
             // On a phone beside a title, the word goes under the glyph (12px, as the tab bar's): inline it took
             // the title's room down to a word and a half.
@@ -346,7 +367,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
           <MessageSquareText className="size-4" aria-hidden="true" />
           <span data-slot="history-door-label">{t('chatToolbar.historyDoor')}</span>
         </Button>
-        {isChatStarted && (sessionTitle || hasStatus) && <div aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />}
+        {isChatStarted && (sessionTitle || hasStatus) && <div aria-hidden="true" className={cn('h-4 w-px shrink-0 bg-border', BESIDE_RAIL_CHATS)} />}
 
         {/* The session title (click-to-rename) — shown once a chat has started
             so the current thread is identifiable. On a fresh, empty chat there

@@ -1,10 +1,11 @@
 import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react'
-import { render, screen } from '@/test-utils'
+import { fireEvent, render, screen } from '@/test-utils'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { OrgHeader } from './org-header'
 import { BRAND_INSET_ORG, BRAND_ROW } from './brand-slot'
 import { useShellOverlays } from './shell-overlays'
+import { useStartDock } from './start-dock'
 
 let pathname = '/app/projects'
 vi.mock('next/navigation', () => ({
@@ -88,6 +89,18 @@ describe('OrgHeader — the org scope in one slim band', () => {
     render(<OrgHeader {...baseProps} />)
     expect(screen.getByLabelText('Office filing')).toHaveAttribute('aria-current', 'page')
     expect(screen.getByLabelText('Inbox')).not.toHaveAttribute('aria-current')
+  })
+
+  // Owner decision 2026-11-12: above a project the Postfach opens as its dialog over
+  // the page. Docked, it pushed the projects list aside from an edge with no rail.
+  test('the Postfach doorway is a link to its dialog, never a door to the dock', () => {
+    render(<OrgHeader {...baseProps} />)
+    const inbox = screen.getByLabelText('Inbox')
+    expect(inbox).not.toHaveAttribute('data-dock-door')
+    expect(inbox).not.toHaveAttribute('aria-expanded')
+    // A plain click is the link's own: nothing takes it over to open a panel.
+    expect(fireEvent.click(inbox)).toBe(true)
+    expect(useStartDock.getState().panel).toBeNull()
   })
 
   test('surfaces the pending count on the inbox doorway', () => {

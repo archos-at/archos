@@ -19,6 +19,12 @@
  * It slides in and out with the panel it sits in (`DockedSplit`), as one
  * drawer; it adds no motion of its own.
  *
+ * It is a sheet lying on the desk, with a sheet's one edge (owner decision
+ * 2026-11-12): set in the desk's own grey it ran into the rail beside it, with
+ * nothing to say where the rail ended and the Postfach began. The desk shows
+ * round it, so it reads as a thing of its own whether or not the rail draws an
+ * edge. Its header and its foot stand still; the queue scrolls between them.
+ *
  * Everything the queue cannot show (the whole history, the archive) is one
  * link away at its foot.
  */
@@ -63,12 +69,13 @@ export function InboxDock(): JSX.Element {
       ref={rootRef}
       tabIndex={-1}
       aria-labelledby="inbox-dock-title"
-      className="flex h-full min-h-0 flex-col outline-none"
+      className="flex h-full min-h-0 flex-col p-2 outline-none"
       data-testid="inbox-dock"
       data-queue-keys=""
       onKeyDown={onKeyDown}
     >
-      <header className="flex shrink-0 items-center gap-2 py-2.5 pr-2 pl-5">
+      <div className="bg-sheet flex min-h-0 flex-1 flex-col overflow-hidden rounded-surface shadow-sm" data-slot="inbox-dock-sheet">
+      <header className="flex shrink-0 items-center gap-2 border-b py-2 pr-2 pl-4">
         <h2 id="inbox-dock-title" className="text-sm font-medium">
           {t('inbox.title')}
         </h2>
@@ -85,10 +92,10 @@ export function InboxDock(): JSX.Element {
           <X aria-hidden />
         </Button>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-2 pb-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pt-4 pb-6">
         <InboxQueue returnHere={false} keyScope="self" />
       </div>
-      <footer className="shrink-0 border-t px-3 py-2">
+      <footer className="shrink-0 border-t px-2 py-2">
         <Link
           href="/app/inbox?filter=all"
           className="group/all flex items-center justify-between rounded-control px-2 py-1.5 text-xs text-muted-foreground transition-colors duration-snap hover:bg-muted hover:text-foreground motion-reduce:transition-none"
@@ -101,6 +108,7 @@ export function InboxDock(): JSX.Element {
           />
         </Link>
       </footer>
+      </div>
     </aside>
   )
 }

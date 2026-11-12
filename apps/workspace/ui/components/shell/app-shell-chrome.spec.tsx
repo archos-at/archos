@@ -225,6 +225,38 @@ describe('AppShellChrome — the panel docked beside the page (ADR-0148)', () =>
     expect(pageMounts).toBe(1)
   })
 
+  // Owner decision 2026-11-12: the Postfach docks beside the rail, inside a project.
+  test('above a project nothing docks, and a panel left open is put away', () => {
+    act(() => useStartDock.getState().open('inbox'))
+    const { rerender } = render(<AppShellChrome {...baseProps} startDock={{ inbox: <aside>postfach</aside> }}>page</AppShellChrome>)
+    expect(screen.getByText('postfach')).toBeInTheDocument()
+    pathname = '/app/projects'
+    rerender(<AppShellChrome {...baseProps} startDock={{ inbox: <aside>postfach</aside> }}>page</AppShellChrome>)
+    expect(screen.getByTestId('org-header')).toBeInTheDocument()
+    expect(screen.queryByText('postfach')).not.toBeInTheDocument()
+    expect(inset()).toBe('')
+    // Put away, not hidden: back in a project it does not come out by itself.
+    expect(useStartDock.getState().panel).toBeNull()
+    expect(window.sessionStorage.getItem('startDock.panel')).toBeNull()
+  })
+
+  test('a panel this tab stored is not restored above a project', () => {
+    window.sessionStorage.setItem('startDock.panel', 'inbox')
+    pathname = '/app/projects'
+    render(<AppShellChrome {...baseProps} startDock={{ inbox: <aside>postfach</aside> }}>page</AppShellChrome>)
+    expect(screen.queryByText('postfach')).not.toBeInTheDocument()
+    expect(useStartDock.getState().panel).toBeNull()
+  })
+
+  test('the Postfach’s own route over a project keeps the panel: the rail still stands under the sheet', () => {
+    act(() => useStartDock.getState().open('inbox'))
+    const { rerender } = render(<AppShellChrome {...baseProps} startDock={{ inbox: <aside>postfach</aside> }}>page</AppShellChrome>)
+    pathname = '/app/inbox'
+    rerender(<AppShellChrome {...baseProps} startDock={{ inbox: <aside>postfach</aside> }}>page</AppShellChrome>)
+    expect(screen.getByTestId('rail')).toBeInTheDocument()
+    expect(screen.getByText('postfach')).toBeInTheDocument()
+  })
+
   test('docks nothing the layout did not hand over, and nothing where there is no room', () => {
     act(() => useStartDock.getState().open('inbox'))
     const { unmount } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
