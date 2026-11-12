@@ -12,6 +12,7 @@ deployment.
 | **Why** | Today the agent reads and writes about the work. With `execute` it does the work: totals and ratios from code instead of the model's head, documents checked against each other, Word and Excel files the office opens without explanation. Large documents are processed in code, so less of an office's text reaches the model provider. |
 | **How** | Each run gets a fresh isolate with no network, thrown away afterwards, inside a pod that holds nothing worth taking. Files in, files out, nothing kept in the runtime. The shape of Anthropic's code execution tool, on our own cluster. |
 | **Effort and cost** | A handful of small pieces, most beside things that exist. A run takes a fraction of a second; the runner is stateless and scales with KEDA. No new vendor, no new processor of office data, nothing to ask IPAX. |
+| **What it can make** | Whatever the approved libraries can build: Word, Excel, PowerPoint, PDF and charts to start. A new file type is a library and a skill, never a new tool. |
 | **Needs a decision** | The isolate engine (a one-day test of two candidates decides), where `/workspace/` files are stored, and the limits per run. |
 
 ## What this is
@@ -124,6 +125,53 @@ That is faster, cheaper, and sends less of an office's text to the model provide
   Agents' composite backend sends its `execute` only to the default backend
   (`deepagents/backends/composite.py`), which for chat is the read-only estate, so
   ours is a tool of our own either way.
+
+## Libraries and skills
+
+**A new file type is a library and a skill, never a new tool.** The libraries are
+what the agent can build with; the skills teach it how.
+
+**The approved set.** The runner image carries a fixed set of libraries, pinned in one
+manifest beside the runner. Each is bundled ahead of time into one module and handed
+to every isolate as a preloaded module, which the script imports by name. A run has no
+network and no package manager, so nothing outside the manifest exists inside a run:
+the allowlist is enforced by construction, not by a check that could be skipped. Only
+the modules a script imports are loaded, which keeps a run fast.
+
+**What a library must pass to be admitted,** each checked in CI by the PR that adds it:
+
+| Check | Why |
+|---|---|
+| A permissive licence: MIT, Apache-2.0, BSD or ISC (a dual MIT-or-GPL package taken under MIT) | The runner ships it |
+| Pure JavaScript or WebAssembly, no native add-on | An isolate has no Node native modules |
+| Runs without generating code from strings | The isolate forbids `eval` and `new Function`. Vega fails without its interpreter mode; found in the test |
+| A smoke script that produces its file type in a fresh isolate | The only proof that it works where it runs |
+| A size budget and the repository's vulnerability scan | Load time per run, and known holes |
+
+**The starting set** (npm, read on 2026-11-12):
+
+| File type | Library | Licence | Status |
+|---|---|---|---|
+| Word | `docx` 9.15.3 | MIT | Tested: a Word file in 72 ms |
+| Word, the office's own templates | `docxtemplater` 3.71.1 with `pizzip` 3.3.0 | MIT (pizzip MIT or GPL) | Candidate |
+| Excel | `exceljs` 4.4.0 | MIT | Tested: a sheet with a `SUM` formula in 188 ms. Last release 2023; already a dependency of the workspace app |
+| PowerPoint | `pptxgenjs` 4.0.1 | MIT | Candidate |
+| PDF | `pdf-lib` 1.17.1 | MIT | Candidate; last release 2021. Word to PDF can instead go through Gotenberg after the run |
+| Charts | `vega` 6.4.0, `vega-lite` 6.5.0, `vega-interpreter` 2.3.2 | BSD-3-Clause | Tested: a bar chart as SVG in 102 ms, with the interpreter |
+| Numbers and data | `decimal.js` 10.6.0 (exact decimals for areas and money), `papaparse` 5.7.1 (CSV), `date-fns` 4.4.0 | MIT | Candidates |
+| Office kit | Ours: the office's branding, area schedules, the sources sheet | | To build |
+
+**Skills per file type.** A builtin skill collection, `office`, with one skill each
+for Word, Excel, PowerPoint, PDF and charts, loaded through the skills middleware the
+agent already runs (ADR-0135), so the model reads only the one it needs. Each says
+when to use it, which library and kit functions to call, a worked example, and the
+pitfalls of its type: Excel saves formulas without computed values, German number
+formats, A4, ÖNORM B 1801-1 cost groups for costs, and what the output check refuses.
+Anthropic's Apache-2.0 document skills are source material; they assume Python, a
+shell and LibreOffice, so they are rewritten for this runtime.
+
+The `execute` description stays short: JavaScript, no network, the list of libraries,
+and "read `/skills/office/<type>/` before writing a file of that type".
 
 ## One run
 
@@ -276,6 +324,8 @@ Each rejection names the premise it rests on, so a later reader re-checks the pr
 |---|---|
 | A workerd isolate with no network writes Word and Excel files with unmodified libraries | Run on 2026-11-12: `docx` and ExcelJS, 72 ms and 188 ms; `fetch` refused |
 | Dynamic loading on self-hosted workerd needs `--experimental` | workerd refused to start without it |
+| A chart library runs in an isolate only without string code generation | Vega 6.4.0 failed with "Code generation from strings disallowed"; with `vega-interpreter` it rendered an SVG bar chart in 102 ms |
+| The candidate libraries are pure JavaScript with permissive licences | npm registry metadata, 2026-11-12; only `docx`, `exceljs` and Vega were run in an isolate |
 | Deep research's sandbox is Modal only, and production runs none | `deepagents_runtime.py` (`provider: Literal["modal"]`); `configs/config_oib_openrouter.yml` |
 | Deep Agents' sandbox base runs its file commands as `python3` inside the sandbox | Installed `deepagents/backends/sandbox.py` |
 | The drafts store is a LangGraph store on the checkpoint database, 256 KB per conversation | `draft_store.py` |
