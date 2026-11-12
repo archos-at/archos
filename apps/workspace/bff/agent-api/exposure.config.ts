@@ -469,6 +469,14 @@ export const EXPOSURE = {
   'document-look': { external: true, agent: 'native:look', reason: NATIVE_READ },
   'ifc-measure': { external: true, agent: 'native:ifc_measure', reason: NATIVE_READ },
   'dxf-measure': { external: true, agent: 'native:dxf_measure', reason: NATIVE_READ },
+  // Dark behind the `drawing-measure` entitlement (ADR-0182): a backend operation carries no flag, so
+  // `external: true` would open it to every outside agent. Offer it when the flag is retired.
+  'drawing-measure': {
+    external: false,
+    agent: 'native:drawing_measure',
+    reason:
+      'reads and measures a page of a PDF drawing; the chat agent calls its own drawing_measure, bound only where the organization holds the drawing-measure entitlement, and the door has no per-operation flag yet',
+  },
   'law-lookup': { external: true, agent: 'native:law_lookup', reason: NATIVE_READ },
 
   // the app-only tools of the door's MCP Apps views (`catalog/app-views.ts`)

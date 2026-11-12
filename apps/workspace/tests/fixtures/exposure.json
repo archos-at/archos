@@ -4539,6 +4539,16 @@
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
   },
+  "drawing-measure": {
+   "kind": "backend",
+   "domain": "documents",
+   "sensitivity": null,
+   "external": false,
+   "agent": "native:drawing_measure",
+   "platform": false,
+   "withheld": null,
+   "reason": "reads and measures a page of a PDF drawing; the chat agent calls its own drawing_measure, bound only where the organization holds the drawing-measure entitlement, and the door has no per-operation flag yet"
+  },
   "dxf-measure": {
    "kind": "backend",
    "domain": "documents",

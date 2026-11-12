@@ -20,8 +20,28 @@
 # coverage: a generous crop that holds the figure looked in the right place, and IoU says how tightly.
 # Facts, read off `drawings.json`: EG Index B has 5 doors and Index A 4 (door-5 is new); the Wohnen
 # dimension is 5,24 in Index B and 5,04 in Index A; the OG has 3 doors. Only each page's caption is indexed.
+# EP-03 (Dachgeschoss) is the one VECTOR sheet: its figures are characters in the file, drawn true to 1:50.
 
 questions:
+  # --- a vector sheet: the figures are characters in the file, which `look` returns with its crop ---
+  - id: pv-vec-dim-atelier
+    category: dimension
+    question: Wie breit ist das Atelier im Dachgeschoss laut Grundriss EP-03?
+    box: found
+    gold: {document: EP-03_Grundriss_DG.pdf, page: 1, element: dim-atelier}
+    expect:
+      tools: {must: [look]}
+      mentions: [["6,12", "6.12"]]
+
+  - id: pv-vec-scale
+    category: plankopf
+    question: In welchem Maßstab ist der Grundriss Dachgeschoss EP-03 gezeichnet?
+    box: found
+    gold: {document: EP-03_Grundriss_DG.pdf, page: 1, element: title-scale}
+    expect:
+      tools: {must: [look]}
+      mentions: [["1:50"]]
+
   # --- dimensions: a printed string, small against the sheet ------------------
   - id: pv-dim-wohnen
     category: dimension

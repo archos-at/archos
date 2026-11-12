@@ -30,6 +30,7 @@ import { baseKnowledgeForTurn } from '@/lib/base-knowledge/office/service'
 import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
 import { goldenTurnFor } from '@/lib/base-knowledge/golden/turn'
 import { projectModelKinds } from '@/lib/bim/model-kinds-repository'
+import { turnProjectModels } from './project-models'
 import type { ProjectAccess } from '@/lib/authz/projects'
 import { TurnContextTiming } from './timing'
 import type { TurnContextRequest, TurnContextResponse } from './wire'
@@ -223,6 +224,6 @@ export async function loadTurnContext(
     baseKnowledgeLabels: (baseKnowledge?.labels ?? []).map((label) => ({ ...label })),
     // Always present (ADR-0175): unreadable is `knowledge_unavailable`, never no context.
     knowledgeContext,
-    projectModels,
+    projectModels: turnProjectModels(projectModels, session),
   }
 }

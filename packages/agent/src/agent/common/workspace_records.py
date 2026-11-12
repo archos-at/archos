@@ -74,9 +74,9 @@ LISTING_MAX_CHARS = 12_000
 #: How a listing refusal starts (bad argument, unknown shelf); no listing, no record.
 _LISTING_REFUSALS = re.compile(r"^(?:`\w+` must be|Invalid |Unknown )", re.IGNORECASE)
 
-#: The drawing tool (``tools/drawings``, ADR-0153), and how each of its answers starts.
-#: An answer is read off the drawing's geometry, so it is a read, like a listing.
-DRAWING_TOOL = "dxf_measure"
+#: The drawing tools (``tools/drawings``: a DXF as a site, ADR-0153; a PDF sheet, ADR-0182), and how each of
+#: their answers starts. An answer is read off the drawing's geometry, so it is a read, like a listing.
+DRAWING_TOOLS = frozenset({"dxf_measure", "drawing_measure"})
 _DRAWING_ANSWER_START = "File: "
 
 #: The server's text for a write it filed as a proposal (``discovery.ts``).
@@ -154,13 +154,14 @@ def listing_record(text: str, tool: str = LISTING_TOOL) -> WorkspaceRecord | Non
 
 
 def drawing_record(tool_name: str, text: str) -> WorkspaceRecord | None:
-    """The record a ``dxf_measure`` answer makes: its rendered text, capped; None for anything else."""
+    """The record a drawing tool's answer makes: its rendered text, capped; None for anything else."""
     from agent.common.tool_calls import tool_basename
 
     stripped = text.strip()
-    if tool_basename(tool_name or "") != DRAWING_TOOL or not stripped.startswith(_DRAWING_ANSWER_START):
+    tool = tool_basename(tool_name or "")
+    if tool not in DRAWING_TOOLS or not stripped.startswith(_DRAWING_ANSWER_START):
         return None
-    return WorkspaceRecord(DRAWING_TOOL, "read", stripped[:LISTING_MAX_CHARS])
+    return WorkspaceRecord(tool, "read", stripped[:LISTING_MAX_CHARS])
 
 
 def _agent_authored(value: Any) -> bool:

@@ -362,6 +362,8 @@ def test_the_chain_and_the_roles_are_read_from_the_knowledge_context_alone(reque
     [
         ({"ifc": True, "dxf": False}, frozenset({"ifc"})),
         ({"ifc": False, "dxf": False}, frozenset()),
+        ({"ifc": False, "dxf": False, "pdf": True}, frozenset({"pdf"})),
+        ({"ifc": True, "dxf": True, "pdf": False}, frozenset({"ifc", "dxf"})),
         (None, None),
         ("ifc", None),
     ],
