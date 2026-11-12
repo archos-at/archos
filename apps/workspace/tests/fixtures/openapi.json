@@ -1747,7 +1747,7 @@
       "post": {
         "operationId": "project-memory-create",
         "summary": "Add a memory item",
-        "description": "Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence`, `pinned`, `topic` (a short subject, reused if the shelf has it, any case). Answers `{ item }` with its id. Needs project:memory:write. Check project-memory-list first so you do not repeat an item.",
+        "description": "Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence`, `pinned`, `topic`. Answers `{ item }` with its id. Needs project:memory:write. Check project-memory-list first so you do not repeat an item.",
         "tags": [
           "projects"
         ],
@@ -1806,7 +1806,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "One to three words naming the subject, e.g. \"fire safety\" (not \"decision\"); reuse a shelf topic. Max 40 chars. null: none."
+                    "description": "Subject in 1–3 words, e.g. \"fire safety\"; reuse a shelf topic. null: none."
                   }
                 },
                 "required": [
@@ -1853,7 +1853,7 @@
       "get": {
         "operationId": "project-memory-list",
         "summary": "List a project’s memory items",
-        "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. `topic` per item (null: none); `topics` counts each over all items the caller sees, not this page; `topic` filters (empty: none). Item ids feed project-memory-update and project-memory-delete.",
+        "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. `topics` counts all items the caller sees. Item ids feed project-memory-update and project-memory-delete.",
         "tags": [
           "projects"
         ],
@@ -1889,11 +1889,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Only this topic, as topics names it. Empty: no topic.",
+              "description": "Only this topic. Empty: no topic.",
               "type": "string",
               "maxLength": 200
             },
-            "description": "Only this topic, as topics names it. Empty: no topic."
+            "description": "Only this topic. Empty: no topic."
           },
           {
             "name": "limit",
@@ -2017,7 +2017,7 @@
       "patch": {
         "operationId": "project-memory-update",
         "summary": "Edit a memory item",
-        "description": "Changes any of a memory item’s kind, content, status, confidence, verification, pinned flag or `topic` (null: none); at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.",
+        "description": "Changes any of a memory item’s kind, content, status, confidence, verification, pinned flag or `topic`; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.",
         "tags": [
           "projects"
         ],
@@ -2102,7 +2102,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "One to three words naming the subject, e.g. \"fire safety\" (not \"decision\"); reuse a shelf topic. Max 40 chars. null: none."
+                    "description": "Subject in 1–3 words, e.g. \"fire safety\"; reuse a shelf topic. null: none."
                   }
                 }
               }
@@ -2147,7 +2147,7 @@
       "patch": {
         "operationId": "project-memory-topic-rename",
         "summary": "Rename or merge a memory topic",
-        "description": "Moves the shelf’s items from topic `from` to `to` (from project-memory-list; `from: null`: no topic; `to: null`: remove the topic). A `to` the shelf has (any case) merges. Answers `{ moved }`. Only items the caller can see and edit. Needs project:memory:write.",
+        "description": "Moves the shelf’s items from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`. Only items the caller can see and edit. Needs project:memory:write.",
         "tags": [
           "projects"
         ],
@@ -2181,7 +2181,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "Topic to rename, as topics names it. null: no topic."
+                    "description": "Topic to rename. null: no topic."
                   },
                   "to": {
                     "anyOf": [
@@ -2193,7 +2193,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "New name; an existing topic (any case) merges. null: none."
+                    "description": "New name; an existing one merges. null: none."
                   }
                 },
                 "required": [
@@ -18161,7 +18161,7 @@
       "post": {
         "operationId": "personal-memory-create",
         "summary": "Add a personal memory note",
-        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned` and `topic` (a short subject, reused if the person has it in any case). A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. 400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.",
+        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned` and `topic`. A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. 400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.",
         "tags": [
           "collaboration"
         ],
@@ -18200,7 +18200,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "One to three words naming the subject, e.g. \"fire safety\" (not \"decision\"); reuse a shelf topic. Max 40 chars. null: none."
+                    "description": "Subject in 1–3 words, e.g. \"fire safety\"; reuse a shelf topic. null: none."
                   }
                 },
                 "required": [
@@ -18247,7 +18247,7 @@
       "get": {
         "operationId": "personal-memory-list",
         "summary": "List the person’s personal memory",
-        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. `topic` per note (null: none); `topics` counts each over all the person’s notes, not this page; `topic` filters (empty: none). Item ids feed personal-memory-update and personal-memory-delete.",
+        "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. `topics` counts all the person’s notes. Item ids feed personal-memory-update and personal-memory-delete.",
         "tags": [
           "collaboration"
         ],
@@ -18290,11 +18290,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Only this topic, as topics names it. Empty: no topic.",
+              "description": "Only this topic. Empty: no topic.",
               "type": "string",
               "maxLength": 200
             },
-            "description": "Only this topic, as topics names it. Empty: no topic."
+            "description": "Only this topic. Empty: no topic."
           }
         ],
         "responses": {
@@ -18387,7 +18387,7 @@
       "patch": {
         "operationId": "personal-memory-update",
         "summary": "Edit a personal memory note",
-        "description": "Changes any of a personal note’s kind, content, pinned flag or `topic` (null: none); at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
+        "description": "Changes any of a personal note’s kind, content, pinned flag or `topic`; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
         "tags": [
           "collaboration"
         ],
@@ -18437,7 +18437,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "One to three words naming the subject, e.g. \"fire safety\" (not \"decision\"); reuse a shelf topic. Max 40 chars. null: none."
+                    "description": "Subject in 1–3 words, e.g. \"fire safety\"; reuse a shelf topic. null: none."
                   }
                 }
               }
@@ -18543,7 +18543,7 @@
       "patch": {
         "operationId": "personal-memory-topic-rename",
         "summary": "Rename or merge a personal memory topic",
-        "description": "Moves the person’s notes from topic `from` to `to` (from personal-memory-list; `from: null`: no topic; `to: null`: remove the topic). A `to` they already have (any case) merges. Answers `{ moved }`.",
+        "description": "Moves the person’s notes from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`.",
         "tags": [
           "collaboration"
         ],
@@ -18565,7 +18565,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "Topic to rename, as topics names it. null: no topic."
+                    "description": "Topic to rename. null: no topic."
                   },
                   "to": {
                     "anyOf": [
@@ -18577,7 +18577,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "New name; an existing topic (any case) merges. null: none."
+                    "description": "New name; an existing one merges. null: none."
                   }
                 },
                 "required": [
@@ -26511,7 +26511,7 @@
       "post": {
         "operationId": "organization-memory-create",
         "summary": "Add an organization memory item",
-        "description": "Records one item of organization-wide knowledge that every project then carries. Optional `topic` (a short subject, reused if the shelf has it, any case). Any member may add one. Returns the created item with its id. Check organization-memory-list first to avoid a duplicate.",
+        "description": "Records one item of organization-wide knowledge that every project then carries. Any member may add one. Returns the created item with its id. Check organization-memory-list first to avoid a duplicate.",
         "tags": [
           "organization"
         ],
@@ -26558,7 +26558,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "One to three words naming the subject, e.g. \"fire safety\" (not \"decision\"); reuse a shelf topic. Max 40 chars. null: none."
+                    "description": "Subject in 1–3 words, e.g. \"fire safety\"; reuse a shelf topic. null: none."
                   }
                 },
                 "required": [
@@ -26605,7 +26605,7 @@
       "get": {
         "operationId": "organization-memory-list",
         "summary": "List organization memory",
-        "description": "The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. `topic` per item (null: none); `topics` counts each over all active items, not this page. Any member may read. Item ids feed organization-memory-update and organization-memory-delete.",
+        "description": "The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. `topics` counts all active items. Any member may read. Item ids feed organization-memory-update and organization-memory-delete.",
         "tags": [
           "organization"
         ],
@@ -26748,7 +26748,7 @@
       "patch": {
         "operationId": "organization-memory-update",
         "summary": "Edit an organization memory item",
-        "description": "Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned, or `topic` (null: none). At least one field is required. The id comes from organization-memory-list.",
+        "description": "Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned, or `topic`). At least one field is required. The id comes from organization-memory-list.",
         "tags": [
           "organization"
         ],
@@ -26823,7 +26823,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "One to three words naming the subject, e.g. \"fire safety\" (not \"decision\"); reuse a shelf topic. Max 40 chars. null: none."
+                    "description": "Subject in 1–3 words, e.g. \"fire safety\"; reuse a shelf topic. null: none."
                   }
                 }
               }

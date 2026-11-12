@@ -246,7 +246,7 @@ export const projectsOperations = [
     summary: 'List a project’s memory items',
     description:
       'The facts, decisions and notes ' + PRODUCT_NAME + ' keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). ' +
-      'Pass `includeArchived: "true"` for archived ones, or `conversationId` for those noted in one conversation. `topic` per item (null: none); `topics` counts each over all items the caller sees, not this page; `topic` filters (empty: none). Item ids feed project-memory-update and project-memory-delete.',
+      'Pass `includeArchived: "true"` for archived ones, or `conversationId` for those noted in one conversation. `topics` counts all items the caller sees. Item ids feed project-memory-update and project-memory-delete.',
     method: 'GET',
     path: '/api/projects/[id]/memory',
     params: projectParams,
@@ -258,7 +258,7 @@ export const projectsOperations = [
     domain: 'projects',
     summary: 'Add a memory item',
     description:
-      'Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence`, `pinned`, `topic` (a short subject, reused if the shelf has it, any case). ' +
+      'Writes one memory item: `kind`, `content` (max 2000 characters), optional `confidence`, `pinned`, `topic`. ' +
       'Answers `{ item }` with its id. Needs project:memory:write. Check project-memory-list first so you do not repeat an item.',
     method: 'POST',
     path: '/api/projects/[id]/memory',
@@ -271,7 +271,7 @@ export const projectsOperations = [
     domain: 'projects',
     summary: 'Edit a memory item',
     description:
-      'Changes any of a memory item’s kind, content, status, confidence, verification, pinned flag or `topic` (null: none); at least one field. ' +
+      'Changes any of a memory item’s kind, content, status, confidence, verification, pinned flag or `topic`; at least one field. ' +
       'Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.',
     method: 'PATCH',
     path: '/api/projects/[id]/memory/[itemId]',
@@ -298,7 +298,7 @@ export const projectsOperations = [
     domain: 'projects',
     summary: 'Rename or merge a memory topic',
     description:
-      'Moves the shelf’s items from topic `from` to `to` (from project-memory-list; `from: null`: no topic; `to: null`: remove the topic). A `to` the shelf has (any case) merges. Answers `{ moved }`. Only items the caller can see and edit. Needs project:memory:write.',
+      'Moves the shelf’s items from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`. Only items the caller can see and edit. Needs project:memory:write.',
     method: 'PATCH',
     path: '/api/projects/[id]/memory/topics',
     params: projectParams,

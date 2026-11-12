@@ -221,7 +221,7 @@ export const organizationOperations = [
     summary: 'List organization memory',
     description:
       'The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. ' +
-      '`topic` per item (null: none); `topics` counts each over all active items, not this page. ' +
+      '`topics` counts all active items. ' +
       'Any member may read. Item ids feed organization-memory-update and organization-memory-delete.',
     method: 'GET',
     path: '/api/organization/memory',
@@ -233,7 +233,7 @@ export const organizationOperations = [
     domain: 'organization',
     summary: 'Add an organization memory item',
     description:
-      'Records one item of organization-wide knowledge that every project then carries. Optional `topic` (a short subject, reused if the shelf has it, any case). Any member may add one. ' +
+      'Records one item of organization-wide knowledge that every project then carries. Any member may add one. ' +
       'Returns the created item with its id. Check organization-memory-list first to avoid a duplicate.',
     method: 'POST',
     path: '/api/organization/memory',
@@ -245,7 +245,7 @@ export const organizationOperations = [
     domain: 'organization',
     summary: 'Edit an organization memory item',
     description:
-      'Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned, or `topic` (null: none). ' +
+      'Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned, or `topic`). ' +
       'At least one field is required. The id comes from organization-memory-list.',
     method: 'PATCH',
     path: '/api/organization/memory/[itemId]',
