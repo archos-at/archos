@@ -9,7 +9,7 @@ of the plan repeats them in the cluster.
 
 The agent gets one writable folder, `/workspace/`, beside the read-only mounts it
 already reads ([ADR-0133](../adr/0133-piloti-reads-the-estate-through-standard-filesystem-tools.md)),
-and one new verb, `execute`, that runs a script it wrote against that folder. What
+and one new verb, `run_javascript`, that runs a script it wrote against that folder. What
 the script writes passes an output check and is filed into the project after the
 person's yes.
 
@@ -99,13 +99,67 @@ provider (ADR-0167).
 - **Large scans and models.** A run's memory is limited; files above the size
   limits below stay with the services built for them.
 
+## The tool surface
+
+An independent review of the tools a chat turn binds today (2026-11-12) found that
+the same verb on several mounts is fine, and that the real risk is two tools for one
+job. This design adds as little as possible and settles every name.
+
+**What the model sees after this change.** Unchanged evidence tools, one writable
+folder, one new verb, one filing tool:
+
+| Tool | One-line description for the model | Change |
+|---|---|---|
+| `ls`, `glob`, `grep`, `read_file` | Read any mount: `/project/`, `/office/`, `/chat/`, `/law/oib/`, `/skills/`, and `/workspace/`, your own files. On a document mount the result is cited; a `/workspace/` file is your own work, never evidence | `/workspace/` added as a mount |
+| `write_file`, `edit_file` | Create or change a file under `/workspace/`, the only writable folder | Reach `/workspace/` instead of `/drafts/` |
+| `run_javascript` | Run a JavaScript module against `/workspace/`, with no network. `inputs` names the documents you need as original files; each appears read-only at its own path | New |
+| `file_to_project` | File a `/workspace/` file into the project after the person's yes; `submit` sends it for review | Replaces `file_draft`, which files only `/drafts/<name>.md` |
+
+**Settled here:**
+
+- **`/workspace/` replaces `/drafts/`.** One writable root, not two with different
+  rules. A draft is an `.md` file under `/workspace/`. Existing draft paths are
+  mapped the way `/entwuerfe/` was mapped to `/drafts/`
+  (`modernize_draft_path` in `packages/agent/src/agent/tools/documents/draft_store.py`).
+- **Not `execute`.** In deep research, `execute` is Deep Agents' shell command over
+  `/shared/`, and six builtin skills are written for it. A JavaScript runner under
+  the same name would be two contracts behind one word. Deep Agents' composite
+  backend also sends `execute` only to its default backend
+  (`deepagents/backends/composite.py`), which for chat is the read-only estate, so
+  this is a tool of our own either way. If deep research moves to this runtime, both
+  are renamed together.
+- **One document, one path.** A document named in `inputs` appears inside the run at
+  the path `read_file` uses, `/project/…/Plan.pdf`, read-only, and its text at
+  `/project/…/Plan.pdf.md`. The model never maps between two names for one file.
+- **What a script's figures cite.** Each run is one row of the Herleitung: the
+  script, its inputs with their citation keys, its outputs. A file the office kit
+  writes carries a sources sheet listing those keys. A script's own arithmetic is
+  shown, not cited.
+- **Cloudflare Computer's own tools are not bound in chat.** Its `read`, `ls`,
+  `find`, `grep`, `write`, `edit`, `delete` and `exec`, and its single `code` tool,
+  would be a second namespace without citations. If `code` is ever offered, it is to
+  an outside agent through the door, with its own entry in `exposure.config.ts`.
+
+**Found beside this design, not changed by it.** The same review found duplicates in
+the tools chat binds today. They are for their own change:
+
+- The door offers `document-get`, `document-list`, `document-text-get`,
+  `document-version-content-get` and `document-revision-compare` to the agent
+  (`apps/workspace/bff/agent-api/exposure.config.ts`), beside the native reads that
+  cover them with citations; `passage-read`, `files-list` and `knowledge-search` are
+  already mapped to native tools there.
+- `propose_file_change` beside the door's move, rename and folder operations,
+  deliberately kept for chats outside a project (`agent-surface.md`).
+- `surface_documents` and `show_in_viewer`: two tools that show the person a file.
+- `list_files` beside `ls` and `glob`, kept for its filters and Fassungen.
+
 ## The objects and how long each lives
 
 | Object | Where it lives | Born | Ends | Who ends it |
 |---|---|---|---|---|
-| **Isolate** | Memory of the pod serving the run | Each `execute` | When the run returns, fails or times out; unloaded about 30 s later (*measured*) | Code Mode backend |
-| **Execution** | The workspace's run journal | Each `execute` | Disposed as soon as the agent has read its result | The agent's workspace backend (`disposeExec`) |
-| **Workspace** | A Durable Object: its data in the workspace bucket, cached on the disk of the pod that serves it | The agent's first write to `/workspace/` or first `execute` in a conversation | When its conversation is deleted, or after the idle limit, whichever comes first | Hatchet (`workspace-retention`) and the conversation's deletion path |
+| **Isolate** | Memory of the pod serving the run | Each `run_javascript` | When the run returns, fails or times out; unloaded about 30 s later (*measured*) | Code Mode backend |
+| **Execution** | The workspace's run journal | Each `run_javascript` | Disposed as soon as the agent has read its result | The agent's workspace backend (`disposeExec`) |
+| **Workspace** | A Durable Object: its data in the workspace bucket, cached on the disk of the pod that serves it | The agent's first write to `/workspace/` or first `run_javascript` in a conversation | When its conversation is deleted, or after the idle limit, whichever comes first | Hatchet (`workspace-retention`) and the conversation's deletion path |
 | **Workspace record** | A row in Postgres (`agent_workspaces`), owned by the BFF | With the workspace | With the workspace | Same as the workspace |
 | **Output file** | Inside the workspace, under `/workspace/out/` | Written by a script | With the workspace, unless filed | Filing copies it out |
 | **Filed document** | A document version in the project | The person's yes | Under the project's own rules | Nothing here: once filed it is a project document like any other |
@@ -118,11 +172,11 @@ which already has versions, review, backups and deletion.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> active: first write or execute
+  [*] --> active: first write or run
   active --> resident: run or file operation ends
-  resident --> active: next write or execute
+  resident --> active: next write or run
   resident --> dormant: about 30 s without use
-  dormant --> active: next write or execute
+  dormant --> active: next write or run
   dormant --> deleting: idle limit reached (retention claim)
   resident --> deleting: conversation deleted
   dormant --> deleting: conversation deleted
@@ -150,7 +204,7 @@ lifecycle in code ([ADR-0179](../adr/0179-lifecycles-are-declared-as-statechart-
 
 ```mermaid
 stateDiagram-v2
-  [*] --> running: execute
+  [*] --> running: run_javascript
   running --> completed
   running --> failed: script error or pod stopped
   running --> timed_out: past the time limit
@@ -214,7 +268,7 @@ commits first wins:
   not already left alone for the whole idle limit.
 | Deletion with a conversation | A `bff-job` kind enqueued by the conversation's deletion path, so a computer that is briefly unavailable does not block the deletion; the sweep catches anything left | The `bff-job` pattern (`apps/workspace/bff/jobs-queue/`) |
 
-**Hatchet does not run each `execute`.** A run inside a turn takes a quarter of a
+**Hatchet does not run each `run_javascript`.** A run inside a turn takes a quarter of a
 second, and a queue hop would make the person wait for nothing. Hatchet runs whole
 agent runs in the background, as it does for research today, with
 per-organization round-robin concurrency, retries and KEDA scaling (ADR-0150).
@@ -327,7 +381,7 @@ summary reaches the model.
 
 ## Observability
 
-- **Langfuse:** one span per `execute` (script size, duration, files written and
+- **Langfuse:** one span per `run_javascript` (script size, duration, files written and
   their sizes, outcome), under the turn's trace
   ([`langfuse.md`](../observability/langfuse.md)).
 - **Metrics:** workspaces by state, bucket bytes in total and per organization, runs
