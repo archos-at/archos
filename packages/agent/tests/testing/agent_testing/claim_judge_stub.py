@@ -36,7 +36,7 @@ def stored_evidence(answer: dict) -> Evidence:
         question=answer.get("question", ""),
         answer=answer["content"],
         passages=passages,
-        records=[answer["project_context"]] if answer.get("project_context") else [],
+        context=[answer["project_context"]] if answer.get("project_context") else [],
     )
 
 
