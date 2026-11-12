@@ -1,0 +1,7 @@
+---
+# area: answers
+fixes:
+  - >
+    A chat question no longer waits up to twenty seconds while a colleague's
+    upload to the project or the office filing is still being read; only a
+    file you attached to the conversation itself holds the answer.
