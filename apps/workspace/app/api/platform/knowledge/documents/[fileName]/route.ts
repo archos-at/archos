@@ -1,9 +1,9 @@
 /**
- * Platform knowledge management — remove an admin-uploaded PDF from the
- * shared base corpus (source file, registry entry, indexed chunks).
- * Platform owners only. Repo-shipped corpus files cannot be deleted, and
- * neither can a file a platform record names as its text (409): its publish
- * or its next re-index would find no file (ADR-0165).
+ * Platform knowledge management — remove a PDF from the shared base corpus
+ * (stored file, registry entry, indexed chunks). Every file lives in object
+ * storage, uploaded through the admin route (`data/oib` ships empty), so any
+ * may be deleted, except a file a platform record names as its text (409):
+ * its publish or its next re-index would find no file (ADR-0165).
  *
  * GET streams the PDF of any file the corpus lists, released or not, for the
  * viewer of the platform's knowledge page. An office reads only what is

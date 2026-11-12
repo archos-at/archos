@@ -38,6 +38,7 @@ describe('describeAppPath', () => {
 
   test('names the org-level surfaces', () => {
     expect(describeAppPath('/app/office-shelf')?.key).toBe('sections.officeShelf')
+    expect(describeAppPath('/app/base-knowledge')?.key).toBe('sections.baseKnowledge')
     expect(describeAppPath('/app/organization/members')?.key).toBe('returnTargets.organization')
     expect(describeAppPath('/app/platform/storage')?.key).toBe('returnTargets.platform')
     expect(describeAppPath('/app/profile')?.key).toBe('returnTargets.profile')

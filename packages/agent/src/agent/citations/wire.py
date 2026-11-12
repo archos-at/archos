@@ -9,6 +9,7 @@ from agent.citations.citation_keys import entry_shelf
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import is_look_place
+from agent.citations.office_lines import office_line_fields
 from agent.citations.roles import classification_for
 from agent.citations.roles import role_fields
 from agent.citations.roles import use_for_entry
@@ -145,7 +146,8 @@ def _line_fields(entry: SourceEntry, use: EditionUse | None) -> dict[str, Any]:
     """What the citation's line states: its edition's role, route and dates from the records, and what the
     passage's producer stated about the text itself (design §6.7; ``docs/design/citations.md``)."""
     return {
-        **role_fields(use),
+        # The platform's records where they know the edition; else the office's label of its own copy.
+        **(role_fields(use) or office_line_fields(entry)),
         # WHERE A PERSON OPENS IT IN PUBLIC: the address the producer stated beside the passage, else the
         # one the edition's records name. Never the registry identity (``url``) and never a link into a
         # thread: what an exported document may print beside the designation.

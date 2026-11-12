@@ -10,7 +10,9 @@
  * indexes, so a named text changes only in a change request.
  *
  * GET lists the whole corpus, released or not, with each file's indexing
- * state: the platform's knowledge page. An office lists what is released to
+ * state: the platform's knowledge page. A query narrows it by name and country,
+ * can leave out the summaries and pages (`corpus-query.ts`), for an agent whose
+ * result is capped. An office lists what is released to
  * it through `GET /api/knowledge-base`. Platform staff with `platform:settings:view`.
  */
 
@@ -20,8 +22,10 @@ import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { refuseReplacingNamedTexts } from '@/lib/base-knowledge/platform/texts'
 import { uploadedPdfHashes } from '@/lib/base-knowledge/platform/upload-hashes'
 import { getKnowledgeBaseStatus, uploadKnowledgeBaseDocument } from '@/lib/knowledge/service'
+import { corpusQuerySchema, narrowCorpus } from '@/lib/knowledge/corpus-query'
+import { parseQuery } from '@/lib/api/handler'
 
-export const GET = platformApiRoute(async () => getKnowledgeBaseStatus(), {
+export const GET = platformApiRoute(async ({ request }) => narrowCorpus(await getKnowledgeBaseStatus(), parseQuery(request, corpusQuerySchema)), {
   permission: PLATFORM_PERMISSIONS.settingsView,
 })
 

@@ -17,6 +17,7 @@ import { collaboration } from './collaboration'
 import { files } from './files'
 import { dossier } from './dossier'
 import { officeShelf } from './office-shelf'
+import { baseKnowledge } from './base-knowledge'
 import { lawMap } from './law-map'
 import { bim } from './bim'
 import { knowledge } from './knowledge'
@@ -71,6 +72,7 @@ export const de: Dictionary = {
   files,
   dossier,
   officeShelf,
+  baseKnowledge,
   lawMap,
   bim,
   knowledge,

@@ -78,7 +78,10 @@ export function FolderBreadcrumbRow({
   itemCount,
   emptyLevel = false,
   searching = false,
+  rootLabel,
 }: Pick<FolderNavProps, 'folders' | 'currentFolderId' | 'onNavigate'> & {
+  /** What the top of the path is called; „Alle Dateien“ unless the place names its own (the office standards). */
+  rootLabel?: string
   /** A query filters the files: the path is not where the reader is then, but the level's tools stay in the tool row. */
   searching?: boolean
   /** What the open folder holds, beside its name in the header („240 Elemente“). */
@@ -114,6 +117,7 @@ export function FolderBreadcrumbRow({
   mayWriteAt?: (folderId: string | null) => boolean
 }): JSX.Element | null {
   const t = useTranslations(filesCopy)
+  const allLabel = rootLabel ?? t('folders.allFiles')
   const path = useMemo(() => folderPath(folders, currentFolderId), [folders, currentFolderId])
   /** Every way up is a drop target, offered while there is somewhere to come back FROM. */
   const crumb = (folderId: string | null, label: string, children: ReactNode) => (
@@ -138,7 +142,7 @@ export function FolderBreadcrumbRow({
    * Null at the root, where there is nothing to go up to.
    */
   const parent = currentFolderId === null ? undefined : path[path.length - 2]
-  const parentLabel = parent ? parent.name : t('folders.allFiles')
+  const parentLabel = parent ? parent.name : allLabel
   const tabSlot = useSectionTabActionsSlot()
   const placeSlot = useSectionPlaceSlot()
   // Where the tool row has no room for „Ordner anlegen“, it is an entry of Hochladen's menu that opens this dialog.
@@ -221,18 +225,18 @@ export function FolderBreadcrumbRow({
         <BreadcrumbList className="flex-nowrap overflow-x-auto">
           <BreadcrumbItem>
             {currentFolderId === null ? (
-              <BreadcrumbPage className="sr-only" /* the tab above says it */>{t('folders.allFiles')}</BreadcrumbPage>
+              <BreadcrumbPage className="sr-only" /* the tab above says it */>{allLabel}</BreadcrumbPage>
             ) : (
               crumb(
                 null,
-                t('folders.allFiles'),
+                allLabel,
                 <BreadcrumbLink asChild>
                   <button data-attr="files-navigate"
                     type="button"
                     onClick={() => onNavigate(null)}
                     className="hover:text-foreground transition-colors rounded-inline whitespace-nowrap px-1"
                   >
-                    {t('folders.allFiles')}
+                    {allLabel}
                   </button>
                 </BreadcrumbLink>
               )
