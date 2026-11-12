@@ -319,8 +319,10 @@ client reads leniently:**
   settles; the Herleitung draws nothing for it.
 - A new key inside a known object is the same case: `confidence_check.unavailable_reason`
   (why the answer check gave no level) reaches an older bundle stripped, and
-  its turn reads as before. Its `cause` is an enum, so a cause added later is
-  the break described next, for every bundle that knows the field.
+  its turn reads as before. Its `cause` is an enum, so the field carries
+  `x-unknown-as-null` (below): a bundle that knows the field reads a cause
+  added later as no reason, and the turn still settles
+  (`test_wire_v2_open_tabs.py`, `wire-v2.spec.ts`).
 
 Changing what a known field may hold is a break. `answer_confidence_version`
 is the worked example: the confidence rule changed (the answer check,
@@ -329,6 +331,12 @@ answer therefore travels as `2`, and the new `confidence_check` tells it apart
 from a stored per-sentence turn; an older bundle strips it and shows the level.
 `packages/agent/tests/common/test_wire_v2_open_tabs.py` checks a checked and an
 unavailable `RUN_FINISHED` against the schema as it stood before.
+
+A server-to-client field whose values grow (`answer_confidence_capped_reason`)
+carries `x-unknown-as-null` in its schema (`json_schema_extra` in `wire_v2.py`; also `confidence_check.unavailable_reason`);
+the generator emits it with `.catch(null)`, so a value the bundle does not know
+reads as absent and the turn settles. A bundle built before the marker still
+refuses the new value once.
 
 So a new field on `TurnResult`, a new step kind, a new `CUSTOM` or a new event
 type needs no client release first. An old tab simply does not show it, and

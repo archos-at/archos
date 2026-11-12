@@ -274,3 +274,34 @@ def test_the_in_product_search_never_offers_the_platform_domain() -> None:
     tools = json.loads(workspace.META_TOOLS_PATH.read_text(encoding="utf-8"))["tools"]
 
     assert "platform" not in tools["search-operations"]["inputSchema"]["properties"]["domain"]["enum"]
+
+
+# The server caps a long read and sends it without `structuredContent` (discovery.ts `success`). That read
+# ran: its action row must read ok. Dev QC 2026-11-12: every `project-base-get` the agent made (43,651
+# characters, capped at 40,000) showed as a workspace error in the Herleitung, though the model read it.
+async def test_a_capped_read_ran_and_its_row_is_not_a_failure(monkeypatch, sent) -> None:
+    from agent.common.action_outcome import ActionOutcome
+
+    capped = '{"context": {"gate": {"state": "core"}' + "x" * 50 + "\n\n[Truncated: showing 40000 of 43651 characters.]"
+    monkeypatch.setattr(bff_http._opener, "open", lambda request, timeout: _Response(result(capped)))
+    bind(monkeypatch, turn_of("anna"))
+    outcome = ActionOutcome()
+
+    text = await workspace.run_workspace("call", {"name": "project-base-get", "input": {}}, outcome)
+
+    assert text == capped
+    assert outcome.failed is False
+
+
+async def test_a_tool_level_error_is_still_a_failure(monkeypatch, sent) -> None:
+    from agent.common.action_outcome import ActionOutcome
+
+    monkeypatch.setattr(
+        bff_http._opener, "open", lambda request, timeout: _Response(result("Unknown operation", is_error=True))
+    )
+    bind(monkeypatch, turn_of("anna"))
+    outcome = ActionOutcome()
+
+    await workspace.run_workspace("call", {"name": "proj-get", "input": {}}, outcome)
+
+    assert outcome.failed is True

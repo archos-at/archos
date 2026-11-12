@@ -96,7 +96,7 @@ async def test_the_check_reads_the_question_the_answer_and_this_turns_records():
 
     assert evidence.question == "Was liegt bei Anna?" and evidence.answer == prose
     assert any(r.startswith("project-approvals-list (read):") and "Anna Berger" in r for r in evidence.records)
-    assert any("Lacknergasse 98" in r for r in evidence.records)
+    assert any("Lacknergasse 98" in c for c in evidence.context)
 
 
 async def test_last_turns_workspace_read_is_not_this_turns_evidence():
@@ -531,3 +531,59 @@ async def test_an_answer_resting_on_law_the_records_do_not_settle_is_marked(gate
         set_turn_knowledge_context(None)
 
     assert state.answer_law_unsettled is unsettled
+
+
+# Golden case at-a6 (AT run 31eed61f, 2026-11-12): "high" beside a reason that says "nicht geprüft".
+REASONED_ENVELOPE = (
+    '```answer_json\n{{"kind": "walkthrough", "confidence": {{"level": "{level}", "reason": "{reason}"}}, '
+    '"answer": "{prose}"}}\n```'
+)
+UNCHECKED = "Gebäudeklasse aus dem Profil; Bindung der OIB-RL 2 nicht an der Quelle geprüft"
+
+
+async def _reasoned(level: str, reason: str, judge) -> tuple:
+    prose = "Für das Projekt ist im Profil **GK 5** bestätigt."
+    envelope = REASONED_ENVELOPE.format(level=level, reason=reason, prose=prose)
+    return await _finalize([HumanMessage("Welche Gebäudeklasse ist das?"), AIMessage(envelope)], judge=judge)
+
+
+async def test_the_check_reads_the_answers_own_confidence_reason():
+    calls: list[Evidence] = []
+
+    await _reasoned("high", UNCHECKED, stub_judge(calls=calls))
+
+    [evidence] = calls
+    assert evidence.confidence_reason == UNCHECKED
+
+
+async def test_an_open_point_the_check_reads_holds_a_backed_answer_to_medium():
+    final, state = await _reasoned("high", UNCHECKED, stub_judge("high", open_points=[UNCHECKED]))
+
+    assert final.open_points == (UNCHECKED,) and state.answer_open_points == [UNCHECKED]
+    assert state.confidence_check["level"] == "high"
+    assert state.answer_confidence == "medium" and state.answer_confidence_capped_reason == "open_point"
+    assert state.answer_confidence_marker_reason == UNCHECKED
+
+
+async def test_a_self_report_is_a_ceiling_the_check_never_raises():
+    _, state = await _reasoned("medium", UNCHECKED, stub_judge("high"))
+    assert state.answer_confidence == "medium" and state.answer_confidence_capped_reason == "open_point"
+
+    _, state = await _reasoned("low", "Kein Beleg für die Gebäudeklasse gefunden", stub_judge("high"))
+    assert state.answer_confidence == "low" and state.answer_confidence_capped_reason == "open_point"
+
+
+async def test_an_answer_that_names_no_open_point_keeps_the_checks_high():
+    _, state = await _reasoned("high", "direkt aus der Projektbeschreibung belegt", stub_judge("high"))
+
+    assert state.answer_confidence == "high" and state.answer_confidence_capped_reason is None
+
+
+async def test_the_open_points_are_scored_with_the_judged_level(monkeypatch):
+    emitted: list = []
+    monkeypatch.setattr(answer_check, "emit_scores", lambda scores, **_: emitted.extend(scores))
+
+    await _reasoned("high", UNCHECKED, stub_judge("high", open_points=[UNCHECKED]))
+
+    [named] = [score for score in emitted if score.name == "confidence-open-points"]
+    assert named.value == 1.0 and named.comment == UNCHECKED

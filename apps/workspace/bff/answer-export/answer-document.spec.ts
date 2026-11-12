@@ -333,7 +333,7 @@ describe('fields the stored answer does not have', () => {
   })
 
   it('names every cap it can export', () => {
-    expect([...EXPORTED_CAPPED_REASONS].sort()).toEqual(['law_unsettled', 'quote_unverified', 'ungrounded'])
+    expect([...EXPORTED_CAPPED_REASONS].sort()).toEqual(['law_unsettled', 'open_point', 'quote_unverified', 'ungrounded'])
   })
 })
 

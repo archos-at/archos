@@ -797,7 +797,8 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "x-unknown-as-null": true
         }
       },
       "required": [
@@ -3721,7 +3722,8 @@
               "enum": [
                 "ungrounded",
                 "quote_unverified",
-                "law_unsettled"
+                "law_unsettled",
+                "open_point"
               ],
               "type": "string"
             },
@@ -3730,7 +3732,8 @@
             }
           ],
           "default": null,
-          "title": "Answer Confidence Capped Reason"
+          "title": "Answer Confidence Capped Reason",
+          "x-unknown-as-null": true
         },
         "answer_confidence_reason": {
           "anyOf": [

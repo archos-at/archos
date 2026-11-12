@@ -307,7 +307,7 @@ a name is written but not declared, or declared but not listed here.
 | `citation-fallback` | boolean | agent | retired with the single-source fallback (ADR-0125); no longer written, kept so older traces chart |
 | `sources-empty` | boolean | agent | a lookup ran and found nothing |
 | `answer-confidence` | categorical | agent | `low`, `medium`, `high` as shown |
-| `confidence-capped` | categorical | agent | which guard lowered it, or `none` |
+| `confidence-capped` | categorical | agent | which guard lowered it, or `none`: `quote_unverified` (a quote no passage holds), `law_unsettled` (law the records do not settle), `open_point` (the answer's own ceiling: an open point it names holds it at medium, and its self-report is a ceiling the check never raises; `markers.answer_ceiling`) |
 | `quotes-verbatim-rate` | numeric 0–1 | agent | checked quote lines held verbatim |
 | `quotes-patched` | numeric | agent | misremembered quotes the repair corrected (ADR-0067) |
 | `licensed-quote-capped` | numeric | agent | on a turn that read licensed text, the quotes of it a reply had cut at the licence's quote cap; absent when no licensed text was read (ADR-0164) |
@@ -318,6 +318,7 @@ a name is written but not declared, or declared but not listed here.
 | `claims-by-class` | categorical | agent | retired with the per-sentence provenance classes (ADR-0139); no longer written, kept so older traces chart |
 | `claims-normative-uncited` | numeric | agent | retired with the normative-claim detector (ADR-0139); no longer written, kept so older traces chart |
 | `confidence-judged-level` | categorical | agent | the level the answer check gave the answer (`low`, `medium`, `high`; `common/claim_judge.py`, ADR-0139), before the quote gate; not written when the check was unavailable or the answer graded nothing. The check's call is a generation of the same trace |
+| `confidence-open-points` | numeric | agent | written with `confidence-judged-level`: how many open points the answer check read in the answer itself, its prose or its confidence reason (something it states is open, unchecked or unresolved and its main point depends on). Above zero caps the surfaced level at medium (`confidence-capped` `open_point`); the comment names them in the answer's words |
 | `confidence-judge-unavailable` | boolean | agent | on a turn whose answer was to be graded: true when the check could not run (no model, a timeout, an error, an unreadable reply) and the turn surfaced no level |
 | `confidence-judge-unavailable-reason` | categorical | agent | written with `confidence-judge-unavailable` true: why the check gave no level (`claim_judge.Unavailable`). `no_judge` (no model resolved), `timeout` (past `JUDGE_TIMEOUT_S`), `error` (the call raised; the comment names the exception class), `unparseable` (the reply is no check; the comment says `truncated at the output budget` when `finish_reason` was `length` or the output tokens reached `MAX_OUTPUT_TOKENS`), `no_reply` (an empty reply). The comment and the score's metadata carry `elapsed_ms`, `evidence_chars` and `answer_chars`, so a timeout rate can be read against prompt size |
 | `look-count` | numeric | agent, at the terminal | looks Piloti made in the turn (ADR-0128), whether or not the answer relies on them; written on every answered chat turn, zero included |
