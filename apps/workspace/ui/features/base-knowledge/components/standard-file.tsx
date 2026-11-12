@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState, type JSX } from 'react'
 import type { BaseKnowledgeEntry } from '@/adapters/api/base-knowledge-client'
 import { FilePreviewDialog, fileItemFromStatus, type FileItem } from '@/features/documents/file-preview'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
 import { StandardFacts } from './standard-facts'
 
@@ -50,12 +51,16 @@ export function StandardFile({ entry, canManage, onClose, onManage, onOpenEditio
     }
   }, [documentId])
 
-  // Until the file is read, the place is held under a scrim, so a second press cannot open another file over it.
+  // Until the file is read, a modal holds the place (focus and pointer alike), so nothing behind it opens another
+  // file; Escape gives up opening it, as closing the viewer would.
   if (!file) {
     return (
-      <div className="bg-background/60 fixed inset-0 z-50 grid place-items-center" data-testid="standard-file-loading">
-        <Spinner size="lg" />
-      </div>
+      <Dialog open onOpenChange={(open) => !open && onClose()}>
+        <DialogContent showCloseButton={false} mobilePresentation="none" className="w-auto p-6" aria-describedby={undefined} data-testid="standard-file-loading">
+          <DialogTitle className="sr-only">{entry.fileName}</DialogTitle>
+          <Spinner size="lg" />
+        </DialogContent>
+      </Dialog>
     )
   }
   return (
