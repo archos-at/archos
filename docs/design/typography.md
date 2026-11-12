@@ -1,19 +1,20 @@
 # Typography: one ramp of roles
 
-**Status: accepted in its numbers 2026-11-12 (third version), not yet in the
-code.** The owner decided the three open points the same day: the whole
-interface is 13px, the greeting is 24px, and the phone's page title was left to
-this document (18px). It stands on the values of two open changes, the lighter rail
+**Status: accepted in its numbers 2026-11-12 (fourth version), not yet in the
+code.** The owner decided the open points the same day: the whole interface is
+13px, the greeting is 24px, the phone's page title was left to this document
+(18px), and nothing is heavier than 500 (600 read as too thick). Tone (ink and
+muted) is out of scope: this document is about type only. It stands on the values of two open changes, the lighter rail
 ([#1617](https://github.com/archos-at/archos/pull/1617)) and the one header
 anatomy ([#1681](https://github.com/archos-at/archos/pull/1681)), and changes
-one of them (the phone's page title). Until slice 1 lands, the numbers in
+two of their values (the phone's page title, and 600 where they keep it). Until slice 1 lands, the numbers in
 [`design-language.md`](design-language.md) („Hard numbers“, „Type ramp“, „One
 type ramp, one scale“) are what the code and
 `apps/workspace/tests/brand-literals.spec.ts` hold. This document replaces all
 three when it is accepted.
 
-The first version (2026-11-11) proposed 14px names, weights 440/540/640 and
-24px page titles. The owner's corrections of the same days went the other way
+The first version (2026-11-11) proposed 14px names, weights 440/540/640,
+24px page titles and a clean-up of the muted greys. The owner's corrections of the same days went the other way
 („zu groß und zu massiv“, „die Headline ist zu dick“), so that version is
 withdrawn: the app is light, and rank comes from size and tone.
 
@@ -22,7 +23,7 @@ withdrawn: the app is light, and rank comes from size and tone.
 A person opening any screen of the workspace can tell at a glance what a thing
 is called, what is said about it and what is only a fact beside it, and the
 answer is the same on every screen. Whoever builds a surface chooses what a
-piece of text *is* and never picks a size, a weight or a grey.
+piece of text *is* and never picks a size, a weight or a line height.
 
 ## What was measured
 
@@ -36,7 +37,6 @@ Counted over `apps/workspace/ui` and `app` (specs and `/dev` left out), on
 | Size declarations | about 2,300; 1,143 `text-xs`, 766 `text-sm`, 94 `text-[13px]`, 57 `text-base` |
 | Declarations through a role token (`text-name`, `text-meta`, …) | 53, about 2% |
 | Weights | 659 `font-medium`, 130 `font-normal`, 31 `font-semibold` |
-| Text colour | 1,873 `text-muted-foreground`, 610 `text-foreground`, 55 with an alpha step (`/30` to `/90`) |
 | Line heights | `relaxed` 153, `snug` 123, `leading-5` 40, `leading-4` 31, and 26 typed ratios or pixel values |
 | Type ramps in `design-language.md` | 3, disagreeing with each other |
 
@@ -53,17 +53,16 @@ What follows from them:
    13px; the kit's buttons, tabs, menus and labels were 14px
    (`ui/components/ui/`), against the design language's „13/20/500 names and
    controls“. Decided 2026-11-12: the controls follow to 13px.
-4. **Grey is the default.** Three times as much text is muted as is ink.
 
 ## Four rules
 
 1. **Roles, not sizes.** A role fixes size, line height and weight together.
    Code names the role and sets no size, `leading-*` or weight beside it,
    except state on a `name` (below).
-2. **Light is the normal case.** Rank comes from size and tone. A title is 500.
-   600 has two uses: the 16px section heading, which size alone does not lift
-   off 14px body, and what needs the reader. (The one older exception stays:
-   numerals and initials at 12px or less inside a fill.)
+2. **Light is the normal case.** Rank comes from size. There are two weights:
+   440 for what is read, 500 for what names something. Nothing is heavier; 600
+   stays the wordmark's face alone. This retires 600 on `text-section`, on
+   state (a mail that needs the reader) and on numerals inside a fill.
 3. **Weight never changes alone.** At rest is 440 and muted; named or current
    is 500 and ink. Where the reader is, the sheet behind the row says it too.
 4. **13 operates, 14 writes, 16 answers.** The interface is 13px: a rail row, a
@@ -72,21 +71,17 @@ What follows from them:
    value, the person's message in the chat. 16px is the agent's answer and
    nothing else.
 
-Tone has two values, ink (`text-foreground`) and muted
-(`text-muted-foreground`), and no alpha steps; placeholder and disabled keep
-their tokens. What a person came to read is ink.
-
 ## The ramp
 
-Eight sizes (11, 12, 13, 14, 16, 18, 20, 24), three weights (440, 500, 600).
+Eight sizes (11, 12, 13, 14, 16, 18, 20, 24), two weights (440, 500).
 Eleven roles.
 
-| Role | Size / line / weight | Tone | What it is | Token today |
+| Role | Size / line / weight | Tone today | What it is | Token today |
 |---|---|---|---|---|
 | `display` | 24/32/500 | ink | The one large moment: the greeting in the empty chat (23px today), a stat tile's figure (`text-2xl`), an answer's key figure | none |
 | `page-title` | 20/28/500 | ink | A page's title, every `h1`; 18/26/500 on a phone | `text-page-title` (#1681) |
 | `pane-title` | 18/26/500 | ink | The title of an opened thing: a mail's subject, a dialog's title (`text-lg` today) | `text-pane-title` (#1681) |
-| `section` | 16/24/600 | ink | A group heading, a card's title, an empty state's headline | `text-section` |
+| `section` | 16/24/500 | ink | A group heading, a card's title, an empty state's headline | `text-section` |
 | `body` | 14/20/440 | ink; muted as the line under a heading | Sentences and what a person types: a description, dialog text, a field's value, the message in the chat; 22px line when it runs over lines; a field is 16px under a finger | none (`text-sm`) |
 | `name` | 13/20/500 | ink; muted at 440 at rest | Everything of the interface on one line: a rail row, a file name, a subject, a crumb, a count beside a title, a button, a tab, a menu item, a field's label | `text-name` |
 | `label` | 12/16/500 | muted | Names a group or a field: „Letzte Chats“, a column head (`SectionLabel`) | none (`.card-eyebrow`) |
@@ -95,9 +90,14 @@ Eleven roles.
 | `answer` | 16/26/440 | ink | The agent's answer; its first sentence at 500, its headings `section` | `text-answer` |
 | `mono` | Geist Mono 13/20/440 | ink | A string to copy: an address, an identifier, a § reference | none |
 
-**State on `name`**: 600 needs the reader, 500 is named or current, 440 muted
-rests or is handled. Tracking stays 0, capitals stay the wordmark's, figures in
-a column are `tabular-nums`.
+**State on `name`**: 500 in ink is named, current or unread; 440 muted rests or
+is handled. What needs the reader is told from what merely waits by its
+`AttentionDot`, no longer by 600 against 500. Tracking stays 0, capitals stay
+the wordmark's, figures in a column are `tabular-nums`.
+
+**Known cost of two weights.** In an answer the first sentence (16/26/500) and
+a heading (`section`, 16/24/500) are set alike; the heading is told by the space
+above it and by standing alone on its line.
 
 ## In the chat
 
@@ -112,15 +112,16 @@ what is read.
 
 ## What changes against the two open changes
 
-- **The phone's page title is 18/26/500, not 16/24/500** (#1681). At 16/500 it
-  stood under a 16/600 section heading; a 14/600 heading instead would be the
-  size of the sentence under it. 18, 16, 14 keeps the ladder.
+- **The phone's page title is 18/26/500, not 16/24/500** (#1681). With the section heading at 500, a 16/500 title
+  would be set exactly as a heading under it. 18, 16, 14 keeps the ladder.
 - #1617 sets the rail's rows as `text-[13px] font-normal` where it took
   `text-name` away, because the token carries 500. Slice 1 writes them as
   `text-name font-normal`, the role with its resting state.
 - #1617 keeps menus at 14px and the kit's tabs are 14px. Both go to 13px with
   the kit (slice 2).
 - The hero greeting goes from 23 to 24px (`display`).
+- Both keep 600 for `text-section` and for state (the phone tab bar's current
+  tab, the mail list's subject). Slice 4 sets them to 500.
 
 ## Slices
 
@@ -139,9 +140,11 @@ what is read.
    over it to `display`; 11px kept for codes and pill counts only; typed line heights
    gone. Chat, review and settings first: they still carry the rules from
    before Paper on a desk.
-4. **Tone, and the ratchet** (grey means beside the point). Content to ink, the
-   55 alpha steps gone. Then a per-file ratchet in the manner of
+4. **600 becomes 500, and the ratchet.** `--text-section--font-weight: 500`,
+   and the 31 `font-semibold` call sites to `font-medium` (the mail list's
+   state, the mention, numerals in fills); `brand-literals.spec.ts` changes
+   from „440, 500 and 600“ to „440 and 500“ and fails `font-semibold` outside
+   the wordmark. Then a per-file ratchet in the manner of
    `ci/size_baseline.json`: no raw `text-<size>`, no `font-<weight>` outside
-   state on a name, no `leading-*` beside a role, no alpha on a text colour;
-   the count may only shrink. The three ramps in `design-language.md` become a
-   pointer to this document.
+   state on a name, no `leading-*` beside a role; the count may only shrink.
+   The three ramps in `design-language.md` become a pointer to this document.
