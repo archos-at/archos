@@ -181,8 +181,9 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   (`FilePreviewDialog`, `?file=` in the URL), as the Büroablage opens any file, with the standard's facts
   (designation, edition, valid from, status, text use, last check, its other editions) first in the viewer's
   details column, and the two things done in passing there: confirm a proposal, say it is still current. Its page
-  (values, licence, folder, newer edition, removal) is one press away, „Angaben bearbeiten“. Reading a standard
-  is the common act; managing it is the rare one.
+  (values, licence, folder, newer edition, removal) is one press away, „Angaben bearbeiten“, and opens the file
+  again with „Datei öffnen“. Closing the viewer undoes opening it (the list, the folder or the page the person was
+  on), so the back button never reopens it. Reading a standard is the common act; managing it is the rare one.
 - **Which edition an answer uses** is the platform's rule for a standard, guideline or commentary
   (`time/editions.ts` `newestInForce`; an edition starts on its in-force date, else its issue date) at the
   project's reference day: the filing day once it has come, else today (`referenceDayOfProfile`, which the

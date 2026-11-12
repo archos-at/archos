@@ -34,7 +34,7 @@ export const baseKnowledge = {
     },
     licence: {
       title: 'Licence and AI processing',
-      body: 'Whether {productName} may read a purchased standard is your office’s decision under its licence, not {productName}’s. It takes two statements: the licence covers everyone in the office, and it allows processing by AI services. Without the second, {productName} names the standard and its edition but neither reads nor quotes it (“Metadata only”).',
+      body: 'Whether {productName} may read a purchased standard is your office’s decision under its licence, not {productName}’s. It takes two statements: the licence covers everyone in the office, and it allows processing by AI services. Without the second, {productName} names the standard and its edition but neither reads nor quotes it (“Title and edition only”).',
     },
   },
   empty: {
@@ -54,7 +54,7 @@ export const baseKnowledge = {
     all: 'All',
     proposed: 'To confirm',
     checkDue: 'Check due',
-    metadataOnly: 'Metadata only',
+    metadataOnly: 'Title and edition only',
     kindAll: 'All kinds',
     search: 'Search designation, title or file',
     searchLabel: 'Search office standards',
@@ -67,7 +67,7 @@ export const baseKnowledge = {
     kind: 'Kind',
     edition: 'Edition',
     status: 'Status',
-    text: 'Text',
+    text: 'In answers',
     checked: 'Last checked',
   },
   status: {
@@ -77,9 +77,9 @@ export const baseKnowledge = {
     checkDue: 'Check due',
   },
   text: {
-    used: 'Read',
-    metadataOnly: 'Metadata only',
-    held: 'Not read yet',
+    used: 'Quoted',
+    metadataOnly: 'Title and edition only',
+    held: 'After confirming',
     usedHint: '{productName} reads, searches and quotes the text.',
     metadataOnlyHint: '{productName} names title and edition but neither reads nor quotes the text until your office allows AI processing.',
     heldHint: '{productName} reads the text only once you confirm the standard.',

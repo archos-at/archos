@@ -65,7 +65,13 @@ type Place = { folderId?: string | null; entryId?: string | null; fileId?: strin
  * the back button and a shared link land where the person was. A standard opens as its file; its page is where it
  * is managed.
  */
-function useLocation(): { folderId: string | null; entryId: string | null; fileId: string | null; go: (next: Place) => void } {
+function useLocation(): {
+  folderId: string | null
+  entryId: string | null
+  fileId: string | null
+  go: (next: Place, options?: { replace?: boolean }) => void
+  back: () => void
+} {
   const params = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -73,7 +79,7 @@ function useLocation(): { folderId: string | null; entryId: string | null; fileI
   const entryId = params.get('entry')
   const fileId = params.get('file')
   const go = useCallback(
-    (next: Place) => {
+    (next: Place, options: { replace?: boolean } = {}) => {
       const query = new URLSearchParams(params.toString())
       for (const [key, value] of [['folder', next.folderId], ['entry', next.entryId], ['file', next.fileId]] as const) {
         if (value === undefined) continue
@@ -81,11 +87,14 @@ function useLocation(): { folderId: string | null; entryId: string | null; fileI
         else query.delete(key)
       }
       const search = query.toString()
-      router.push(search ? `${pathname}?${search}` : pathname, { scroll: false })
+      const href = search ? `${pathname}?${search}` : pathname
+      if (options.replace) router.replace(href, { scroll: false })
+      else router.push(href, { scroll: false })
     },
     [params, pathname, router],
   )
-  return { folderId, entryId, fileId, go }
+  const back = useCallback(() => router.back(), [router])
+  return { folderId, entryId, fileId, go, back }
 }
 
 /**
@@ -135,11 +144,26 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
   const viewed = useOpenEntry(location.fileId, entries)
 
   // A standard whose file cannot be read: say so, and stay on the list.
-  const { go } = location
+  const { go, back } = location
+  // Closing the viewer undoes opening it: the person lands where they pressed (the list, a folder, a standard's
+  // page), and the browser's back does not open the file again. A file reached by a link has nowhere to go back to.
+  const openedHere = useRef(false)
+  const openFile = useCallback(
+    (entryId: string) => {
+      openedHere.current = true
+      go({ fileId: entryId })
+    },
+    [go],
+  )
+  const closeFile = useCallback(() => {
+    if (openedHere.current) back()
+    else go({ fileId: null }, { replace: true })
+    openedHere.current = false
+  }, [back, go])
   useEffect(() => {
     if (!viewed.failed) return
     toast.error(t('entryLoadError'))
-    go({ fileId: null })
+    go({ fileId: null }, { replace: true })
   }, [viewed.failed, go, t])
 
   // A further page that did not load: the entries on screen stay, and the person is told.
@@ -279,7 +303,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           entry={openEntry}
           onBack={() => location.go({ entryId: null })}
           onOpenEdition={(entryId) => location.go({ entryId })}
-          onOpenFile={() => location.go({ entryId: null, fileId: openEntry.id })}
+          onOpenFile={() => openFile(openEntry.id)}
           canManage={canManage}
           rootId={folders.rootId}
           folders={folders.folders}
@@ -344,7 +368,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           onSelect={select}
           onClearSelection={() => setSelected(new Set())}
           onBulk={(action) => (action.type === 'remove' ? setRemoving(true) : void bulk(action))}
-          onOpen={(entry) => location.go({ fileId: entry.id })}
+          onOpen={(entry) => openFile(entry.id)}
           loadingMore={state.loadingMore}
           onLoadMore={state.loadMore}
         />
@@ -380,17 +404,20 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
         <StandardFile
           entry={viewed.entry}
           canManage={canManage}
-          onClose={() => go({ fileId: null })}
-          onManage={() => go({ fileId: null, entryId: viewed.entry?.id })}
-          onOpenEdition={(entryId) => go({ fileId: entryId })}
+          onClose={closeFile}
+          onManage={() => {
+            openedHere.current = false
+            go({ fileId: null, entryId: viewed.entry?.id }, { replace: true })
+          }}
+          onOpenEdition={(entryId) => go({ fileId: entryId }, { replace: true })}
           onChanged={(entry) => {
             viewed.set(entry)
-            if (!entry) go({ fileId: null })
+            if (!entry) closeFile()
             void reload()
           }}
           onUnavailable={() => {
             toast.error(t('entryLoadError'))
-            go({ fileId: null })
+            closeFile()
           }}
         />
       )}

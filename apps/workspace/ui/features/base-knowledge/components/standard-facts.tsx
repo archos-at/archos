@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button'
 import { InspectorGroup, InspectorRow, InspectorSection } from '@/components/ui/inspector-group'
 import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
-import { day, LastChecked, StatusChip, TextUseChip } from './entry-atoms'
+import { day, LastChecked, StatusChip, superseded, TextUseChip } from './entry-atoms'
 
 interface StandardFactsProps {
   entry: BaseKnowledgeEntry
@@ -106,7 +106,8 @@ export function StandardFacts({ entry, canManage, onManage, onOpenEdition, onCha
           {t('facts.reviewAndConfirm')}
         </Button>
       )}
-      {canManage && entry.status === 'confirmed' && (
+      {/* A superseded edition is not checked: the newer one is what a check would find. */}
+      {canManage && entry.status === 'confirmed' && !superseded(entry) && (
         <Button size="sm" variant="secondary" className="mt-2 self-start" disabled={busy} onClick={() => void check()} data-testid="standard-facts-check">
           {t('detail.checkCurrent')}
         </Button>

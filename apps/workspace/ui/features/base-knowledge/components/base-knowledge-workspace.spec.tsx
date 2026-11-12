@@ -16,9 +16,9 @@ import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITOR
 import { countByFolder, countEntries } from '@/lib/base-knowledge/office/listing'
 import { BaseKnowledgeWorkspace } from './base-knowledge-workspace'
 
-const navigation = vi.hoisted(() => ({ push: vi.fn(), search: '' }))
+const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), search: '' }))
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: navigation.push, replace: navigation.push }),
+  useRouter: () => ({ push: navigation.push, replace: navigation.replace, back: navigation.back }),
   usePathname: () => '/app/base-knowledge',
   useSearchParams: () => new URLSearchParams(navigation.search),
 }))
@@ -72,6 +72,8 @@ const renderWorkspace = () =>
 afterEach(() => {
   vi.unstubAllGlobals()
   navigation.push.mockReset()
+  navigation.replace.mockReset()
+  navigation.back.mockReset()
   navigation.search = ''
 })
 
@@ -126,7 +128,37 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(within(facts).getByText('Ausgabe')).toBeTruthy()
     expect(within(facts).getByText('Zuletzt geprüft')).toBeTruthy()
     await userEvent.click(within(facts).getByTestId('standard-facts-manage'))
-    expect(navigation.push).toHaveBeenCalledWith('/app/base-knowledge?entry=oenorm-b-1600', { scroll: false })
+    // In place of the file, not on top of it: back from the page leads where the file was opened from.
+    expect(navigation.replace).toHaveBeenCalledWith('/app/base-knowledge?entry=oenorm-b-1600', { scroll: false })
+  })
+
+  it('closes a file reached by a link to the list, without a step for the back button to undo', async () => {
+    navigation.search = 'file=oenorm-b-1600'
+    stubFetch(listOf())
+    renderWorkspace()
+    const viewer = await screen.findByRole('dialog', { name: 'ÖNORM B 1600.pdf' })
+    await userEvent.click(within(viewer).getByRole('button', { name: 'close' }))
+    expect(navigation.replace).toHaveBeenCalledWith('/app/base-knowledge', { scroll: false })
+    expect(navigation.back).not.toHaveBeenCalled()
+  })
+
+  it('opens the file over a standard’s page, and closing it undoes the opening', async () => {
+    navigation.search = 'entry=oenorm-b-1600'
+    stubFetch(listOf())
+    const { rerender } = renderWorkspace()
+    await userEvent.click(await screen.findByTestId('base-knowledge-open-file'))
+    expect(navigation.push).toHaveBeenCalledWith('/app/base-knowledge?entry=oenorm-b-1600&file=oenorm-b-1600', { scroll: false })
+    navigation.search = 'entry=oenorm-b-1600&file=oenorm-b-1600'
+    rerender(
+      <I18nProvider initialLocale="de" fixedLocale>
+        <TooltipProvider>
+          <BaseKnowledgeWorkspace />
+        </TooltipProvider>
+      </I18nProvider>,
+    )
+    const viewer = await screen.findByRole('dialog', { name: 'ÖNORM B 1600.pdf' })
+    await userEvent.click(within(viewer).getByRole('button', { name: 'close' }))
+    expect(navigation.back).toHaveBeenCalled()
   })
 
   it('opens a standard as a page in place of the list, without a side panel', async () => {

@@ -34,7 +34,7 @@ export const baseKnowledge = {
     },
     licence: {
       title: 'Lizenz und KI-Verarbeitung',
-      body: 'Ob {productName} den Text einer gekauften Norm lesen darf, entscheidet Ihr Büro mit seiner Lizenz, nicht {productName}. Dafür braucht es zwei Aussagen: Die Lizenz gilt für alle im Büro, und sie erlaubt die Verarbeitung durch KI-Dienste. Ohne die zweite nennt {productName} die Norm und ihre Ausgabe, liest und zitiert sie aber nicht („Nur Metadaten“).',
+      body: 'Ob {productName} den Text einer gekauften Norm lesen darf, entscheidet Ihr Büro mit seiner Lizenz, nicht {productName}. Dafür braucht es zwei Aussagen: Die Lizenz gilt für alle im Büro, und sie erlaubt die Verarbeitung durch KI-Dienste. Ohne die zweite nennt {productName} die Norm und ihre Ausgabe, liest und zitiert sie aber nicht („Nur Titel und Ausgabe“).',
     },
   },
   empty: {
@@ -54,7 +54,7 @@ export const baseKnowledge = {
     all: 'Alle',
     proposed: 'Zu bestätigen',
     checkDue: 'Prüfung fällig',
-    metadataOnly: 'Nur Metadaten',
+    metadataOnly: 'Nur Titel und Ausgabe',
     kindAll: 'Alle Arten',
     search: 'Bezeichnung, Titel oder Datei suchen',
     searchLabel: 'Grundlagen durchsuchen',
@@ -67,7 +67,7 @@ export const baseKnowledge = {
     kind: 'Art',
     edition: 'Ausgabe',
     status: 'Status',
-    text: 'Text',
+    text: 'In Antworten',
     checked: 'Zuletzt geprüft',
   },
   status: {
@@ -77,9 +77,9 @@ export const baseKnowledge = {
     checkDue: 'Prüfung fällig',
   },
   text: {
-    used: 'Wird gelesen',
-    metadataOnly: 'Nur Metadaten',
-    held: 'Noch nicht gelesen',
+    used: 'Wird zitiert',
+    metadataOnly: 'Nur Titel und Ausgabe',
+    held: 'Erst nach Bestätigung',
     usedHint: '{productName} liest, durchsucht und zitiert den Text.',
     metadataOnlyHint: '{productName} nennt Titel und Ausgabe, liest und zitiert den Text aber nicht, bis Ihr Büro die KI-Verarbeitung erlaubt.',
     heldHint: 'Den Text liest {productName} erst, wenn Sie die Grundlage bestätigen.',
