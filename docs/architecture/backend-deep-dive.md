@@ -363,7 +363,8 @@ backend pieces live in `chat_socket.py` and `conversation_bus.py`; the design is
 - **Every turn ends.** `run_turn`'s `finally` guarantees one terminal whatever
   escaped; the turn has a deadline (`CHAT_TURN_DEADLINE_SECONDS`) on its
   own clock, which stops while it waits on a person; a Stop waits at most
-  `workflow_stream.PRODUCER_TEARDOWN_SECONDS` for the workflow's teardown. The
+  `workflow_stream.PRODUCER_TEARDOWN_SECONDS` for the workflow's teardown, and
+  gives back the admission slots that teardown still holds. The
   chat's runtime session manager runs with `max_concurrency=0`: the runtime's semaphore
   queued a turn after `RUN_STARTED` behind turns waiting on HITL answers, and
   ADR-0040's admission (`MAX_ACTIVE_TURNS`) is the gate that refuses at

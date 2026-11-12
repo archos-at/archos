@@ -31,6 +31,8 @@ vi.mock('./repository', () => ({
   endAsk: vi.fn(),
   findAsk: vi.fn(),
   findAskById: vi.fn(),
+  findAsksOpenBefore: vi.fn(async () => []),
+  OPEN_ASKS_PAGE: 200,
   hasAskedInConversation: vi.fn(),
   insertAsk: vi.fn(),
   listAskDocuments: vi.fn(async () => []),
@@ -70,6 +72,7 @@ import {
   endAsk,
   findAsk,
   findAskById,
+  findAsksOpenBefore,
   hasAskedInConversation,
   insertAsk,
   markAskWorking,
@@ -81,7 +84,10 @@ import {
   askMaxSeconds,
   askAgent,
   cancelAsk,
+  endLostAsks,
   getAsk,
+  LOST_ASKS_PER_SWEEP,
+  lostAskEnd,
   recordAskOutcome,
 } from './service'
 import { CHAT_TURN_DEADLINE_SECONDS, DEFAULT_ASK_MAX_SECONDS } from './ask-wire'
@@ -529,6 +535,40 @@ describe('getAsk and cancelAsk', () => {
     expect(askMaxSeconds({ AGENT_ASK_MAX_SECONDS: '600' })).toBe(600)
     expect(askMaxSeconds({ AGENT_ASK_MAX_SECONDS: 'x' })).toBe(DEFAULT_ASK_MAX_SECONDS)
     expect(askMaxSeconds({})).toBe(DEFAULT_ASK_MAX_SECONDS)
+  })
+})
+
+describe('endLostAsks (the agent-ask-expiry sweep)', () => {
+  it('ends, in its own organization, every ask still open past the age a read would end it at, with the same reason', async () => {
+    // dev, 2026-11-12: six asks read `working` for an hour after a pod restart lost their notices.
+    const now = new Date('2026-11-12T14:20:00Z')
+    const lost = [
+      { id: '33333333-3333-4333-8333-333333333333', organizationId: ORG },
+      { id: '55555555-5555-4555-8555-555555555555', organizationId: 'org_2' },
+    ]
+    vi.mocked(findAsksOpenBefore).mockResolvedValue(lost)
+    vi.mocked(endAsk).mockImplementation(async (organizationId, id) => askRow({ id, organizationId, state: 'failed' }))
+
+    expect(await endLostAsks(now)).toBe(2)
+
+    expect(findAsksOpenBefore).toHaveBeenCalledWith(new Date(now.getTime() - askMaxSeconds() * 1_000), LOST_ASKS_PER_SWEEP)
+    expect(vi.mocked(endAsk).mock.calls).toEqual([
+      [ORG, lost[0].id, lostAskEnd()],
+      ['org_2', lost[1].id, lostAskEnd()],
+    ])
+    expect(lostAskEnd()).toEqual({ state: 'failed', reason: `${PRODUCT_NAME} did not report the end of its turn within 47 minutes. Ask again.` })
+  })
+
+  it('counts only the asks it ended: an outcome that landed meanwhile stands', async () => {
+    vi.mocked(findAsksOpenBefore).mockResolvedValue([{ id: row.id, organizationId: ORG }])
+    vi.mocked(endAsk).mockResolvedValue(null)
+    expect(await endLostAsks()).toBe(0)
+  })
+
+  it('ends an ask by the rule a read applies', async () => {
+    row = askRow({ state: 'working', createdAt: new Date(Date.now() - (askMaxSeconds() + 60) * 1_000) })
+    const view = await getAsk(SESSION, row.id)
+    expect(view.reason).toBe((lostAskEnd() as { reason: string }).reason)
   })
 })
 

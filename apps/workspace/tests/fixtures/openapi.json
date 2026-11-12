@@ -1853,7 +1853,7 @@
       "get": {
         "operationId": "project-memory-list",
         "summary": "List a project’s memory items",
-        "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. Each item carries its `topic` (null for none); `topics` lists the topics the caller sees with how many items each holds, over all items, not this page. `topic` narrows the list to one topic, as `topics` names it (empty: the items with no topic). Item ids feed project-memory-update and project-memory-delete.",
+        "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. Each item carries its `topic` (null for none); `topics` lists the topics the caller sees with how many items each holds, over all items the list shows (the project’s and the organization’s own), not this page. `topic` narrows the list to one topic, as `topics` names it (empty: the items with no topic). Item ids feed project-memory-update and project-memory-delete.",
         "tags": [
           "projects"
         ],

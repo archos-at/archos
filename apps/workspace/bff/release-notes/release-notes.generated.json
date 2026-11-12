@@ -945,6 +945,14 @@
         },
         {
           "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "An answer that ended no longer keeps counting against your office's answers in progress, so a question asked right after it is no longer turned away while nothing is running. A question your own agent asked now reads as failed once its answer is lost, without anyone having to look at it first.",
+            "de": "Eine abgeschlossene Antwort zählt nicht mehr zu den laufenden Antworten Ihres Büros. Dadurch wird eine unmittelbar danach gestellte Frage nicht mehr abgewiesen, wenn gerade nichts läuft. Eine Frage, die Ihr eigener Agent gestellt hat, wird jetzt als fehlgeschlagen angezeigt, sobald ihre Antwort verloren geht – ohne dass sie zuvor jemand öffnen muss."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "The connection state reads „Verbindung unterbrochen“ or „Keine Verbindung“, in German, with a symbol beside the words instead of a coloured dot alone; while the server does not answer, „Erneut versuchen“ checks again at once.",
@@ -1261,6 +1269,14 @@
           "text": {
             "en": "Answers no longer cite a law from a website that only republishes it, or from a page served without encryption: the text is read from the official legal database or the knowledge base. An answer that still rests on a web page for a rule gets a lower confidence.",
             "de": "Antworten zitieren Gesetze nicht mehr von Websites, die diese lediglich wiederveröffentlichen, oder von unverschlüsselten Seiten: Der Text stammt aus der offiziellen Rechtsdatenbank oder der Wissensdatenbank. Antworten, die sich weiterhin bei einer Regel auf eine Webseite stützen, erhalten eine niedrigere Konfidenz."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A question about the law on a given day, such as a submission's filing day, now finds the regulation you name and reads the version in force that day, where before it could miss the regulation, even for today. A day of today or later reads today's text, and the answer says so.",
+            "de": "Bei einer Frage zur Rechtslage an einem bestimmten Tag, etwa am Einreichungstag eines Antrags, wird nun die von Ihnen genannte Vorschrift gefunden und in der an diesem Tag geltenden Fassung wiedergegeben; bisher konnte die Vorschrift übersehen werden, sogar bei Fragen zur heutigen Rechtslage. Für heute und spätere Tage wird der heutige Text herangezogen, und die Antwort weist darauf hin."
           }
         },
         {

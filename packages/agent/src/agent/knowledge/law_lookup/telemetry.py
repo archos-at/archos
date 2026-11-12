@@ -79,6 +79,9 @@ def _span_context(question: str, address: Address, trace: LookupTrace, passages:
         # A past day (ADR-0171): which day, and how many hits were versions of other days.
         context["as_of"] = trace.as_of
         context["versions_dropped"] = trace.versions_dropped
+    if trace.as_of_today:
+        # A day of today or later, read as today's law: the span shows the day the caller asked for.
+        context["as_of_read_as_today"] = trace.as_of_today
     if not passages:
         context["empty"] = True
     return context

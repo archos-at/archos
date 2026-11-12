@@ -16,6 +16,9 @@ from agent.common.action_outcome import ActionOutcome
 from agent.common.action_rows import ActionRow
 from agent.knowledge.law_lookup.address import parse_address
 from agent.knowledge.law_lookup.as_of import as_of_error
+from agent.knowledge.law_lookup.as_of import reads_today
+from agent.knowledge.law_lookup.as_of import today
+from agent.knowledge.law_lookup.as_of import today_note
 from agent.knowledge.law_lookup.cache import ttl_seconds
 from agent.knowledge.law_lookup.candidates import Search
 from agent.knowledge.law_lookup.candidates import collect_candidates
@@ -29,6 +32,7 @@ from agent.knowledge.law_lookup.passages import build_passages
 from agent.knowledge.law_lookup.picker import make_picker
 from agent.knowledge.law_lookup.planner import make_planner
 from agent.knowledge.law_lookup.render import format_passages
+from agent.knowledge.law_lookup.render import unread_versions
 from agent.knowledge.law_lookup.source import LawSource
 from agent.knowledge.law_lookup.source import law_source
 from agent.knowledge.law_lookup.telemetry import capture_passages
@@ -185,31 +189,48 @@ class _Lookup:
         outcome = ActionOutcome()
         row = ActionRow("law", query=question, target=(instrument or "").strip())
         try:
-            result = await self._answer(bound, question, jurisdiction, instrument, application, outcome, as_of)
+            result = await self._answer(bound, question, jurisdiction, instrument, application, outcome, as_of, note)
         except BaseException:
             row.finish("error")
             raise
         outcome.settle(row)
-        return f"{note}\n{result}" if note else result
+        return result
 
     async def _answer(
-        self, bound: _Bound, question, jurisdiction, instrument, application, outcome: ActionOutcome, as_of: str
+        self,
+        bound: _Bound,
+        question,
+        jurisdiction,
+        instrument,
+        application,
+        outcome: ActionOutcome,
+        as_of: str,
+        note: str,
     ) -> str:
         law, tool = bound.law, self.config.tool_name
         address = parse_address(question, instrument, jurisdiction, law)
-        trace = LookupTrace(collection=application, as_of=as_of)
+        # Today or later is today's text, by the usual path; only a past day reads version documents (ADR-0171).
+        now = today()
+        current = bool(as_of) and reads_today(as_of, now)
+        trace = LookupTrace(
+            collection=application, as_of="" if current else as_of, as_of_today=as_of if current else ""
+        )
         trace.source, trace.source_revision, trace.source_origin = law.source.id, bound.revision, bound.origin
-        trace.candidates = await collect_candidates(bound.search, question, address, trace, as_of)
+        trace.candidates = await collect_candidates(bound.search, question, address, trace, trace.as_of)
         documents = await fetch_documents(bound.client, trace.candidates, trace, self.ttl)
         selections = await select_passages(bound.picker, question, address, documents, trace, law)
         passages = build_passages(selections, address, law)
         ingested = await ingest_documents(documents, self.config.ingest_into_knowledge, law, self.ttl)
         emit_lookup_span(question, address, trace, passages, tool)
         outcome.hits = len(passages)
+        # The call's notes go INSIDE the rendered block: its records are filed under the text it renders, and a
+        # line put before it afterwards loses them (``grounding_block.get_grounding_block``). A miss files none.
+        notes = [line for line in (note, today_note(as_of, now) if current else "") if line]
         if not passages:
-            return miss_message(question, address, trace, law)
+            return "\n".join([*notes, miss_message(question, address, trace, law)])
         capture_passages(passages)
-        return format_passages(passages, ingested, address, law, tool)
+        notes += unread_versions(trace, law)
+        return format_passages(passages, ingested, address, law, tool, notes)
 
 
 async def _resolve_llms(tool_config: LawLookupToolConfig, builder: Builder):

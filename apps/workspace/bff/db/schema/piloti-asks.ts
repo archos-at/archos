@@ -47,6 +47,10 @@ export const agentAsks = pgTable(
       table.createdAt,
     ),
     conversationIdx: index('idx_agent_asks_conversation').on(table.conversationId),
+    /** The expiry sweep's read: the asks still open, by age (migration 0237). */
+    openCreatedIdx: index('idx_agent_asks_open_created')
+      .on(table.createdAt)
+      .where(sql`${table.state} IN ('submitted', 'working')`),
     stateKnown: check('agent_asks_state_known', sql`${table.state} IN (${list(ASK_STATES)})`),
     reasonWhenRefused: check(
       'agent_asks_reason_when_refused',

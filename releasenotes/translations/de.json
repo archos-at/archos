@@ -720,6 +720,10 @@
     "de": "Bei einer Frage zu mehreren Paragraphen, etwa „§§ 3 bis 8“, werden jetzt bis zu sechs in einem Schritt gelesen statt nur der erste."
   },
   {
+    "en": "A question about the law on a given day, such as a submission's filing day, now finds the regulation you name and reads the version in force that day, where before it could miss the regulation, even for today. A day of today or later reads today's text, and the answer says so.",
+    "de": "Bei einer Frage zur Rechtslage an einem bestimmten Tag, etwa am Einreichungstag eines Antrags, wird nun die von Ihnen genannte Vorschrift gefunden und in der an diesem Tag geltenden Fassung wiedergegeben; bisher konnte die Vorschrift übersehen werden, sogar bei Fragen zur heutigen Rechtslage. Für heute und spätere Tage wird der heutige Text herangezogen, und die Antwort weist darauf hin."
+  },
+  {
     "en": "A question another agent puts to Piloti now always ends with an answer or a reason, also when Piloti restarts while answering it.",
     "de": "Eine Frage, die ein anderer Agent Piloti jetzt stellt, wird immer mit einer Antwort oder einer Begründung abgeschlossen – auch wenn Piloti während der Beantwortung neu startet."
   },
@@ -1158,6 +1162,10 @@
   {
     "en": "An answer reads at one text size, and the lightest text is a touch heavier, so long answers are easier to read.",
     "de": "Eine Antwort erscheint in einheitlicher Schriftgröße, und der hellste Text ist etwas kräftiger, damit lange Antworten leichter lesbar sind."
+  },
+  {
+    "en": "An answer that ended no longer keeps counting against your office's answers in progress, so a question asked right after it is no longer turned away while nothing is running. A question your own agent asked now reads as failed once its answer is lost, without anyone having to look at it first.",
+    "de": "Eine abgeschlossene Antwort zählt nicht mehr zu den laufenden Antworten Ihres Büros. Dadurch wird eine unmittelbar danach gestellte Frage nicht mehr abgewiesen, wenn gerade nichts läuft. Eine Frage, die Ihr eigener Agent gestellt hat, wird jetzt als fehlgeschlagen angezeigt, sobald ihre Antwort verloren geht – ohne dass sie zuvor jemand öffnen muss."
   },
   {
     "en": "An answer that is still being written is kept when the connection drops briefly, for instance when you switch apps or lock your iPhone. When you return, the rest of the answer appears, even after reloading the page.",

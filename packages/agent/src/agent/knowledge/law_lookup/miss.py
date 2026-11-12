@@ -45,6 +45,11 @@ def _as_of_lines(trace: LookupTrace, law: LawSource) -> list[str]:
     """On a past day, say that no version of that day was found, and that today's text was not substituted."""
     if not trace.as_of:
         return []
+    if trace.fetched:
+        return [
+            f"Asked for the version in force on {trace.as_of}: {len(trace.fetched)} {law.wording.source} version "
+            "document(s) of that day were read and none answered. Today's text is not given in their place."
+        ]
     return [
         f"Asked for the version in force on {trace.as_of}: no {law.wording.source} version document of that day "
         f"was found ({trace.versions_dropped} hit(s) were versions of other days). Today's text is not given in "

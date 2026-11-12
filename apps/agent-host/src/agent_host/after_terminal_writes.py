@@ -15,6 +15,8 @@ import logging
 from collections.abc import Awaitable
 from typing import Any
 
+from agent_host import workflow_stream
+
 logger = logging.getLogger(__name__)
 
 #: Background writes after a terminal still in flight: the answer row and what
@@ -23,8 +25,24 @@ PERSIST_TASKS: set[asyncio.Task[Any]] = set()
 
 #: How long a drain waits, after its turns ended, for those writes: the outcome
 #: notice's retries (``internal_retry``). Inside the pod's slack
-#: (``BACKEND_DRAIN_SLACK_SECONDS``, 60) together with the cancel grace.
+#: (``BACKEND_DRAIN_SLACK_SECONDS``, 60) together with the cancel grace (15 s).
 DRAIN_AFTER_TERMINAL_SECONDS = 30.0
+
+#: How much longer than the workflow's teardown bound a drain waits for the turns it cancelled.
+DRAIN_CANCEL_MARGIN_SECONDS = 5.0
+
+
+def drain_cancel_grace() -> float:
+    """How long a drain waits for the turns it cancelled to reach their terminal (``ChatRegistry.drain``).
+
+    Longer than the workflow's teardown bound (``workflow_stream.PRODUCER_TEARDOWN_SECONDS``),
+    because a cancelled turn sends its terminal, and starts the writes behind it, only once that
+    teardown has ended or run out its bound. It was a flat 10 s, the bound itself, so a turn whose
+    teardown ran out reached its terminal just after the drain stopped waiting: its writes were not
+    started yet, :func:`drain_after_terminal` found none, the process exited, and the ask it served
+    read ``working`` until a read ended it after 47 minutes (dev, 2026-11-12).
+    """
+    return workflow_stream.PRODUCER_TEARDOWN_SECONDS + DRAIN_CANCEL_MARGIN_SECONDS
 
 
 def in_background(work: Awaitable[Any]) -> asyncio.Task[Any]:
