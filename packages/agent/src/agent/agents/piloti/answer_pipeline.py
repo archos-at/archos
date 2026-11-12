@@ -79,6 +79,7 @@ from agent.observability.langfuse_trace_attributes import record_trace_metadata
 from .answer_check import Answered
 from .answer_check import TurnCheck
 from .answer_check import check_answer
+from .answer_check import prose_without_references
 from .answer_shape import drop_restated_mindmaps
 from .dsml import strip_and_salvage_dsml_tool_calls
 from .markers import detect_and_strip_confidence_marker
@@ -152,63 +153,12 @@ class FinalAnswer:
     #: wire-ready: ``{"status": "judged", "level", "findings"}`` or
     #: ``{"status": "unavailable"}``. None when the answer graded nothing.
     confidence_check: dict[str, Any] | None = None
+    #: What the answer itself names as open, unchecked or unresolved, as the answer check read its prose and
+    #: its confidence reason. Any one caps the surfaced level at medium (``open_point``, ``markers``).
+    open_points: tuple[str, ...] = ()
     #: A lookup ran and retrieved nothing, and the answer ships anyway, every
     #: sentence labelled as the model's own knowledge (a ruling is refused instead).
     lookup_found_nothing: bool = False
-
-
-# --------------------------------------------------------------------------
-# Text helpers
-# --------------------------------------------------------------------------
-
-#: A trailing reference list, in the headings this agent and the models it runs
-#: actually produce.
-_REFERENCES_SECTION_RE = re.compile(
-    r"\n\s*(?:\*\*(?:References|Sources|Quellen):?\*\*|#{2,3}\s+(?:References|Sources|Quellen))\s*(?:\n|$)",
-    re.IGNORECASE,
-)
-
-#: What a reference list is allowed to consist of: a blank line, or a line that
-#: carries an actual REFERENCE, a URL or a „[n]" citation marker. List
-#: punctuation is not enough and never was: „- " is available to any sentence,
-#: so accepting it let „- Damit ist der Raum unzulässig …" under a
-#: „**Quellen:**" heading count as a bibliography entry and leave the text
-#: before the brake ever read it.
-_REFERENCE_LINE_RE = re.compile(r"^\s*$|\[\d+\]|<?https?://")
-
-
-def prose_without_references(content: str) -> str:
-    """The answer's own sentences, with any trailing reference list removed.
-
-    The normative brake and the per-sentence stamps judge what the ANSWER
-    asserts, and a bibliography asserts nothing: a source line names the
-    instrument the brake's strong tier matches, so leaving it in floored
-    purely descriptive answers to "low" under a reason that was not true of a
-    single sentence the model wrote.
-
-    Only a genuinely TRAILING list is cut: a heading is a cut point only when
-    every line after it points at a source (a URL or a „[n]" marker) or is
-    blank; otherwise the search moves to the previous heading, and failing
-    that nothing is removed. Erring towards keeping text is the safe
-    direction: a reference line that survives costs a hedge, a verdict that
-    is dropped costs a claim about the law.
-
-    Known gap, left open deliberately: ANY tail line carrying a URL or a „[n]"
-    marker is cut, so a verdict smuggled into an all-references tail with a
-    marker on it („- Damit ist der Raum unzulässig [1]") is cut too. Keeping
-    the lines the normative brake fires on was measured and is inverted: a
-    compliance bibliography is a list of exactly the instrument names the
-    brake's strong tier matches (11 of 14 genuine entries fire). A real
-    finite-verb test needs a POS
-    tagger; a heuristic that cuts the wrong way is worse than the gap.
-    """
-    if not isinstance(content, str):
-        return ""
-    for match in reversed(list(_REFERENCES_SECTION_RE.finditer(content))):
-        tail = content[match.end() :]
-        if all(_REFERENCE_LINE_RE.search(line) for line in tail.splitlines()):
-            return content[: match.start()]
-    return content
 
 
 # --------------------------------------------------------------------------
@@ -1141,7 +1091,6 @@ async def finalize_answer(
     with_cards = await _register_envelope_cards(extracted.meta, extracted.content, turn, card_repair)
     if with_cards != extracted.content:
         extracted = replace(extracted, content=with_cards)
-    lookup_attempted = _source_lookup_attempted(turn)
     sources = registry.all_sources()
     found_nothing = False
     # A place a look registered is a source to cite, not a retrieval: a turn that
@@ -1188,7 +1137,7 @@ async def finalize_answer(
     _emit_answer_scores(looks, looks_made, content, cited, readings := relied_readings(looks, cited), grounding)
     seen, quotes = [*_trailer_captures(turn_sources), *sources], grounding.unverified_quotes
     answered = Answered(messages, content, cited, seen, stamps, quotes, turn, measured_values, readings)
-    checked = await check_answer(answered, check) if extracted.confidence is not None else None
+    checked, open_points = await check_answer(answered, check, extracted.confidence, extracted.confidence_reason)
     final_messages = list(messages)
     final_messages[index] = messages[index].model_copy(update={"content": content})
     return FinalAnswer(
@@ -1203,7 +1152,7 @@ async def finalize_answer(
         confidence_marker=extracted.confidence,
         confidence_marker_reason=extracted.confidence_reason,
         escalation_reason=extracted.escalation_reason,
-        source_lookup_attempted=lookup_attempted,
+        source_lookup_attempted=_source_lookup_attempted(turn),
         answer_meta=meta,
         skills_applied=_skills_applied(extracted.meta),
         cited=cited,
@@ -1211,6 +1160,7 @@ async def finalize_answer(
         quote_stamps=tuple(stamps),
         dialect_repairs=tuple(dialect.repairs),
         confidence_check=checked,
+        open_points=open_points,
         lookup_found_nothing=found_nothing,
     )
 

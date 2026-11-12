@@ -2161,6 +2161,7 @@ export const chat = {
         'A quote could not be verified verbatim against the source; the assessment is capped accordingly.',
       lawUnsettled:
         'Medium confidence: the answer rests on building law whose binding edition at this site is not yet settled by reviewed records.',
+      openPoint: 'Capped by the answer itself: an open point it names, or its own lower assessment.',
       // The measurement backs the number, not the legal statement beside it —
       // so the mixed answer stays at "low" and the tooltip says why.
       normativeClaimUncited:
@@ -2193,6 +2194,11 @@ export const chat = {
       quoteUnverified: 'A quotation could not be confirmed word for word in its source, so the level is capped.',
       lawUnsettled:
         'Which edition binds at this site is not yet settled by reviewed records, so the level is at most medium.',
+      // The check reads whether the sources back each statement. When the answer
+      // itself says something is open, or rates itself lower, the check does not
+      // raise it above that.
+      openPoint:
+        'Capped by the answer itself: an open point it names, or its own lower assessment. The check does not raise the level above it.',
       unavailable: 'Evidence check unavailable',
       unavailableTooltip:
         'The evidence check could not run for this answer, so {productName} shows no level; the answer itself is unchanged.',
@@ -2213,6 +2219,7 @@ export const chat = {
         quoteUnverified:
           'A quote could not be verified verbatim against the source; the assessment is capped accordingly.',
         lawUnsettled: 'Capped by building law whose binding edition at this site is not yet settled by reviewed records.',
+        openPoint: 'Capped by the answer itself: an open point it names, or its own lower assessment.',
         normativeClaimUncited:
           'Capped by a legal statement without a cited source. A workspace record or a measurement does not back a legal statement.',
         measurementOnly:

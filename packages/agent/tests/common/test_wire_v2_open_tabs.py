@@ -64,3 +64,48 @@ def test_an_unavailable_check_reads_too():
 def test_the_check_sees_the_break_a_new_version_number_would_be():
     """What review caught: ``answer_confidence_version: 3`` fails the old ``1 | 2``."""
     assert not _old_tab_reads(_checked_finish(3, {"status": "judged", "level": "high"}))
+
+
+# A new value of a known field is the break stripping does not cover. A field marked ``x-unknown-as-null``
+# (``wire_v2.py``) is generated with ``.catch(null)`` (``generate-wire-schemas.mjs``): a bundle built from
+# today's schema reads a value added later as absent, and the turn settles.
+SCHEMA = Path(__file__).parents[4] / "contracts" / "wire" / "v2.schema.json"
+
+
+def _as_bundle_reads(node: Any) -> Any:
+    """The schema as the generated client reads it: unknown keys stripped, a marked field taking any value."""
+    if isinstance(node, dict):
+        if node.get("x-unknown-as-null") is True:
+            return {}
+        return {key: _as_bundle_reads(value) for key, value in node.items() if key != "additionalProperties"}
+    if isinstance(node, list):
+        return [_as_bundle_reads(value) for value in node]
+    return node
+
+
+def _todays_bundle_reads(frame: dict[str, Any]) -> bool:
+    defs = json.loads(SCHEMA.read_text())["$defs"]
+    schema = _as_bundle_reads({"$ref": "#/$defs/RunFinished", "$defs": defs})
+    return jsonschema.Draft202012Validator(schema).is_valid(frame)
+
+
+def _capped(reason: str) -> dict[str, Any]:
+    frame = _checked_finish(CONFIDENCE_RULE_VERSION, {"status": "judged", "level": "high"})
+    frame["result"].update(answer_confidence="medium", answer_confidence_capped_reason=reason)
+    return frame
+
+
+def test_a_capped_reason_from_a_later_release_still_settles_the_turn():
+    assert _todays_bundle_reads(_capped("open_point"))
+    assert _todays_bundle_reads(_capped("a_reason_a_later_release_adds"))
+
+
+def test_the_capped_reason_is_marked_lenient_on_the_wire():
+    reason = json.loads(SCHEMA.read_text())["$defs"]["TurnResult"]["properties"]["answer_confidence_capped_reason"]
+    assert reason.get("x-unknown-as-null") is True
+
+
+def test_a_tab_built_before_the_marker_still_refuses_a_new_reason():
+    """The one-time cost, staged knowingly: a bundle from before ``x-unknown-as-null`` cannot read ``open_point``
+    (nor ``law_unsettled``, #1582) and asks the tab to reload. From this release on, a new reason reads as null."""
+    assert not _old_tab_reads(_capped("open_point"))
