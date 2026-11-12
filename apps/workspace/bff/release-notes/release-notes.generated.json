@@ -203,6 +203,22 @@
           "section": "features",
           "area": "office-knowledge",
           "text": {
+            "en": "A standard in Grundlagen des Büros now opens as its file, in the same viewer as any document, with its edition, validity and last check beside it. Editing its details is one press away instead of the first thing you see.",
+            "de": "Ein Standard unter Grundlagen des Büros öffnet sich jetzt als Datei im selben Viewer wie jedes Dokument, mit Ausgabe, Gültigkeit und letzter Prüfung daneben. Seine Details lassen sich mit einem Klick bearbeiten, statt dass die Bearbeitung das Erste ist, was Sie sehen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Adding a standard now takes you straight to its form: pick the file with „Grundlage hinzufügen“ (or take one from the Büroablage), check what was proposed, and confirm. Add several at once and „Bestätigen und weiter“ leads through them one after another.",
+            "de": "Wenn Sie jetzt einen Standard hinzufügen, gelangen Sie direkt zu seinem Formular: Wählen Sie die Datei über „Grundlage hinzufügen“ aus (oder nehmen Sie eine aus der Büroablage), prüfen Sie die vorgeschlagenen Angaben und bestätigen Sie. Wenn Sie mehrere Standards gleichzeitig hinzufügen, führt Sie „Bestätigen und weiter“ nacheinander durch die Formulare."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
             "en": "Your office's standards, commentaries and directives now have a place of their own beside the Büroablage, with folders, filters for what still needs confirming or checking, and a page per standard. You find a standard and its state in seconds, and the Büroablage marks these files as Grundlage.",
             "de": "Die Normen, Kommentare und Richtlinien Ihres Büros haben nun neben der Büroablage einen eigenen Bereich – mit Ordnern, Filtern für noch zu bestätigende oder zu prüfende Inhalte und einer Seite pro Norm. Sie finden eine Norm und ihren Status in Sekunden; in der Büroablage sind diese Dateien als Grundlage gekennzeichnet."
           }

@@ -900,6 +900,10 @@
     "de": "Eine Quelle aus einem anderen Projekt ist jetzt als Präzedenzfall gekennzeichnet und enthält den Projektstatus sowie das Bundesland. Verwendet eine Antwort einen solchen Präzedenzfall, unterscheidet sie zwischen den geltenden Vorgaben, der üblichen Vorgehensweise des Büros und dem Projekt, in dem etwas bereits umgesetzt wurde, und weist darauf hin, wenn sich Vorschriften oder Bundesland unterscheiden."
   },
   {
+    "en": "A standard in Grundlagen des Büros now opens as its file, in the same viewer as any document, with its edition, validity and last check beside it. Editing its details is one press away instead of the first thing you see.",
+    "de": "Ein Standard unter Grundlagen des Büros öffnet sich jetzt als Datei im selben Viewer wie jedes Dokument, mit Ausgabe, Gültigkeit und letzter Prüfung daneben. Seine Details lassen sich mit einem Klick bearbeiten, statt dass die Bearbeitung das Erste ist, was Sie sehen."
+  },
+  {
     "en": "A standard or product code typed in lowercase now matches the documents that write it in capitals, so a question about a specific code finds the same sources whichever way it is typed.",
     "de": "Ein in Kleinbuchstaben eingegebener Norm- oder Produktcode findet jetzt auch Dokumente, in denen er in Großbuchstaben geschrieben ist. Fragen zu einem bestimmten Code liefern daher unabhängig von der Schreibweise dieselben Quellen."
   },
@@ -1002,6 +1006,10 @@
   {
     "en": "Adding a document to a running research from its list of documents now works, where before the research never received it.",
     "de": "Ein Dokument zu einer laufenden Recherche aus deren Dokumentliste hinzuzufügen funktioniert jetzt; bisher erhielt die Recherche es nie."
+  },
+  {
+    "en": "Adding a standard now takes you straight to its form: pick the file with „Grundlage hinzufügen“ (or take one from the Büroablage), check what was proposed, and confirm. Add several at once and „Bestätigen und weiter“ leads through them one after another.",
+    "de": "Wenn Sie jetzt einen Standard hinzufügen, gelangen Sie direkt zu seinem Formular: Wählen Sie die Datei über „Grundlage hinzufügen“ aus (oder nehmen Sie eine aus der Büroablage), prüfen Sie die vorgeschlagenen Angaben und bestätigen Sie. Wenn Sie mehrere Standards gleichzeitig hinzufügen, führt Sie „Bestätigen und weiter“ nacheinander durch die Formulare."
   },
   {
     "en": "Administrators can invite colleagues to a project again. Invitations failed for some administrator roles.",
