@@ -51,6 +51,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   if (!w.__baseKnowledgeShim) {
     w.__baseKnowledgeShim = true
     const real = window.fetch.bind(window)
+    let added = 0
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const raw =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
@@ -65,10 +66,16 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       }
       if (url.pathname === '/api/base-knowledge' && (init?.method ?? 'GET') === 'GET')
         return Response.json(list(url, variant))
+      // A file added (uploaded or taken from the shelf) comes back as a proposal, as the server makes one from its
+      // name; here the fixture's proposals answer in turn, so adding several walks the forms one after another.
+      if (url.pathname === '/api/base-knowledge/upload' || (url.pathname === '/api/base-knowledge' && init?.method === 'POST')) {
+        const proposals = BASE_KNOWLEDGE_ENTRIES.filter((candidate) => candidate.status === 'proposed')
+        return Response.json(proposals[added++ % proposals.length])
+      }
       const entryId = /^\/api\/base-knowledge\/([^/]+)/.exec(url.pathname)?.[1]
       const entry = entryId ? BASE_KNOWLEDGE_ENTRIES.find((candidate) => candidate.id === decodeURIComponent(entryId)) : undefined
       // An entry's own path answers with the entry; a write leaves the fixture as it is.
-      if (entry) return Response.json(entry)
+      if (entry) return Response.json(url.pathname.endsWith('/confirm') ? { ...entry, status: 'confirmed' } : entry)
       if (url.pathname.startsWith('/api/base-knowledge')) return Response.json({ results: [] })
       // A standard opens as its file: the viewer reads the document's status and its bytes like any other.
       const doc = /^\/api\/documents\/([^/]+)\/(status|file|preview|details|versions|visual-details|annotations)$/.exec(url.pathname)

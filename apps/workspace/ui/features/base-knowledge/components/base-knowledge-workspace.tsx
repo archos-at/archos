@@ -218,21 +218,30 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
     await reload()
   }
 
+  // Adding a standard is filling in what it is: the file only starts it. What was just added opens as its
+  // form, one after another, and each confirmation leads to the next; what is left stays in the list to confirm.
+  const [adding, setAdding] = useState<{ ids: string[]; total: number }>({ ids: [], total: 0 })
+  const startAdding = (ids: string[]) => {
+    setAdding({ ids, total: ids.length })
+    if (ids.length > 0) go({ entryId: ids[0], fileId: null })
+  }
+  const addingStep = (entryId: string) =>
+    adding.ids.includes(entryId) ? { position: adding.total - adding.ids.length + 1, count: adding.total } : undefined
+
   // The files are the browser's own bytes, sent one after another into the open folder.
   const upload = async (files: File[]) => {
     setUploading(true)
-    let done = 0
+    const added: string[] = []
     for (const file of files) {
       try {
-        await uploadBaseKnowledge(file, filters.folderId)
-        done += 1
+        added.push((await uploadBaseKnowledge(file, filters.folderId)).id)
       } catch (error) {
         toast.error(error instanceof Error && error.message ? `${file.name}: ${error.message}` : t('uploadFailed', { name: file.name }))
       }
     }
     setUploading(false)
-    if (done > 0) toast.success(t('uploadDone', { count: done }))
     await reload()
+    startAdding(added)
   }
 
   const folderAction = async (action: () => Promise<unknown>): Promise<boolean> => {
@@ -308,9 +317,15 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           rootId={folders.rootId}
           folders={folders.folders}
           territories={list.territories}
+          adding={addingStep(openEntry.id)}
           onChanged={(entry) => {
             open.set(entry)
-            if (!entry) location.go({ entryId: null })
+            // A new standard confirmed or removed: on to the next one just added, else back to the list.
+            if (adding.ids.includes(openEntry.id) && (!entry || entry.status === 'confirmed')) {
+              const rest = adding.ids.filter((id) => id !== openEntry.id)
+              setAdding({ ids: rest, total: adding.total })
+              location.go({ entryId: rest[0] ?? null }, { replace: true })
+            } else if (!entry) location.go({ entryId: null })
             else if (entry.id !== location.entryId) location.go({ entryId: entry.id })
             void reload()
           }}
@@ -422,7 +437,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
         />
       )}
 
-      <ShelfPickerDialog open={picking} onOpenChange={setPicking} recorded={new Set(entries.map((entry) => entry.documentId))} onProposed={() => void reload()} />
+      <ShelfPickerDialog open={picking} onOpenChange={setPicking} recorded={new Set(entries.map((entry) => entry.documentId))} onProposed={(entry) => void reload().then(() => startAdding([entry.id]))} />
       <ConfirmDialog
         open={removing}
         onOpenChange={setRemoving}

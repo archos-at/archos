@@ -6,9 +6,12 @@
 export const baseKnowledge = {
   title: 'Grundlagen des Büros',
   subtitle: 'Normen, Kommentare und Weisungen, die Ihr Büro besitzt und auf die sich {productName} in Ihren Antworten stützt.',
-  upload: 'Hochladen',
-  uploading: 'Wird hochgeladen …',
-  uploadDone: '{count} hochgeladen: bitte prüfen und bestätigen',
+  upload: 'Grundlage hinzufügen',
+  uploading: 'Wird hinzugefügt …',
+  adding: {
+    step: 'Neue Grundlage {position} von {count}',
+    confirmNext: 'Bestätigen und weiter',
+  },
   uploadFailed: '„{name}“ konnte nicht hochgeladen werden.',
   fromShelf: 'Aus der Büroablage übernehmen',
   loadError: 'Die Grundlagen konnten nicht geladen werden.',
@@ -21,7 +24,7 @@ export const baseKnowledge = {
   guide: {
     toggle: 'So funktioniert es',
     upload: {
-      title: '1 · Hochladen',
+      title: '1 · Hinzufügen',
       body: 'Gekaufte Normen, Kommentare zum Baurecht, Weisungen der Baubehörden und Richtlinien gehören hierher, nicht Projektunterlagen oder Vorlagen. {productName} schlägt aus dem Dateinamen vor, was es ist und welche Ausgabe. Den Text liest {productName} noch nicht.',
     },
     confirm: {
@@ -213,6 +216,5 @@ export const baseKnowledge = {
     none: 'Kein passendes Dokument, oder alle sind schon erfasst.',
     loadError: 'Die Dokumente der Büroablage konnten nicht geladen werden.',
     take: 'Übernehmen',
-    done: 'Übernommen: bitte prüfen und bestätigen',
   },
 }

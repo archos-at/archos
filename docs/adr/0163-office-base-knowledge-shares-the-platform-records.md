@@ -184,6 +184,11 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   (values, licence, folder, newer edition, removal) is one press away, „Angaben bearbeiten“, and opens the file
   again with „Datei öffnen“. Closing the viewer undoes opening it (the list, the folder or the page the person was
   on), so the back button never reopens it. Reading a standard is the common act; managing it is the rare one.
+- **Adding a standard is filling in its form** (2026-11-12): „Grundlage hinzufügen“ takes the file and opens the
+  proposal made from it as its page, the form to check and confirm, rather than leaving a row in the list to find.
+  Several files open one after another („Neue Grundlage 1 von 3“, „Bestätigen und weiter“), each step replacing
+  the last in the history; confirming the last returns to the list. A file taken from the Büroablage opens the same
+  way. What is left unconfirmed stays in the list as „Zu bestätigen“, so leaving midway loses nothing.
 - **Which edition an answer uses** is the platform's rule for a standard, guideline or commentary
   (`time/editions.ts` `newestInForce`; an edition starts on its in-force date, else its issue date) at the
   project's reference day: the filing day once it has come, else today (`referenceDayOfProfile`, which the

@@ -6,9 +6,12 @@
 export const baseKnowledge = {
   title: 'Office standards',
   subtitle: 'Standards, commentaries and directives your office owns, which {productName} relies on in your answers.',
-  upload: 'Upload',
-  uploading: 'Uploading …',
-  uploadDone: '{count} uploaded: please review and confirm',
+  upload: 'Add a standard',
+  uploading: 'Adding …',
+  adding: {
+    step: 'New standard {position} of {count}',
+    confirmNext: 'Confirm and continue',
+  },
   uploadFailed: '“{name}” could not be uploaded.',
   fromShelf: 'Take from Office filing',
   loadError: 'The office standards could not be loaded.',
@@ -21,7 +24,7 @@ export const baseKnowledge = {
   guide: {
     toggle: 'How it works',
     upload: {
-      title: '1 · Upload',
+      title: '1 · Add',
       body: 'Purchased standards, commentaries on building law, building authority directives and guidelines belong here, not project documents or templates. {productName} proposes from the file name what it is and which edition. {productName} does not read the text yet.',
     },
     confirm: {
@@ -213,6 +216,5 @@ export const baseKnowledge = {
     none: 'No matching document, or all are already recorded.',
     loadError: 'The documents in Office filing could not be loaded.',
     take: 'Take',
-    done: 'Taken: please review and confirm',
   },
 }

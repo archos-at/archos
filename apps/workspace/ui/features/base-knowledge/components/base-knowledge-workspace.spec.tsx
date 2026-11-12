@@ -83,7 +83,7 @@ describe('BaseKnowledgeWorkspace', () => {
     renderWorkspace()
     expect(await screen.findByText('Noch keine Grundlagen hinterlegt')).toBeTruthy()
     expect(screen.getByText(/gehören hierher, nicht Projektunterlagen oder Vorlagen/)).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: /Hochladen/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /Grundlage hinzufügen/ }).length).toBeGreaterThan(0)
   })
 
   it('lists entries with what needs a person counted, and asks the server for a filter', async () => {
@@ -109,6 +109,42 @@ describe('BaseKnowledgeWorkspace', () => {
     renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
     expect(calls.some((call) => call.url.includes('folderId=00000000-0000-4000-8000-000000000002'))).toBe(true)
+  })
+
+  it('adds standards as their forms, one after another, each confirmation leading to the next', async () => {
+    const [first, second] = BASE_KNOWLEDGE_ENTRIES.filter((entry) => entry.status === 'proposed')
+    const uploads = [first, second]
+    stubFetch(listOf())
+    const fetchMock = vi.mocked(fetch)
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url === '/api/base-knowledge/upload') return Response.json(uploads.shift())
+      if (url.endsWith('/confirm')) return Response.json({ ...first, status: 'confirmed' })
+      return answer(input, init)
+    })
+    const view = renderWorkspace()
+    await screen.findAllByTestId('base-knowledge-row')
+    await userEvent.upload(screen.getByTestId('base-knowledge-file-input'), [
+      new File(['a'], 'a.pdf', { type: 'application/pdf' }),
+      new File(['b'], 'b.pdf', { type: 'application/pdf' }),
+    ])
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith(`/app/base-knowledge?entry=${first.id}`, { scroll: false }))
+    expect(uploads).toHaveLength(0)
+
+    navigation.search = `entry=${first.id}`
+    view.rerender(
+      <I18nProvider initialLocale="de" fixedLocale>
+        <TooltipProvider>
+          <BaseKnowledgeWorkspace />
+        </TooltipProvider>
+      </I18nProvider>,
+    )
+    expect((await screen.findByTestId('base-knowledge-adding')).textContent).toBe('Neue Grundlage 1 von 2')
+    const licence = screen.queryByRole('checkbox', { name: /Lizenz gilt für unser ganzes Büro/ })
+    if (licence) await userEvent.click(licence)
+    await userEvent.click(screen.getByRole('button', { name: 'Bestätigen und weiter' }))
+    await waitFor(() => expect(navigation.replace).toHaveBeenLastCalledWith(`/app/base-knowledge?entry=${second.id}`, { scroll: false }))
   })
 
   it('opens a standard as its file, from its row', async () => {

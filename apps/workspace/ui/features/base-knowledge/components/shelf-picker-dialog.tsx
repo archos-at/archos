@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import {
   listShelfCandidates,
   proposeBaseKnowledge,
+  type BaseKnowledgeEntry,
   type ShelfCandidate,
 } from '@/adapters/api/base-knowledge-client'
 import { Button } from '@/components/ui/button'
@@ -34,7 +35,8 @@ interface ShelfPickerDialogProps {
   onOpenChange: (open: boolean) => void
   /** Documents already recorded, left out of the list. */
   recorded: ReadonlySet<string>
-  onProposed: () => void
+  /** The proposal just made, to open as its form. */
+  onProposed: (entry: BaseKnowledgeEntry) => void
 }
 
 export function ShelfPickerDialog({
@@ -73,9 +75,7 @@ export function ShelfPickerDialog({
   const take = async (candidate: ShelfCandidate) => {
     setBusy(candidate.id)
     try {
-      await proposeBaseKnowledge(candidate.id)
-      toast.success(t('shelfPicker.done'))
-      onProposed()
+      onProposed(await proposeBaseKnowledge(candidate.id))
       onOpenChange(false)
     } catch (error) {
       toast.error(error instanceof Error && error.message ? error.message : t('saveError'))
