@@ -22,7 +22,11 @@ vi.mock('./repository', () => ({
 }))
 
 const startProjectIntake = vi.fn()
-vi.mock('./intake-seed', () => ({ startProjectIntake: (...args: unknown[]) => startProjectIntake(...args) }))
+const seedProjectSite = vi.fn()
+vi.mock('./intake-seed', () => ({
+  startProjectIntake: (...args: unknown[]) => startProjectIntake(...args),
+  seedProjectSite: (...args: unknown[]) => seedProjectSite(...args),
+}))
 
 const createResource = vi.fn()
 const assignRole = vi.fn()
@@ -160,13 +164,41 @@ describe('createProject, set up by Piloti', () => {
     expect(deleteProjectRow).toHaveBeenCalledWith('p1', 'org_1')
   })
 
-  it('"self" is today: no intake row, no seed, the old audit metadata', async () => {
+  it('"self" writes no intake row, and the old audit metadata', async () => {
     await createProject(session, { name: 'Selbst', setup: 'self', description: 'ignored', location }, undefined, NOW)
 
     expect(startProjectIntake).not.toHaveBeenCalled()
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'project.created', metadata: { name: 'Selbst' } })
     )
+  })
+
+  it('"self" still writes the site it was created with: country and Land, as an agent gives them', async () => {
+    const body = { name: 'Scorecard Eisenstadt', setup: 'self' as const, address: 'Hauptstraße 35, 7000 Eisenstadt', country: 'at', federalState: 'burgenland' }
+    await createProject(session, body, undefined, NOW)
+
+    expect(seedProjectSite).toHaveBeenCalledWith(
+      session,
+      expect.objectContaining({ id: 'p1' }),
+      { location: undefined, address: body.address, federalState: 'burgenland', country: 'at' },
+      NOW
+    )
+  })
+
+  it('answers the project with the profile the seed wrote, so its version is the stored one', async () => {
+    const profile = { facts: {}, goals: {}, unknowns: [], assumptions: {} }
+    seedProjectSite.mockResolvedValueOnce({ profile, profileVersion: 2, profilePromptView: null, profileDisplay: null, profileUpdatedAt: NOW })
+
+    const project = await createProject(session, { name: 'Selbst', setup: 'self', country: 'at' }, undefined, NOW)
+
+    expect(project.profileVersion).toBe(2)
+  })
+
+  it('rolls the project back when the site of a "self" project cannot be written', async () => {
+    seedProjectSite.mockRejectedValueOnce(new Error('write failed'))
+
+    await expect(createProject(session, { name: 'Selbst', setup: 'self', country: 'at' }, undefined, NOW)).rejects.toThrow('write failed')
+    expect(deleteProjectRow).toHaveBeenCalledWith('p1', 'org_1')
   })
 
   it('"self" with a closing closes it at once, as ADR-0098 did', async () => {

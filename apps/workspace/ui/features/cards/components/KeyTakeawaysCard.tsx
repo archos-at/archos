@@ -138,7 +138,7 @@ const TakeawayRow: FC<{ item: AnswerMetaTakeaway; index: number }> = ({ item, in
           // padding, not a min-height, keeps the text centred in it. A mouse
           // keeps the 8px rhythm. `items-start` in ROW holds the ordinal and the
           // chevron on the first line when a takeaway wraps.
-          'group pointer-coarse:py-3 rounded-control transition-colors duration-quick ease-out hover:bg-muted/50',
+          'group pointer-coarse:py-3 rounded-control transition-colors duration-quick ease-out hover:bg-hover',
           'focus-visible:ring-ring/60 focus-visible:outline-none focus-visible:ring-2',
         )}
       >

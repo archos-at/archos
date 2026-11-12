@@ -34,6 +34,8 @@ export interface GraphWork {
   kind: KnowledgeWorkKind
   title: string
   designation: string | null
+  /** Who issues it, as its record names it; absent or null when the record states none. */
+  issuer?: string | null
   /** Where it applies; empty for a standards body's work. */
   territoryIds: readonly string[]
   /** A directive's addressees, by the territory each decides for. */

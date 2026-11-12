@@ -79,7 +79,7 @@ export interface RequestContextInput {
   /**
    * → `X-Collection-Scope` (base64url JSON array). Omitted when empty —
    * callers that always want a scope header pass a project's or the base
-   * collection (`computeCollectionScope` drops the base only for a project).
+   * collection (`computeCollectionScope` always includes the base).
    *
    * Entries are either a bare collection name (legacy, shelf unknown) or a
    * `{collection, shelf}` pair (ADR-0047). Both shapes ship here AND in the

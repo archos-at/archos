@@ -247,7 +247,7 @@ export function KnowledgeBasePanel({ projectId }: KnowledgeBasePanelProps) {
           <AlertTitle>{t('error.title')}</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-3">
             {t('error.description')}
-            <Button variant="outline" size="sm" onClick={() => void load()}>
+            <Button variant="secondary" size="sm" onClick={() => void load()}>
               <RotateCcw className="size-3.5" aria-hidden />
               {t('error.retry')}
             </Button>
@@ -313,7 +313,7 @@ export function KnowledgeBasePanel({ projectId }: KnowledgeBasePanelProps) {
                   icon={FolderOpen}
                   title={t('project.empty')}
                   action={
-                    <Button asChild variant="outline" size="sm">
+                    <Button asChild variant="secondary" size="sm">
                       <Link href={`/app/projects/${projectId}/files`}>{t('project.goToFiles')}</Link>
                     </Button>
                   }

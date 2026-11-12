@@ -249,7 +249,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                           { documentId: mark.documentId, annotationId: mark.id },
                           { back: here }
                         )}
-                        className={cn(markRowClassName(), 'hover:bg-desk')}
+                        className={cn(markRowClassName(), 'hover:bg-hover')}
                         data-testid="open-point-row"
                       >
                         <MarkRowContent annotation={mark} viewerId={currentUserId} showPage marker="verdict" columns />

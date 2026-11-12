@@ -52,11 +52,13 @@ describe('weight', () => {
     expect(offenders).toEqual([])
   })
 
-  it('the type scale names its headings at 600: section 16, pane title 20, page title 24', () => {
+  it('the type scale carries a title by size at 500 and the small heading at 600: section 16/600, pane title 18/500, page title 20/500', () => {
+    // The titles were 24/600 from 2026-11-10 and read heavy beside every page that still set its own 20/500 title
+    // (review of 2026-11-11). 600 stays for the 16px heading, which size alone does not lift off the body.
     const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
-    for (const [name, size] of [['section', '1rem'], ['pane-title', '1.25rem'], ['page-title', '1.5rem']]) {
+    for (const [name, size, weight] of [['section', '1rem', '600'], ['pane-title', '1.125rem', '500'], ['page-title', '1.25rem', '500']]) {
       expect(tokens, name).toMatch(new RegExp(`--text-${name}:\\s*${size};`))
-      expect(tokens, name).toMatch(new RegExp(`--text-${name}--font-weight:\\s*600;`))
+      expect(tokens, name).toMatch(new RegExp(`--text-${name}--font-weight:\\s*${weight};`))
     }
   })
 
@@ -85,6 +87,41 @@ describe('weight', () => {
     const css = files.filter((f) => f.name.endsWith('.css'))
     const offenders = css.filter((f) => /font-weight:\s*(7|8|9)00/.test(f.text) && !/@font-face/.test(f.text))
     expect(offenders.map((f) => f.name)).toEqual([])
+  })
+})
+
+/**
+ * An h1 that is not a page's title, so it keeps its own size, with the reason. Everything else is a page title and
+ * takes `text-page-title` (directly, or through `PAGE_TITLE_CLASS` / `PageHeader`).
+ */
+const OWN_H1_ALLOWED = new Map([
+  ['ui/features/layout/components/chat-area/chat-area-states.tsx', 'the chat\u2019s hero greeting (23px, the ramp\u2019s one larger moment) and the signed-out card'],
+  ['ui/components/brand/status-screen.tsx', 'one centred message under the logo (404, error), not a page with a header'],
+  ['ui/features/onboarding/components/organization-setup.tsx', 'a centred setup card, the size of its form'],
+  ['ui/features/project-intake/components/steps/reading-step.tsx', 'the reading step\u2019s live phase line, 22px on a phone'],
+  ['ui/features/project-intake/components/questions/round-list.tsx', 'the title of the question list\u2019s side column, not of the page'],
+  ['app/legal/[slug]/page.tsx', 'a legal document\u2019s own title, set as a document'],
+  ['shared/components/MarkdownRenderer/MarkdownRenderer.tsx', 'a heading inside rendered Markdown (an answer, a note), not the page\u2019s'],
+])
+
+describe('page titles', () => {
+  const h1Tags = (text: string): string[] => withoutComments(text).match(/<h1\b[\s\S]*?>/g) ?? []
+  const isPageTitle = (tag: string): boolean => /text-page-title|PAGE_TITLE_CLASS|\bsr-only\b/.test(tag)
+
+  it('every h1 is set as a page title: one size and one weight across the app', () => {
+    // The projects list set `text-xl font-medium` while `PageHeader` set 24/600, so one app had titles in two sizes
+    // and two weights (review of 2026-11-11, „die Headlines sind nicht stringent“).
+    const offenders = files
+      .filter((f) => f.name.endsWith('.tsx') && !OWN_H1_ALLOWED.has(f.name))
+      .filter((f) => h1Tags(f.text).some((tag) => !isPageTitle(tag)))
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
+
+  it('the allowlist has no stale entry', () => {
+    const byName = new Map(files.map((f) => [f.name, f.text]))
+    const stale = [...OWN_H1_ALLOWED.keys()].filter((name) => !h1Tags(byName.get(name) ?? '').some((tag) => !isPageTitle(tag)))
+    expect(stale).toEqual([])
   })
 })
 
@@ -303,7 +340,7 @@ describe('the secondary press', () => {
   // button.
   it('the kit draws secondary as the raised white press', () => {
     const kit = withoutComments(files.find((f) => f.name === 'ui/components/ui/button.tsx')?.text ?? '')
-    expect(kit).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press /)
+    expect(kit).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:bg-sheet-hover active:bg-pressed /)
     expect(kit).not.toMatch(/in-data-\[surface=sunken\]/)
   })
   it('Dateien and the E-Mail-Eingang set no outline button', () => {
@@ -335,12 +372,19 @@ describe('lines for lists, space for sections', () => {
   // a block or a dashed box; the rows of a list are separated by an inset hairline (`ROW_HAIRLINE`, ink at 8%).
   // A pinned bar over scrolling content takes the faint `shadow-pinned-foot`; a split view's pane divider is a
   // function and not matched.
+  // The one rule a page draws between blocks: under its header band, one class for every section and the Büroablage
+  // (review of 2026-11-11: without it the tool row read as the listing's first row).
+  const HEADER_BAND = /export const SECTION_HEADER_CLASS = '[^']*'/
   it('Dateien and the E-Mail-Eingang draw no rule between sections (a list\u2019s rows use ROW_HAIRLINE)', () => {
     const offenders = files
       .filter((f) => DATEIEN_SURFACE.some((path) => f.name.startsWith(path)))
-      .filter((f) => /(?<![\w:-])(border-[tb]|divide-y|border-dashed)(?![\w-])/.test(withoutComments(f.text)))
+      .filter((f) => /(?<![\w:-])(border-[tb]|divide-y|border-dashed)(?![\w-])/.test(withoutComments(f.text).replace(HEADER_BAND, '')))
       .map((f) => f.name)
     expect(offenders).toEqual([])
+  })
+  it('the header band ends in one rule', () => {
+    const frame = files.find((f) => f.name === 'ui/components/shell/project-section-frame.tsx')?.text ?? ''
+    expect(frame.match(HEADER_BAND)?.[0]).toMatch(/\bborder-b border-border\b/)
   })
   it('the hairline is the token, and the Papierkorb, Offene Punkte and the mail list wear it', () => {
     expect(files.find((f) => f.name === 'ui/components/ui/row-hairline.ts')?.text).toMatch(/after:bg-hairline/)
@@ -645,14 +689,14 @@ describe('press, thumb and sheet', () => {
   // label. Now each has its own shape: the press is its edge and no shadow at rest (32px, radius 6), the thumb keeps
   // the 1px shadow and lives only on a track, the sheet is radius 10 at elevation 1 and says it opens (a chevron).
   const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
-  it('the press rests on its edge alone and lifts under the pointer', () => {
+  it('the press rests on its edge alone and fills one step under the pointer', () => {
     expect(tokens).toMatch(/--elevation-press: 0 0 0 1px var\(--edge\);/)
     expect(tokens).toMatch(/--shadow-press: var\(--elevation-press\);/)
-    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press dark:/)
+    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:bg-sheet-hover active:bg-pressed dark:/)
   })
   it('in dark only a sheet or a thumb is lighter than its plane: a press is its plane’s fill with the 16% edge', () => {
     // Round 3: the dark press took the sheet's fill, so a press, a folder sheet and a chip were one filled box.
-    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'[^']*dark:bg-transparent dark:hover:bg-foreground\/\[0\.06\] dark:hover:shadow-press/)
+    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'[^']*dark:bg-transparent dark:hover:bg-hover dark:active:bg-foreground\/\[0\.1\]/)
   })
   it('a chip is never the press’s shape: a 28px pill of the desk, no edge; picked, the selected grey and a tick', () => {
     // Round 3 drew Offene Punkte's filter chips as the press: „Für Sie“ read as a command beside „Protokoll exportieren“.

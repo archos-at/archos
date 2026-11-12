@@ -151,7 +151,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
               // A row is a name and one meta line, 56px (paper on a desk: never three lines at desk width). The one
               // visible action stands on the column's right edge, a raised press; on a phone it is a 44px glyph on the
               // name's line.
-              <Item key={entry.folderId} as="li" className={`group/row items-center gap-3 rounded-surface py-2.5 hover:bg-desk [--row-end:16px] [--row-text:60px] ${ROW_HAIRLINE}`} /* the line from the name (16px inset, 32px column, 12px gap) */ data-testid={`bin-entry-${entry.folderId}`}>
+              <Item key={entry.folderId} as="li" className={`group/row items-center gap-3 rounded-surface py-2.5 hover:bg-hover [--row-end:16px] [--row-text:60px] ${ROW_HAIRLINE}`} /* the line from the name (16px inset, 32px column, 12px gap) */ data-testid={`bin-entry-${entry.folderId}`}>
                 {/* The list's 32px column: a document's format in words, as the file list writes it, a folder's glyph. */}
                 <ItemMedia className="h-5 w-8 justify-start self-start" /* on the edge and on the name's line */>
                   {entry.document ? (

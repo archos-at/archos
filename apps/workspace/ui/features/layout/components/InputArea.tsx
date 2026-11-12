@@ -106,7 +106,7 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
               // in the textarea shrank the whole composer — text, chips and all — on
               // every mousedown, which reads as the surface flinching away from the
               // click rather than as a control acknowledging a press.
-              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 border-input relative flex flex-col rounded-xl border px-3 py-2.5 shadow-md backdrop-blur-md sm:px-4',
+              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 relative flex flex-col rounded-xl px-3 py-2.5 shadow-md backdrop-blur-md sm:px-4',
               FIELD_FOCUS_WITHIN_RING,
               controller.isDisabledByAuth && 'opacity-60'
             )}

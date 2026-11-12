@@ -125,7 +125,7 @@ function FlowOutline({ model }: { model: FlowModel }) {
           <li key={id} className="flex flex-col gap-1">
             <div
               className={cn(
-                'text-foreground rounded-lg border px-3 py-2 text-[13px] leading-snug whitespace-pre-line text-pretty hyphens-auto shadow-xs',
+                'text-foreground rounded-lg border px-3 py-2 text-[13px] leading-snug whitespace-pre-line text-pretty hyphens-auto',
                 node.shape === 'decision'
                   ? 'bg-warning-subtle border-[color-mix(in_oklch,var(--border-color-feedback-warning)_45%,transparent)] font-medium'
                   : node.shape === 'end'
@@ -310,7 +310,7 @@ export function HandoffDiagram({ model }: { model: HandoffModel }) {
           {model.parties.map((party) => (
             <div
               key={party.id}
-              className="border-border bg-card text-foreground rounded-lg border px-2 py-1.5 text-center text-[13px] font-medium shadow-xs"
+              className="bg-card text-foreground rounded-lg px-2 py-1.5 text-center text-[13px] font-medium shadow-xs"
             >
               {party.label}
             </div>

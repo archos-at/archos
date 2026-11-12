@@ -134,7 +134,7 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
       ) : null}
       {reviewable && canReview && waiting.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <Button size="sm" variant="outline" onClick={() => goTo(waiting[0]?.key ?? '')} data-testid="next-to-confirm">
+          <Button size="sm" variant="secondary" onClick={() => goTo(waiting[0]?.key ?? '')} data-testid="next-to-confirm">
             {t('toConfirm', { count: waiting.length })}
           </Button>
         </div>

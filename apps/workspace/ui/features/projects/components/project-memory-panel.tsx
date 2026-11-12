@@ -367,7 +367,7 @@ export function ProjectMemoryPanel({
         </div>
         {!readOnly && (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => setAdding(true)}
             className={adding ? 'pointer-events-none invisible' : undefined}

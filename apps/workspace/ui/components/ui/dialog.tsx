@@ -341,7 +341,7 @@ const DialogContent = React.forwardRef<
             focusPanelUnderFinger(event)
           }}
           className={cn(
-            'bg-popover text-popover-foreground fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] grid-cols-1 gap-4 overflow-y-auto overscroll-contain rounded-overlay border p-6 shadow-lg sm:max-w-lg',
+            'bg-popover text-popover-foreground fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] grid-cols-1 gap-4 overflow-y-auto overscroll-contain rounded-overlay p-6 shadow-lg sm:max-w-lg',
             !instant && CARD_MOTION,
             phoneClasses,
             className
@@ -380,7 +380,7 @@ const DialogContent = React.forwardRef<
                   ref={closeRef}
                   data-slot="dialog-close"
                   className={cn(
-                    'text-muted-foreground duration-quick hover:bg-accent hover:text-foreground pointer-coarse:size-11 pointer-coarse:top-2.5 pointer-coarse:right-2.5 absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-control outline-none transition-colors ease-out disabled:pointer-events-none disabled:opacity-50',
+                    'text-muted-foreground duration-quick hover:bg-hover hover:text-foreground pointer-coarse:size-11 pointer-coarse:top-2.5 pointer-coarse:right-2.5 absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-control outline-none transition-colors ease-out disabled:pointer-events-none disabled:opacity-50',
                     // Below the status bar and clear of the Dynamic Island's
                     // side, centred on the title's first line (the full
                     // screen's top padding less half the button).

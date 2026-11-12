@@ -115,7 +115,7 @@ export const AnswerOutline: FC<{
                   type="button"
                   onClick={() => jump(heading.id)}
                   className={cn(
-                    'text-foreground hover:bg-accent flex min-h-11 w-full items-center px-5 py-2 text-left outline-none',
+                    'text-foreground hover:bg-hover flex min-h-11 w-full items-center px-5 py-2 text-left outline-none',
                     heading.level === 3 ? 'text-muted-foreground pl-9 text-sm' : 'text-base font-medium',
                     PRESSABLE,
                     FOCUS_RING

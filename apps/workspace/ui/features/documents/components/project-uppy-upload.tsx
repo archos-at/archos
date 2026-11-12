@@ -31,7 +31,7 @@ interface ProjectUppyUploadProps {
   onUpload: (files: File[]) => void
   isUploading: boolean
   /** Visual variant of the trigger. */
-  variant?: 'default' | 'outline'
+  variant?: 'default' | 'secondary'
   size?: 'sm' | 'default'
   label?: string
   /** The glyph alone, its label for a screen reader only (the phone's floating 56px Hochladen). */
