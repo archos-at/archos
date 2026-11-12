@@ -26,6 +26,7 @@ import {
   insertPersonalMemory,
   movePersonalTopic,
   selectPersonalTopics,
+  touchPersonalMemory,
   updatePersonalMemory,
 } from './repository'
 import {
@@ -214,5 +215,52 @@ describe('removePersonalMemoryTopic', () => {
   it('removes nothing for a blank name, and never reaches the database', async () => {
     await expect(removePersonalMemoryTopic(OWNER, '   ')).resolves.toEqual({ removed: 0 })
     expect(deletePersonalTopic).not.toHaveBeenCalled()
+  })
+})
+
+describe('a restated personal note takes the topic it names when it has none', () => {
+  const existing = storedNote({ id: '33333333-3333-4333-8333-333333333333', topic: null })
+
+  it('files the note under the shelf topic the restatement names, in its spelling', async () => {
+    shelf('Brandschutz')
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(existing)
+    vi.mocked(updatePersonalMemory).mockResolvedValue({ ...existing, topic: 'Brandschutz' })
+
+    const result = await createPersonalMemoryItem(OWNER, {
+      kind: 'profile',
+      content: existing.content,
+      provenanceType: 'agent',
+      topic: 'brandschutz',
+    })
+
+    expect(updatePersonalMemory).toHaveBeenCalledWith(OWNER, existing.id, { topic: 'Brandschutz' })
+    expect(touchPersonalMemory).not.toHaveBeenCalled()
+    expect(result).toEqual({ item: { ...existing, topic: 'Brandschutz' }, created: false })
+  })
+
+  it('keeps the topic the note already holds, and only refreshes it', async () => {
+    shelf('Brandschutz', 'Stellplätze')
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue({ ...existing, topic: 'Stellplätze' })
+    vi.mocked(touchPersonalMemory).mockResolvedValue({ ...existing, topic: 'Stellplätze' })
+
+    await createPersonalMemoryItem(OWNER, {
+      kind: 'profile',
+      content: existing.content,
+      provenanceType: 'agent',
+      topic: 'Brandschutz',
+    })
+
+    expect(updatePersonalMemory).not.toHaveBeenCalled()
+    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id)
+  })
+
+  it('only refreshes a note that has no topic when the restatement names none', async () => {
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(existing)
+    vi.mocked(touchPersonalMemory).mockResolvedValue(existing)
+
+    await createPersonalMemoryItem(OWNER, { kind: 'profile', content: existing.content, provenanceType: 'agent' })
+
+    expect(updatePersonalMemory).not.toHaveBeenCalled()
+    expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id)
   })
 })

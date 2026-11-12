@@ -161,13 +161,14 @@ describe('ProjectMemoryTopicGroups', () => {
       />
     )
 
-    const triggers = screen.getAllByRole('button', { name: 'Move to …' })
-    await userEvent.click(triggers[0])
+    await userEvent.click(screen.getAllByRole('button', { name: 'Move to …' })[0])
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Move to …' }))
     const openList = await screen.findByRole('listbox', { name: 'Move to …' })
     expect(within(openList).getByRole('option', { name: 'Brandschutz' })).toBeInTheDocument()
     expect(within(openList).queryByRole('option', { name: 'Bauherr' })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getAllByRole('button', { name: 'Move to …' })[1])
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Move to …' }))
     const restrictedList = await screen.findByRole('listbox', { name: 'Move to …' })
     expect(within(restrictedList).getByRole('option', { name: 'Bauherr' })).toBeInTheDocument()
     expect(within(restrictedList).getByRole('option', { name: 'Brandschutz' })).toBeInTheDocument()
@@ -197,7 +198,7 @@ describe('ProjectMemoryTopicGroups', () => {
     await userEvent.click(screen.getAllByRole('button', { name: 'Rename topic' })[0])
     await userEvent.click(screen.getByLabelText('Topic name'))
 
-    const options = await screen.findByRole('listbox', { name: 'Topic name' })
+    const options = await screen.findByRole('listbox', { name: 'Rename topic' })
     expect(within(options).getByRole('option', { name: 'Stellplätze' })).toBeInTheDocument()
     expect(within(options).queryByRole('option', { name: 'Bauherr' })).not.toBeInTheDocument()
     expect(within(options).queryByRole('option', { name: 'Brandschutz' })).not.toBeInTheDocument()

@@ -148,7 +148,7 @@ function RenameForm({ topic, topics, pending, onCancel, onSubmit }: RenameFormPr
             onPick={(option) => setName(option.value)}
             onCommit={save}
             commitOnBlur={false}
-            listLabel={t('renamePlaceholder')}
+            listLabel={t('rename')}
             aria-invalid={typed.tooLong || undefined}
             aria-describedby={typed.tooLong ? errorId : undefined}
           />
