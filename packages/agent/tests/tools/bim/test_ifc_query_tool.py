@@ -717,6 +717,37 @@ class TestComplianceOperation:
         assert "Rule oib4-door-clear-width" in rendered
         assert "3 not met" in rendered
 
+    def test_a_hinted_rule_carries_its_reason_on_its_line(self):
+        # A rule whose edition does not bind at the site judges nothing; the
+        # model has to learn why, or it reads 12 undecidable doors as a gap
+        # in the model.
+        reason = "Hinweis: Schwellwerte aus Ausgabe Mai 2023; am Standort gilt Ausgabe April 2019 über StBTV"
+        rendered = _render(
+            {
+                "resolved": True,
+                "op": "compliance",
+                "model": {"filename": "haus-a.ifc"},
+                "summary": f"OIB-Richtlinie 4, Ausgabe Mai 2023 3 — Türen: {reason}",
+                "compliance": [
+                    {
+                        "ruleId": "oib4-door-clear-width",
+                        "titleDe": "Türen — lichte Durchgangsbreite",
+                        "richtlinie": "OIB-Richtlinie 4, Ausgabe Mai 2023",
+                        "failed": 0,
+                        "undecidable": 12,
+                        "hint": reason,
+                        "failures": [],
+                    }
+                ],
+            },
+            "p1",
+        )
+
+        assert (
+            f"- Rule oib4-door-clear-width: Türen — lichte Durchgangsbreite — 0 not met, 12 undecidable — {reason}"
+            in rendered
+        )
+
     def test_a_clean_rule_is_not_offered_as_a_card_row(self):
         # A rule with nothing outstanding is not work, and listing its id would
         # invite a card whose whole content is "this one was fine".

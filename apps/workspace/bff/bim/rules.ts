@@ -49,25 +49,18 @@ import {
   quantity,
   undecidableWithoutExternalFlag,
 } from './rule-values'
+import type { RuleBasis } from './rule-basis'
 import type { BimElement } from './types'
 
 export type BimCheckStatus = 'pass' | 'fail' | 'undecidable'
 
-/**
- * Where the project is: its territory chain, leaf first (`AT-9`, `AT`), from
- * its profile (`project-intake/setup-scope.ts`). An empty chain is a site in no
- * country the records name; `null` is a project nothing places.
- */
-export type BimSite = { chain: readonly string[] } | null
-
 /** The project facts a rule's applicability may depend on. */
 export interface BimRuleFacts {
   /**
-   * Required: every rule binds in a territory, and a run that does not say
-   * where the building is cannot say whether a rule binds there (ADR-0169).
-   * Unknown is `null`, which judges every element undecidable, never passed.
+   * Required: each rule's basis at the site, by rule id (`rule-basis.ts`): a
+   * verdict or a hint. A rule with none is a hint, never a verdict.
    */
-  site: BimSite
+  bases: Readonly<Record<string, RuleBasis>>
   /** `1` … `5`, as the intake vocabulary records it. */
   buildingClass?: number | null
   /** Intake main-use token: `residential`, `office`, `lodging`, … */
@@ -123,6 +116,8 @@ export interface BimRuleResult {
   applicable: boolean
   /** Why it is out of scope, when it is. */
   notApplicableReason?: string
+  /** Why it judges nothing at the site (`Hinweis: …`): its elements are read and left undecided. */
+  hint?: string
   passed: number
   failed: number
   undecidable: number
@@ -384,9 +379,10 @@ export function classifyStorey(
 
 interface RuleDefinition {
   id: string
-  /** The territory the rule's Richtlinie binds in: every OIB-Richtlinie binds in Austria. */
-  appliesIn: string
-  richtlinie: string
+  /** The work's designation as its record holds it (`KnowledgeContext.uses[].designation`). */
+  designation: string
+  /** The label of the edition the thresholds come from, as its record holds it. */
+  edition: string
   clause: string
   titleDe: string
   thresholdDe: string
@@ -633,8 +629,8 @@ export const canonicalBimRuleId = (ruleId: string): string => LEGACY_BIM_RULE_ID
 export const BIM_RULES: RuleDefinition[] = [
   {
     id: 'oib4-stair-rise-run-ratio',
-    appliesIn: 'AT',
-    richtlinie: 'OIB 4',
+    designation: 'OIB-Richtlinie 4',
+    edition: 'Ausgabe Mai 2023',
     clause: '2.2',
     titleDe: 'Treppen — Steigungsverhältnis',
     thresholdDe: '2 × Steigung + Auftritt = 59–65 cm, Steigung ≤ 18 cm, Auftritt ≥ 28 cm',
@@ -673,8 +669,8 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib4-door-clear-width',
-    appliesIn: 'AT',
-    richtlinie: 'OIB 4',
+    designation: 'OIB-Richtlinie 4',
+    edition: 'Ausgabe Mai 2023',
     clause: '3',
     titleDe: 'Türen — lichte Durchgangsbreite',
     thresholdDe: 'lichte Durchgangsbreite ≥ 0,80 m',
@@ -729,8 +725,8 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib3-room-height',
-    appliesIn: 'AT',
-    richtlinie: 'OIB 3',
+    designation: 'OIB-Richtlinie 3',
+    edition: 'Ausgabe Mai 2023',
     clause: '2',
     titleDe: 'Aufenthaltsräume — lichte Raumhöhe',
     thresholdDe: 'lichte Raumhöhe ≥ 2,50 m',
@@ -788,8 +784,8 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib2-fire-resistance-load-bearing',
-    appliesIn: 'AT',
-    richtlinie: 'OIB 2',
+    designation: 'OIB-Richtlinie 2',
+    edition: 'Ausgabe Mai 2023',
     clause: '3',
     titleDe: 'Tragende Bauteile — Feuerwiderstand',
     thresholdDe:
@@ -881,8 +877,8 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib6-u-value-external-wall',
-    appliesIn: 'AT',
-    richtlinie: 'OIB 6',
+    designation: 'OIB-Richtlinie 6',
+    edition: 'Ausgabe Mai 2023',
     clause: '4.1',
     titleDe: 'Außenwände — Wärmedurchgangskoeffizient',
     thresholdDe: 'U ≤ 0,35 W/m²K',
@@ -922,8 +918,8 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib6-u-value-window',
-    appliesIn: 'AT',
-    richtlinie: 'OIB 6',
+    designation: 'OIB-Richtlinie 6',
+    edition: 'Ausgabe Mai 2023',
     clause: '4.1',
     titleDe: 'Fenster — Wärmedurchgangskoeffizient',
     thresholdDe: 'U ≤ 1,40 W/m²K',
@@ -956,8 +952,8 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib5-sound-insulation-declared',
-    appliesIn: 'AT',
-    richtlinie: 'OIB 5',
+    designation: 'OIB-Richtlinie 5',
+    edition: 'Ausgabe Mai 2023',
     clause: '3',
     titleDe: 'Trennbauteile — Schalldämmung deklariert',
     thresholdDe: 'bewertetes Schalldämm-Maß am Bauteil hinterlegt',
@@ -1062,23 +1058,6 @@ export function ifcTypeVariants(ifcType: string): string[] {
 const matchesType = (element: BimElement, types: readonly string[]): boolean =>
   types.some((type) => normaliseType(type) === normaliseType(element.ifcType))
 
-/** Whether a rule binds where the project is: its territory is on the site's chain, or the site is unknown. */
-function whereRuleBinds(rule: RuleDefinition, site: BimSite): 'binds' | 'outside' | 'unknown' {
-  if (site === null) return 'unknown'
-  return site.chain.includes(rule.appliesIn) ? 'binds' : 'outside'
-}
-
-const OUTSIDE_REASON = (rule: RuleDefinition) =>
-  `${rule.richtlinie} gilt in ${rule.appliesIn === 'AT' ? 'Österreich' : rule.appliesIn}; der Standort des Projekts liegt außerhalb`
-
-function judgeUnplaced(): { status: BimCheckStatus; reading: string; missing: string } {
-  return {
-    status: 'undecidable',
-    reading: 'Standort des Projekts unbekannt — ob diese Richtlinie dort gilt, ist offen',
-    missing: 'Projektangabe: Standort (Land)',
-  }
-}
-
 /**
  * Evaluate every rule over the element set.
  *
@@ -1091,14 +1070,15 @@ export function runBimRules(
   facts: BimRuleFacts
 ): BimRuleResult[] {
   return BIM_RULES.map((rule) => {
-    const where = whereRuleBinds(rule, facts.site)
-    const notApplicableReason =
-      where === 'outside' ? OUTSIDE_REASON(rule) : (rule.notApplicable?.(facts) ?? null)
-    // Unknown is not „nicht einschlägig“: the rule may bind, so each element is open, the site on the shopping list.
-    const judge = where === 'unknown' ? judgeUnplaced : rule.judge
+    const basis = facts.bases[rule.id] ?? { kind: 'hint', reason: 'Hinweis: Grundlage am Standort nicht bestimmt' }
+    const notApplicableReason = rule.notApplicable?.(facts) ?? null
+    // A hint reads every element and decides none: no verdict, nothing for the CAD to-do list.
+    const judge: RuleDefinition['judge'] =
+      basis.kind === 'hint' ? (element) => ({ status: 'undecidable', reading: `${rule.judge(element, facts).reading} — ${basis.reason}` }) : rule.judge
     const base = {
       ruleId: rule.id,
-      richtlinie: rule.richtlinie,
+      richtlinie: `${rule.designation}, ${rule.edition}`,
+      ...(basis.kind === 'hint' ? { hint: basis.reason } : {}),
       clause: rule.clause,
       titleDe: rule.titleDe,
       thresholdDe: rule.thresholdDe,
@@ -1334,7 +1314,16 @@ export function attachConfirmations(
 }
 
 /**
- * Rules that leave work behind — a failure or an unknown, in scope.
+ * Whether a rule leaves work behind: in scope, not a hint, and a failure or an
+ * unknown. A hint's threshold is not the one that binds at the site, so it
+ * goes to no export, no to-do and no confirmation: a signature given on a hint
+ * would still count once the rule judges (the API refuses one, too).
+ */
+export const hasOpenWork = (result: BimRuleResult): boolean =>
+  result.applicable && !result.hint && (result.failed > 0 || result.undecidable > 0)
+
+/**
+ * Rules that leave work behind.
  *
  * Distinct from {@link outstandingRules}, which asks the narrower question
  * "what still needs a HUMAN". This one ignores confirmations: a rule somebody
@@ -1342,24 +1331,20 @@ export function attachConfirmations(
  * unstated, which is exactly what belongs in an export to the authoring tool.
  */
 export function rulesWithOpenWork<T extends BimRuleResult>(results: readonly T[]): T[] {
-  return results.filter((result) => result.applicable && (result.failed > 0 || result.undecidable > 0))
+  return results.filter(hasOpenWork)
 }
 
 /**
  * What still needs a human before the Prüfbuch can be signed.
  *
- * A rule counts as outstanding when the catalogue could not settle it (or
- * settled it as a failure) and no CURRENT confirmation covers it. A stale
- * confirmation does not count — that is the point of tracking staleness.
+ * A rule counts as outstanding when it has open work and no CURRENT
+ * confirmation covers it. A stale confirmation does not count — that is the
+ * point of tracking staleness. A hint does not block: it judges nothing.
  */
 export function outstandingRules(
   results: readonly BimRuleResultWithConfirmation[]
 ): BimRuleResultWithConfirmation[] {
-  return results.filter((result) => {
-    if (!result.applicable) return false
-    if (result.confirmation !== null && !result.confirmationStale) return false
-    return result.failed > 0 || result.undecidable > 0
-  })
+  return results.filter((result) => hasOpenWork(result) && (result.confirmation === null || result.confirmationStale))
 }
 
 // Regression across revisions: `compliance-diff.ts`, re-exported for the importers of this catalog.
@@ -1372,6 +1357,7 @@ export function renderBimRules(results: readonly BimRuleResult[]): string {
     if (!result.applicable) return `${head}: nicht einschlägig (${result.notApplicableReason})`
     const checked = result.passed + result.failed + result.undecidable
     if (checked === 0) return `${head}: keine betroffenen Bauteile im Modell`
+    if (result.hint) return `${head}: ${result.hint}; ${checked} Bauteile gelesen, keines beurteilt (${result.thresholdDe})`
     return (
       `${head}: ${result.passed} erfüllt, ${result.failed} nicht erfüllt, ` +
       `${result.undecidable} nicht entscheidbar (${result.thresholdDe})`

@@ -607,13 +607,12 @@ def _rule_rows(rule: dict[str, Any], ctx: _RenderContext) -> list[str]:
         name = entry.get("name") or entry.get("globalId")
         return f"  ✗ {rule.get('richtlinie')} {name}: {entry.get('reading')}{ctx.link(entry.get('globalId'), 'fail')}"
 
-    lines: list[str] = []
     failed = int(rule.get("failed") or 0)
     undecidable = int(rule.get("undecidable") or 0)
-    if rule.get("ruleId") and (failed or undecidable):
-        lines.append(
-            f"- Rule {rule.get('ruleId')}: {rule.get('titleDe')} — {failed} not met, {undecidable} undecidable"
-        )
+    # A hint judges nothing at the site: its reason says which edition binds there instead.
+    hint = f" — {rule['hint']}" if rule.get("hint") else ""
+    head = f"- Rule {rule.get('ruleId')}: {rule.get('titleDe')} — {failed} not met, {undecidable} undecidable{hint}"
+    lines = [head] if rule.get("ruleId") and (failed or undecidable) else []
     # The server list is itself capped at 25 verdicts per rule; `failed` above
     # is the real count and the clip note says the LIST is not.
     return lines + listed(rule.get("failures") or [], 10, "affected elements", verdict, indent="  ")

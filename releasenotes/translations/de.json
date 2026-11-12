@@ -1084,6 +1084,10 @@
     "de": "Ein Agent, der die Mitglieder eines Projekts auflistet, erhält jetzt Personen mit einer Rolle samt der zum Entfernen benötigten ID; lange Listen aus dem Langzeitgedächtnis werden seitenweise ausgegeben."
   },
   {
+    "en": "An agent you connect that reads one of your conversations back now gets each answer as plain text, the same as when it asked the question itself. Before, it saw placeholders such as [[card:1]] where the chat shows a card, and project values as their internal names.",
+    "de": "Ein Agent, den Sie anbinden und der eine Ihrer Unterhaltungen ausliest, erhält jetzt jede Antwort als Klartext – genauso, wie wenn er die Frage selbst gestellt hätte. Bisher sah er Platzhalter wie [[card:1]], wo der Chat eine Karte anzeigt, und Projektwerte unter ihren internen Namen."
+  },
+  {
     "en": "An answer being written no longer stalls while someone in the office loads the document list, deletes files or starts a research with a follow-up question.",
     "de": "Eine entstehende Antwort stockt nicht mehr, während im Büro jemand die Dokumentliste lädt, Dateien löscht oder eine Recherche mit Rückfrage beginnt."
   },
@@ -2408,6 +2412,10 @@
     "de": "In einer schmalen Dateienliste, etwa neben dem Chat, werden Dateinamen nicht mehr vom Status überlagert und lange Namen nicht mehr mitten in einem Buchstaben abgeschnitten: Die Liste zeigt weniger Spalten an und hält das Ende jedes Namens lesbar."
   },
   {
+    "en": "In a project whose site is not set yet, the assistant now searches the building-law texts your office holds, quotes them as information and asks for the site before naming the edition that applies. It no longer says a guideline's text could not be read when the text is there.",
+    "de": "In einem Projekt, dessen Standort noch nicht festgelegt ist, durchsucht der Assistent jetzt die in Ihrem Büro hinterlegten baurechtlichen Texte, zitiert sie als Information und fragt nach dem Standort, bevor er die geltende Fassung nennt. Er behauptet nicht mehr, der Text einer Richtlinie sei nicht lesbar, wenn er vorliegt."
+  },
+  {
     "en": "In a project without saved notes, Piloti starts answering up to a second sooner, because it no longer waits to compare your question with notes that are not there.",
     "de": "In einem Projekt ohne gespeicherte Notizen antwortet Piloti bis zu einer Sekunde schneller, weil es nicht mehr darauf wartet, Ihre Frage mit nicht vorhandenen Notizen abzugleichen."
   },
@@ -3704,6 +3712,10 @@
     "de": "Die Herleitung zeigt zu jedem Rechercheschritt, was in welchem Dokument geöffnet wurde, nach Seite oder Punkt."
   },
   {
+    "en": "The Herleitung under an answer stays inside its panel when the chat comes back into view or the page is captured whole. Before, its question, source cards and Grundlagen could run past the right edge and lose their last words.",
+    "de": "Die Herleitung unter einer Antwort bleibt in ihrem Panel, wenn der Chat wieder in den sichtbaren Bereich kommt oder die gesamte Seite erfasst wird. Zuvor konnten ihre Frage, Quellenkarten und Grundlagen über den rechten Rand hinausragen, sodass die letzten Wörter abgeschnitten wurden."
+  },
+  {
     "en": "The Inbox, the Archiv and the chat history now open as panels you can pull down to close, by dragging the handle at the top on your phone or with the mouse. Closing plays out smoothly instead of cutting away.",
     "de": "Die Inbox, das Archiv und der Chat-Verlauf öffnen sich jetzt als Panels, die Sie zum Schließen nach unten ziehen: am Griff oben, auf dem Telefon oder mit der Maus. Das Schließen läuft sanft ab, statt abrupt zu verschwinden."
   },
@@ -4172,6 +4184,10 @@
     "de": "Der Modellbereich ist jetzt auch aus dem Büroarchiv erreichbar, mit Struktur, Mengen und Revisionen. Das Prüfbuch braucht weiterhin ein Projekt, weil es gegen Gebäudeklasse und Hauptnutzung prüft."
   },
   {
+    "en": "The model check now gives a pass or a fail only where the edition its threshold comes from applies at your project's site. Elsewhere it shows the value it read as a note, says which edition applies there instead, and puts nothing on the list of properties to add in your CAD model or up for confirmation in the Prüfbuch.",
+    "de": "Der Modellcheck liefert nur dort ein positives oder negatives Ergebnis, wo die Ausgabe, aus der der Grenzwert stammt, am Standort Ihres Projekts gilt. Andernorts zeigt er den ausgelesenen Wert als Hinweis an, nennt die dort stattdessen geltende Ausgabe und nimmt keine Eigenschaften in die Liste auf, die Sie Ihrem CAD-Modell hinzufügen oder im Prüfbuch bestätigen müssen."
+  },
+  {
     "en": "The model check places a project by the Land its address search found, as the project setup does: an Austrian project whose Land was never entered by hand no longer gets every OIB rule left open.",
     "de": "Die Modellprüfung ordnet ein Projekt – wie die Projekteinstellung – dem Bundesland zu, das die Adresssuche ermittelt hat: Bei einem österreichischen Projekt, dessen Bundesland nie manuell eingetragen wurde, werden nicht mehr alle OIB-Richtlinien als offen angezeigt."
   },
@@ -4256,6 +4272,10 @@
     "de": "Die Projektliste und die Ordnerzeilen oberhalb der Dateien bilden jetzt eine zusammenhängende Liste: Nur die oberen und unteren Ecken sind abgerundet, und die Zeilen werden durch eine einzelne Linie statt durch separate Boxen mit Zwischenräumen getrennt."
   },
   {
+    "en": "The project list that opens from the project's name is as wide as the sidebar's button instead of running past its edge.",
+    "de": "Die über den Projektnamen geöffnete Projektliste ist nun so breit wie die Schaltfläche in der Seitenleiste und ragt nicht mehr über deren Rand hinaus."
+  },
+  {
     "en": "The project selector at the top of the sidebar is one button with the project's name on a single line, and the list of projects opens right under it.",
     "de": "Die Projektauswahl oben in der Seitenleiste ist eine einzelne Schaltfläche mit dem Projektnamen in einer Zeile, und die Projektliste öffnet sich direkt darunter."
   },
@@ -4330,6 +4350,10 @@
   {
     "en": "The sidebar entry that opens a conversation is now simply called \"Chat\", on the desktop and on the phone.",
     "de": "Der Sidebar-Eintrag zum Öffnen einer Unterhaltung heißt jetzt am Desktop und am Smartphone einfach „Chat“."
+  },
+  {
+    "en": "The sidebar inside a project reads lighter again: smaller, quieter text, a thin line along its edge, and more room between the office's places and your name at the bottom.",
+    "de": "Die Sidebar innerhalb eines Projekts wirkt wieder leichter: mit kleinerer, dezenterer Schrift, einer dünnen Linie am Rand und mehr Abstand zwischen den Bürobereichen und Ihrem Namen am unteren Rand."
   },
   {
     "en": "The sidebar inside a project shows where you are: the section you are in is a white sheet with an edge, as the open tab in Dateien, and the other sections are set in black instead of grey.",
@@ -5020,6 +5044,10 @@
     "de": "Wenn Sie fragen, ob etwas in Ihren eigenen Dokumenten vorkommt, kann Piloti jetzt nur im Projekt oder nur in der Büroablage suchen. Die Antwort gibt an, wie viele Dokumente in jeder Ablage durchsucht wurden und wie viele Treffer es gab. Eine Mustersuche führt außerdem jeden eindeutigen Treffer samt Anzahl und Seiten auf, und Ordnerübersichten nennen bei kleinen Ordnern die Dateinamen."
   },
   {
+    "en": "When you ask which edition of a guideline or standard applied at your project's site on a particular day, for example for a submission on 1 October, the assistant now names the edition that was binding there on that day and says which day it means. Before, it named only today's edition and called the earlier one undeterminable.",
+    "de": "Wenn Sie fragen, welche Fassung einer Richtlinie oder Norm am Standort Ihres Projekts an einem bestimmten Tag galt, etwa bei einer Einreichung am 1. Oktober, nennt der Assistent nun die an diesem Tag dort verbindliche Fassung und gibt an, auf welchen Tag er sich bezieht. Bisher nennt er nur die aktuelle Fassung und erklärt die frühere für nicht bestimmbar."
+  },
+  {
     "en": "When you close a project, Piloti can read its documents and suggest its Bundesland, building class, construction, uses, OIB edition and the decisions it made, each with the document and page it comes from. You confirm each one, and similar projects are then found by what they are.",
     "de": "Wenn Sie ein Projekt schließen, kann Piloti dessen Dokumente lesen und das Bundesland, die Gebäudeklasse, die Bauweise, die Nutzungen, die OIB-Ausgabe sowie die darin getroffenen Entscheidungen vorschlagen – jeweils mit dem Dokument und der Seite, aus denen die Information stammt. Sie bestätigen jeden Vorschlag; ähnliche Projekte werden anschließend anhand dieser Merkmale gefunden."
   },
@@ -5374,6 +5402,10 @@
   {
     "en": "Your recent chats in a project are now listed in the sidebar under Chat, with the open one highlighted, and „Alle Chats“ below them opens the whole chat history.",
     "de": "Ihre letzten Chats in einem Projekt werden jetzt in der Seitenleiste unter Chat angezeigt, wobei der geöffnete Chat hervorgehoben ist; „Alle Chats“ darunter öffnet den gesamten Chatverlauf."
+  },
+  {
+    "en": "Your ten most recent chats now stand under „Letzte Chats“ below the project's sections, while the sections above and the office's places below stay where they are; „Alle Chats“ at the end of the list opens the whole chat history, and a click on „Letzte Chats“ folds the list away.",
+    "de": "Ihre zehn letzten Chats finden Sie jetzt unter „Letzte Chats“ unterhalb der Projektbereiche; die Bereiche darüber und die Standorte des Büros darunter bleiben an ihrem Platz. „Alle Chats“ am Ende der Liste öffnet den gesamten Chatverlauf, und ein Klick auf „Letzte Chats“ klappt die Liste ein."
   },
   {
     "en": "Your uploads no longer wait behind another office's large import.",

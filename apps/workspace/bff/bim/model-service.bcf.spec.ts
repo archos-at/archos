@@ -36,6 +36,11 @@ vi.mock('@/lib/documents/repository', async () => {
   }
 })
 
+vi.mock('@/lib/base-knowledge/context/service', async () => {
+  const { settledContext } = await import('./rule-basis.fixtures')
+  return { contextForPage: vi.fn().mockResolvedValue(settledContext()) }
+})
+
 vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/folder-access')).openFolderAccessModule())
 vi.mock('./repository', () => ({
   listBimModels: vi.fn(),
@@ -89,6 +94,8 @@ import {
   deleteBimCheckConfirmation,
 } from './repository'
 import { runBimQuery } from './query'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
+import { contextAt } from './rule-basis.fixtures'
 import { readZipEntries } from '@/test-utils/read-zip'
 
 const SESSION = {
@@ -314,6 +321,18 @@ describe('confirming and withdrawing against the right building', () => {
       confirmedBy: 'user-1',
       note: 'Gutachten liegt vor',
     })
+  })
+
+  it('refuses to confirm a rule that is a hint at the project site', async () => {
+    // A confirmation is keyed on rule and revision only, so one given while the
+    // rule judged nothing would still count once its edition binds and it fails.
+    vi.mocked(findBimModelById).mockResolvedValue(model({ id: 'm-3', filename: 'Haus-A_V3.ifc' }))
+    vi.mocked(contextForPage).mockResolvedValueOnce(contextAt('AT-6', 'none'))
+
+    await expect(
+      confirmAccessibleCheck(SESSION, 'proj-1', { ruleId: 'oib2-fire-resistance-load-bearing', modelId: 'm-3', note: null })
+    ).rejects.toMatchObject({ status: 409 })
+    expect(upsertBimCheckConfirmation).not.toHaveBeenCalled()
   })
 
   it('accepts an org-wide Archiv model, which every project may speak for', async () => {
