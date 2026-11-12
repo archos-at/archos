@@ -26605,7 +26605,7 @@
       "get": {
         "operationId": "organization-memory-list",
         "summary": "List organization memory",
-        "description": "Knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a `limit` (default 50) page with `nextCursor`. `topics` counts active items; `topic` filters. Any member reads. Ids feed organization-memory-update and organization-memory-delete.",
+        "description": "Knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned, then newest, a `limit` (default 50) page with `nextCursor`. `topics` counts active items; `topic` filters. Any member reads. Ids feed organization-memory-update and organization-memory-delete.",
         "tags": [
           "organization"
         ],
@@ -26615,26 +26615,26 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "\"true\" also returns archived items.",
+              "description": "\"true\" includes archived.",
               "type": "string",
               "enum": [
                 "true",
                 "false"
               ]
             },
-            "description": "\"true\" also returns archived items."
+            "description": "\"true\" includes archived."
           },
           {
             "name": "conversationId",
             "in": "query",
             "required": false,
             "schema": {
-              "description": "Only the notes written from this conversation.",
+              "description": "This conversation only.",
               "type": "string",
               "minLength": 1,
               "maxLength": 255
             },
-            "description": "Only the notes written from this conversation."
+            "description": "This conversation only."
           },
           {
             "name": "topic",
