@@ -53,7 +53,12 @@ function topicFor(raw: string, topics: readonly string[]): { topic: string | nul
   }
 }
 
-export function TopicPicker({
+export function TopicPicker({ compact = false, ...field }: TopicPickerProps): JSX.Element {
+  return compact ? <CompactTopicPicker {...field} /> : <TopicField {...field} />
+}
+
+/** The field behind a button: the button says what the field is for, a pick closes the popover and hands the topic over. */
+function CompactTopicPicker({
   topics,
   value,
   onChange,
@@ -61,7 +66,41 @@ export function TopicPicker({
   label,
   id,
   'data-testid': testId,
-}: TopicPickerProps): JSX.Element {
+}: TopicFieldProps): JSX.Element {
+  const t = useTranslations(memoryTopicsCopy)
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" disabled={disabled} data-testid={testId}>
+          {t('moveTo')}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-2">
+        <TopicField
+          topics={topics}
+          value={value}
+          onChange={(topic) => {
+            setOpen(false)
+            onChange(topic)
+          }}
+          label={label}
+          id={id}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function TopicField({
+  topics,
+  value,
+  onChange,
+  disabled = false,
+  label,
+  id,
+  'data-testid': testId,
+}: TopicFieldProps): JSX.Element {
   const t = useTranslations(memoryTopicsCopy)
   const generatedId = useId()
   const [draft, setDraft] = useState(value ?? '')

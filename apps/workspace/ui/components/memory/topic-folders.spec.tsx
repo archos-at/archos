@@ -128,4 +128,36 @@ describe('TopicFolders', () => {
     expect(unfiled).toHaveTextContent('No topic')
     expect(folders()).toHaveLength(2)
   })
+
+  test('no note has a topic: one plain list, with no folder and no “No topic” heading, and no topic actions', () => {
+    const renderTopicActions = vi.fn(() => <button type="button">Aktion</button>)
+    render(
+      <TopicFolders
+        items={[row('a', null), row('b', null)]}
+        topics={[]}
+        renderItem={(item) => <p>{item.content}</p>}
+        renderTopicActions={renderTopicActions}
+      />
+    )
+
+    expect(folders()).toHaveLength(0)
+    expect(screen.queryByText('No topic')).not.toBeInTheDocument()
+    expect(screen.getByText('Notiz a')).toBeInTheDocument()
+    expect(screen.getByText('Notiz b')).toBeInTheDocument()
+    expect(renderTopicActions).not.toHaveBeenCalled()
+  })
+
+  test('the first note with a topic brings the folders: its topic, and the notes without one', () => {
+    render(
+      <TopicFolders
+        items={[row('a', null), row('b', 'Brandschutz')]}
+        topics={[{ name: 'Brandschutz', count: 1 }]}
+        renderItem={(item) => <p>{item.content}</p>}
+      />
+    )
+
+    const [topic, unfiled] = screen.getAllByTestId('topic-folder')
+    expect(topic).toHaveTextContent('Brandschutz')
+    expect(unfiled).toHaveTextContent('No topic')
+  })
 })

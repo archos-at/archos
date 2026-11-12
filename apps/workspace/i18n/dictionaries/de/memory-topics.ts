@@ -22,8 +22,6 @@ export const memoryTopics: typeof en.memoryTopics = {
     '{count, plural, one {# Notiz in „{name}“ wird} other {# Notizen in „{name}“ werden}} endgültig entfernt.',
   // Die Aktion, die ein Thema auflöst: Seine Notizen bleiben, ohne Thema.
   ungroup: 'Thema auflösen',
-  // Die erste Wahl des Themenfilters: alle Themen zugleich.
-  allTopics: 'Alle Themen',
   // Unter dem Themenfeld, wenn der Name länger als die Grenze ist.
   topicTooLong: 'Höchstens 40 Zeichen.',
   // Die Beschriftung des Themenfilters und des Themenfelds.

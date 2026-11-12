@@ -76,6 +76,16 @@ export function TopicFolders<T extends { id: string; topic: string | null }>({
   defaultOpen = true,
 }: TopicFoldersProps<T>): JSX.Element {
   const t = useTranslations(memoryTopicsCopy)
+  // No note has a topic yet: no folder and no „Ohne Thema“ heading, the notes are the plain list they were before topics.
+  if (items.every((item) => item.topic === null)) {
+    return (
+      <ItemList data-testid="topic-folders">
+        {items.map((item) => (
+          <Fragment key={item.id}>{renderItem(item)}</Fragment>
+        ))}
+      </ItemList>
+    )
+  }
   return (
     <div className="space-y-4" data-testid="topic-folders">
       {groupByTopic(items, topics).map((group) => (

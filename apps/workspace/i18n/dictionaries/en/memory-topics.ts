@@ -22,8 +22,6 @@ export const memoryTopics = {
   removeTopicConfirm: '{count, plural, one {# note in "{name}" is} other {# notes in "{name}" are}} removed for good.',
   // The action that takes a topic apart: its notes stay, without a topic.
   ungroup: 'Ungroup',
-  // The first choice of the topic filter: every topic at once.
-  allTopics: 'All topics',
   // Shown under the topic field when the name is longer than the bound.
   topicTooLong: 'At most 40 characters.',
   // The label of the topic filter and of the topic field.

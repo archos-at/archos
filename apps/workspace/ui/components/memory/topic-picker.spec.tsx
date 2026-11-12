@@ -85,4 +85,22 @@ describe('TopicPicker', () => {
     await userEvent.tab()
     expect(onChange).not.toHaveBeenCalled()
   })
+
+  test('compact: the note’s button says “Move to …” and shows no field until it is pressed', () => {
+    render(<TopicPicker topics={TOPICS} value={null} onChange={vi.fn()} compact />)
+
+    expect(screen.getByRole('button', { name: 'Move to …' })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Topic' })).not.toBeInTheDocument()
+  })
+
+  test('compact: pressing the button opens the same field, and a pick hands the topic over and closes it', async () => {
+    const onChange = vi.fn()
+    render(<TopicPicker topics={TOPICS} value={null} onChange={onChange} compact />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Move to …' }))
+    await userEvent.type(field(), 'stell')
+    await userEvent.click(screen.getByRole('option', { name: 'Stellplätze' }))
+    expect(onChange).toHaveBeenCalledExactlyOnceWith('Stellplätze')
+    expect(screen.queryByRole('combobox', { name: 'Topic' })).not.toBeInTheDocument()
+  })
 })
