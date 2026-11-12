@@ -907,6 +907,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "An agent you connect that reads one of your conversations back now gets each answer as plain text, the same as when it asked the question itself. Before, it saw placeholders such as [[card:1]] where the chat shows a card, and project values as their internal names.",
+            "de": "Ein Agent, den Sie anbinden und der eine Ihrer Unterhaltungen ausliest, erhält jetzt jede Antwort als Klartext – genauso, wie wenn er die Frage selbst gestellt hätte. Bisher sah er Platzhalter wie [[card:1]], wo der Chat eine Karte anzeigt, und Projektwerte unter ihren internen Namen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "The connection state reads „Verbindung unterbrochen“ or „Keine Verbindung“, in German, with a symbol beside the words instead of a coloured dot alone; while the server does not answer, „Erneut versuchen“ checks again at once.",
             "de": "Der Verbindungsstatus wird als „Verbindung unterbrochen“ oder „Keine Verbindung“ angezeigt, mit einem Symbol neben dem Text statt nur mit einem farbigen Punkt; solange der Server nicht antwortet, wird mit „Erneut versuchen“ sofort erneut geprüft."
           }
@@ -1049,6 +1057,14 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "When you ask which edition of a guideline or standard applied at your project's site on a particular day, for example for a submission on 1 October, the assistant now names the edition that was binding there on that day and says which day it means. Before, it named only today's edition and called the earlier one undeterminable.",
+            "de": "Wenn Sie fragen, welche Fassung einer Richtlinie oder Norm am Standort Ihres Projekts an einem bestimmten Tag galt, etwa bei einer Einreichung am 1. Oktober, nennt der Assistent nun die an diesem Tag dort verbindliche Fassung und gibt an, auf welchen Tag er sich bezieht. Bisher nennt er nur die aktuelle Fassung und erklärt die frühere für nicht bestimmbar."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "The U-value and sound insulation checks no longer treat a wall or slab without a readable IsExternal value as internal. The Prüfbuch now shows it as not decidable, and Was dem Modell fehlt lists the missing value.",
@@ -1077,6 +1093,14 @@
           "text": {
             "en": "A file whose reading you stopped no longer reappears as failed after you reload the page.",
             "de": "Eine Datei, deren Einlesen Sie abgebrochen haben, wird nach dem Neuladen der Seite nicht mehr als fehlgeschlagen angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The Herleitung under an answer stays inside its panel when the chat comes back into view or the page is captured whole. Before, its question, source cards and Grundlagen could run past the right edge and lose their last words.",
+            "de": "Die Herleitung unter einer Antwort bleibt in ihrem Panel, wenn der Chat wieder in den sichtbaren Bereich kommt oder die gesamte Seite erfasst wird. Zuvor konnten ihre Frage, Quellenkarten und Grundlagen über den rechten Rand hinausragen, sodass die letzten Wörter abgeschnitten wurden."
           }
         },
         {
