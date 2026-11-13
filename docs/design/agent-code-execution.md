@@ -13,7 +13,7 @@ deployment.
 | **How** | Each run gets a fresh isolate with no network, thrown away afterwards, inside a pod that holds nothing worth taking. Files in, files out, nothing kept in the runtime. The shape of Anthropic's code execution tool, on our own cluster. |
 | **Effort and cost** | A handful of small pieces, most beside things that exist. A run takes a fraction of a second; the runner is stateless and scales with KEDA. No new vendor, no new processor of office data, nothing to ask IPAX. |
 | **What it can make** | Whatever the approved libraries can build: Word, Excel, PowerPoint, PDF and charts to start. A new file type is a library and a skill, never a new tool. |
-| **Needs a decision** | The isolate engine (a one-day test of two candidates decides), where `/workspace/` files are stored, and the limits per run. |
+| **Needs a decision** | Where `/workspace/` files are stored, and the limits per run. The isolate engine is decided: workerd. |
 
 ## What this is
 
@@ -230,14 +230,14 @@ not contents, so it does not catch the copy. The way to close it is one runner d
 runs on pods of its own, at the cost of a minimum of pods per office instead of a
 shared pool. This is decision 5 below.
 
-The isolate engine is the open choice:
+The isolate engine is workerd (decided 2026-11-13). The two candidates were:
 
 | Engine | For | Against |
 |---|---|---|
 | workerd with its dynamic Worker loader | Cloudflare's own runtime and the base of Code Mode. Tested on 2026-11-12: Word in 72 ms, Excel with a formula in 188 ms, `fetch` refused | Self-hosted workerd refuses to start this without `--experimental`, an "experimental feature which may change or go away"; its README says an isolate alone is not hardened against untrusted code; Check Point published an escape in 2026, since fixed |
 | isolated-vm in a Node service | V8 isolates in our own Node process, ISC, 7.0.2 of 2026-10-30, no experimental flag | Not tested with the office libraries; no Node APIs inside, so `fs` is ours to provide |
 
-A one-day spike runs the same Word and Excel scripts on both and decides.
+workerd was chosen because it is the one tested with the office libraries and the base of Code Mode. The premise to re-check: workerd's dynamic loader still needs `--experimental`; if that flag is removed or the loader changes shape, isolated-vm is the fallback, and only the runner changes.
 
 ## State and lifecycle
 
@@ -340,7 +340,7 @@ Each rejection names the premise it rests on, so a later reader re-checks the pr
 
 ## Decisions for the owner
 
-1. The isolate engine: workerd or isolated-vm, decided by the one-day spike.
+1. ~~The isolate engine~~: decided, workerd (2026-11-13).
 2. Where `/workspace/` bytes live: a higher cap in the draft store, or the object
    store. Whichever it is, its backups and its deletion with the conversation are
    checked before real documents go in.
@@ -360,5 +360,5 @@ Each rejection names the premise it rests on, so a later reader re-checks the pr
 | Deep research's sandbox is Modal only, and production runs none | `deepagents_runtime.py` (`provider: Literal["modal"]`); `configs/config_oib_openrouter.yml` |
 | Deep Agents' sandbox base runs its file commands as `python3` inside the sandbox | Installed `deepagents/backends/sandbox.py` |
 | The drafts store is a LangGraph store on the checkpoint database, 256 KB per conversation | `draft_store.py` |
-| isolated-vm runs the office libraries | Not tested; the spike decides |
+| isolated-vm runs the office libraries | Not tested; not needed while workerd is the engine |
 | Models write good JavaScript against the office kit | Not measured; step 1 measures it |
