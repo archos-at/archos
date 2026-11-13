@@ -91,8 +91,10 @@ That is faster, cheaper, and sends less of an office's text to the model provide
   font, style or form can reach another host. One channel stays open, because CSP
   has no directive for it since `navigate-to` was dropped: the frame can navigate
   itself to a URL that carries data. What it could leak is the file's own content,
-  which the viewer can already see, so the risk is a page that a prompt injection
-  filled with something the person did not mean to send. Accepted when the display
+  which the viewer can already see, and what the viewer does in the page (checklist
+  ticks, filter text), which is not in the file. So the risk is a page that a prompt
+  injection filled with something the person did not mean to send, or that records
+  what the viewer did. Accepted when the display
   step is designed, or HTML is shown without scripts.
 - **The builtin research skills** that call Deep Agents' shell `execute` and are
   switched off in production (`configs/config_oib_openrouter.yml`: "it needs a
@@ -291,9 +293,9 @@ deletion.
 |---|---|---|
 | Run time | 60 s default, 180 s maximum | Office files take well under a second (*measured*); this is a ceiling against loops |
 | Memory per run | 128 MB | Cloudflare Workers' own per-isolate limit; enough for the tested files |
-| Concurrent runs per pod | 8 | Worst case: 70 MB for workerd + 8 × (128 MB per isolate + 50 MB of inputs held for it) ≈ 1.5 GB, inside a 2 GiB limit. The measured peak (925 MB for 20 runs) is typical use, not the budget |
+| Concurrent runs per pod | 8 | Worst case: 70 MB for workerd + 8 × (128 MB per isolate + 50 MB of inputs and `/workspace/` files held for it) ≈ 1.5 GB, inside a 2 GiB limit. The measured peak (925 MB for 20 runs) is typical use, not the budget |
 | Concurrent runs per organization | 4 | One office cannot starve the others |
-| Inputs per run | 50 MB in total | Drawings and scans stay with the services built for them |
+| Inputs per run | 50 MB in total, `/workspace/` files included | Drawings and scans stay with the services built for them. Inside the isolate the same bytes count toward its 128 MB |
 | Output files | all checked before the card | The output check is not optional |
 
 ## Resources
