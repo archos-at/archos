@@ -14,7 +14,8 @@
  *  4. `onboarding_default`: the office default an assumption already holds (the
  *     Land migration 0018 gave projects created before the Land question, with
  *     no evidence), where no address names one.
- *  5. `office_default`: for a profile that names no site at all, the subdivision
+ *  5. `office_default`: for a profile that names no site at all (an address naming
+ *     another country counts as one), the subdivision
  *     its office's home country assumes (`assumedWhenUnstated` of that country's
  *     record).
  *
@@ -23,7 +24,7 @@
  */
 
 import { isOfficeDefault, profileNamesSite } from '@/lib/project-profile/site'
-import { postalPlaceOf } from '@/lib/project-profile/postal-place'
+import { namesAnotherCountry, postalPlaceOf } from '@/lib/project-profile/postal-place'
 import type { SiteLeaf } from './resolve'
 
 type Entry = { value?: unknown; source?: unknown; evidence?: unknown } | undefined
@@ -65,6 +66,11 @@ function split(assumptions: Readonly<Record<string, Entry>>): [Record<string, En
   return [recorded, defaults]
 }
 
+function addressAbroad(profile: ProfileSiteEntries | null | undefined): boolean {
+  const address = profile?.facts?.site_address?.value ?? profile?.assumptions?.site_address?.value
+  return typeof address === 'string' && namesAnotherCountry(address)
+}
+
 function addressPlacement(profile: ProfileSiteEntries, subdivisions: SubdivisionTerritories): SitePlacement | null {
   const address = profile.facts?.site_address?.value ?? profile.assumptions?.site_address?.value
   const place = typeof address === 'string' ? postalPlaceOf(address) : null
@@ -90,7 +96,9 @@ export function sitePlacement(
   if (addressed) return addressed
   const defaulted = leafOf(defaults, subdivisions)
   if (defaulted) return { step: 'onboarding_default', territoryId: defaulted }
-  return officeAssumed && !profileNamesSite(profile) ? { step: 'office_default', territoryId: officeAssumed } : null
+  // An address that names another country is a place recorded: the context asks rather than assume the office's
+  // home. An address that names none (a street without a code) still takes the default, as it did before.
+  return officeAssumed && !profileNamesSite(profile) && !addressAbroad(profile) ? { step: 'office_default', territoryId: officeAssumed } : null
 }
 
 /** The site's leaves: at most one today, from {@link sitePlacement}; only a confirmed fact is `verified`. */

@@ -59,8 +59,16 @@ beforeAll(() => {
   commit("twin", "2026-10-28T19:02:43Z");
   git(["checkout", "-q", "develop"]);
 
-  // `pulumi stack output deployedImages --json` prints $STUB_DEPLOYED.
-  stub("pulumi", ['[ "$1 $2 $3" = "stack output deployedImages" ] || exit 64', 'printf \'%s\' "${STUB_DEPLOYED:-}"'].join("\n"));
+  // `pulumi stack output --json` prints the outputs with $STUB_DEPLOYED as deployedImages (none when it is empty),
+  // or fails when $STUB_PULUMI_FAILS is set.
+  stub(
+    "pulumi",
+    [
+      '[ "$1 $2 $3" = "stack output --json" ] || exit 64',
+      '[ -z "${STUB_PULUMI_FAILS:-}" ] || exit 1',
+      'if [ -n "${STUB_DEPLOYED:-}" ]; then printf \'{"deployedImages":%s}\' "$STUB_DEPLOYED"; else printf \'{}\'; fi',
+    ].join("\n"),
+  );
   // `gh api repos/<repo>/commits/<sha>` answers $STUB_GH_DATE, or fails when it is empty.
   stub("gh", ['[ -n "${STUB_GH_DATE:-}" ] || exit 1', 'printf \'%s\\n\' "$STUB_GH_DATE"'].join("\n"));
 });
@@ -118,6 +126,12 @@ describe("prod-downgrade-guard.sh", () => {
     const out = guard(C.november, { STUB_DEPLOYED: runs(GONE), STUB_GH_DATE: "" });
     expect(out.status).toBe(1);
     expect(out.stderr).toContain("could not be read");
+  });
+
+  it("fails closed when the stack's outputs cannot be read", () => {
+    const out = guard(C.november, { STUB_DEPLOYED: runs(C.october), STUB_PULUMI_FAILS: "1" });
+    expect(out.status).toBe(1);
+    expect(out.stderr).toContain("could not read the prod stack's outputs");
   });
 
   it("warns and lets a first deploy through, which has nothing recorded", () => {

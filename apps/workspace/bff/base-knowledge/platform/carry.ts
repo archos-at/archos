@@ -29,7 +29,7 @@ import { recordAuditEvent, SYSTEM_ACTORS } from '@/lib/audit/service'
 import { getPlatformOrganizationId } from '@/lib/authz/platform'
 import type { CarriedFrom } from '@/lib/db/schema/knowledge-platform'
 import { decideInTransaction, type KnowledgeAuditAction } from './decide'
-import { enqueueIndexRuns } from './indexing'
+import { enqueueIndexRuns, resumeIndexRuns } from './indexing'
 import { captureAs, requestSourceChecks, requestTextProblems, runKit, validateRequest } from './onboarding'
 import { importReleaseAs, readCountryRelease } from './release-transfer'
 import { publishChangeRequest } from './release'
@@ -111,7 +111,12 @@ export async function runCarry(manifest: CarryManifest, readFile: (file: string)
   const outcomes: CarryOutcome[] = []
   for (const [index, entry] of manifest.bundles.entries()) {
     const outcome = await carryCountry(bundles[index]!, carriedFromOf(manifest, entry, ctx.promotion), ctx)
-    if (outcome.changeRequestId) await settleTexts(entry, outcome.changeRequestId, ctx)
+    if (outcome.changeRequestId) {
+      // A run the stable publish opened but no job carries (a crash between the two, or an enqueue that failed) is handed on again.
+      const resumed = await resumeIndexRuns(await getPlatformOrganizationId(), outcome.changeRequestId)
+      if (resumed.enqueued + resumed.failed > 0) ctx.log('index runs resumed', { changeRequestId: outcome.changeRequestId, ...resumed })
+      await settleTexts(entry, outcome.changeRequestId, ctx)
+    }
     outcomes.push(outcome)
   }
   await retireLegacyCopies(bundles, ctx)
@@ -247,6 +252,9 @@ async function approveCarried(id: string, from: CarriedFrom, countryId: string, 
   const reason = reasonOf(from, countryId)
   for (const role of ['domain_expert', 'counsel', 'privacy_reviewer'] as const) {
     if ((await findChangeRequest(id))?.status !== 'submitted') break
+    // A rerun after a role's approval committed skips that role: a second approval in it is refused (knowledge_approvals_once).
+    const approved = (await readChangeRequest(id))?.approvals.some((approval) => approval.role === role) ?? false
+    if (approved) continue
     if (role !== 'domain_expert' && !(await platformTransaction((tx) => awaitedApprovalRoles(tx, id))).includes(role)) continue
     const decided = await platformTransaction((tx) => decideInTransaction(tx, id, { decision: 'approve', role, override: { reason } }, CARRIED))
     await carryAudit('platform.knowledge.change_request_approved_alone', id, {

@@ -58,6 +58,8 @@ describe('what is recorded wins, then the office default (sitePlacement, ADR-015
     expect(place({})).toEqual({ step: 'office_default', territoryId: VIENNA })
     expect(place(null)).toEqual({ step: 'office_default', territoryId: VIENNA })
     expect(place({ assumptions: { site_address: at('Somewhere without a code') } })?.step).toBe('office_default')
+    // An address naming another country is a place recorded: nothing assumes the office's home for it.
+    expect(place({ facts: { site_address: at('Marienplatz 1, 80331 München, Deutschland') } })).toBeNull()
     expect(siteLeaves({}, AT_SUBDIVISIONS, VIENNA)).toEqual([{ territoryId: VIENNA, certainty: 'unverified' }])
   })
 

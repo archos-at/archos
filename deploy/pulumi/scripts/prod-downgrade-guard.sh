@@ -66,8 +66,13 @@ if [ -z "$new" ]; then
   exit 0
 fi
 
-deployed_json="$(pulumi stack output deployedImages --json 2>/dev/null || true)"
-[ -n "$deployed_json" ] || deployed_json="{}"
+# Every output, so a stack that cannot be read fails the guard; only a stack that has no deployedImages output yet
+# (before its first deploy that records one) is let through, with a warning per service below.
+if ! outputs_json="$(pulumi stack output --json)"; then
+  log "::error::could not read the prod stack's outputs; refusing to deploy without knowing what prod runs."
+  exit 1
+fi
+deployed_json="$(jq -c '.deployedImages // {}' <<<"$outputs_json")"
 
 failed=0
 for service in backend frontend web; do

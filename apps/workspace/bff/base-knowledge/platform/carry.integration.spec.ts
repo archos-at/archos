@@ -80,9 +80,11 @@ vi.mock('./capture-fetch', async (importOriginal) => {
     },
   }
 })
+const queue = vi.hoisted(() => ({ down: false }))
 vi.mock('@/lib/jobs-queue/enqueue', () => ({
-  // The index job, run in place: the pool would run the same step.
+  // The index job, run in place: the pool would run the same step. `queue.down` refuses the job, as a queue outage would.
   enqueueJob: async (job: { kind: string; organizationId: string; payload: { runId: string } }) => {
+    if (queue.down) throw new Error('the queue is down')
     const { runPlatformTextIndex } = await import('./indexing')
     await runPlatformTextIndex(job.organizationId, job.payload, { last: true })
   },
@@ -213,13 +215,21 @@ describe.skipIf(!URL_)('a reviewed release carried to this deployment by the pro
     expect(await rows(sql`SELECT id FROM knowledge_records WHERE country_id = 'XA' AND head_revision_id IS NOT NULL`)).toEqual([])
   })
 
-  it('carries both to stable, decided `carried`, once the right bytes are fetched', async () => {
+  it('carries both to stable, decided `carried`, once the right bytes are fetched, and resumes index runs no job took', async () => {
     served.set(TEXT_URL, PDF)
+    // The stable publish commits, its index job is not enqueued: the run is failed and the carry stops.
+    queue.down = true
+    await expect(carry.runCarry(manifests.parseManifest(manifestWith()), read, ctx())).rejects.toThrow(/were not enqueued/)
+    expect(await rows(sql`SELECT state FROM knowledge_index_runs`)).toEqual([{ state: 'failed' }])
+    // The Job's retry finds XA published, hands its run on again, and settles.
+    queue.down = false
     const outcomes = await carry.runCarry(manifests.parseManifest(manifestWith()), read, ctx())
     expect(outcomes.map((outcome) => [outcome.countryId, outcome.status])).toEqual([
       ['XB', 'skipped'],
-      ['XA', 'carried'],
+      ['XA', 'skipped'],
     ])
+    expect(logged).toContain('index runs resumed')
+    expect(await rows(sql`SELECT state FROM knowledge_index_runs`)).toEqual([{ state: 'queued' }])
     const requests = await rows<{ country_id: string; status: string; approval: string; second_review: string | null; carried_from: Record<string, unknown> }>(
       sql`SELECT country_id, status, approval, second_review, carried_from FROM knowledge_change_requests ORDER BY country_id`,
     )
