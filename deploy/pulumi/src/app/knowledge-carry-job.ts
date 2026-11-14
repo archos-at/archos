@@ -62,7 +62,9 @@ export function knowledgeCarryEnv(w: AppWiring, cfg: DeployConfig): EnvVar[] {
  * stack's `knowledgeCarry`. Per bundle it verifies the digest, imports, attaches
  * each text from its URL through the public-source fetcher, reviews and
  * approves `carried`, publishes to preview and stable, then waits for the corpus
- * to ingest every text with its country's mark.
+ * to ingest every text with its country's mark. On the target it then derives
+ * every live project's building class again (`rederiveBuildingClasses`), the
+ * rollover's one-time step, so no operator runs it by hand.
  *
  * So it waits on what it calls: the migrated schema (0239), the api tier (the
  * corpus and the fetch), the fetcher, the bff-jobs pool (it runs the index

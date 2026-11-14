@@ -9,7 +9,9 @@
  * Environment, besides the BFF's: `KNOWLEDGE_SINGLE_OPERATOR=true` (this pod only), `KNOWLEDGE_CARRY_DEPLOYMENT`
  * (the stack: the source deployment carries nothing to itself), `KNOWLEDGE_CARRY_PROMOTION` (what the trail names
  * as the promotion: the image tag), `KNOWLEDGE_CARRY_WAIT_MINUTES` (default 30). Every step logs one JSON line;
- * the exit code is 0 when every bundle is carried or skipped, 1 otherwise.
+ * the exit code is 0 when every bundle is carried or skipped, 1 otherwise. On a target deployment it then derives
+ * every live project's building class again from the released records (`rederiveBuildingClasses`, the step the
+ * rollover's "Existing projects" names), and a failed project or a cut run is a 1 too: the Job's retry runs it again.
  */
 
 import 'server-only'
@@ -18,6 +20,7 @@ import path from 'node:path'
 import { closeDb } from '@/lib/db'
 import { parseManifest } from '@/lib/base-knowledge/platform/carry-manifest'
 import { runCarry } from '@/lib/base-knowledge/platform/carry'
+import { rederiveBuildingClasses } from '@/lib/project-intake/rederive'
 
 const DIR = path.resolve(process.env.KNOWLEDGE_CARRY_DIR ?? path.join(process.cwd(), 'config', 'knowledge-releases'))
 
@@ -43,7 +46,12 @@ async function main(): Promise<number> {
     waitMs: (Number.isFinite(waitMinutes) && waitMinutes > 0 ? waitMinutes : 30) * 60_000,
   })
   log('finished', { outcomes })
-  return 0
+  if (deployment === manifest.sourceDeployment || outcomes.length === 0) return 0
+  // The one-time re-derivation the rollover asks for once a country is released (`rederive.ts`): idempotent,
+  // so a retried Job that finds every bundle already carried runs it again and writes only what is behind.
+  const rederived = await rederiveBuildingClasses()
+  log('building classes rederived', { ...rederived })
+  return rederived.failed === 0 && rederived.complete ? 0 : 1
 }
 
 let code = 1
