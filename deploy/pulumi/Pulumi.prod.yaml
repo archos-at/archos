@@ -314,6 +314,11 @@ config:
   grid-oib:seaweedfsSingleRequestsMemory: 1Gi
   grid-oib:seaweedfsSingleLimitsMemory: 4Gi
   grid-oib:seaweedfsStorageSize: 20Gi
+  # The deploy grows the live volume to seaweedfsStorageSize and never shrinks it
+  # (src/data/pvc-grow.ts). The volume was grown by hand to about 100Gi, so 20Gi
+  # is a no-op here: raise this value to grow it. Watch the [Objektspeicher] rule
+  # of the Product incidents alert (91 % full on 2026-11-14).
+  grid-oib:seaweedfsGrowVolume: "true"
   grid-oib:seaweedfsBucket: grid-documents
   grid-oib:seaweedfsAccessKey: grid
   # ── Vector store ──

@@ -144,9 +144,15 @@ an object store. So:
 - Volumes **expand online**, but for the three StatefulSets NOT via config:
   `volumeClaimTemplates` are immutable (a size change would *replace* the
   StatefulSet while the existing PVC kept its old size — the program pins
-  `ignoreChanges` on the templates so that can't happen by accident). Grow a
-  live volume by patching the PVC directly, e.g.
-  `kubectl -n grid patch pvc data-seaweedfs-0 -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'`,
+  `ignoreChanges` on the templates so that can't happen by accident).
+  **SeaweedFS (`single`) grows via config**: with `seaweedfsGrowVolume: "true"`
+  (dev and prod) the deploy reads `data-seaweedfs-0` and patches it to the
+  larger of its current size and `seaweedfsStorageSize`, so raising the value
+  grows the volume and a smaller value is a no-op, never a shrink
+  (`src/data/pvc-grow.ts`). Off on a fresh cluster, where the PVC does not exist
+  yet to read; the template creates it at the configured size. Qdrant and the
+  split topology still grow by hand:
+  `kubectl -n grid patch pvc <pvc> -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'`,
   then update the config value so future clusters start at the new size. Only
   `pgStorageSize` (CNPG manages its own PVCs) expands via config + `pulumi up`.
   Volumes cannot shrink. **VolumeSnapshots** via the `lightbits` SnapshotClass.
