@@ -78,7 +78,7 @@ describe("the knowledge carry Job", () => {
 
   it("is not awaited by the deploy, and runs the bundled carry from the frontend image", async () => {
     const metadata = await resolve(job.inputs.metadata);
-    expect(metadata.annotations).toMatchObject({ "pulumi.com/skipAwait": "true" });
+    expect(metadata.annotations).toMatchObject({ "pulumi.com/skipAwait": "true", "pulumi.com/deletionPropagationPolicy": "background" });
     const pod = (await resolve(job.inputs.spec)).template.spec;
     expect(pod.containers[0].command).toEqual(["node", "dist-jobs/knowledge-carry.mjs"]);
     expect(pod.containers[0].image).toMatch(/-frontend:sha-a{40}$/);
