@@ -161,6 +161,11 @@ jobs:
     concurrency:
       group: deploy-dev
       cancel-in-progress: false
+    # The workflow's two, and the commit status a promotion reads (below).
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
     env:
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
       # The image tag the cluster is pinned to for this run: normally the
@@ -532,6 +537,22 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
+      # The commit status `deploy/staging` on the commit staging now runs and
+      # that answered the smoke check: what the promote workflow (promote.yml)
+      # reads to pick the newest commit to promote. The Actions run list cannot
+      # say it (a workflow_run run carries develop's tip, not the commit it
+      # deployed). Only for a CI-triggered deploy, which pins all three images
+      # to exactly this commit; best effort.
+      - name: Mark the commit deployed to staging
+        if: ${{ env.RUN_ID != '' }}
+        continue-on-error: true
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$DEPLOY_SHA" \
+            -f state=success -f context=deploy/staging \
+            -f description="Staging runs this commit and answered the smoke check" >/dev/null
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: How to roll this back
         if: ${{ always() && env.ALREADY_DEPLOYED != 'true' && steps.previous.outputs.refs != '' && steps.previous.outputs.tag != env.IMAGE_TAG }}
         env:
@@ -777,6 +798,26 @@ jobs:
           node scripts/validate-crs.mjs .plan.json
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      # The downgrade guard staging has (resolve-image-refs.sh), for the tag
+      # the pushed Pulumi.prod.yaml pins: a pin older than what prod runs (the
+      # stack output `deployedImages`) stops the deploy before the apply.
+      # develop's copy of the file pins whatever the last promotion left there,
+      # so a promotion that takes that line unchanged would otherwise roll prod
+      # back months with nothing red. Push only: an operator's rollback
+      # (dispatch with imageTag) goes back on purpose. When prod runs a commit
+      # this checkout does not have (prod's history was rewritten once), the
+      # script compares commit dates instead of ancestry.
+      - name: Refuse a downgrade
+        if: ${{ github.event_name == 'push' }}
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          # The stack the plan step selected.
+          ./scripts/prod-downgrade-guard.sh "$PROD_IMAGE_TAG"
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ github.token }} # commit dates of a sha the checkout lacks
 
       - name: Remember what is running
         id: previous
