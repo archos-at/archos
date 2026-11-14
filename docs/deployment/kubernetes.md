@@ -744,7 +744,8 @@ Record of runs: none yet.
 ### Operating
 
 - **Alerts** (BFF log lines and PostHog `inbound_mail_refused.reason`, `.stage`
-  and `.error`; the `[Projekt-E-Mail]` rules of the Product incidents alert,
+  and `.error`; the `[Projekt-E-Mail]` rules of the Product incidents alert and
+  `[Objektspeicher]` of the Infrastructure incidents alert,
   [`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts), on every stack):
   `bad-signature` (a key or `BFF_URL` mismatch), `body-truncated`,
   `unavailable` (storage or database), `cap_reached`, and no `received` for

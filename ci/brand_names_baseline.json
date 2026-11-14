@@ -708,7 +708,7 @@
   "deploy/pulumi/src/data/qdrant-alerts.spec.ts": 3,
   "deploy/pulumi/src/data/qdrant-alerts.ts": 3,
   "deploy/pulumi/src/data/qdrant-recovery.spec.ts": 3,
-  "deploy/pulumi/src/data/qdrant.spec.ts": 5,
+  "deploy/pulumi/src/data/qdrant.spec.ts": 3,
   "deploy/pulumi/src/data/qdrant.ts": 3,
   "deploy/pulumi/src/data/seaweedfs-backup.ts": 1,
   "deploy/pulumi/src/data/seaweedfs-identities.ts": 19,
