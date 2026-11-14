@@ -1486,6 +1486,16 @@ describe('human confirmations', () => {
     expect(rule.confirmationStale).toBe(false)
   })
 
+  it('shows no confirmation on a rule that now only gives a hint, and keeps it for when it judges again', () => {
+    const hinted = failing.map((entry) => (entry.ruleId === 'oib4-door-clear-width' ? { ...entry, hint: 'Hinweis: Grundlage am Standort nicht bestimmt' } : entry))
+    const [hint] = attachConfirmations(hinted, [confirmation], 'rev-3').filter((entry) => entry.ruleId === 'oib4-door-clear-width')
+    expect(hint.confirmation).toBeNull()
+    expect(hint.confirmationStale).toBe(false)
+    // The same stored row is shown again once the rule judges: nothing was deleted.
+    const [judged] = attachConfirmations(failing, [confirmation], 'rev-3').filter((entry) => entry.ruleId === 'oib4-door-clear-width')
+    expect(judged.confirmation?.confirmedBy).toBe('a.muster')
+  })
+
   it('marks a confirmation made against another revision as stale', () => {
     // `rev-3` and `rev-4` are two revisions of ONE building, so the series has
     // to name both — a confirmation from outside the building on screen is not

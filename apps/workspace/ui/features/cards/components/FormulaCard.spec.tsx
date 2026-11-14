@@ -350,8 +350,14 @@ describe('the binding edition at the site', () => {
     expect(checks().getByText(reason)).toBeInTheDocument()
   })
 
-  it('shows a hint where no site was known', () => {
+  it('judges a card written before the stamp (no `site_binding`) as it did then', () => {
     mount(uValue(undefined))
+    expect(checks().getByText('erfüllt')).toBeInTheDocument()
+    expect(checks().queryByText('Hinweis')).toBeNull()
+  })
+
+  it('shows a hint where the stamp says no site was known', () => {
+    mount(uValue(siteWhere('site_unknown', {})))
     expect(hint()).toBeInTheDocument()
     expect(checks().getByText(/ist nicht bekannt\. Darum keine Beurteilung\./)).toBeInTheDocument()
   })

@@ -12,6 +12,7 @@
  */
 
 import { selectRecord, selectRuleset, type StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
+import { SHIPPED_SETUP_RECORDS } from '@/lib/base-knowledge/rulesets/shipped'
 import type { DecisionTable } from '@/lib/base-knowledge/wire/ruleset'
 import type { AddressRegisterRecord, DerivationDefinition, FactDefinitions, FactSources } from '@/lib/base-knowledge/wire/setup-facts'
 import { siteCountry } from '@/lib/project-profile/site'
@@ -160,6 +161,34 @@ export function subdivisionTerritories(records: readonly StoredRuleset[], on: st
       found.set(option.token, known === undefined || known === option.territoryId ? option.territoryId : null)
     }
   return Object.fromEntries([...found].filter((entry): entry is [string, string] => entry[1] !== null))
+}
+
+/** The subdivision an office's projects are assumed to be in while a profile names no site (ADR-0158). */
+export interface AssumedSubdivision {
+  /** The profile key it is written under (`federal_state`). */
+  factKey: string
+  token: string
+  territoryId: string
+}
+
+/**
+ * The subdivision the home country's `fact_definitions` record names as assumed when a project's profile
+ * names no place (`subdivisions.assumedWhenUnstated`), or null: no home country, no record for it, or no
+ * record that names one. Data, never code: which Land a country's offices assume is its record's to say.
+ * A released record from before the field names none; then the compiled seed's (`fallback`) answers, and
+ * only with an option the record in force lists.
+ */
+export function assumedSubdivisionOf(
+  records: readonly StoredRuleset[],
+  homeCountry: string | null,
+  on: string = today(),
+  fallback: readonly StoredRuleset[] = SHIPPED_SETUP_RECORDS
+): AssumedSubdivision | null {
+  if (!homeCountry || !/^[A-Z]{2}$/.test(homeCountry)) return null
+  const subdivisions = definitionsAt(records, [homeCountry], on)?.subdivisions
+  const token = subdivisions?.assumedWhenUnstated ?? definitionsAt(fallback, [homeCountry], on)?.subdivisions?.assumedWhenUnstated
+  const option = token ? subdivisions?.options.find((entry) => entry.token === token) : undefined
+  return subdivisions && option ? { factKey: subdivisions.factKey, token: option.token, territoryId: option.territoryId } : null
 }
 
 /** A subdivision as a person reads it: its label by territory id, from the records in force. */

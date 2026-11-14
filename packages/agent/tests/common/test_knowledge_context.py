@@ -271,6 +271,25 @@ def test_core_coverage_has_no_note_and_says_when_the_base_moved():
     assert "updated since this conversation's last answer (AT)" in (jurisdiction_note() or "")
 
 
+def test_an_assumed_site_is_read_from_the_leaf_s_certainty():
+    assumed = {**WIRE, "gate": {**WIRE["gate"], "leaves": [{**WIRE["gate"]["leaves"][0], "certainty": "unverified"}]}}
+    assert parse_knowledge_context(assumed).site_assumed is True
+    assert parse_knowledge_context(WIRE).site_assumed is False
+
+
+def test_an_assumed_site_is_said_quietly_and_only_where_law_binds():
+    set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", site_assumed=True))
+    note = jurisdiction_note() or ""
+    assert "assumption in the project memory" in note
+    assert "Do not mention that as a routine caveat" in note
+    assert "ask the person to confirm it" in note
+    # A confirmed site says nothing, and a gate that binds nothing has its own note and no assumption line.
+    set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT"))
+    assert jurisdiction_note() is None
+    set_turn_knowledge_context(KnowledgeContext(gate="none", site_country="AT", site_assumed=True))
+    assert "assumption in the project memory" not in (jurisdiction_note() or "")
+
+
 def test_the_research_doctrine_is_the_method_then_the_note_or_the_chain():
     chain = "Building law at this site, Wien"
     set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", text=chain))
