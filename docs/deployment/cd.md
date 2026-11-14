@@ -200,6 +200,20 @@ image disagree when one commit still has `deploy/pulumi/src/data/chroma.ts`
 (the Chroma tier, removed by ADR-0115) and the other does not. Prod's job runs
 the same check on the tag `Pulumi.prod.yaml` pins.
 
+**Prod has the same guard** for the tag its `Pulumi.prod.yaml` pins, on a push
+to `prod` only (`deploy/pulumi/scripts/prod-downgrade-guard.sh`, step *Refuse a
+downgrade*, between the preview and the apply). Each service's pinned commit must be the one
+prod runs (stack output `deployedImages`) or a descendant of it. When the two
+are not on one history the checkout knows, it compares committer dates
+instead, from git or, for a commit the checkout lacks, from the GitHub API, and
+refuses an earlier pin. That case is real: prod ran
+`sha-331b9d9117661b201c762a7017f9c0d17ec21866`, the content of develop
+`8cb6cf646` on no branch after a history rewrite. A date it cannot read fails
+the job. Commit dates and not the images' `org.opencontainers.image.created`:
+images are named by their inputs, so a commit that changes nothing in an image
+reuses one built for an older commit. An operator rollback (a dispatch with
+`imageTag`) is not guarded.
+
 The committed stack file cannot say what is deployed: CI's `pulumi config set`
 never reaches git, so `pulumi config get grid-oib:backendImage` on a fresh
 checkout is empty and `imageTag` reads `latest` whatever is running. That is why
@@ -211,6 +225,47 @@ picking a different commit for each service. A merge train broke it: queued
 publishes were dropped, the survivor diffed only against its own parent, and
 the changes of five merged pull requests never reached an image. Images are now
 named by their inputs and tagged per green commit, so that state cannot arise.
+
+## Promoting to prod
+
+Actions → **Promote to prod** → *Run workflow* from `develop`
+(`.github/workflows/promote.yml`), or:
+
+```bash
+gh workflow run promote.yml --ref develop                 # the newest commit CI passed and staging ran
+gh workflow run promote.yml --ref develop -f sha=<40-hex> # a chosen develop commit
+```
+
+Without `sha` it takes the newest commit on develop's first-parent line (of the
+last 60) with a green `CI OK` check run and the commit status `deploy/staging`,
+which the staging job sets on a CI-triggered deploy once the smoke check
+passed. The status exists from the first staging deploy after it was added; for
+older commits pass `sha`. Then it checks GHCR has the commit's images, branches
+`release/promote-<short>`, merges `origin/prod` with `-s ours`, writes
+`Pulumi.prod.yaml`, pushes and opens `chore(release): promote develop <short> to
+prod` with the migrations and release notes the commit brings over prod. A
+branch of that name that exists already stops it.
+
+`Pulumi.prod.yaml` is a three-way merge
+(`deploy/pulumi/scripts/promote-stack-file.sh`): develop's file, plus every
+line prod changed on its own branch since the last promotion (the base is
+develop's file at the commit prod's pin names, fetched by sha), with
+the `imageTag` line set to `sha-<commit>`. Neither file alone is right:
+develop's pins whatever the last promotion left there (in November 2026, a
+September build), and prod's lacks everything develop changed. A line both
+changed, or two neighbouring lines one each, stops the workflow: resolve it on
+the branch by hand.
+
+CI on the branch: `prod` is no `pull_request` target of `ci.yml`, so `CI OK`
+comes from the branch's push run (`release/**`). A push with `GITHUB_TOKEN`
+starts no workflow, so the workflow pushes with the secret `RELEASE_PAT`
+(Contents and Workflows: write; Pull requests: write to open the PR, else it
+opens it with `GITHUB_TOKEN`). Without that secret the branch and PR still
+appear, CI does not run, and the run summary gives the one command left: push
+an empty commit to the branch.
+
+Merging the PR pushes `prod`, which deploys behind the `production` reviewers
+and the downgrade guard above.
 
 ## Rolling out ADR-0071
 
@@ -336,5 +391,6 @@ avoids them looks odd without the reason, so don't "simplify" it back.
 
 ## Day-to-day
 - Merge to `develop` → staging deploys automatically once green.
-- Fast-forward/merge `develop` → `prod` → production deploys after approval.
+- Run **Promote to prod**, merge the PR it opens once `CI OK` is green →
+  production deploys after approval ([Promoting to prod](#promoting-to-prod)).
 - Roll back: [rollback.md](rollback.md), or the command in the failed deploy's summary.
