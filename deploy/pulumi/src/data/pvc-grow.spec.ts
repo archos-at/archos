@@ -80,6 +80,8 @@ describe("growing a StatefulSet's volume on deploy", () => {
     expect((await grow("100Gi")).spec.resources.requests.storage).toBe("107374182400");
     liveSize = "100G"; // 1e11 bytes, less than 100Gi
     expect((await grow("100Gi")).spec.resources.requests.storage).toBe("100Gi");
+    liveSize = "2e11"; // exponent form, larger than 100Gi: no growth, no failure
+    expect((await grow("100Gi")).spec.resources.requests.storage).toBe("2e11");
   });
 
   it("takes over a field a hand-run kubectl patch owns", async () => {
@@ -95,11 +97,16 @@ describe("quantityBytes", () => {
     expect(quantityBytes("1.5Ti")).toBe(1.5 * 2 ** 40);
     expect(quantityBytes("100G")).toBe(1e11);
     expect(quantityBytes("512")).toBe(512);
+    expect(quantityBytes("1e11")).toBe(1e11);
+    expect(quantityBytes("5E9")).toBe(5e9);
+    expect(quantityBytes("5E")).toBe(5e18); // E alone is exa, not an exponent
   });
 
   it("refuses what is not a quantity, so a typo fails the plan instead of shrinking nothing silently", async () => {
     const { quantityBytes } = await import("./pvc-grow");
     expect(() => quantityBytes("30 GB")).toThrow(/Not a storage quantity/);
     expect(() => quantityBytes("")).toThrow(/Not a storage quantity/);
+    expect(() => quantityBytes("1e")).toThrow(/Not a storage quantity/);
+    expect(() => quantityBytes("1eGi")).toThrow(/Not a storage quantity/);
   });
 });

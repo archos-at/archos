@@ -67,10 +67,12 @@ export function growPvcToConfigured(
 const BINARY: Record<string, number> = { Ki: 2 ** 10, Mi: 2 ** 20, Gi: 2 ** 30, Ti: 2 ** 40, Pi: 2 ** 50, Ei: 2 ** 60 };
 const DECIMAL: Record<string, number> = { "": 1, k: 1e3, M: 1e6, G: 1e9, T: 1e12, P: 1e15, E: 1e18 };
 
-/** A Kubernetes storage quantity (`30Gi`, `100G`, `107374182400`) in bytes. Throws on anything else. */
+/** A Kubernetes storage quantity (`30Gi`, `100G`, `1e11`, `107374182400`) in bytes. Throws on anything else. */
 export function quantityBytes(quantity: string): number {
-  const match = /^([0-9]+(?:\.[0-9]+)?)(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$/.exec(quantity.trim());
+  const match = /^([0-9]+(?:\.[0-9]+)?)(?:(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)|[eE]([+-]?[0-9]+))?$/.exec(quantity.trim());
   if (!match) throw new Error(`Not a storage quantity: "${quantity}" (expected e.g. 30Gi)`);
+  // Kubernetes also spells a decimal exponent: `1e11`, `5E9`.
+  if (match[3] !== undefined) return Number(match[1]) * 10 ** Number(match[3]);
   const unit = match[2] ?? "";
   const factor = BINARY[unit] ?? DECIMAL[unit];
   return Number(match[1]) * factor;

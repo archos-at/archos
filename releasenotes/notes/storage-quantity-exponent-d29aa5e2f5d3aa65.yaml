@@ -1,0 +1,6 @@
+---
+# area: administration
+operators:
+  - >
+    A storage size written with an exponent, such as 1e11, no longer stops a deploy, and the guide says to leave
+    volume growth off for the first deploy of a new cluster.
