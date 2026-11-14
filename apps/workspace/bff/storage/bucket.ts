@@ -329,6 +329,24 @@ export function __resetBucketCache(): void {
  * in their own namespace, and it is why a claim can never collide with the flat
  * key this replaced.
  */
+/**
+ * The bucket is refused because its ownership cannot be established: another
+ * organization's claim is in it (`foreign_claim`), or it holds objects and no
+ * claim at all (`unclaimed_objects`). Only an operator resolves either, so it
+ * is not a store fault and never retried into success. `code` is what a log
+ * line or a PostHog property may carry; the message names organizations and
+ * stays in the pod's log.
+ */
+export class BucketOwnershipError extends Error {
+  override readonly name = 'BucketOwnershipError'
+  constructor(
+    readonly code: 'foreign_claim' | 'unclaimed_objects',
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
 const OWNER_CLAIM_PREFIX = '.grid-bucket-owner/'
 
 /** The key one organization claims a bucket with. Deterministic, and its own. */
@@ -527,7 +545,8 @@ async function refuseForeignClaim(
   foreignKey: string,
 ): Promise<never> {
   const other = await readClaimOwner(client, bucket, foreignKey)
-  throw new Error(
+  throw new BucketOwnershipError(
+    'foreign_claim',
     `Bucket "${bucket}" is already claimed by organization "${other ?? 'unknown'}", so it ` +
       `cannot also hold organization "${organizationId}". Refusing to write, for BOTH ` +
       'organizations: this is either a bucket-name collision or two deployments sharing one ' +
@@ -567,7 +586,8 @@ async function assertNotOccupiedByStrangers(
   const occupied = keys.some((key) => key !== '' && !key.startsWith(OWNER_CLAIM_PREFIX))
 
   if (!claimed && occupied) {
-    throw new Error(
+    throw new BucketOwnershipError(
+      'unclaimed_objects',
       `Bucket "${bucket}" already holds objects but carries no ownership claim. Refusing to ` +
         `write on behalf of organization "${organizationId}": the existing objects cannot be ` +
         `attributed. Inspect the bucket and either remove it or add a key under ` +

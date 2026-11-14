@@ -345,6 +345,32 @@ async function signedHeaders({ url, body, envelopeTo, envelopeFrom, env }) {
   };
 }
 
+/** The BFF's correlation header: the same id is on its log line and its trace. */
+export const REQUEST_ID_HEADER = "x-request-id";
+
+/**
+ * One line per delivery for Cloudflare's Workers Logs (`observability.logs` in
+ * `inbound-mail.ts`, invocation logs off so no envelope address is stored):
+ * what the Worker did, the BFF's status and its request id, nothing about the
+ * message. Until 2026-11 the Worker logged nothing and observability was off,
+ * so two days of every delivery thrown back at the senders left no trace at
+ * Cloudflare; a refusal is now a line with the BFF's request id to follow.
+ *
+ * @param {"accepted" | "rejected" | "retry" | "unknown_address" | "paused"} outcome
+ * @param {Response | null} response
+ */
+function report(outcome, response) {
+  const line = {
+    event: "inbound_mail_delivery",
+    outcome,
+    status: response ? response.status : null,
+    verdict: response ? response.headers.get(VERDICT_HEADER) : null,
+    requestId: response ? response.headers.get(REQUEST_ID_HEADER) : null,
+  };
+  if (outcome === "retry") console.error(JSON.stringify(line));
+  else console.log(JSON.stringify(line));
+}
+
 /**
  * Whether the BFF's answer is an explicit, permanent refusal.
  *
@@ -364,9 +390,11 @@ export default {
   async email(message, env) {
     if (!isProjectRecipient(message.to, env)) {
       message.setReject(UNKNOWN_ADDRESS_TEXT);
+      report("unknown_address", null);
       return;
     }
     if (env.PAUSED === "true") {
+      report("paused", null);
       // Before a byte is read: the sending server keeps the message.
       throw new Error("inbound-mail: deliveries are paused; asking the sender to retry");
     }
@@ -393,13 +421,18 @@ export default {
       signal: AbortSignal.timeout(BFF_TIMEOUT_MS),
     });
 
-    if (response.status >= 200 && response.status < 300) return;
-
-    if (isExplicitReject(response)) {
-      message.setReject(rejectText(env.LANDING_URL));
+    if (response.status >= 200 && response.status < 300) {
+      report("accepted", response);
       return;
     }
 
+    if (isExplicitReject(response)) {
+      message.setReject(rejectText(env.LANDING_URL));
+      report("rejected", response);
+      return;
+    }
+
+    report("retry", response);
     // Not an explicit verdict: a misconfiguration, an outage or back-pressure
     // on our side. Throw, so the sender retries and nothing is lost.
     throw new Error(
