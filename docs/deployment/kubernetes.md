@@ -667,22 +667,42 @@ SELECT pg_size_pretty(pg_relation_size('document_versions')) AS heap,
        (SELECT reltuples::bigint FROM pg_class WHERE relname = 'document_versions') AS rows;
 ```
 
-The lock lasts as long as the index build. To know it rather than guess, time
-the same build on a restored copy (`\timing`, then the `CREATE UNIQUE INDEX`
-below without `CONCURRENTLY`). A pause of a few seconds needs nothing more.
-Longer, build the index online first, outside any transaction, as the owner:
+**The deploy builds the index online first; nobody runs it by hand.** The Job
+`app-online-indexes` (on both projects;
+`deploy/pulumi/src/app/online-indexes-job.ts`) runs before the migration Job,
+which depends on it, with the migration Job's credentials
+(`APP_MIGRATION_DATABASE_URL`, the schema owner) from `postgres:17-alpine`
+(the frontend image has no `psql`). For each entry of `ONLINE_INDEXES` it reads
+one state and acts on it, each statement on its own outside any transaction:
 
-```sql
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key"
-  ON "document_versions" ("id", "project_id");
--- Check it is valid; an interrupted build leaves an INVALID index: DROP INDEX CONCURRENTLY it and build again.
-SELECT indisvalid FROM pg_index WHERE indexrelid = 'document_versions_id_project_id_key'::regclass;
-```
+| State | What it does |
+|---|---|
+| no table, or a column missing (a fresh database) | nothing: the migration builds it, on an empty table |
+| the constraint exists (0196 applied: staging, prod after its first such deploy) | nothing |
+| a valid index of that name | nothing |
+| an invalid one (an interrupted build) | `DROP INDEX CONCURRENTLY`, then builds it again |
+| none | `CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key" ON "document_versions" ("id", "project_id")` |
 
-0196 then adopts it (`ADD CONSTRAINT … UNIQUE USING INDEX`), which takes the
-lock only for a catalog change. Either way, deploy outside office hours: the
-migrate Job runs before the new pods take traffic, and a document request that
-waits on the lock times out at Envoy after its route timeout.
+It runs with `statement_timeout=0` (a build takes as long as it takes, and
+blocks no reader or writer) and `lock_timeout=30s`: `CONCURRENTLY` waits for
+every older transaction, and behind a long one it fails, leaves an invalid
+index, and the next of its six attempts drops it and builds again. Pulumi
+awaits it (50 minutes at most; `activeDeadlineSeconds` 45 minutes in the
+cluster), so a build that keeps failing stops the deploy before any migration
+took a lock. Its log has one line per index: `document_versions_id_project_id_key
+(0196): missing`, then `built`.
+
+0196 then adopts the index (`ADD CONSTRAINT … UNIQUE USING INDEX`), which takes
+the lock only for a catalog change. A later migration that wants a large index
+does the same: it adopts a pre-built one by name, still builds it itself when
+it is missing, and adds the entry to `ONLINE_INDEXES` (only for a table and
+columns that exist before the deploy's migrations run; the spec
+`index-deploy-jobs.spec.ts` checks the migration names the index).
+
+The other locks of a batch are not moved out of the transaction (0200's scans,
+0203, 0220, 0230), so deploy outside office hours all the same: the migrate Job
+runs before the new pods take traffic, and a document request that waits on a
+lock times out at Envoy after its route timeout.
 
 ### Setup: the first promote is paused
 

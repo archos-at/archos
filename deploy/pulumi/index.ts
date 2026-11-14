@@ -40,6 +40,7 @@ import { installQdrant } from "./src/data/qdrant";
 import { installWorkloadAlerts } from "./src/platform/workload-alerts";
 import { AppWiring, PULL_SECRET_NAME, buildRegistryPullSecret, buildSecrets } from "./src/app/config";
 import { runMigrations } from "./src/app/migrations-job";
+import { buildOnlineIndexes } from "./src/app/online-indexes-job";
 import { reconcileAuditSchemas } from "./src/app/audit-schemas-job";
 import { carryOverFolderGrants, reconcileAuthzCatalog } from "./src/app/workos-authz-jobs";
 import { migrateChromaToQdrant } from "./src/app/chroma-migration-job";
@@ -52,7 +53,7 @@ import { installWeb } from "./src/app/web";
 import { installGotenberg } from "./src/app/gotenberg";
 import { installPublicSourceFetcher } from "./src/app/public-source-fetcher";
 import { installClamAV } from "./src/app/clamav";
-import { installWorkers } from "./src/app/workers";
+import { installWorkers, syncBaseCorpusAfterRollout } from "./src/app/workers";
 import { installAgentWorker } from "./src/app/agent-worker";
 import { installIngestWorker, installIngestWorkerHeavy } from "./src/app/ingest-worker";
 import { installHatchetQueueAuth } from "./src/app/hatchet-queue-auth";
@@ -269,10 +270,16 @@ const secrets = buildSecrets(wiring);
 // the frontend/workers that read it. The migrations themselves go straight to
 // the primary; the pooler is listed so everything ordered after them (the BFF
 // tiers, which connect through it) is created after it too (ADR-0083).
+//
+// First, the indexes a pending migration would build under ACCESS EXCLUSIVE are
+// built online (`ONLINE_INDEXES`), so the migration adopts them: drizzle runs
+// the whole batch in one transaction and would hold that lock to its end.
+const onlineIndexes = buildOnlineIndexes(wiring, cfg, secrets, [postgres.cluster, postgres.initJob]);
 const migratedSchema = runMigrations(wiring, cfg, secrets, [
   postgres.cluster,
   postgres.initJob,
   postgres.pooler,
+  onlineIndexes,
 ]);
 // Then the row-level-security roles take their names without a brand
 // (ADR-0145 row 10d, `src/data/postgres-rename.ts`): the migrations written
@@ -347,6 +354,10 @@ const apiDependsOn = [
 ];
 const api = installApi(wiring, cfg, secrets, apiDependsOn);
 const legacyApi = installApi(wiring, cfg, secrets, apiDependsOn, LEGACY_API_TIER);
+
+// One base-corpus sync cycle as soon as the api tier, which serves the route,
+// has rolled out, instead of on the CronJob's next tick. Not awaited.
+syncBaseCorpusAfterRollout(wiring, cfg, secrets, [migrations, api.deployment, api.service]);
 
 // The chat tier the frontend dials (the switch step, `tier-names.ts`): up and
 // ready before the frontend that points its socket at it rolls out.
