@@ -144,6 +144,9 @@ const REFUSALS: ReadonlySet<DeliveryOutcomeCode> = new Set([
 export class InboundMailRejectedError extends ApiError {
   constructor(readonly outcome: Extract<DeliveryOutcomeCode, 'unknown_address' | 'switched_off' | 'too_large'>) {
     super(outcome === 'too_large' ? 413 : 404, outcome === 'too_large' ? 'PAYLOAD_TOO_LARGE' : 'NOT_FOUND', rejectText(configuredPublicSiteOrigin()))
+    // Spelled out: `ApiError` names itself by `new.target.name`, which the
+    // production bundle minifies (dev's first named refusal read `A`).
+    this.name = 'InboundMailRejectedError'
   }
 }
 
@@ -151,6 +154,7 @@ export class InboundMailRejectedError extends ApiError {
 class InboundMailRetryError extends ServiceUnavailableError {
   constructor(readonly outcome: Extract<DeliveryOutcomeCode, 'paused' | 'misconfigured' | 'unavailable'>, message: string) {
     super(message, { reason: outcome })
+    this.name = 'InboundMailRetryError'
   }
 }
 
@@ -159,6 +163,7 @@ class StagedBytesCapError extends ApiError {
   readonly outcome = 'cap_reached' as const
   constructor() {
     super(429, 'RATE_LIMITED', 'Too much mail is waiting for this address', { reason: 'cap-reached' })
+    this.name = 'StagedBytesCapError'
   }
 }
 
