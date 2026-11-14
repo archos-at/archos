@@ -33,9 +33,9 @@ describe('the committed carry manifest', () => {
 
   it('names bundles from dev, each verified against its file', () => {
     expect(manifest.sourceDeployment).toBe('dev')
-    for (const carried of manifest.bundles) {
-      expect(verifiedBundle(carried, readFileSync(join(DIR, carried.file))).countryId).toBe(carried.countryId)
-    }
+    const bundles = manifest.bundles.map((carried) => verifiedBundle(carried, readFileSync(join(DIR, carried.file))))
+    bundles.forEach((carried, index) => expect(carried.countryId).toBe(manifest.bundles[index]!.countryId))
+    expect(() => checkCarryOrder(bundles.map((carried) => ({ countryId: carried.countryId, requires: carried.requires.map((r) => r.countryId) })))).not.toThrow()
   })
 })
 

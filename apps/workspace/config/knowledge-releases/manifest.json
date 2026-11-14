@@ -1,5 +1,241 @@
 {
   "format": "knowledge-carry/1",
   "sourceDeployment": "dev",
-  "bundles": []
+  "bundles": [
+    {
+      "file": "eu-756.json.gz",
+      "countryId": "EU",
+      "seq": 756,
+      "sha256": "ecb2c6aacf77f222e19e54426134dbfea7aa553340ea6cd6942f294d82e32653",
+      "records": 5,
+      "captures": 3,
+      "texts": {}
+    },
+    {
+      "file": "at-746.json.gz",
+      "countryId": "AT",
+      "seq": 746,
+      "sha256": "5328838178b3c8d453dbc48adf5385b537d95adb4aba158f36853b0d879e3591",
+      "records": 341,
+      "captures": 106,
+      "texts": {
+        "oib-begriffsbestimmungen-2019-text-883955666f89.pdf": {
+          "docClass": "oib_definitions",
+          "displayTitle": "Begriffsbestimmungen, Ausgabe April 2019"
+        },
+        "oib-begriffsbestimmungen-2023-text-31064066a874.pdf": {
+          "docClass": "oib_definitions",
+          "displayTitle": "Begriffsbestimmungen, Ausgabe Mai 2023"
+        },
+        "oib-begriffsbestimmungen-2025-text-f413c0d993b2.pdf": {
+          "docClass": "oib_definitions",
+          "displayTitle": "Begriffsbestimmungen, Ausgabe September 2025"
+        },
+        "oib-rl-1-2019-text-74ade114877f.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 1, Ausgabe April 2019"
+        },
+        "oib-rl-1-2023-text-ce3ec90728b2.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 1, Ausgabe Mai 2023"
+        },
+        "oib-rl-1-erlaeuterungen-2019-text-cf13258acf47.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 1 - Erläuterungen, Ausgabe April 2019"
+        },
+        "oib-rl-1-erlaeuterungen-2023-text-11e9e79f52ec.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 1 - Erläuterungen, Ausgabe Mai 2023"
+        },
+        "oib-rl-1-leitfaden-2019-text-da24682b8db5.pdf": {
+          "docClass": "oib_guide",
+          "displayTitle": "OIB-Richtlinie 1 - Leitfaden, Ausgabe April 2019"
+        },
+        "oib-rl-1-leitfaden-2023-text-c57e87b2e686.pdf": {
+          "docClass": "oib_guide",
+          "displayTitle": "OIB-Richtlinie 1 - Leitfaden, Ausgabe Mai 2023"
+        },
+        "oib-rl-2-1-2019-text-66f337515389.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 2.1, Ausgabe April 2019"
+        },
+        "oib-rl-2-1-2023-text-5d18b01a22e0.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 2.1, Ausgabe Mai 2023"
+        },
+        "oib-rl-2-1-erlaeuterungen-2019-text-ab89f2626c18.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 2.1 - Erläuterungen, Ausgabe April 2019"
+        },
+        "oib-rl-2-1-erlaeuterungen-2023-text-00eb943f22e0.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 2.1 - Erläuterungen, Ausgabe Mai 2023"
+        },
+        "oib-rl-2-2-2019-text-d78f1e30ce50.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 2.2, Ausgabe April 2019"
+        },
+        "oib-rl-2-2-2023-text-319b87677421.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 2.2, Ausgabe Mai 2023"
+        },
+        "oib-rl-2-2-erlaeuterungen-2019-text-25d5c7a2d226.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 2.2 - Erläuterungen, Ausgabe April 2019"
+        },
+        "oib-rl-2-2-erlaeuterungen-2023-text-f92e5f0b7da3.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 2.2 - Erläuterungen, Ausgabe Mai 2023"
+        },
+        "oib-rl-2-2019-text-4a5eab72c567.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 2, Ausgabe April 2019"
+        },
+        "oib-rl-2-2023-text-80c174ce27a0.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 2, Ausgabe Mai 2023"
+        },
+        "oib-rl-2-3-2019-text-b86ff3663949.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 2.3, Ausgabe April 2019"
+        },
+        "oib-rl-2-3-2023-text-7e88e3f95ee1.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 2.3, Ausgabe Mai 2023"
+        },
+        "oib-rl-2-3-erlaeuterungen-2019-text-f273247596f6.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 2.3 - Erläuterungen, Ausgabe April 2019"
+        },
+        "oib-rl-2-3-erlaeuterungen-2023-text-b0617800e09a.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 2.3 - Erläuterungen, Ausgabe Mai 2023"
+        },
+        "oib-rl-2-erlaeuterungen-2019-text-377d575411f4.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 2 - Erläuterungen, Ausgabe April 2019"
+        },
+        "oib-rl-2-erlaeuterungen-2023-text-e46d560b1ab3.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 2 - Erläuterungen, Ausgabe Mai 2023"
+        },
+        "oib-rl-2-leitfaden-2019-text-aa250174193c.pdf": {
+          "docClass": "oib_guide",
+          "displayTitle": "OIB-Richtlinie 2 - Leitfaden, Ausgabe April 2019"
+        },
+        "oib-rl-2-leitfaden-2023-text-fd4fa825e529.pdf": {
+          "docClass": "oib_guide",
+          "displayTitle": "OIB-Richtlinie 2 - Leitfaden, Ausgabe Mai 2023"
+        },
+        "oib-rl-3-2019-text-9039df001347.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 3, Ausgabe April 2019"
+        },
+        "oib-rl-3-2023-text-192f7d863f80.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 3, Ausgabe Mai 2023"
+        },
+        "oib-rl-3-erlaeuterungen-2019-text-ebb34dbc0df8.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 3 - Erläuterungen, Ausgabe April 2019"
+        },
+        "oib-rl-3-erlaeuterungen-2023-text-12c15a8e3f57.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 3 - Erläuterungen, Ausgabe Mai 2023"
+        },
+        "oib-rl-4-2019-text-bfe3f994b9b6.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 4, Ausgabe April 2019"
+        },
+        "oib-rl-4-2023-text-7ad87c47e2b7.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 4, Ausgabe Mai 2023"
+        },
+        "oib-rl-4-erlaeuterungen-2019-text-fd42ad249c36.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 4 - Erläuterungen, Ausgabe April 2019"
+        },
+        "oib-rl-4-erlaeuterungen-2023-text-50805c4014e5.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 4 - Erläuterungen, Ausgabe Mai 2023"
+        },
+        "oib-rl-5-2019-text-56d2c5820c1d.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 5, Ausgabe April 2019"
+        },
+        "oib-rl-5-2023-text-fb6f12acd064.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 5, Ausgabe Mai 2023"
+        },
+        "oib-rl-5-erlaeuterungen-2019-text-52b1579f09c7.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 5 - Erläuterungen, Ausgabe April 2019"
+        },
+        "oib-rl-5-erlaeuterungen-2023-text-a0ab9ef146a0.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 5 - Erläuterungen, Ausgabe Mai 2023"
+        },
+        "oib-rl-6-2015-text-e7e0e19b89e4.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 6, Ausgabe März 2015"
+        },
+        "oib-rl-6-2019-text-728cba346629.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 6, Ausgabe April 2019"
+        },
+        "oib-rl-6-2023-text-5f3b5c6568db.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 6, Ausgabe Mai 2023"
+        },
+        "oib-rl-6-2025-text-bc35d3dee230.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 6, Ausgabe September 2025"
+        },
+        "oib-rl-6-erlaeuterungen-2019-text-a2e408b1d0c2.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 6 - Erläuterungen, Ausgabe April 2019"
+        },
+        "oib-rl-6-erlaeuterungen-2023-text-6c4d7688b63a.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 6 - Erläuterungen, Ausgabe Mai 2023"
+        },
+        "oib-rl-6-erlaeuterungen-2025-text-2dadb8409815.pdf": {
+          "docClass": "oib_explanatory_note",
+          "displayTitle": "OIB-Richtlinie 6 - Erläuterungen, Ausgabe September 2025"
+        },
+        "oib-rl-6-leitfaden-2019-text-a202e184b495.pdf": {
+          "docClass": "oib_guide",
+          "displayTitle": "OIB-Richtlinie 6 - Leitfaden, Ausgabe April 2019"
+        },
+        "oib-rl-6-leitfaden-2023-text-c641fc8e58ed.pdf": {
+          "docClass": "oib_guide",
+          "displayTitle": "OIB-Richtlinie 6 - Leitfaden, Ausgabe Mai 2023"
+        },
+        "oib-rl-6-leitfaden-2025-text-dccd48b7e4ee.pdf": {
+          "docClass": "oib_guide",
+          "displayTitle": "OIB-Richtlinie 6 - Leitfaden, Ausgabe September 2025"
+        },
+        "oib-rl-7-grundlagendokument-2023-text-ccf9160de252.pdf": {
+          "docClass": "oib_guideline",
+          "displayTitle": "OIB-Richtlinie 7 - Grundlagendokument, Ausgabe: Mai 2023"
+        },
+        "oib-zitierte-normen-2019-text-f80053e91efd.pdf": {
+          "docClass": "oib_reference",
+          "displayTitle": "Zitierte Normen und sonstige technische Regelwerke, Ausgabe April 2019"
+        },
+        "oib-zitierte-normen-2023-rev-1-text-b68ab0c958e9.pdf": {
+          "docClass": "oib_reference",
+          "displayTitle": "Zitierte Normen und sonstige technische Regelwerke, Ausgabe Mai 2023 Rev. 1"
+        },
+        "oib-zitierte-normen-2023-text-6f3f529cd862.pdf": {
+          "docClass": "oib_reference",
+          "displayTitle": "Zitierte Normen und sonstige technische Regelwerke, Ausgabe Mai 2023"
+        },
+        "oib-zitierte-normen-2025-text-b85402335320.pdf": {
+          "docClass": "oib_reference",
+          "displayTitle": "Zitierte Normen und sonstige technische Regelwerke, Ausgabe September 2025"
+        }
+      }
+    }
+  ]
 }
