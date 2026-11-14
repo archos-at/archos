@@ -88,6 +88,8 @@ export interface AppShellChromeProps {
   canViewOrganization: boolean
   canManagePlatform: boolean
   canAccessOfficeShelf: boolean
+  /** The office's own standards have their doorway (`office-standards`, ADR-0163). Absent: off. */
+  canAccessOfficeStandards?: boolean
   canAccessInbox: boolean
   showSkills: boolean
   showModels: boolean
@@ -223,6 +225,7 @@ export function AppShellChrome({
           canViewOrganization={chrome.canViewOrganization}
           canManagePlatform={chrome.canManagePlatform}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
+          canAccessOfficeStandards={chrome.canAccessOfficeStandards}
           canAccessInbox={chrome.canAccessInbox}
           showSkills={chrome.showSkills}
           showModels={chrome.showModels}
@@ -238,6 +241,7 @@ export function AppShellChrome({
           canViewOrganization={chrome.canViewOrganization}
           canManagePlatform={chrome.canManagePlatform}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
+          canAccessOfficeStandards={chrome.canAccessOfficeStandards}
           canAccessInbox={chrome.canAccessInbox}
         />
       )}
@@ -283,6 +287,7 @@ export function AppShellChrome({
           user={chrome.user}
           authRequired={chrome.authRequired}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
+          canAccessOfficeStandards={chrome.canAccessOfficeStandards}
           canAccessInbox={chrome.canAccessInbox}
           showSkills={chrome.showSkills}
           canViewOrganization={chrome.canViewOrganization}

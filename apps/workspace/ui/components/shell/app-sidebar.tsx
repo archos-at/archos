@@ -132,6 +132,8 @@ export interface AppSidebarProps {
    * ADR-0024). Also gates the Archiv nav item.
    */
   canAccessOfficeShelf?: boolean
+  /** Whether the office's own standards have their doorway (`office-standards`, ADR-0163). */
+  canAccessOfficeStandards?: boolean
   /** Whether the IFC/BIM model page is enabled (`ifc-models`, ADR-0045). */
   showModels?: boolean
   /** Whether the Agent Skills page is enabled (feature-flagged, default off — ADR-0046). */
@@ -212,6 +214,7 @@ function AppSidebarFrame({
   canViewOrganization = false,
   canManagePlatform = false,
   canAccessOfficeShelf = false,
+  canAccessOfficeStandards = false,
   showModels = false,
   showSkills = false,
   canAccessInbox,
@@ -247,7 +250,7 @@ function AppSidebarFrame({
     pruneProjectSections(projects.map((project) => project.id))
   }, [projects])
 
-  const groups: RailGroupModel[] = railGroups({ showSkills, showModels, canAccessOfficeShelf, canAccessInbox }).map(
+  const groups: RailGroupModel[] = railGroups({ showSkills, showModels, canAccessOfficeShelf, canAccessOfficeStandards, canAccessInbox }).map(
     (group) => ({
       key: group.group,
       label: group.group === 'org' && organizationName ? organizationName : t(`sectionGroups.${group.group}`),

@@ -233,6 +233,7 @@ if (process.env.NODE_ENV !== 'production') {
     canViewOrganization: true,
     showKnowledge: true,
     canAccessOfficeShelf: true,
+    canAccessOfficeStandards: true,
     canCollaborate: true,
     canAccessInbox: true,
   }).map((target) => target.key)

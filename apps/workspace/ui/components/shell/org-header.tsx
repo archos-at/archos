@@ -59,6 +59,8 @@ export interface OrgHeaderProps {
   canViewOrganization: boolean
   canManagePlatform: boolean
   canAccessOfficeShelf: boolean
+  /** The office's own standards beside the Büroablage (`office-standards`, ADR-0163). Absent: off. */
+  canAccessOfficeStandards?: boolean
   canAccessInbox: boolean
 }
 
@@ -71,6 +73,7 @@ export function OrgHeader({
   canViewOrganization,
   canManagePlatform,
   canAccessOfficeShelf,
+  canAccessOfficeStandards = false,
   canAccessInbox,
 }: OrgHeaderProps): JSX.Element {
   const pathname = usePathname() ?? ''
@@ -127,7 +130,7 @@ export function OrgHeader({
           )}
           {/* The office's standards beside the Büroablage they are filed in:
               a place of their own, so a standard is not one file among many. */}
-          {canAccessOfficeShelf && (
+          {canAccessOfficeStandards && (
             <OrgHeaderIconLink
               href="/app/base-knowledge"
               label={t('sections.baseKnowledge')}

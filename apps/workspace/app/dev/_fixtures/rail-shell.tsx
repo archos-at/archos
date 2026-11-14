@@ -58,6 +58,7 @@ export function DevRailShell({
         canManageOrganization={false}
         canManagePlatform={false}
         canAccessOfficeShelf
+        canAccessOfficeStandards
         canAccessInbox
         showSkills
       />
@@ -75,6 +76,7 @@ export function DevRailShell({
         canManageOrganization={false}
         canManagePlatform={false}
         canAccessOfficeShelf
+        canAccessOfficeStandards
         canAccessInbox
         showSkills
       />

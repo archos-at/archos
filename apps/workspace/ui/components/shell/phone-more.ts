@@ -46,6 +46,8 @@ export interface MoreDestination {
 
 export interface MoreFlags extends PhoneTabFlags {
   showSkills: boolean
+  /** The office's own standards have their doorway (`office-standards`, ADR-0163). Absent: off. */
+  canAccessOfficeStandards?: boolean
   canViewOrganization: boolean
   canManageOrganization: boolean
   canManagePlatform: boolean
@@ -115,6 +117,7 @@ export function moreDestinations(projectId: string | null, pathname: string, fla
   const sectionFlags: ProjectSectionFlags = {
     showSkills: flags.showSkills,
     canAccessOfficeShelf: flags.canAccessOfficeShelf,
+    canAccessOfficeStandards: flags.canAccessOfficeStandards,
     canAccessInbox: flags.canAccessInbox,
   }
   const places = railSections(sectionFlags)

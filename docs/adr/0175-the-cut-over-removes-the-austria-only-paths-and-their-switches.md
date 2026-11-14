@@ -63,7 +63,7 @@ kept alive; a switch on everywhere is that answer one targeting mistake away.
 | `building-law-chain` (ADR-0168) | no `buildingLaw`; every source kept `citations/binding.py`'s status | the chain is resolved for every project with a site |
 | `time-editions` (ADR-0171) | the as-of route 403, `law-lookup` without `as_of` | every office; `GET /api/internal/stages` keeps `timeEditions: true` only so an agent built before the cut-over offers `as_of`, and the key goes once none is deployed |
 | `platform-base-knowledge` (ADR-0165) | the platform routes 403; offices read the stub (nothing); the norm registry took edits | the platform routes need their platform permission only; an office reads the released records of its entitled countries; the norm registry answers 409 always (its route, operation and editor go with the contract step that drops `norm_registry`) |
-| `office-base-knowledge` (ADR-0163) | the office's base knowledge routes 403 and no block on the turn | every office. It waited for the licensed seam; the seam exists, and `licensed-seam` still decides whether licensed text reaches a model |
+| `office-base-knowledge` (ADR-0163) | the office's base knowledge routes 403 and no block on the turn | every office. It waited for the licensed seam; the seam exists, and `licensed-seam` still decides whether licensed text reaches a model. Since 2026-11-14 a new entitlement, `office-standards`, gates the office's own standards again (routes 404, no place, no block on the turn), so production can ship without them |
 
 The paths that went with them:
 

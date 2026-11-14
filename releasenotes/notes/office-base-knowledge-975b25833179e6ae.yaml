@@ -9,4 +9,5 @@ features:
 operators:
   - >
     Office base knowledge is off until an organization gets the
-    office-base-knowledge flag; migration 0202 adds its tables.
+    office-standards flag (an entitlement; the earlier office-base-knowledge
+    slug is retired); migration 0202 adds its tables.

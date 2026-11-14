@@ -81,6 +81,8 @@ export interface ProjectSectionFlags {
   showSkills?: boolean
   /** Org-wide Archiv (ADR-0024). */
   canAccessOfficeShelf?: boolean
+  /** The office's own standards beside it (ADR-0163): `getNavFlags().canAccessOfficeStandards`. */
+  canAccessOfficeStandards?: boolean
   /** Project knowledge page — feature-flagged, default off. */
   showKnowledge?: boolean
   /** Collaboration surfaces — `collaboration` flag / env opt-in (ADR-0032…0035). */
@@ -214,7 +216,8 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     href: '/app/base-knowledge',
     icon: Library,
     i18nKey: 'baseKnowledge',
-    gate: 'canAccessOfficeShelf',
+    // Its own gate, not the Archiv's: the `office-standards` entitlement.
+    gate: 'canAccessOfficeStandards',
     inRail: true,
     inPalette: true,
     // `g n`: Normen, the first thing an office keeps here.

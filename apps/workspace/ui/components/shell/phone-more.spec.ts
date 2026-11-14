@@ -8,6 +8,7 @@ import { orgPhoneTabs, projectPhoneTabs } from './phone-tabs'
 
 const ALL: MoreFlags = {
   canAccessOfficeShelf: true,
+  canAccessOfficeStandards: true,
   canAccessInbox: true,
   showSkills: true,
   canViewOrganization: true,
@@ -52,6 +53,7 @@ describe('moreDestinations: what "Mehr" lists', () => {
     expect(keys(NONE)).toEqual(['search', 'profile', 'memory', 'whats-new'])
     expect(keys({ ...ALL, showSkills: false })).not.toContain('automation')
     expect(keys({ ...ALL, canAccessOfficeShelf: false })).not.toContain('officeShelf')
+    expect(keys({ ...ALL, canAccessOfficeStandards: false })).not.toContain('baseKnowledge')
   })
 
   // The rail keeps the project's sections and the organisation's doorways

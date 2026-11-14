@@ -330,6 +330,23 @@ export const FEATURE_FLAGS = {
   siteResolution: 'site-resolution',
   /** Source monitors (ADR-0174, `bff/base-knowledge/platform/monitor.ts`); off: the sweep reads, fetches and writes nothing. */
   sourceMonitors: 'source-monitors',
+  /**
+   * The office's own standards, „Grundlagen des Büros" (ADR-0163): the norms,
+   * commentaries and authority directives an office records itself, their place
+   * beside the Büroablage, and what a turn is told about them. Read from the
+   * session by every office route under `/api/base-knowledge` (except the
+   * platform-knowledge reads: coverage, as-of and reports), by the navigation
+   * (`getNavFlags`), the page and the Büroablage's „Grundlage" mark; read per
+   * organization (`isOrgFeatureEnabled`) when a turn is assembled.
+   *
+   * An entitlement, off until an operator targets the organization. With it off
+   * the routes and the page are not found, the doorway, the Organisation card and
+   * the mark are gone, and a turn carries no office base knowledge. The
+   * platform's released country knowledge is untouched, and so is every record
+   * already kept: switching it on again shows them as they were. Not the retired
+   * `office-base-knowledge` slug (`feature-flags.spec.ts`).
+   */
+  officeStandards: 'office-standards',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -363,6 +380,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'inbound-mail': 'entitlement',
   'site-resolution': 'rollout',
   'source-monitors': 'entitlement',
+  'office-standards': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',
@@ -423,6 +441,15 @@ export function isMailImportEnabled(session: Pick<UserSession, 'featureFlags'>):
  */
 export function isInboundMailEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
   return isFeatureEnabled(session, FEATURE_FLAGS.inboundMail)
+}
+
+/**
+ * The office's own standards (ADR-0163): its routes, its place and the
+ * Büroablage's mark. A turn reads the organization's flag without a session
+ * (`officeStandardsEnabled` in `bff/base-knowledge/office/access.ts`).
+ */
+export function isOfficeStandardsEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
+  return isFeatureEnabled(session, FEATURE_FLAGS.officeStandards)
 }
 
 /** Whether events on Piloti's work wake a turn for this organization (ADR-0106). */

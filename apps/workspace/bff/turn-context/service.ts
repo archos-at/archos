@@ -27,6 +27,7 @@ import { findProjectInOrg } from '@/lib/projects/repository'
 import { countActiveRunsInProject } from '@/lib/tasks/repository'
 import { officeConventionsForTurn } from '@/lib/office-conventions/service'
 import { baseKnowledgeForTurn } from '@/lib/base-knowledge/office/service'
+import { officeStandardsEnabled } from '@/lib/base-knowledge/office/access'
 import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
 import { goldenTurnFor } from '@/lib/base-knowledge/golden/turn'
 import { projectModelKinds } from '@/lib/bim/model-kinds-repository'
@@ -129,6 +130,12 @@ async function loadPersonalMemory(context: VerifiedRequestContext, solo: Promise
   )
 }
 
+/** The office's own standards for the turn, only where the organization has them (`office-standards`). */
+async function loadOfficeStandards(organizationId: string, projectId: string | null) {
+  if (!(await officeStandardsEnabled(organizationId))) return null
+  return baseKnowledgeForTurn(organizationId, projectId)
+}
+
 /** Today's requester may read this project and this conversation; the project access feeds the WORKSPACE block. */
 async function checkAccess(session: AuthorizedSession, context: VerifiedRequestContext): Promise<ProjectAccess | null> {
   const { organizationId, projectId, conversationId } = context
@@ -197,8 +204,9 @@ export async function loadTurnContext(
     timed('folders', () => advisory('load folder descriptions', () => buildFolderDescriptionsBlock(organizationId, projectId ?? null))),
     // Who asks, where, and what is open now: the state office work starts from (ADR-0123).
     timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query, solo))),
-    // The office's own standards, commentaries and directives, and how far each binds here (ADR-0163).
-    timed('base-knowledge', () => advisory('load the base knowledge', () => baseKnowledgeForTurn(organizationId, projectId ?? null))),
+    // The office's own standards, commentaries and directives, and how far each binds here (ADR-0163);
+    // none for an office without the `office-standards` entitlement.
+    timed('base-knowledge', () => advisory('load the base knowledge', () => loadOfficeStandards(organizationId, projectId ?? null))),
     // Which country, coverage and editions apply, what binds at the site and why (its chain text),
     // and what the turn may retrieve (ADR-0168, ADR-0173): one payload for the law.
     // Not advisory: it fails closed to `knowledge_unavailable` itself, and is timed as `knowledge`.
