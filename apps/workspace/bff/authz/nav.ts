@@ -10,7 +10,7 @@ import type { UserSession } from '@/lib/auth/types'
 import { isOrgAdmin } from './organizations'
 import { isPlatformStaff } from './platform'
 import { inboxIsReachable } from '@/lib/inbox/registry'
-import { isCollaborationEnabled } from './feature-flags'
+import { isCollaborationEnabled, isOfficeStandardsEnabled } from './feature-flags'
 
 export interface NavFlags {
   canManageOrganization: boolean
@@ -30,6 +30,12 @@ export interface NavFlags {
    * routes. A break-glass session has no organization and so no Archiv.
    */
   canAccessOfficeShelf: boolean
+  /**
+   * Whether the office's own standards, „Grundlagen des Büros" (ADR-0163), have
+   * a doorway beside the Büroablage: the Archiv's reach plus the organization's
+   * `office-standards` entitlement. Off, the page and its routes are not found.
+   */
+  canAccessOfficeStandards: boolean
   /**
    * Whether the collaboration surfaces are reachable (ADR-0032…0035): the inbox
    * nav entry + badge, share controls, and the mention picker. Dark-launched, so
@@ -56,6 +62,7 @@ export async function getNavFlags(session: UserSession | null): Promise<NavFlags
       canViewOrganization: false,
       canManagePlatform: false,
       canAccessOfficeShelf: false,
+      canAccessOfficeStandards: false,
       canCollaborate: false,
       canAccessInbox: false,
     }
@@ -66,6 +73,7 @@ export async function getNavFlags(session: UserSession | null): Promise<NavFlags
     canViewOrganization: true,
     canManagePlatform: await isPlatformStaff(session),
     canAccessOfficeShelf: Boolean(session.organizationId),
+    canAccessOfficeStandards: Boolean(session.organizationId) && isOfficeStandardsEnabled(session),
     canCollaborate: collaboration,
     // Also gated on there BEING an organization. A break-glass session carries a
     // user and no `organizationId`, and the inbox is organization-scoped

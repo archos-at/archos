@@ -184,7 +184,7 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
   })
 
   test('orders Chat first and Inbox last in the section nav', () => {
-    const { container } = render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
+    const { container } = render(<AppSidebar {...baseProps} canAccessOfficeShelf canAccessOfficeStandards />)
     // Scope to the rail's own <nav> elements so the wordmark / Settings footer
     // stay out. Archiv and Inbox are the bottom-pinned org group — a second,
     // sibling <nav> outside `[data-sidebar="content"]` — so this reads every
@@ -198,6 +198,12 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     // per `project-sections.ts`. Automation is absent here because `showSkills`
     // is off.
     expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Office standards', 'Search', 'Inbox'])
+  })
+
+  test('lists no office standards without the office-standards entitlement, the Archiv still there', () => {
+    render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
+    expect(screen.queryByText('Office standards')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Office filing').length).toBeGreaterThan(0)
   })
 })
 

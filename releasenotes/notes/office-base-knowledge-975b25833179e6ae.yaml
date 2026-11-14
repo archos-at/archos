@@ -8,7 +8,6 @@ features:
     edition and warn when the check is overdue.
 operators:
   - >
-    Office base knowledge is on for every organization: the
-    office-base-knowledge flag is retired (ADR-0175). Migration 0202 adds its
-    tables. A licensed copy's text is used only once the office states its
-    licence covers AI processing.
+    Office base knowledge is off until an organization gets the
+    office-standards flag (an entitlement; the earlier office-base-knowledge
+    slug is retired); migration 0202 adds its tables.

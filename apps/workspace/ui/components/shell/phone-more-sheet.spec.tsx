@@ -29,6 +29,7 @@ afterEach(() => useShellOverlays.setState({ moreSheetOpen: false }))
 
 const flags = {
   canAccessOfficeShelf: true,
+  canAccessOfficeStandards: true,
   canAccessInbox: true,
   showSkills: true,
   canViewOrganization: true,

@@ -6,11 +6,15 @@
  * One component behind both arrivals, as the Büroablage's: the intercepted
  * overlay (`(shell)/@overlay/(.)base-knowledge`) and the real
  * `/app/base-knowledge` page. Any member reads; uploading, confirming, checking
- * and removing take `org:office_shelf:manage`, decided by each route.
+ * and removing take `org:office_shelf:manage`, decided by each route. Both
+ * arrivals are not found while the office lacks the `office-standards`
+ * entitlement, as its routes are.
  */
 
 import type { JSX } from 'react'
+import { notFound } from 'next/navigation'
 import { withPageSession } from '@/lib/auth/require-auth'
+import { isOfficeStandardsEnabled } from '@/lib/authz/feature-flags'
 import { getTranslations } from '@/i18n/server'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
@@ -23,7 +27,8 @@ export async function BaseKnowledgeSheet({
 }: {
   standalone: boolean
 }): Promise<JSX.Element> {
-  return withPageSession(async () => {
+  return withPageSession(async (session) => {
+    if (!isOfficeStandardsEnabled(session)) notFound()
     const t = await getTranslations(baseKnowledgeCopy)
     const tCommon = await getTranslations(commonCopy)
     return (
