@@ -49,6 +49,10 @@ const corpus = vi.hoisted(() => ({
   titles: new Map<string, string | null>(),
   /** Files the corpus keeps no metadata row for yet: a title for one answers 404. */
   untitled: new Set<string>(),
+  /** Files whose ingest is done: the status reads them `ingested`. */
+  ingested: new Set<string>(),
+  /** Every name a re-ingest was asked for, in order. */
+  reingested: [] as string[],
   answers: true,
 }))
 
@@ -71,7 +75,7 @@ vi.mock('@/lib/knowledge/service', () => ({
     return {
       files: [...corpus.files].map(([fileName, currentSha256]) => ({
         fileName,
-        state: 'pending',
+        state: corpus.ingested.has(fileName) ? 'ingested' : 'pending',
         currentSha256,
         countryId: corpus.countries.get(fileName) ?? null,
         displayTitle: corpus.titles.get(fileName) ?? null,
@@ -95,6 +99,8 @@ vi.mock('@/lib/knowledge/service', () => ({
     return { status: 'pending', kind: 'file', fileName: file.name, message: '' }
   },
   reingestKnowledgeBaseDocuments: async (names: string[], marks: Record<string, unknown> = {}) => {
+    corpus.reingested.push(...names)
+    for (const name of names) corpus.ingested.delete(name)
     Object.assign(corpus.marks, marks)
     for (const [name, mark] of Object.entries(marks)) corpus.countries.set(name, String((mark as { countryId?: string }).countryId))
     return { status: 'pending', queued: names.filter((name) => corpus.files.has(name)), unknown: names.filter((name) => !corpus.files.has(name)), message: '' }
@@ -351,6 +357,68 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       await indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })
       expect(corpus.titles.get(name)).toBe('OIB-Richtlinie 1, April 2019')
       expect((await indexing.readIndexStatus(id)).texts).toMatchObject([{ corpusFile: name, state: 'queued', failure: null }])
+    })
+
+    it('indexes a text once: a retry after its ingest is done only titles it', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('once')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const file = pdf('once.pdf', 'guideline 1, indexed once')
+      const name = nameOf(manifestationKey, await sha(file))
+      await texts.uploadPlatformText(AUTHOR, id, manifestationKey, file)
+      const runId = (await publish(id)).indexRuns[0] as string
+
+      corpus.untitled.add(name)
+      await expect(indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })).rejects.toThrow(/no row/)
+      expect(corpus.reingested.filter((each) => each === name)).toHaveLength(1)
+
+      // The ingest that attempt handed on is done and wrote the row; the retry titles the text and asks for no other.
+      corpus.untitled.delete(name)
+      corpus.ingested.add(name)
+      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })
+      expect(corpus.reingested.filter((each) => each === name)).toHaveLength(1)
+      expect(corpus.titles.get(name)).toBe('OIB-Richtlinie 1, April 2019')
+      // Queued by the run, and read `indexed` from the corpus's own state.
+      expect((await indexing.readIndexStatus(id)).texts).toMatchObject([{ corpusFile: name, state: 'indexed', failure: null }])
+    })
+
+    it('hands a text on again on a retry whose first attempt failed before it handed anything on', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('unhanded')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const file = pdf('unhanded.pdf', 'guideline 1, indexed under an older edition')
+      const name = nameOf(manifestationKey, await sha(file))
+      await texts.uploadPlatformText(AUTHOR, id, manifestationKey, file)
+      const runId = (await publish(id)).indexRuns[0] as string
+      corpus.ingested.add(name)
+      corpus.countries.set(name, 'AT')
+
+      // The first attempt cannot read the corpus: it hands nothing on and is retried.
+      corpus.answers = false
+      try {
+        await expect(indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })).rejects.toThrow(/unreachable/)
+      } finally {
+        corpus.answers = true
+      }
+      expect(corpus.reingested.filter((each) => each === name)).toHaveLength(0)
+
+      // The retry finds the file ingested with the country, from before the release: it is handed on with the mark.
+      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })
+      expect(corpus.reingested.filter((each) => each === name)).toHaveLength(1)
+      expect(corpus.marks[name]).toMatchObject({ countryId: 'AT', editionId: expect.stringContaining('edition:') })
+    })
+
+    it('hands a text on again on a first attempt, even when the corpus reads it indexed', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('first')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const file = pdf('first.pdf', 'guideline 1, indexed before under an older mark')
+      const name = nameOf(manifestationKey, await sha(file))
+      await texts.uploadPlatformText(AUTHOR, id, manifestationKey, file)
+      const runId = (await publish(id)).indexRuns[0] as string
+
+      // Indexed before this release: its chunks carry no edition of it, so a first attempt indexes it with the mark.
+      corpus.ingested.add(name)
+      corpus.countries.set(name, 'AT')
+      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })
+      expect(corpus.reingested.filter((each) => each === name)).toHaveLength(1)
     })
   })
 

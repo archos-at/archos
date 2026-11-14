@@ -686,6 +686,31 @@ class TestMarkForReingest:
         assert marked.config["country_id"] == "AT"
         assert _sync().ingested_recorded == 1
 
+    def test_the_same_mark_again_over_a_waiting_job_keeps_that_job_counting(self, ingestor):
+        """A retried indexing run re-sends its mark: the job in flight carries it already and its index still counts."""
+        mark = corpus_store.FileMark(country_id="AT", edition_id="at-oib-rl-1-2023", released=True)
+        corpus_store.put("a.pdf", b"a")
+        assert oib_sync.mark_for_reingest("a.pdf", mark) is True
+        oib_sync.request_ingestion("a.pdf", enqueue=ENQUEUE)
+
+        assert oib_sync.mark_for_reingest("a.pdf", mark) is True  # the retry, while the job still waits
+
+        (marked,) = run_worker()
+        assert marked.config["country_id"] == "AT"
+        assert _sync().ingested_recorded == 1
+        assert not _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
+
+    def test_another_mark_over_a_waiting_job_still_makes_it_a_generation_behind(self, ingestor):
+        corpus_store.put("a.pdf", b"a")
+        assert oib_sync.mark_for_reingest("a.pdf", corpus_store.FileMark(country_id="AT")) is True
+        oib_sync.request_ingestion("a.pdf", enqueue=ENQUEUE)
+
+        assert oib_sync.mark_for_reingest("a.pdf", corpus_store.FileMark(country_id="AT", edition_id="e2")) is True
+
+        run_worker()
+        assert _sync().ingested_recorded == 0
+        assert _row("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
+
     def test_marking_waits_for_the_file_lock_a_job_is_prepared_under(self, ingestor):
         """A job is prepared wholly before a mark or wholly after it: both hold the file's lock."""
         corpus_store.put("a.pdf", b"a")

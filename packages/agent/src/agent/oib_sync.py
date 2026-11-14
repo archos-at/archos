@@ -419,6 +419,9 @@ def mark_for_reingest(name: str, mark: corpus_store.FileMark | None = None) -> b
     A ``mark`` (the country and edition the platform recorded, ADR-0173) is stored for the job to carry.
     A job left alone was prepared before this mark, a generation behind (``corpus_store.set_mark``): when it
     finishes, :func:`settle` does not record it, drops it, and the next cycle queues one that carries the mark.
+    The same mark again over a job in flight is no new mark: the job already carries it, so its generation stays
+    and its work counts. A retried indexing run asks for exactly that, and each new generation used to throw away
+    an ingest that was nearly done (prod, 2026-11-14).
     Under the file's lock, as preparing a job is, so a job is prepared wholly before a mark or wholly after it.
     """
     if not corpus_store.is_valid_name(name):
@@ -427,9 +430,10 @@ def mark_for_reingest(name: str, mark: corpus_store.FileMark | None = None) -> b
         row = corpus_store.get_file(name)
         if row is None:
             return False
-        if progress_of(row) not in (JobProgress.WAITING, JobProgress.RUNNING):
+        in_flight = progress_of(row) in (JobProgress.WAITING, JobProgress.RUNNING)
+        if not in_flight:
             _drop_job(row)
-        if mark is not None:
+        if mark is not None and not (in_flight and corpus_store.get_mark(name) == mark):
             corpus_store.set_mark(name, mark)
         corpus_store.forget_ingested(name)
     return True

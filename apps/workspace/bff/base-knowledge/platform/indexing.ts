@@ -190,6 +190,22 @@ async function stampTitle(held: HeldFile, title: string | null): Promise<boolean
   }
 }
 
+/** Record that the corpus accepted the run's re-ingest: a later attempt that finds the text ingested then only titles it. */
+async function recordHandOff(runId: string): Promise<void> {
+  await withPlatformAccess(REASON, () =>
+    getDb().update(knowledgeIndexRuns).set({ handedAt: new Date(), updatedAt: new Date() }).where(eq(knowledgeIndexRuns.id, runId)),
+  )
+}
+
+/**
+ * Whether the corpus holds the file indexed with this run's country after this run handed it on. The hand-off's
+ * re-ingest forgot the old index, so an ingested file now is that ingest's work, with this mark. A retry alone proves
+ * nothing: an attempt can fail before it hands anything on, and the file may still be ingested under an older edition.
+ */
+function indexedAfterTheHandOff(run: { handedAt: Date | null }, held: HeldFile, released: ReleasedText | null): boolean {
+  return run.handedAt !== null && released !== null && held.state === 'ingested' && held.countryId === released.mark.countryId
+}
+
 /** The job's step: hand the file to the corpus and record what it answered. Throws to be retried. */
 export async function runPlatformTextIndex(
   _organizationId: string,
@@ -211,6 +227,13 @@ export async function runPlatformTextIndex(
     }
     // Before the re-ingest: it keeps a stored title, so the chunks it writes carry this one.
     const titled = await stampTitle(held, released?.title ?? null)
+    if (titled && indexedAfterTheHandOff(run, held, released)) {
+      // An earlier attempt handed the file on with this mark and its ingest is done: another would build the same
+      // chunks again (prod's AT carry paid up to three ingests a text, 2026-11-14). Search reads the title from the
+      // corpus row, not from the chunks.
+      await markRun(run.id, 'queued', null)
+      return
+    }
     const result = await reingestKnowledgeBaseDocuments([run.corpusFile], released ? { [run.corpusFile]: released.mark } : {})
     if (result.unknown.includes(run.corpusFile) || !result.queued.includes(run.corpusFile)) {
       await markRun(run.id, 'failed', `the base corpus no longer holds ${run.corpusFile}; ${REATTACH}`)
@@ -218,6 +241,7 @@ export async function runPlatformTextIndex(
     }
     if (!titled) {
       // The re-ingest just queued writes the row; the retry stamps it. The last attempt indexes without a title.
+      await recordHandOff(run.id)
       if (!attempt.last) throw new Error(`the base corpus has no row for ${run.corpusFile} to title yet`)
       console.error('[base-knowledge] a released text was indexed without its title', { corpusFile: run.corpusFile })
     }
