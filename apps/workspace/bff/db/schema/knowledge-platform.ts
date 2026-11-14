@@ -213,6 +213,8 @@ export const knowledgeIndexRuns = pgTable('knowledge_index_runs', {
   changeRequestId: uuid('change_request_id').notNull(),
   state: text('state').$type<IndexRunState>().notNull().default('requested'),
   failure: text('failure'),
+  /** When the run handed its text to the corpus; a retry that finds it ingested then only titles it (0240). */
+  handedAt: timestamp('handed_at', { withTimezone: true }),
   requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

@@ -374,11 +374,36 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       // The ingest that attempt handed on is done and wrote the row; the retry titles the text and asks for no other.
       corpus.untitled.delete(name)
       corpus.ingested.add(name)
-      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false, retry: true })
+      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })
       expect(corpus.reingested.filter((each) => each === name)).toHaveLength(1)
       expect(corpus.titles.get(name)).toBe('OIB-Richtlinie 1, April 2019')
       // Queued by the run, and read `indexed` from the corpus's own state.
       expect((await indexing.readIndexStatus(id)).texts).toMatchObject([{ corpusFile: name, state: 'indexed', failure: null }])
+    })
+
+    it('hands a text on again on a retry whose first attempt failed before it handed anything on', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('unhanded')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const file = pdf('unhanded.pdf', 'guideline 1, indexed under an older edition')
+      const name = nameOf(manifestationKey, await sha(file))
+      await texts.uploadPlatformText(AUTHOR, id, manifestationKey, file)
+      const runId = (await publish(id)).indexRuns[0] as string
+      corpus.ingested.add(name)
+      corpus.countries.set(name, 'AT')
+
+      // The first attempt cannot read the corpus: it hands nothing on and is retried.
+      corpus.answers = false
+      try {
+        await expect(indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })).rejects.toThrow(/unreachable/)
+      } finally {
+        corpus.answers = true
+      }
+      expect(corpus.reingested.filter((each) => each === name)).toHaveLength(0)
+
+      // The retry finds the file ingested with the country, from before the release: it is handed on with the mark.
+      await indexing.runPlatformTextIndex(fixed.platformOrg, { runId }, { last: false })
+      expect(corpus.reingested.filter((each) => each === name)).toHaveLength(1)
+      expect(corpus.marks[name]).toMatchObject({ countryId: 'AT', editionId: expect.stringContaining('edition:') })
     })
 
     it('hands a text on again on a first attempt, even when the corpus reads it indexed', async () => {

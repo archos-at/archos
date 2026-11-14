@@ -101,6 +101,7 @@ const LISTING = {
 const MA37 = { file: PLATFORM_SPEC, name: 'excludes an MA 37 directive for a project in Graz, and applies it in Vienna, by the competence rulesets' }
 const INDEXED = { file: PLATFORM_SPEC, name: 'gives a published text its indexing run, and reads it indexed once the corpus has its chunks' }
 const INDEX_FAILED = { file: PLATFORM_SPEC, name: 'records a corpus that does not know the file as failed, with why' }
+const INDEXED_ONCE = { file: 'apps/workspace/bff/base-knowledge/platform/texts.integration.spec.ts', name: 'indexes a text once: a retry after its ingest is done only titles it' }
 const ALONE_SPEC = 'apps/workspace/bff/base-knowledge/platform/approve-alone.integration.spec.ts'
 const PLATFORM_SERVICE = 'apps/workspace/bff/base-knowledge/platform/service.ts'
 const APPROVED_ALONE = {
@@ -349,6 +350,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_index_runs.change_request_id', consumer: PLATFORM_INDEXING, test: INDEXED },
   { element: 'knowledge_index_runs.state', consumer: PLATFORM_INDEXING, test: INDEXED },
   { element: 'knowledge_index_runs.failure', consumer: PLATFORM_INDEXING, test: INDEX_FAILED },
+  { element: 'knowledge_index_runs.handed_at', consumer: PLATFORM_INDEXING, test: INDEXED_ONCE },
   { element: 'knowledge_index_runs.requested_at', consumer: PLATFORM_INDEXING, test: INDEXED },
   { element: 'knowledge_index_runs.updated_at', consumer: PLATFORM_INDEXING, test: INDEXED },
   { element: 'organization_countries.organization_id', consumer: PLATFORM_ENTITLEMENTS, test: LISTING },

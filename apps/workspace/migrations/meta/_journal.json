@@ -1681,6 +1681,13 @@
       "when": 1795400000000,
       "tag": "0239_knowledge_carried_releases",
       "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1795500000000,
+      "tag": "0240_knowledge_index_run_handed",
+      "breakpoints": true
     }
   ]
 }

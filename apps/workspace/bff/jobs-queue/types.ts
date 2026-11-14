@@ -562,8 +562,6 @@ export type InboundMailSenderFilePayload = z.infer<typeof inboundMailSenderFileP
 export interface JobAttempt {
   /** True when a failure now leaves the job dead, so the work must leave its own truth behind. */
   last: boolean
-  /** True when an earlier attempt of this job ran, so work it handed on may already be done. */
-  retry?: boolean
   /** The job's own id, for work that must tell its row from a later job's (`documents.metadata.bffJobId`). */
   jobId?: string
 }
