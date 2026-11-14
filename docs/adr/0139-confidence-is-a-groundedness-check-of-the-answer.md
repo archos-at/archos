@@ -102,7 +102,12 @@ amendment of 2026-11-12, which makes it a ceiling the check may not raise).
 
 **No check, no level**: no model, a timeout, an error or an unreadable reply
 gives `confidence_check: {"status": "unavailable"}`, no `answer_confidence`,
-and the chip „Belegprüfung nicht verfügbar".
+and the chip „Belegprüfung nicht verfügbar". Since 2026-11-12 the check also
+carries `unavailable_reason` (`claim_judge.Unavailable`): which of those it was
+(`no_judge`, `timeout`, `error`, `unparseable`, `no_reply`), whether the reply
+stopped at the output budget, the call's elapsed ms and the characters of
+evidence and answer. A quarter of the dev golden answers came back unavailable
+and nothing said why; the reader still sees no level.
 
 **Deleted**: the per-sentence classification (`common/claim_provenance.py`),
 the kind and support aggregation, the claims ceiling, the normative net
@@ -193,6 +198,8 @@ So a second gate sits beside the quote gate, structural like it and handed nothi
 Dev QC of Austria (Eisenstadt, a balcony and „which edition of OIB-RL 4 applies here since when") graded an answer `low` whose every statement was right. The check's two findings were both the binding edition: „OIB-RL 4, Ausgabe April 2019, gilt seit 10.04.2021" and „die Ausgabe Mai 2023 ist hier nicht verbindlich", each unbacked, `source: none`. The answer took them from the turn's `<building_law>` block, which ADR-0175 makes the only statement of what binds at the site, and which the answering model reads; the grader was handed the profile and the inventory but not that block. The RIS passage the answer cited, § 43 of the Bgld. BauVO in its 2016 wording, could not back the 2021 date, so nothing in the evidence did.
 
 So the turn's check now carries the `<building_law>` block beside the profile and the inventory (`answer_check.turn_check`), where the gate lets law bind; a gate that withholds law shows none, as in the prompt. This adds evidence, not a rule: the grader still decides. It shares `EVIDENCE_BUDGET_CHARS` with the passages (the block is at most 16,000 characters), so a long chain text leaves fewer passages in. Confirmation: `test_claim_judge.py::TestTheCall::test_the_check_reads_the_turns_building_law_where_the_gate_lets_it_bind`; whether the grader then grades such an answer `high` or `medium` is the live harness's to measure, which still waits on provider credit.
+
+**Amendment, 2026-11-12: workspace records keep to a share.** A workspace read reaches the check as a record of the route's JSON, up to the server's 40,000-character cap, and records sat in the block uncapped, ahead of the passages' budget. On dev, a turn that read `project-base-get` twice (two edition days) built a grader prompt of over 80,000 characters with no room for a passage, and its check came back unavailable, so the answer carried no level (the check is unavailable only when the judge times out at `JUDGE_TIMEOUT_S`, errors or replies unparseably; which of these it was is unmeasured, the prompt's size the likeliest cause); a turn that read it once was graded with the cited U-value passage left out ("no passage with this requirement"). Each record is now cut at `RECORD_MAX_CHARS` (12,000, marked as cut) and the records together at `RECORDS_BUDGET_CHARS` (24,000), the newest kept first, one past it left out and counted. The system prompt says a cut record or a left-out count is workspace data the grader was not shown: a statement about the project that could rest on it is no finding, a statement of what a regulation requires still needs its passage. The turn context (profile, inventory, `<building_law>`) is its own field, `turn_context`, never cut; its producers bound the law block (16,000 characters) and the inventory (by rows), and the profile has no cap of its own. Confirmation: `test_claim_judge.py::TestWorkspaceRecordsKeepToTheirShare`.
 
 ## Amendment, 2026-11-12: what the answer itself names as open caps it
 

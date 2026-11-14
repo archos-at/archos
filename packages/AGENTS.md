@@ -109,7 +109,12 @@ into the repository or share any other state with a test in another file:
 reason. A collection costs one payload index per indexed field (70 in November 2026, over four seconds) to make, so
 `qdrant_store` gives a test module one pair it shares, emptied after each test,
 and drops it when a test changed more than its points; a test of how a
-collection comes to be asks for `fresh_qdrant_store`. A test asserts what OUR
+collection comes to be asks for `fresh_qdrant_store`. It also costs about
+300 MiB of storage while it exists, empty (two 1 MiB null-flag files per index
+and segment), and CI keeps that storage on a tmpfs of half the runner's memory,
+so a process holds one module's pair at a time: the first test of the next
+module deletes it (`test_vector_store_test_pairs.py`). A fixture that keeps
+collections past its module fills that tmpfs at about 27 collections. A test asserts what OUR
 code sends and gets back, not what Qdrant does on its own: a check that only a
 Qdrant upgrade could fail is not one of ours. A run without
 `QDRANT_TEST_URL` skips them; `qdrant` (the release binary) on port 6333 is

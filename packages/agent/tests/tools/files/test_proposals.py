@@ -252,6 +252,16 @@ class TestTheWireContract:
                 },
             ),
             (
+                "memory",
+                {
+                    "scope": "project",
+                    "kind": "constraint",
+                    "content": "Stellplätze: zwölf im Tiefgaragengeschoss.",
+                    "confidence": "high",
+                    "topic": "Stellplätze",
+                },
+            ),
+            (
                 "project_profile",
                 {
                     "title": "Projektkontext aktualisieren: Gebäudeklasse",

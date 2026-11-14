@@ -11,7 +11,7 @@ import { graphFromProposals } from './from-proposals'
 import type { BuildingInputs } from '../rulesets/applicability'
 import { appliesWhenTableSchema } from '../wire/applies-when'
 import { resolveChain } from './resolve'
-import { MAX_NAME_CHARS, nameOf, renderChainText } from './text'
+import { BINDING_HEADER, MAX_NAME_CHARS, nameOf, renderChainText } from './text'
 
 const records = [
   { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
@@ -71,7 +71,7 @@ describe('the chain text', () => {
     expect(text('AT-9')).toBe(
       [
         "Building law at this site, Wien (AT-9, AT), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.",
-        "Binding here (a day named is the records' own: state it from here, not from a web page):",
+        BINDING_HEADER,
         '- Bauordnung für Wien, edition Fassung 2024: law of AT-9, in force, this edition since 2024-01-01',
         '- Wiener Bautechnikverordnung, the consolidated text in force at its source: ordinance of AT-9, in force',
         '- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by Wiener Bautechnikverordnung (§ 1 WBTV 2023) since 2024-02-23',
@@ -81,6 +81,26 @@ describe('the chain text', () => {
         '1 other edition is not in force here and is information only.',
       ].join('\n'),
     )
+  })
+
+  // Owner, 2026-11-12: an answer that names a binding edition always says since when it binds and through what,
+  // asked or not, and only from the records. The header above the binding lines is where the model reads it.
+  it('tells the answer to state since when each binding edition binds, and through what, from the records alone', () => {
+    const header = text('AT-9').split('\n')[1]
+    expect(header).toBe(BINDING_HEADER)
+    for (const words of [
+      'states the day its line gives',
+      "the route's instrument",
+      'even if not asked',
+      "the records' own, never a web page's",
+      'the records name none',
+      // A line by territory dates the edition's text, not the law: the answer must not say the law binds from then.
+      'not when the law began to bind',
+    ]) {
+      expect(header, words).toContain(words)
+    }
+    // The line under it carries both: the route and the records' day.
+    expect(text('AT-9')).toContain('declared binding by Wiener Bautechnikverordnung (§ 1 WBTV 2023) since 2024-02-23')
   })
 
   it('says a filing day is the reference date only as an assumption, and nothing of it on today', () => {

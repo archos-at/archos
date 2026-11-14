@@ -63,6 +63,14 @@ import {
   type CreateMemoryOptions,
 } from './memory-service'
 import {
+  isRestrictedShelfNote,
+  projectTopicsOf,
+  renameProjectShelfTopic,
+  resolveProjectTopicForWrite,
+} from './memory-topics'
+import { pageOfTopic } from '@/lib/memory-topics/page'
+import type { MemoryTopicCount } from '@/lib/memory-topics/topic'
+import {
   findProjectCollectionName,
   findProjectInOrg,
   insertProject,
@@ -75,6 +83,7 @@ import {
   type ProjectProfileState,
   type ProjectStatusWrite,
 } from './repository'
+import { withOfficeTopic } from './office-memory-topics'
 
 /**
  * Projects the caller can actually reach, not merely the ones their tenant owns.
@@ -635,7 +644,7 @@ export async function getProjectOverview(session: AuthorizedSession, projectId: 
 
 /** The fields a member may edit on an existing memory item. */
 export type ProjectMemoryItemPatch = Partial<
-  Pick<ProjectMemoryItem, 'content' | 'kind' | 'status' | 'confidence' | 'verification' | 'pinned'>
+  Pick<ProjectMemoryItem, 'content' | 'kind' | 'status' | 'confidence' | 'verification' | 'pinned' | 'topic'>
 >
 
 /**
@@ -708,14 +717,50 @@ export async function getProjectMemory(
   return (await getProjectMemoryPage(session, projectId, options)).items
 }
 
+type MemoryListOptions = { includeArchived?: boolean; sourceConversationId?: string; page?: OffsetPage }
+
+/** What the list route answers: one page of the notes a reader sees, and the shelf's topics. */
+type MemoryShelf = { items: ProjectMemoryListItem[]; nextCursor: string | null; topics: MemoryTopicCount[] }
+
 /** {@link getProjectMemory}, one page at a time when `page` is given (pinned first, then newest). */
 export async function getProjectMemoryPage(
   session: AuthorizedSession,
   projectId: string,
-  options: { includeArchived?: boolean; sourceConversationId?: string; page?: OffsetPage } = {}
+  options: MemoryListOptions = {}
 ): Promise<{ items: ProjectMemoryListItem[]; nextCursor: string | null }> {
   await requireProjectAccess(session, projectId, 'project:view')
   const { cleared } = await memoryClearance(session, projectId)
+  return memoryPageFor(session, projectId, cleared, options)
+}
+
+/**
+ * What the list route reads (`GET …/memory`): one page of the notes, or with `topic`
+ * the notes of that topic, and the shelf's `topics`. ONE access check and ONE
+ * clearance answer for both, so the page and the topics count the same notes.
+ */
+export async function getProjectMemoryShelf(
+  session: AuthorizedSession,
+  projectId: string,
+  options: MemoryListOptions & { page: OffsetPage; topic?: string }
+): Promise<MemoryShelf> {
+  await requireProjectAccess(session, projectId, 'project:view')
+  const { cleared } = await memoryClearance(session, projectId)
+  // A topic's notes are filtered after visibility: every visible note, then one page of the topic.
+  const { topic, page, ...scope } = options
+  const listed =
+    topic === undefined
+      ? await memoryPageFor(session, projectId, cleared, { ...scope, page })
+      : pageOfTopic((await memoryPageFor(session, projectId, cleared, scope)).items, topic, page)
+  return { ...listed, topics: await projectTopicsOf(projectId, session.organizationId, cleared) }
+}
+
+/** The notes `cleared` shows, one page when `options.page` is given, with their evidence and restriction names. */
+async function memoryPageFor(
+  session: AuthorizedSession,
+  projectId: string,
+  cleared: readonly string[],
+  options: MemoryListOptions
+): Promise<{ items: ProjectMemoryListItem[]; nextCursor: string | null }> {
   const fetched = await listProjectMemory(projectId, {
     ...options,
     organizationId: session.organizationId,
@@ -744,6 +789,8 @@ export interface PersonMemoryInput {
   content: string
   confidence?: ProjectMemoryConfidence
   pinned?: boolean
+  /** The note's topic as the person named it; resolved against the shelf's topics on write (`memory-topics.ts`). */
+  topic?: string | null
   /**
    * The conversation the note was learned in, when it came from a proposal.
    * Purging a folder that conversation drew on deletes the note with it
@@ -762,6 +809,7 @@ const personNote = (session: AuthorizedSession, input: PersonMemoryInput) => ({
   verification: 'user_confirmed' as const,
   createdBy: session.userId,
   ...(input.sourceConversationId ? { sourceConversationId: input.sourceConversationId } : {}),
+  ...(input.topic === undefined ? {} : { topic: input.topic }),
 })
 
 /**
@@ -775,7 +823,24 @@ export async function addProjectMemoryItem(
   options: Pick<CreateMemoryOptions, 'supersedesContent'> = {}
 ): Promise<ProjectMemoryItem> {
   await requireProjectAccess(session, projectId, MEMORY_WRITE_PERMISSIONS)
-  return createProjectMemoryItem({ scope: 'project', projectId, ...personNote(session, input) }, options)
+  const topic = await resolveWriteTopic(projectId, session.organizationId, input.topic)
+  return createProjectMemoryItem(
+    { scope: 'project', projectId, ...personNote(session, { ...input, topic }) },
+    options
+  )
+}
+
+/**
+ * A topic the person named, resolved against the shelf's topics the writer may see
+ * (`readable`: none for an open note); undefined when none was named.
+ */
+async function resolveWriteTopic(
+  projectId: string,
+  organizationId: string,
+  raw: string | null | undefined,
+  readable: readonly string[] = []
+): Promise<string | null | undefined> {
+  return raw === undefined ? undefined : resolveProjectTopicForWrite(projectId, organizationId, raw, readable)
 }
 
 /**
@@ -789,7 +854,9 @@ export async function createOrganizationMemoryItem(
   input: PersonMemoryInput,
   options: Pick<CreateMemoryOptions, 'supersedesContent'> = {}
 ): Promise<ProjectMemoryItem> {
-  return createProjectMemoryItem({ scope: 'organization', projectId: null, ...personNote(session, input) }, options)
+  // The office create resolves its own topic, so no caller can store a raw spelling.
+  const resolved = await withOfficeTopic(session.organizationId, input)
+  return createProjectMemoryItem({ scope: 'organization', projectId: null, ...personNote(session, resolved) }, options)
 }
 
 export async function editProjectMemoryItem(
@@ -801,13 +868,34 @@ export async function editProjectMemoryItem(
   await requireProjectAccess(session, projectId, ['project:memory:write', 'project:edit'])
   // A restricted item the session is not cleared for answers like a missing one.
   const { cleared } = await memoryClearance(session, projectId)
+  // A restricted note may take a restricted topic its editor is cleared for; an open note may not.
+  const restricted =
+    patch.topic !== undefined &&
+    (await isRestrictedShelfNote(projectId, session.organizationId, itemId, cleared))
+  const writable = restricted ? cleared : []
+  const topic = await resolveWriteTopic(projectId, session.organizationId, patch.topic, writable)
   const item = await updateProjectMemoryItem(
     { projectId, organizationId: session.organizationId, readableFolderIds: cleared },
     itemId,
-    patch
+    { ...patch, ...(topic === undefined ? {} : { topic }) }
   )
   if (!item) throw new NotFoundError()
   return item
+}
+
+/**
+ * Rename or merge a topic on the project's shelf (`PATCH …/memory/topics`). The
+ * same gate as an item's edit, and the same visibility: only the notes the
+ * caller can see and edit move.
+ */
+export async function renameProjectMemoryTopic(
+  session: AuthorizedSession,
+  projectId: string,
+  input: { from: string | null; to: string | null }
+): Promise<{ moved: number }> {
+  await requireProjectAccess(session, projectId, MEMORY_WRITE_PERMISSIONS)
+  const { cleared } = await memoryClearance(session, projectId)
+  return renameProjectShelfTopic({ projectId, organizationId: session.organizationId, readable: cleared, ...input })
 }
 
 export async function removeProjectMemoryItem(

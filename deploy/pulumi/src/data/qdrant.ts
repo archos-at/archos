@@ -449,12 +449,31 @@ s3() { curl -fsS --connect-timeout 10 --aws-sigv4 "aws:amz:$S3_REGION:s3" --user
 # match would fail the listing and report every fresh cluster as a broken backup.
 names() { { grep -o '"name":"[^"]*"' || true; } | cut -d'"' -f4; }
 cutoff=$(date -u -d "@$(( $(date +%s) - RETENTION_DAYS * 86400 ))" +%Y%m%d%H%M%S)
+# A snapshot younger than this counts as today's: a retried run does not take another.
+FRESH_HOURS=20
+fresh_cutoff=$(date -u -d "@$(( $(date +%s) - FRESH_HOURS * 3600 ))" +%Y%m%d%H%M%S)
 failed=0
 fail() { echo "FAILED: $*"; failed=1; }
-# True when a name stamped -YYYY-MM-DD-HH-MM-SS before suffix $2 is older than the cutoff.
+# The YYYYMMDDHHMMSS of a name stamped -YYYY-MM-DD-HH-MM-SS before suffix $2, or nothing.
+stamp() {
+  echo "$1" | sed -n "s/.*-\([0-9]\{4\}\)-\([0-9]\{2\}\)-\([0-9]\{2\}\)-\([0-9]\{2\}\)-\([0-9]\{2\}\)-\([0-9]\{2\}\)$2\$/\1\2\3\4\5\6/p"
+}
+# True when such a name is older than the retention cutoff.
 expired() {
-  ts=$(echo "$1" | sed -n "s/.*-\([0-9]\{4\}\)-\([0-9]\{2\}\)-\([0-9]\{2\}\)-\([0-9]\{2\}\)-\([0-9]\{2\}\)-\([0-9]\{2\}\)$2\$/\1\2\3\4\5\6/p")
+  ts=$(stamp "$1" "$2")
   [ -n "$ts" ] && awk -v t="$ts" -v c="$cutoff" 'BEGIN { exit !(t < c) }'
+}
+# True when such a name is younger than FRESH_HOURS.
+recent() {
+  ts=$(stamp "$1" "$2")
+  [ -n "$ts" ] && awk -v t="$ts" -v c="$fresh_cutoff" 'BEGIN { exit !(t >= c) }'
+}
+# True when collection $2 on peer $1 already holds a snapshot from the last FRESH_HOURS.
+has_recent() {
+  for s in $(q "$1/collections/$2/snapshots" | names); do
+    recent "$s" '\.snapshot' && return 0
+  done
+  return 1
 }
 expire() {
   peer=$1 c=$2
@@ -494,7 +513,13 @@ for peer in $PEERS; do
   collections=$(q --retry 3 --retry-all-errors "$peer/collections" | names) || { fail "cannot list collections on $peer"; continue; }
   [ -n "$collections" ] || echo "no collections on $peer"
   for c in $collections; do
-    if q --max-time 3600 -X POST "$peer/collections/$c/snapshots?wait=true" >/dev/null; then
+    # A failed run is retried by the Job (backoffLimit), and every retry used to
+    # snapshot every collection on every peer again: prod's qdrant-snapshots grew
+    # to 74 GB by 2026-11-14 at three rounds a day that expiry never caught up with.
+    if has_recent "$peer" "$c"; then
+      echo "snapshot $c on $peer: one from the last $FRESH_HOURS h exists, not taken again"
+      expire "$peer" "$c"
+    elif q --max-time 3600 -X POST "$peer/collections/$c/snapshots?wait=true" >/dev/null; then
       echo "snapshot $c on $peer"
       expire "$peer" "$c"
     else

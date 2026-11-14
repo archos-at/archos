@@ -144,9 +144,17 @@ an object store. So:
 - Volumes **expand online**, but for the three StatefulSets NOT via config:
   `volumeClaimTemplates` are immutable (a size change would *replace* the
   StatefulSet while the existing PVC kept its old size — the program pins
-  `ignoreChanges` on the templates so that can't happen by accident). Grow a
-  live volume by patching the PVC directly, e.g.
-  `kubectl -n grid patch pvc data-seaweedfs-0 -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'`,
+  `ignoreChanges` on the templates so that can't happen by accident).
+  **SeaweedFS (`single`) grows via config**: with `seaweedfsGrowVolume: "true"`
+  (dev and prod) the deploy reads `data-seaweedfs-0` and patches it to the
+  larger of its current size and `seaweedfsStorageSize`, so raising the value
+  grows the volume and a smaller value is a no-op, never a shrink
+  (`src/data/pvc-grow.ts`). **On a new cluster, leave `seaweedfsGrowVolume`
+  unset for the first `pulumi up`**: the read fails while `data-seaweedfs-0`
+  does not exist yet, and the template creates it at the configured size. Set it
+  once the PVC exists. Qdrant and the
+  split topology still grow by hand:
+  `kubectl -n grid patch pvc <pvc> -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'`,
   then update the config value so future clusters start at the new size. Only
   `pgStorageSize` (CNPG manages its own PVCs) expands via config + `pulumi up`.
   Volumes cannot shrink. **VolumeSnapshots** via the `lightbits` SnapshotClass.
@@ -740,7 +748,10 @@ Record of runs: none yet.
 
 ### Operating
 
-- **Alerts** (BFF log lines and PostHog `inbound_mail_refused.reason`):
+- **Alerts** (BFF log lines and PostHog `inbound_mail_refused.reason`, `.stage`
+  and `.error`; the `[Projekt-E-Mail]` rules of the Product incidents alert and
+  `[Objektspeicher]` of the Infrastructure incidents alert,
+  [`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts), on every stack):
   `bad-signature` (a key or `BFF_URL` mismatch), `body-truncated`,
   `unavailable` (storage or database), `cap_reached`, and no `received` for
   24 hours on a deployment that usually receives mail. The receive log line per

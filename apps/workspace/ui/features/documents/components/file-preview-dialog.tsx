@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -35,6 +35,8 @@ interface FilePreviewDialogProps {
   /** Whether an `.ifc` preview offers the model workspace (`ifc-models`). */
   showModels?: boolean
   canCollaborate?: boolean
+  /** The opener's facts about the file, first in the details column (see `FilePreviewPaneProps.detailsLead`). */
+  detailsLead?: ReactNode
 }
 
 /**
@@ -78,6 +80,7 @@ export function FilePreviewDialog({
   onDeleted,
   showModels,
   canCollaborate,
+  detailsLead,
 }: FilePreviewDialogProps) {
   const t = useTranslations(filesCopy)
 
@@ -176,6 +179,7 @@ export function FilePreviewDialog({
             onDeleted={onDeleted}
             showModels={showModels}
             canCollaborate={canCollaborate}
+            detailsLead={detailsLead}
           />
         </DialogContent>
       )}

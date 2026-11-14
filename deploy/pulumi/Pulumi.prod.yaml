@@ -313,7 +313,13 @@ config:
   # 15 minutes, failing 109 files. Applying this restarts the only storage server.
   grid-oib:seaweedfsSingleRequestsMemory: 1Gi
   grid-oib:seaweedfsSingleLimitsMemory: 4Gi
-  grid-oib:seaweedfsStorageSize: 20Gi
+  # The deploy grows the live volume to this size and never shrinks it
+  # (src/data/pvc-grow.ts). Grown by hand to about 100Gi earlier; 91 % full on
+  # 2026-11-14, 74 GB of it qdrant-snapshots retaken by failed retries of the
+  # snapshot Job (fixed in snapshotScript). 200Gi gives the expiry room to catch
+  # up. Watch the [Objektspeicher] rule of the Infrastructure incidents alert.
+  grid-oib:seaweedfsStorageSize: 200Gi
+  grid-oib:seaweedfsGrowVolume: "true"
   grid-oib:seaweedfsBucket: grid-documents
   grid-oib:seaweedfsAccessKey: grid
   # ── Vector store ──

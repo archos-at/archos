@@ -77,7 +77,27 @@ record naming `EU` as a dated parent whose interval has not ended today: a
 membership with a `validTo` in the past entitles nothing). A record of another pack is readable
 where a released platform relation reaches it from one the office may read
 (`knowledge_reached_by_relation`, SECURITY DEFINER, walking backwards from the
-record so the row policy stays cheap); a rollback of the relation withdraws it.
+record); a rollback of the relation withdraws it. Amended 2026-11-12 (migration
+0236): walking back from every row was not cheap. An office entitled to little
+of the corpus ran the walk once per hidden platform row, again inside each
+revision table's policy, and paid seconds per read; the entitlement check ran
+per row too, half a million times in one chain spec. The policy and
+`recordReadable` now read two sets: `knowledge_entitled_countries()`, and
+`knowledge_reached_ids()`, the same reach walked forward from the entitled
+records a step can leave from. Each is built once per subplan that needs it
+(two to four in a query) rather than once per row;
+`visibility.integration.spec.ts` holds both to the per-row functions.
+
+Amended 2026-11-12 (the owner's decision): an answer that names a binding
+edition always says since when it binds, and through which instrument where the
+route names one, whether or not the question asked „seit wann“. The day is the
+records' (`roleSinceOf`: the edition's entry into force, or the declaring
+relation's if later), never a web page's; a line with no day is said to have
+none. On a line by territory (a law of the site) the day is that edition's, its
+Fassung, not the law's own entry into force; the header says which is which. The rule is the header of the chain text's binding section
+(`BINDING_HEADER` in `chain/text.ts`), which the model reads in the turn's
+`<building_law>` block and in `project-base-get` for an `asOf` day, rather than a
+line in `chat_static.md`, which sits at its 5,000-token budget.
 
 **Austria is pack 1, the EU pack 0.** `configs/knowledge-packs/{eu,at}.json`
 are proposals in the records format, generated once from the OIB's own table

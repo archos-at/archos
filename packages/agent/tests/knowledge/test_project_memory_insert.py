@@ -93,6 +93,26 @@ def test_insert_omits_the_supersedes_quote_when_absent(monkeypatch):
     assert "supersedesContent" not in captured["payload"]
 
 
+def test_insert_sends_the_topic_trimmed(monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
+    with _patched_opener(monkeypatch, body={"item": {"id": "item-4"}}) as captured:
+        pm.insert_memory_item(
+            scope="project", project_id="p1", organization_id=None, kind="decision", content="x", topic="  Brandschutz "
+        )
+    assert captured["payload"]["topic"] == "Brandschutz"
+
+
+@pytest.mark.parametrize("topic", [None, "", "   ", "T" * 41])
+def test_insert_omits_a_topic_that_is_absent_empty_or_too_long(monkeypatch, topic):
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
+    with _patched_opener(monkeypatch, body={"item": {"id": "item-5"}}) as captured:
+        result = pm.insert_memory_item(
+            scope="project", project_id="p1", organization_id=None, kind="decision", content="x", topic=topic
+        )
+    assert result == "item-5"
+    assert "topic" not in captured["payload"]
+
+
 def test_insert_raises_without_token(monkeypatch):
     monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
     with pytest.raises(RuntimeError):

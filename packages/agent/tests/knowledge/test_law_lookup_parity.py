@@ -28,6 +28,23 @@ _RUNNERS = {
 }
 
 
+#: Where the lookup departs from the RIS tool on purpose: the requests it sends before the ones the tool sent.
+#: Everything after them, and the text it returns, is still the tool's, byte for byte.
+DEPARTURES = {
+    # ADR-0171, amended 2026-11-12: a past day with a named act and provision searches by the act's title, first
+    # narrowed to the provision. Neither is recorded here, so both find nothing, and the lookup falls back to the
+    # planned search the tool sent. What the new path does with real answers is the as-of suite's to show
+    # (``law_lookup/test_law_lookup_as_of.py``), not this rig's.
+    "as-of": [
+        "https://data.bka.gv.at/ris/api/v2.6/Landesrecht?Applikation=LrKons&DokumenteProSeite=OneHundred"
+        "&Seitennummer=1&Titel=Garagengesetz+Wien&Bundesland.SucheInWien=true"
+        "&Abschnitt.Von=50&Abschnitt.Bis=50&Abschnitt.Typ=Paragraph",
+        "https://data.bka.gv.at/ris/api/v2.6/Landesrecht?Applikation=LrKons&DokumenteProSeite=OneHundred"
+        "&Seitennummer=1&Titel=Garagengesetz+Wien&Bundesland.SucheInWien=true",
+    ],
+}
+
+
 def test_every_case_has_its_recording():
     assert sorted(_GOLDEN) == sorted(case.id for case in CASES)
 
@@ -38,7 +55,9 @@ async def test_the_lookup_sends_and_returns_what_the_ris_tool_did(case, runner):
     result = await _RUNNERS[runner](case, Upstream.load())
 
     # Documents are fetched in parallel, so the order of two fetches is not part of the contract.
-    assert sorted(result.requested) == sorted(_GOLDEN[case.id]["requested"])
+    departed = DEPARTURES.get(case.id, []) if runner != "ris_lookup" else []
+    assert list(result.requested[: len(departed)]) == departed
+    assert sorted(result.requested[len(departed) :]) == sorted(_GOLDEN[case.id]["requested"])
     assert result.output == _GOLDEN[case.id]["output"]
 
 

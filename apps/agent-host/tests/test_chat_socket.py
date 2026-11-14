@@ -76,6 +76,7 @@ from agent_host.chat_socket import handshake_conversation_binding
 from agent_host.chat_socket import persist_turn_result
 from agent_host.chat_socket import turn_row_metadata
 from agent_host.conversation_bus import ConversationBus
+from agent_host.conversation_bus import InMemoryTransport
 from agent_host.conversation_bus import force_multi_replica_for_tests
 from agent_host.conversation_bus import reset_bus_for_tests
 from agent_host.internal_api import ChatScreening
@@ -794,9 +795,9 @@ async def test_a_stop_for_no_running_turn_is_turn_not_found(harness):
     assert sock.rejected() == [{"of": "cancel_turn", "code": "turn_not_found"}]
 
 
-def _replicas() -> tuple[ChatRegistry, ChatRegistry, ConversationBus]:
+def _replicas(transport: InMemoryTransport | None = None) -> tuple[ChatRegistry, ChatRegistry, ConversationBus]:
     """Two replicas on one Dragonfly: the owner on the process bus, the relay on its own."""
-    owner_bus = force_multi_replica_for_tests()
+    owner_bus = force_multi_replica_for_tests(transport)
     relay_bus = ConversationBus(owner_bus._t, replica_id="relay")
     return ChatRegistry(owner_bus), ChatRegistry(relay_bus), relay_bus
 
@@ -1380,6 +1381,29 @@ def _marker_held(bus: ConversationBus) -> bool:
     return bus._t._live_keys().get(f"conv:{CONV}:running") is not None
 
 
+def _marker_expiry(bus: ConversationBus) -> float:
+    """When the running marker expires on its transport's clock; minus infinity once it has."""
+    held = bus._t._live_keys().get(f"conv:{CONV}:running")
+    return held[1] if held else float("-inf")
+
+
+class MarkerClock:
+    """The clock a marker's TTL runs on, moved only by the test."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+async def _advance_until_renewed(bus: ConversationBus, clock: MarkerClock, step: float) -> None:
+    """Move the marker's clock by ``step``, then wait for a renewal to push its expiry past where it was."""
+    before = _marker_expiry(bus)
+    clock.now += step
+    await until(lambda: _marker_expiry(bus) > before)
+
+
 async def test_a_second_question_on_another_replica_starts_only_after_the_first_turn_stopped(harness):
     owner, relay, relay_bus = _replicas()
     gate = Gate()
@@ -1441,16 +1465,26 @@ async def test_a_dead_owner_s_marker_expires_and_the_question_runs(harness, monk
 
 
 async def test_a_running_turn_keeps_its_marker_past_the_ttl_and_gives_it_back_at_the_end(harness, monkeypatch):
+    """Three TTLs pass on the marker's clock, half a TTL at a time, each half renewed: only the renewals hold it.
+
+    The marker's clock moves only between renewals. On the real clock, a
+    loaded xdist worker stalled the loop past the 150 ms TTL between two
+    renewals and the marker lapsed; production has seconds of slack there.
+    """
     from agent_host import conversation_bus
 
-    monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", 0.15)
-    owner, relay, relay_bus = _replicas()
+    ttl = 0.15  # the real-time renewal interval is a quarter of it, so the test stays fast
+    monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", ttl)
+    clock = MarkerClock()
+    owner, relay, relay_bus = _replicas(InMemoryTransport(clock=clock))
     gate = Gate()
     sock = harness(gate.turn, owner).connect()
     sock.client(type="user_message", message_id="t1", text="?")
     await until(lambda: gate.calls)
 
-    await asyncio.sleep(0.5)  # three TTLs: only the renewals hold it
+    for _ in range(6):
+        await _advance_until_renewed(relay_bus, clock, ttl / 2)
+    assert clock.now == pytest.approx(3 * ttl)  # the acquire's own expiry is two TTLs behind
     assert (await _holder(relay_bus)).turn_id == "t1"
 
     gate.release.set()
@@ -3014,6 +3048,53 @@ async def test_a_drain_ends_only_once_the_outcome_of_its_headless_turn_is_report
     await draining
 
     assert reported == (["answered"] if drain_timeout > 1 else ["stopped"])
+
+
+def test_a_drain_waits_longer_than_the_workflow_teardown_of_the_turns_it_cancels():
+    """A cancelled turn sends its terminal, and starts the outcome notice, only once its teardown ends or runs out.
+
+    The wait was a flat 10 s, the teardown bound itself: a turn whose teardown
+    ran out reached its terminal after the drain had stopped waiting, the
+    process exited before the notice started, and six asks on dev read
+    `working` until a read ended them 47 minutes on (2026-11-12).
+    """
+    from agent_host import workflow_stream
+
+    assert after_terminal_writes.drain_cancel_grace() > workflow_stream.PRODUCER_TEARDOWN_SECONDS
+
+
+async def test_a_drain_reports_the_outcome_of_a_headless_turn_whose_teardown_hangs(harness, monkeypatch):
+    from agent_host import workflow_stream
+
+    monkeypatch.setattr(workflow_stream, "PRODUCER_TEARDOWN_SECONDS", 0.2)
+    monkeypatch.setattr(after_terminal_writes, "DRAIN_CANCEL_MARGIN_SECONDS", 0.3)
+    reported: list[str] = []
+
+    async def notice(**report):
+        reported.append(report["outcome"])
+        return True
+
+    monkeypatch.setattr(chat_socket, "post_internal_turn_outcome", notice)
+    started, unstuck = asyncio.Event(), asyncio.Event()
+
+    async def stubborn(request, ask):
+        try:
+            yield TextMessageStartBody(message_id="m")
+            started.set()
+            await asyncio.sleep(3600)
+        finally:
+            await asyncio.shield(unstuck.wait())  # a call on a connection that went away with its pod
+
+    h = harness(stubborn)
+    sock = h.connect(headers=HEADLESS)
+    sock.client(type="user_message", message_id=WAKE, text="?")
+    await until(started.is_set)
+    try:
+        assert await h.registry.drain(timeout=0.01) == 1
+    finally:
+        unstuck.set()
+
+    assert reported == ["stopped"]
 
 
 async def test_a_headless_turn_whose_id_no_wake_mints_reports_nothing(harness, bff, persisted):

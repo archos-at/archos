@@ -64,6 +64,20 @@ Phase 3 — vocabulary and language surfaces (scoped per country):
    reads it for which law applies (the knowledge context's site does, ADR-0175);
    the RIS adapter still uses it to address a lookup to the right Land.
 
+## Deferred until a second country needs it
+
+- **A released text's document class from its records.** The base corpus files
+  a released text (`<manifestationKey>-<hash>.pdf`) as `other`: no filename
+  reader classes the name, and the records state no class (an OIB-Richtlinie,
+  its Begriffsbestimmungen and its list of cited standards are all
+  `model_code`, a Leitfaden and the Erläuterungen both `commentary`). For AT an
+  operator sets each text once per environment (`platform-knowledge-doc-class-update`;
+  rollover-to-prod step 8b). **Build when a second country's texts need a
+  class:** an optional `docClass` claim on the work record, stamped by the
+  indexing job beside the title (`platform/indexing.ts`), a class a person set
+  still winning (ADR-0064 Use 8). Costed 2026-11-12 at one migration and about
+  eight files; the unmerged draft is PR #1709's first commit.
+
 ## Known duplications (consolidate opportunistically, never let them drift)
 
 - **9-state vocabulary — 4 copies:** `norm_registry.BUNDESLAND_TOKENS` (source

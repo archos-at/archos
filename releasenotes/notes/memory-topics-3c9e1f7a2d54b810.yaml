@@ -1,0 +1,7 @@
+features:
+  - >
+    Notes in your personal memory and in a project's memory can now be sorted
+    into topics such as Brandschutz, Stellplätze or Bauherr, and each list
+    shows its topics with the number of notes in each. You can move a note to
+    another topic, rename or merge topics, and the assistant files new notes
+    under a fitting topic by itself.

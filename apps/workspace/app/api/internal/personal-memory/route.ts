@@ -37,6 +37,7 @@ export const POST = internalApiRoute(
         provenanceType: input.provenanceType,
         sourceConversationId,
         sourceMessageId: input.sourceMessageId ?? null,
+        ...(input.topic === undefined ? {} : { topic: input.topic }),
       })
     })
   },

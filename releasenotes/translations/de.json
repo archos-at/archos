@@ -108,6 +108,10 @@
     "de": "Ein Chat lässt sich neben dem Nachrichtenfeld auf temporär umstellen. Der Assistent merkt sich daraus nichts, und der Chat weist darauf hin, solange die Einstellung aktiviert ist."
   },
   {
+    "en": "A chat question no longer waits up to twenty seconds while a colleague's upload to the project or the office filing is still being read; only a file you attached to the conversation itself holds the answer.",
+    "de": "Eine Chatfrage wartet nicht mehr bis zu 20 Sekunden, während der Upload eines Kollegen ins Projekt oder in die Büroablage noch eingelesen wird; für die Antwort wird nur eine Datei herangezogen, die Sie direkt an die Unterhaltung angehängt haben."
+  },
+  {
     "en": "A chat shared with someone who later loses the right to read a folder it drew on stays in their list as \"Shared chat\", and opening it says they no longer have the rights, with no title, message or attachment shown. The person who shared it sees them marked \"No longer has access\", and the chat opens again if the role comes back.",
     "de": "Ein Chat, der mit jemandem geteilt ist, die oder der später das Recht verliert, einen Ordner zu lesen, aus dem er schöpft, bleibt in deren Liste als „Geteilter Chat“; beim Öffnen steht dort, dass die Rechte fehlen, ohne Titel, Nachricht oder Anhang. Wer den Chat geteilt hat, sieht die Person als „Hat keinen Zugriff mehr“, und der Chat öffnet sich wieder, sobald die Rolle zurück ist."
   },
@@ -716,6 +720,10 @@
     "de": "Bei einer Frage zu mehreren Paragraphen, etwa „§§ 3 bis 8“, werden jetzt bis zu sechs in einem Schritt gelesen statt nur der erste."
   },
   {
+    "en": "A question about the law on a given day, such as a submission's filing day, now finds the regulation you name and reads the version in force that day, where before it could miss the regulation, even for today. A day of today or later reads today's text, and the answer says so.",
+    "de": "Bei einer Frage zur Rechtslage an einem bestimmten Tag, etwa am Einreichungstag eines Antrags, wird nun die von Ihnen genannte Vorschrift gefunden und in der an diesem Tag geltenden Fassung wiedergegeben; bisher konnte die Vorschrift übersehen werden, sogar bei Fragen zur heutigen Rechtslage. Für heute und spätere Tage wird der heutige Text herangezogen, und die Antwort weist darauf hin."
+  },
+  {
     "en": "A question another agent puts to Piloti now always ends with an answer or a reason, also when Piloti restarts while answering it.",
     "de": "Eine Frage, die ein anderer Agent Piloti jetzt stellt, wird immer mit einer Antwort oder einer Begründung abgeschlossen – auch wenn Piloti während der Beantwortung neu startet."
   },
@@ -900,6 +908,10 @@
     "de": "Eine Quelle aus einem anderen Projekt ist jetzt als Präzedenzfall gekennzeichnet und enthält den Projektstatus sowie das Bundesland. Verwendet eine Antwort einen solchen Präzedenzfall, unterscheidet sie zwischen den geltenden Vorgaben, der üblichen Vorgehensweise des Büros und dem Projekt, in dem etwas bereits umgesetzt wurde, und weist darauf hin, wenn sich Vorschriften oder Bundesland unterscheiden."
   },
   {
+    "en": "A standard in Grundlagen des Büros now opens as its file, in the same viewer as any document, with its edition, validity and last check beside it. Editing its details is one press away instead of the first thing you see.",
+    "de": "Ein Standard unter Grundlagen des Büros öffnet sich jetzt als Datei im selben Viewer wie jedes Dokument, mit Ausgabe, Gültigkeit und letzter Prüfung daneben. Seine Details lassen sich mit einem Klick bearbeiten, statt dass die Bearbeitung das Erste ist, was Sie sehen."
+  },
+  {
     "en": "A standard or product code typed in lowercase now matches the documents that write it in capitals, so a question about a specific code finds the same sources whichever way it is typed.",
     "de": "Ein in Kleinbuchstaben eingegebener Norm- oder Produktcode findet jetzt auch Dokumente, in denen er in Großbuchstaben geschrieben ist. Fragen zu einem bestimmten Code liefern daher unabhängig von der Schreibweise dieselben Quellen."
   },
@@ -1002,6 +1014,10 @@
   {
     "en": "Adding a document to a running research from its list of documents now works, where before the research never received it.",
     "de": "Ein Dokument zu einer laufenden Recherche aus deren Dokumentliste hinzuzufügen funktioniert jetzt; bisher erhielt die Recherche es nie."
+  },
+  {
+    "en": "Adding a standard now takes you straight to its form: pick the file with „Grundlage hinzufügen“ (or take one from the Büroablage), check what was proposed, and confirm. Add several at once and „Bestätigen und weiter“ leads through them one after another.",
+    "de": "Wenn Sie jetzt einen Standard hinzufügen, gelangen Sie direkt zu seinem Formular: Wählen Sie die Datei über „Grundlage hinzufügen“ aus (oder nehmen Sie eine aus der Büroablage), prüfen Sie die vorgeschlagenen Angaben und bestätigen Sie. Wenn Sie mehrere Standards gleichzeitig hinzufügen, führt Sie „Bestätigen und weiter“ nacheinander durch die Formulare."
   },
   {
     "en": "Administrators can invite colleagues to a project again. Invitations failed for some administrator roles.",
@@ -1146,6 +1162,10 @@
   {
     "en": "An answer reads at one text size, and the lightest text is a touch heavier, so long answers are easier to read.",
     "de": "Eine Antwort erscheint in einheitlicher Schriftgröße, und der hellste Text ist etwas kräftiger, damit lange Antworten leichter lesbar sind."
+  },
+  {
+    "en": "An answer that ended no longer keeps counting against your office's answers in progress, so a question asked right after it is no longer turned away while nothing is running. A question your own agent asked now reads as failed once its answer is lost, without anyone having to look at it first.",
+    "de": "Eine abgeschlossene Antwort zählt nicht mehr zu den laufenden Antworten Ihres Büros. Dadurch wird eine unmittelbar danach gestellte Frage nicht mehr abgewiesen, wenn gerade nichts läuft. Eine Frage, die Ihr eigener Agent gestellt hat, wird jetzt als fehlgeschlagen angezeigt, sobald ihre Antwort verloren geht – ohne dass sie zuvor jemand öffnen muss."
   },
   {
     "en": "An answer that is still being written is kept when the connection drops briefly, for instance when you switch apps or lock your iPhone. When you return, the rest of the answer appears, even after reloading the page.",
@@ -1392,6 +1412,10 @@
     "de": "Antworten wiederholen sich weniger: Ein Vorspann, der nur den ersten Absatz wiederholt, entfällt, ebenso eine Mindmap, die nur die Tabelle daneben nachzeichnet."
   },
   {
+    "en": "Answers that look up the building law of a project on a past or future day show how well their sources back them again, and the steps behind them no longer show that lookup as failed.",
+    "de": "Antworten, die das für ein Projekt an einem vergangenen oder zukünftigen Stichtag geltende Baurecht abfragen, zeigen wieder, wie gut sie durch ihre Quellen gestützt werden, und die zugrunde liegenden Schritte kennzeichnen diese Abfrage nicht mehr als fehlgeschlagen."
+  },
+  {
     "en": "Answers with cards, such as a legal basis, a table, a checklist or a process, arrive in one go. Piloti writes the cards together with the answer instead of in an extra step before it, and a card with a wrong detail is corrected quietly in the background rather than costing another round.",
     "de": "Antworten mit Karten, etwa mit einer Rechtsgrundlage, einer Tabelle, einer Checkliste oder einem Ablauf, kommen in einem Durchgang. Piloti schreibt die Karten gleich mit der Antwort statt in einem eigenen Schritt davor, und eine Karte mit falschem Detail wird im Hintergrund still korrigiert, ohne dass dafür eine zusätzliche Runde nötig ist."
   },
@@ -1630,6 +1654,10 @@
   {
     "en": "Choosing the sign-in button on the Piloti website leads to the sign-in page again.",
     "de": "Wer auf der Piloti-Website die Anmeldung startet, landet wieder auf der Anmeldeseite."
+  },
+  {
+    "en": "Citations of the published OIB-Richtlinien name the Punkt the quoted text stands in again, such as \"Pkt. 5.1.1, S. 13\" for the escape route length in OIB-Richtlinie 2, instead of only the heading above it (\"Pkt. 5.1\"). The cover page's document number is no longer cited as a Punkt, and the forms in the annex of OIB-Richtlinie 6 no longer as its last Punkt.",
+    "de": "Bei Verweisen auf die veröffentlichten OIB-Richtlinien wird nun der Punkt angegeben, in dem der zitierte Text steht, etwa „Pkt. 5.1.1, S. 13“ für die Fluchtweglänge in OIB-Richtlinie 2 statt nur der darüberstehenden Überschrift („Pkt. 5.1“). Die Dokumentnummer auf dem Deckblatt wird nicht mehr als Punkt angeführt, die Formulare im Anhang der OIB-Richtlinie 6 nicht mehr als deren letzter Punkt."
   },
   {
     "en": "Claude, Cursor and other assistants connected to Piloti now find your office's skills on their own and read the right one before they start a task, so they work the way your office has written down.",
@@ -2662,6 +2690,10 @@
   {
     "en": "New tasks always deliver a researched report, filed in the project, and setting one up takes three steps instead of four. Existing tasks keep the kind of result they already deliver.",
     "de": "Neue Aufgaben liefern immer einen recherchierten Bericht, der im Projekt abgelegt wird, und Sie richten eine Aufgabe in drei statt vier Schritten ein. Bestehende Aufgaben behalten die Art ihres Ergebnisses."
+  },
+  {
+    "en": "Notes in your personal memory and in a project's memory can now be sorted into topics such as Brandschutz, Stellplätze or Bauherr, and each list shows its topics with the number of notes in each. You can move a note to another topic, rename or merge topics, and the assistant files new notes under a fitting topic by itself.",
+    "de": "Notizen in „Mein Gedächtnis“ und im Projektgedächtnis lassen sich jetzt nach Themen ordnen, etwa Brandschutz, Stellplätze oder Bauherr, und jede dieser Listen zeigt ihre Themen mit der Anzahl der Notizen. Sie können eine Notiz in ein anderes Thema verschieben, Themen umbenennen oder zusammenführen; der Assistent ordnet neue Notizen selbst einem passenden Thema zu."
   },
   {
     "en": "Notes taken after an answer now appear as soon as they are saved. Before, a note that took a moment longer stayed hidden until something else on the page changed.",
@@ -4928,6 +4960,10 @@
     "de": "Nennt eine Antwort eine Datei beim Namen, etwa „Beginnen Sie mit pd8280-2.pdf“, ist der Name jetzt ein Link, der das Dokument neben der Antwort öffnet, im Fließtext wie in Tabellen."
   },
   {
+    "en": "When an answer names an edition of a guideline or standard that binds at the project's site, it now also says since when it binds there and through which instrument, as the platform's records state.",
+    "de": "Wenn eine Antwort eine am Projektstandort verbindliche Fassung einer Richtlinie oder Norm nennt, gibt sie nun auch an, seit wann diese dort verbindlich ist und durch welchen Rechtsakt – laut den Aufzeichnungen der Plattform."
+  },
+  {
     "en": "When an answer numbers its sources without listing them, each number now points to the passage this answer read that says what the sentence says, and the source list is added for you, instead of an unrelated source from earlier in the conversation.",
     "de": "Wenn eine Antwort ihre Quellen nummeriert, ohne sie aufzulisten, verweist nun jede Nummer auf die gelesene Passage, die die jeweilige Aussage belegt, und die Quellenliste wird automatisch ergänzt – statt auf eine unpassende Quelle aus dem früheren Gespräch."
   },
@@ -5062,6 +5098,10 @@
   {
     "en": "When you ask since when a guideline has been binding at your project's site, the answer now gives the date from the platform's reviewed records, the same date the citation shows. It no longer looks the date up on the web and cites a newsletter for it.",
     "de": "Wenn Sie fragen, seit wann eine Richtlinie am Projektstandort verbindlich ist, nennt die Antwort jetzt das Datum aus den geprüften Datensätzen der Plattform – dasselbe Datum wie in der Quellenangabe. Sie sucht das Datum nicht mehr im Web und belegt es mit einem Newsletter."
+  },
+  {
+    "en": "When you ask the assistant to undo or correct one of your personal notes, it now removes or replaces that note instead of adding a second one that contradicts it.",
+    "de": "Wenn Sie den Assistenten bitten, eine Ihrer persönlichen Notizen zurückzunehmen oder zu korrigieren, entfernt oder ersetzt er diese nun, statt eine zweite, widersprüchliche Notiz hinzuzufügen."
   },
   {
     "en": "When you ask to see a model, a room or a storey, the 3D view now stays in the answer instead of disappearing as the answer finishes. Asking to open a model now keeps the tiles to choose from.",

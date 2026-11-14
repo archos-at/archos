@@ -57,6 +57,24 @@ def test_it_is_in_the_turns_note_and_never_in_the_conversation_head_or_the_proje
     assert "PERSONAL_MEMORY" not in (values["project_context"] or "")
 
 
+def test_the_block_says_its_groups_and_index_and_that_remember_reuses_their_spelling():
+    rendered = _render(BLOCK)
+
+    after = rendered.split(HEADING)[1]
+    assert 'Its groups are headed `Topic "…"`' in after
+    assert "the line opening `topics of the person's` is a bounded index of their topics" in after
+    assert "`remember` reuses one of those spellings" in after
+
+
+def test_project_memory_says_where_its_topic_and_index_are_and_that_remember_reuses_them():
+    memory = 'PROJECT_MEMORY v1\n- ["Brandschutz" | decision | high | unverified] "EI 90."'
+    rendered = _render(None, project_context=memory)
+
+    assert "the first quoted tag, when there is one, is its topic" in rendered
+    assert "the line opening `topics of the project's memory` is a bounded index of the shelf's topics" in rendered
+    assert "`remember` reuses one of those spellings" in rendered
+
+
 def test_project_memory_is_described_as_ranked_not_newest_first():
     rendered = _render(None, project_context='PROJECT_MEMORY v1\n- [decision | high | unverified] "Flachdach."')
 

@@ -109,3 +109,34 @@ def test_a_tab_built_before_the_marker_still_refuses_a_new_reason():
     """The one-time cost, staged knowingly: a bundle from before ``x-unknown-as-null`` cannot read ``open_point``
     (nor ``law_unsettled``, #1582) and asks the tab to reload. From this release on, a new reason reads as null."""
     assert not _old_tab_reads(_capped("open_point"))
+
+
+# ``confidence_check.unavailable_reason`` (why the check gave no level) is a new key inside a known object.
+REASON = {"cause": "unparseable", "finish_reason": "length", "truncated": True, "elapsed_ms": 9100}
+
+
+def _unavailable(reason: dict[str, Any]) -> dict[str, Any]:
+    frame = _checked_finish(CONFIDENCE_RULE_VERSION, {"status": "unavailable", "unavailable_reason": reason})
+    frame["result"].update(answer_confidence=None, answer_confidence_version=None)
+    return frame
+
+
+def _bundle_before_the_reason_reads(frame: dict[str, Any]) -> bool:
+    """A bundle that knows ``confidence_check`` but not ``unavailable_reason``: today's schema without the field."""
+    defs = json.loads(SCHEMA.read_text())["$defs"]
+    defs["ConfidenceCheck"]["properties"].pop("unavailable_reason")
+    defs.pop("ConfidenceUnavailable")
+    schema = _as_bundle_reads({"$ref": "#/$defs/RunFinished", "$defs": defs})
+    return jsonschema.Draft202012Validator(schema).is_valid(frame)
+
+
+def test_a_tab_from_before_the_reason_settles_on_a_check_that_carries_one():
+    assert _bundle_before_the_reason_reads(_unavailable(REASON))
+    assert _old_tab_reads(_unavailable(REASON))
+
+
+def test_a_cause_a_later_release_adds_still_settles_the_turn():
+    assert _todays_bundle_reads(_unavailable(REASON))
+    assert _todays_bundle_reads(_unavailable({**REASON, "cause": "a_cause_a_later_release_adds"}))
+    reason = json.loads(SCHEMA.read_text())["$defs"]["ConfidenceCheck"]["properties"]["unavailable_reason"]
+    assert reason.get("x-unknown-as-null") is True

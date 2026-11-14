@@ -252,7 +252,7 @@
   "packages/knowledge-layer/src/browse/tool_text.py": 1,
   "packages/knowledge-layer/src/chat_binding.py": 2,
   "packages/knowledge-layer/src/estate/listing.py": 1,
-  "packages/knowledge-layer/src/ingest/adapter.py": 2,
+  "packages/knowledge-layer/src/ingest/chunking_choice.py": 2,
   "packages/knowledge-layer/src/ingest/clause_chunking.py": 4,
   "packages/knowledge-layer/src/read_passage/family.py": 3,
   "packages/knowledge-layer/src/read_passage/targets.py": 5,

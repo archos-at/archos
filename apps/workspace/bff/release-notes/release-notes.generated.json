@@ -41,6 +41,14 @@
         },
         {
           "section": "features",
+          "area": "building-law",
+          "text": {
+            "en": "When an answer names an edition of a guideline or standard that binds at the project's site, it now also says since when it binds there and through which instrument, as the platform's records state.",
+            "de": "Wenn eine Antwort eine am Projektstandort verbindliche Fassung einer Richtlinie oder Norm nennt, gibt sie nun auch an, seit wann diese dort verbindlich ist und durch welchen Rechtsakt – laut den Aufzeichnungen der Plattform."
+          }
+        },
+        {
+          "section": "features",
           "area": "general",
           "text": {
             "en": "Your recent chats in a project are now listed in the sidebar under Chat, with the open one highlighted, and „Alle Chats“ below them opens the whole chat history.",
@@ -195,6 +203,22 @@
           "section": "features",
           "area": "office-knowledge",
           "text": {
+            "en": "A standard in Grundlagen des Büros now opens as its file, in the same viewer as any document, with its edition, validity and last check beside it. Editing its details is one press away instead of the first thing you see.",
+            "de": "Ein Standard unter Grundlagen des Büros öffnet sich jetzt als Datei im selben Viewer wie jedes Dokument, mit Ausgabe, Gültigkeit und letzter Prüfung daneben. Seine Details lassen sich mit einem Klick bearbeiten, statt dass die Bearbeitung das Erste ist, was Sie sehen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Adding a standard now takes you straight to its form: pick the file with „Grundlage hinzufügen“ (or take one from the Büroablage), check what was proposed, and confirm. Add several at once and „Bestätigen und weiter“ leads through them one after another.",
+            "de": "Wenn Sie jetzt einen Standard hinzufügen, gelangen Sie direkt zu seinem Formular: Wählen Sie die Datei über „Grundlage hinzufügen“ aus (oder nehmen Sie eine aus der Büroablage), prüfen Sie die vorgeschlagenen Angaben und bestätigen Sie. Wenn Sie mehrere Standards gleichzeitig hinzufügen, führt Sie „Bestätigen und weiter“ nacheinander durch die Formulare."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
             "en": "Your office's standards, commentaries and directives now have a place of their own beside the Büroablage, with folders, filters for what still needs confirming or checking, and a page per standard. You find a standard and its state in seconds, and the Büroablage marks these files as Grundlage.",
             "de": "Die Normen, Kommentare und Richtlinien Ihres Büros haben nun neben der Büroablage einen eigenen Bereich – mit Ordnern, Filtern für noch zu bestätigende oder zu prüfende Inhalte und einer Seite pro Norm. Sie finden eine Norm und ihren Status in Sekunden; in der Büroablage sind diese Dateien als Grundlage gekennzeichnet."
           }
@@ -229,6 +253,14 @@
           "text": {
             "en": "Answers now say how far the base knowledge goes where a project stands: not set up for that country, read from the official source without review, or overdue for a check. Your documents and your office's own copies still answer, and the HOAI is shown as depending on the office's seat.",
             "de": "Antworten zeigen jetzt den Stand des Basiswissens für das jeweilige Projekt: für das betreffende Land nicht eingerichtet, aus der offiziellen Quelle übernommen, aber nicht geprüft, oder eine Prüfung ist überfällig. Ihre Dokumente und die eigenen Kopien Ihres Büros liefern weiterhin Antworten; die HOAI wird abhängig vom Sitz Ihres Büros angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Notes in your personal memory and in a project's memory can now be sorted into topics such as Brandschutz, Stellplätze or Bauherr, and each list shows its topics with the number of notes in each. You can move a note to another topic, rename or merge topics, and the assistant files new notes under a fitting topic by itself.",
+            "de": "Notizen in „Mein Gedächtnis“ und im Projektgedächtnis lassen sich jetzt nach Themen ordnen, etwa Brandschutz, Stellplätze oder Bauherr, und jede dieser Listen zeigt ihre Themen mit der Anzahl der Notizen. Sie können eine Notiz in ein anderes Thema verschieben, Themen umbenennen oder zusammenführen; der Assistent ordnet neue Notizen selbst einem passenden Thema zu."
           }
         },
         {
@@ -921,6 +953,14 @@
         },
         {
           "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "An answer that ended no longer keeps counting against your office's answers in progress, so a question asked right after it is no longer turned away while nothing is running. A question your own agent asked now reads as failed once its answer is lost, without anyone having to look at it first.",
+            "de": "Eine abgeschlossene Antwort zählt nicht mehr zu den laufenden Antworten Ihres Büros. Dadurch wird eine unmittelbar danach gestellte Frage nicht mehr abgewiesen, wenn gerade nichts läuft. Eine Frage, die Ihr eigener Agent gestellt hat, wird jetzt als fehlgeschlagen angezeigt, sobald ihre Antwort verloren geht – ohne dass sie zuvor jemand öffnen muss."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "The connection state reads „Verbindung unterbrochen“ or „Keine Verbindung“, in German, with a symbol beside the words instead of a coloured dot alone; while the server does not answer, „Erneut versuchen“ checks again at once.",
@@ -981,6 +1021,14 @@
           "text": {
             "en": "A cancelled upload in a chat's files now reads as cancelled instead of still uploading and can be removed with one click, and a file that finished reading just as you stopped it stays read.",
             "de": "Ein abgebrochener Upload in den Dateien eines Chats wird jetzt als abgebrochen statt weiterhin als laufend angezeigt und lässt sich mit einem Klick entfernen; eine Datei, deren Einlesen genau beim Abbrechen abgeschlossen wurde, bleibt als eingelesen markiert."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "A chat question no longer waits up to twenty seconds while a colleague's upload to the project or the office filing is still being read; only a file you attached to the conversation itself holds the answer.",
+            "de": "Eine Chatfrage wartet nicht mehr bis zu 20 Sekunden, während der Upload eines Kollegen ins Projekt oder in die Büroablage noch eingelesen wird; für die Antwort wird nur eine Datei herangezogen, die Sie direkt an die Unterhaltung angehängt haben."
           }
         },
         {
@@ -1235,6 +1283,14 @@
           "section": "fixes",
           "area": "building-law",
           "text": {
+            "en": "A question about the law on a given day, such as a submission's filing day, now finds the regulation you name and reads the version in force that day, where before it could miss the regulation, even for today. A day of today or later reads today's text, and the answer says so.",
+            "de": "Bei einer Frage zur Rechtslage an einem bestimmten Tag, etwa am Einreichungstag eines Antrags, wird nun die von Ihnen genannte Vorschrift gefunden und in der an diesem Tag geltenden Fassung wiedergegeben; bisher konnte die Vorschrift übersehen werden, sogar bei Fragen zur heutigen Rechtslage. Für heute und spätere Tage wird der heutige Text herangezogen, und die Antwort weist darauf hin."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
             "en": "A law looked up in its current consolidated version is no longer labelled with the date of an older version of the paragraph.",
             "de": "Ein Gesetz, das in seiner aktuellen konsolidierten Fassung abgerufen wird, ist nicht mehr mit dem Datum einer älteren Fassung des Paragraphen gekennzeichnet."
           }
@@ -1253,6 +1309,14 @@
           "text": {
             "en": "When you stop a document that is being read, it now stays stopped: it no longer briefly shows as being read again, and starting it again right away begins a fresh read.",
             "de": "Wenn Sie das Lesen eines Dokuments anhalten, bleibt es jetzt angehalten: Es wird nicht mehr kurzzeitig wieder als gelesen angezeigt, und wenn Sie es sofort erneut starten, beginnt ein neuer Lesevorgang."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "Answers that look up the building law of a project on a past or future day show how well their sources back them again, and the steps behind them no longer show that lookup as failed.",
+            "de": "Antworten, die das für ein Projekt an einem vergangenen oder zukünftigen Stichtag geltende Baurecht abfragen, zeigen wieder, wie gut sie durch ihre Quellen gestützt werden, und die zugrunde liegenden Schritte kennzeichnen diese Abfrage nicht mehr als fehlgeschlagen."
           }
         },
         {
@@ -1353,10 +1417,26 @@
         },
         {
           "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "When you ask the assistant to undo or correct one of your personal notes, it now removes or replaces that note instead of adding a second one that contradicts it.",
+            "de": "Wenn Sie den Assistenten bitten, eine Ihrer persönlichen Notizen zurückzunehmen oder zu korrigieren, entfernt oder ersetzt er diese nun, statt eine zweite, widersprüchliche Notiz hinzuzufügen."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "The inbox's notice that e-mails to a project wait for filing now says how many wait. It used to count only those that arrived since you last opened it, so it could read \"One e-mail\" while two were waiting.",
             "de": "Der Hinweis im Posteingang, dass E-Mails zu einem Projekt auf die Ablage warten, zeigt jetzt an, wie viele es sind. Bisher zählte er nur die E-Mails, die eingegangen sind, seit Sie ihn zuletzt geöffnet haben. Daher konnte dort „Eine E-Mail“ stehen, obwohl zwei warteten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "Citations of the published OIB-Richtlinien name the Punkt the quoted text stands in again, such as \"Pkt. 5.1.1, S. 13\" for the escape route length in OIB-Richtlinie 2, instead of only the heading above it (\"Pkt. 5.1\"). The cover page's document number is no longer cited as a Punkt, and the forms in the annex of OIB-Richtlinie 6 no longer as its last Punkt.",
+            "de": "Bei Verweisen auf die veröffentlichten OIB-Richtlinien wird nun der Punkt angegeben, in dem der zitierte Text steht, etwa „Pkt. 5.1.1, S. 13“ für die Fluchtweglänge in OIB-Richtlinie 2 statt nur der darüberstehenden Überschrift („Pkt. 5.1“). Die Dokumentnummer auf dem Deckblatt wird nicht mehr als Punkt angeführt, die Formulare im Anhang der OIB-Richtlinie 6 nicht mehr als deren letzter Punkt."
           }
         },
         {

@@ -13,13 +13,23 @@ vi.mock('@/lib/auth/require-auth', () => ({
 }))
 vi.mock('@/lib/personal-memory/service', () => ({
   listPersonalMemory: vi.fn(),
+  listPersonalMemoryTopics: vi.fn(async () => []),
+  personalListFilter: vi.fn(async (_owner: unknown, query: { sourceConversationId?: string; topic?: string }) => ({
+    sourceConversationId: query.sourceConversationId,
+    ...(query.topic === undefined ? {} : { topic: query.topic }),
+  })),
   createPersonalMemoryItem: vi.fn(),
   clearPersonalMemory: vi.fn(),
 }))
 
 import { SessionRequiredError } from '@/lib/api/errors'
 import { requireAuthorizedSession } from '@/lib/auth/require-auth'
-import { clearPersonalMemory, createPersonalMemoryItem, listPersonalMemory } from '@/lib/personal-memory/service'
+import {
+  clearPersonalMemory,
+  createPersonalMemoryItem,
+  listPersonalMemory,
+  personalListFilter,
+} from '@/lib/personal-memory/service'
 import { DELETE, GET, POST } from './route'
 
 const OWNER = { organizationId: 'org_1', userId: 'user_1' }
@@ -48,7 +58,7 @@ describe('GET /api/user/memory', () => {
     const response = await GET(new Request('https://grid.test/api/user/memory?userId=user_2'), context)
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ items: [NOTE], nextCursor: null })
+    expect(await response.json()).toEqual({ items: [NOTE], nextCursor: null, topics: [] })
     expect(listPersonalMemory).toHaveBeenCalledWith(OWNER, { limit: 50, offset: 0 }, { sourceConversationId: undefined })
   })
 
@@ -63,6 +73,20 @@ describe('GET /api/user/memory', () => {
     expect(response.status).toBe(200)
     expect(listPersonalMemory).toHaveBeenCalledWith(OWNER, { limit: 200, offset: 0 }, { sourceConversationId: 's_1' })
     expect((await GET(new Request(`https://grid.test/api/user/memory?sourceConversationId=${'x'.repeat(256)}`), context)).status).toBe(400)
+  })
+
+  it('passes the topic through to the list, so one topic of the caller’s notes is the page', async () => {
+    vi.mocked(listPersonalMemory).mockResolvedValue({ items: [NOTE], nextCursor: null } as never)
+
+    const response = await GET(new Request('https://grid.test/api/user/memory?topic=Brandschutz'), context)
+
+    expect(response.status).toBe(200)
+    expect(personalListFilter).toHaveBeenCalledWith(OWNER, expect.objectContaining({ topic: 'Brandschutz' }))
+    expect(listPersonalMemory).toHaveBeenCalledWith(
+      OWNER,
+      { limit: 50, offset: 0 },
+      { sourceConversationId: undefined, topic: 'Brandschutz' }
+    )
   })
 
   it('pages by limit and the previous nextCursor, and refuses a cursor it did not hand out', async () => {

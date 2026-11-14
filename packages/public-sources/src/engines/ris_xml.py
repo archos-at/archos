@@ -144,11 +144,13 @@ IN_FORCE_UNTIL = "In Kraft bis"
 IN_FORCE_FROM = "In Kraft seit"
 #: The label of the territory a Land-law hit belongs to.
 TERRITORY_FIELD = "Bundesland"
+#: The label of the provision a version document holds (``§ 1``): one hit is one provision in one version.
+PROVISION_FIELD = "Paragraph/Artikel"
 
 # Metadata fields worth surfacing to the agent, in display order.
 _METADATA_FIELDS = (
     ("Kurztitel", "Kurztitel"),
-    ("ArtikelParagraphAnlage", "Paragraph/Artikel"),
+    ("ArtikelParagraphAnlage", PROVISION_FIELD),
     ("Gesetzesnummer", "Gesetzesnummer"),
     ("Kundmachungsorgan", "Kundmachungsorgan"),
     ("Inkrafttretensdatum", IN_FORCE_FROM),
@@ -333,6 +335,7 @@ class RisXml(Engine):
     in_force_from = IN_FORCE_FROM
     in_force_until = IN_FORCE_UNTIL
     territory_field = TERRITORY_FIELD
+    provision_field = PROVISION_FIELD
 
     def public_host(self, url: str) -> str:
         return public_host(url, self.config.host_rewrites)

@@ -144,7 +144,10 @@ Payload (`memoryPayloadSchema`): `scope` (`project` or `organization`), `kind`
 `derived_fact`, `preference`), `content` (up to 500 characters), `confidence`
 and an optional `supersedes`, the earlier note this one corrects, quoted
 verbatim. Accepting a correction retires the note it quotes
-(`createProjectMemoryItem`'s `supersedesContent`).
+(`createProjectMemoryItem`'s `supersedesContent`). An optional `topic` files the
+note under a topic of its shelf: accepting resolves it against that shelf's
+topics (`resolveTopic`), as a create does, and a payload without one files
+the note under none.
 
 Piloti proposes one only where it may not write the note itself: the `remember`
 tool, when an organization-scoped write is refused by the deployment

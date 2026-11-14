@@ -83,6 +83,9 @@ from . import revisions
 from . import row_facts
 from .chunk_metadata import provenance_from_config
 from .chunk_metadata import stamp_chunk_metadata
+from .chunking_choice import is_released_text as _released
+from .chunking_choice import text_documents_for_pages
+from .chunking_choice import text_documents_for_pages as _chunk
 from .measures import INGEST_TRACE_NAME  # noqa: F401 - re-exported, the trace's name
 from .measures import file_trace as _file_trace
 from .measures import finish_file as _finish_file_trace
@@ -999,55 +1002,6 @@ def text_chunks_for_pages(
     documents = text_documents_for_pages(text_pages, file_name, file_size)
     stamp_chunk_metadata(documents, doc_class=doc_class, provenance={}, chunk_size=chunk_size, file_name=file_name)
     return split_documents(documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-
-
-def text_documents_for_pages(text_pages: list[dict[str, Any]], file_name: str, file_size: int) -> list[Any]:
-    """Build the text Documents for one PDF, structure-aware where the document allows it.
-
-    A numbered corpus cut on its own outline yields one requirement per chunk instead of
-    roughly fifteen blended into a 1024-token block, and gives every chunk a Punkt to
-    cite rather than only a page. ``clause_documents`` returns ``None`` for anything
-    without a usable outline -- a glossary, a list of standards, any tenant upload.
-
-    A tenant PDF (anything not published by the OIB) is cut on its own headings FIRST
-    (``section_chunking``): sections that span pages, chunks with a breadcrumb and a page
-    each, overlap across page breaks, headings read from type as well as numbering. The
-    Punkt chunker used to claim any tenant report numbered ``1``, ``1.1``, ``2`` … by
-    numbering alone, and filed every piece of a long section under its first page; it
-    stays the path for the OIB's own files and the fallback after this one. Whatever
-    has no usable structure keeps the per-page path: one Document per page, its
-    captioned tables put back as Markdown after the text they were cut out of
-    (``page_text_with_tables``).
-
-    Extracted from ``_run_ingestion`` so the choice between the strategies is
-    testable without a job, a vector store or an embedder.
-    """
-    from knowledge_layer.ingest.clause_chunking import clause_documents
-    from knowledge_layer.ingest.section_chunking import section_documents
-    from llama_index.core import Document
-
-    from agent.common.norm_registry import oib_doc_class
-
-    sectioned = None if oib_doc_class(file_name) else section_documents(text_pages, file_name, file_size)
-    if sectioned is not None:
-        return sectioned
-    structured = clause_documents(text_pages, file_name, file_size)
-    if structured is not None:
-        return structured
-    from knowledge_layer.ingest.captioned_tables import page_text_with_tables
-
-    return [
-        Document(
-            text=page_text_with_tables(page["text"], page.get("tables") or []),
-            metadata={
-                "file_name": file_name,
-                "file_size": file_size,
-                "page_label": str(page["page_number"]),
-                "content_type": "text",
-            },
-        )
-        for page in text_pages
-    ]
 
 
 def page_texts_for_visual_heuristic(text_pages: list[dict[str, Any]]) -> dict[int, str]:
@@ -4124,7 +4078,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             self._update_file_status(job, i, FileStatus.FAILED, error=error)
                             logger.warning("Scanned PDF not ingested (VLM not configured): %s", file_name)
                             continue
-                        text_documents = text_documents_for_pages(text_pages, file_name, file_size)
+                        text_documents = _chunk(text_pages, file_name, file_size, _released(config, collection_name))
                     elif is_image:
                         # Standalone image: read by the vision model (a hard requirement:
                         # no text to fall back on), that reading screened, then its

@@ -90,10 +90,24 @@ Fold a new rule in with the same wrapper:
 The inner columns are renamed because ClickHouse refuses an outer
 `countIf(breach > 0)` over an inner `breach` alias.
 
+**One alert reads either `events` or `posthog.metrics`, never both.** PostHog
+keeps them on different clusters: a query over both runs nowhere („Cannot query
+tables from different clusters in the same query. Found tables requiring
+clusters: Default, Metrics"), and the scheduled check errors, emails „errored"
+once and **switches the alert off**. That happened to Product incidents on
+2026-11-14, after a SeaweedFS rule was folded into its event rules: from 02:05
+nothing it watched could fire. Metric rules go in a metrics alert
+(Infrastructure incidents, Platform health), event rules in an events one. Run
+the whole query once in the SQL editor before saving it; after saving, read the
+alert back (`alert-get`) and check `enabled: true` and that its last check has
+no `error`.
+
 | Alert | Insight (Slack destination) | Checked | Rules |
 |---|---|---|---|
-| Platform health (prod) | `tqqimEor` (`01a17ea5-0076-0000-c725-3cd6187d926a`) | hourly | The five per-area health tables of `docs/observability/metrics.md`, merged, plus „production sends no metrics at all", which the old heartbeat could not see: it only noticed a service that sent and then stopped |
+| Platform health (prod) | `tqqimEor` (`01a17ea5-0076-0000-c725-3cd6187d926a`) | hourly | The five per-area health tables of `docs/observability/metrics.md`, merged, plus „production sends no metrics at all", which the old heartbeat could not see: it only noticed a service that sent and then stopped. **Switched off since 2026-11-05** (it fired four hours on two kopia maintenance Jobs left Pending), and on 2026-11-14 its query no longer runs: it reads past PostHog's 139.7 GiB per-query limit. Off, it does not see a volume over 85 %, which is how prod's SeaweedFS reached 95 % unannounced. Turning it back on needs the query cut first (its 24 h telemetry scan is the large part) |
 | Support: feedback ticket waiting 24h+ (prod) | `gsIfpLwh` (`01a17ea5-03eb-0000-0596-3dccfc406539`) | hourly | A prod ticket, contact allowed, where the reporter spoke last more than 24 h and less than 7 days ago. Read from `$conversation_message_*` events: PostHog emits no event when a ticket is resolved, so a ticket resolved without a reply stays listed until its 7 days pass |
+| Product incidents (prod) | `xWv00W5B` (no Slack destination: it emails its subscriber) | hourly | Its SQL is [`alerts/product-incidents.sql`](alerts/product-incidents.sql): edit the file, then paste it into the insight. Events only. 402s from a provider, `MissingTenantContextError`, failed or hour-long ingests, blocked budgets, unanswered chat questions, and `[Projekt-E-Mail]` on **every** stack, dev included: three or more deliveries on one host in an hour refused for a reason of ours (not an unknown address, a switched-off office or an oversized mail), counted per host with every cause in the text, and a host whose first refusal is six or more hours old, that refused within the last hour and accepted none since. The rule names the `stage` and `error` the webhook records. Added 2026-11-14, after dev refused every delivery to one office for two days and nothing looked: the sending server retries a refused mail silently, so the sender never learns either |
+| Infrastructure incidents | `qBCjesPb` (no Slack destination: it emails its subscriber) | hourly | Its SQL is [`alerts/infrastructure-incidents.sql`](alerts/infrastructure-incidents.sql). Metrics only, on **every** stack. `[Objektspeicher]` from SeaweedFS's own metrics: a disk over 85 % full, or a collection whose volumes the volume server made read-only for low disk space (every write into it answers 500). `[Jobs]` a Kubernetes Job (a CronJob's run, its timestamp suffix stripped) that failed and has not succeeded within 26 h: `qdrant-snapshot` failed daily on dev and prod and its retries filled prod's object store. Added 2026-11-14; it took the slot of the retired „data stores degraded" alert, whose rules Platform health already holds |
 | Costs and budgets (prod) | `1GfF4oj1` (`01a17ea5-06b2-0000-a138-a2d2cd892bc5`) | hourly | An office at 90 %+ of its monthly budget or blocked by it; today's LLM cost above 25 USD and above twice the 14-day daily average; Claude chat reading under 20 % of its input from the prompt cache over 24 h (it read 0 % for a month until 2026-10-27, `packages/agent/src/agent/common/prompt_caching.py`). Cost equals price on the price list today, so a negative-margin rule would never fire |
 
 ## Destinations outside `support/`

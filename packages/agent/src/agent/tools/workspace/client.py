@@ -65,11 +65,14 @@ class ToolResult:
     """A ``tools/call`` answer: the text the model reads, and the result's ``structuredContent`` when it has one.
 
     ``structured`` is for the code around the model, never shown to it. It is ``None`` for a tool-level
-    error (``isError``): a refusal is words, not a shape to act on.
+    error (``isError``): a refusal is words, not a shape to act on. It is ``None`` too for an answer the
+    server capped (``discovery.ts`` ``success``: a cut answer carries no ``structuredContent``), which is
+    a read that ran, so whether the call failed is ``is_error``, never the missing shape.
     """
 
     text: str
     structured: dict[str, Any] | None = None
+    is_error: bool = False
 
 
 class WorkspaceError(bff_http.BffError):
@@ -121,6 +124,12 @@ def _structured_content(message: dict[str, Any]) -> dict[str, Any] | None:
     return structured if isinstance(structured, dict) else None
 
 
+def _is_error(message: dict[str, Any]) -> bool:
+    """Whether the result is a tool-level error (``isError``): the call did not run."""
+    result = message.get("result")
+    return isinstance(result, dict) and bool(result.get("isError"))
+
+
 def _result_text(message: dict[str, Any]) -> str:
     """The text of a ``tools/call`` result; a tool-level error is prefixed so the model reads it as one."""
     error = message.get("error")
@@ -165,7 +174,9 @@ def call_tool_result(
             headers=request_headers(envelope, answer_message_id),
         )
         message = _jsonrpc_from(response.body.decode("utf-8"), response.content_type)
-        return ToolResult(text=_result_text(message), structured=_structured_content(message))
+        return ToolResult(
+            text=_result_text(message), structured=_structured_content(message), is_error=_is_error(message)
+        )
     except bff_http.BffNotConfiguredError as exc:
         raise WorkspaceError(str(exc)) from exc
     except bff_http.BffRefusedError as exc:

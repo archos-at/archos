@@ -11,6 +11,7 @@ from agent.turn.inventory import Inventory
 from agent.turn.inventory import aggregate_documents_across_collections
 from agent.turn.inventory import await_ingest_settling
 from agent.turn.inventory import fallback_scope
+from agent.turn.inventory import held_uploads
 from agent.turn.inventory import in_flight_names
 from agent.turn.inventory import load_inventory
 from agent.turn.inventory import pending_uploads
@@ -320,6 +321,45 @@ class TestLoadInventory:
 
         assert inventory == Inventory(None, ["plan.pdf", "schnitt.pdf"], pending={"s_1": ["plan.pdf", "schnitt.pdf"]})
 
+    async def test_a_colleagues_upload_is_named_but_does_not_hold_the_turn(self):
+        """In an office of fifty a project file is nearly always being read; it must not delay every answer."""
+
+        async def fetch_one(_collection):
+            return []
+
+        scope = [ScopedCollection("s_1", Shelf.SESSION), ScopedCollection("p_1", Shelf.PROJECT)]
+        inventory = await load_inventory(
+            scope, fetch_one=fetch_one, read_in_flight=lambda _n: {"p_1": ["model.ifc"], "s_1": ["plan.pdf"]}
+        )
+
+        assert inventory.in_flight_documents == ["model.ifc", "plan.pdf"]
+        assert inventory.pending == {"s_1": ["plan.pdf"]}
+
+    async def test_no_attachment_in_flight_means_no_hold_and_no_step(self):
+        async def fetch_one(_collection):
+            return []
+
+        scope = [ScopedCollection("p_1", Shelf.PROJECT), ScopedCollection("o_1", Shelf.OFFICE_SHELF)]
+        inventory = await load_inventory(
+            scope, fetch_one=fetch_one, read_in_flight=lambda _n: {"p_1": ["a.pdf"], "o_1": ["b.pdf"]}
+        )
+
+        assert inventory.in_flight_documents == ["a.pdf", "b.pdf"]
+        assert inventory.pending == {}
+        assert pending_uploads(inventory) is None
+
+
+class TestHeldUploads:
+    def test_only_a_stated_session_shelf_holds(self):
+        scope = [
+            ScopedCollection("s_1", Shelf.SESSION),
+            ScopedCollection("p_1", Shelf.PROJECT),
+            ScopedCollection("s_legacy"),
+        ]
+        pending = {"s_1": ["plan.pdf"], "p_1": ["model.ifc"], "s_legacy": ["x.pdf"], "elsewhere": ["y.pdf"]}
+
+        assert held_uploads(scope, pending) == {"s_1": ["plan.pdf"]}
+
 
 class TestTheWaitIsAnnouncedFirst:
     """``_run`` yields :func:`pending_uploads`, then awaits :func:`wait_for_uploads`."""
@@ -363,6 +403,27 @@ class TestTheWaitIsAnnouncedFirst:
         )
 
         assert inventory is self.PENDING
+
+    async def test_the_wait_polls_only_the_held_collections_and_keeps_the_others_named(self):
+        polled: list[list[str]] = []
+
+        def read_in_flight(names):
+            polled.append(list(names))
+            return {}
+
+        async def fetch_one(_collection):
+            return [_Doc("plan.pdf")]
+
+        scope = [ScopedCollection("s_1", Shelf.SESSION), ScopedCollection("p_1", Shelf.PROJECT)]
+        before = Inventory(None, ["model.ifc", "plan.pdf"], pending={"s_1": ["plan.pdf"]})
+
+        after = await wait_for_uploads(
+            scope, before, fetch_one=fetch_one, read_in_flight=read_in_flight, timeout_seconds=5.0
+        )
+
+        assert polled == [["s_1"]]
+        assert after.pending == {}
+        assert after.in_flight_documents == ["model.ifc"], "the colleague's file is still being read and still said so"
 
     async def test_nothing_pending_is_an_immediate_return(self):
         settled = Inventory([_Doc("a.pdf")], None)

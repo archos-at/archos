@@ -26,6 +26,30 @@ from agent_host.conversation_bus import RedisTransport  # noqa: E402
 CONV = "conv-redis"
 
 
+class _ServerClock:
+    """fakeredis's clock, moved only by the test.
+
+    fakeredis stamps every command with ``time.time()`` read in
+    ``fakeredis._socket._base`` and expires keys against that stamp; standing
+    in for that one module's ``time`` lets a test move the server's clock
+    between two renewals without a stalled event loop moving it further.
+    """
+
+    def __init__(self) -> None:
+        self.now = 1_000_000.0
+
+    def time(self) -> float:
+        return self.now
+
+
+def _server_clock(monkeypatch) -> _ServerClock:
+    from fakeredis._socket import _base
+
+    clock = _ServerClock()
+    monkeypatch.setattr(_base, "time", clock)
+    return clock
+
+
 def _redis_replicas() -> tuple[ConversationBus, ConversationBus]:
     server = FakeServer()
     owner = RedisTransport(client=fa.FakeRedis(server=server, decode_responses=True))
@@ -165,14 +189,15 @@ async def test_a_renewal_over_real_redis_restarts_the_expiry_and_a_late_one_does
     from agent_host import conversation_bus
 
     monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", 0.2)
+    clock = _server_clock(monkeypatch)
     owner, relay = _redis_replicas()
     await owner.acquire_running(CONV, "t1")
     for _ in range(3):
-        await asyncio.sleep(0.1)
+        clock.now += 0.1
         assert await owner.renew_running(CONV, "t1")  # alive well past one TTL, only because it is renewed
     assert not await relay.acquire_running(CONV, "t2")
 
-    await asyncio.sleep(0.3)
+    clock.now += 0.3
 
     assert not await owner.renew_running(CONV, "t1")  # expired: a late renewal says so, it does not bring it back
     assert await relay.acquire_running(CONV, "t2")

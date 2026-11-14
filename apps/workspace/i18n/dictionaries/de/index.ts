@@ -55,6 +55,7 @@ import { search } from './search'
 import { whatsNew } from './whats-new'
 import { personalMemory } from './personal-memory'
 import { memoryNotes } from './memory-notes'
+import { memoryTopics } from './memory-topics'
 import type { Dictionary } from '../index'
 
 export const de: Dictionary = {
@@ -107,4 +108,5 @@ export const de: Dictionary = {
   whatsNew,
   personalMemory,
   memoryNotes,
+  memoryTopics,
 }

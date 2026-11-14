@@ -183,7 +183,12 @@ export function installInboundMail(cfg: DeployConfig, zone: MailZone | undefined
       mainModule: WORKER_FILE,
       content: readFileSync(join(__dirname, WORKER_FILE), "utf8"),
       compatibilityDate: COMPATIBILITY_DATE,
-      observability: { enabled: false },
+      // Workers Logs: the Worker's own one line per delivery (`report` in the
+      // Worker), nothing else. Invocation logs stay off, because they record
+      // the envelope sender and recipient, which are personal data Cloudflare
+      // then keeps; the line carries the BFF's request id instead. Off before
+      // 2026-11, when two days of refused deliveries left no trace here.
+      observability: { enabled: true, logs: { enabled: true, invocationLogs: false } },
       bindings: [
         // The origin the BFF checks `@target-uri` against: one function for both.
         { name: "BFF_URL", type: "plain_text", text: appOrigin(cfg) },

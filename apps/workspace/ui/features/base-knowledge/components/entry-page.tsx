@@ -11,7 +11,7 @@
 
 import { useRef, useState, type JSX } from 'react'
 import { toast } from 'sonner'
-import { Upload } from 'lucide-react'
+import { FileText, Upload } from 'lucide-react'
 import {
   addBaseKnowledgeEdition,
   bulkBaseKnowledge,
@@ -55,6 +55,8 @@ interface EntryPageProps {
   territories: readonly TerritoryChoice[]
   /** After a change: reload the list; `null` when the entry is gone. */
   onChanged: (entry: BaseKnowledgeEntry | null) => void
+  /** A standard just added, among the others added with it: confirming leads to the next. */
+  adding?: { position: number; count: number }
 }
 
 /** `done` is the success message; `null` when the action says its own outcome. */
@@ -367,6 +369,7 @@ function SheetBody({
   folders,
   territories,
   onChanged,
+  adding,
 }: Omit<EntryPageProps, 'entry' | 'onClose'> & { entry: BaseKnowledgeEntry }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const [values, setValues] = useState<EntryValues>(entry.values)
@@ -436,7 +439,7 @@ function SheetBody({
             onClick={() => void save()}
             data-testid="base-knowledge-save"
           >
-            {proposed ? t('detail.confirm') : t('detail.save')}
+            {!proposed ? t('detail.save') : adding && adding.position < adding.count ? t('adding.confirmNext') : t('detail.confirm')}
           </Button>
         </div>
       )}
@@ -538,16 +541,36 @@ export function EntryPage({
   entry,
   onBack,
   onOpenEdition,
+  onOpenFile,
   ...rest
-}: Omit<EntryPageProps, 'onClose'> & { entry: BaseKnowledgeEntry; onBack: () => void; onOpenEdition: (entryId: string) => void }): JSX.Element {
+}: Omit<EntryPageProps, 'onClose'> & {
+  entry: BaseKnowledgeEntry
+  onBack: () => void
+  onOpenEdition: (entryId: string) => void
+  /** The standard is a file: from its page, one press opens it to read. */
+  onOpenFile?: () => void
+}): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-4" data-testid="base-knowledge-entry-page">
       <BackControl label={t('detail.back')} onClick={onBack} className="self-start" testId="base-knowledge-back" />
-      <header className="space-y-1">
-        <h2 className="text-xl font-semibold">{entry.values.designation ?? entry.values.title}</h2>
-        {entry.values.designation && <p className="text-muted-foreground">{entry.values.title}</p>}
-        <Provenance entry={entry} />
+      {rest.adding && rest.adding.count > 1 && (
+        <p className="text-muted-foreground text-sm" data-testid="base-knowledge-adding">
+          {t('adding.step', rest.adding)}
+        </p>
+      )}
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <h2 className="text-xl font-semibold">{entry.values.designation ?? entry.values.title}</h2>
+          {entry.values.designation && <p className="text-muted-foreground">{entry.values.title}</p>}
+          <Provenance entry={entry} />
+        </div>
+        {onOpenFile && (
+          <Button variant="secondary" size="sm" onClick={onOpenFile} data-testid="base-knowledge-open-file">
+            <FileText aria-hidden />
+            {t('detail.openFile')}
+          </Button>
+        )}
       </header>
       <Editions entry={entry} onOpen={onOpenEdition} />
       {/* Keyed by id and state, so a saved change or another entry starts a fresh form. */}

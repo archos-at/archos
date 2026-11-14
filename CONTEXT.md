@@ -437,6 +437,11 @@ about, so a note about the person is personal even when it was said in a
 project chat. Project memory is read by the project's members and organization
 memory by everyone in the office.
 
+**Thema** (topic):
+What a note is about ("Brandschutz", "Stellplätze"), the folder its note sits in
+on a memory shelf. A word on the note, not a shelf of its own: one name on two
+shelves is two topics, and a reader counts only the notes they may see.
+
 **Temporary conversation**:
 A conversation from which nothing is kept in personal, project or organization
 memory. It still reads what is already known. Its owner switches it on or off;

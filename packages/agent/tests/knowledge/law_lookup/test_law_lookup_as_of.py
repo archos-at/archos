@@ -191,3 +191,199 @@ async def test_a_hit_read_from_its_own_version_document_keeps_its_date():
 
     assert portal.documents_requested == [OLD_URL]
     assert "Fassung 2015-01-01" in output
+
+
+# Dev QC 2026-11-12: three building ordinances of three provinces, each named with its provision, were missed
+# whenever the model passed as_of. A dated call went straight to a full-text search; the question's words do not
+# stand in the provision that answers it, and the provinces' collection takes no version date, so the search
+# answered nothing. Today's date missed the same way. Southmark's collection here takes no date either.
+TODAY = date(2026, 11, 12)
+REGIONAL = "Southmark Building Code"
+_REGIONAL_ARGS = {
+    "question": "How many parking spaces does a new building need?",
+    "instrument": f"§ 60 {REGIONAL}",
+    "jurisdiction": "Southmark",
+}
+OLD_60 = f"https://{xa.DOCS}/documents/regional/XAR60-2015.html"
+NEW_60 = f"https://{xa.DOCS}/documents/regional/XAR60-2021.html"
+OLD_61 = f"https://{xa.DOCS}/documents/regional/XAR61-2015.html"
+
+
+def _regional_versions(*hits) -> xa.Portal:
+    """A portal whose search finds the act's versions by its title alone, and nothing for the question's words."""
+    portal = xa.Portal.with_codes()
+
+    def answer(params: dict[str, str]) -> dict[str, str]:
+        by_title = params.get("title") == REGIONAL and "q" not in params
+        return xa.search_answer(*hits) if by_title else xa.search_answer()
+
+    portal.answer = answer
+    portal.set_text(OLD_60, REGIONAL, "§ 60. (1) One parking space per flat (2015).")
+    portal.set_text(NEW_60, REGIONAL, "§ 60. (1) One parking space per two flats (2021).")
+    portal.set_text(OLD_61, REGIONAL, "§ 61. (1) Bicycle stands (2015).")
+    return portal
+
+
+def _regional_hit(url: str, provision: str, since: str, until: str = "") -> dict:
+    number = url.rsplit("/", 1)[1].removesuffix(".html")
+    return xa.hit(
+        number,
+        REGIONAL,
+        collection="Regional",
+        url=url,
+        region="Southmark",
+        provision=provision,
+        since=since,
+        until=until,
+    )
+
+
+_ALL_VERSIONS = (
+    _regional_hit(NEW_60, "§ 60", "2021-01-01"),
+    _regional_hit(OLD_61, "§ 61", "2015-01-01", "2020-12-31"),
+    _regional_hit(OLD_60, "§ 60", "2015-01-01", "2020-12-31"),
+)
+
+
+def _regional_code() -> object:
+    return xa.catalog_entry(
+        id="xa-southmark-building-code",
+        title=REGIONAL,
+        short="SBC",
+        application="Regional",
+        document_number="XAR00001",
+        full_law_url=xa.REGIONAL_CODE_URL,
+        federal_state="Southmark",
+        topics=["southmark building code", "parking"],
+    )
+
+
+async def _ask_on(portal: xa.Portal, now: date = TODAY, catalog=None, **args) -> str:
+    from unittest.mock import patch
+
+    with patch("agent.knowledge.law_lookup.tool.today", lambda: now):
+        return await _ask(portal, catalog=catalog, **args)
+
+
+@pytest.mark.asyncio
+async def test_today_as_the_day_reads_the_named_act_as_a_call_without_a_day_does():
+    portal = _regional_versions(*_ALL_VERSIONS)
+    output = await _ask_on(portal, catalog=[_regional_code()], **_REGIONAL_ARGS, as_of="2026-11-12")
+
+    assert portal.documents_requested == [xa.REGIONAL_CODE_URL]
+    assert "Every new building provides parking spaces" in output
+    assert output.startswith("as_of 2026-11-12 is today")
+    assert "version document of that day" not in output
+
+
+@pytest.mark.asyncio
+async def test_a_later_day_reads_today_and_says_it_is_todays_text():
+    portal = _regional_versions(*_ALL_VERSIONS)
+    output = await _ask_on(portal, catalog=[_regional_code()], **_REGIONAL_ARGS, as_of="2027-03-01")
+
+    assert portal.documents_requested == [xa.REGIONAL_CODE_URL]
+    assert output.startswith("as_of 2027-03-01 is after today (2026-11-12): the text in force today.")
+
+
+@pytest.mark.asyncio
+async def test_a_past_day_finds_the_named_act_by_its_title_and_reads_the_addressed_provision_of_that_day():
+    portal = _regional_versions(*_ALL_VERSIONS)
+    output = await _ask_on(portal, catalog=[_regional_code()], **_REGIONAL_ARGS, as_of="2019-06-01")
+
+    assert portal.documents_requested == [OLD_60]
+    assert "(2015)" in output and "(2021)" not in output and "Bicycle" not in output
+    # Narrowed to the provision by the record's own argument, so a large act's other versions do not crowd it out.
+    search = portal.searches[0]
+    assert search["title"] == REGIONAL and search["section"] == "60" and "q" not in search
+    assert search["per_page"] == "100" and search["Region.InSouthmark"] == "true"
+    assert len(portal.searches) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_past_day_the_named_act_has_no_version_of_is_still_a_miss():
+    portal = _regional_versions(_regional_hit(NEW_60, "§ 60", "2021-01-01"))
+    output = await _ask_on(portal, **_REGIONAL_ARGS, as_of="2019-06-01")
+
+    assert portal.documents_requested == []
+    assert "Today's text is not given in its place" in output
+    # Narrowed to § 60, then by the title alone, then the planned search, as before this path existed.
+    assert [search.get("section") for search in portal.searches] == ["60", None, None]
+    assert "q" in portal.searches[-1]
+
+
+def test_only_a_day_before_today_is_a_past_day():
+    from agent.knowledge.law_lookup.as_of import reads_today
+
+    assert [reads_today(day, TODAY) for day in ("2026-11-11", "2026-11-12", "2026-11-13")] == [False, True, True]
+
+
+# Review of the fix: an act named with no provision is a question about the act, and the planned search looks for
+# the provision that answers it. A title search would read whichever provisions the source lists first.
+@pytest.mark.asyncio
+async def test_a_past_day_with_the_act_but_no_provision_is_the_planned_search():
+    portal = _regional_versions(*_ALL_VERSIONS)
+    args = {**_REGIONAL_ARGS, "instrument": REGIONAL}
+    output = await _ask_on(portal, **args, as_of="2019-06-01")
+
+    assert len(portal.searches) == 1 and "q" in portal.searches[0]
+    assert portal.documents_requested == []
+    assert "Today's text is not given in its place" in output
+
+
+# A version of that day was read and answered nothing: the miss says so, not that no version was found.
+@pytest.mark.asyncio
+async def test_a_version_of_the_day_read_without_an_answer_is_not_called_missing():
+    portal = _regional_versions(*_ALL_VERSIONS)
+    portal.set_text(OLD_60, REGIONAL, "§ 61. (1) Bicycle stands (2015).")
+    output = await _ask_on(portal, **_REGIONAL_ARGS, as_of="2019-06-01")
+
+    assert portal.documents_requested == [OLD_60]
+    assert "1 Statutes version document(s) of that day were read and none answered" in output
+    assert "no Statutes version document of that day was found" not in output
+
+
+# CodeRabbit on #1717: the block's records are filed under the exact text it renders. The day's note, put before
+# the block afterwards, changed that text, so the citation layer lost the records (work, edition, public address)
+# and fell back to parsing. The note is inside the block now.
+@pytest.mark.asyncio
+async def test_the_note_of_a_day_read_as_today_keeps_the_answers_records():
+    from agent.common.grounding_block import begin_grounding_capture
+    from agent.common.grounding_block import end_grounding_capture
+    from agent.common.grounding_block import get_grounding_block
+
+    token = begin_grounding_capture()
+    try:
+        output = await _ask_on(
+            _regional_versions(*_ALL_VERSIONS), catalog=[_regional_code()], **_REGIONAL_ARGS, as_of="2026-11-12"
+        )
+        block = get_grounding_block(output)
+    finally:
+        end_grounding_capture(token)
+
+    assert block is not None and block.hits
+    assert block.preamble.startswith("as_of 2026-11-12 is today")
+
+
+# CodeRabbit on #1717: on a past day each provision is a document of its own, and a call reads only two. A third
+# addressed provision's version was found and silently left unread; the answer names it now.
+@pytest.mark.asyncio
+async def test_a_past_days_version_found_and_not_read_is_named():
+    portal = _regional_versions(*_ALL_VERSIONS)
+    old_62 = f"https://{xa.DOCS}/documents/regional/XAR62-2015.html"
+    old_63 = f"https://{xa.DOCS}/documents/regional/XAR63-2015.html"
+    portal.answer = lambda params: (
+        xa.search_answer(
+            *_ALL_VERSIONS,
+            _regional_hit(old_62, "§ 62", "2015-01-01", "2020-12-31"),
+            _regional_hit(old_63, "§ 63", "2015-01-01", "2020-12-31"),
+        )
+        if "q" not in params
+        else xa.search_answer()
+    )
+    for url, number in ((old_62, 62), (old_63, 63)):
+        portal.set_text(url, REGIONAL, f"§ {number}. (1) Provision {number} (2015).")
+    args = {**_REGIONAL_ARGS, "instrument": f"§§ 61, 62 and 63 {REGIONAL}"}
+    output = await _ask_on(portal, **args, as_of="2019-06-01")
+
+    assert len(portal.documents_requested) == 2
+    assert "Versions of 2019-06-01 found and not read in this call: § 63." in output

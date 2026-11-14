@@ -1,5 +1,6 @@
 /** What a document preview is given (`FilePreviewPane`, read by `useFilePreviewController`). */
 
+import type { ReactNode } from 'react'
 import type { MarkTally } from '@/lib/annotations/types'
 import type { DocumentLifecyclePermission, DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import type { RevisionLinks } from '@/lib/documents/revision-links'
@@ -76,4 +77,10 @@ export interface FilePreviewPaneProps {
   /** Modal on Files; peek/expanded once this file is the chat subject. */
   presentation?: 'modal' | 'peek' | 'expanded'
   onAssigneesChanged?: (assignees: FileItem['assignees']) => void
+  /**
+   * What the surface that opened the file knows about it beyond the file, first in the details column: Grundlagen
+   * des Büros puts the standard's edition, validity and last check here, so a standard opens as the file it is and
+   * its facts read beside it rather than in a form of their own.
+   */
+  detailsLead?: ReactNode
 }

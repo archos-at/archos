@@ -88,7 +88,7 @@ repos:
           else echo "skipping the Zod stage, apps/workspace/node_modules is absent"; fi'
         language: system
         pass_filenames: false
-        files: ^(packages/agent/src/agent/common/wire_v2\.py|contracts/wire/v2\.schema\.json|scripts/generate_wire_schema\.py|apps/workspace/scripts/generate-(wire|card)-schemas\.mjs|apps/workspace/ui/adapters/api/wire-v2\.generated\.ts)$
+        files: ^(packages/agent/src/agent/common/wire_(v2|model)\.py|contracts/wire/v2\.schema\.json|scripts/generate_wire_schema\.py|apps/workspace/scripts/generate-(wire|card)-schemas\.mjs|apps/workspace/ui/adapters/api/wire-v2\.generated\.ts)$
 
       - id: vocabularies
         name: the UI's shared vocabularies are generated from their Python sources

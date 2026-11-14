@@ -36,6 +36,9 @@ a commit CI failed cannot be deployed by accident.
   environment, with the URL the stack reports (output `appUrl`), so the
   repository's Deployments page and each deployed commit link to the running
   app. The run summary lists the commit and the three image refs it pinned.
+  The Actions list names a `workflow_run` run after the branch's tip when it
+  started, not after the commit it deploys: read `IMAGE_TAG` in the
+  **Pulumi up (dev)** log or the summary's image refs for that.
 - **The Pulumi CLI** is the release of the `@pulumi/pulumi` SDK that
   `deploy/pulumi/bun.lock` pins, not `latest`. Dependabot bumps the
   SDK, and the CLI follows in the same reviewed diff; staging and prod always

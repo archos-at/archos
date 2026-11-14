@@ -2,6 +2,7 @@
 
 import typing
 
+import pytest
 from pydantic import ValidationError
 
 from agent.cards.card_model import CardModel
@@ -23,6 +24,26 @@ class TestMemoryProposalCard:
             kind="constraint",
         )
         assert card.confidence == "medium"
+
+    def test_carries_the_topic_the_note_is_filed_under(self):
+        card = MemoryProposalCard(
+            type="memory_proposal",
+            title="Save this finding?",
+            content="Alle Fassaden sind nicht brennbar.",
+            kind="constraint",
+            topic="Brandschutz",
+        )
+        assert card.topic == "Brandschutz"
+
+    def test_a_topic_longer_than_the_shelf_keeps_is_refused(self):
+        with pytest.raises(ValidationError):
+            MemoryProposalCard(
+                type="memory_proposal",
+                title="Save this finding?",
+                content="Alle Fassaden sind nicht brennbar.",
+                kind="constraint",
+                topic="T" * 41,
+            )
 
     def test_adapter_routes_type(self):
         raw = {

@@ -200,9 +200,10 @@ describe('POST /api/internal/signed/inbound-mail', () => {
   })
 
   it.each([
-    ['an unknown token', { 'x-envelope-to': 'project+wohnbau.zzzzzzzzzzzz@example.org' }],
-    ['a recipient that holds no token', { 'x-envelope-to': 'info@example.org' }],
-  ])('rejects %s with the one bounce text, without reading the body', async (_, envelope) => {
+    // The stage says where it was refused: a token that names no address at the lookup, a recipient with none while reading the envelope.
+    ['an unknown token', { 'x-envelope-to': 'project+wohnbau.zzzzzzzzzzzz@example.org' }, 'address'],
+    ['a recipient that holds no token', { 'x-envelope-to': 'info@example.org' }, 'envelope'],
+  ])('rejects %s with the one bounce text, without reading the body', async (_, envelope, stage) => {
     const response = await POST(await sign({}, envelope))
 
     expect(response.status).toBe(404)
@@ -210,7 +211,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
     expect(await response.json()).toMatchObject({ error: SITE.text })
     expect(insertReception).not.toHaveBeenCalled()
     expect(putRawMessage).not.toHaveBeenCalled()
-    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_refused', properties: { reason: 'unknown_address' } }))
+    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_refused', properties: { reason: 'unknown_address', stage, error: null } }))
   })
 
   it('rejects mail to an office that has the feature off exactly like an unknown address', async () => {

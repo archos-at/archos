@@ -10,6 +10,7 @@ same reader that reads a corpus hit reads this.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from types import SimpleNamespace
 
 from knowledge_layer.search import trace_lanes_for_chunks as _trace_lanes_for_chunks
@@ -30,18 +31,25 @@ from agent.knowledge.law_lookup.source import LawSource
 
 
 def format_passages(
-    passages: list[Passage], ingested_name: str | None, address: Address, law: LawSource, tool: str
+    passages: list[Passage],
+    ingested_name: str | None,
+    address: Address,
+    law: LawSource,
+    tool: str,
+    notes: Sequence[str] = (),
 ) -> str:
     """Every selected passage as one grounding block.
 
     The preamble carries the facts that are about the CALL rather than about a
-    passage: the jurisdiction it assumed, and the document it left in the
-    session collection. It sits before the first ``--- Result N ---``, so the
-    citation reader never sees it as a hit's field.
+    passage: the call's ``notes`` (the source it read, a day read as today, the
+    versions it left unread), the jurisdiction it assumed, and the document it
+    left in the session collection. It sits before the first ``--- Result N ---``,
+    so the citation reader never sees it as a hit's field, and inside the rendered
+    text, under which the block's records are filed.
     """
     return render_grounding_block(
         GroundingBlock(
-            preamble="\n".join(_preamble_lines(passages, ingested_name, address, law)),
+            preamble="\n".join([*notes, *_preamble_lines(passages, ingested_name, address, law)]),
             degraded_banner="",
             hits=tuple(_hit(passage, law) for passage in passages),
             lanes=_trace_lanes(passages),
@@ -64,6 +72,24 @@ def _preamble_lines(passages: list[Passage], ingested_name: str | None, address:
             f"read_passage reopens any other {law.section_sign} of it.]"
         )
     return lines
+
+
+def unread_versions(trace, law: LawSource) -> list[str]:
+    """On a past day, the version documents of that day this call found and did not read, by their provision.
+
+    Each provision of a past day is a document of its own, and a call reads only so many: the rest is named,
+    so the caller can ask for each in a call of its own.
+    """
+    if not trace.as_of:
+        return []
+    unread = [c for c in trace.candidates if c.fetchable and c.url not in trace.fetched]
+    if not unread:
+        return []
+    labels = ", ".join(c.provision or c.citation_url for c in unread)
+    return [
+        f"Versions of {trace.as_of} found and not read in this call: {labels}. "
+        f"Ask for each in a call of its own, with the same as_of; {law.wording.source} holds each as its own document."
+    ]
 
 
 def unread_sentence(address: Address, law: LawSource) -> str:

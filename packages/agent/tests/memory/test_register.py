@@ -172,6 +172,39 @@ async def test_a_personal_finding_is_written_with_the_envelope_and_says_who_read
 
 
 @pytest.mark.asyncio
+async def test_a_personal_note_is_filed_under_its_topic(monkeypatch):
+    _patch_context(monkeypatch)
+    _patch_envelope(monkeypatch)
+    seen = _personal_transport(monkeypatch)
+
+    await _remember(monkeypatch, MagicMock(), topic="Brandschutz", **_PERSONAL)
+
+    assert seen["payload"]["topic"] == "Brandschutz"
+
+
+@pytest.mark.asyncio
+async def test_a_personal_note_without_a_topic_sends_none(monkeypatch):
+    _patch_context(monkeypatch)
+    _patch_envelope(monkeypatch)
+    seen = _personal_transport(monkeypatch)
+
+    result = await _remember(monkeypatch, MagicMock(), topic="T" * 41, **_PERSONAL)
+
+    assert result == "Recorded preference in personal memory; only this person can read it."
+    assert "topic" not in seen["payload"]
+
+
+@pytest.mark.asyncio
+async def test_a_project_note_passes_its_topic_to_the_write(monkeypatch):
+    _patch_context(monkeypatch)
+    insert = MagicMock(return_value="item-1")
+
+    await _remember(monkeypatch, insert, topic="Brandschutz")
+
+    assert insert.call_args.kwargs["topic"] == "Brandschutz"
+
+
+@pytest.mark.asyncio
 async def test_a_personal_note_that_already_existed_is_reported_as_refreshed(monkeypatch):
     _patch_context(monkeypatch)
     _patch_envelope(monkeypatch)
@@ -190,6 +223,102 @@ async def test_a_personal_finding_without_an_envelope_is_not_saved(monkeypatch):
     assert "NOT saved" in result and "Do not retry" in result
     assert seen["calls"] == 0
     insert.assert_not_called()
+
+
+def _personal_routes(monkeypatch, *, forget):
+    """Both personal-memory routes, faked at the transport: the forget answers ``forget``; each call's path."""
+    calls: list[tuple[str, dict]] = []
+
+    class _Response(io.BytesIO):
+        status = 200
+        headers = {"Content-Type": "application/json"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    class _Opener:
+        def open(self, request, timeout=None):  # noqa: ANN001
+            path = request.full_url.split("/api/internal/", 1)[1]
+            calls.append((path, json.loads(request.data.decode("utf-8"))))
+            answer = forget if path.endswith("/forget") else {"item": {"id": "note-2"}, "created": True}
+            return _Response(json.dumps(answer).encode("utf-8"))
+
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "internal-token")
+    monkeypatch.setattr(bff_http, "_opener", _Opener())
+    return calls
+
+
+_LORD = "Mit „Lord“ ansprechen."
+
+
+@pytest.mark.asyncio
+async def test_undoing_a_personal_note_removes_it_and_records_nothing(monkeypatch):
+    _patch_context(monkeypatch)
+    _patch_envelope(monkeypatch)
+    calls = _personal_routes(monkeypatch, forget={"removedId": "note-1", "refused": None})
+
+    result = await _remember(
+        monkeypatch, MagicMock(), scope="personal", kind="preference", content="", supersedes=_LORD
+    )
+
+    assert calls == [("personal-memory/forget", {"content": _LORD})]
+    assert result.startswith("Removed the earlier personal note.")
+
+
+@pytest.mark.asyncio
+async def test_a_personal_correction_removes_the_old_note_before_it_writes_the_new_one(monkeypatch):
+    _patch_context(monkeypatch)
+    _patch_envelope(monkeypatch)
+    calls = _personal_routes(monkeypatch, forget={"removedId": "note-1", "refused": None})
+
+    result = await _remember(
+        monkeypatch,
+        MagicMock(),
+        scope="personal",
+        kind="preference",
+        content="Mit „Meister“ ansprechen.",
+        supersedes=_LORD,
+    )
+
+    assert [path for path, _ in calls] == ["personal-memory/forget", "personal-memory"]
+    assert (
+        result
+        == "Removed the earlier personal note. Recorded preference in personal memory; only this person can read it."
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("refused", "said"), [("not_found", "No personal note says"), ("curated", "wrote or pinned that note")]
+)
+async def test_a_personal_correction_whose_note_stays_writes_nothing(monkeypatch, refused, said):
+    """The bug this guards: a note that contradicts the one it was meant to replace."""
+    _patch_context(monkeypatch)
+    _patch_envelope(monkeypatch)
+    calls = _personal_routes(monkeypatch, forget={"removedId": None, "refused": refused})
+
+    result = await _remember(
+        monkeypatch,
+        MagicMock(),
+        scope="personal",
+        kind="preference",
+        content="Nicht mehr mit „Lord“ ansprechen.",
+        supersedes=_LORD,
+    )
+
+    assert [path for path, _ in calls] == ["personal-memory/forget"]
+    assert said in result and "contradicting note" in result
+
+
+@pytest.mark.asyncio
+async def test_an_empty_content_is_still_refused_without_a_note_to_remove(monkeypatch):
+    _patch_context(monkeypatch)
+    assert await _remember(monkeypatch, MagicMock(), scope="personal", kind="preference", content=" ") == (
+        "Error: content must not be empty."
+    )
 
 
 @pytest.mark.asyncio
@@ -512,7 +641,7 @@ class TestToolVocabulary:
     async def test_every_parameter_is_described_to_the_model(self):
         async with project_memory_remember(ProjectMemoryRememberConfig(), MagicMock()) as info:
             properties = info.input_schema.model_json_schema()["properties"]
-        assert set(properties) == {"kind", "content", "confidence", "scope", "supersedes"}
+        assert set(properties) == {"kind", "content", "confidence", "scope", "supersedes", "topic"}
         assert all(len(field.get("description", "")) > 40 for field in properties.values())
         assert "only that person reads it" in properties["scope"]["description"]
 
@@ -906,3 +1035,50 @@ async def test_a_superseded_quote_too_long_for_a_proposal_is_dropped_not_sent(mo
     (body,) = transport.bodies()
     assert _contract_errors(body) == []
     assert "supersedes" not in body["payload"]
+
+
+@pytest.mark.asyncio
+async def test_a_legacy_card_carries_the_topic_the_note_is_filed_under(monkeypatch, proposals):
+    proposals.install(404)  # an older BFF stores no proposal: the browser writes the note from the card
+    insert = MagicMock(side_effect=pm.OrgMemoryDisabledError("disabled"))
+
+    await _remember(monkeypatch, insert, scope="organization", topic="Brandschutz")
+
+    (card,) = proposals.registry.snapshot()
+    assert card["type"] == "memory_proposal" and "proposal_id" not in card
+    assert card["topic"] == "Brandschutz"
+
+
+@pytest.mark.asyncio
+async def test_a_topic_too_long_to_keep_is_left_off_the_card(monkeypatch, proposals):
+    proposals.install(404)
+    insert = MagicMock(side_effect=pm.OrgMemoryDisabledError("disabled"))
+
+    await _remember(monkeypatch, insert, scope="organization", topic="T" * 41)
+
+    (card,) = proposals.registry.snapshot()
+    assert "topic" not in card
+
+
+@pytest.mark.asyncio
+async def test_an_org_denied_note_carries_its_topic_in_the_proposal(monkeypatch, proposals):
+    transport = proposals.install({"id": _PROPOSAL_ID, "status": "proposed"})
+    insert = MagicMock(side_effect=pm.OrgMemoryDisabledError("disabled"))
+
+    await _remember(monkeypatch, insert, scope="organization", topic="Brandschutz")
+
+    (body,) = transport.bodies()
+    assert _contract_errors(body) == []
+    assert body["payload"]["topic"] == "Brandschutz"
+
+
+@pytest.mark.asyncio
+async def test_a_topic_too_long_to_keep_is_not_sent_in_the_proposal(monkeypatch, proposals):
+    transport = proposals.install({"id": _PROPOSAL_ID, "status": "proposed"})
+    insert = MagicMock(side_effect=pm.OrgMemoryDisabledError("disabled"))
+
+    await _remember(monkeypatch, insert, scope="organization", topic="T" * 41)
+
+    (body,) = transport.bodies()
+    assert _contract_errors(body) == []
+    assert "topic" not in body["payload"]

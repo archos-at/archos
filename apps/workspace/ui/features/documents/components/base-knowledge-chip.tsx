@@ -3,9 +3,9 @@
 /**
  * „Grundlage“ beside a Büroablage file that is one of the office's standards
  * (ADR-0163, ticket 32: „als Grundlage erkennbar, nicht als eine Datei unter
- * vielen“). A press opens the standard's page in Grundlagen des Büros, where
- * its edition, licence and last check live; the row's own press still opens
- * the file.
+ * vielen“). A press opens the file in Grundlagen des Büros, with its
+ * edition, validity and last check beside it; the row's own press opens the
+ * same file here.
  */
 
 import Link from 'next/link'
@@ -23,7 +23,7 @@ export function BaseKnowledgeChip({ file, className }: { file: Pick<FileItem, 'b
   return (
     <Chip asChild size="sm" variant="info" interactive className={cn('shrink-0', className)}>
       <Link
-        href={`/app/base-knowledge?entry=${encodeURIComponent(file.baseKnowledgeEntryId)}`}
+        href={`/app/base-knowledge?file=${encodeURIComponent(file.baseKnowledgeEntryId)}`}
         onClick={(event) => event.stopPropagation()}
         title={t('baseKnowledge.open')}
         data-testid="base-knowledge-chip"

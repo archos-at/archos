@@ -159,19 +159,28 @@
    "name": "project-memory-list",
    "domain": "projects",
    "summary": "List a project’s memory items",
-   "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. Item ids feed project-memory-update and project-memory-delete.",
+   "description": "The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \"true\"` for archived ones, or `conversationId` for those noted in one conversation. `topics` counts the caller’s active items. Item ids feed project-memory-update and project-memory-delete.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"project-memory-list\",\"domain\":\"projects\",\"summary\":\"List a project’s memory items\",\"description\":\"The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \\\"true\\\"` for archived ones, or `conversationId` for those noted in one conversation. Item ids feed project-memory-update and project-memory-delete.\",\"annotations\":{\"title\":\"List a project’s memory items\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"includeArchived\":{\"type\":\"string\"},\"conversationId\":{\"type\":\"string\"},\"limit\":{\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"type\":\"string\",\"maxLength\":64}}}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+   "describe": "{\"name\":\"project-memory-list\",\"domain\":\"projects\",\"summary\":\"List a project’s memory items\",\"description\":\"The facts, decisions and notes ARCHOS keeps for the project, pinned first then newest, as `{ items, nextCursor }` (`limit` default 50; pass `nextCursor` as `cursor`). Pass `includeArchived: \\\"true\\\"` for archived ones, or `conversationId` for those noted in one conversation. `topics` counts the caller’s active items. Item ids feed project-memory-update and project-memory-delete.\",\"annotations\":{\"title\":\"List a project’s memory items\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"includeArchived\":{\"type\":\"string\"},\"conversationId\":{\"type\":\"string\"},\"topic\":{\"description\":\"This topic only; empty: none.\",\"type\":\"string\",\"maxLength\":200},\"limit\":{\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"type\":\"string\",\"maxLength\":64}}}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+  },
+  {
+   "name": "project-memory-topic-rename",
+   "domain": "projects",
+   "summary": "Rename or merge a memory topic",
+   "description": "Moves the shelf’s items from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`. Only items the caller can see and edit. Needs project:memory:write.",
+   "readOnly": false,
+   "destructive": false,
+   "describe": "{\"name\":\"project-memory-topic-rename\",\"domain\":\"projects\",\"summary\":\"Rename or merge a memory topic\",\"description\":\"Moves the shelf’s items from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`. Only items the caller can see and edit. Needs project:memory:write.\",\"annotations\":{\"title\":\"Rename or merge a memory topic\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]},\"body\":{\"type\":\"object\",\"properties\":{\"from\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},{\"type\":\"null\"}],\"description\":\"Topic to rename. null: no topic.\"},\"to\":{\"anyOf\":[{\"type\":\"string\",\"maxLength\":200},{\"type\":\"null\"}],\"description\":\"New name; an existing one merges. null: none.\"}},\"required\":[\"from\",\"to\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
    "name": "project-memory-update",
    "domain": "projects",
    "summary": "Edit a memory item",
-   "description": "Changes any of a memory item’s kind, content, status, confidence, verification or pinned flag; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.",
+   "description": "Changes any of a memory item’s kind, content, status, confidence, verification, pinned flag or `topic`; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"project-memory-update\",\"domain\":\"projects\",\"summary\":\"Edit a memory item\",\"description\":\"Changes any of a memory item’s kind, content, status, confidence, verification or pinned flag; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.\",\"annotations\":{\"title\":\"Edit a memory item\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"},\"itemId\":{\"type\":\"string\",\"description\":\"The memory item id, from project-memory-list (items[].id).\"}},\"required\":[\"id\",\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"decision\",\"constraint\",\"open_question\",\"derived_fact\",\"preference\"]},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000},\"status\":{\"type\":\"string\",\"enum\":[\"active\",\"superseded\",\"dismissed\"]},\"confidence\":{\"type\":\"string\",\"enum\":[\"low\",\"medium\",\"high\"]},\"verification\":{\"type\":\"string\",\"enum\":[\"unverified\",\"source_grounded\",\"user_confirmed\"]},\"pinned\":{\"type\":\"boolean\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+   "describe": "{\"name\":\"project-memory-update\",\"domain\":\"projects\",\"summary\":\"Edit a memory item\",\"description\":\"Changes any of a memory item’s kind, content, status, confidence, verification, pinned flag or `topic`; at least one field. Set `status` to `dismissed` or `superseded` rather than deleting when the item was only wrong for now. `itemId` is from project-memory-list. Answers `{ item }`.\",\"annotations\":{\"title\":\"Edit a memory item\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"},\"itemId\":{\"type\":\"string\",\"description\":\"The memory item id, from project-memory-list (items[].id).\"}},\"required\":[\"id\",\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"decision\",\"constraint\",\"open_question\",\"derived_fact\",\"preference\"]},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000},\"status\":{\"type\":\"string\",\"enum\":[\"active\",\"superseded\",\"dismissed\"]},\"confidence\":{\"type\":\"string\",\"enum\":[\"low\",\"medium\",\"high\"]},\"verification\":{\"type\":\"string\",\"enum\":[\"unverified\",\"source_grounded\",\"user_confirmed\"]},\"pinned\":{\"type\":\"boolean\"},\"topic\":{\"anyOf\":[{\"type\":\"string\",\"maxLength\":200},{\"type\":\"null\"}],\"description\":\"1–3 words in the person's language; reuse a topic. null: none.\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
    "name": "project-overview-get",
@@ -1572,19 +1581,37 @@
    "name": "personal-memory-list",
    "domain": "collaboration",
    "summary": "List the person’s personal memory",
-   "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Item ids feed personal-memory-update and personal-memory-delete.",
+   "description": "The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. `topics` counts all the person’s notes. Item ids feed personal-memory-update and personal-memory-delete.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"personal-memory-list\",\"domain\":\"collaboration\",\"summary\":\"List the person’s personal memory\",\"description\":\"The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. Item ids feed personal-memory-update and personal-memory-delete.\",\"annotations\":{\"title\":\"List the person’s personal memory\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"type\":\"string\",\"maxLength\":64},\"sourceConversationId\":{\"description\":\"Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":255}}}},\"additionalProperties\":false}}"
+   "describe": "{\"name\":\"personal-memory-list\",\"domain\":\"collaboration\",\"summary\":\"List the person’s personal memory\",\"description\":\"The notes kept about the person themself (how they want answers, their role and recurring topics), pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the organization sees them. `topics` counts all the person’s notes. Item ids feed personal-memory-update and personal-memory-delete.\",\"annotations\":{\"title\":\"List the person’s personal memory\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"type\":\"string\",\"maxLength\":64},\"sourceConversationId\":{\"description\":\"Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":255},\"topic\":{\"description\":\"This topic only; empty: none.\",\"type\":\"string\",\"maxLength\":200}}}},\"additionalProperties\":false}}"
+  },
+  {
+   "name": "personal-memory-topic-delete",
+   "domain": "collaboration",
+   "summary": "Delete a personal memory topic and its notes",
+   "description": "Deletes every personal note on topic `name` (from personal-memory-list), for good; it cannot be undone. Answers `{ removed }`. To keep the notes, use personal-memory-topic-rename with `to: null`.",
+   "readOnly": false,
+   "destructive": true,
+   "describe": "{\"name\":\"personal-memory-topic-delete\",\"domain\":\"collaboration\",\"summary\":\"Delete a personal memory topic and its notes\",\"description\":\"Deletes every personal note on topic `name` (from personal-memory-list), for good; it cannot be undone. Answers `{ removed }`. To keep the notes, use personal-memory-topic-rename with `to: null`.\",\"annotations\":{\"title\":\"Delete a personal memory topic and its notes\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":200,\"description\":\"Topic to remove, as topics names it; its notes are deleted.\"}},\"required\":[\"name\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+  },
+  {
+   "name": "personal-memory-topic-rename",
+   "domain": "collaboration",
+   "summary": "Rename or merge a personal memory topic",
+   "description": "Moves the person’s notes from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`.",
+   "readOnly": false,
+   "destructive": false,
+   "describe": "{\"name\":\"personal-memory-topic-rename\",\"domain\":\"collaboration\",\"summary\":\"Rename or merge a personal memory topic\",\"description\":\"Moves the person’s notes from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`.\",\"annotations\":{\"title\":\"Rename or merge a personal memory topic\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"from\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},{\"type\":\"null\"}],\"description\":\"Topic to rename. null: no topic.\"},\"to\":{\"anyOf\":[{\"type\":\"string\",\"maxLength\":200},{\"type\":\"null\"}],\"description\":\"New name; an existing one merges. null: none.\"}},\"required\":[\"from\",\"to\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
   },
   {
    "name": "personal-memory-update",
    "domain": "collaboration",
    "summary": "Edit a personal memory note",
-   "description": "Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
+   "description": "Changes any of a personal note’s kind, content, pinned flag or `topic`; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"personal-memory-update\",\"domain\":\"collaboration\",\"summary\":\"Edit a personal memory note\",\"description\":\"Changes any of a personal note’s kind, content or pinned flag; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.\",\"annotations\":{\"title\":\"Edit a personal memory note\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"itemId\":{\"type\":\"string\",\"description\":\"The personal memory note id (a UUID), from personal-memory-list.\"}},\"required\":[\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"preference\",\"profile\"],\"description\":\"`preference`: how the person wants the agent to work. `profile`: their role, responsibilities and recurring topics.\"},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000,\"description\":\"One self-contained sentence about the person, max 2000 characters.\"},\"pinned\":{\"type\":\"boolean\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+   "describe": "{\"name\":\"personal-memory-update\",\"domain\":\"collaboration\",\"summary\":\"Edit a personal memory note\",\"description\":\"Changes any of a personal note’s kind, content, pinned flag or `topic`; at least one field. `itemId` is from personal-memory-list. 409 when another note of the person already says the new content. Answers `{ item }`.\",\"annotations\":{\"title\":\"Edit a personal memory note\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"itemId\":{\"type\":\"string\",\"description\":\"The personal memory note id (a UUID), from personal-memory-list.\"}},\"required\":[\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"preference\",\"profile\"],\"description\":\"`preference`: how the person wants the agent to work. `profile`: their role, responsibilities and recurring topics.\"},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000,\"description\":\"One self-contained sentence about the person, max 2000 characters.\"},\"pinned\":{\"type\":\"boolean\"},\"topic\":{\"anyOf\":[{\"type\":\"string\",\"maxLength\":200},{\"type\":\"null\"}],\"description\":\"1–3 words in the person's language; reuse a topic. null: none.\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
    "name": "proposal-get",
@@ -2121,19 +2148,19 @@
    "name": "organization-memory-list",
    "domain": "organization",
    "summary": "List organization memory",
-   "description": "The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. Any member may read. Item ids feed organization-memory-update and organization-memory-delete.",
+   "description": "Knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned, then newest, a `limit` (default 50) page with `nextCursor`. `topics` counts active items; `topic` filters. Any member reads. Ids feed organization-memory-update and organization-memory-delete.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"organization-memory-list\",\"domain\":\"organization\",\"summary\":\"List organization memory\",\"description\":\"The knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned first then newest, a page of `limit` (default 50) with `nextCursor`. Any member may read. Item ids feed organization-memory-update and organization-memory-delete.\",\"annotations\":{\"title\":\"List organization memory\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"includeArchived\":{\"description\":\"\\\"true\\\" also returns archived items.\",\"type\":\"string\",\"enum\":[\"true\",\"false\"]},\"conversationId\":{\"description\":\"Only the notes written from this conversation.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":255},\"limit\":{\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"type\":\"string\",\"maxLength\":64}}}},\"additionalProperties\":false}}"
+   "describe": "{\"name\":\"organization-memory-list\",\"domain\":\"organization\",\"summary\":\"List organization memory\",\"description\":\"Knowledge shared by every project of the organization (kind, content, status, confidence, pinned), pinned, then newest, a `limit` (default 50) page with `nextCursor`. `topics` counts active items; `topic` filters. Any member reads. Ids feed organization-memory-update and organization-memory-delete.\",\"annotations\":{\"title\":\"List organization memory\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"includeArchived\":{\"description\":\"\\\"true\\\" includes archived.\",\"type\":\"string\",\"enum\":[\"true\",\"false\"]},\"conversationId\":{\"description\":\"This conversation only.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":255},\"topic\":{\"description\":\"This topic only; empty: none.\",\"type\":\"string\",\"maxLength\":200},\"limit\":{\"description\":\"Default 50, max 200.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"type\":\"string\",\"maxLength\":64}}}},\"additionalProperties\":false}}"
   },
   {
    "name": "organization-memory-update",
    "domain": "organization",
    "summary": "Edit an organization memory item",
-   "description": "Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned). At least one field is required. The id comes from organization-memory-list.",
+   "description": "Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned, or `topic`). At least one field is required. The id comes from organization-memory-list.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"organization-memory-update\",\"domain\":\"organization\",\"summary\":\"Edit an organization memory item\",\"description\":\"Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned). At least one field is required. The id comes from organization-memory-list.\",\"annotations\":{\"title\":\"Edit an organization memory item\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"itemId\":{\"type\":\"string\",\"description\":\"The organization memory item id, from organization-memory-list.\"}},\"required\":[\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"decision\",\"constraint\",\"open_question\",\"derived_fact\",\"preference\"]},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000},\"status\":{\"type\":\"string\",\"enum\":[\"active\",\"superseded\",\"dismissed\"]},\"confidence\":{\"type\":\"string\",\"enum\":[\"low\",\"medium\",\"high\"]},\"verification\":{\"type\":\"string\",\"enum\":[\"unverified\",\"source_grounded\",\"user_confirmed\"]},\"pinned\":{\"type\":\"boolean\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+   "describe": "{\"name\":\"organization-memory-update\",\"domain\":\"organization\",\"summary\":\"Edit an organization memory item\",\"description\":\"Changes fields of one organization memory item (kind, content, status, confidence, verification, pinned, or `topic`). At least one field is required. The id comes from organization-memory-list.\",\"annotations\":{\"title\":\"Edit an organization memory item\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"itemId\":{\"type\":\"string\",\"description\":\"The organization memory item id, from organization-memory-list.\"}},\"required\":[\"itemId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"decision\",\"constraint\",\"open_question\",\"derived_fact\",\"preference\"]},\"content\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":2000},\"status\":{\"type\":\"string\",\"enum\":[\"active\",\"superseded\",\"dismissed\"]},\"confidence\":{\"type\":\"string\",\"enum\":[\"low\",\"medium\",\"high\"]},\"verification\":{\"type\":\"string\",\"enum\":[\"unverified\",\"source_grounded\",\"user_confirmed\"]},\"pinned\":{\"type\":\"boolean\"},\"topic\":{\"anyOf\":[{\"type\":\"string\",\"maxLength\":200},{\"type\":\"null\"}],\"description\":\"1–3 words in the person's language; reuse a topic. null: none.\"}}},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
    "name": "organization-role-list",
@@ -2283,34 +2310,34 @@
   ],
   "rename document": [
    "document-rename",
+   "project-memory-topic-rename",
    "project-rename",
+   "personal-memory-topic-rename",
    "saved-search-update",
    "office-shelf-folder-update",
    "project-folder-update",
    "conversation-update",
    "document-archive",
-   "document-bin",
-   "document-delete",
-   "document-download"
+   "document-bin"
   ],
   "Dokument umbenennen": [
    "document-rename",
+   "project-memory-topic-rename",
    "project-rename",
+   "personal-memory-topic-rename",
    "saved-search-update",
    "office-shelf-folder-update",
    "project-folder-update",
    "conversation-update",
    "document-archive",
-   "document-bin",
-   "document-delete",
-   "document-download"
+   "document-bin"
   ],
   "move document folder": [
    "document-move",
    "project-folder-delete",
    "project-folder-update",
-   "base-knowledge-bulk",
    "office-shelf-folder-update",
+   "base-knowledge-bulk",
    "document-bin",
    "project-folder-bin-list",
    "document-summary-get",
@@ -2404,26 +2431,26 @@
   "project memory": [
    "project-memory-list",
    "project-memory-delete",
+   "project-memory-topic-rename",
    "project-memory-update",
    "personal-memory-clear",
    "organization-memory-list",
    "project-experience-extract",
    "personal-memory-delete",
    "personal-memory-list",
-   "personal-memory-update",
-   "organization-memory-delete"
+   "personal-memory-topic-delete"
   ],
   "Projektgedächtnis merken": [
    "project-memory-list",
    "project-memory-delete",
+   "project-memory-topic-rename",
    "project-memory-update",
    "personal-memory-clear",
    "organization-memory-list",
    "personal-memory-delete",
    "personal-memory-list",
-   "personal-memory-update",
-   "organization-memory-delete",
-   "organization-memory-update"
+   "personal-memory-topic-delete",
+   "personal-memory-update"
   ],
   "list proposals": [
    "proposal-list",

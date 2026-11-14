@@ -46,6 +46,7 @@ import { MAX_BULK_ENTRIES, type BulkEntriesBody } from '@/lib/base-knowledge/wir
 import { useBaseKnowledge, type BaseKnowledgeFilters } from '../hooks/use-base-knowledge'
 import { EntryList } from './entry-list'
 import { EntryPage } from './entry-page'
+import { StandardFile } from './standard-file'
 import { Guide } from './guide'
 import { ShelfPickerDialog } from './shelf-picker-dialog'
 
@@ -57,27 +58,43 @@ export interface BaseKnowledgeWorkspaceProps {
 type Translate = ReturnType<typeof useTranslations>
 const failure = (t: Translate, error: unknown) => (error instanceof Error && error.message ? error.message : t('saveError'))
 
-/** The folder and the open standard live in the URL, so the back button and a shared link land where the person was. */
-function useLocation(): { folderId: string | null; entryId: string | null; go: (next: { folderId?: string | null; entryId?: string | null }) => void } {
+type Place = { folderId?: string | null; entryId?: string | null; fileId?: string | null }
+
+/**
+ * The folder, the standard open as its file (`?file=`) and the standard's own page (`?entry=`) live in the URL, so
+ * the back button and a shared link land where the person was. A standard opens as its file; its page is where it
+ * is managed.
+ */
+function useLocation(): {
+  folderId: string | null
+  entryId: string | null
+  fileId: string | null
+  go: (next: Place, options?: { replace?: boolean }) => void
+  back: () => void
+} {
   const params = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
   const folderId = params.get('folder')
   const entryId = params.get('entry')
+  const fileId = params.get('file')
   const go = useCallback(
-    (next: { folderId?: string | null; entryId?: string | null }) => {
+    (next: Place, options: { replace?: boolean } = {}) => {
       const query = new URLSearchParams(params.toString())
-      for (const [key, value] of [['folder', next.folderId], ['entry', next.entryId]] as const) {
+      for (const [key, value] of [['folder', next.folderId], ['entry', next.entryId], ['file', next.fileId]] as const) {
         if (value === undefined) continue
         if (value) query.set(key, value)
         else query.delete(key)
       }
       const search = query.toString()
-      router.push(search ? `${pathname}?${search}` : pathname, { scroll: false })
+      const href = search ? `${pathname}?${search}` : pathname
+      if (options.replace) router.replace(href, { scroll: false })
+      else router.push(href, { scroll: false })
     },
     [params, pathname, router],
   )
-  return { folderId, entryId, go }
+  const back = useCallback(() => router.back(), [router])
+  return { folderId, entryId, fileId, go, back }
 }
 
 /**
@@ -124,6 +141,35 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
   const entries = useMemo(() => list?.entries ?? [], [list])
   const open = useOpenEntry(location.entryId, entries)
   const openEntry = open.entry
+  const viewed = useOpenEntry(location.fileId, entries)
+
+  // A standard whose file cannot be read: say so, and stay on the list.
+  const { go, back } = location
+  // Closing the viewer undoes opening it: the person lands where they pressed (the list, a folder, a standard's
+  // page), and the browser's back does not open the file again. A file reached by a link has nowhere to go back to.
+  const openedHere = useRef(false)
+  const openFile = useCallback(
+    (entryId: string) => {
+      // A file already on screen (or still loading) is replaced, never stacked: closing still leads back to where the first was opened.
+      if (location.fileId) {
+        go({ fileId: entryId }, { replace: true })
+        return
+      }
+      openedHere.current = true
+      go({ fileId: entryId })
+    },
+    [go, location.fileId],
+  )
+  const closeFile = useCallback(() => {
+    if (openedHere.current) back()
+    else go({ fileId: null }, { replace: true })
+    openedHere.current = false
+  }, [back, go])
+  useEffect(() => {
+    if (!viewed.failed) return
+    toast.error(t('entryLoadError'))
+    go({ fileId: null }, { replace: true })
+  }, [viewed.failed, go, t])
 
   // A further page that did not load: the entries on screen stay, and the person is told.
   const hasList = list !== null
@@ -177,21 +223,30 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
     await reload()
   }
 
+  // Adding a standard is filling in what it is: the file only starts it. What was just added opens as its
+  // form, one after another, and each confirmation leads to the next; what is left stays in the list to confirm.
+  const [adding, setAdding] = useState<{ ids: string[]; total: number }>({ ids: [], total: 0 })
+  const startAdding = (ids: string[]) => {
+    setAdding({ ids, total: ids.length })
+    if (ids.length > 0) go({ entryId: ids[0], fileId: null })
+  }
+  const addingStep = (entryId: string) =>
+    adding.ids.includes(entryId) ? { position: adding.total - adding.ids.length + 1, count: adding.total } : undefined
+
   // The files are the browser's own bytes, sent one after another into the open folder.
   const upload = async (files: File[]) => {
     setUploading(true)
-    let done = 0
+    const added: string[] = []
     for (const file of files) {
       try {
-        await uploadBaseKnowledge(file, filters.folderId)
-        done += 1
+        added.push((await uploadBaseKnowledge(file, filters.folderId)).id)
       } catch (error) {
         toast.error(error instanceof Error && error.message ? `${file.name}: ${error.message}` : t('uploadFailed', { name: file.name }))
       }
     }
     setUploading(false)
-    if (done > 0) toast.success(t('uploadDone', { count: done }))
     await reload()
+    startAdding(added)
   }
 
   const folderAction = async (action: () => Promise<unknown>): Promise<boolean> => {
@@ -262,13 +317,20 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           entry={openEntry}
           onBack={() => location.go({ entryId: null })}
           onOpenEdition={(entryId) => location.go({ entryId })}
+          onOpenFile={() => openFile(openEntry.id)}
           canManage={canManage}
           rootId={folders.rootId}
           folders={folders.folders}
           territories={list.territories}
+          adding={addingStep(openEntry.id)}
           onChanged={(entry) => {
             open.set(entry)
-            if (!entry) location.go({ entryId: null })
+            // A new standard confirmed or removed: on to the next one just added, else back to the list.
+            if (adding.ids.includes(openEntry.id) && (!entry || entry.status === 'confirmed')) {
+              const rest = adding.ids.filter((id) => id !== openEntry.id)
+              setAdding({ ids: rest, total: adding.total })
+              location.go({ entryId: rest[0] ?? null }, { replace: true })
+            } else if (!entry) location.go({ entryId: null })
             else if (entry.id !== location.entryId) location.go({ entryId: entry.id })
             void reload()
           }}
@@ -326,7 +388,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           onSelect={select}
           onClearSelection={() => setSelected(new Set())}
           onBulk={(action) => (action.type === 'remove' ? setRemoving(true) : void bulk(action))}
-          onOpen={(entry) => location.go({ entryId: entry.id })}
+          onOpen={(entry) => openFile(entry.id)}
           loadingMore={state.loadingMore}
           onLoadMore={state.loadMore}
         />
@@ -358,7 +420,29 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
         {body()}
       </div>
 
-      <ShelfPickerDialog open={picking} onOpenChange={setPicking} recorded={new Set(entries.map((entry) => entry.documentId))} onProposed={() => void reload()} />
+      {viewed.entry && (
+        <StandardFile
+          entry={viewed.entry}
+          canManage={canManage}
+          onClose={closeFile}
+          onManage={() => {
+            openedHere.current = false
+            go({ fileId: null, entryId: viewed.entry?.id }, { replace: true })
+          }}
+          onOpenEdition={(entryId) => go({ fileId: entryId }, { replace: true })}
+          onChanged={(entry) => {
+            viewed.set(entry)
+            if (!entry) closeFile()
+            void reload()
+          }}
+          onUnavailable={() => {
+            toast.error(t('entryLoadError'))
+            closeFile()
+          }}
+        />
+      )}
+
+      <ShelfPickerDialog open={picking} onOpenChange={setPicking} recorded={new Set(entries.map((entry) => entry.documentId))} onProposed={(entry) => void reload().then(() => startAdding([entry.id]))} />
       <ConfirmDialog
         open={removing}
         onOpenChange={setRemoving}

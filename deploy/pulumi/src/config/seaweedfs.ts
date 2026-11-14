@@ -27,6 +27,13 @@ export interface SeaweedfsConfig {
    */
   image: string;
   storageSize: string;
+  /**
+   * Grow the live volume to `storageSize` on deploy, never shrinking it
+   * (`seaweedfsGrowVolume`, `src/data/pvc-grow.ts`). Off by default because it
+   * reads the PVC, which a fresh cluster does not have yet; a stack whose
+   * volume exists turns it on.
+   */
+  growVolume: boolean;
   bucket: string;
   accessKey: string;
   secretKey: pulumi.Output<string>;
@@ -513,6 +520,7 @@ export function loadSeaweedfs(cfg: pulumi.Config): SeaweedfsConfig {
       return {
     image: cfg.get("seaweedfsImage") ?? "chrislusf/seaweedfs:latest",
     storageSize: cfg.get("seaweedfsStorageSize") ?? "20Gi",
+    growVolume: bool(cfg, "seaweedfsGrowVolume", false),
     bucket: cfg.get("seaweedfsBucket") ?? "grid-documents",
     accessKey: cfg.get("seaweedfsAccessKey") ?? "grid",
     secretKey: cfg.requireSecret("seaweedfsSecretKey"),
