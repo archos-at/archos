@@ -12,7 +12,14 @@ import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
 import { recordAuditEvent } from '@/lib/audit/service'
 import { getPlatformOrganizationId } from '@/lib/authz/platform'
-import type { ApprovalRole, ChangeRequestApproval, ChangeRequestStatus, PersonDecisionSource, SecondReviewState } from '@/lib/base-knowledge/wire/vocab'
+import type {
+  ApprovalRole,
+  ChangeRequestApproval,
+  ChangeRequestStatus,
+  PersonDecisionSource,
+  ReleaseDecisionSource,
+  SecondReviewState,
+} from '@/lib/base-knowledge/wire/vocab'
 import type { Tx } from '../store/repository'
 import { retractPreview } from './release'
 import { singleOperator } from './single-operator'
@@ -54,7 +61,8 @@ export type Decided = DecisionOutcome & {
   secondReviewGiven?: 'confirmed' | 'disputed'
 }
 
-type Actor = { by: string; decisionSource: PersonDecisionSource }
+/** Who decides, and how: a person's yes here, or a decision carried from the deployment that released it (ADR-0181). */
+type Actor = { by: string; decisionSource: ReleaseDecisionSource }
 type Input = Omit<ApprovalBody, 'role'> & { role: ApprovalRole }
 
 const notAccepted = (revisions: Awaited<ReturnType<typeof reviewedRevisions>>, blocks: (decision: string | null) => boolean) =>
@@ -138,6 +146,9 @@ async function approveSubmitted(tx: Tx, request: ChangeRequestRow, input: Input,
  * read, and what follows (reject, or rollback) is the person's next decision.
  */
 async function giveSecondReview(tx: Tx, request: ChangeRequestRow, input: Input, actor: Actor): Promise<Decided> {
+  // A second review is another person's look here; nothing carries one.
+  if (actor.decisionSource === 'carried') throw new ConflictError('A second review is given by a person on this deployment; it is never carried.')
+  const decisionSource = actor.decisionSource
   if (input.override) throw new ConflictError('The second review of this change request is due; another person gives it, without an override.')
   if ((await requestAuthors(tx, request.id)).has(actor.by)) {
     throw new ConflictError('You wrote a revision in this change request, so another person gives its second review (four eyes).')
@@ -151,7 +162,7 @@ async function giveSecondReview(tx: Tx, request: ChangeRequestRow, input: Input,
     if (open.length > 0) throw new ConflictError(`${open.length} claim(s) are not accepted (${open.slice(0, 5).join(', ')}); review them before confirming.`)
   }
   const given = input.decision === 'approve' ? 'confirmed' : 'disputed'
-  await insertSecondReview(tx, { changeRequestId: request.id, role: input.role, decision: given, reviewer: actor.by, decisionSource: actor.decisionSource })
+  await insertSecondReview(tx, { changeRequestId: request.id, role: input.role, decision: given, reviewer: actor.by, decisionSource })
   // The trigger closed the request's review when this was the last owed role, or a dispute.
   const after = await lockChangeRequest(tx, request.id)
   const secondReview = after?.secondReview ?? request.secondReview

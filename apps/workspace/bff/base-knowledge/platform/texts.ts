@@ -82,7 +82,7 @@ async function manifestationInDraft(
 
 /** Re-propose the manifestation with the stored file as its text; the kit runs on it as on any proposal. */
 async function nameTheText(
-  session: UserSession,
+  session: { userId: string },
   requestId: string,
   record: Manifestation,
   text: KnowledgeTextProvenance,
@@ -144,6 +144,16 @@ export async function importPlatformText(
   proposedBy: ProposedBy = 'person',
 ): Promise<AttachTextResult> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
+  return attachTextFromUrl(person.userId, requestId, body, proposedBy)
+}
+
+/**
+ * The attach from a URL as `attacher` (a person the caller has checked, or the promotion's carry, `./carry.ts`),
+ * with no session. The same fetcher, the same name of the bytes, the same refusal of bytes other than an imported
+ * release's ({@link nameTheText}).
+ */
+export async function attachTextFromUrl(attacher: string, requestId: string, body: ImportTextBody, proposedBy: ProposedBy): Promise<AttachTextResult> {
+  const person = { userId: attacher }
   const { record, configured, through } = await manifestationInDraft(requestId, body.manifestationKey, body.sourceId)
   // Fetched outside any transaction: a slow source must not hold the request's lock. The api tier names the file
   // after the key and the bytes' hash, so a fetch that outlives the draft leaves a file no record names, not other
