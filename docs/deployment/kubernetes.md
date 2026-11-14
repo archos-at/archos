@@ -568,6 +568,15 @@ until a person files it (ADR-0137 and its amendment of 2026-11-03,
 [`inbound-mail.md`](../architecture/inbound-mail.md)). Off by default: nothing
 is deployed until `inboundMailDomain` is set.
 
+**Status (2026-11-14):** dev receives mail on `inbox.dev.piloti.at` since
+2026-11-05. Prod's block in `Pulumi.prod.yaml` is on and unpaused, to go live
+for all offices in ONE promotion with the November release (owner decision
+2026-11-14, against the three promotions below): the scanner is not awaited,
+the forwards share dev's verified destination address, and `deploy.yml`
+switches subaddressing on and runs G7 (and G3 with a test address) after
+`pulumi up`. What still needs a person:
+[`project-mail-runbook.md`](project-mail-runbook.md), "Prod: one promotion".
+
 **Taking it to production:** [`project-mail-runbook.md`](project-mail-runbook.md),
 the owner's checklist from "off" to the first office, in order: decisions, the
 Cloudflare and ESC steps, the three promotions, gates G0–G9 as a test protocol,
@@ -618,6 +627,8 @@ scheduler container.
   mail domain forward to (RFC 2142). Pulumi creates it as a destination
   address and the two forwarding rules; the forwards work once someone opens
   Cloudflare's verification mail to it (stack output `inboundMailOperator`).
+  With `inboundMailOperatorAddressShared` the stack points the forwards at an
+  address the account already holds verified and creates none (prod: dev's).
 - `inboundMailDmarc`, optional: the zone apex's `_dmarc` record for a mail zone
   of its own. Refused beside `dnsDmarc` on the same zone, in one stack
   (`loadConfig`), across stacks (`stack-files.spec.ts`) and against a record
@@ -630,15 +641,19 @@ scheduler container.
   domain whose MX points anywhere but `*.mx.cloudflare.net`; the apex's MX are
   not read. Email Routing adds and locks the subdomain's MX, an SPF TXT and a
   DKIM TXT.
-- **Subaddressing** on the zone, by hand: one `PATCH
-  /zones/{zone}/email/routing` with `{"support_subaddress":true}` (the runbook's
-  §7). Pulumi cannot set it: the provider's only handle onboards the apex
+- **Subaddressing** on the zone: one `PATCH
+  /zones/{zone}/email/routing` with `{"support_subaddress":true}`, which
+  `deploy.yml` makes after `pulumi up` when it is off
+  (`deploy/pulumi/scripts/inbound-mail-after-deploy.sh subaddress`; by hand, the
+  runbook's §7, for a stack applied outside CI). Pulumi cannot set it: the provider's only handle onboards the apex
   (`platform/email-routing.ts` says why). Without it `project+<slug>.<token>@`
   does not reach the rule for `project@`, and every project address bounces. Gate G0
   checks it and proves it on the subdomain.
-- **The scanner first.** `loadConfig` refuses an inbound domain while
-  `malwareScanEnabled` is false. Promote the scanner on its own and wait for its
-  pod to be ready (signatures under 48 h old) before the mail promote.
+- **The scanner with or before the domain.** `loadConfig` refuses an inbound
+  domain while `malwareScanEnabled` is false. Both may go in one apply: `pulumi
+  up` does not wait for the `clamav` Deployment (`pulumi.com/skipAwait`), whose
+  first readiness waits on freshclam's update (signatures under 48 h old), and
+  until then every scan fails closed and is retried.
 - The WorkOS entitlement `inbound-mail` exists (gate O1, created 2026-10-27,
   [`workos-provisioning.md`](workos-provisioning.md)). Staging: ON for all
   organizations since 2026-11-05 (the owner's decision: every office is a pilot,
@@ -835,8 +850,10 @@ needs every staged object and kept original erased first
 
 ### Privacy settings at Cloudflare
 
-Workers observability is off (Pulumi sets `observability.enabled: false`); no
-Logpush. Cloudflare keeps Email Routing's activity log (sender, recipient,
+Workers Logs keep the Worker's own line per delivery (ids and the outcome),
+and invocation logs, which record the envelope sender and recipient, are off
+(`observability.logs.invocationLogs: false` in `platform/inbound-mail.ts`; G7
+checks it); no Logpush. Cloudflare keeps Email Routing's activity log (sender, recipient,
 time, outcome). Cloudflare is a transit processor of project mail: the
 sub-processor row and the customer notice belong to gate O7
 ([`docs/compliance/inbound-mail-review-2026-10.md`](../compliance/inbound-mail-review-2026-10.md)).
