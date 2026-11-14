@@ -1,7 +1,9 @@
 # Domain cutover: moving every public host to the domain in `identity.json`
 
-**Status: dev switched (2026-11-05), prod switches with the November promotion** (owner decision,
-2026-11-14, replacing D2's "prepare, don't flip"; [prod-release-2026-11.md](prod-release-2026-11.md)).
+**Status: dev switched (2026-11-05), prod switched with the November promotion (2026-11-14)** (owner
+decision, replacing D2's "prepare, don't flip"; [prod-release-2026-11.md](prod-release-2026-11.md)). WorkOS
+Production's one-value settings (initiate-login URI, homepage, default redirect, logout and `/api/mcp`
+resource) point at the new host since 2026-11-14; the former entries stay while `formerBaseDomain` is set.
 The new zone is in the same Cloudflare account as the former one. Dev and prod use the same
 account-owned token in ESC (owner, 2026-11-14). WorkOS Production holds every new entry next to the
 former ones (read 2026-11-14): the AuthKit redirect, logout and CORS entries, the Connect redirect

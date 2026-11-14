@@ -21,7 +21,7 @@ import { and, desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { NotFoundError } from '@/lib/api/errors'
 import { getDb } from '@/lib/db'
-import { withPlatformAccess } from '@/lib/db/tenant-context'
+import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { knowledgeIndexRuns } from '@/lib/db/schema/knowledge-platform'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
@@ -51,6 +51,13 @@ async function markRun(runId: string, state: 'queued' | 'failed', failure: strin
   )
 }
 
+/** An error's message and its cause's: a failed query wraps the database's reason, which the message alone hides. */
+function failureText(error: unknown): string {
+  if (!(error instanceof Error)) return String(error)
+  const cause = error.cause instanceof Error ? error.cause.message : error.cause ? String(error.cause) : null
+  return cause ? `${error.message} (${cause})` : error.message
+}
+
 /**
  * Enqueue one job per run. A run whose job could not be enqueued is marked
  * failed with why, so the status never shows "requested" for work nobody will do.
@@ -64,15 +71,19 @@ export async function enqueueIndexRuns(
     try {
       // The job belongs to the platform organization, whichever office the operator browses; it runs as the system.
       if (!platformOrganizationId) throw new Error('the platform organization is not known')
-      await enqueueJob({
-        kind: 'platform_text_index',
-        organizationId: platformOrganizationId,
-        payload: { runId },
-        priority: BFF_JOB_PRIORITY.bulk,
-      })
+      // The queue stores a job in the active tenant's lane only (RLS check on `lane`), and the
+      // caller may have none (the carry Job) or another office's (an operator browsing one): state the platform's.
+      await withTenant({ organizationId: platformOrganizationId }, () =>
+        enqueueJob({
+          kind: 'platform_text_index',
+          organizationId: platformOrganizationId,
+          payload: { runId },
+          priority: BFF_JOB_PRIORITY.bulk,
+        }),
+      )
     } catch (error) {
       failed += 1
-      await markRun(runId, 'failed', `${NOT_ENQUEUED}: ${error instanceof Error ? error.message : String(error)}`)
+      await markRun(runId, 'failed', `${NOT_ENQUEUED}: ${failureText(error)}`)
     }
   }
   return { enqueued: runIds.length - failed, failed }

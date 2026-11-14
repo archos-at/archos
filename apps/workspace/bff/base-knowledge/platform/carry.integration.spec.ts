@@ -82,9 +82,13 @@ vi.mock('./capture-fetch', async (importOriginal) => {
 })
 const queue = vi.hoisted(() => ({ down: false }))
 vi.mock('@/lib/jobs-queue/enqueue', () => ({
-  // The index job, run in place: the pool would run the same step. `queue.down` refuses the job, as a queue outage would.
+  // The index job, stored as the queue stores it (under its RLS: only in the active tenant's lane, which is how prod's
+  // first carry failed), then run in place: the pool would run the same step. `queue.down` refuses the job, as a
+  // queue outage would.
   enqueueJob: async (job: { kind: string; organizationId: string; payload: { runId: string } }) => {
     if (queue.down) throw new Error('the queue is down')
+    const [{ insertJob }, { BFF_JOB_PRIORITY }] = await Promise.all([import('@/lib/jobs-queue/repository'), import('@/lib/jobs-queue/types')])
+    await insertJob({ kind: job.kind, organizationId: job.organizationId, priority: BFF_JOB_PRIORITY.bulk, payload: job.payload })
     const { runPlatformTextIndex } = await import('./indexing')
     await runPlatformTextIndex(job.organizationId, job.payload, { last: true })
   },
