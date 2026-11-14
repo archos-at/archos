@@ -24,8 +24,12 @@ export const KNOWLEDGE_RELEASES_DIR = resolve(__dirname, "../../../../apps/works
  */
 const CARRY_OVERRIDES = new Set(["KNOWLEDGE_SINGLE_OPERATOR", "OTEL_SERVICE_NAME"]);
 
-/** How long the carry waits for the corpus to ingest a country's texts, in minutes. */
-export const CARRY_WAIT_MINUTES = 30;
+/**
+ * How long the carry waits for the corpus to ingest a country's texts, in minutes. Prod's first AT carry
+ * (2026-11-14) indexed one new text about every three minutes, 54 texts in about 2.5 hours; at 30 minutes every
+ * attempt ran out first and the labels, the legacy copies and the building classes were left undone.
+ */
+export const CARRY_WAIT_MINUTES = 240;
 
 /**
  * The digest the Job's name carries: the manifest and every bundle it names, so

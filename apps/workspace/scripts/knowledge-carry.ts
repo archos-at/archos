@@ -8,7 +8,7 @@
  *
  * Environment, besides the BFF's: `KNOWLEDGE_SINGLE_OPERATOR=true` (this pod only), `KNOWLEDGE_CARRY_DEPLOYMENT`
  * (the stack: the source deployment carries nothing to itself), `KNOWLEDGE_CARRY_PROMOTION` (what the trail names
- * as the promotion: the image tag), `KNOWLEDGE_CARRY_WAIT_MINUTES` (default 30). Every step logs one JSON line;
+ * as the promotion: the image tag), `KNOWLEDGE_CARRY_WAIT_MINUTES` (default 30; the Job sets `CARRY_WAIT_MINUTES`). Every step logs one JSON line;
  * the exit code is 0 when every bundle is carried or skipped, 1 otherwise. On a target deployment it then derives
  * every live project's building class again from the released records (`rederiveBuildingClasses`, the step the
  * rollover's "Existing projects" names), and a failed project or a cut run is a 1 too: the Job's retry runs it again.
