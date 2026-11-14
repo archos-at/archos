@@ -1,0 +1,5 @@
+---
+# area: administration
+operators:
+  - >
+    Texts carried into a deployment from another one are now queued for indexing; before, every indexing job of the carry was refused and the texts stayed unsearchable.
