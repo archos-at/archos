@@ -413,13 +413,21 @@ export default {
     // answers the sending server with a temporary failure and it retries.
     // The body is a Uint8Array, so the runtime sends the Content-Length the
     // signature covers.
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body,
-      redirect: "manual",
-      signal: AbortSignal.timeout(BFF_TIMEOUT_MS),
-    });
+    /** @type {Response} */
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers,
+        body,
+        redirect: "manual",
+        signal: AbortSignal.timeout(BFF_TIMEOUT_MS),
+      });
+    } catch (error) {
+      // No answer at all (network, timeout): still one line, then the same throw.
+      report("retry", null);
+      throw error;
+    }
 
     if (response.status >= 200 && response.status < 300) {
       report("accepted", response);

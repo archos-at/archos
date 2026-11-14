@@ -66,31 +66,32 @@ FROM (
 )
 UNION ALL
 SELECT
-    concat('[Projekt-E-Mail] ', host, ': ', toString(n), ' Zustellungen in 1 h von uns abgewiesen (', reason, ', Schritt ', stage, ', ', err, ')') AS rule,
+    concat('[Projekt-E-Mail] ', host, ': ', toString(n), ' Zustellungen in 1 h von uns abgewiesen (', arrayStringConcat(causes, '; '), ')') AS rule,
     toFloat(n) AS breach
 FROM (
+    -- The threshold counts per host; the causes (reason, step, error) are only the text.
     SELECT
         coalesce(toString(properties.app_host), '?') AS host,
-        coalesce(toString(properties.reason), '?') AS reason,
-        coalesce(toString(properties.stage), '?') AS stage,
-        coalesce(toString(properties.error), '-') AS err,
-        count() AS n
+        count() AS n,
+        groupUniqArray(10)(concat(coalesce(toString(properties.reason), '?'), ', Schritt ', coalesce(toString(properties.stage), '?'), ', ', coalesce(toString(properties.error), '-'))) AS causes
     FROM events
     WHERE event = 'inbound_mail_refused' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
         AND toString(properties.reason) NOT IN ('unknown_address', 'switched_off', 'too_large')
-    GROUP BY host, reason, stage, err
+    GROUP BY host
     HAVING n >= 3
 )
 UNION ALL
 SELECT
-    concat('[Projekt-E-Mail] ', refused.host, ': seit 6 h nur abgewiesen, keine Zustellung angenommen') AS rule,
+    concat('[Projekt-E-Mail] ', refused.host, ': seit über 6 h nur abgewiesen (erste Abweisung vor ', toString(dateDiff('hour', refused.first, now())), ' h), keine Zustellung angenommen') AS rule,
     toFloat(1) AS breach
 FROM (
-    SELECT coalesce(toString(properties.app_host), '?') AS host
+    -- The first refusal at least 6 h old and one in the last hour: six hours of failure shown, not assumed from the window.
+    SELECT coalesce(toString(properties.app_host), '?') AS host, min(timestamp) AS first, max(timestamp) AS last
     FROM events
-    WHERE event = 'inbound_mail_refused' AND timestamp > now() - INTERVAL 6 HOUR AND timestamp <= now()
+    WHERE event = 'inbound_mail_refused' AND timestamp > now() - INTERVAL 7 HOUR AND timestamp <= now()
         AND toString(properties.reason) NOT IN ('unknown_address', 'switched_off', 'too_large')
     GROUP BY host
+    HAVING first <= now() - INTERVAL 6 HOUR AND last > now() - INTERVAL 1 HOUR
 ) AS refused
 LEFT ANTI JOIN (
     SELECT coalesce(toString(properties.app_host), '?') AS host

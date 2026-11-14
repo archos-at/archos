@@ -463,10 +463,14 @@ export async function ensureTenantBucketChecked(
     return await ensureTenantBucket(client, organizationId)
   } catch (error) {
     if (isStoreFault(error)) {
-      throw new UpstreamError('Object storage is unavailable', {
+      const upstream = new UpstreamError('Object storage is unavailable', {
         operation: 'ensureTenantBucket',
         code: (error as { Code?: string }).Code ?? null,
       })
+      // The store's own error stays the cause: a refused delivery names its
+      // class and HTTP status from it (`describeError` in the inbound-mail webhook).
+      upstream.cause = error
+      throw upstream
     }
     throw error
   }

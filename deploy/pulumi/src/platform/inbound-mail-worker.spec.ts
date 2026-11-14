@@ -377,6 +377,20 @@ describe("inbound mail worker: the verdict contract", () => {
     await expect(deliver(message)).rejects.toThrow("network connection lost");
     expect(setReject).not.toHaveBeenCalled();
   });
+
+  it("still writes its delivery line when the BFF never answers", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    stubFetch(() => Promise.reject(new TypeError("network connection lost")));
+    const { message } = fakeMessage();
+    await expect(deliver(message)).rejects.toThrow("network connection lost");
+    expect(JSON.parse(String(error.mock.calls[0][0]))).toEqual({
+      event: "inbound_mail_delivery",
+      outcome: "retry",
+      status: null,
+      verdict: null,
+      requestId: null,
+    });
+  });
 });
 
 describe("inbound mail worker: the bounce texts", () => {
