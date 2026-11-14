@@ -184,35 +184,46 @@ config:
   # the zone apex, that stack is the natural owner.
   grid-oib:dnsEnabled: "true"
   # ── Project mail (Cloudflare Email Routing, ADR-0138) ──
-  # Off. The owner's runbook, top to bottom: docs/deployment/project-mail-runbook.md.
-  # Three promotions, each uncommenting only its own lines below. Never the
-  # domain without the scanner running, never unpaused before G0, G4 (paused) and G7 pass.
+  # ON, unpaused, in ONE promotion: the November develop→prod release. Owner decision
+  # 2026-11-14, against the runbook's three promotions with gates between them: every
+  # office is a pilot, dev has received mail since 2026-11-05, and the data-protection
+  # go-ahead covers all offices. The WorkOS flag inbound-mail (Production) is the
+  # owner's, switched after the deploy job is green, gates included. Runbook:
+  # docs/deployment/project-mail-runbook.md §6, which lists what still needs a person.
   #
-  # Promotion 1, the scanner alone. Wait for its pod to be ready before promotion 2:
-  # grid-oib:malwareScanEnabled: "true"
+  # What makes one apply enough: the scanner is not awaited (src/app/clamav.ts; mail
+  # scans fail closed and retry until freshclam has signatures); the forwards point at a
+  # destination address the account already holds verified, so no click (below);
+  # deploy.yml switches subaddressing on and runs G7 (and G3 with a test address)
+  # after `pulumi up` (scripts/inbound-mail-after-deploy.sh).
   #
-  # Promotion 2, paused. Before it: the token's scopes (runbook §4) and the signing key
-  # in ESC, never in this file (§5). Pulumi then creates the routing on the subdomain,
-  # the project rule, the Worker, the postmaster@/abuse@ forwards (RFC 2142) and the
-  # DMARC record; subaddressing is one API call after it (§7).
+  # Rollback, fastest first: the WorkOS flag off (addresses bounce as unknown within
+  # 30 s); inboundMailPaused "true" (every delivery a retry, nothing lost); then
+  # inboundMailEnabled "false" (Cloudflare refuses at SMTP time). Never unset the
+  # domain first. The signing key lives in ESC (inboundMailSigningKeys, set
+  # 2026-11-05), never in this file.
+  grid-oib:malwareScanEnabled: "true"
   # Decision D1 (2026-11-05): (b), the subdomain of the brand domain, a zone of its own.
   # piloti.at's mail routing belongs to the dev stack (inbox.dev.piloti.at), and
-  # stack-files.spec.ts allows one stack per mail zone. The zone id is 32 hex digits.
-  #   The apex archos.tech keeps Google Workspace's MX: nothing here touches them.
-  # grid-oib:inboundMailDomain: inbox.archos.tech
-  # grid-oib:inboundMailZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id of archos.tech, Cloudflare zone Overview page)
-  #   (b) only: archos.tech has no _dmarc today, and this block is its one writer until the
-  #   domain cutover (no dnsDmarc on any stack in that zone; stack-files.spec.ts checks it).
-  #   sp= is explicit so inbox.archos.tech is covered; p=none only reports. rua= is the
-  #   operator's mailbox: on archos.tech itself, or that domain must authorize the reports.
-  # grid-oib:inboundMailDmarc: "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:matthias.bigl+dmarc@archos.tech"
-  #   Both: where postmaster@ and abuse@ forward; Cloudflare mails it a verification link on
-  #   the first up, and the forwards work after the click (stack output inboundMailOperator).
-  # grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-prod@archos.tech
-  # grid-oib:inboundMailPaused: "true"
-  #
-  # Promotion 3, after G0, G4 (paused) and G7 pass, only the test office entitled: the pause "false".
-  # Turning it off: inboundMailEnabled "false" and promote; never unset the domain first.
+  # stack-files.spec.ts allows one stack per mail zone. The apex archos.tech keeps
+  # Google Workspace's MX: nothing here touches them (the preview's MX guard reads only
+  # inbox.archos.tech, and nothing calls …/email/routing/enable).
+  grid-oib:inboundMailDomain: inbox.archos.tech
+  grid-oib:inboundMailZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id of archos.tech, Cloudflare zone Overview page)
+  # archos.tech has no _dmarc (read 2026-11-14), and this block is its one writer until
+  # the domain cutover (no dnsDmarc on any stack in that zone; stack-files.spec.ts checks
+  # it). sp= is explicit so inbox.archos.tech is covered; p=none only reports. rua= is on
+  # archos.tech itself, so no other domain must authorize the reports.
+  grid-oib:inboundMailDmarc: "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:matthias.bigl+dmarc@archos.tech"
+  # Where postmaster@ and abuse@ forward (RFC 2142): dev's destination address, which
+  # the dev stack owns and Cloudflare verified on 2026-11-05 (destination addresses are
+  # the account's, shared by every zone). Shared: this stack never creates it, so no
+  # verification mail and no error 2054 half-way through the apply; the preview refuses
+  # it unless the account holds it verified. A prod-only mailbox later: its address
+  # here, Shared "false", one click on Cloudflare's mail (runbook §7).
+  grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-dev@archos.tech
+  grid-oib:inboundMailOperatorAddressShared: "true"
+  grid-oib:inboundMailPaused: "false"
   # NetworkPolicies (default-deny ingress + least-privilege allows) are ON by
 
   # default. Set false only if a validation pass shows they block required
@@ -332,7 +343,7 @@ config:
 
   # 2026-10-18 (#1079): 11 collections, 52,280 chunks, 0 failed or out of step.
 
-  # Do NOT set `grid-oib:chromaMigration` again: a second Job's import finds the
+  # Do NOT set `chromaMigration` again: a second Job's import finds the
 
   # mark the first one left and refuses (exit 2), which fails the deploy. The
 

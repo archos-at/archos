@@ -24,6 +24,12 @@ a commit CI failed cannot be deployed by accident.
   a PostHog annotation `deploy <env> <sha>` after each `Pulumi up` and
   uploads the frontend's source maps after CI (Source maps workflow); without them nothing
   changes. [ci.md](../contributing/ci.md#posthog-releases-and-source-maps).
+  Optionally `INBOUND_MAIL_TEST_ADDRESS`, an environment secret holding a
+  project address of the test office, makes the post-deploy project-mail gates
+  run the signed route too (`signed --run`); without it they run the
+  Cloudflare check alone and say so ([`project-mail-runbook.md`](project-mail-runbook.md)).
+  Project mail's other post-deploy step, subaddressing, uses the stack's own
+  `cloudflareApiToken` and needs no secret here.
 - **Gating**: `deploy.yml` runs on `workflow_run` of **CI**, for a run that
   concluded `success`, was a `push` (not a pull request whose branch happens to
   be called `develop`) and came from this repository. A green push run of CI

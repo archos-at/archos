@@ -27,6 +27,9 @@ const CONTRACT = JSON.parse(
   readFileSync(join(__dirname, "../../../../contracts/inbound-mail-contract.json"), "utf8"),
 ) as { path: string };
 
+/** The account's destination addresses, as the shared-address guard reads them. */
+let DESTINATIONS: Array<{ email: string; verified: string | null }> = [];
+
 /** What the MX lookup answers; each test sets it before `install`. */
 let MX_RECORDS: Array<{ name: string; content: string; type: string }> = [];
 
@@ -49,6 +52,9 @@ pulumi.runtime.setMocks(
       }
       if (args.token === "cloudflare:index/getDnsRecords:getDnsRecords") {
         return { results: MX_RECORDS };
+      }
+      if (args.token === "cloudflare:index/getEmailRoutingAddresses:getEmailRoutingAddresses") {
+        return { results: DESTINATIONS };
       }
       return {};
     },
@@ -84,7 +90,8 @@ async function install(values: Record<string, string>, mx: typeof MX_RECORDS = [
     const ids = [
       result.zone.routing.id,
       result.rule.id,
-      result.operator.address.id,
+      ...(result.operator.address ? [result.operator.address.id] : []),
+      result.operator.verified,
       ...result.operator.rules.map((r) => r.id),
       ...(result.script ? [result.script.id] : []),
       ...(result.dmarc ? [result.dmarc.id] : []),
@@ -312,7 +319,31 @@ describe("the RFC 2142 forwards and the zone's DMARC record", () => {
   it("orders each forward after the routing and the address, through the source", () => {
     // Mocks do not carry dependsOn; a rule created before routing has no MX to receive on.
     expect(readFileSync(join(__dirname, "inbound-mail-operator.ts"), "utf8")).toContain(
-      "dependsOn: [zone.routing, address]",
+      "dependsOn: [zone.routing, ...(owned ? [owned] : [])]",
+    );
+  });
+
+  it("points the forwards at a shared, verified address without creating one", async () => {
+    DESTINATIONS = [{ email: OPERATOR_ADDRESS, verified: "2026-11-05T10:00:00Z" }];
+    const result = await install(mailConfig({ [`${LEGACY_PROJECT}:inboundMailOperatorAddressShared`]: "true" }));
+    expect(byType(ADDRESS)).toHaveLength(0);
+    expect(result?.operator.address).toBeUndefined();
+    const forwards = byType(RULE).filter(isForward);
+    expect(forwards).toHaveLength(2);
+    for (const rule of forwards) {
+      expect(rule.inputs).toMatchObject({ zoneId: ZONE_ID, actions: [{ type: "forward", values: [OPERATOR_ADDRESS] }] });
+    }
+    expect(CALLS.find((c) => c.token.endsWith("getEmailRoutingAddresses"))?.inputs).toMatchObject({ accountId: "account-1" });
+  });
+
+  it("refuses a shared address the account lacks or has not verified, before any forward exists", async () => {
+    const { assertSharedAddressVerified } = await import("./inbound-mail-operator");
+    expect(() => assertSharedAddressVerified("ops@example.org", "acc", [])).toThrow(/no destination address of account acc.*2054/);
+    expect(() => assertSharedAddressVerified("ops@example.org", "acc", [{ email: "ops@example.org", verified: null }])).toThrow(
+      /NOT verified/,
+    );
+    expect(assertSharedAddressVerified("ops@example.org", "acc", [{ email: "Ops@Example.org", verified: "2026-11-05" }])).toBe(
+      "2026-11-05",
     );
   });
 

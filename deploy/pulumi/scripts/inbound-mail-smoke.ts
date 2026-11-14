@@ -367,10 +367,13 @@ async function checkCloudflare(): Promise<void> {
 
   const settings = (await cloudflareApi(`/accounts/${account}/workers/scripts/${worker}/settings`)) as {
     compatibility_date?: string;
-    observability?: { enabled?: boolean };
+    observability?: { enabled?: boolean; logs?: { enabled?: boolean; invocation_logs?: boolean } };
     bindings?: Array<{ name: string; type: string; text?: string }>;
   };
-  record("G0", "Workers observability off", settings.observability?.enabled === false ? "pass" : "fail", JSON.stringify(settings.observability));
+  // The Worker's own delivery line is kept (`inbound-mail.ts`, since 2026-11);
+  // invocation logs, which record the envelope sender and recipient, never are.
+  const invocationLogs = settings.observability?.enabled === true && settings.observability.logs?.invocation_logs !== false;
+  record("G0", "Workers invocation logs off", invocationLogs ? "fail" : "pass", JSON.stringify(settings.observability));
   record("G8", "compatibility date", "info", `${settings.compatibility_date}; after a bump, G1 and G2 again`);
   const bindings = new Map((settings.bindings ?? []).map((b) => [b.name, b]));
   const expected = [
@@ -380,9 +383,10 @@ async function checkCloudflare(): Promise<void> {
     ["PAUSED", "plain_text"],
     ["ADDRESS_DOMAIN", "plain_text"],
     ["ADDRESS_LOCAL_PART", "plain_text"],
+    ["LANDING_URL", "plain_text"],
   ];
   const wrong = expected.filter(([name, type]) => bindings.get(name)?.type !== type).map(([name]) => name);
-  record("G0", "Worker bindings", wrong.length === 0 ? "pass" : "fail", wrong.length === 0 ? "all six, key secret" : `wrong or missing: ${wrong.join(", ")}`);
+  record("G0", "Worker bindings", wrong.length === 0 ? "pass" : "fail", wrong.length === 0 ? `all ${expected.length}, key secret` : `wrong or missing: ${wrong.join(", ")}`);
   const paused = bindings.get("PAUSED")?.text;
   record("G4", "Worker pause", "info", `PAUSED=${paused ?? "?"}`);
 }

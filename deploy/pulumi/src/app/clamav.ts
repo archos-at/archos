@@ -52,6 +52,25 @@ export function livenessScript(): string {
 }
 
 /**
+ * `pulumi up` does not wait for clamd to be ready. Ready means signatures under
+ * 48 h old, and a first start (a new stack, or the scanner switched on) serves
+ * the image's baked database, weeks old, until freshclam has fetched the
+ * updates, tested them (a full load at 0.5 CPU) and clamd has reloaded: about
+ * ten minutes on a good day, never if database.clamav.net rate-limits the
+ * runner's cluster. The converter profile's progress deadline is ten minutes,
+ * and a failed resource stops `pulumi up` from starting any step after it, so
+ * waiting would let the scanner hold back the app tiers of the same deploy
+ * (prod's mail promotion of 2026-11-14 puts both in one apply).
+ *
+ * Nothing needs it ready: the frontend and bff-jobs get a constant URL, not
+ * this Deployment, every scan fails closed (`unavailable`, `stale-signatures`)
+ * and is retried, and a rollout is surge-only, so a new pod that never gets
+ * ready never takes the old one down. Check it after a deploy with `kubectl -n
+ * grid rollout status deploy/clamav` (runbook §6).
+ */
+export const CLAMAV_DEPLOYMENT_ANNOTATIONS = { "pulumi.com/skipAwait": "true" } as const;
+
+/**
  * ClamAV: the malware scanner (ADR-0157). The BFF streams what strangers send
  * (attachments, and each raw message whole) through clamd's INSTREAM, and
  * serves or files nothing it did not answer `OK` for
@@ -74,7 +93,8 @@ export function livenessScript(): string {
  * but two: freshclam needs database.clamav.net, which no NetworkPolicy can name.
  *
  * Fail closed. One replica, surged on a rollout; while no pod is ready every
- * scan fails `unavailable` and is retried, and nothing waits on it at boot.
+ * scan fails `unavailable` and is retried, and nothing waits on it at boot,
+ * `pulumi up` included (`CLAMAV_DEPLOYMENT_ANNOTATIONS`).
  */
 export function installClamAV(
   cfg: DeployConfig,
@@ -117,7 +137,7 @@ export function installClamAV(
   const deployment = new k8s.apps.v1.Deployment(
     name,
     {
-      metadata: { name, namespace, labels },
+      metadata: { name, namespace, labels, annotations: CLAMAV_DEPLOYMENT_ANNOTATIONS },
       spec: {
         replicas: 1,
         selector: { matchLabels: labels },

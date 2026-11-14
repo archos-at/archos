@@ -611,8 +611,9 @@ export const platformMcpUrl = cfg.mcpGateway.enabled
 export const dnsRecords = dns
   ? pulumi.all(managedRecordNames(dns)).apply((names) => names.join(", "))
   : pulumi.output("(none: dnsEnabled=false — records are maintained by hand)");
-// `inboundMailOperator` says whether the RFC 2142 forwards' address is verified yet.
-export const { inboundMailWorker, inboundMailOperator } = inboundMailOutputs(cfg, inboundMail);
+// `inboundMailOperator` says whether the RFC 2142 forwards' address is verified yet;
+// `inboundMailCloudflare` is what deploy.yml's post-deploy mail steps read.
+export const { inboundMailWorker, inboundMailOperator, inboundMailCloudflare } = inboundMailOutputs(cfg, inboundMail);
 // The image refs this update deployed. `deploy.yml` reads them back before the
 // next staging deploy and refuses one that would move a service to an older
 // commit (`scripts/resolve-image-refs.sh`). The stack file cannot answer that:

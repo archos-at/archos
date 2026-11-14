@@ -358,10 +358,12 @@ config:
   # the piloti.at zone, not archos.tech: Email Routing's state is one object per zone, so
   # dev and prod each need a zone of their own (stack-files.spec.ts). piloti.at's apex
   # has no MX, so nothing here can take anyone's mail. Its _dmarc is prod's dnsDmarc:
-  # no inboundMailDmarc here. Subaddressing is one API call after it (runbook §7).
+  # no inboundMailDmarc here. Subaddressing: deploy.yml switches it on after `pulumi up`.
   grid-oib:inboundMailDomain: inbox.dev.piloti.at
   grid-oib:inboundMailZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id of piloti.at, Cloudflare zone Overview page)
-  #   Where postmaster@ and abuse@ forward. Not prod's address: Cloudflare keeps each
-  #   destination address once per account, and two stacks would own the same one.
+  #   Where postmaster@ and abuse@ forward. This stack OWNS the destination address
+  #   (Cloudflare keeps each once per account); prod shares it, verified, without creating
+  #   it (inboundMailOperatorAddressShared). Change it here and prod's preview refuses its
+  #   address: stack-files.spec.ts says so on the pull request.
   grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-dev@archos.tech
   grid-oib:inboundMailPaused: "false"

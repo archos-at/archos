@@ -518,6 +518,18 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           POSTHOG_RELEASE_ID: ${{ steps.posthog-release.outputs.release-id }}
 
+      # Project mail's zone setting the provider cannot set (ADR-0138): GET, and
+      # PATCH support_subaddress only when it is off. A no-op line on a stack
+      # without inboundMailDomain; a refusal fails the job (runbook §0, B2).
+      - name: Project mail - subaddressing
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          ./scripts/inbound-mail-after-deploy.sh subaddress
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
       # `pulumi up` is green once every rollout passed its readiness soak, which
       # each pod answers about itself. This asks from outside, through DNS, TLS
       # and the ingress, the way a person arrives: the frontend's liveness route
@@ -531,6 +543,20 @@ jobs:
           SMOKE_URL="$url" bash -c "$SMOKE_CHECK"
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      # Project mail's launch gates that need no human mail, read-only at
+      # Cloudflare (G7), and the signed route (G3, or G4 while paused) once the
+      # environment's INBOUND_MAIL_TEST_ADDRESS secret names a test-office
+      # address. Results in the job summary; skipped, said so, without mail.
+      - name: Project mail - launch gates
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          ./scripts/inbound-mail-after-deploy.sh gates
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          INBOUND_MAIL_TEST_ADDRESS: ${{ secrets.INBOUND_MAIL_TEST_ADDRESS }}
 
       - name: How to roll this back
         if: ${{ always() && env.ALREADY_DEPLOYED != 'true' && steps.previous.outputs.refs != '' && steps.previous.outputs.tag != env.IMAGE_TAG }}
@@ -806,6 +832,17 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
+      # As staging's: project mail's subaddressing, GET first, PATCH only when
+      # off, a refusal fails the job. With the mail block on in Pulumi.prod.yaml
+      # this is what used to be the runbook's hand-made call (§7).
+      - name: Project mail - subaddressing
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          ./scripts/inbound-mail-after-deploy.sh subaddress
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
       - name: Smoke check
         working-directory: deploy/pulumi
         run: |
@@ -814,6 +851,17 @@ jobs:
           SMOKE_URL="$url" bash -c "$SMOKE_CHECK"
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      # As staging's. Red here means the deploy is live and mail is not right:
+      # leave the WorkOS inbound-mail flag off (or pause mail) until it is green.
+      - name: Project mail - launch gates
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          ./scripts/inbound-mail-after-deploy.sh gates
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          INBOUND_MAIL_TEST_ADDRESS: ${{ secrets.INBOUND_MAIL_TEST_ADDRESS }}
 
       - name: How to roll this back
         if: ${{ always() && steps.previous.outputs.refs != '' && steps.previous.outputs.tag != env.PROD_IMAGE_TAG }}
