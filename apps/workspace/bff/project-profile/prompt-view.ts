@@ -1,9 +1,12 @@
-import { findProjectProfile, findProjectPromptView } from '@/lib/projects/repository'
+import { findProjectProfile, findProjectProfileInOrg, findProjectPromptView } from '@/lib/projects/repository'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
+import { profileAsTheLawShows } from '@/lib/project-intake/derivation-view'
+import { projectIntakeDefinitionV1 } from './intake-definition'
 import { loadDocumentRolesPromptSection } from '@/lib/document-roles/prompt-loader'
 import { loadUnreadableDocumentsSection } from './unreadable-section'
 import { getCached, invalidateCached } from '@/lib/cache'
 import { buildProjectBriefView } from './brief-view'
-import { normalizeLegacyPromptView } from './legacy-names'
+import { normalizeLegacyProfile, normalizeLegacyPromptView } from './legacy-names'
 import { isValidFederalStateToken } from './intake-conditions'
 import { ProjectProfileSchema } from './types'
 import type {
@@ -65,7 +68,7 @@ export async function loadProjectPromptView(
 
   const build = async (): Promise<string | null> => {
     const [stored, documents] = await Promise.all([
-      findProjectPromptView(projectId, organizationId),
+      storedViewAsTheLawShows(projectId, organizationId),
       // Appended here rather than baked into the stored view, because a role
       // binding changes without the profile changing. `buildProjectPromptView`
       // runs at profile-save; a document declared afterwards would never reach
@@ -90,6 +93,21 @@ export async function loadProjectPromptView(
     loadUnreadableDocumentsSection(projectId, organizationId),
   ])
   return [view, unreadable].filter(Boolean).join('\n\n') || null
+}
+
+/**
+ * The stored view, or, where the project's gate names no law, the view of the profile without its derived
+ * classes: the agent reads no Gebäudeklasse the Steckbrief hides (`profileAsTheLawShows`, the one rule).
+ * The stored classes stay; a gate that names law again serves the stored view as before.
+ */
+async function storedViewAsTheLawShows(projectId: string, organizationId: string | null | undefined): Promise<string | null> {
+  const stored = await findProjectPromptView(projectId, organizationId)
+  if (!organizationId || !stored) return stored
+  const [{ gate }, state] = await Promise.all([contextForPage(organizationId, projectId), findProjectProfileInOrg(projectId, organizationId)])
+  if (!state) return stored
+  const profile = normalizeLegacyProfile(state.profile) as ProjectProfile
+  const shown = profileAsTheLawShows(profile, projectIntakeDefinitionV1, gate.state)
+  return shown === profile ? stored : buildProjectPromptView(shown)
 }
 
 export async function invalidateProjectPromptViewCache(

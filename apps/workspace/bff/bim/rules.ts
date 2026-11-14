@@ -1304,7 +1304,9 @@ export function attachConfirmations(
   }
 
   return results.map((result) => {
-    const confirmation = byRule.get(result.ruleId) ?? null
+    // A hint judges nothing, so it shows no confirmation (one given while the rule still judged, and new
+    // ones are refused, `confirmAccessibleCheck`). The row stays stored and counts again once the rule judges.
+    const confirmation = result.hint ? null : (byRule.get(result.ruleId) ?? null)
     return {
       ...result,
       confirmation,

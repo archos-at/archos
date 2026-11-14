@@ -30,7 +30,7 @@ import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import { readSetupRecords } from '@/lib/project-intake/setup-records'
-import { subdivisionTerritories } from '@/lib/project-intake/setup-scope'
+import { assumedSubdivisionOf, subdivisionTerritories } from '@/lib/project-intake/setup-scope'
 import { projectBuildings } from '../chain/building'
 import type { BuildingScope } from '../rulesets/applicability'
 import { loadGraph } from '../chain/load'
@@ -230,7 +230,9 @@ export async function readContextInputs(organizationId: string, projectId: strin
     readSetupRecords(organizationId),
   ])
   const entitled = countries.entitled.map((entry) => entry.countryId)
-  const sites = siteLeaves(profile?.profile, subdivisionTerritories(setupRecords))
+  // A profile that names no site is assumed in the subdivision the office's home country names (ADR-0158).
+  const officeAssumed = assumedSubdivisionOf(setupRecords, countries.homeCountry)?.territoryId ?? null
+  const sites = siteLeaves(profile?.profile, subdivisionTerritories(setupRecords), officeAssumed)
   const facts = profile?.profile?.facts ?? {}
   const date = calendarDayIn(zone)
   return {

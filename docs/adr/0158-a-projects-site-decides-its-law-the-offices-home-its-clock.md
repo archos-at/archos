@@ -52,8 +52,10 @@ cannot present a law the project's facts do not support.
   then the assumptions, which place it as unverified.
   `agent.common.country_profile.resolve_site` and its TypeScript twin
   `bff/project-profile/site.ts` (`siteCountry`) are the one rule; a value the
-  intake does not offer places nothing. Nothing places a project by default:
-  no fact is `site_unknown`. No OIB verdict, Austrian doctrine as binding,
+  intake does not offer places nothing. (Amended 2026-11-14, see „What is
+  recorded wins, then the office's default" below: a project with no place
+  recorded at all is placed by its office's default territory; with neither, it
+  is `site_unknown`.) No OIB verdict, Austrian doctrine as binding,
   catalogue or derived class reaches a project abroad, and an unplaced project
   gets no verdicts and is asked for its site.
 - **Retrieval.** The Austrian corpus and the RIS tools serve a project placed in
@@ -98,9 +100,30 @@ cannot present a law the project's facts do not support.
   record only stops new rows without a country and makes the rest visible.
 - **Older projects' default Vienna.** Migration 0018 gave every project created
   before the Land question an unconfirmed `federal_state=vienna`
-  (`onboarding_default`). It stays: removing it would unplace those projects.
-  As an assumption it places them as unverified, and the agent's OIB block says
-  so (`applicability.UNVERIFIED_SITE_LINE`) and asks the person to confirm.
+  (`onboarding_default`, no evidence). It stays: removing it would unplace those
+  projects. As an assumption it places them as unverified. The turn carries the
+  leaf's certainty, and the gate note (`knowledge_context.ASSUMED_SITE_NOTE`)
+  tells the agent quietly: no routine caveat, and only where the answer would
+  differ in another Land does it say which site it assumes and ask to confirm.
+  (`applicability.UNVERIFIED_SITE_LINE`, named here before, went with the cut-over.)
+- **What is recorded wins, then the office's default** (amendment, 2026-11-14,
+  the product owner's decision before the production rollover: customers must
+  not notice the move to records). `sitePlacement`
+  (`bff/base-knowledge/context/site.ts`) is the one order, with a spec per step:
+  1. a confirmed fact (register municipality, Land, country), the only
+     `verified` step;
+  2. a recorded assumption (0201's or a typed address's postal-code Land, a
+     reading's suggestion, a typed address's country), office defaults excepted;
+  3. the Land the stored address names by its postal code and place;
+  4. an office default an assumption already holds (0018's Land): it counts as
+     nothing recorded only where no address names a Land;
+  5. for a profile with no place recorded at all, the subdivision the office's
+     home country assumes: `subdivisions.assumedWhenUnstated` of that country's
+     `fact_definitions` record (data, never code; Austria's names Vienna).
+  Steps 2 to 5 place the project unverified. The one-time re-derivation after a
+  release (`bff/project-intake/rederive.ts`) records steps 3 and 5 on the
+  profile, so the setup and its classification read the same site. The home
+  country still never decides the country of a project that names one.
 
 ### Consequences
 
@@ -128,6 +151,10 @@ cannot present a law the project's facts do not support.
 - `test_applicability.py` and the jurisdiction section of
   `test_turn_context_message.py` fail when OIB verdicts reach a project abroad
   or unplaced; `applicable-standards.test.ts` did the same for the overview until the cut-over removed the OIB list ([ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md)); the Steckbrief shows the law the records resolve at the site.
+- `bff/base-knowledge/context/site.spec.ts` holds the placement order, one case
+  per step; `rederive.spec.ts` the office's assumed territory (and the seed's
+  answer for a record released before the field) and what the one-time
+  re-derivation records; `test_knowledge_context.py` the quiet assumed-site note.
 - `intake-seed.spec.ts` fails on `country=at` for `outside_austria` and on a
   confirmed typed address.
 - `scripts/rls-test-db.sh` holds 0201 (Austrian addresses placed, a Zürich
