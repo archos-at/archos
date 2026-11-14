@@ -334,6 +334,37 @@ describe("installDns during a domain move (formerBaseDomain)", () => {
     expect(own?.inputs.zoneId).toBe("00000000000000000000000000abc123");
   });
 
+  it("keeps the former zone's www, redirect and DMARC under their old names when the baseline stack moves", async () => {
+    // Prod's move: the stack that owns the zone baseline leaves its apex for a new zone. The
+    // former zone's records keep the names they had, with their values, so the move changes
+    // nothing about them and needs no `pulumi state delete`; the new zone's take a suffix.
+    const { records } = await install(
+      dnsConfig({
+        [KEY("baseDomain")]: ZONE,
+        [KEY("dnsZoneBaseline")]: "true",
+        [KEY("formerBaseDomain")]: "former.test",
+        [KEY("formerDnsZoneName")]: "former.test",
+        [KEY("formerDnsZoneId")]: FORMER_ZONE_ID,
+        [KEY("formerDnsDmarc")]: "v=DMARC1; p=quarantine",
+      }),
+    );
+    const byName = new Map(records.map((r) => [r.name, r.inputs]));
+    expect(byName.get("dns-www")).toMatchObject({ zoneId: FORMER_ZONE_ID, name: "www.former.test", content: "former.test", proxied: true })
+    expect(byName.get("dns-dmarc")).toMatchObject({ zoneId: FORMER_ZONE_ID, name: "_dmarc.former.test", content: "v=DMARC1; p=quarantine" })
+    expect(byName.get(`dns-www-${ZONE}`)).toMatchObject({ zoneId: "00000000000000000000000000abc123", name: `www.${ZONE}`, proxied: true })
+    expect(byName.has(`dns-dmarc-${ZONE}`)).toBe(false)
+    const rulesets = RESOURCES.filter((r) => r.type.endsWith(":Ruleset"));
+    expect(rulesets.map((r) => [r.name, r.inputs.zoneId])).toEqual([
+      [`dns-www-redirect-${ZONE}`, "00000000000000000000000000abc123"],
+      ["dns-www-redirect", FORMER_ZONE_ID],
+    ]);
+  });
+
+  it("refuses formerDnsDmarc outside a move of the baseline stack", async () => {
+    const error = await loadWith(dnsConfig({ [KEY("formerDnsDmarc")]: "v=DMARC1; p=none" }));
+    expect(error?.message).toContain(KEY("formerDnsDmarc"));
+  });
+
   it("refuses former hosts outside every zone it names", async () => {
     const error = await loadWith(dnsConfig({ [KEY("formerBaseDomain")]: "dev.former.test" }));
     expect(error?.message).toContain("dev.former.test");

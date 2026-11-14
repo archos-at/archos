@@ -29,18 +29,25 @@ code, not from the cluster, ESC or WorkOS.
 - **The office's own standards stay dark.** The flag `office-standards`
   (`flag_01M7CW4BX9VF2YDVSGA4NK1HZG`, an entitlement) is OFF in Production until an office
   is targeted ([workos-provisioning.md](workos-provisioning.md)).
+- **Prod moves to the brand's domain, as dev did on 2026-11-05**
+  ([domain-cutover.md](domain-cutover.md); owner decision 2026-11-14). `baseDomain` is the new
+  domain, and `formerBaseDomain` keeps the former apex and `app.` host answering with a 301 to the
+  same path, so bookmarks, links and connected agents keep working. The former zone's `www`,
+  redirect and `_dmarc` stay as they are (`formerDnsDmarc`). WorkOS Production already holds every
+  new entry next to the former ones.
 - What customers notice: the release overview artifact (private; ask the owner).
 
 ## What still needs a person
 
-Everything else in this document runs by itself. Four things do not:
+Everything else in this document runs by itself. Five things do not:
 
 | # | What | Where | When |
 |---|---|---|---|
-| H1 | Replace prod's `cloudflareApiToken` with an account-owned token. It needs the mail scopes on the inbound mail zone ([project-mail-runbook.md §4](project-mail-runbook.md)) **and** every scope prod's DNS block uses on the current base domain today (Zone · DNS · Edit, Zone · Zone · Read, Single Redirect · Edit). Prove it first with `CLOUDFLARE_API_TOKEN=<token> deploy/pulumi/scripts/check-cloudflare-token.sh --stack prod` | Cloudflare → Manage Account → Account API Tokens; then the prod stack's ESC environment, key `cloudflareApiToken` | Before the merge. A missing scope fails the preview, or the apply half-way |
+| H1 | Check prod's `cloudflareApiToken`. It is the same account-owned token as dev's (owner, 2026-11-14), and it must cover both zones: DNS (Zone · DNS · Edit, Zone · Zone · Read, Single Redirect · Edit) on the former and the new zone, and project mail on the new zone (Zone Settings · Edit, Email Routing Rules · Edit; account: Workers Scripts · Edit, Email Routing Addresses · Edit; [project-mail-runbook.md §4](project-mail-runbook.md)). Dev's mail runs in the former zone, so dev working proves nothing about the new zone's mail scopes. `CLOUDFLARE_API_TOKEN=<token> deploy/pulumi/scripts/check-cloudflare-token.sh --stack prod` checks the DNS half; the mail half is read on the token in Cloudflare | Cloudflare → Manage Account → Account API Tokens | Before the merge. A missing scope fails the preview, or the apply half-way |
 | H2 | Start the promotion: Actions → **Promote to prod** → Run workflow on `develop`. On the first run, enter the develop commit in `sha` (40 hex). With the input empty, the workflow takes the newest commit that has `CI OK` and the `deploy/staging` status, and only staging deploys from PR #1678 on set that status | GitHub Actions, `promote.yml` | After PR #1678 is on develop and staging is green on it |
 | H3 | Merge the promotion PR to `prod`, then approve the `production` environment | GitHub, the PR the workflow opened | In a quiet hour (the migration lock, below) |
 | H4 | Optional: set the `production` environment's secret `INBOUND_MAIL_TEST_ADDRESS` to a test office's project address (never a customer's), so the deploy also runs gate G3 over the signed route | GitHub → Settings → Environments → `production` | Before H3. Without it the job summary says G3 was skipped |
+| H5 | After the deploy: point the AuthKit application's one-value settings at the new host: initiate-login URI `https://app.<new>/api/auth/signin`, homepage `https://app.<new>`, and the new redirect URI, logout URI and `/api/mcp` resource as defaults. Until then the former values work through the 301s | WorkOS → Production → the AuthKit application (an agent can do it through the WorkOS MCP server on the owner's word) | Once the new hosts answer with valid certificates |
 
 ## Pre-flight
 
@@ -220,9 +227,15 @@ already gives, and derives every building's class from the released records.
      the E-Mail-Eingang ([project-mail-runbook.md](project-mail-runbook.md), G1
      to G6). `kubectl -n grid rollout status deploy/clamav --timeout=30m`.
    - The office's own standards are not in the rail (flag OFF).
+   - The new domain: the apex and `app.` answer with valid certificates (cert-manager issues
+     them over HTTP-01 within minutes); the former apex and `app.` 301 to the same path on the new
+     host; sign-in, sign-out and a connected agent on its former URL work.
 4. Afterwards, none of it urgent: `task langfuse:provision` (check, then
    `-- --apply` on the owner's yes), and **Rescan failed ingestions** for the
    offices with `Job ID not found` rows.
+5. For the domain, when the dust has settled: the PostHog replay trigger's URL regex and Search
+   Console's Change of Address ([domain-cutover.md](domain-cutover.md), step 8). The domain
+   alone goes back by reverting its keys in `Pulumi.prod.yaml` (that page's Rollback).
 
 ## Rollback across Hatchet
 

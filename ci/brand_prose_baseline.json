@@ -1070,7 +1070,7 @@
   "deploy/posthog/support/slack-alert.hog": 3,
   "deploy/posthog/surveys/chat-message-count.hog": 1,
   "deploy/pulumi/Pulumi.dev.yaml": 142,
-  "deploy/pulumi/Pulumi.prod.yaml": 150,
+  "deploy/pulumi/Pulumi.prod.yaml": 149,
   "deploy/pulumi/Pulumi.yaml": 3,
   "deploy/pulumi/README.md": 27,
   "deploy/pulumi/index-chroma-migration.spec.ts": 2,

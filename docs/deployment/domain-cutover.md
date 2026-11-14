@@ -1,11 +1,13 @@
 # Domain cutover: moving every public host to the domain in `identity.json`
 
-**Status: dev switching, prod prepared** (owner decision D2, 2026-10-29: prepare, don't flip;
-2026-11-05: switch dev). The new zone is in the same Cloudflare account as the former one. The
-dev stack's switch is committed in `Pulumi.dev.yaml` with the new zone's id, and dev's new
-account-owned token is in ESC, checked against both zones. Staging's WorkOS entries are added. Prod
-is unchanged: its configuration below is ready to apply. The owner triggers it; every step that
-changes a live system is marked **one-way door** or **live** and needs the owner.
+**Status: dev switched (2026-11-05), prod switches with the November promotion** (owner decision,
+2026-11-14, replacing D2's "prepare, don't flip"; [prod-release-2026-11.md](prod-release-2026-11.md)).
+The new zone is in the same Cloudflare account as the former one. Dev and prod use the same
+account-owned token in ESC (owner, 2026-11-14). WorkOS Production holds every new entry next to the
+former ones (read 2026-11-14): the AuthKit redirect, logout and CORS entries, the Connect redirect
+URIs and the resource indicators. Prod's configuration is committed in `Pulumi.prod.yaml`; the
+former zone's `www`, redirect and `_dmarc` stay published under their old resource names
+(`formerDnsDmarc`, `platform/dns.ts`), so step 4 below is no longer needed.
 
 The product's name and domain are copy and live in one place:
 `packages/brand/identity.json` (`"domain"`). The website already reads it (canonical URLs,
@@ -82,12 +84,12 @@ value by hand (`deploy/AGENTS.md`); set secrets with `pulumi config set --secret
 | `formerDnsZoneName` | (unset) | `$OLD` |
 | `formerDnsZoneId` | (unset) | the former zone's id (today's `dnsZoneId`) |
 | `cloudflareApiToken` (ESC) | prod's user token, `piloti.at` only | a new **account-owned** token (Manage Account → API Tokens). Zone Resources `$NEW` and `$OLD`: Zone → DNS → Edit, Zone → Single Redirect → Edit (the `www` rule), Zone → Zone → Read, and for project mail on `$NEW` Zone → Zone Settings → Edit and Zone → Email Routing Rules → Edit; Account Resources the account: Workers Scripts → Edit, Email Routing Addresses → Edit (the mail block's list, `src/platform/inbound-mail.ts`). Prove it with `CLOUDFLARE_API_TOKEN=<token> check-cloudflare-token.sh --stack prod` before setting it |
-| `dnsDmarc` | the former domain's policy | **unset.** `_dmarc.$NEW` has one owner, the project-mail block of `Pulumi.prod.yaml` (agreed 2026-11-05 with the mail work, archos-at/archos#1464 and its follow-up), because mail needs it before prod's switch. Two TXT records at `_dmarc` make DMARC fail, and Cloudflare accepts the second without a word. The former value also does not fit: it reports to the former registrar and was written for a domain with no mail, while `$NEW` carries Google Workspace mail. The policy itself (start at `p=none` with `sp=` set) is the owner's mail decision |
+| `dnsDmarc` | the former domain's policy | **unset**, and its value moved to `formerDnsDmarc`, which keeps `_dmarc.$OLD` as it is. `_dmarc.$NEW` has one owner, the project-mail block of `Pulumi.prod.yaml` (agreed 2026-11-05 with the mail work, archos-at/archos#1464 and its follow-up), because mail needs it before prod's switch. Two TXT records at `_dmarc` make DMARC fail, and Cloudflare accepts the second without a word. The former value also does not fit: it reports to the former registrar and was written for a domain with no mail, while `$NEW` carries Google Workspace mail. The policy itself (start at `p=none` with `sp=` set) is the owner's mail decision |
 | comment on the Qdrant dashboard | `https://qdrant.$OLD/oauth2/callback` | `https://qdrant.$NEW/oauth2/callback` |
 
 `dnsZoneBaseline: "true"` stays on prod: it publishes the new zone's apex, `www` (301 to the
-apex at Cloudflare); `_dmarc` belongs to the mail block (row above). The former zone's `www`, `_dmarc` and `www` redirect rule
-stay where they are only after step 4 takes them out of the state.
+apex at Cloudflare); `_dmarc` belongs to the mail block (row above). The former zone's `www`,
+`_dmarc` and `www` redirect rule stay where they are, under their old resource names (step 4).
 
 ### Dev (`deploy/pulumi/Pulumi.dev.yaml`)
 
@@ -223,18 +225,12 @@ the image's input hash for `web` changes.
 
 **Switch day, dev first, then prod after a day of dev running clean:**
 
-4. **Prod only: keep the former zone's baseline.** The former apex and `app.` records need
-   nothing: the program keeps them (`formerDnsZone*`). The zone-level records are different:
-   `dns-www`, `dns-dmarc` and `dns-www-redirect` move to the new zone with `dnsZoneName`, and
-   Pulumi would delete the former `www`, its redirect rule and its DMARC policy. Take those three
-   out of prod's state first, so they stay in Cloudflare as they are (`www.$OLD` then 301s to
-   `$OLD`, which 301s to `$NEW`):
-   ```bash
-   cd deploy/pulumi
-   pulumi stack --stack prod --show-urns | grep -E '::dns-(www|dmarc|www-redirect)$'
-   pulumi state delete --stack prod '<each of the three urns>'   # one-way for the state, not for DNS
-   ```
-   Dev owns no baseline and skips this step.
+4. **Prod only: the former zone's baseline needs nothing.** Earlier this step took `dns-www`,
+   `dns-dmarc` and `dns-www-redirect` out of prod's state. The program now keeps them itself: when
+   the baseline stack has a former zone, those three keep their names and values in the former zone
+   (`_dmarc` from `formerDnsDmarc`), and the new zone's `www` and redirect are named with its zone as
+   a suffix (`dns-www-$NEW`). When `formerBaseDomain` is retired later, rename the new zone's
+   resources back with `aliases` in the same change, or Pulumi re-creates them under the old name.
 5. Open a PR with the configuration changes above for that stack. Read its `pulumi preview`
    (CI posts it; `npm run preview` with stack credentials): expected are new records in the
    new zone, two `https-former-*` listeners and their certificates (three, with
@@ -242,8 +238,9 @@ the image's input hash for `web` changes.
    former zone), two `former-*-redirect` HTTPRoutes and the `former-app-timeouts` policy, new hostnames on every listener, and changed env on the frontend, web, api and
    Langfuse pods. The former apex and `app.` records show no change. The only `DnsRecord`
    deletes are the former `s3.`, `langfuse.`, `qdrant.`, `cms.` (and on prod any other operator)
-   hosts; a delete of the former apex, `app.`, `www` or `_dmarc` means step 4 or
-   `formerDnsZone*` is missing.
+   hosts; a delete of the former apex, `app.`, `www`, `_dmarc` or the `www` redirect means
+   `formerDnsZone*` or `formerDnsDmarc` is missing. `dns-www`, `dns-dmarc` and
+   `dns-www-redirect` show no change; `dns-www-$NEW` and `dns-www-redirect-$NEW` are created.
 6. Merge. CI rebuilds the `web` image with `PUBLIC_SITE_URL=https://$NEW` (the new
    `baseDomain` is part of its hash), and the deploy runs `pulumi up` (**live**). cert-manager
    issues the new certificates over HTTP-01 within minutes. The former hosts' listeners use new
@@ -282,21 +279,10 @@ Before step 8 everything goes back by reverting the PR of step 5:
    certificates and redirect routes itself.
 2. The former apex and `app.` records were never out of the state and need nothing. The
    former hosts the move deleted (`s3.` and the operator hosts) are re-created by the `up`.
-   On prod, reconcile the three baseline resources of step 4 one by one before the `up`.
-   `dns-www` and `dns-www-redirect` are in the state again, but for the new zone; the reverted
-   config moves them back, and both creates collide with what step 4 left in the former zone:
-   - `dns-www` (`DnsRecord`): delete `www.$OLD` in Cloudflare right before the `up`, or
-     `pulumi state delete` the new-zone entry and import the former record over it
-     (`pulumi import cloudflare:index/dnsRecord:DnsRecord dns-www <zoneId>/<recordId>`).
-   - `dns-www-redirect` (`Ruleset`, not a record): a zone holds one entrypoint ruleset per
-     phase, so delete the former zone's `http_request_dynamic_redirect` entrypoint in
-     Cloudflare (Rules → Redirect Rules) right before the `up`, or import it with
-     `pulumi import cloudflare:index/ruleset:Ruleset dns-www-redirect zones/<zoneId>/<rulesetId>`
-     after removing the new-zone entry from the state.
-   - `dns-dmarc` (`DnsRecord`): not in the state at all, and the reverted config declares it
-     again. Import the former `_dmarc.$OLD` record as above, or delete it right before the `up`.
-   Deleting is a few minutes of resolution failures for that name, bounded by the 300 s TTL;
-   importing has none.
+   On prod the former zone's `www`, redirect and `_dmarc` were never touched either: the
+   reverted config (`dnsZoneName` and `dnsDmarc` back) declares `dns-www`, `dns-dmarc` and
+   `dns-www-redirect` with the values they kept, and the `up` deletes only the new zone's
+   `dns-www-$NEW` and `dns-www-redirect-$NEW`.
 3. WorkOS and PostHog need nothing: the old entries were never removed.
 
 After step 8, Search Console's Change of Address can be withdrawn in the `$OLD` property,
