@@ -283,7 +283,7 @@ describe('runHandler', () => {
     runAgentWakeStop.mockResolvedValue(undefined)
 
     await expect(runJobSlice()).resolves.toEqual({ done: true, payload: stop })
-    expect(runAgentWakeStop).toHaveBeenCalledWith('org-1', stop, { last: false })
+    expect(runAgentWakeStop).toHaveBeenCalledWith('org-1', stop, { last: false, retry: true })
     expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
   })
 
@@ -333,7 +333,7 @@ describe('runHandler', () => {
       const outcome = await runJobSlice()
 
       expect(outcome.done).toBe(true)
-      expect(runBimExtractJob).toHaveBeenCalledWith('org-1', expect.objectContaining(document), { last: false })
+      expect(runBimExtractJob).toHaveBeenCalledWith('org-1', expect.objectContaining(document), { last: false, retry: false })
       expect(seenScope!).toMatchObject({ kind: 'tenant', organizationId: 'org-1' })
       expect(runOfficeRenditionJob).not.toHaveBeenCalled()
     })
@@ -349,7 +349,7 @@ describe('runHandler', () => {
       expect(runOfficeRenditionJob).toHaveBeenCalledWith(
         'org-1',
         expect.objectContaining({ fileName: 'a.docx' }),
-        { last: false }
+        { last: false, retry: false }
       )
     })
 
@@ -358,7 +358,7 @@ describe('runHandler', () => {
       takenRow.mockResolvedValue(row({ kind: 'file_research_report', payload }))
 
       expect((await runJobSlice()).done).toBe(true)
-      expect(runReportFilingJob).toHaveBeenCalledWith('org-1', expect.objectContaining(payload), { last: false })
+      expect(runReportFilingJob).toHaveBeenCalledWith('org-1', expect.objectContaining(payload), { last: false, retry: false })
 
       runReportFilingJob.mockClear()
       takenRow.mockResolvedValue(row({ kind: 'file_research_report', payload: { ...payload, requester: null } }))
@@ -371,12 +371,12 @@ describe('runHandler', () => {
       takenRow.mockResolvedValue(row({ kind: 'bim_extract', payload: document, attempts: 3 }))
 
       await runJobSlice()
-      expect(runBimExtractJob.mock.calls[0][2]).toEqual({ last: true })
+      expect(runBimExtractJob.mock.calls[0][2]).toEqual({ last: true, retry: true })
 
       // The runner's own knob, read where the BFF in the same pod can see it.
       vi.stubEnv('BFF_JOBS_MAX_ATTEMPTS', '5')
       await runJobSlice()
-      expect(runBimExtractJob.mock.calls[1][2]).toEqual({ last: false })
+      expect(runBimExtractJob.mock.calls[1][2]).toEqual({ last: false, retry: true })
     })
 
     it('fails the attempt for a payload that does not parse', async () => {

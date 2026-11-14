@@ -137,7 +137,7 @@ function systemHandler<TPayload extends object>(
 ): JobHandler {
   return async ({ jobId, organizationId, payload, attempts }) => {
     const parsed = schema.parse(payload)
-    await step(organizationId, parsed, { last: isLastAttempt(attempts), jobId })
+    await step(organizationId, parsed, { last: isLastAttempt(attempts), retry: attempts > 1, jobId })
     return { done: true, payload: parsed }
   }
 }

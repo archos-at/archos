@@ -1,0 +1,5 @@
+---
+# area: administration
+operators:
+  - >
+    A published text is now read into the base corpus once; before, a new text could be read up to three times, each read throwing the previous one away, which made publishing slow and expensive.
