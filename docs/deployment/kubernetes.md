@@ -149,8 +149,10 @@ an object store. So:
   (dev and prod) the deploy reads `data-seaweedfs-0` and patches it to the
   larger of its current size and `seaweedfsStorageSize`, so raising the value
   grows the volume and a smaller value is a no-op, never a shrink
-  (`src/data/pvc-grow.ts`). Off on a fresh cluster, where the PVC does not exist
-  yet to read; the template creates it at the configured size. Qdrant and the
+  (`src/data/pvc-grow.ts`). **On a new cluster, leave `seaweedfsGrowVolume`
+  unset for the first `pulumi up`**: the read fails while `data-seaweedfs-0`
+  does not exist yet, and the template creates it at the configured size. Set it
+  once the PVC exists. Qdrant and the
   split topology still grow by hand:
   `kubectl -n grid patch pvc <pvc> -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'`,
   then update the config value so future clusters start at the new size. Only
