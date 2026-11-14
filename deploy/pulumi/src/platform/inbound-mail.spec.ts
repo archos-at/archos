@@ -157,10 +157,16 @@ describe("project mail on Cloudflare", () => {
     expect(CALLS.map((c) => c.token)).toContain("cloudflare:index/getZone:getZone");
   });
 
-  it("switches Workers observability off explicitly", async () => {
-    // Workers Logs would keep a record of every delivery at Cloudflare.
+  it("keeps the Worker's own delivery lines and no invocation logs", async () => {
+    // Off entirely, two days of refused deliveries left no trace at Cloudflare
+    // (2026-11). Invocation logs would record every envelope sender and
+    // recipient there, so only the Worker's own line is kept: an outcome, the
+    // BFF's status and its request id (`report` in the Worker).
     await install(mailConfig());
-    expect(one(SCRIPT).inputs.observability).toEqual({ enabled: false });
+    expect(one(SCRIPT).inputs.observability).toEqual({
+      enabled: true,
+      logs: { enabled: true, invocationLogs: false },
+    });
   });
 
   it("pins a compatibility date less than a year old", async () => {
