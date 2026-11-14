@@ -148,6 +148,55 @@ vulnerabilities:
       Drop as soon as a Langfuse image ships `@prisma/config` >= 8 (deepmerge-ts
       >= 8.0.0).
 
+  # ── Base-image packages, the 2026-11-14 advisory wave ────────────────────
+  #
+  # On 2026-11-14 the trivy DB took a wave of Ubuntu and Debian advisories in the
+  # middle of the prod promotion, and each run of the promotion's scan found a
+  # pin the previous one had passed. RabbitMQ, Langfuse and the collector were
+  # cleared by bumping (#1727, #1729); for the rest no rebuilt digest existed
+  # that day: ClickHouse's next build is a version jump, and the PgBouncer image
+  # 1.26.0 had no newer build. Boxed for SEVEN days, the shortest box this file
+  # uses: bump each pin before it expires and delete the entry, never extend it.
+  - id: CVE-2026-109518
+    expired_at: 2026-11-21
+    statement: |
+      apt / libapt-pkg (clickhouse-server 2.4.14, pgbouncer 3.0.3): remote code
+      execution via hard-link reuse while apt downloads packages. Not reachable
+      here: apt runs only at image build time, never in a running container,
+      and none of these containers runs as root or has a package source it
+      would fetch from. Drop when the clickhouse and pgbouncer pins move to
+      rebuilds with apt 2.4.15ubuntu0.1 / 3.0.4 (RabbitMQ already did, #1727).
+  - id: CVE-2026-33630
+    expired_at: 2026-11-21
+    statement: |
+      c-ares 1.34.5 in the pgbouncer image: use-after-free / double free in the
+      resolver. PgBouncer resolves one name, the in-cluster Postgres Service,
+      through the cluster DNS; no answer comes from outside the cluster. Drop
+      with the pgbouncer rebuild carrying c-ares 1.34.9.
+  - id: CVE-2026-69184
+    expired_at: 2026-11-21
+    statement: |
+      c-ares 1.34.5 in the pgbouncer image: CPU exhaustion from crafted DNS
+      answers. Same reasoning as CVE-2026-33630: only cluster DNS answers it.
+  - id: CVE-2026-69186
+    expired_at: 2026-11-21
+    statement: |
+      c-ares 1.34.5 in the pgbouncer image: denial of service via an unvalidated
+      DNS header. Same reasoning as CVE-2026-33630: only cluster DNS answers it.
+  - id: CVE-2026-76844
+    expired_at: 2026-11-21
+    statement: |
+      zlib1g in the pgbouncer image (Debian's advisory text names
+      webpack-dev-middleware, which the image does not contain). PgBouncer
+      decompresses nothing a client sends. Drop with the pgbouncer rebuild
+      carrying zlib 1:1.3.dfsg+really1.3.1-1+deb13u1.
+  - id: CVE-2026-85091
+    expired_at: 2026-11-21
+    statement: |
+      zlib1g in the pgbouncer image: heap overflow in gz_vacate(), the gzip
+      file-writing path. PgBouncer writes no gzip file. Drop with the same
+      pgbouncer rebuild as CVE-2026-76844.
+
   # ── ClickHouse (ADR-0044) ─────────────────────────────────────────────────
   #
   # Empty. Its one entry, OpenSSL 3.0.2-0ubuntu1.29 (CVE-2026-84782, boxed to
