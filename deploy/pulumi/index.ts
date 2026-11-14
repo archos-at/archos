@@ -40,6 +40,8 @@ import { installQdrant } from "./src/data/qdrant";
 import { installWorkloadAlerts } from "./src/platform/workload-alerts";
 import { AppWiring, PULL_SECRET_NAME, buildRegistryPullSecret, buildSecrets } from "./src/app/config";
 import { runMigrations } from "./src/app/migrations-job";
+import { buildOnlineIndexes } from "./src/app/online-indexes-job";
+import { runKnowledgeCarry } from "./src/app/knowledge-carry-job";
 import { reconcileAuditSchemas } from "./src/app/audit-schemas-job";
 import { carryOverFolderGrants, reconcileAuthzCatalog } from "./src/app/workos-authz-jobs";
 import { migrateChromaToQdrant } from "./src/app/chroma-migration-job";
@@ -52,7 +54,7 @@ import { installWeb } from "./src/app/web";
 import { installGotenberg } from "./src/app/gotenberg";
 import { installPublicSourceFetcher } from "./src/app/public-source-fetcher";
 import { installClamAV } from "./src/app/clamav";
-import { installWorkers } from "./src/app/workers";
+import { installWorkers, syncBaseCorpusAfterRollout } from "./src/app/workers";
 import { installAgentWorker } from "./src/app/agent-worker";
 import { installIngestWorker, installIngestWorkerHeavy } from "./src/app/ingest-worker";
 import { installHatchetQueueAuth } from "./src/app/hatchet-queue-auth";
@@ -245,7 +247,7 @@ const pullSecret = buildRegistryPullSecret(cfg, provider, namespace);
 // The sandboxed fetcher of public sources (ADR-0162), in every stack: the backend roles read
 // public sources, and parse their PDFs, only through it (`publicSourceFetcherEnv`, ADR-0162 amendment).
 // It runs the private backend image, so it needs the pull Secret like every app pod.
-installPublicSourceFetcher(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : []);
+const publicSourceFetcher = installPublicSourceFetcher(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : []);
 const wiring: AppWiring = {
   cfg,
   namespace,
@@ -269,10 +271,16 @@ const secrets = buildSecrets(wiring);
 // the frontend/workers that read it. The migrations themselves go straight to
 // the primary; the pooler is listed so everything ordered after them (the BFF
 // tiers, which connect through it) is created after it too (ADR-0083).
+//
+// First, the indexes a pending migration would build under ACCESS EXCLUSIVE are
+// built online (`ONLINE_INDEXES`), so the migration adopts them: drizzle runs
+// the whole batch in one transaction and would hold that lock to its end.
+const onlineIndexes = buildOnlineIndexes(wiring, cfg, secrets, [postgres.cluster, postgres.initJob]);
 const migratedSchema = runMigrations(wiring, cfg, secrets, [
   postgres.cluster,
   postgres.initJob,
   postgres.pooler,
+  onlineIndexes,
 ]);
 // Then the row-level-security roles take their names without a brand
 // (ADR-0145 row 10d, `src/data/postgres-rename.ts`): the migrations written
@@ -347,6 +355,10 @@ const apiDependsOn = [
 ];
 const api = installApi(wiring, cfg, secrets, apiDependsOn);
 const legacyApi = installApi(wiring, cfg, secrets, apiDependsOn, LEGACY_API_TIER);
+
+// One base-corpus sync cycle as soon as the api tier, which serves the route,
+// has rolled out, instead of on the CronJob's next tick. Not awaited.
+syncBaseCorpusAfterRollout(wiring, cfg, secrets, [migrations, api.deployment, api.service]);
 
 // The chat tier the frontend dials (the switch step, `tier-names.ts`): up and
 // ready before the frontend that points its socket at it rolls out.
@@ -456,6 +468,23 @@ const bffJobs = installBffJobs(wiring, cfg, secrets, [
   legacyApi.service,
   ...queueScalerDeps,
 ]);
+
+// The promotion's carry of reviewed knowledge releases (ADR-0181), where the
+// stack says so: after everything it calls has rolled out (the schema, the api
+// tier and the fetcher it fetches through, the pool that runs the index runs,
+// the workers that ingest). Not awaited; `knowledge-carry-job.ts` says why.
+if (cfg.auth.knowledgeCarry) {
+  runKnowledgeCarry(wiring, cfg, secrets, [
+    migrations,
+    api.deployment,
+    api.service,
+    publicSourceFetcher.deployment,
+    publicSourceFetcher.service,
+    frontend.deployment,
+    bffJobs.deployment,
+    ingestWorker.deployment,
+  ]);
+}
 
 // Chat tier scale-out (ADR-0080) — KEDA moves the chat StatefulSet between its
 // floor and ceiling on the fleet's running turns. Only with affinity off. The
@@ -611,8 +640,9 @@ export const platformMcpUrl = cfg.mcpGateway.enabled
 export const dnsRecords = dns
   ? pulumi.all(managedRecordNames(dns)).apply((names) => names.join(", "))
   : pulumi.output("(none: dnsEnabled=false — records are maintained by hand)");
-// `inboundMailOperator` says whether the RFC 2142 forwards' address is verified yet.
-export const { inboundMailWorker, inboundMailOperator } = inboundMailOutputs(cfg, inboundMail);
+// `inboundMailOperator` says whether the RFC 2142 forwards' address is verified yet;
+// `inboundMailCloudflare` is what deploy.yml's post-deploy mail steps read.
+export const { inboundMailWorker, inboundMailOperator, inboundMailCloudflare } = inboundMailOutputs(cfg, inboundMail);
 // The image refs this update deployed. `deploy.yml` reads them back before the
 // next staging deploy and refuses one that would move a service to an older
 // commit (`scripts/resolve-image-refs.sh`). The stack file cannot answer that:

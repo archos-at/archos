@@ -17,7 +17,7 @@
  */
 
 import 'server-only'
-import { desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { NotFoundError } from '@/lib/api/errors'
 import { getDb } from '@/lib/db'
@@ -36,6 +36,8 @@ import { releasedTextTitle } from './text-title'
 import type { IndexStatusView } from './wire'
 
 const REASON = 'platform base knowledge: indexing runs'
+
+const NOT_ENQUEUED = 'the indexing job was not enqueued'
 
 /** The most runs one status read returns. */
 const MAX_RUNS = 500
@@ -70,10 +72,35 @@ export async function enqueueIndexRuns(
       })
     } catch (error) {
       failed += 1
-      await markRun(runId, 'failed', `the indexing job was not enqueued: ${error instanceof Error ? error.message : String(error)}`)
+      await markRun(runId, 'failed', `${NOT_ENQUEUED}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
   return { enqueued: runIds.length - failed, failed }
+}
+
+/**
+ * Hand a request's runs on again where no job carries them: a run still `requested` (its job was never enqueued,
+ * or is still waiting, which a second job cannot harm: `runPlatformTextIndex` acts on a `requested` run only), and
+ * a run failed only because its job was not enqueued, set back to `requested` first. A run the corpus refused stays
+ * failed. The carry calls it before it waits (ADR-0181), so a retried Job resumes where the publish left the runs.
+ */
+export async function resumeIndexRuns(
+  platformOrganizationId: string | null,
+  changeRequestId: string,
+): Promise<{ enqueued: number; failed: number }> {
+  const runIds = await withPlatformAccess(REASON, async () => {
+    const db = getDb()
+    await db
+      .update(knowledgeIndexRuns)
+      .set({ state: 'requested', failure: null, updatedAt: new Date() })
+      .where(and(eq(knowledgeIndexRuns.changeRequestId, changeRequestId), eq(knowledgeIndexRuns.state, 'failed'), sql`${knowledgeIndexRuns.failure} LIKE ${`${NOT_ENQUEUED}%`}`))
+    const rows = await db
+      .select({ id: knowledgeIndexRuns.id })
+      .from(knowledgeIndexRuns)
+      .where(and(eq(knowledgeIndexRuns.changeRequestId, changeRequestId), eq(knowledgeIndexRuns.state, 'requested')))
+    return rows.map((row) => row.id)
+  })
+  return runIds.length === 0 ? { enqueued: 0, failed: 0 } : enqueueIndexRuns(platformOrganizationId, runIds)
 }
 
 interface ReleasedText {

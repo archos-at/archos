@@ -605,7 +605,7 @@ export function compileFormula(formula: FormulaSpec, values: FormulaValues, word
 
 /* ── judging ──────────────────────────────────────────────────────────────── */
 
-/** Which editions bind at the turn's site, as the server stamped the card; absent where no site was known. */
+/** Which editions bind at the turn's site, as the server stamped the card; absent on a card written before the stamp. */
 export type SiteBinding = NonNullable<FormulaCardData['site_binding']>
 
 /**
@@ -633,13 +633,16 @@ export interface EditionHold {
 /**
  * Whether the card may judge against a bound written in `reference` at the turn's site: only where the
  * edition the bound is transcribed from is the one that binds there, its scope is settled, and so is the
- * site's coverage. Null then; otherwise why not. A work that binds with no edition, or with two, is as
- * unknown as no site, and so is a work missing from a stamp that was cut. Pure.
+ * site's coverage. Null then, and null for a card with no stamp (written before it), which judges as it did;
+ * otherwise why not. A work that binds with no edition, or with two, is as unknown as no site, and so is a
+ * work missing from a stamp that was cut. Pure.
  */
 export function editionHold(reference: NormReferenceData, site: SiteBinding | null | undefined): EditionHold | null {
   const edition = reference.edition ?? ''
   const hold = (reason: HoldReason, binding: string | null = null): EditionHold => ({ reason, edition, binding })
-  if (!site) return hold('siteUnknown')
+  // No stamp: a card written before the server stamped one (#1658) judges as it did when it was written.
+  // A turn stamps every card it validates, an unplaced site included (coverage `site_unknown`).
+  if (!site) return null
   if (site.coverage !== 'settled') return hold(COVERAGE_HOLD[site.coverage])
   const binds = site.editions?.find((entry) => entry.designation === reference.document)
   if (!binds) return hold(site.truncated ? 'siteUnknown' : 'notBinding')

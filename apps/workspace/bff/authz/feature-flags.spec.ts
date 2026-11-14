@@ -55,6 +55,8 @@ describe('the registry', () => {
         'licensed-seam',
         'mail-import',
         'office-conventions',
+        // The office's own standards: what the office records reaches its answers (ADR-0163).
+        'office-standards',
         'piloti-acts',
         'piloti-ask',
         'piloti-notices',

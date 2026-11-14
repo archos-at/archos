@@ -568,6 +568,15 @@ until a person files it (ADR-0137 and its amendment of 2026-11-03,
 [`inbound-mail.md`](../architecture/inbound-mail.md)). Off by default: nothing
 is deployed until `inboundMailDomain` is set.
 
+**Status (2026-11-14):** dev receives mail on `inbox.dev.piloti.at` since
+2026-11-05. Prod's block in `Pulumi.prod.yaml` is on and unpaused, to go live
+for all offices in ONE promotion with the November release (owner decision
+2026-11-14, against the three promotions below): the scanner is not awaited,
+the forwards share dev's verified destination address, and `deploy.yml`
+switches subaddressing on and runs G7 (and G3 with a test address) after
+`pulumi up`. What still needs a person:
+[`project-mail-runbook.md`](project-mail-runbook.md), "Prod: one promotion".
+
 **Taking it to production:** [`project-mail-runbook.md`](project-mail-runbook.md),
 the owner's checklist from "off" to the first office, in order: decisions, the
 Cloudflare and ESC steps, the three promotions, gates G0–G9 as a test protocol,
@@ -618,6 +627,8 @@ scheduler container.
   mail domain forward to (RFC 2142). Pulumi creates it as a destination
   address and the two forwarding rules; the forwards work once someone opens
   Cloudflare's verification mail to it (stack output `inboundMailOperator`).
+  With `inboundMailOperatorAddressShared` the stack points the forwards at an
+  address the account already holds verified and creates none (prod: dev's).
 - `inboundMailDmarc`, optional: the zone apex's `_dmarc` record for a mail zone
   of its own. Refused beside `dnsDmarc` on the same zone, in one stack
   (`loadConfig`), across stacks (`stack-files.spec.ts`) and against a record
@@ -630,15 +641,19 @@ scheduler container.
   domain whose MX points anywhere but `*.mx.cloudflare.net`; the apex's MX are
   not read. Email Routing adds and locks the subdomain's MX, an SPF TXT and a
   DKIM TXT.
-- **Subaddressing** on the zone, by hand: one `PATCH
-  /zones/{zone}/email/routing` with `{"support_subaddress":true}` (the runbook's
-  §7). Pulumi cannot set it: the provider's only handle onboards the apex
+- **Subaddressing** on the zone: one `PATCH
+  /zones/{zone}/email/routing` with `{"support_subaddress":true}`, which
+  `deploy.yml` makes after `pulumi up` when it is off
+  (`deploy/pulumi/scripts/inbound-mail-after-deploy.sh subaddress`; by hand, the
+  runbook's §7, for a stack applied outside CI). Pulumi cannot set it: the provider's only handle onboards the apex
   (`platform/email-routing.ts` says why). Without it `project+<slug>.<token>@`
   does not reach the rule for `project@`, and every project address bounces. Gate G0
   checks it and proves it on the subdomain.
-- **The scanner first.** `loadConfig` refuses an inbound domain while
-  `malwareScanEnabled` is false. Promote the scanner on its own and wait for its
-  pod to be ready (signatures under 48 h old) before the mail promote.
+- **The scanner with or before the domain.** `loadConfig` refuses an inbound
+  domain while `malwareScanEnabled` is false. Both may go in one apply: `pulumi
+  up` does not wait for the `clamav` Deployment (`pulumi.com/skipAwait`), whose
+  first readiness waits on freshclam's update (signatures under 48 h old), and
+  until then every scan fails closed and is retried.
 - The WorkOS entitlement `inbound-mail` exists (gate O1, created 2026-10-27,
   [`workos-provisioning.md`](workos-provisioning.md)). Staging: ON for all
   organizations since 2026-11-05 (the owner's decision: every office is a pilot,
@@ -655,7 +670,8 @@ scheduler container.
 message's entry can point at its Fassung with the project (the 0067 shape).
 `ALTER TABLE … ADD CONSTRAINT … UNIQUE` builds the index under an `ACCESS
 EXCLUSIVE` lock, and `drizzle-kit migrate` runs every pending migration in one
-transaction (0039, 0149), so the lock is held until 0196 to 0199 all commit:
+transaction (0039, 0149), so the lock is held until every pending migration
+commits (on prod's jump from 0191 to 0235, until 0235):
 every read and write of any document's versions waits for the build (uploads,
 the viewer, retrieval's version reads). `CONCURRENTLY` cannot run in that
 transaction, and the runner has no non-transactional step.
@@ -667,22 +683,43 @@ SELECT pg_size_pretty(pg_relation_size('document_versions')) AS heap,
        (SELECT reltuples::bigint FROM pg_class WHERE relname = 'document_versions') AS rows;
 ```
 
-The lock lasts as long as the index build. To know it rather than guess, time
-the same build on a restored copy (`\timing`, then the `CREATE UNIQUE INDEX`
-below without `CONCURRENTLY`). A pause of a few seconds needs nothing more.
-Longer, build the index online first, outside any transaction, as the owner:
+**The deploy builds the index online first; nobody runs it by hand.** The Job
+`app-online-indexes` (on both projects;
+`deploy/pulumi/src/app/online-indexes-job.ts`) runs before the migration Job,
+which depends on it, with the migration Job's credentials
+(`APP_MIGRATION_DATABASE_URL`, the schema owner) from `postgres:17-alpine`
+(the frontend image has no `psql`). For each entry of `ONLINE_INDEXES` it reads
+one state and acts on it, each statement on its own outside any transaction:
 
-```sql
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key"
-  ON "document_versions" ("id", "project_id");
--- Check it is valid; an interrupted build leaves an INVALID index: DROP INDEX CONCURRENTLY it and build again.
-SELECT indisvalid FROM pg_index WHERE indexrelid = 'document_versions_id_project_id_key'::regclass;
-```
+| State | What it does |
+|---|---|
+| no table, or a column missing (a fresh database) | nothing: the migration builds it, on an empty table |
+| the constraint exists (0196 applied: staging, prod after its first such deploy) | nothing |
+| a valid index of that name | nothing |
+| an invalid one (an interrupted build) | `DROP INDEX CONCURRENTLY`, then builds it again |
+| none | `CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key" ON "document_versions" ("id", "project_id")` |
 
-0196 then adopts it (`ADD CONSTRAINT … UNIQUE USING INDEX`), which takes the
-lock only for a catalog change. Either way, deploy outside office hours: the
-migrate Job runs before the new pods take traffic, and a document request that
-waits on the lock times out at Envoy after its route timeout.
+It runs with `statement_timeout=0` (a build takes as long as it takes, and
+blocks no reader or writer) and `lock_timeout=30s`: `CONCURRENTLY` waits for
+every older transaction, and behind a long one it fails, leaves an invalid
+index, and the next of its six attempts drops it and builds again. Pulumi
+awaits it (50 minutes at most; `activeDeadlineSeconds` 45 minutes in the
+cluster), so a build that keeps failing stops the deploy before any migration
+took a lock. Its log has one line per index: `document_versions_id_project_id_key
+(0196): missing`, then `built`.
+
+0196 then adopts the index (`ADD CONSTRAINT … UNIQUE USING INDEX`), which takes
+the lock only for a catalog change; that lock is still held until the whole
+batch commits, so its length is the time of every migration after 0196. A later migration that wants a large index
+does the same: it adopts a pre-built one by name, still builds it itself when
+it is missing, and adds the entry to `ONLINE_INDEXES` (only for a table and
+columns that exist before the deploy's migrations run; the spec
+`index-deploy-jobs.spec.ts` checks the migration names the index).
+
+The other locks of a batch are not moved out of the transaction (0200's scans,
+0203, 0220, 0230), so deploy outside office hours all the same: the migrate Job
+runs before the new pods take traffic, and a document request that waits on a
+lock times out at Envoy after its route timeout.
 
 ### Setup: the first promote is paused
 
@@ -832,8 +869,10 @@ needs every staged object and kept original erased first
 
 ### Privacy settings at Cloudflare
 
-Workers observability is off (Pulumi sets `observability.enabled: false`); no
-Logpush. Cloudflare keeps Email Routing's activity log (sender, recipient,
+Workers Logs keep the Worker's own line per delivery (ids and the outcome),
+and invocation logs, which record the envelope sender and recipient, are off
+(`observability.logs.invocationLogs: false` in `platform/inbound-mail.ts`; G7
+checks it); no Logpush. Cloudflare keeps Email Routing's activity log (sender, recipient,
 time, outcome). Cloudflare is a transit processor of project mail: the
 sub-processor row and the customer notice belong to gate O7
 ([`docs/compliance/inbound-mail-review-2026-10.md`](../compliance/inbound-mail-review-2026-10.md)).

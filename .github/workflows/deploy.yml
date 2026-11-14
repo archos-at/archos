@@ -161,6 +161,11 @@ jobs:
     concurrency:
       group: deploy-dev
       cancel-in-progress: false
+    # The workflow's two, and the commit status a promotion reads (below).
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
     env:
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
       # The image tag the cluster is pinned to for this run: normally the
@@ -518,6 +523,18 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           POSTHOG_RELEASE_ID: ${{ steps.posthog-release.outputs.release-id }}
 
+      # Project mail's zone setting the provider cannot set (ADR-0138): GET, and
+      # PATCH support_subaddress only when it is off. A no-op line on a stack
+      # without inboundMailDomain; a refusal fails the job (runbook §0, B2).
+      - name: Project mail - subaddressing
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          ./scripts/inbound-mail-after-deploy.sh subaddress
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
       # `pulumi up` is green once every rollout passed its readiness soak, which
       # each pod answers about itself. This asks from outside, through DNS, TLS
       # and the ingress, the way a person arrives: the frontend's liveness route
@@ -531,6 +548,35 @@ jobs:
           SMOKE_URL="$url" bash -c "$SMOKE_CHECK"
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      # Project mail's launch gates that need no human mail, read-only at
+      # Cloudflare (G7), and the signed route (G3, or G4 while paused) once the
+      # environment's INBOUND_MAIL_TEST_ADDRESS secret names a test-office
+      # address. Results in the job summary; skipped, said so, without mail.
+      - name: Project mail - launch gates
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          ./scripts/inbound-mail-after-deploy.sh gates
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          INBOUND_MAIL_TEST_ADDRESS: ${{ secrets.INBOUND_MAIL_TEST_ADDRESS }}
+      # The commit status `deploy/staging` on the commit staging now runs and
+      # that answered the smoke check: what the promote workflow (promote.yml)
+      # reads to pick the newest commit to promote. The Actions run list cannot
+      # say it (a workflow_run run carries develop's tip, not the commit it
+      # deployed). Only for a CI-triggered deploy, which pins all three images
+      # to exactly this commit; best effort.
+      - name: Mark the commit deployed to staging
+        if: ${{ env.RUN_ID != '' }}
+        continue-on-error: true
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$DEPLOY_SHA" \
+            -f state=success -f context=deploy/staging \
+            -f description="Staging runs this commit and answered the smoke check" >/dev/null
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: How to roll this back
         if: ${{ always() && env.ALREADY_DEPLOYED != 'true' && steps.previous.outputs.refs != '' && steps.previous.outputs.tag != env.IMAGE_TAG }}
@@ -778,6 +824,26 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
+      # The downgrade guard staging has (resolve-image-refs.sh), for the tag
+      # the pushed Pulumi.prod.yaml pins: a pin older than what prod runs (the
+      # stack output `deployedImages`) stops the deploy before the apply.
+      # develop's copy of the file pins whatever the last promotion left there,
+      # so a promotion that takes that line unchanged would otherwise roll prod
+      # back months with nothing red. Push only: an operator's rollback
+      # (dispatch with imageTag) goes back on purpose. When prod runs a commit
+      # this checkout does not have (prod's history was rewritten once), the
+      # script compares commit dates instead of ancestry.
+      - name: Refuse a downgrade
+        if: ${{ github.event_name == 'push' }}
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          # The stack the plan step selected.
+          ./scripts/prod-downgrade-guard.sh "$PROD_IMAGE_TAG"
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ github.token }} # commit dates of a sha the checkout lacks
+
       - name: Remember what is running
         id: previous
         continue-on-error: true
@@ -806,6 +872,17 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
+      # As staging's: project mail's subaddressing, GET first, PATCH only when
+      # off, a refusal fails the job. With the mail block on in Pulumi.prod.yaml
+      # this is what used to be the runbook's hand-made call (§7).
+      - name: Project mail - subaddressing
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          ./scripts/inbound-mail-after-deploy.sh subaddress
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
       - name: Smoke check
         working-directory: deploy/pulumi
         run: |
@@ -814,6 +891,17 @@ jobs:
           SMOKE_URL="$url" bash -c "$SMOKE_CHECK"
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      # As staging's. Red here means the deploy is live and mail is not right:
+      # leave the WorkOS inbound-mail flag off (or pause mail) until it is green.
+      - name: Project mail - launch gates
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          ./scripts/inbound-mail-after-deploy.sh gates
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          INBOUND_MAIL_TEST_ADDRESS: ${{ secrets.INBOUND_MAIL_TEST_ADDRESS }}
 
       - name: How to roll this back
         if: ${{ always() && steps.previous.outputs.refs != '' && steps.previous.outputs.tag != env.PROD_IMAGE_TAG }}

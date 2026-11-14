@@ -9,6 +9,5 @@ features:
     assuming today. The law lookup can read the version of a past day from RIS.
 operators:
   - >
-    Off until an organization gets the time-editions flag; migration 0206 adds
-    the edition transition and the work's history start. With the flag off the
-    as-of operation answers 403 and the law lookup refuses as_of.
+    On for every organization: the time-editions flag is retired (ADR-0175).
+    Migration 0206 adds the edition transition and the work's history start.

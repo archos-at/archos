@@ -90,6 +90,14 @@ describe('OrgHeader — the org scope in one slim band', () => {
     expect(screen.getByTestId('user-menu')).toBeInTheDocument()
   })
 
+  test('opens the office standards only for an office with the office-standards entitlement', () => {
+    const { unmount } = render(<OrgHeader {...baseProps} />)
+    expect(screen.queryByLabelText('Office standards')).not.toBeInTheDocument()
+    unmount()
+    render(<OrgHeader {...baseProps} canAccessOfficeStandards />)
+    expect(screen.getByLabelText('Office standards')).toHaveAttribute('href', '/app/base-knowledge')
+  })
+
   test('marks the doorway whose sheet is open, and only that one', () => {
     pathname = '/app/office-shelf'
     render(<OrgHeader {...baseProps} />)

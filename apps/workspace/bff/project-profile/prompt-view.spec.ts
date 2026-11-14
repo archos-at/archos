@@ -81,6 +81,16 @@ vi.mock('@/lib/projects/repository', () => ({
     rowsByOrg.get(organizationId ?? 'anon')?.profile ??
     (dbRows[0] as { profile?: unknown })?.profile ??
     null,
+  findProjectProfileInOrg: async (_projectId: string, organizationId: string) => {
+    const profile = rowsByOrg.get(organizationId)?.profile ?? (dbRows[0] as { profile?: unknown })?.profile
+    return profile ? { profile, profileVersion: 1 } : null
+  },
+}))
+
+/** The gate the project's knowledge context reads: a gate that names no law hides the derived classes. */
+let gateState = 'core'
+vi.mock('@/lib/base-knowledge/context/service', () => ({
+  contextForPage: async () => ({ gate: { state: gateState, reason: null, leaves: [] } }),
 }))
 
 import { setCacheStore, type CacheStore } from '@/lib/cache'
@@ -404,5 +414,44 @@ describe('unreadable documents ride beside the cached view', () => {
 
     expect(await loadProjectPromptView(undefined, 'org-1')).toBeNull()
     expect(unreadableCalls).toHaveLength(0)
+  })
+})
+
+describe('the derived classes the agent reads follow the gate the page shows them under', () => {
+  const derived = {
+    value: '4',
+    status: 'unconfirmed',
+    reason: 'Abgeleitet: OIB-RL 2',
+    source: 'agent_suggested',
+    updatedAt: '2026-11-01T00:00:00.000Z',
+    evidence: [{ kind: 'derivation', rule: 'building_class', citation: 'OIB-RL 2', inputs: [] }],
+  }
+  const stored = 'PROJECT_CONTEXT v1\n\nassumptions:\n- building_class@bldg1=4 [abgeleitet]'
+
+  beforeEach(() => {
+    setCacheStore(new TestStore())
+    rowsByOrg.clear()
+    rolesSection = ''
+    unreadableSection = ''
+    rowsByOrg.set('org-law', {
+      profile: { facts: {}, goals: {}, unknowns: [], assumptions: { 'building_class@bldg1': derived } },
+      profilePromptView: stored,
+    })
+  })
+
+  afterEach(() => {
+    gateState = 'core'
+  })
+
+  it('serves the stored view, class included, where the gate names law', async () => {
+    gateState = 'core'
+    expect(await loadProjectPromptView('p1', 'org-law')).toContain('building_class@bldg1=4')
+  })
+
+  it.each(['site_unknown', 'none', 'knowledge_unavailable'])('leaves the derived class out where the gate is %s', async (gate) => {
+    gateState = gate
+    const view = await loadProjectPromptView('p1', 'org-law')
+    expect(view).not.toContain('building_class')
+    expect(view).toContain('PROJECT_CONTEXT v1')
   })
 })

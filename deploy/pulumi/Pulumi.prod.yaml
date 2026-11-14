@@ -51,7 +51,7 @@
 
 #   # REQUIRED (the deploy fails closed without it; set
 
-#   # grid-oib:allowPlaintextJobPayloads=true to override for dev/single-node):
+#   # allowPlaintextJobPayloads=true to override for dev/single-node):
 
 #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:jobPayloadKek          "$(openssl rand -base64 32)" --secret
 
@@ -59,7 +59,7 @@
 
 #   # REQUIRED — the deploy fails closed without them; set
 
-#   # grid-oib:allowUnauthenticatedRedis=true to run without authentication
+#   # allowUnauthenticatedRedis=true to run without authentication
 
 #   # deliberately. The two MUST DIFFER: every app pod carries the cache password
 
@@ -106,6 +106,11 @@ config:
 
   # only develop tips do.
   grid-oib:imageTag: sha-9150f95df04ddc393507dd2dca7bb69415062b38
+  # Building law exactly as dev released it, carried by this promotion with no
+  # review session here (ADR-0181): the Job `knowledge-carry` publishes the
+  # bundles in apps/workspace/config/knowledge-releases/, decided `carried`.
+  # Four eyes on every other prod change request stays (knowledgeSingleOperator unset).
+  grid-oib:knowledgeCarry: "true"
   # ── Storage (provider CSI, NVMe/TCP) ──
 
   # Classes offered by the provider (see `kubectl get storageclass`):
@@ -123,7 +128,11 @@ config:
   # ── Ingress / TLS ── One key moves every public host: app./s3./otel. derive
 
   # from baseDomain (per-host appDomain/s3Domain/otelDomain keys remain as overrides).
-  grid-oib:baseDomain: piloti.at
+  grid-oib:baseDomain: archos.tech
+  # The domain move (docs/deployment/domain-cutover.md), as dev made it on 2026-11-05: the former
+  # apex and app. host keep answering with a 301 to the same path on their new twin, and their DNS
+  # stays in the former zone (formerDnsZone* below). Keep it while anyone or any connector arrives there.
+  grid-oib:formerBaseDomain: piloti.at
   grid-oib:letsEncryptEmail: matthias@bigls.net
   grid-oib:useStagingIssuer: "false" # flip to false once DNS + TLS verified
   # The provider ships an unremovable metrics stack, so DON'T install a second.
@@ -184,35 +193,46 @@ config:
   # the zone apex, that stack is the natural owner.
   grid-oib:dnsEnabled: "true"
   # ── Project mail (Cloudflare Email Routing, ADR-0138) ──
-  # Off. The owner's runbook, top to bottom: docs/deployment/project-mail-runbook.md.
-  # Three promotions, each uncommenting only its own lines below. Never the
-  # domain without the scanner running, never unpaused before G0, G4 (paused) and G7 pass.
+  # ON, unpaused, in ONE promotion: the November develop→prod release. Owner decision
+  # 2026-11-14, against the runbook's three promotions with gates between them: every
+  # office is a pilot, dev has received mail since 2026-11-05, and the data-protection
+  # go-ahead covers all offices. The WorkOS flag inbound-mail (Production) is the
+  # owner's, switched after the deploy job is green, gates included. Runbook:
+  # docs/deployment/project-mail-runbook.md §6, which lists what still needs a person.
   #
-  # Promotion 1, the scanner alone. Wait for its pod to be ready before promotion 2:
-  # grid-oib:malwareScanEnabled: "true"
+  # What makes one apply enough: the scanner is not awaited (src/app/clamav.ts; mail
+  # scans fail closed and retry until freshclam has signatures); the forwards point at a
+  # destination address the account already holds verified, so no click (below);
+  # deploy.yml switches subaddressing on and runs G7 (and G3 with a test address)
+  # after `pulumi up` (scripts/inbound-mail-after-deploy.sh).
   #
-  # Promotion 2, paused. Before it: the token's scopes (runbook §4) and the signing key
-  # in ESC, never in this file (§5). Pulumi then creates the routing on the subdomain,
-  # the project rule, the Worker, the postmaster@/abuse@ forwards (RFC 2142) and the
-  # DMARC record; subaddressing is one API call after it (§7).
+  # Rollback, fastest first: the WorkOS flag off (addresses bounce as unknown within
+  # 30 s); inboundMailPaused "true" (every delivery a retry, nothing lost); then
+  # inboundMailEnabled "false" (Cloudflare refuses at SMTP time). Never unset the
+  # domain first. The signing key lives in ESC (inboundMailSigningKeys, set
+  # 2026-11-05), never in this file.
+  grid-oib:malwareScanEnabled: "true"
   # Decision D1 (2026-11-05): (b), the subdomain of the brand domain, a zone of its own.
   # piloti.at's mail routing belongs to the dev stack (inbox.dev.piloti.at), and
-  # stack-files.spec.ts allows one stack per mail zone. The zone id is 32 hex digits.
-  #   The apex archos.tech keeps Google Workspace's MX: nothing here touches them.
-  # grid-oib:inboundMailDomain: inbox.archos.tech
-  # grid-oib:inboundMailZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id of archos.tech, Cloudflare zone Overview page)
-  #   (b) only: archos.tech has no _dmarc today, and this block is its one writer until the
-  #   domain cutover (no dnsDmarc on any stack in that zone; stack-files.spec.ts checks it).
-  #   sp= is explicit so inbox.archos.tech is covered; p=none only reports. rua= is the
-  #   operator's mailbox: on archos.tech itself, or that domain must authorize the reports.
-  # grid-oib:inboundMailDmarc: "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:matthias.bigl+dmarc@archos.tech"
-  #   Both: where postmaster@ and abuse@ forward; Cloudflare mails it a verification link on
-  #   the first up, and the forwards work after the click (stack output inboundMailOperator).
-  # grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-prod@archos.tech
-  # grid-oib:inboundMailPaused: "true"
-  #
-  # Promotion 3, after G0, G4 (paused) and G7 pass, only the test office entitled: the pause "false".
-  # Turning it off: inboundMailEnabled "false" and promote; never unset the domain first.
+  # stack-files.spec.ts allows one stack per mail zone. The apex archos.tech keeps
+  # Google Workspace's MX: nothing here touches them (the preview's MX guard reads only
+  # inbox.archos.tech, and nothing calls …/email/routing/enable).
+  grid-oib:inboundMailDomain: inbox.archos.tech
+  grid-oib:inboundMailZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id of archos.tech, Cloudflare zone Overview page)
+  # archos.tech has no _dmarc (read 2026-11-14), and this block is its one writer until
+  # the domain cutover (no dnsDmarc on any stack in that zone; stack-files.spec.ts checks
+  # it). sp= is explicit so inbox.archos.tech is covered; p=none only reports. rua= is on
+  # archos.tech itself, so no other domain must authorize the reports.
+  grid-oib:inboundMailDmarc: "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:matthias.bigl+dmarc@archos.tech"
+  # Where postmaster@ and abuse@ forward (RFC 2142): dev's destination address, which
+  # the dev stack owns and Cloudflare verified on 2026-11-05 (destination addresses are
+  # the account's, shared by every zone). Shared: this stack never creates it, so no
+  # verification mail and no error 2054 half-way through the apply; the preview refuses
+  # it unless the account holds it verified. A prod-only mailbox later: its address
+  # here, Shared "false", one click on Cloudflare's mail (runbook §7).
+  grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-dev@archos.tech
+  grid-oib:inboundMailOperatorAddressShared: "true"
+  grid-oib:inboundMailPaused: "false"
   # NetworkPolicies (default-deny ingress + least-privilege allows) are ON by
 
   # default. Set false only if a validation pass shows they block required
@@ -332,7 +352,7 @@ config:
 
   # 2026-10-18 (#1079): 11 collections, 52,280 chunks, 0 failed or out of step.
 
-  # Do NOT set `grid-oib:chromaMigration` again: a second Job's import finds the
+  # Do NOT set `chromaMigration` again: a second Job's import finds the
 
   # mark the first one left and refuses (exit 2), which fails the deploy. The
 
@@ -427,7 +447,7 @@ config:
   grid-oib:workosAuthkitDomain: prestigious-energy-03.authkit.app
   # ── Observability / OTel Collector + Aspire dashboard (ADR-0029) ──
 
-  # Deployed only when grid-oib:observabilityEnabled (default true) AND every
+  # Deployed only when observabilityEnabled (default true) AND every
 
   # dependency below is set (otelPrimaryApiKey plus the dashboard's Connect
 
@@ -511,16 +531,18 @@ config:
   # upload then fails with „Object storage is unavailable“ (2026-10-20). Slots
   # are a ceiling, not a reservation: raising this costs nothing until used.
   grid-oib:seaweedfsVolumeMaxCount: "512"
-  grid-oib:dnsZoneName: piloti.at
-  grid-oib:dnsZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id, Cloudflare zone Overview page)
-  # Prod serves the apex, so it owns the zone-level records: the apex A record,
-  # www (proxied, 301 to the apex) and _dmarc. Taken over from the dev stack,
-  # which parked the apex on a redirect to dev.piloti.at until prod existed.
+  grid-oib:dnsZoneName: archos.tech
+  grid-oib:dnsZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id of the new zone, as dev has it)
+  grid-oib:formerDnsZoneName: piloti.at
+  grid-oib:formerDnsZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id of the former zone, Cloudflare zone Overview page)
+  # Prod serves the apex, so it owns the zone-level records: the apex A record and www
+  # (proxied, 301 to the apex). _dmarc of the new zone belongs to the project-mail block
+  # above (inboundMailDmarc), so dnsDmarc stays unset: two TXT records at _dmarc fail DMARC.
   grid-oib:dnsZoneBaseline: "true"
-  # Carried over verbatim from GoDaddy, via the dev stack. The domain has no MX
-  # records; `v=DMARC1; p=reject;` plus `v=spf1 -all` would be the stronger
-  # posture, but that is a mail-policy decision, not a deployment one.
-  grid-oib:dnsDmarc: "v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@onsecureserver.net;"
+  # The former zone keeps its www (301 to its apex, which the Gateway 301s on) and this
+  # policy, carried over verbatim from GoDaddy, under the resource names they always had
+  # (platform/dns.ts), so the move deletes nothing there and needs no state edit.
+  grid-oib:formerDnsDmarc: "v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@onsecureserver.net;"
   grid-oib:langfuseInitUserEmail: matthias@bigls.net
   grid-oib:langfuseOrgId: grid
   grid-oib:langfuseProjectId: grid-oib
@@ -529,11 +551,11 @@ config:
   grid-oib:clickhouseStorageSize: 50Gi
   grid-oib:otelOidcIssuer: https://prestigious-energy-03.authkit.app
   grid-oib:otelOidcClientId: client_01M0SKKRX0XAQ99AFZ31WNJ6XT # pragma: allowlist secret (public OAuth client id)
-  # The same application gates Qdrant's dashboard at qdrant.piloti.at, on by
+  # The same application gates Qdrant's dashboard at qdrant.<baseDomain>, on by
   # default because these keys are set. Register
-  # https://qdrant.piloti.at/oauth2/callback on it in WorkOS before the deploy
+  # https://qdrant.<baseDomain>/oauth2/callback on it in WorkOS before the deploy
   # that brings it (docs/deployment/qdrant-runbook.md, "Dashboard"), or keep
-  # it off with: grid-oib:qdrantDashboardEnabled: "false"
+  # it off with: qdrantDashboardEnabled: "false"
   # ── BFF background pool (ADR-0079) ──
   # Internal replicas of the frontend image claim bff_job_queue fairly across
   # organisations and run project reindex and failed-ingestion rescan jobs, IFC

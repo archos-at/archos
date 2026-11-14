@@ -9,6 +9,6 @@ operators:
   - >
     Platform knowledge now changes only through a reviewed change request in
     Platform, Countries: reviewed claim by claim, approved by a second person,
-    published to preview, then stable, and rolled back if needed. Off until the
-    platform-base-knowledge flag is set; while on, the norm catalog takes no
-    edits. Migration 0205 adds the tables.
+    published to preview, then stable, and rolled back if needed. The
+    platform-base-knowledge flag is retired (ADR-0175) and the norm catalog
+    page is gone. Migration 0205 adds the tables.

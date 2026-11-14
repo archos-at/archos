@@ -191,6 +191,13 @@ describe("clamav", () => {
     expect(clamd.startupProbe.exec.command).toEqual(["sh", "-c", livenessScript()]);
   });
 
+  it("lets pulumi up go on without waiting for fresh signatures, and gives the app tiers a URL, not the Deployment", async () => {
+    const metadata = await resolve(find("kubernetes:apps/v1:Deployment", "clamav").inputs.metadata);
+    expect(metadata.annotations).toEqual({ "pulumi.com/skipAwait": "true" });
+    // A constant: an Output of the Deployment would order the frontend after its readiness.
+    expect(readFileSync(join(__dirname, "clamav.ts"), "utf8")).toContain("url: pulumi.output(`tcp://${name}:${CLAMAV.port}`)");
+  });
+
   it("rolls the pod when either config file changes", async () => {
     const { clamavConfigFiles } = await import("./clamav");
     const cm = find("kubernetes:core/v1:ConfigMap", "clamav-config");

@@ -28,7 +28,7 @@ import { installOperatorForwards, operatorAddressStatus, type OperatorForwards }
  *
  * Subaddressing is a zone setting this program cannot set (the provider's
  * only handle on it onboards the zone apex; `email-routing.ts` says why, and
- * which API call a person makes instead), and whether it applies to a
+ * which API call `deploy.yml` makes instead, after `pulumi up`), and whether it applies to a
  * SUBDOMAIN's rules is the one thing ADR-0138 has us prove with a test address
  * before the first unpause. If it does not, the
  * documented fallback is a dedicated mail domain with an apex catch-all.
@@ -95,7 +95,7 @@ import { installOperatorForwards, operatorAddressStatus, type OperatorForwards }
  *
  *   - Zone · Zone · Read (`getZone`: the zone check and the account id)
  *   - Zone · Zone Settings · Edit (enabling routing, `email/routing/dns`; the
- *     subaddressing call a person makes, `email-routing.ts`)
+ *     subaddressing call `deploy.yml` makes after `pulumi up`, `email-routing.ts`)
  *   - Zone · DNS · Edit (routing adds and locks the domain's MX and SPF
  *     records; the MX guard reads them; the DMARC record and its guard)
  *   - Zone · Email Routing Rules · Edit (the project rule and the two forwards)
@@ -221,10 +221,38 @@ export function installInboundMail(cfg: DeployConfig, zone: MailZone | undefined
   return { zone, script, rule, operator, dmarc };
 }
 
+/**
+ * What `deploy.yml` reads after `pulumi up` to switch subaddressing on and run
+ * the read-only launch gates (`scripts/inbound-mail-after-deploy.sh`): the zone
+ * and account from the guarded lookup, the domain, the local part and the
+ * Worker (null while switched off). Null while no domain is set.
+ */
+export interface InboundMailCloudflareOutput {
+  zoneId: string;
+  accountId: string;
+  domain: string;
+  localPart: string;
+  worker: string | null;
+  paused: boolean;
+}
+
 /** The stack outputs of project mail: the Worker (or why none), the operator's address (or why none). */
 export function inboundMailOutputs(cfg: DeployConfig, mail: InboundMail | undefined) {
   const unset = pulumi.output("(none: inboundMailDomain unset)");
+  const cloudflareOutput: pulumi.Output<InboundMailCloudflareOutput | null> = mail
+    ? pulumi
+        .all([mail.zone.zoneId, mail.zone.accountId, mail.script?.scriptName ?? pulumi.output(null)])
+        .apply(([zoneId, accountId, worker]) => ({
+          zoneId,
+          accountId,
+          domain: cfg.inboundMail.domain,
+          localPart: cfg.inboundMail.localPart,
+          worker: worker ?? null,
+          paused: cfg.inboundMail.paused,
+        }))
+    : pulumi.output(null);
   return {
+    inboundMailCloudflare: cloudflareOutput,
     inboundMailWorker: mail?.script
       ? pulumi.interpolate`${mail.script.scriptName}${cfg.inboundMail.paused ? " (paused)" : ""}`
       : mail

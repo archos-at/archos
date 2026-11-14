@@ -19,7 +19,7 @@ import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/proje
 import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
 import { gateNamesLaw, type ProjectLaw } from '@/lib/base-knowledge/wire/project-law'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
-import { deriveAll, withoutDerivedClasses } from './derivation-view'
+import { deriveAll, profileAsTheLawShows } from './derivation-view'
 import { locationRegisterFor } from './location-register'
 import { BUILDING_CLASS_RULE, setupUnpublished } from './setup-scope'
 import { profileKeyParts } from './profile-edits'
@@ -212,7 +212,7 @@ const iso = (value: Date | string | null | undefined): string | null =>
 export function buildIntakeView(input: IntakeViewInput): IntakeView {
   const { row, definition, needs } = input
   const lawWithheld = input.applicableLaw ? !gateNamesLaw(input.applicableLaw.gate) : false
-  const profile = lawWithheld ? withoutDerivedClasses(input.profile, definition) : input.profile
+  const profile = profileAsTheLawShows(input.profile, definition, input.applicableLaw?.gate ?? null)
   const groups = suggestionGroups(profile, definition, needs)
   const contradictions = contestedItems(profile, definition, needs)
   const questions = needs.filter((need) => need.decisive && need.state === 'open').slice(0, MAX_INTAKE_NEEDS)

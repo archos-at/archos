@@ -148,7 +148,8 @@
       "type": "string",
       "enum": [
         "app",
-        "elicitation"
+        "elicitation",
+        "carried"
       ]
     },
     "knowledge_release_moves.channel": {
@@ -163,6 +164,23 @@
       "enum": [
         "publish",
         "rollback"
+      ]
+    },
+    "knowledge_release_moves.decision_source": {
+      "type": "string",
+      "enum": [
+        "app",
+        "elicitation",
+        "carried"
+      ]
+    },
+    "knowledge_review_decisions.decision_source": {
+      "type": "string",
+      "enum": [
+        "app",
+        "elicitation",
+        "agent",
+        "carried"
       ]
     },
     "knowledge_index_runs.state": {

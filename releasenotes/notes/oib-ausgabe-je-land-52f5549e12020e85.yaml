@@ -10,7 +10,7 @@ features:
     as binding.
 operators:
   - >
-    Off until the building-law-chain flag is set for an organization, and the
-    Austria and EU packs are published as change requests, the EU pack first. Migration 0211 adds relation records. The country-neutral
-    static prompt may be published once this is deployed; until then turns
-    read the building-law block from the static prompt as before.
+    The building-law-chain flag is retired (ADR-0175). Answers name a binding
+    edition only once the EU and Austria packs are published as change
+    requests, the EU pack first; until then Austrian turns run on gate none.
+    Migration 0211 adds relation records.

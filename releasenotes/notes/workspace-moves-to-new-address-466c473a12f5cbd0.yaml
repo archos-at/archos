@@ -1,0 +1,15 @@
+---
+improvements:
+  - >
+    The app and the website now live at the web address of the new name. Your
+    bookmarks, links in e-mails and connected AI clients keep working: the
+    former addresses forward you to the same page at the new one, and you stay
+    signed in.
+operators:
+  - >
+    Prod moves its baseDomain to the brand's domain as dev did (formerBaseDomain
+    keeps the former apex and app host answering with a 301). The former zone
+    keeps its www, www redirect and DMARC record under their old resource names
+    (formerDnsDmarc), so the move needs no pulumi state edit. After the deploy,
+    point the AuthKit application's initiate-login URI, homepage and defaults at
+    the new host.

@@ -52,10 +52,13 @@ steps `index` then `settle`): `jobs/ingest_dispatch.py` starts a run per job and
 roles dispatch and never run a job. Every task input carries ids, the priority
 and the `payload_crypto` ciphertext, never plaintext; without `JOB_PAYLOAD_KEK` a
 submit is refused. The old `research_job_queue` and `ingest_job_queue` tables stay
-until a later migration drops them; `python -m agent_host.jobs.requeue_legacy` and
-`python -m agent.knowledge.ingest_cutover` start what they still held at the
-cutover. New background work joins as a Hatchet task, never as an in-process pool
-alone or a table of our own.
+until a later migration drops them. Their workers move what they still hold
+onto Hatchet from boot, a pass a minute, while old pods drain: the agent-worker's
+lifespan runs `jobs/requeue_legacy.cutover_loop`, the ingest worker
+`agent.knowledge.ingest_cutover`. A research claim moves only once its last
+heartbeat is older than the old drain budget plus 60 s; `python -m
+agent_host.jobs.requeue_legacy [--force]` is the operator's fallback. New background work joins as a Hatchet task,
+never as an in-process pool alone or a table of our own.
 
 **Research waits, it is not refused.** Capacity never makes `jobs/submit.py`
 raise: `MAX_ACTIVE_JOBS_PER_ORG` is the `research-run` concurrency cap per

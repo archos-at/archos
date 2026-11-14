@@ -29,6 +29,8 @@ vi.mock('@/lib/tasks/repository', () => ({ listRunsInProject: vi.fn(async () => 
 vi.mock('@/lib/proposals/repository', () => ({ listConversationProposals: vi.fn(async () => []) }))
 vi.mock('@/lib/cross-project/reference-brief', () => ({ loadReferenceBrief: vi.fn(async () => null) }))
 vi.mock('@/lib/base-knowledge/office/service', () => ({ baseKnowledgeForTurn: vi.fn(async () => null) }))
+// The organization's `office-standards` entitlement, read without a session; reset to off before each test.
+vi.mock('@/lib/base-knowledge/office/access', () => ({ officeStandardsEnabled: vi.fn(async () => false) }))
 // Every turn carries a context (ADR-0175); one that could not be read is `knowledge_unavailable`.
 const { UNAVAILABLE } = vi.hoisted(() => ({
   UNAVAILABLE: {
@@ -46,6 +48,8 @@ vi.mock('@/lib/db/tenant-context', async (original) => ({
 
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
+import { baseKnowledgeForTurn } from '@/lib/base-knowledge/office/service'
+import { officeStandardsEnabled } from '@/lib/base-knowledge/office/access'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
 import { requireResourceAccess } from '@/lib/sharing/access'
@@ -154,6 +158,21 @@ describe('POST /api/internal/turn-context', () => {
     const response = await call()
     expect(response.status).toBe(200)
     expect((await response.json()).data.referenceProjects).toBeNull()
+  })
+
+  it('carries the office’s own standards only for an office with the office-standards entitlement', async () => {
+    vi.mocked(officeStandardsEnabled).mockResolvedValue(true)
+    vi.mocked(baseKnowledgeForTurn).mockResolvedValue({ block: 'OFFICE_BASE_KNOWLEDGE v1', labels: [] } as never)
+    expect((await (await call()).json()).data.baseKnowledge).toBe('OFFICE_BASE_KNOWLEDGE v1')
+    expect(officeStandardsEnabled).toHaveBeenCalledWith('org_1')
+    expect(baseKnowledgeForTurn).toHaveBeenCalledWith('org_1', 'proj_1')
+
+    vi.mocked(baseKnowledgeForTurn).mockClear()
+    vi.mocked(officeStandardsEnabled).mockResolvedValue(false)
+    const { data } = await (await call()).json()
+    expect(data.baseKnowledge).toBeNull()
+    expect(data.baseKnowledgeLabels).toEqual([])
+    expect(baseKnowledgeForTurn).not.toHaveBeenCalled()
   })
 
   it('always carries the knowledge context, unreadable as knowledge_unavailable, never absent (ADR-0175)', async () => {

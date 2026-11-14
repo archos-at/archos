@@ -52,3 +52,10 @@ export async function shutdownSliceHost(): Promise<void> {
 export async function startJobWorker(name: string) {
   return startBffJobWorker(name, { run: runBffJobTask, sweep: dispatchStrandedJobs }, schedulingTasks())
 }
+
+/**
+ * Every live project's building class derived again from the released setup records, once, after a
+ * country's records are published (`bff/project-intake/rederive.ts`). Called by the carry Job after it
+ * publishes, and by `workers/rederive-building-classes.js` (`bun run rederive:building-classes`).
+ */
+export { rederiveBuildingClasses } from '@/lib/project-intake/rederive'

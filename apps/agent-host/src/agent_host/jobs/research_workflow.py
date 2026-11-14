@@ -303,7 +303,13 @@ def _touch_liveness(path: str) -> None:
 
 
 async def _liveness() -> AsyncIterator[None]:
-    """The worker's lifespan: touch the liveness file while its event loop runs."""
+    """The worker's lifespan: touch the liveness file while its event loop runs, and run the cutover.
+
+    The cutover moves what the old ``research_job_queue`` still holds onto
+    Hatchet, from boot on (``requeue_legacy.cutover_loop``); it ends on its own.
+    """
+    from . import requeue_legacy
+
     path = os.environ.get("WORKER_LIVENESS_FILE", "/tmp/research-worker.alive")
 
     async def _touch() -> None:
@@ -312,10 +318,15 @@ async def _liveness() -> AsyncIterator[None]:
             await asyncio.sleep(_LIVENESS_EVERY_SECONDS)
 
     task = asyncio.create_task(_touch())
+    stop = asyncio.Event()
+    cutover = asyncio.create_task(requeue_legacy.cutover_loop(_db_url(), stop), name="research-cutover")
     try:
         yield None
     finally:
         task.cancel()
+        # Stopped between rows, never mid-transaction: a pass ends after the row it holds.
+        stop.set()
+        await asyncio.gather(cutover, return_exceptions=True)
 
 
 def run_worker() -> None:

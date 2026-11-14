@@ -46,6 +46,11 @@ A production rollback holds until the next push to `prod`, which applies the tag
 Open a PR to `prod` that pins either the rollback tag or a fixed build, the same
 way a promotion does. Until it merges, do not push anything else to `prod`.
 
+A push to `prod` whose pin is older than what prod runs is refused by the prod
+downgrade guard (`deploy/pulumi/scripts/prod-downgrade-guard.sh`), so pinning
+the rollback tag works only after the rollback itself has run: prod then runs
+that tag, and the pin equals it. A dispatch with `imageTag` is never guarded.
+
 Staging needs no follow-up: the next green `develop` commit deploys over it. The
 downgrade guard lets only an operator's tag move a service to an older commit,
 so the automatic deploy of a commit older than the rollback cannot happen.
@@ -72,6 +77,9 @@ A rollback changes the **images**. It keeps the current **program** (what
 - **The vector-store floor refuses some tags.** A backend from before the Chroma
   removal (ADR-0115) cannot run under today's program, and the deploy says so.
   The way back across it: [qdrant-runbook.md, "Rollback"](qdrant-runbook.md#rollback).
+- **Not across the move to Hatchet.** An image rollback from a release on
+  Hatchet to one before it leaves no scheduler and workers scaled on a backlog
+  the old code never writes ([hatchet.md, "Cutover"](hatchet.md#cutover-from-the-claim-queues)).
 - **The data tier is never replaced.** `protectDataResources` (on in prod) makes
   Pulumi refuse to delete or replace Postgres and the storage StatefulSets.
 

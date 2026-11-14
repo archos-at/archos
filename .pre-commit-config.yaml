@@ -17,6 +17,13 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1024]
+        # A carried knowledge release (ADR-0181) is the reviewed bundle byte for byte, its source captures'
+        # text included; the manifest pins its sha256, so it cannot be split or trimmed. 2 MiB bounds it.
+        exclude: ^apps/workspace/config/knowledge-releases/[a-z]{2}-\d+\.json\.gz$
+      - id: check-added-large-files
+        name: check for added large files (carried knowledge releases, 2 MiB)
+        args: [--maxkb=2048]
+        files: ^apps/workspace/config/knowledge-releases/[a-z]{2}-\d+\.json\.gz$
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
