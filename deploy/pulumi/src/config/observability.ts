@@ -85,9 +85,12 @@ export function loadObservability(
     // advisories (CVE-2026-78667, -78669, -97031, -111943); the 0.163.2 amd64
     // binary, read with `go version -m`, is go1.26.10 with x/net v0.61.0. The
     // otelcol-contrib build in ci.yml (`OTELCOL_VERSION`) moves with this pin.
+    // 0.163.2 -> 0.165.0 on 2026-11-14: the promotion's trivy found go-jose v4.1.5
+    // (CVE-2026-116587) and x/net v0.61.0 (CVE-2026-78661); the 0.165.0 binary, read
+    // with `go version -m`, is go1.27.3 with go-jose v4.1.6 and x/net v0.62.0.
     collectorImage:
       cfg.get("collectorImage") ??
-      "otel/opentelemetry-collector-contrib@sha256:7f22d2a6748110ffb6a59bc0df448bccbf501cdb667d610ede4c61d3863d5849",
+      "otel/opentelemetry-collector-contrib@sha256:e40d61f10c9a617cca1ffd1be4d7e2b3a4b0f0001798ff07e58cabe82e618cea",
     oidcIssuer: otelOidcIssuer,
     oidcClientId: otelOidcClientId,
     oidcClientSecret: otelOidcClientSecret ?? pulumi.output(""),
