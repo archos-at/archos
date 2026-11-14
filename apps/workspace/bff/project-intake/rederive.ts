@@ -7,8 +7,9 @@
  *
  * - The site the knowledge context places the project by (`sitePlacement`, ADR-0158) is recorded where the
  *   profile does not hold it yet, so the setup reads the same site: the Land the stored address names, over
- *   an office default (migration 0018's), and for a profile with no place recorded at all the subdivision its
- *   office's home country assumes (`assumedWhenUnstated`). A recorded Land or country is never replaced.
+ *   an office default (migration 0018's). A profile with no place recorded at all is left as it is: the
+ *   subdivision its office's home country assumes (`assumedWhenUnstated`) places it in the gate and the turn
+ *   only, so the office sees no assumption it never made. A recorded Land or country is never replaced.
  * - Law withheld at the site, or no records for its country: nothing is derived and nothing is written. Run
  *   before a country is released, it changes nothing.
  * - Idempotent: a project whose classes would not move is not written, and its version is not bumped.
@@ -26,7 +27,6 @@ import { readOrganizationCountries } from '@/lib/base-knowledge/platform/entitle
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import { normalizeLegacyProfile } from '@/lib/project-profile/legacy-names'
 import { seedProjectProfile } from '@/lib/project-profile/profile-service'
-import { withAssumedSite } from '@/lib/project-profile/site'
 import { sitePlacement } from '@/lib/base-knowledge/context/site'
 import { postalCodeSuggestion } from '@/lib/projects/intake-seed'
 import type { ProjectProfile } from '@/lib/project-profile/types'
@@ -70,7 +70,9 @@ interface OfficeSetup {
  */
 export function withPlacementRecorded(stored: ProjectProfile, office: OfficeSetup, now: Date): ProjectProfile {
   const placement = sitePlacement(stored, subdivisionTerritories(office.records), office.assumed?.territoryId ?? null)
-  if (placement?.step === 'office_default') return withAssumedSite(stored, office.assumed, now.toISOString())
+  // The office default places a project with nothing recorded only in the gate and the turn: writing it
+  // into the profile would show the office a new assumption it never made (the owner's rule for this
+  // release: customers notice nothing). Only an address the project already holds is recorded.
   if (placement?.step !== 'address') return stored
   const address = stored.facts.site_address?.value ?? stored.assumptions.site_address?.value
   const suggested = typeof address === 'string' ? postalCodeSuggestion(address, now) : null

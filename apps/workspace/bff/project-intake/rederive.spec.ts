@@ -8,7 +8,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { emptyProjectProfile } from '@/lib/project-profile/patch-engine'
-import { ASSUMED_SITE_REASON, isOfficeDefault, withAssumedSite } from '@/lib/project-profile/site'
+import { isOfficeDefault, withAssumedSite } from '@/lib/project-profile/site'
 import { factDefinitionsSchema } from '@/lib/base-knowledge/wire/setup-facts'
 import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
 import { AT_FACT_DEFINITIONS_VALUES, AT_SETUP_RECORDS } from './at-setup.fixtures'
@@ -94,10 +94,9 @@ describe('the territory an office assumes', () => {
 })
 
 describe('the site a re-derivation records', () => {
-  it('writes the office default only where no place is recorded, as an unverified assumption', () => {
-    const placed = withPlacementRecorded(emptyProjectProfile(), office, NOW)
-    expect(placed.assumptions.federal_state).toMatchObject({ value: 'vienna', status: 'unconfirmed', reason: ASSUMED_SITE_REASON })
-    expect(isOfficeDefault(placed.assumptions.federal_state)).toBe(true)
+  it('writes no office default into a profile with no place recorded: the default places it only in the gate', () => {
+    const empty = emptyProjectProfile()
+    expect(withPlacementRecorded(empty, office, NOW)).toBe(empty)
   })
 
   it('writes the Land the address names over the onboarding default, with its derivation', () => {
@@ -126,10 +125,12 @@ describe('a run over every project', () => {
     withheld = false
   })
 
-  it('records the assumed site and the class it gives, skips a closed project, and writes nothing the second time', async () => {
+  it('leaves a profile with no place unwritten, derives the class of a placed one, skips a closed project, and writes nothing the second time', async () => {
+    expect(await rederiveBuildingClasses({ now: () => NOW })).toEqual({ projects: 2, written: 0, unchanged: 2, failed: 0, complete: true })
+    expect(state.profile.assumptions.federal_state).toBeUndefined()
+    state.profile.facts.federal_state = { value: 'vienna', confidence: 'confirmed', source: 'onboarding', updatedAt: '' }
     const first = await rederiveBuildingClasses({ now: () => NOW })
     expect(first).toEqual({ projects: 2, written: 1, unchanged: 1, failed: 0, complete: true })
-    expect(state.profile.assumptions.federal_state?.value).toBe('vienna')
     expect(state.profile.assumptions['building_class@bldg1']?.value).toBeDefined()
     const second = await rederiveBuildingClasses({ now: () => NOW })
     expect(second).toEqual({ projects: 2, written: 0, unchanged: 2, failed: 0, complete: true })
