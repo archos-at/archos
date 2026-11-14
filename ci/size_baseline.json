@@ -201,7 +201,6 @@
     "packages/ifc-spatial-py/src/ifc_spatial/operators_facade.py::obstructions": 104,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_facade.py::prism": 99,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_facade.py::ray": 76,
-    "packages/ifc-spatial-py/src/ifc_spatial/operators_measures.py::floor_area": 66,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::azimuth": 95,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::clear_height": 105,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::distance": 61,

@@ -13,9 +13,11 @@ from ifc_spatial.operators_guards import _geometry_or_answer
 from ifc_spatial.operators_guards import _require
 
 from .envelope import Answer
+from .envelope import MissingFact
 from .envelope import computed
 from .envelope import declared
 from .envelope import triangulate
+from .envelope import undecidable
 from .geometry import dominant_vertical_plane
 from .geometry import triangle_normals_areas
 from .model import SpatialModel
@@ -105,21 +107,7 @@ def floor_area(model: SpatialModel, global_id: str, declared_area: float | None 
     if geo is None:
         return missing  # type: ignore[return-value]
 
-    area = _footprint_area(geo.triangles)
-    caveat = None
-    if area == 0:
-        caveat = (
-            "Gemessene Grundfläche 0 m²: dieses Bauteil hat Geometrie, aber keine horizontalen Flächen "
-            "(eine Wand, ein Pfosten). Das ist ein Messergebnis, keine fehlende Angabe."
-        )
-    measured = computed(
-        area,
-        unit="m²",
-        tolerance=abs(area) * AREA_RELATIVE_TOLERANCE,
-        from_=[global_id],
-        method=method,
-        caveat=caveat,
-    )
+    measured, reason = _measured_floor_area(geo.triangles, global_id, method)
 
     found = None
     declared_method = f"NetFloorArea({global_id})"
@@ -141,9 +129,10 @@ def floor_area(model: SpatialModel, global_id: str, declared_area: float | None 
         declared_area = found.value
         declared_method = f"{found.path}({global_id})"
         if found.scale != 1.0:
+            compared = " Verglichen wird in Metern." if measured.decidable else ""
             declared_caveat = (
                 f"Die Datei deklariert {found.raw:.4f} {found.unit_label or '(Einheit der Datei)'}; "
-                f"umgerechnet {found.value:.4f} m². Verglichen wird in Metern."
+                f"umgerechnet {found.value:.4f} m².{compared}"
             )
     else:
         # A caller-supplied number is assumed to be SI already; it has to be,
@@ -158,9 +147,47 @@ def floor_area(model: SpatialModel, global_id: str, declared_area: float | None 
         declared(declared_area, unit="m²", from_=[global_id], method=declared_method),
         method=method,
     )
+    if not measured.decidable:
+        unmeasured = (
+            f"Grundfläche aus der Geometrie nicht messbar: {_FOOTPRINT_FAILURES[reason]}. "
+            "Der Wert ist die deklarierte Fläche, nicht nachgemessen."
+        )
+        answer.caveat = f"{answer.caveat} {unmeasured}" if answer.caveat else unmeasured
     if declared_caveat:
         answer.caveat = f"{answer.caveat} {declared_caveat}" if answer.caveat else declared_caveat
     return answer
+
+
+def _measured_floor_area(triangles: np.ndarray, global_id: str, method: str) -> tuple[Answer[float], str]:
+    """The measured side of :func:`floor_area` and the footprint reason it rests on."""
+    area, reason = _footprint(triangles)
+    if reason in _FOOTPRINT_FAILURES:
+        measured = undecidable(
+            from_=[global_id],
+            method=method,
+            missing=MissingFact(
+                what=f"Grundfläche: {_FOOTPRINT_FAILURES[reason]}",
+                remedy="Geometrie des Bauteils im Modell prüfen.",
+                elements=[global_id],
+            ),
+            provenance="computed",
+        )
+        return measured, reason
+    caveat = None
+    if reason == "no_horizontal":
+        caveat = (
+            "Gemessene Grundfläche 0 m²: dieses Bauteil hat Geometrie, aber keine horizontalen Flächen "
+            "(eine Wand, ein Pfosten). Das ist ein Messergebnis, keine fehlende Angabe."
+        )
+    measured = computed(
+        area,
+        unit="m²",
+        tolerance=abs(area) * AREA_RELATIVE_TOLERANCE,
+        from_=[global_id],
+        method=method,
+        caveat=caveat,
+    )
+    return measured, reason
 
 
 def _vector_text(value: Any) -> str:
@@ -171,8 +198,23 @@ def _vector_text(value: Any) -> str:
         return repr(value)
 
 
-def _footprint_area(triangles: np.ndarray) -> float:
-    """The plan area of a solid, measured from whichever side its faces point.
+_FOOTPRINT_FAILURES = {
+    "no_triangles": "die Geometrie des Bauteils enthält keine Dreiecke",
+    "invalid_triangles": "die Dreiecke des Bauteils sind ungültig oder ohne Fläche",
+    "geos_error": "die Flächenvereinigung ist fehlgeschlagen",
+}
+
+
+def _footprint(triangles: np.ndarray) -> tuple[float, str]:
+    """The plan area of a solid and why it came out that way, as ``(area, reason)``.
+
+    ``reason`` is ``measured`` or ``no_horizontal`` (a true 0: faces with an area
+    exist and none is horizontal) or one of :data:`_FOOTPRINT_FAILURES`, where 0
+    means "could not be measured" and must not be reported as a value. A mesh of
+    only zero-area triangles has no normal to judge by, so it is
+    ``invalid_triangles``, not ``no_horizontal``.
+
+    The plan area of a solid is measured from whichever side its faces point.
 
     ``util.shape.get_footprint_area`` keeps only triangles whose normal points
     **towards** the given direction, so it silently returns ``0.0`` for a mesh
@@ -197,13 +239,27 @@ def _footprint_area(triangles: np.ndarray) -> float:
     51.994825 / 8.69350625 m², identical to the IfcOpenShell values the parity
     suite asserts.
     """
+    if triangles is None or len(triangles) == 0:
+        return 0.0, "no_triangles"
+    normals, _ = triangle_normals_areas(triangles)
+    if not normals.any():
+        return 0.0, "invalid_triangles"
+    best, saw_facing, errored = _facing_union_area(triangles, normals)
+    if best > 0:
+        return best, "measured"
+    if not saw_facing:
+        return 0.0, "no_horizontal"
+    return 0.0, "geos_error" if errored else "invalid_triangles"
+
+
+def _facing_union_area(triangles: np.ndarray, normals: np.ndarray) -> tuple[float, bool, bool]:
+    """The larger union area of the up- and down-facing faces, whether any faced, and whether GEOS failed."""
     import shapely
     import shapely.ops
 
-    if triangles is None or len(triangles) == 0:
-        return 0.0
-    normals, _ = triangle_normals_areas(triangles)
     best = 0.0
+    saw_facing = False
+    errored = False
     for sign in (1.0, -1.0):
         # 0.01 is IfcOpenShell's own `normal_tol`: close to perpendicular, with
         # a fuzz for numerical noise. Kept identical so the two agree face for
@@ -211,6 +267,7 @@ def _footprint_area(triangles: np.ndarray) -> float:
         facing = triangles[normals[:, 2] * sign > 0.01]
         if len(facing) == 0:
             continue
+        saw_facing = True
         polygons = []
         for tri in facing:
             polygon = shapely.Polygon(tri[:, :2])
@@ -221,5 +278,10 @@ def _footprint_area(triangles: np.ndarray) -> float:
         try:
             best = max(best, float(shapely.ops.unary_union(polygons).area))
         except Exception:
+            errored = True
             continue
-    return best
+    return best, saw_facing, errored
+
+
+def _footprint_area(triangles: np.ndarray) -> float:
+    return _footprint(triangles)[0]
