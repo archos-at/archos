@@ -368,9 +368,27 @@ that moves to Hatchet lands. Nothing claims them afterwards.
    platform comes up before any tier rolls: every tier that starts or runs a
    run waits for `hatchet-token-sync`.
 2. **Deploy.** The tiers roll onto Hatchet; the worker tiers scale on its backlog.
-3. **Run the re-dispatch.** It re-submits what the old tables still hold to
-   Hatchet. For ingest that is the BFF's re-dispatch of `pending` documents; the
-   release notes of the change name the exact command for each queue.
+3. **Let the workers move the old rows.** Nothing to run. From boot, every new
+   ingest worker and every new agent-worker moves what `ingest_job_queue` and
+   `research_job_queue` hold onto Hatchet, a pass a minute, because old API and
+   chat pods keep writing them while they drain
+   (`agent.knowledge.ingest_cutover`, `agent_host.jobs.requeue_legacy.cutover_loop`).
+   Ingest takes each row with the old claim's own SQL; research locks it
+   (`FOR UPDATE SKIP LOCKED`), starts it on Hatchet and deletes it in one
+   transaction. Either way two replicas, or an old worker claiming at that
+   moment, never act on one row, and a start that fails leaves the row for the
+   next pass. A `queued` row moves at once. A `claimed` one waits until its claim has
+   been silent for the old worker's stale window (ingest, 180 s) or, for
+   research, its last heartbeat is older than the old drain budget plus 60 s
+   (`RESEARCH_WORKER_DRAIN_SECONDS`, 600 by default, so 11 minutes): an old
+   agent-worker still runs it until then, and starting it again would run it
+   twice. A job already ended in `job_info`, or already on Hatchet, is only
+   deleted. The agent-worker logs `Research cutover: N job(s) moved from
+   research_job_queue to Hatchet` per pass that moved one, and `Research
+   cutover: research_job_queue held no job for 3600s; no longer checked` (or
+   `… is gone`) when it stops. By hand, only as a fallback, from an
+   agent-worker pod: `python -m agent_host.jobs.requeue_legacy` (the same rule),
+   or with `--force` to move every claim once no pod of the old image is left.
 4. **Watch the old tables empty.** On the app cluster:
 
    ```bash
@@ -380,9 +398,10 @@ that moves to Hatchet lands. Nothing claims them afterwards.
    kubectl cnpg psql grid-pg -n grid -- -d app -c "SELECT status, count(*) FROM bff_job_queue GROUP BY 1"
    ```
 
-   Rows that are `queued` or `claimed` and are not moving after the re-dispatch
-   are the ones to look at; `dead` rows are traces and stay until the drop
-   migration.
+   Rows that are `queued` or `claimed` and still there a quarter of an hour after
+   the last old pod went are the ones to look at (a research payload that cannot
+   be read stays, and the worker log names its job); `dead` rows are traces and
+   stay until the drop migration.
 
 There is no way back to the claim queues on the same release: rolling back is
 deploying the previous release, whose tiers still claim from the old tables.

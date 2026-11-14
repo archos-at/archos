@@ -5,7 +5,7 @@ a real Hatchet. Here Hatchet is the ``hatchet`` fixture's fake only for the one
 wiring test of the submit (what reaches the SDK: ids and ciphertext, never
 plaintext) and the cancel's error path; everything else is our own logic: the
 refusals before anything is persisted, the task body's failure mapping, the
-verdicts, the liveness lifespan and the cutover. The job store is real (SQLite).
+verdicts and the liveness lifespan. The cutover is ``test_research_cutover.py``'s. The job store is real (SQLite).
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ import pytest
 from hatchet_sdk import NonRetryableException
 from hatchet_sdk import Priority
 from hatchet_sdk.exceptions import TaskRunError
-from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
 from agent.auth import Principal
@@ -314,9 +313,14 @@ async def test_the_envelope_is_renewed_at_task_start_by_the_run_path():
 # ---------------------------------------------------------------- the worker
 
 
+async def _no_cutover(*_args) -> None:
+    """The cutover's own tests are ``test_research_cutover.py``."""
+
+
 async def test_the_worker_lifespan_keeps_the_liveness_file_fresh(tmp_path, monkeypatch):
     marker = tmp_path / "alive"
     monkeypatch.setenv("WORKER_LIVENESS_FILE", str(marker))
+    monkeypatch.setattr(requeue_legacy, "cutover_loop", _no_cutover)
 
     lifespan = research_workflow._liveness()
     await lifespan.__anext__()
@@ -325,61 +329,6 @@ async def test_the_worker_lifespan_keeps_the_liveness_file_fresh(tmp_path, monke
     await asyncio.sleep(0)
     assert marker.read_text() == "ok"
     await lifespan.aclose()
-
-
-# ---------------------------------------------------------------- the cutover
-
-
-_OLD_COLUMNS = "(job_id, lane, payload, status, priority)"
-
-
-def _old_queue(db_url: str, rows: list[tuple[str, str, str, int, str]]) -> None:
-    with EventStore._get_or_create_sync_engine(db_url).begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE research_job_queue (job_id VARCHAR PRIMARY KEY, lane VARCHAR, payload TEXT,"
-                " status VARCHAR, priority INTEGER, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
-            )
-        )
-        conn.execute(text("CREATE TABLE IF NOT EXISTS job_info (job_id TEXT PRIMARY KEY, status TEXT)"))
-        for job_id, lane, payload, priority, status in rows:
-            conn.execute(
-                text(f"INSERT INTO research_job_queue {_OLD_COLUMNS} VALUES (:j, :l, :p, :s, :r)"),
-                {"j": job_id, "l": lane, "p": payload, "s": status, "r": priority},
-            )
-            conn.execute(text("INSERT INTO job_info VALUES (:j, 'submitted')"), {"j": job_id})
-
-
-async def test_the_cutover_starts_every_live_row_once_and_empties_the_old_queue(db_url, monkeypatch):
-    started: dict[str, tuple[str | None, str | None]] = {}
-
-    async def start(db_url, job_id, payload, organization_id, priority):
-        assert "claim_owner" in payload  # replayed as stored; the worker drops it
-        started[job_id] = (organization_id, priority)
-        orchestrator_runs.record(db_url, job_id, f"run-{job_id}")
-        return f"run-{job_id}"
-
-    monkeypatch.setattr(research_workflow, "start", start)
-    old = _stored(claim_owner="host:1")
-    _old_queue(
-        db_url,
-        [
-            ("job-a", "org-a", old, 1, "queued"),
-            ("job-b", "__platform__", old, 0, "claimed"),
-            ("job-c", "org-a", "enc:garbage", 0, "queued"),
-            ("job-d", "org-a", old, 0, "dead"),
-        ],
-    )
-
-    result = await requeue_legacy.requeue(db_url)
-
-    assert result.started == ["job-a", "job-b"]
-    assert result.unreadable == ["job-c"]
-    assert started == {"job-a": ("org-a", "bulk"), "job-b": (None, "interactive")}
-    assert (await requeue_legacy.requeue(db_url)).started == []  # a second run starts nothing
-    with EventStore._get_or_create_sync_engine(db_url).connect() as conn:
-        left = [row[0] for row in conn.execute(text("SELECT job_id FROM research_job_queue ORDER BY job_id"))]
-    assert left == ["job-c", "job-d"]
 
 
 async def _owns(*_args) -> bool:
