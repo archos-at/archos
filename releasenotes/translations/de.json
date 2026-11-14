@@ -1588,6 +1588,10 @@
     "de": "Büroablage, Suche und Postfach befinden sich am unteren Ende der Seitenleiste unter dem Namen Ihres Büros, direkt über Ihrem eigenen Namen; das Projekt und seine Bereiche bleiben dem oberen Bereich vorbehalten."
   },
   {
+    "en": "Calculation cards in earlier answers show their result as they did when they were written, and a check that now only gives a hint no longer shows an old confirmation in the Prüfbuch.",
+    "de": "Berechnungskarten in früheren Antworten zeigen ihr Ergebnis so an, wie es zum Zeitpunkt ihrer Erstellung angezeigt wurde. Eine Prüfung, die jetzt nur noch einen Hinweis gibt, zeigt im Prüfbuch keine frühere Bestätigung mehr an."
+  },
+  {
     "en": "Card headers with buttons in them no longer run past the edge of a narrow screen. Where there is not room for the title and the buttons on one line, the buttons move underneath.",
     "de": "Kartenüberschriften mit Schaltflächen ragen nicht mehr über den Rand schmaler Bildschirme hinaus. Wenn Titel und Schaltflächen nicht in eine Zeile passen, werden die Schaltflächen darunter angezeigt."
   },
@@ -3308,6 +3312,10 @@
     "de": "Projekte, die vor diesem Release geschlossen wurden, sind als abgeschlossen markiert. Wenn eines davon nie gebaut wurde, öffnen Sie es erneut und schließen Sie es wieder als nicht realisiert."
   },
   {
+    "en": "Projects keep the building class they already had while the law at their site cannot be read, and a project with no location recorded is again treated as being in your office's home region until you confirm or change it.",
+    "de": "Projekte behalten ihre bisherige Gebäudeklasse bei, solange die am Standort geltenden Vorschriften nicht ausgelesen werden können, und ein Projekt ohne erfassten Standort wird wieder der Heimatregion Ihres Büros zugeordnet, bis Sie den Standort bestätigen oder ändern."
+  },
+  {
     "en": "Prüfbuch confirmations (the IFC check log) on an IFC model still under review, and the number of such files in a folder in the Papierkorb, are no longer shown to colleagues who may not see the model or the file.",
     "de": "Bestätigungen im Prüfbuch (IFC-Prüfprotokoll) zu einem IFC-Modell, das noch in Prüfung ist, sowie die Anzahl solcher Dateien in einem Ordner im Papierkorb werden Kolleginnen und Kollegen nicht mehr angezeigt, die das Modell oder die Datei nicht sehen dürfen."
   },
@@ -3862,6 +3870,10 @@
   {
     "en": "The answer details now show how long Piloti took, from sending the question to the finished answer. The figure stays after the conversation is reloaded.",
     "de": "Die Antwortdetails zeigen jetzt, wie lange Piloti gebraucht hat, vom Absenden der Frage bis zur fertigen Antwort. Die Angabe bleibt nach dem Neuladen des Gesprächs erhalten."
+  },
+  {
+    "en": "The app and the website now live at the web address of the new name. Your bookmarks, links in e-mails and connected AI clients keep working: the former addresses forward you to the same page at the new one, and you stay signed in.",
+    "de": "Die App und die Website sind jetzt unter der Webadresse des neuen Namens erreichbar. Ihre Lesezeichen, Links in E-Mails und verbundenen KI-Clients funktionieren weiterhin: Die bisherigen Adressen leiten Sie auf dieselbe Seite unter der neuen Adresse weiter, und Sie bleiben angemeldet."
   },
   {
     "en": "The app icon in your browser tab and on your home screen is now the A of the ARCHOS wordmark in black and white, and the pictures on empty pages are drawn in the same black and grey. Links to the website shared in chats and social networks now show the ARCHOS name and its claim.",

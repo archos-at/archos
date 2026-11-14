@@ -944,6 +944,14 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The app and the website now live at the web address of the new name. Your bookmarks, links in e-mails and connected AI clients keep working: the former addresses forward you to the same page at the new one, and you stay signed in.",
+            "de": "Die App und die Website sind jetzt unter der Webadresse des neuen Namens erreichbar. Ihre Lesezeichen, Links in E-Mails und verbundenen KI-Clients funktionieren weiterhin: Die bisherigen Adressen leiten Sie auf dieselbe Seite unter der neuen Adresse weiter, und Sie bleiben angemeldet."
+          }
+        },
+        {
           "section": "fixes",
           "area": "general",
           "text": {
@@ -1125,6 +1133,22 @@
           "text": {
             "en": "When you ask which edition of a guideline or standard applied at your project's site on a particular day, for example for a submission on 1 October, the assistant now names the edition that was binding there on that day and says which day it means. Before, it named only today's edition and called the earlier one undeterminable.",
             "de": "Wenn Sie fragen, welche Fassung einer Richtlinie oder Norm am Standort Ihres Projekts an einem bestimmten Tag galt, etwa bei einer Einreichung am 1. Oktober, nennt der Assistent nun die an diesem Tag dort verbindliche Fassung und gibt an, auf welchen Tag er sich bezieht. Bisher nennt er nur die aktuelle Fassung und erklärt die frühere für nicht bestimmbar."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "Projects keep the building class they already had while the law at their site cannot be read, and a project with no location recorded is again treated as being in your office's home region until you confirm or change it.",
+            "de": "Projekte behalten ihre bisherige Gebäudeklasse bei, solange die am Standort geltenden Vorschriften nicht ausgelesen werden können, und ein Projekt ohne erfassten Standort wird wieder der Heimatregion Ihres Büros zugeordnet, bis Sie den Standort bestätigen oder ändern."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "Calculation cards in earlier answers show their result as they did when they were written, and a check that now only gives a hint no longer shows an old confirmation in the Prüfbuch.",
+            "de": "Berechnungskarten in früheren Antworten zeigen ihr Ergebnis so an, wie es zum Zeitpunkt ihrer Erstellung angezeigt wurde. Eine Prüfung, die jetzt nur noch einen Hinweis gibt, zeigt im Prüfbuch keine frühere Bestätigung mehr an."
           }
         },
         {
