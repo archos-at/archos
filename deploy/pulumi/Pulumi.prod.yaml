@@ -105,7 +105,7 @@ config:
   # dynamically from the merge commit — prod merge shas never have GHCR images;
 
   # only develop tips do.
-  grid-oib:imageTag: sha-9150f95df04ddc393507dd2dca7bb69415062b38
+  grid-oib:imageTag: sha-5faa5686d8c3a5eafeded8951df788bd928da1d3
   # Building law exactly as dev released it, carried by this promotion with no
   # review session here (ADR-0181): the Job `knowledge-carry` publishes the
   # bundles in apps/workspace/config/knowledge-releases/, decided `carried`.
