@@ -91,7 +91,12 @@ config:
   # `seaweedfsFilerStore` / `seaweedfsFilerStorageSize` below are already set so
   # that flipping one line is all the window needs.
   grid-oib:seaweedfsTopology: single
-  grid-oib:seaweedfsStorageSize: 10Gi
+  # 10Gi filled on 2026-11-12 (8 GB of it Langfuse blobs, which keep no
+  # retention): the volumes went read-only and project mail and uploads failed.
+  # The deploy grows the live volume to this size and never shrinks it
+  # (seaweedfsGrowVolume, src/data/pvc-grow.ts).
+  grid-oib:seaweedfsStorageSize: 30Gi
+  grid-oib:seaweedfsGrowVolume: "true"
   grid-oib:seaweedfsBucket: grid-documents
   grid-oib:seaweedfsAccessKey: grid
   # Read-only identity for the aiq-agent tier (the `look` tool, ADR-0039).
