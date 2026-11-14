@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -383,6 +384,74 @@ def test_the_engine_suites_run_on_the_engine_production_runs():
 def test_the_engine_job_runs_on_its_own_tier():
     assert JOBS["hatchet"]["if"] == "needs.changes.outputs.hatchet == 'true'"
     assert not runs("hatchet", event="pull_request", outputs=plan(event="pull_request") | {"hatchet": "false"})
+
+
+def test_a_report_with_a_skipped_test_fails_and_an_expected_failure_does_not(tmp_path):
+    # An expected failure ran, and JUnit writes it as `<skipped>` all the same.
+    def require_ran(case: str) -> int:
+        report = tmp_path / "report.xml"
+        report.write_text(f'<testsuite><testcase name="a">{case}</testcase></testsuite>', encoding="utf-8")
+        script = WORKFLOWS.parents[1] / "ci/hatchet_engine.sh"
+        return subprocess.run(["bash", script, "require-ran", report], capture_output=True, check=False).returncode
+
+    assert require_ran("") == 0
+    assert require_ran('<skipped type="pytest.xfail" message="a known bug"/>') == 0
+    assert require_ran('<skipped type="pytest.skip" message="no engine"/>') == 1
+    assert require_ran("<skipped/>") == 1
+
+
+# --- The agent on the IFC engine ----------------------------------------------------
+
+
+def test_the_agent_engine_job_runs_every_suite_that_skips_without_the_engine():
+    # A new suite gated on the engine is green everywhere and proves nothing until
+    # this job names it, so naming it is not left to memory.
+    root = WORKFLOWS.parents[1]
+    gated = {
+        path.relative_to(root).as_posix()
+        for tests in ("packages/agent/tests", "apps/agent-host/tests")
+        for path in (root / tests).rglob("test_*.py")
+        if 'importorskip("ifc_spatial' in path.read_text(encoding="utf-8")
+    }
+    steps = JOBS["agent-engine"]["steps"]
+    suites = next(step["run"] for step in steps if "pytest" in step.get("run", ""))
+    named = {
+        match.relative_to(root).as_posix()
+        for pattern in re.findall(r"\S+/test_\S+\.py", suites)
+        for match in root.glob(pattern)
+    }
+
+    assert "packages/agent/tests/tools/bim/test_question_battery.py" in gated
+    assert named == gated
+    assert any("require-ran" in step.get("run", "") for step in steps)
+
+
+def test_the_agent_engine_job_installs_the_engine_the_way_the_image_does():
+    dockerfile = (WORKFLOWS.parents[1] / "apps/agent-host/Dockerfile").read_text(encoding="utf-8")
+    install = re.search(r"^RUN (uv pip install -e \S*ifc-spatial-py\S*)$", dockerfile, re.MULTILINE)
+    steps = JOBS["agent-engine"]["steps"]
+
+    assert install
+    assert any(install[1] in step.get("run", "") for step in steps)
+    # setup-python-env caches its .venv for every other job, under a key that does
+    # not know the engine was added to it.
+    assert not [step for step in steps if "setup-python-env" in step.get("uses", "")]
+
+
+@pytest.mark.parametrize("tier", ["backend", "packages"])
+def test_the_agent_engine_job_runs_when_either_side_of_the_path_changes(tier):
+    nothing = plan(event="pull_request") | {"backend": "false", "packages": "false"}
+
+    assert not runs("agent-engine", event="pull_request", outputs=nothing)
+    assert runs("agent-engine", event="pull_request", outputs=nothing | {tier: "true"})
+
+
+def test_the_agent_engine_job_runs_when_the_script_it_calls_changes():
+    # The job's `if` reads only those two tiers, and the script's own is `hatchet`.
+    filters = yaml.safe_load((WORKFLOWS.parent / "filters.yml").read_text(encoding="utf-8"))
+
+    assert any("ci/hatchet_engine.sh" in step.get("run", "") for step in JOBS["agent-engine"]["steps"])
+    assert "ci/hatchet_engine.sh" in filters["packages"]
 
 
 # --- Release notes ------------------------------------------------------------------
