@@ -99,4 +99,28 @@ LEFT ANTI JOIN (
     WHERE event IN ('inbound_mail_received', 'inbound_mail_dropped') AND timestamp > now() - INTERVAL 6 HOUR AND timestamp <= now()
     GROUP BY host
 ) AS took ON refused.host = took.host
+UNION ALL
+SELECT
+    concat('[Objektspeicher] ', env, ': ', arrayStringConcat(arrayFilter(x -> x != '', [
+        if(total > 0 AND used / total > 0.85, concat('Datenträger ', toString(round(used / total * 100)), ' % belegt'), ''),
+        if(length(readonly) > 0, concat('ohne beschreibbares Volume (Platz knapp): ', arrayStringConcat(readonly, ', ')), '')
+    ]), '; ')) AS rule,
+    toFloat(if((total > 0 AND used / total > 0.85) OR length(readonly) > 0, 1, 0)) AS breach
+FROM (
+    -- Every stack, dev included. A SeaweedFS disk past its free-space floor turns
+    -- volumes read-only, and every write into such a bucket answers a bare 500:
+    -- dev's 10 GiB disk filled on 2026-11-12 and project mail and uploads failed
+    -- for two days before anyone looked (docs/contributing/gotchas.md).
+    SELECT
+        coalesce(sr.resource_attributes['deployment.environment.name'], '?') AS env,
+        maxIf(m.value, m.metric_name = 'SeaweedFS_volumeServer_resource' AND sr.attributes['type'] = 'used') AS used,
+        maxIf(m.value, m.metric_name = 'SeaweedFS_volumeServer_resource' AND sr.attributes['type'] = 'all') AS total,
+        arrayDistinct(groupArrayIf(sr.attributes['collection'], m.metric_name = 'SeaweedFS_volumeServer_read_only_volumes'
+            AND sr.attributes['type'] = 'isDiskSpaceLow' AND m.value > 0 AND sr.attributes['collection'] != '')) AS readonly
+    FROM posthog.metrics AS m
+    INNER JOIN posthog.metric_series AS sr ON sr.series_fingerprint = m.series_fingerprint
+    WHERE m.timestamp > now() - INTERVAL 15 MINUTE
+        AND m.metric_name IN ('SeaweedFS_volumeServer_resource', 'SeaweedFS_volumeServer_read_only_volumes')
+    GROUP BY env
+)
 ))
