@@ -97,7 +97,13 @@ export function runKnowledgeCarry(
       metadata: {
         name,
         namespace: w.namespace,
-        annotations: { "pulumi.com/skipAwait": "true" },
+        annotations: {
+          "pulumi.com/skipAwait": "true",
+          // A replace deletes the old Job first under the same name. Foreground deletion (the provider's default)
+          // keeps the object until its pod is gone, so while a carry still runs the create met "object is being
+          // deleted: ... already exists" (prod, 2026-11-14). Background frees the name at once.
+          "pulumi.com/deletionPropagationPolicy": "background",
+        },
       },
       spec: {
         // Each retry resumes the request where it stands; three are enough for a fetch or an ingest that hiccups.
