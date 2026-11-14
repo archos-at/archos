@@ -21,8 +21,8 @@
  * (`settleQueuedFiling`): the job writes its own, and a sweep that judged from
  * an earlier read must not overwrite it.
  *
- * Driven by the same clock as the document sweep
- * (`/api/internal/maintenance/reconcile-background-work`).
+ * Driven by the same clock as the document sweep (the
+ * `reconcile-background-work` Hatchet task, `bff/scheduling/sweeps.ts`).
  */
 
 import 'server-only'

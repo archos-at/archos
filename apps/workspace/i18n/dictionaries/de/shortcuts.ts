@@ -19,6 +19,7 @@ export const shortcuts: typeof en.shortcuts = {
       move: 'bewegen',
       open: 'öffnen',
       close: 'schließen',
+      all: 'alle Treffer',
     },
   },
   cheatsheet: {
@@ -35,6 +36,7 @@ export const shortcuts: typeof en.shortcuts = {
       search: 'Suche',
       review: 'Prüfansicht',
       inbox: 'Postfach',
+      inboundMail: 'E-Mail-Eingang',
     },
     /** Shown under the navigation group, which mixes scoped and global jumps. */
     projectScopeNote: 'Bereichs-Kürzel öffnen den Bereich des Projekts, in dem Sie gerade sind.',
@@ -59,6 +61,12 @@ export const shortcuts: typeof en.shortcuts = {
       inboxOpen: 'Eintrag öffnen',
       inboxArchive: 'Eintrag archivieren',
       inboxToggleRead: 'Als gelesen oder ungelesen markieren',
+      inboundMailStep: 'Nächste oder vorige E-Mail',
+      inboundMailOpen: 'E-Mail öffnen',
+      inboundMailSelect: 'E-Mail auswählen',
+      inboundMailPreview: 'Anhang ansehen',
+      inboundMailFile: 'Wie gezeigt ablegen',
+      inboundMailDismiss: 'E-Mail verwerfen',
     },
     disableHint: 'Tastaturkürzel lassen sich in den Profileinstellungen deaktivieren.',
   },

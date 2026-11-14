@@ -144,6 +144,10 @@ const OPAQUE_STATUS_WRITES: Readonly<Record<string, string>> = {
   // one hop further away would be invisible here.
   'bff/documents/repository/reconcile.ts: resolution.status':
     "whatever reconcile-status.ts resolved: 'completed' or 'failed'",
+  // The stop route's answer: the status read back from the row and handed to
+  // the caller, and the field of the wire schema that carries it.
+  'bff/documents/reingest.ts: settled.status': "a read of the row answered to the caller of the stop, not a write",
+  'bff/documents/cancel-wire.ts: statusAfterStop': "the stop answer's wire schema field, not a write",
   // Reads, not writes: drizzle SELECT and RETURNING projections naming the column.
   'bff/documents/repository/list.ts: documents.status': 'a SELECT projection, not a write',
   'bff/documents/repository/lookup-by-ref.ts: documents.status': 'a SELECT projection, not a write',

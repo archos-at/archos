@@ -125,11 +125,6 @@ export const chat: typeof en.chat = {
     placeholder: 'Fragen Sie {productName} zu diesem Projekt …',
     sources: 'Datengrundlage',
     sourcesAria: 'Datengrundlage – {enabled} von {total} Quellen aktiv. Öffnet die Datenquellen.',
-    scopeAria: 'Suchbereich: {project}',
-    scopeFallback: 'Dieses Projekt',
-    scopeCurrent: 'Aktuelles Projekt',
-    scopeAll: 'Alle Projekte',
-    scopeAllSoon: 'Bald verfügbar – projektübergreifende Suche ist noch nicht möglich.',
     // Mobile-only cue: the source/scope labels collapse to icons on phones, so a
     // tiny one-line hint under the composer keeps the active source count legible.
     sourcesActiveMobile: '{count, plural, one {# Quelle} other {# Quellen}} aktiv',
@@ -139,6 +134,7 @@ export const chat: typeof en.chat = {
     start: 'Diktieren',
     startHint:
       'Sprechen Sie, {productName} schreibt es in Ihre Nachricht. Stoppt nach {seconds} Sekunden.',
+    starting: 'Wartet auf das Mikrofon. Erneut drücken bricht ab.',
     stop: 'Beenden und einfügen',
     recording: 'Aufnahme, {elapsed}',
     transcribing: 'Wird verschriftlicht …',
@@ -152,10 +148,13 @@ export const chat: typeof en.chat = {
     errors: {
       noMicrophone: 'Es wurde kein Mikrofon gefunden.',
       denied: 'Der Mikrofonzugriff wurde nicht erlaubt.',
+      noAnswer:
+        'Das Mikrofon hat nicht geantwortet. Wartet der Browser noch auf Ihre Erlaubnis? Versuchen Sie es erneut.',
       rateLimited: 'Zu viele Aufnahmen in kurzer Zeit. Versuchen Sie es in einer Minute erneut.',
       tooLarge: 'Die Aufnahme ist zu groß zum Verschriftlichen.',
       notConfigured: 'Spracheingabe ist gerade nicht verfügbar.',
       failed: 'Die Aufnahme konnte nicht verschriftlicht werden. Ihre Nachricht ist unverändert.',
+      notSaved: 'Die Aufnahme konnte nicht gespeichert werden. Bitte sprechen Sie es noch einmal ein.',
     },
   },
   // Der Reiter einer Quellenkarte in der Herleitung: die grobe Ebene, wenn der
@@ -215,7 +214,8 @@ export const chat: typeof en.chat = {
     projectWrites:
       '{productName} beantwortet nicht nur Fragen – auf Zuruf schreibt {productName} Aktenvermerke, Notizen und Entwürfe direkt in die Projektdateien.',
   },
-  // Thread role tabs (click-dummy overhaul, WS-3).
+  // Wessen Zug eine Nachricht ist, nur für den Screenreader: am Bildschirm
+  // sagen es Blase und Antwortkarte, kein Rollen-Tab (Notion #38, Thema 9).
   roles: {
     input: 'Eingabe',
     result: 'Ergebnis',
@@ -558,6 +558,20 @@ export const chat: typeof en.chat = {
       // Beurteilung mit Größe, Wert, Grenzwert und Ergebnis.
       recomputed: 'Neu berechnet. {checks}',
       checkSpoken: '{name}: {value}, Grenzwert {bound}, {verdict}.',
+      // Wie checkSpoken, wo statt einer Beurteilung ein Hinweis steht; {reason} endet mit Punkt.
+      checkHeldSpoken: '{name}: {value}, Grenzwert {bound}, Hinweis: {reason}',
+      // Statt einer Beurteilung, wo die Ausgabe, aus der die Grenzwerte stammen,
+      // am Standort nicht gilt oder niemand geprüft hat, welche gilt.
+      hold: {
+        label: 'Hinweis',
+        otherEdition: 'Werte aus {edition}; am Standort gilt {binding}. Darum keine Beurteilung.',
+        notBinding: 'Werte aus {edition}; am Standort ist dieses Regelwerk nicht verbindlich. Darum keine Beurteilung.',
+        unsettled:
+          'Werte aus {edition}; welche Ausgabe am Standort gilt, ist noch nicht geprüft. Darum keine Beurteilung.',
+        siteUnknown: 'Werte aus {edition}; welche Ausgabe am Standort gilt, ist nicht bekannt. Darum keine Beurteilung.',
+        unavailable:
+          'Werte aus {edition}; welche Ausgabe am Standort gilt, konnte gerade nicht gelesen werden. Darum keine Beurteilung.',
+      },
       component: {
         external_wall: 'Außenwand gegen Außenluft',
         roof_or_ceiling_to_outside_air: 'Decke oder Dachschräge gegen Außenluft',
@@ -719,6 +733,8 @@ export const chat: typeof en.chat = {
       // Was Piloti von der Seite abgelesen hat, nie eine Messung (ADR-0125).
       reading: 'Gelesen: {reading}',
       readingNote: 'Von {productName} abgelesen, nicht gemessen.',
+      // Klappt auf, wonach {productName} gesucht und was es abgelesen hat.
+      explanation: 'Erläuterung',
       embeddedImage: 'Bild {index}',
       open: '{document}, S. {page} öffnen',
     },
@@ -795,6 +811,8 @@ export const chat: typeof en.chat = {
       failed: 'Nichts konnte übernommen werden. Es wurde nichts geändert.',
       applyError: 'Konnte nicht übernommen werden.',
       dismissError: 'Konnte nicht verworfen werden.',
+      temporaryConversation:
+        'Nicht gemerkt: Dieser Chat ist temporär, {productName} merkt sich daraus nichts. Die Notiz lässt sich übernehmen, sobald „Temporär“ ausgeschaltet ist.',
       decidedBy: {
         applied: 'Übernommen von {name} · {when}',
         partially_applied: 'Übernommen von {name} · {when}',
@@ -906,6 +924,8 @@ export const chat: typeof en.chat = {
         upload_batch: 'Upload {name}',
         proposal: 'Vorschlag {name}',
         member: 'Person {name}',
+        inbound_mail: 'E-Mail {name}',
+        mail_thread: 'E-Mail-Verlauf {name}',
       },
       applied: 'Die Aktion wurde ausgeführt.',
       dismissed: 'Verworfen. Die Aktion wurde nicht ausgeführt.',
@@ -1204,13 +1224,8 @@ export const chat: typeof en.chat = {
     savedProject: 'Im Gedächtnis dieses Projekts gespeichert.',
     dismissed: 'Nicht gespeichert.',
     error: 'Erkenntnis konnte nicht gespeichert werden',
-    kind: {
-      decision: 'Entscheidung',
-      constraint: 'Vorgabe',
-      open_question: 'Offene Frage',
-      derived_fact: 'Abgeleiteter Fakt',
-      preference: 'Präferenz',
-    },
+    temporaryConversation:
+      'Nicht gespeichert: Dieser Chat ist temporär, {productName} merkt sich daraus nichts. Speichern geht, sobald „Temporär“ ausgeschaltet ist.',
   },
   thinking: {
     // Eine Zeile je Dokument, das Piloti angesehen hat (ADR-0128); die
@@ -1656,10 +1671,24 @@ export const chat: typeof en.chat = {
     derivationWarning: {
       failed: '{count, plural, one {#\u00A0Abruf fehlgeschlagen} other {#\u00A0Abrufe fehlgeschlagen}}',
       open: '{count, plural, one {#\u00A0Punkt offen} other {#\u00A0Punkte offen}}',
+      // Was die Belegpr\u00FCfung der Antwort fand (ADR-0139): schwerer als jeder Abruf,
+      // denn es betrifft die Antwort selbst.
+      unbacked: '{count, plural, one {#\u00A0Aussage ohne Beleg} other {#\u00A0Aussagen ohne Beleg}}',
+      contradicted:
+        '{count, plural, one {#\u00A0Aussage widerspricht der Quelle} other {#\u00A0Aussagen widersprechen der Quelle}}',
     },
     // Ein Zug ohne jede Recherche: eine Zeile, nichts zum Aufklappen.
     noResearch: 'Ohne Recherche beantwortet',
     noResearchNote: 'Allgemeines Fachwissen, keine Quelle zitiert',
+    // Die Antwort endet mit einer Frage an die Lesenden: nicht \u201EFertig\u201C.
+    // `askedBack` steht rechts in der Kopfzeile, die zwei Zeilen darunter
+    // stehen f\u00FCr einen Zug ohne Recherche.
+    askedBack: 'R\u00FCckfrage',
+    // F\u00FCr Screenreader: fertig, aber die Belegpr\u00FCfung fand eine Aussage, die die
+    // Antwort tr\u00E4gt und nicht belegt ist (oder der Quelle widerspricht).
+    flagged: 'Mit Hinweis',
+    askedBackHeadline: 'R\u00FCckfrage gestellt',
+    askedBackNote: 'F\u00FCr eine belegte Antwort fehlt noch eine Angabe von Ihnen',
     // Ein Zug mit genau einem Aufruf: die Kopfzeile ist die Herleitung.
     singleCited: 'zitiert {markers}',
     derivationSummary: 'Herleitung',
@@ -1713,6 +1742,19 @@ export const chat: typeof en.chat = {
         open: 'Offen',
         clause: 'Pkt.\u00A0{clause}',
         page: 'S.\u00A0{page}',
+        pages: 'S.\u00A0{pages}',
+        more: '+{count} weitere',
+        // Eine Ausgabe, die ein Rechtsakt hier für verbindlich erklärt: der Akt, wie ihn die Daten nennen.
+        binding: 'verbindlich über {act}',
+        bindingSince: 'verbindlich über {act} seit {since}',
+        // Der Weg stammt aus dem Datensatz der Plattform, der noch nie an der Rechtsquelle geprüft wurde.
+        unchecked: 'laut Plattformdaten, noch nie an der Quelle geprüft',
+        // Geprüft, aber die nächste Prüfung ist fällig: der Tag der letzten.
+        checkedOn: 'laut Plattformdaten, zuletzt am {date} an der Quelle geprüft',
+        // Aus einer amtlichen Quelle gelesen, die niemand kuratiert hat.
+        uncurated: 'amtliche Quelle, nicht kuratiert',
+        withRecord: '{name} ({record})',
+        date: '{day}.{month}.{year}',
         // Aus einem Aufruf ohne Treffer: wo gesucht wurde und wonach. Nie „Keine Informationen gefunden“.
         openNoHitIn: 'Nicht beurteilbar, weil die Suche in {target} nach „{query}“ keine Fundstelle ergab.',
         openNoHitShelf: 'Nicht beurteilbar, weil die Suche {shelf} nach „{query}“ keine Fundstelle ergab.',
@@ -1872,6 +1914,13 @@ export const chat: typeof en.chat = {
       },
       branchesTab: 'Folgewege',
     },
+  },
+  // Die leise Zeile über der Eingabe, während die Seite die Verbindung zum
+  // Chat von selbst wiederherstellt und eine Antwort oder eine Rückfrage
+  // darauf wartet. Ihre Nachbarn („Verbindung unterbrochen“, „Wieder
+  // verbunden“) stehen unter `research.chatArea.connection`.
+  connection: {
+    restoring: 'Verbindung wird wiederhergestellt …',
   },
   error: {
     showDetails: 'Details anzeigen',
@@ -2042,27 +2091,74 @@ export const chat: typeof en.chat = {
   memory: {
     noted: '{productName} hat sich gemerkt',
     notedAria: '{productName} hat sich {count, plural, one {# Notiz} other {# Notizen}} gemerkt',
-    addedToMemory: 'In das Projektgedächtnis aufgenommen',
+    // Die Überschrift nennt das Gedächtnis, in das die Notizen kamen; „mixed“,
+    // wenn sie in mehr als eines kamen.
+    addedTo: {
+      project: 'In das Projektgedächtnis aufgenommen',
+      organization: 'In das Gedächtnis des Büros aufgenommen',
+      personal: 'In Ihr Gedächtnis aufgenommen',
+      mixed: 'In das Gedächtnis aufgenommen',
+    },
     // Mindestens eine Notiz hat eine frühere ersetzt (`supersedes`): das
     // wichtigere Ereignis, daher eigenes Wort und eigenes Symbol am Chip.
     updated: 'Gedächtnis aktualisiert',
     updatedAria:
       '{productName} hat das Gedächtnis aktualisiert: {count, plural, one {# Notiz} other {# Notizen}}, davon {corrected} korrigiert',
-    updatedInMemory: 'Projektgedächtnis aktualisiert',
+    updatedIn: {
+      project: 'Projektgedächtnis aktualisiert',
+      organization: 'Gedächtnis des Büros aktualisiert',
+      mixed: 'Gedächtnis aktualisiert',
+    },
     correctedLabel: 'Korrigiert',
     replaced: 'Ersetzt:',
-    manageHint: 'Diese Einträge können Sie im Projektgedächtnis verwalten und löschen.',
-    kinds: {
-      decision: 'Entscheidung',
-      constraint: 'Vorgabe',
-      open_question: 'Offene Frage',
-      derived_fact: 'Fakt',
-      preference: 'Präferenz',
+    manageHint: 'Diese Notizen können Sie im Projektgedächtnis verwalten und löschen.',
+    // Der Hinweis als Tür: führt zum Gedächtnis des Projekts (Einstellungen → Gedächtnis).
+    manageLink: 'Im Projektgedächtnis verwalten',
+    // Dieselbe Tür für die eigenen Notizen („Mein Gedächtnis“).
+    manageLinkPersonal: 'In „Mein Gedächtnis“ verwalten',
+    // Eine Notiz dort zurücknehmen, wo sie gezeigt wird (ADR-0180). Das löscht sie.
+    remove: 'Entfernen',
+    removeAria: 'Notiz entfernen: {note}',
+    removing: 'Wird entfernt …',
+    removed: 'Entfernt. Die Notiz ist gelöscht.',
+    // Die Notiz wurde bereits an anderer Stelle entfernt, verworfen oder ersetzt.
+    gone: 'Nicht mehr im Gedächtnis.',
+    removeFailed: 'Konnte nicht entfernt werden.',
+    removeRetry: 'Erneut versuchen',
+    // Eine Notiz, die eine frühere ersetzt hat, wird hier nicht zurückgenommen: die frühere bliebe ersetzt.
+    replacedNotRemovable: 'Hat eine frühere Notiz ersetzt und lässt sich hier nicht zurücknehmen.',
+    openMemory: 'Gedächtnis öffnen',
+    // Wer eine Notiz liest, folgt aus ihrem Ort (ADR-0180): eigenes Gedächtnis, Projekt oder Büro.
+    audience: {
+      personal: 'Nur Sie',
+      project: 'Liest das Projektteam',
+      // Projektgedächtnis, das auf einem eingeschränkten Ordner beruht (ADR-0087).
+      restricted: 'Liest, wer den Ordner lesen darf',
+      organization: 'Lesen alle im Büro',
     },
     provenance: {
       distillation: 'nach der Antwort ergänzt',
       inTurn: 'während der Antwort notiert',
     },
+  },
+  // Temporärer Chat (ADR-0180): aus ihm kommt nichts in ein Gedächtnis.
+  temporary: {
+    label: 'Temporär',
+    switchOn: 'Temporären Chat einschalten',
+    switchOff: 'Temporären Chat ausschalten',
+    switchOnTitle: 'Temporären Chat einschalten: {productName} merkt sich aus diesem Chat nichts.',
+    switchOffTitle:
+      'Temporären Chat ausschalten: Ab jetzt kann {productName} sich wieder etwas merken. Was bisher gesagt wurde, bleibt außen vor.',
+    statement: 'Temporärer Chat. {productName} merkt sich aus diesem Chat nichts.',
+    // Solange der Server die Umstellung noch nicht bestätigt hat: nie „merkt sich nichts“, bevor es stimmt.
+    turningOn: 'Temporärer Chat wird eingeschaltet …',
+    turningOff: 'Temporärer Chat wird ausgeschaltet …',
+    ownerOnly: 'Das kann nur ändern, wem der Chat gehört.',
+    switchFailed: 'Die Einstellung wurde nicht gespeichert. Versuchen Sie es noch einmal.',
+  },
+  // Wer den Chat liest: die Zeile unter dem Eingabefeld.
+  privacy: {
+    onlyYou: 'Nur Sie sehen diesen Chat, bis Sie ihn teilen.',
   },
   confidence: {
     label: 'Einschätzung: {level}',
@@ -2092,6 +2188,10 @@ export const chat: typeof en.chat = {
       ungrounded: 'Geringe Sicherheit: Antwort nicht durch Quellen belegt.',
       quoteUnverified:
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
+      lawUnsettled:
+        'Mittlere Sicherheit: die Antwort stützt sich auf Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
+      openPoint:
+        'Begrenzt durch die Antwort selbst: einen offenen Punkt, den sie nennt, oder ihre eigene niedrigere Einschätzung.',
       // Die Messung belegt die Zahl, nicht die Rechtsaussage daneben — deshalb
       // bleibt die gemischte Antwort auf „gering", und der Tooltip sagt warum.
       normativeClaimUncited:
@@ -2123,6 +2223,13 @@ export const chat: typeof en.chat = {
       noSource: 'keine Quelle',
       quoteUnverified:
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist deshalb begrenzt.',
+      lawUnsettled:
+        'Welche Fassung hier verbindlich ist, steht für diesen Standort noch nicht geprüft fest; die Einschätzung ist deshalb höchstens mittel.',
+      // Die Prüfung liest, ob die Quellen jede Aussage stützen. Sagt die Antwort
+      // selbst, dass etwas offen ist, oder schätzt sie sich niedriger ein, hebt
+      // die Prüfung sie nicht darüber.
+      openPoint:
+        'Begrenzt durch die Antwort selbst: einen offenen Punkt, den sie nennt, oder ihre eigene niedrigere Einschätzung. Die Prüfung hebt die Stufe nicht darüber.',
       unavailable: 'Belegprüfung nicht verfügbar',
       unavailableTooltip:
         'Die Belegprüfung konnte für diese Antwort nicht laufen. {productName} zeigt deshalb keine Einschätzung; die Antwort selbst ist unverändert.',
@@ -2142,6 +2249,9 @@ export const chat: typeof en.chat = {
         ungrounded: 'Begrenzt durch eine tragende Aussage, hinter der kein Beleg steht.',
         quoteUnverified:
           'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
+        lawUnsettled:
+          'Begrenzt durch Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
+        openPoint: 'Begrenzt durch die Antwort selbst: einen offenen Punkt, den sie nennt, oder ihre eigene Einschätzung.',
         // Ein Eintrag im Arbeitsbereich oder eine Messung belegt Fakten über
         // das Büro und das Gebäude, nie eine Aussage über das Recht.
         normativeClaimUncited:
@@ -2206,6 +2316,9 @@ export const chat: typeof en.chat = {
     iban: '{count, plural, one {eine IBAN} other {# IBANs}}',
     at_svnr:
       '{count, plural, one {eine Sozialversicherungsnummer} other {# Sozialversicherungsnummern}}',
+    de_svnr:
+      '{count, plural, one {eine Rentenversicherungsnummer} other {# Rentenversicherungsnummern}}',
+    de_tax_id: '{count, plural, one {eine Steuer-ID} other {# Steuer-IDs}}',
     credit_card: '{count, plural, one {eine Kartennummer} other {# Kartennummern}}',
     term: 'den Begriff „{term}“',
     withSample: '{item} {sample}',

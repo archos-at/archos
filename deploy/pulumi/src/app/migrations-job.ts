@@ -6,7 +6,8 @@ import { appPullPolicy, frontendImage } from '../config/images'
 import { commonLabels } from "../platform/namespaces";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, UID } from "../constants";
-import { AppSecrets, AppWiring, migrationEnv } from "./config";
+import { AppSecrets, AppWiring } from "./config";
+import { migrationEnv } from "./job-env";
 import { logicalName } from "../names";
 
 /**
@@ -15,7 +16,10 @@ import { logicalName } from "../names";
  * `node server.js` (dropping the image's default `drizzle-kit migrate && …`):
  * with ≥2 frontend replicas, per-pod migration would race. Centralising it in
  * one Job makes rollout deterministic. drizzle migrations are transactional and
- * idempotent, so re-running is always safe. NOTE: the Job re-fires when its
+ * idempotent, so re-running is always safe. They run in ONE transaction, so an
+ * index a migration would build under ACCESS EXCLUSIVE is built online first by
+ * `buildOnlineIndexes` (online-indexes-job.ts), which index.ts makes this Job
+ * wait for. NOTE: the Job re-fires when its
  * spec changes (e.g. the per-SHA imageTag CI pins) or under `--refresh` after
  * the TTL reaped it — with a MOVING tag and no refresh a redeploy is a no-op
  * and migrations do NOT re-run (see kubernetes.md §2b).

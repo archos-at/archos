@@ -12,19 +12,23 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
 from knowledge_layer.browse import MAX_CHAIN_CHANGE_CHARS
 from knowledge_layer.browse import MAX_CHAIN_LINES
 from knowledge_layer.browse import ListFilesConfig
 from knowledge_layer.browse import file_rows
 from knowledge_layer.browse import list_files
 from knowledge_layer.browse import render_revisions
+from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
+from knowledge_layer_testing.vector_store import reads_as_an_office  # noqa: F401 - a read names its office
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.inventory import set_turn_documents
 from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.scoping import ScopedCollection
+
+# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0163).
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 
 def _doc(name: str, *, shelf: str = "project", **extra) -> AvailableDocument:
@@ -394,7 +398,7 @@ class TestTheTool:
 
 
 def _page(file_name: str, n: int, text: str):
-    from knowledge_layer_testing.qdrant import record
+    from knowledge_layer_testing.vector_store import record
 
     return record(text, file_name, page_label=str(n), content_type="text")
 
@@ -402,7 +406,7 @@ def _page(file_name: str, n: int, text: str):
 @pytest.fixture
 def stored(monkeypatch, qdrant_store):  # noqa: ARG001 - the store the compare reads
     """Index A and Index B as the index holds them, in a real Qdrant: one value moved on page 2."""
-    from knowledge_layer_testing.qdrant import write
+    from knowledge_layer_testing.vector_store import write
 
     write(
         "proj_1",
@@ -463,7 +467,7 @@ class TestComparing:
         One chunk per page (the fixture above) cannot see a shuffled page; the
         Sentence splitter cuts several from a real one.
         """
-        from knowledge_layer_testing.qdrant import write
+        from knowledge_layer_testing.vector_store import write
 
         lines = [f"Zeile {i}: Brandabschnitt {i} hat Feuerwiderstand REI {30 + i}" for i in range(8)]
         for name in ("Plan_Index_A.pdf", "Plan_Index_B.pdf"):
@@ -478,7 +482,7 @@ class TestComparing:
         assert "In the read content the two files do not differ." in text
 
     async def test_an_unreachable_index_is_said_as_one_never_as_not_in_the_index(self, scope, stored, monkeypatch):
-        from knowledge_layer.qdrant import store as store_module
+        from knowledge_layer.vector_store import store as store_module
 
         from agent.common.tool_calls import FETCH_FAILED_MARKER
 

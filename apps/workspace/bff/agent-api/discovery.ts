@@ -16,6 +16,7 @@ import 'server-only'
  */
 
 import type { CallToolResult } from '@modelcontextprotocol/server'
+import { withAiGeneratedMeta } from './ai-generated-meta'
 import { z } from 'zod'
 import { ApiError } from '@/lib/api/errors'
 import { type JsonSchemaNode, toJsonSchema } from '@/lib/api/zod-json-schema'
@@ -58,7 +59,10 @@ import {
 } from './policy'
 import type { AgentPrincipal } from './principal'
 import { readGateFor, sharedConversationReadRefusal } from './read-gate'
+import { READ_GATE_DETAIL, problemFailure, refusalResult } from './door-problem'
+import { IDEMPOTENCY_KEY_SCHEMA } from './door-idempotency'
 import { type McpCallContext, recordOperationCalled, recordOperationMissing } from './telemetry'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /**
  * Longest text a result carries; beyond it the call must be narrowed. The one
@@ -165,7 +169,7 @@ function binaryResult(opName: string, file: BinaryBody): CallToolResult {
             `The file (${label}${mimeType}, ${sizeText(file.bytes)}) is over the ${sizeText(MAX_INLINE_BYTES)} ` +
             'limit for sending a file in a tool result, so it was not sent. ' +
             'For a document, read its text in pages with the passage reader (named by its file name), or call document-download for a ' +
-            'time-limited link the person can open. Otherwise ask the person to download it in Piloti.',
+            'time-limited link the person can open. Otherwise ask the person to download it in ' + PRODUCT_NAME + '.',
         },
       ],
     }
@@ -203,20 +207,6 @@ function oversizedResult(op: AgentOperation | BackendOperation, body: OversizedB
 }
 
 /**
- * A refusal in the error envelope every route answers with (`{ error, code,
- * details }`, `errorResponse` in `lib/api/handler.ts`), which the backend's
- * refusals are normalised to as well (`callBackendOperation`). The refuser's own
- * words: errors teach.
- */
-function refusalResult(result: OperationResult): CallToolResult {
-  const body = isRecord(result.body) ? result.body : null
-  const message = typeof body?.error === 'string' ? body.error : `The server answered HTTP ${result.status}.`
-  const code = typeof body?.code === 'string' ? `, ${body.code}` : ''
-  const details = body?.details === undefined ? '' : `\nDetails: ${JSON.stringify(body.details)}`
-  return failure(`${message} (HTTP ${result.status}${code})${details}`)
-}
-
-/**
  * A route's answer as the tool result. `input` is the call's, for the project a
  * link needs when the answer does not say it (a run under `/api/projects/[id]`).
  */
@@ -228,12 +218,12 @@ export function fromOperationResult(
   /** The caller draws MCP Apps views: a view's data is kept whole (`VIEW_DATA_OPERATIONS`). */
   forView = false,
 ): CallToolResult {
-  const opName = op.name
   if (isOversizedBody(result.body)) return oversizedResult(op, result.body)
   if (!result.ok) return refusalResult(result)
-  if (isBinaryBody(result.body)) return binaryResult(opName, result.body)
-  if (isRedirectBody(result.body)) return redirectResult(opName, result.body.location)
-  return success(withLinks(op, input, result.body, origin), narrowingHint(op), forView && VIEW_DATA_OPERATIONS.has(opName))
+  if (isBinaryBody(result.body)) return binaryResult(op.name, result.body)
+  if (isRedirectBody(result.body)) return redirectResult(op.name, result.body.location)
+  const keep = forView && VIEW_DATA_OPERATIONS.has(op.name)
+  return withAiGeneratedMeta(op, result.body, success(withLinks(op, input, result.body, origin), narrowingHint(op), keep))
 }
 
 /**
@@ -269,9 +259,8 @@ const schemaCache = new Map<string, JsonSchemaNode>()
 
 function part(schema: Parameters<typeof toJsonSchema>[0]): { node: JsonSchemaNode; required: boolean } {
   try {
-    const node = toJsonSchema(schema)
-    const required = Array.isArray(node.required) ? node.required.length > 0 : !z.safeParse(schema, undefined).success
-    return { node, required }
+    // Required when dispatch would refuse it absent, which it checks as `{}` (`validateOperationInput`).
+    return { node: toJsonSchema(schema), required: !z.safeParse(schema, {}).success }
   } catch {
     // The route's own schema is the gate; the export only shapes what is shown.
     return { node: { description: 'Shape not describable here; the route validates it.' }, required: false }
@@ -296,6 +285,8 @@ export function inputSchemaOf(op: AgentOperation): JsonSchemaNode {
   }
   // Only where the route reads the header: offered anywhere else, it would be a version check nobody makes.
   if (op.ifMatchHeader) properties.ifMatch = IF_MATCH_SCHEMA
+  // Every write takes a key (ADR-0170), described once in the server's instructions; a read is idempotent by itself.
+  if (!annotationsOf(op).readOnlyHint) properties.idempotencyKey = IDEMPOTENCY_KEY_SCHEMA
   const schema: JsonSchemaNode = { type: 'object', properties, additionalProperties: false }
   if (required.length > 0) schema.required = required
   // JSON Schema's own keyword for sample instances (2020-12, `examples`).
@@ -328,13 +319,13 @@ export async function runBackendOperation(
   } catch (error) {
     console.error('[mcp] backend operation failed', op.name, error)
     record(500)
-    return failure(`${op.name} failed on the server. Try again; if it persists, report it.`)
+    return problemFailure(`${op.name} failed on the server. Try again; if it persists, report it.`, 500, 'INTERNAL_ERROR')
   }
 }
 
 /**
  * What Piloti reads when it names an operation it does with a native tool
- * (`piloti: 'native:<tool>'` in `exposure.config.ts`): the tool, not a search.
+ * (`agent: 'native:<tool>'` in `exposure.config.ts`): the tool, not a search.
  */
 export function nativeToolRefusal(name: string, tool: string): string {
   return `${name} is not offered to you: you do this with your own tool ${tool}. Call that instead.`
@@ -342,13 +333,13 @@ export function nativeToolRefusal(name: string, tool: string): string {
 
 function unknownOperation(ctx: McpCallContext, name: string): CallToolResult {
   const native = ctx.principal.actor === 'piloti' ? nativeToolOf(name) : undefined
-  if (native) return failure(nativeToolRefusal(name, native))
+  if (native) return problemFailure(nativeToolRefusal(name, native), 404, 'UNKNOWN_OPERATION')
   // The search schema bounds a query; a name the agent typed is bounded here, the one unchecked text ranked.
   const near = rank(ctx, name.slice(0, MAX_SEARCH_QUERY_LENGTH), undefined)
     .slice(0, 5)
     .map((hit) => hit.name)
   const hint = near.length > 0 ? ` Closest: ${near.join(', ')}.` : ''
-  return failure(`Unknown operation "${name}".${hint} Use search-operations to find the right name.`)
+  return problemFailure(`Unknown operation "${name}".${hint} Use search-operations to find the right name.`, 404, 'UNKNOWN_OPERATION')
 }
 
 /**
@@ -469,14 +460,14 @@ export async function executeOperation(
     const refused = await gate.beforeRead(op, input)
     if (refused) {
       record(403)
-      return { refusal: failure(refused), status: 403, code: 'FORBIDDEN' }
+      return { refusal: problemFailure(refused, 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
     // An agent reads the answer: a route that words its refusal in the person's locale words it in English.
-    const result = await callOperation(op, input, ctx.principal.session, 'agent')
+    const result = await callOperation(op, input, ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined })
     record(result.status)
     // A link works for whoever holds it, with the requester's access: never into a transcript others read.
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {
-      return { refusal: failure(sharedConversationReadRefusal()), status: 403, code: 'FORBIDDEN' }
+      return { refusal: problemFailure(sharedConversationReadRefusal(), 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
     return { result }
   } catch (error) {
@@ -492,15 +483,15 @@ function operationFailure(op: AgentOperation, error: unknown, record: (status: n
 function failureOf(op: AgentOperation, error: unknown, record: (status: number) => void): OperationRefusal {
   if (error instanceof OperationInputError) {
     record(400)
-    return { refusal: failure(inputRefusal(op, error)), status: 400, code: 'VALIDATION_ERROR' }
+    return { refusal: problemFailure(inputRefusal(op, error), 400, 'VALIDATION_ERROR'), status: 400, code: 'VALIDATION_ERROR' }
   }
   if (error instanceof ApiError) {
     record(error.status)
-    return { refusal: failure(`${error.message} (HTTP ${error.status}, ${error.code})`), status: error.status, code: error.code }
+    return { refusal: problemFailure(`${error.message} (HTTP ${error.status}, ${error.code})`, error.status, error.code), status: error.status, code: error.code }
   }
   console.error('[mcp] operation failed', op.name, error)
   record(500)
-  return { refusal: failure(`${op.name} failed on the server. Try again; if it persists, report it.`), status: 500 }
+  return { refusal: problemFailure(`${op.name} failed on the server. Try again; if it persists, report it.`, 500, 'INTERNAL_ERROR'), status: 500 }
 }
 
 /** Longest input schema quoted in a refusal; a larger one is a describe-operation away. */
@@ -587,7 +578,7 @@ function searchInput(principal: AgentPrincipal) {
  */
 export const SENSITIVE_MATCH_NOTE =
   'An operation that changes who may do what, a credential or a security control matches this request, and it ' +
-  'is not offered to you: none of the operations listed does that. Tell the person to make that change in Piloti themselves.'
+  'is not offered to you: none of the operations listed does that. Tell the person to make that change in ' + PRODUCT_NAME + ' themselves.'
 
 function sensitiveMatchOutranks(ctx: McpCallContext, query: string, domain: string | undefined, best: number): boolean {
   const score = scorerFor(ctx, query)
@@ -626,7 +617,7 @@ export function nothingMatched(ctx: McpCallContext): string {
 const CONTENT_READERS = [
   { name: 'knowledge-search', what: 'quotable passages from the project, the office and the building-law corpus' },
   { name: 'law-lookup', what: 'a provision of Austrian law' },
-  { name: 'agent-ask-create', what: 'Piloti answers it with sources' },
+  { name: 'agent-ask-create', what: PRODUCT_NAME + ' answers it with sources' },
 ] as const
 
 export function searchOperations(ctx: McpCallContext, args: unknown): CallToolResult {
@@ -711,6 +702,7 @@ const callInput = z.object({
       query: z.record(z.string(), z.unknown()).optional(),
       body: z.unknown().optional(),
       ifMatch: z.string().min(1).max(IF_MATCH_MAX_LENGTH).optional(),
+      idempotencyKey: z.string().min(1).max(255).optional(),
     })
     .optional(),
 })
@@ -764,7 +756,7 @@ export function reportMissingOperation(ctx: McpCallContext, args: unknown): Call
     return failure(`report-missing-operation needs { description } of 1 to 2000 characters, and category one of ${FRICTION_CATEGORIES.join(', ')} when given.`)
   }
   // Only the length and the category leave this process: server events are non-personal by rule.
-  recordOperationMissing(ctx, parsed.data.description.length, parsed.data.category)
+  recordOperationMissing(ctx, parsed.data.description, parsed.data.category)
   return success({ status: 'recorded' })
 }
 
@@ -784,14 +776,14 @@ export type MetaToolName = 'search-operations' | 'describe-operation' | 'call-op
 const SEARCH_SCOPE: Readonly<Record<AgentDoor, { area: string; example: string; operation: string }>> = {
   office: {
     area:
-      'the Piloti workspace (projects, members, documents and their versions, review, the inbox, tasks, building-law ' +
+      'the ' + PRODUCT_NAME + ' workspace (projects, members, documents and their versions, review, the inbox, tasks, building-law ' +
       'knowledge, BIM models)',
     example: 'add project member',
     operation: 'project-list',
   },
   platform: {
     area:
-      'the Piloti platform console (organizations and their limits, fleet-wide models, reasoning, retrieval and pricing, ' +
+      'the ' + PRODUCT_NAME + ' platform console (organizations and their limits, fleet-wide models, reasoning, retrieval and pricing, ' +
       'the base knowledge corpus, platform skills, lessons, feedback and quality views, maintenance)',
     example: 'set default models',
     operation: 'platform-overview-get',
@@ -883,7 +875,7 @@ export function metaToolsFor(principal: Pick<AgentPrincipal, 'actor' | 'door'>):
       description:
         'Count a gap: the person wants something done in the workspace and search-operations found no operation for it with ' +
         'two different phrasings. Also for friction with an operation you did find: set category to tool_description, ' +
-        'input_schema, error_message or result_shape when one was confusing. The Piloti team sees that a report was made ' +
+        'input_schema, error_message or result_shape when one was confusing. The ' + PRODUCT_NAME + ' team sees that a report was made ' +
         'and its category, never your words, so describe the goal or the confusion without names or document contents. ' +
         'For a gap, then tell the person it cannot be done here yet.',
       inputSchema: {

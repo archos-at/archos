@@ -8,7 +8,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { loadConfig } from '../src/config'
 import { KEDA_CHART_VERSION } from "../src/platform/keda";
 import { installIngestWorker } from "../src/app/ingest-worker";
-import { installJobsQueueAuth } from "../src/app/jobs-queue-auth";
+import { installHatchetQueueAuth } from "../src/app/hatchet-queue-auth";
 import { baseStackConfig } from "../src/test-support/stack-config";
 
 const ROOT = mkdtempSync(join(__dirname, "..", ".validate-crs-test-"));
@@ -111,6 +111,7 @@ function workspace(): string {
   // constant, so the copy needs the real file beside it.
   mkdirSync(join(dir, "src", "platform"), { recursive: true });
   copyFileSync(join(__dirname, "..", "src", "platform", "keda.ts"), join(dir, "src", "platform", "keda.ts"));
+  copyFileSync(join(__dirname, "..", "src", "platform", "rabbitmq.ts"), join(dir, "src", "platform", "rabbitmq.ts"));
   writeFileSync(join(dir, "fetch.mjs"), `
 import { readFileSync } from "node:fs";
 const releases = JSON.parse(readFileSync(new URL("./releases.json", import.meta.url), "utf8"));
@@ -166,8 +167,8 @@ beforeAll(async () => {
     imagePullSecrets: [],
   };
   // The ScaledObject names a TriggerAuthentication the program creates once for
-  // both claim-queue tiers; both resources are what the validator is shown.
-  const auth = installJobsQueueAuth(wiring, []);
+  // every worker tier; both resources are what the validator is shown.
+  const auth = installHatchetQueueAuth(wiring, pulumi.output("postgresql://fixture"), []);
   const worker = installIngestWorker(wiring, cfg, { secret, checksum: pulumi.output("fixture-checksum") }, [auth]);
   await new Promise((done) => auth.urn.apply(done));
   await new Promise((done) => worker.scaledObject.urn.apply(done));
@@ -276,6 +277,20 @@ describe("the deploy's CR schema validator", () => {
     const offline = run(plan, { env: { TEST_SCHEMAS_FAILURE: "1", CNPG_SCHEMAS_OPTIONAL: "1" } });
     expect(offline.status, offline.stderr).toBe(0);
     expect(offline.stdout).toContain("0 passed, 0 failed, 1 skipped");
+  });
+
+  // Staging run 41700375427 failed on the RabbitMQ operator's webhook configurations.
+  it("leaves a native webhook configuration, `webhooks` beside `metadata`, to the SDK's types", () => {
+    const plan: Plan = { steps: [...emittedPlan().steps, { op: "create", newState: {
+      urn: "urn:pulumi:test::program::kubernetes:admissionregistration.k8s.io/v1:ValidatingWebhookConfiguration::hook",
+      inputs: {
+        apiVersion: "admissionregistration.k8s.io/v1", kind: "ValidatingWebhookConfiguration",
+        metadata: { name: "hook" }, webhooks: [{ name: "vrabbitmqcluster.kb.io" }],
+      },
+    } }] };
+    const result = run(plan);
+    expect(result.status, result.stdout).toBe(0);
+    expect(result.stdout).toContain("(of 2 custom resources)");
   });
 
   it("still fails closed on an unregistered group and ignores resources being deleted", () => {

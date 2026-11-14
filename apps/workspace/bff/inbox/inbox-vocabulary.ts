@@ -34,6 +34,12 @@ export const INBOX_ITEM_TYPES = [
   /** Informational: you were named responsible for a resource (ADR-0047). */
   'document.assigned_to_you',
   /**
+   * Informational: a project admin took ownership of a resource you own
+   * (ADR-0032 decision 5, amended 2026-11-11). Addressed to its other owners;
+   * names who took it, and the row's time says when. Nobody loses ownership.
+   */
+  'resource.ownership_taken',
+  /**
    * A background run the reader asked for has ended (ADR-0035 named "a failed
    * workflow run" as the type the frame was built to carry). Operational, not
    * collaboration: nobody is waiting on the reader, but work was done on their
@@ -188,5 +194,80 @@ export const INBOX_ITEM_TYPES = [
    * and opens the shelf's files with the sort dialog, which holds the reason.
    */
   'root_sort.failed',
+  /**
+   * Actionable, operational tier: mail sent to a project's address waits for a
+   * person to file it (ADR-0137). Every held mail is announced, whoever sent
+   * it (RT-X1): to its sender when that is a verified member who may read the
+   * project, otherwise to the project's managers. One row per recipient and
+   * project, counted; it names the project and never the mail (no sender, no
+   * subject), so a stranger's words never reach a push or a lock screen.
+   * Resolved when the mails are decided or expire.
+   */
+  'inbound_mail.waiting',
+  /**
+   * Actionable, operational tier: mail in a project's E-Mail-Eingang has five
+   * days left before it expires (day 25 of 30, D8; sweep 4). Told once per
+   * mail, to the same people `inbound_mail.waiting` told, collapsed per
+   * project; names the project and never the mail. Resolved once nothing that
+   * was told about still waits.
+   */
+  'inbound_mail.expiring',
+  /**
+   * Informational, operational tier: a person decided a member's own verified
+   * mail to the project (filed or dismissed, `variant`), told to that member
+   * only (D9, RT-S14). One row per mail. Names the folder only when every
+   * filed file went to one folder the member may open (`anchorId`).
+   */
+  'inbound_mail.decided',
+  /**
+   * Actionable, operational tier: filing a mail the reader decided made no
+   * document for some part (`variant` is the failure), and it waits again.
+   * One row per mail, to the decider. Resolved when the mail is filed again
+   * or dismissed.
+   */
+  'inbound_mail.filing_failed',
+  /**
+   * Actionable, operational tier: a project's address holds 80% (`nearly_full`)
+   * or all (`full`) of the bytes it, or its organization, may stage (D18).
+   * One row per address, to the project's managers; resolved once the address
+   * is below 80% again or replaced.
+   */
+  'inbound_mail.cap_reached',
+  /**
+   * Informational, operational tier: a later reply's text was appended to an
+   * E-Mail-Verlauf the reader follows (D31), as them. One counted row per
+   * Verlauf and day, pointing at the Verlauf document.
+   */
+  'inbound_mail.appended',
+  /**
+   * Actionable, operational tier: the reader's follow of an E-Mail-Verlauf
+   * ends in five days (day 55 of 60; sweep 12). One row per follow, pointing
+   * at the Verlauf document. Resolved when it is renewed or ends.
+   */
+  'mail_thread.follow_expiring',
+  /**
+   * Actionable, operational tier: a mail to a project claims the reader as its
+   * sender, the reader may write there, and the signature did not hold
+   * (ADR-0137, amendment of 2026-11-03): only the reader can release it („Haben
+   * Sie das gesendet?“). One row per mail, to that member; names the project
+   * only. Resolved when the mail is decided or expires.
+   */
+  'inbound_mail.held',
+  /**
+   * Informational, operational tier: the reader's own mail to a project waits
+   * for the project's writers, because the reader may not write there. One
+   * row per mail, names the project only.
+   */
+  'inbound_mail.held_for_writers',
+  /**
+   * Informational, operational tier: a writer dismissed the reader's own mail
+   * to a project. One row per mail, to the member it came from.
+   */
+  'inbound_mail.rejected',
+  /**
+   * Informational, operational tier: the reader's own mail to a project ran
+   * out unfiled (sweep 3). One row per mail, to the member it came from.
+   */
+  'inbound_mail.expired',
 ] as const
 export type InboxItemType = (typeof INBOX_ITEM_TYPES)[number]

@@ -4,7 +4,7 @@
  * the fold writes. Node-only (the recorded turns are read with `node:fs`).
  */
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
-import { foldTurnEvents, type TurnView } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvents, type TurnView } from '@/lib/turns/turn-fold'
 import { eventOf, frameOf, wireEvents } from './wire-v2-fixtures'
 
 const rowsOf = (view: TurnView | undefined): StoredThinkingStep[] =>

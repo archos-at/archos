@@ -4,10 +4,7 @@ import type { JSX } from 'react'
 
 import { type ReactNode } from 'react'
 
-import { FileText, ListTree } from 'lucide-react'
-
 import { InsetStage } from '@/components/ui/inset-stage'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import { ClampedText } from '@/components/ui/clamped-text'
 
@@ -23,73 +20,34 @@ import { DocumentKindThumbnail } from './document-kind-thumbnail'
 /** Lines of summary shown before it has to ask for the space. */
 export const SUMMARY_CLAMP_LINES = 5
 
-/**
- * The peek's summary is a footer under the document, not a rail beside it:
- * three lines say what the file is, and the toggle has the rest.
- */
-export const PEEK_SUMMARY_CLAMP_LINES = 3
-
 export type PeekView = 'document' | 'details'
 
 /**
- * The peek's two faces, as tabs. Both panels stay MOUNTED and the inactive
- * one is hidden: switching to Details must not reload a PDF or reset an IFC
- * camera, which is the same reason the host parks the pane rather than
- * unmounting it. Off the peek this renders its children untouched.
+ * One of the peek's two faces: the document, or everything the Files dialog
+ * knows about it, behind the ⓘ in the peek's toolbar. Both stay MOUNTED and
+ * the one not up is hidden: opening the details must not reload a PDF or reset
+ * an IFC camera, which is the same reason the host parks the pane rather than
+ * unmounting it. There is no tab row: the peek beside a conversation shows the
+ * document and nothing else until the reader asks for the rest. Off the peek
+ * this renders its children untouched.
  */
-export function PeekTabs({
-  peeking,
-  value,
-  onValueChange,
-  labels,
-  children,
-}: {
-  peeking: boolean
-  value: PeekView
-  onValueChange: (next: PeekView) => void
-  labels: { list: string; document: string; details: string }
-  children: ReactNode
-}): JSX.Element {
-  if (!peeking) return <>{children}</>
-  return (
-    <Tabs
-      value={value}
-      onValueChange={(next) => onValueChange(next === 'details' ? 'details' : 'document')}
-      className="min-h-0 flex-1 gap-0"
-    >
-      <TabsList aria-label={labels.list} className="mx-3 mb-2.5 h-8 w-auto shrink-0">
-        <TabsTrigger value="document" className="text-xs" data-testid="file-peek-tab-document">
-          <FileText aria-hidden className="size-3.5" />
-          {labels.document}
-        </TabsTrigger>
-        <TabsTrigger value="details" className="text-xs" data-testid="file-peek-tab-details">
-          <ListTree aria-hidden className="size-3.5" />
-          {labels.details}
-        </TabsTrigger>
-      </TabsList>
-      {children}
-    </Tabs>
-  )
-}
-
 export function PeekPanel({
   peeking,
-  value,
+  active,
+  view,
   children,
 }: {
   peeking: boolean
-  value: PeekView
+  /** This face is the one up. */
+  active: boolean
+  view: PeekView
   children: ReactNode
 }): JSX.Element {
   if (!peeking) return <>{children}</>
   return (
-    <TabsContent
-      value={value}
-      forceMount
-      className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
-    >
+    <div data-testid={`file-peek-${view}`} hidden={!active} className="flex min-h-0 flex-1 flex-col">
       {children}
-    </TabsContent>
+    </div>
   )
 }
 
@@ -130,7 +88,7 @@ export function IndexedSummary({ summary }: { summary: string }) {
         lines={SUMMARY_CLAMP_LINES}
         moreLabel={t('preview.summaryMore')}
         lessLabel={t('preview.summaryLess')}
-        className="text-foreground text-sm leading-[1.55]"
+        className="text-foreground text-sm leading-5" /* the body step, 14/20/440: at 1.55 it out-sized the dialog title */
       >
         {summary}
       </ClampedText>
@@ -175,19 +133,19 @@ export function PageMock({
   kind?: DocumentKind
 }) {
   return (
-    <div className="bg-background h-fit min-h-[320px] w-full max-w-[520px] rounded-lg border p-7 shadow-lg">
+    <div className="bg-background h-fit min-h-[320px] w-full max-w-[520px] rounded-surface p-7 shadow-lg">
       <div className="flex items-baseline justify-between border-b pb-2.5">
         <div className="space-y-1.5">
           {/* The alphas are the point here, not drift: a skeleton paints solid
               bars (content is COMING), the page mock paints faded ones (this is
               an illustration of a page, and nothing is coming). Same bars, two
               claims, and the opacity is what separates them. */}
-          <div className={cn('h-[9px] w-28 rounded-sm', skeleton ? 'bg-muted' : 'bg-muted/50')} />
+          <div className={cn('h-[9px] w-28 rounded-surface', skeleton ? 'bg-muted' : 'bg-muted/50')} />
           <div
-            className={cn('h-[6px] w-16 rounded-sm', skeleton ? 'bg-muted/70' : 'bg-muted/40')}
+            className={cn('h-[6px] w-16 rounded-surface', skeleton ? 'bg-muted/70' : 'bg-muted/40')}
           />
         </div>
-        <div className={cn('h-[6px] w-12 rounded-sm', skeleton ? 'bg-muted/70' : 'bg-muted/40')} />
+        <div className={cn('h-[6px] w-12 rounded-surface', skeleton ? 'bg-muted/70' : 'bg-muted/40')} />
       </div>
       <div className="mt-3.5 flex h-[260px] flex-col items-center justify-center gap-3 rounded border border-dashed px-6 text-center">
         {/* Faint, and never while loading: a skeleton claims content is coming,

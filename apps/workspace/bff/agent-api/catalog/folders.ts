@@ -3,7 +3,7 @@
  * and `docs/architecture/agent-surface.md` for the rules.
  *
  * Folder access is readable here (project-folder-access-get); changing it stays with a person.
- * The mail import's byte protocol is three operations: start, part upload (raw), complete.
+ * The mail import's operations live in `mail.ts`, beside the E-Mail-Eingang's.
  */
 
 import { z } from 'zod'
@@ -26,9 +26,8 @@ import {
   sealUploadBatchSchema,
   uploadHistoryQuerySchema,
 } from '@/lib/upload-batches/batch-wire'
-import { startMailImportSchema } from '@/lib/mail-import/types'
 import type { AgentOperation } from '../operation'
-import { rawBodySchema } from '../upload-wire'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const projectParams = z.object({ id: z.string().describe('The project id, from project-list.') })
 const folderParams = projectParams.extend({
@@ -41,9 +40,6 @@ const officeFolderParams = z.object({
 })
 const bindingParams = projectParams.extend({
   bindingId: z.string().describe('The role binding id, from document-role-list.'),
-})
-const mailImportParams = projectParams.extend({
-  importId: z.string().describe('The mail import id, from mail-import-list.'),
 })
 const batchParams = z.object({
   id: z.string().describe('The upload batch id, the uuid given to upload-batch-open.'),
@@ -251,7 +247,7 @@ export const foldersOperations = [
     summary: 'List a project’s document roles',
     description:
       'The role bindings of the project (which document is the Baugenehmigung, the Lageplan and so on) ' +
-      'in `roles`, plus `missing`: the roles Piloti expects the project to hold and does not. Binding ' +
+      'in `roles`, plus `missing`: the roles ' + PRODUCT_NAME + ' expects the project to hold and does not. Binding ' +
       'ids feed document-role-clear.',
     method: 'GET',
     path: '/api/projects/[id]/document-roles',
@@ -268,7 +264,7 @@ export const foldersOperations = [
       '`contradiction` (two current documents state one fact, ' +
       'e.g. storeys_above_ground, with different values), `missing_document` (a document points at a document type ' +
       'the project does not hold), `missing_plan` (a drawing number no document matches) and `incomplete_read` ' +
-      '(pages Piloti could not fully read). Each finding names its documents and pages in `sources`; open them with ' +
+      '(pages ' + PRODUCT_NAME + ' could not fully read). Each finding names its documents and pages in `sources`; open them with ' +
       'document-get. Pass `documentId` to also get that document’s references resolved to project documents and ' +
       'the documents that point at it.',
     method: 'GET',
@@ -302,42 +298,6 @@ export const foldersOperations = [
     path: '/api/projects/[id]/document-roles/[bindingId]',
     params: bindingParams,
     load: () => import('@/app/api/projects/[id]/document-roles/[bindingId]/route'),
-  },
-  {
-    name: 'mail-import-list',
-    domain: 'documents',
-    summary: 'List a project’s mail imports',
-    description:
-      "The project's Outlook archive imports with their status and counts. Import ids feed " +
-      'mail-import-get and mail-import-cancel.',
-    method: 'GET',
-    path: '/api/projects/[id]/mail-imports',
-    params: projectParams,
-    load: () => import('@/app/api/projects/[id]/mail-imports/route'),
-  },
-  {
-    name: 'mail-import-get',
-    domain: 'documents',
-    summary: 'Read one mail import',
-    description:
-      'One Outlook archive import, as the upload plan: which parts the store already holds. Use it to ' +
-      'check progress or to resume a send that broke off. Import ids come from mail-import-list.',
-    method: 'GET',
-    path: '/api/projects/[id]/mail-imports/[importId]',
-    params: mailImportParams,
-    load: () => import('@/app/api/projects/[id]/mail-imports/[importId]/route'),
-  },
-  {
-    name: 'mail-import-cancel',
-    domain: 'documents',
-    summary: 'Cancel a mail import',
-    description:
-      'Cancels an import and discards the parts already sent. Only the person who started it, or an org ' +
-      'project administrator, may cancel. Import ids come from mail-import-list.',
-    method: 'DELETE',
-    path: '/api/projects/[id]/mail-imports/[importId]',
-    params: mailImportParams,
-    load: () => import('@/app/api/projects/[id]/mail-imports/[importId]/route'),
   },
   {
     name: 'project-upload-list',
@@ -469,48 +429,6 @@ export const foldersOperations = [
     params: projectParams,
     query: projectMarksQuerySchema,
     load: () => import('@/app/api/projects/[id]/annotations/route'),
-  },
-  {
-    name: 'mail-import-start',
-    domain: 'documents',
-    summary: 'Start an Outlook archive import',
-    description:
-      'Registers a .pst or .ost archive (`filename`, `sizeBytes`, up to 25 GB) and answers the upload plan `{ import, partSize, ' +
-      'partCount, uploadedParts }`. Send the parts with mail-import-part-upload, then call mail-import-complete.',
-    method: 'POST',
-    path: '/api/projects/[id]/mail-imports',
-    params: projectParams,
-    body: startMailImportSchema,
-    load: () => import('@/app/api/projects/[id]/mail-imports/route'),
-  },
-  {
-    name: 'mail-import-part-upload',
-    domain: 'documents',
-    summary: 'Send one part of an Outlook archive',
-    description:
-      'Sends part `partNumber` (1-based) of the archive started with mail-import-start as `body.contentBase64`, exactly ' +
-      '`partSize` bytes (the last the remainder). Sending a part again replaces it: resume from mail-import-get `uploadedParts`.',
-    method: 'PUT',
-    path: '/api/projects/[id]/mail-imports/[importId]/parts/[partNumber]',
-    params: mailImportParams.extend({
-      partNumber: z.string().describe('The part number, 1-based, up to the plan’s `partCount`.'),
-    }),
-    body: rawBodySchema,
-    bodyEncoding: 'raw',
-    idempotent: true,
-    load: () => import('@/app/api/projects/[id]/mail-imports/[importId]/parts/[partNumber]/route'),
-  },
-  {
-    name: 'mail-import-complete',
-    domain: 'documents',
-    summary: 'Finish sending an Outlook archive',
-    description:
-      'Call once every part is sent: the parts are joined and the filing job is queued (HTTP 202). Answers the import with its ' +
-      'status; follow it with mail-import-get. Refused with 409 when the import was cancelled meanwhile, and with 400 when a part is missing.',
-    method: 'POST',
-    path: '/api/projects/[id]/mail-imports/[importId]/complete',
-    params: mailImportParams,
-    load: () => import('@/app/api/projects/[id]/mail-imports/[importId]/complete/route'),
   },
   {
     name: 'project-folder-access-get',

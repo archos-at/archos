@@ -1,11 +1,12 @@
-"""A vision call the provider rate-limits waits and retries instead of losing the caption."""
+"""A vision call the provider rate-limits, or holds for in-flight credits, waits and retries; the page is read."""
 
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.llamaindex import adapter
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import vision_calls
 
 
 class RateLimited(Exception):
@@ -36,8 +37,8 @@ class Client:
 @pytest.fixture
 def slept(monkeypatch):
     waits: list[float] = []
-    monkeypatch.setattr(adapter.time, "sleep", waits.append)
-    monkeypatch.setattr(adapter.random, "random", lambda: 0.5)  # jitter factor 1.0
+    monkeypatch.setattr(vision_calls.time, "sleep", waits.append)
+    monkeypatch.setattr(vision_calls.random, "random", lambda: 0.5)  # jitter factor 1.0
     return waits
 
 
@@ -61,7 +62,7 @@ def test_the_providers_retry_after_is_honoured(slept):
 
 
 def test_the_retries_run_out(slept, monkeypatch):
-    monkeypatch.setattr(adapter, "VLM_RATE_LIMIT_RETRIES", 2)
+    monkeypatch.setattr(vision_calls, "VLM_RATE_LIMIT_RETRIES", 2)
     client = Client([RateLimited()] * 5)
 
     with pytest.raises(RateLimited):
@@ -88,10 +89,69 @@ def test_every_attempt_holds_a_fleet_slot(slept, monkeypatch):
         def __exit__(self, *_):
             held.append("out")
 
-    monkeypatch.setattr(adapter, "_vlm_slot", Slot)
+    monkeypatch.setattr(vision_calls, "_vlm_slot", Slot)
     client = Client([RateLimited()])
 
     _caption(client)
 
     # Two attempts, each inside its own slot, the wait between them outside.
     assert held == ["in", "out", "in", "out"]
+
+
+IN_FLIGHT = "Error code: 402 - would exceed your available credits given your current in-flight requests"
+
+
+class PaymentRequired(Exception):
+    status_code = 402
+
+    def __init__(self, message: str = IN_FLIGHT) -> None:
+        super().__init__(message)
+        self.response = SimpleNamespace(headers={})
+
+
+class TestInFlightCredits:
+    """The provider's 402 for credits held by running requests clears by itself; an empty balance does not."""
+
+    def test_an_in_flight_402_waits_and_the_page_is_read(self, slept):
+        client = Client([PaymentRequired(), PaymentRequired()])
+
+        assert _caption(client) == "Grundriss EG"
+        assert client.calls == 3
+        # The transport already waited 1, 2, 4 s on the same 402; this picks up from there.
+        assert slept == [4.0, 8.0]
+
+    def test_the_waits_stop_at_the_budget(self, slept):
+        client = Client([PaymentRequired()] * 20)
+
+        with pytest.raises(PaymentRequired):
+            _caption(client)
+        # 4 + 8 + 16 + 32 = 60: the last wait is cut to what the budget had left.
+        assert slept == [4.0, 8.0, 16.0, 32.0]
+        assert sum(slept) <= vision_calls.CREDIT_WAIT_BUDGET_SECONDS
+        assert client.calls == 5
+
+    def test_time_the_transport_already_spent_counts_against_the_budget(self, slept, monkeypatch):
+        now = [0.0]
+        monkeypatch.setattr(vision_calls.time, "monotonic", lambda: now[0])
+        monkeypatch.setattr(vision_calls.time, "sleep", lambda s: (slept.append(s), now.__setitem__(0, now[0] + s)))
+
+        class Slow(Client):
+            def _create(self, **request):
+                now[0] += 25.0  # each attempt: the transport's own 402 retries, and the request
+                return super()._create(**request)
+
+        client = Slow([PaymentRequired()] * 5)
+
+        with pytest.raises(PaymentRequired):
+            _caption(client)
+        # 25 s, wait 4, 25 s more (54 spent): one last wait for the 6 s left, then 79 s spent and final.
+        assert slept == [4.0, 6.0]
+        assert client.calls == 3
+
+    def test_an_empty_balance_is_final(self, slept):
+        client = Client([PaymentRequired("Error code: 402 - Insufficient credits")])
+
+        with pytest.raises(PaymentRequired):
+            _caption(client)
+        assert client.calls == 1
+        assert slept == []

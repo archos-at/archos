@@ -49,7 +49,6 @@ from ifc_spatial.tools_analysis import _light_incidence_tool  # noqa: F401
 from ifc_spatial.tools_analysis import _overhang_tool  # noqa: F401
 from ifc_spatial.tools_analysis import _sun_position_tool  # noqa: F401
 from ifc_spatial.tools_analysis import _view_tool  # noqa: F401
-from ifc_spatial.tools_constants import ALLOW_PRIVATE_URLS_ENV  # noqa: F401
 from ifc_spatial.tools_constants import GEOMETRIC_RELATIONS  # noqa: F401
 from ifc_spatial.tools_constants import MEASURE_EXPENSIVE  # noqa: F401
 from ifc_spatial.tools_constants import MEASURE_FN  # noqa: F401
@@ -58,10 +57,6 @@ from ifc_spatial.tools_constants import MEASURE_SUBJECT  # noqa: F401
 from ifc_spatial.tools_constants import MEASURES  # noqa: F401
 from ifc_spatial.tools_constants import RELATION_FN  # noqa: F401
 from ifc_spatial.tools_constants import RELATIONS  # noqa: F401
-from ifc_spatial.tools_fetch import _GuardedRedirectHandler  # noqa: F401
-from ifc_spatial.tools_fetch import _opener  # noqa: F401
-from ifc_spatial.tools_fetch import _read_source  # noqa: F401
-from ifc_spatial.tools_fetch import _refuse_unroutable_destination  # noqa: F401
 from ifc_spatial.tools_helpers import _jsonable  # noqa: F401
 from ifc_spatial.tools_inspect import _element_profile_tool  # noqa: F401
 from ifc_spatial.tools_inspect import _element_tool  # noqa: F401
@@ -117,13 +112,12 @@ def create_tools(cache: SpatialCache | None = None) -> list[ToolDef]:
 def call(tools: list[ToolDef], name: str, args: dict[str, Any]) -> Any:
     """Run one tool by name and return a JSON-ready result.
 
-    The single entry point every transport uses, so an HTTP route and the MCP
-    server cannot disagree about what a tool returns.
+    The engine's single entry point.
 
     The two caller mistakes are converted here as well as inside ``run``, so that
     a handler which forgot to wrap its operator cannot leak a Python traceback to
-    an MCP client. ``mcp_server`` hands raw arguments straight to this function
-    and has no second net.
+    the agent. Its client (``agent/knowledge/ifc_spatial_client.py``) hands raw
+    arguments straight to this function and has no second net.
     """
     for tool in tools:
         if tool.name == name:

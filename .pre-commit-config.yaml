@@ -17,9 +17,18 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1024]
+        # A carried knowledge release (ADR-0181) is the reviewed bundle byte for byte, its source captures'
+        # text included; the manifest pins its sha256, so it cannot be split or trimmed. 2 MiB bounds it.
+        exclude: ^apps/workspace/config/knowledge-releases/[a-z]{2}-\d+\.json\.gz$
+      - id: check-added-large-files
+        name: check for added large files (carried knowledge releases, 2 MiB)
+        args: [--maxkb=2048]
+        files: ^apps/workspace/config/knowledge-releases/[a-z]{2}-\d+\.json\.gz$
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
+        # The forward fixtures are what mail programs write, trailing spaces included.
+        exclude: ^apps/workspace/bff/inbound-mail/__fixtures__/forwards/
 
   - repo: local
     hooks:
@@ -86,7 +95,7 @@ repos:
           else echo "skipping the Zod stage, apps/workspace/node_modules is absent"; fi'
         language: system
         pass_filenames: false
-        files: ^(packages/agent/src/agent/common/wire_v2\.py|contracts/wire/v2\.schema\.json|scripts/generate_wire_schema\.py|apps/workspace/scripts/generate-(wire|card)-schemas\.mjs|apps/workspace/ui/adapters/api/wire-v2\.generated\.ts)$
+        files: ^(packages/agent/src/agent/common/wire_(v2|model)\.py|contracts/wire/v2\.schema\.json|scripts/generate_wire_schema\.py|apps/workspace/scripts/generate-(wire|card)-schemas\.mjs|apps/workspace/ui/adapters/api/wire-v2\.generated\.ts)$
 
       - id: vocabularies
         name: the UI's shared vocabularies are generated from their Python sources
@@ -96,7 +105,19 @@ repos:
         entry: bash -c 'PYTHONPATH=packages/agent/src .venv/bin/python scripts/generate_vocabularies.py'
         language: system
         pass_filenames: false
-        files: ^(packages/agent/src/agent/cards/workspace_cards\.py|packages/agent/src/agent/common/source_kinds\.py|scripts/generate_vocabularies\.py|apps/workspace/shared/vocabularies\.generated\.ts)$
+        files: ^(packages/agent/src/agent/cards/workspace_cards\.py|packages/agent/src/agent/common/source_kinds\.py|packages/public-sources/src/(access|engines)/[^/]+\.py|scripts/generate_vocabularies\.py|apps/workspace/shared/vocabularies\.generated\.ts)$
+
+      - id: data-flow-register
+        name: every outbound flow has a row in the data-flow register, and the pages generated from it are current
+        # configs/subprocessors/*.yaml is the one list of where data leaves the
+        # cluster (docs/compliance/data-flow-register.md). The check fails a host,
+        # key, base URL, Hog file or PostHog destination no row names; the
+        # generator rewrites the legal page's tables and the DPA annex, and a
+        # changed file fails the commit. The files are every tree the scan reads.
+        entry: bash -c '.venv/bin/python scripts/check_data_flow_register.py && .venv/bin/python scripts/generate_subprocessor_pages.py'
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml$|apps/|packages/|deploy/|configs/|docs/deployment/environment-variables\.md$|docs/compliance/dpa-subprocessor-annex\.md$|scripts/(check_data_flow_register|generate_subprocessor_pages)\.py$)
 
       - id: agent-docs
         name: every AGENTS.md is reachable by the agents that need it
@@ -177,14 +198,78 @@ repos:
         # person's commit instead. The check takes about three seconds.
         always_run: true
 
+      - id: nesting
+        name: no Python source function gains a third level of nesting
+        # code-conventions.md sets two levels as the floor and named Ruff's
+        # PLR1702 as the check, but pyproject.toml ignores it and Ruff 0.17 keeps
+        # it in preview, so nothing ran it and 300 files drifted past it. A
+        # ratchet on ci/nesting_baseline.json holds the rest at two levels. The
+        # venv python, so the script finds the venv's pinned Ruff beside it.
+        # Always, for the reason file-size gives. About two seconds.
+        entry: .venv/bin/python scripts/check_nesting.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: brand-names
         name: no new product name in a code or infrastructure name
-        # The product was AI-Q, then Grid, now Piloti, and each rename was a
-        # code change across thousands of lines. The name belongs in copy, read
+        # The product has had four names, and each rename was a code change
+        # across thousands of lines. The name belongs in copy, read
         # from one place; a ratchet on ci/brand_names_baseline.json keeps every
         # new identifier, file, route and variable neutral. Always, for the
         # reason file-size gives. About five seconds.
         entry: .venv/bin/python scripts/check_brand_names.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: brand-prose
+        name: no retired product name in text, and the current one only as copy
+        # The other half of brand-names (ADR-0149): a retired name as a word in
+        # copy, prompts and docs, and the current name typed out where it should
+        # be {productName} or PRODUCT_NAME. History is left alone. A ratchet on
+        # ci/brand_prose_baseline.json. Always, for the reason file-size gives.
+        # About five seconds.
+        entry: .venv/bin/python scripts/check_brand_prose.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: country-in-code
+        name: no new country-specific name, host or literal in source code or a prompt
+        # A country is records, never code (ADR-0162, ADR-0168, ADR-0169,
+        # ADR-0173, ADR-0174). Austria came first and was written as code: the
+        # OIB in module and route names, RIS as a package and a model tool, the
+        # Länder as literals. A ratchet on ci/country_in_code_baseline.json
+        # over the tokens in ci/country_tokens.json, in source code and in the
+        # prompts the model reads, keeps a second copy from
+        # arriving while the first is burned down
+        # (docs/architecture/country-extensibility.md). Always, for the reason
+        # file-size gives; the venv python, for the reason file-size gives.
+        # About four seconds.
+        entry: .venv/bin/python scripts/check_country_in_code.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: coverage-copy
+        name: the website claims a country's law only as far as its pack's coverage goes
+        # ADR-0173: the building-law page's country lines are generated from the
+        # coverage the country packs state; its other copy names no other country.
+        entry: .venv/bin/python scripts/check_coverage_copy.py
+        language: system
+        pass_filenames: false
+        files: ^(configs/knowledge-packs/|apps/website/src/i18n/pages/(building-law|coverage\.generated)\.ts$|scripts/check_coverage_copy\.py$)
+
+      - id: package-surfaces
+        name: code outside a package imports its surface, not its submodules
+        # Laying knowledge_layer out by job rewrote nearly a thousand imports and
+        # dotted patch strings, most of them in tests, because they named the
+        # submodule rather than the package. A ratchet on
+        # ci/package_surface_baseline.json: what still names a submodule from
+        # outside may only shrink. Always, for the reason file-size gives. The
+        # venv python, for the reason file-size gives. About two seconds.
+        entry: .venv/bin/python scripts/check_package_surfaces.py
         language: system
         pass_filenames: false
         always_run: true
@@ -218,7 +303,7 @@ repos:
         entry: .venv/bin/python scripts/release_notes.py lint
         language: system
         pass_filenames: false
-        files: ^releasenotes/.*\.yaml$|^scripts/release_notes\.py$
+        files: ^releasenotes/.*\.yaml$|^scripts/release_notes.*\.py$
 
       - id: merge-release-notes
         name: a merge commit writes no release note

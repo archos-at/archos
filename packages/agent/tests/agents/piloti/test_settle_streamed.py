@@ -12,12 +12,12 @@ from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
 
 
-def test_an_unbacked_marker_is_labelled_and_the_rest_take_the_numbers_the_terminal_will_give():
+def test_an_unbacked_marker_is_removed_and_the_rest_take_the_numbers_the_terminal_will_give():
     settled = settle_streamed_citations("Fluchtweg 40 m [1], erfunden [2], Treppe [3].", SOURCES, _registry())
     body, _, section = settled.content.partition("\n\n")
-    # Labelled where it stood, not silently removed (ADR-0125): the claim's
-    # pointer did not hold, and the reader is told so.
-    assert body == f"Fluchtweg 40 m [1], erfunden {DROPPED_CITATION_MARKER}, Treppe [2]."
+    # Removed, never labelled (ADR-0125, amended 2026-11-10): no verification marker reaches prose.
+    assert body == "Fluchtweg 40 m [1], erfunden, Treppe [2]."
+    assert DROPPED_CITATION_MARKER not in settled.content
     # The source list rides along, renumbered, the unbacked line gone.
     assert "[1]" in section and "[2]" in section and "erfunden.pdf" not in section and "[3]" not in section
     assert [(s["number"], s["citation_key"]) for s in settled.sources] == [
@@ -31,10 +31,9 @@ def test_prose_without_a_sources_section_or_a_registry_settles_nothing():
     assert settle_streamed_citations("Text [1].", SOURCES, SourceRegistry()) is None
 
 
-def test_a_quote_no_passage_holds_is_marked_when_it_settles_not_seconds_later():
-    # Settled without the quote check, a fabricated quotation read as a real
-    # one until the terminal frame marked it, and the text changed under the
-    # reader when it did.
+def test_a_quote_no_passage_holds_carries_no_marker_when_it_settles():
+    # The quote stays as written, with no marker in the prose (ADR-0125, amended
+    # 2026-11-10): the quote gate lowers the answer's confidence instead.
     registry = SourceRegistry()
     registry.add(
         SourceEntry(
@@ -53,8 +52,8 @@ def test_a_quote_no_passage_holds_is_marked_when_it_settles_not_seconds_later():
     settled = settle_streamed_citations(prose, "**Quellen:**\n- [1] oib-rl_2_ausgabe_mai_2023.pdf, p.12", registry)
 
     body = settled.content.partition("\n\n")[0]
-    assert body.count(UNVERIFIED_QUOTE_MARKER) == 1
-    assert f"ausgestattet sein“ {UNVERIFIED_QUOTE_MARKER}" in body
+    assert UNVERIFIED_QUOTE_MARKER not in body
+    assert "„Treppen müssen mit einer automatischen Löschanlage ausgestattet sein“ [1]." in body
 
 
 def test_a_mindmap_that_only_redraws_a_table_goes_when_the_prose_settles():
@@ -82,12 +81,12 @@ def _one_source() -> SourceRegistry:
 def test_no_source_the_model_did_not_cite_is_attached():
     # The single-source fallback attached the registry's one source when the
     # only line named nothing retrieved; that source could be two turns old
-    # (ADR-0125). The marker is labelled and no chip is invented.
+    # (ADR-0125). The marker is removed and no chip is invented.
     settled = settle_streamed_citations(
         "Treppen brauchen 2,10 m [1].", "## Quellen\n- [1] erfunden.pdf, p.9", _one_source()
     )
 
-    assert settled.content == f"Treppen brauchen 2,10 m {DROPPED_CITATION_MARKER}."
+    assert settled.content == "Treppen brauchen 2,10 m."
     assert settled.sources == []
 
 

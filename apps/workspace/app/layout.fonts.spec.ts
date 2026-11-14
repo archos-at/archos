@@ -13,13 +13,12 @@ import { describe, expect, test, vi } from 'vitest'
 
 const fontOptions = vi.hoisted(() => new Map<string, Record<string, unknown>>())
 
-vi.mock('next/font/google', () => {
-  const font = (name: string) => (options: Record<string, unknown>) => {
-    fontOptions.set(name, options)
-    return { className: name, variable: String(options.variable), style: {} }
-  }
-  return { Geist: font('Geist'), Geist_Mono: font('Geist_Mono') }
-})
+vi.mock('next/font/local', () => ({
+  default: (options: Record<string, unknown>) => {
+    fontOptions.set(String(options.variable), options)
+    return { className: String(options.variable), variable: String(options.variable), style: {} }
+  },
+}))
 vi.mock('./providers', () => ({ Providers: () => null }))
 vi.mock('./chunk-reload-guard', () => ({ ChunkReloadGuard: () => null }))
 vi.mock('@/components/shell/navigation-trail', () => ({ NavigationTrail: () => null }))
@@ -32,7 +31,7 @@ describe('root layout fonts', () => {
   test('preloads the body face and not the mono face', async () => {
     await import('./layout')
 
-    expect(fontOptions.get('Geist')?.preload).not.toBe(false)
-    expect(fontOptions.get('Geist_Mono')?.preload).toBe(false)
+    expect(fontOptions.get('--font-body')?.preload).not.toBe(false)
+    expect(fontOptions.get('--font-geist-mono')?.preload).toBe(false)
   })
 })

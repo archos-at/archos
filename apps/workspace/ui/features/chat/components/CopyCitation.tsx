@@ -39,6 +39,7 @@ import {
 import { CITATION_FORMATS, renderCitations, type CitationFormat } from '../lib/citation-export'
 import { toTechnicalText, toQuoteList } from '../lib/source-citation'
 import type { CitationRef } from '../lib/citations'
+import { useCitationStyles } from '../hooks/use-citation-styles'
 
 /** Write to the clipboard, reporting failure instead of swallowing it. */
 const copyText = async (text: string, onDone: () => void, failedMessage: string): Promise<void> => {
@@ -60,7 +61,7 @@ const copyText = async (text: string, onDone: () => void, failedMessage: string)
  * and overhangs that overlap hand a tap to whichever sibling paints last.
  */
 export const COPY_ACTION_CLASSES = cn(
-  'inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium outline-none',
+  'inline-flex shrink-0 items-center gap-1 rounded-control px-1.5 py-0.5 text-xs font-medium outline-none',
   'text-muted-foreground hover:text-foreground pointer-coarse:min-h-11',
   PRESSABLE,
   FOCUS_RING
@@ -141,13 +142,14 @@ export const CopiedAnnouncement: FC<{ copied: boolean }> = ({ copied }) => {
 /** Per-row copy: the Fachtext citation of one source. */
 export const CopySourceCitationButton: FC<{ citation: CitationRef }> = ({ citation }) => {
   const t = useTranslations(chatCopy)
+  const styles = useCitationStyles()
   const [copied, flashCopied] = useTransientFlag()
 
   const handleCopy = async (): Promise<void> => {
     await copyText(
       citation.locus?.snippet
-        ? toQuoteList([citation], new Date())
-        : toTechnicalText(citation, new Date()),
+        ? toQuoteList([citation], new Date(), styles)
+        : toTechnicalText(citation, new Date(), styles),
       flashCopied,
       t('answerSources.copyFailed')
     )
@@ -155,7 +157,7 @@ export const CopySourceCitationButton: FC<{ citation: CitationRef }> = ({ citati
 
   return (
     <>
-      <button
+      <button data-attr="chat-copy"
         type="button"
         onClick={() => void handleCopy()}
         aria-label={t('answerSources.copyCitationAria', { label: citation.document.title })}
@@ -177,6 +179,7 @@ export const CopySourceCitationButton: FC<{ citation: CitationRef }> = ({ citati
 export const CopyCitationsMenu: FC<{ citations: CitationRef[] }> = ({ citations }) => {
   const t = useTranslations(chatCopy)
   const swap = useIconSwapTransition()
+  const styles = useCitationStyles()
   const [copied, flashCopied] = useTransientFlag()
 
   const handleCopy = async (format: CitationFormat): Promise<void> => {
@@ -186,7 +189,7 @@ export const CopyCitationsMenu: FC<{ citations: CitationRef[] }> = ({ citations 
     // nothing said why nothing was on the clipboard.
     let text: string
     try {
-      text = await renderCitations(citations, format, new Date())
+      text = await renderCitations(citations, format, new Date(), styles)
     } catch {
       toast.error(t('answerSources.copyFailed'))
       return

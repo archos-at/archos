@@ -88,7 +88,7 @@ export const SkillFindingList: FC<SkillFindingListProps> = ({
                 <p className="text-foreground text-xs font-medium">
                   {variant === 'full' && (
                     <>
-                      <span className="text-muted-foreground font-mono text-[10.5px] uppercase tracking-wider">
+                      <span className="text-muted-foreground font-mono text-[10.5px]">
                         {t(`editor.review.fields.${finding.field}`)}
                       </span>{' '}
                     </>
@@ -107,7 +107,7 @@ export const SkillFindingList: FC<SkillFindingListProps> = ({
                     read the rule instead of arguing with a verdict. Muted and
                     last, because it is provenance, not the point. */}
                 {finding.check && (
-                  <p className="text-muted-foreground/70 font-mono text-xs leading-snug">
+                  <p className="text-muted-foreground font-mono text-xs leading-snug">
                     {finding.check}
                   </p>
                 )}

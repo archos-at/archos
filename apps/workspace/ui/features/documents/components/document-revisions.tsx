@@ -54,7 +54,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SectionLabel } from '@/components/ui/section-label'
 import { InspectorGroup } from '@/components/ui/inspector-group'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Spinner } from '@/components/ui/spinner'
 import { StageTrack } from '@/components/ui/stage-track'
 import { useLocale, useTranslations, type Translator } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -101,15 +100,19 @@ import {
 import { requestRevisionLink } from '../lib/revision-request'
 import { DocumentArchiveAction } from './document-archive-action'
 import { DocumentReviewControls, type DocumentReviewControlsProps } from './document-review-controls'
-import { DocumentVersionDiff } from './document-version-diff'
+import { TextComparisonView, type TextComparison } from './revision-text-comparison'
 import { DocumentVersionStateBadge } from './document-version-badge'
 import { useRevisionCompare, type SourceLoader } from './revision-compare'
 import type { CompareFile } from './revision-compare/types'
 import { SuggestionNotice } from './revision-notices'
 import { RevisionTimelineRow, RowAction } from './revision-timeline-row'
+import { MailOriginLine, useOpenMailOrigin } from './mail-thread/mail-origin-line'
+import { mailThreadClient } from './mail-thread/client'
 
 export interface DocumentRevisionsProps {
   file: FileItem
+  /** The project, so a Fassung a mail brought links to its E-Mail-Verlauf (D36); absent off a project (the Archiv). */
+  projectId?: string
   /** May this reader link and unlink Fassungen (a write on the folder)? */
   canManage: boolean
   /**
@@ -135,17 +138,6 @@ export interface DocumentRevisionsProps {
   className?: string
 }
 
-/** One side of a text comparison: the number the timeline gives it, and its text. */
-interface ComparedText {
-  number: number
-  content: string
-}
-
-type TextComparison =
-  | { rowKey: string; status: 'loading' }
-  | { rowKey: string; status: 'failed' }
-  | { rowKey: string; status: 'done'; from: ComparedText; to: ComparedText }
-
 /** Row states worth a word on an OLDER row. Every older row is replaced; saying „Ersetzt" five times is a stripe, not information. */
 const NOTABLE_ROW_STATES: ReadonlySet<DocumentVersionView['state']> = new Set([
   'draft',
@@ -165,6 +157,7 @@ const STAGE_LABEL_KEYS = [
 
 export function DocumentRevisions({
   file,
+  projectId,
   canManage,
   viewer,
   names,
@@ -200,6 +193,8 @@ export function DocumentRevisions({
   })
 
   const [textComparison, setTextComparison] = useState<TextComparison | null>(null)
+  // Which mail brought a Fassung (D36) opens that mail in its E-Mail-Verlauf.
+  const openMailOrigin = useOpenMailOrigin(projectId ?? '', mailThreadClient)
   // The rows of the last render, for the comparison's callback: it runs after
   // the dialog closes, and needs the numbers the reader has just seen.
   const rowsRef = useRef<readonly TimelineRow[]>([])
@@ -317,7 +312,7 @@ export function DocumentRevisions({
 
   if (!showsRevisionsSection({ facts, versionCount: file.versionCount, hasViewer: viewer !== undefined })) return null
   if (viewer !== undefined && loading && listing === null) {
-    return <Skeleton className={cn('h-16 w-full rounded-lg', className)} />
+    return <Skeleton className={cn('h-16 w-full rounded-surface', className)} />
   }
 
   const newestRead = documentReadFamily(file.status)
@@ -456,6 +451,9 @@ export function DocumentRevisions({
         menu={menu}
         menuLabel={t('preview.revision.rail.rowMenu', { number: row.number })}
       >
+        {version.mailOrigins && version.mailOrigins.length > 0 && (
+          <MailOriginLine origins={version.mailOrigins} onOpen={projectId ? openMailOrigin : undefined} />
+        )}
         {textComparisonRow(row)}
       </RevisionTimelineRow>
     )
@@ -590,13 +588,13 @@ export function DocumentRevisions({
         {/* The heading IS the trigger: a disclosure whose label is not the thing
             you press has a second target for the same job. */}
         {/* The same header line as every other section of the rail
-            (`InspectorSection`): inset to the groups' content edge, uppercase.
+            (`InspectorSection`): inset to the groups' content edge.
             `[text-transform:inherit]` because the preflight resets a button's
-            case, which drew this one heading in mixed case under three
-            uppercase ones. */}
-        <SectionLabel as="h3" className="px-3 font-semibold tracking-[0.05em]">
+            case, so the trigger follows whatever case the eyebrow sets rather
+            than drifting from the other section heads. */}
+        <SectionLabel as="h3" className="px-3">
           <CollapsibleTrigger asChild>
-            <button
+            <button data-attr="document-revisions-toggle"
               type="button"
               className="touch-target duration-snap hover:text-foreground focus-visible:ring-ring flex min-h-5 w-full items-center gap-1.5 text-left tracking-[inherit] transition-colors ease-out outline-none [text-transform:inherit] focus-visible:ring-2 focus-visible:ring-offset-1 motion-reduce:transition-none"
               data-testid="document-revisions-toggle"
@@ -860,32 +858,4 @@ function rowHasContent(row: TimelineRow, hasChange: boolean): boolean {
   }
   if (row.kind === 'head') return hasChange
   return true
-}
-
-/** The line comparison of two Fassungen, under the row it was asked from, numbered as the timeline numbers them. */
-function TextComparisonView({ comparison }: { comparison: TextComparison }): JSX.Element {
-  const t = useTranslations(filesCopy)
-  if (comparison.status === 'loading') {
-    return (
-      <p className="text-muted-foreground flex items-center gap-2 text-xs">
-        <Spinner className="size-3.5" />
-        {t('lifecycle.versions.comparing')}
-      </p>
-    )
-  }
-  if (comparison.status === 'failed') {
-    return (
-      <p className="text-destructive text-xs" data-testid="document-version-compare-failed">
-        {t('lifecycle.versions.compareFailed')}
-      </p>
-    )
-  }
-  return (
-    <div data-testid="document-version-comparison">
-      <DocumentVersionDiff
-        from={{ versionNumber: comparison.from.number, content: comparison.from.content }}
-        to={{ versionNumber: comparison.to.number, content: comparison.to.content }}
-      />
-    </div>
-  )
 }

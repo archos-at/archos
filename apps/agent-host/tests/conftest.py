@@ -6,14 +6,13 @@ Skips ``agent_host/__init__.py`` (plugin pulls in the agent runtime) so tests ca
 
 from __future__ import annotations
 
-import socket
 import sys
 import types
 from pathlib import Path
 
 import pytest
-from knowledge_layer_testing.qdrant_fixtures import fresh_qdrant_store  # noqa: F401 - a store of its own
-from knowledge_layer_testing.qdrant_fixtures import qdrant_store  # noqa: F401 - the shared store fixture
+from knowledge_layer_testing.vector_store_fixtures import fresh_qdrant_store  # noqa: F401 - a store of its own
+from knowledge_layer_testing.vector_store_fixtures import qdrant_store  # noqa: F401 - the shared store fixture
 
 _SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
 _PKG_DIR = _SRC_ROOT / "agent_host"
@@ -26,25 +25,6 @@ if _PKG_DIR.is_dir():
         _pkg = types.ModuleType("agent_host")
         _pkg.__path__ = [str(_PKG_DIR)]
         sys.modules["agent_host"] = _pkg
-
-
-@pytest.fixture(autouse=True)
-def stub_private_dns(monkeypatch):
-    """Answer every hostname with a private IP, without touching real DNS.
-
-    The ingest route's SSRF resolution guard consults ``socket.getaddrinfo``;
-    letting it hit the network made the suite slow and environment-dependent
-    (the reserved ``.test`` object-store host used in fixtures does not
-    resolve at all). Private by default so the allowlisted-host exemption is
-    exercised on every happy path — the object store legitimately resolves
-    in-network in compose/Kubernetes deployments.
-    """
-
-    def fake_getaddrinfo(*args, **kwargs):
-        port = args[1] if len(args) > 1 else kwargs.get("port", 0)
-        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.42.0.7", port or 0))]
-
-    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
 
 
 @pytest.fixture(autouse=True)
@@ -72,3 +52,28 @@ def _no_live_decisions(monkeypatch):
     test's fixtures to the live endpoint.
     """
     monkeypatch.setenv("DECISIONS_ENABLED", "false")
+
+
+#: A fixed test key: a research submit sends only ciphertext to Hatchet, so it needs one.
+_TEST_KEK = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+
+
+@pytest.fixture(autouse=True)
+def hatchet(monkeypatch):
+    """Every test runs research on a fake Hatchet (ADR-0150): no engine is reachable here.
+
+    A test that asserts what was handed to the SDK asks for this fixture by name.
+    A test of the no-key path deletes ``JOB_PAYLOAD_KEK`` itself.
+    """
+    from agent.common import orchestrator_client
+    from agent_host.jobs import research_workflow
+
+    from .orchestrator_fake import FakeHatchet
+
+    monkeypatch.setenv("JOB_PAYLOAD_KEK", _TEST_KEK)
+    fake = FakeHatchet()
+    orchestrator_client.reset_for_tests(fake)
+    research_workflow._declared.clear()
+    yield fake
+    orchestrator_client.reset_for_tests(None)
+    research_workflow._declared.clear()

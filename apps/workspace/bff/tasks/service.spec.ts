@@ -99,15 +99,25 @@ const pinned = {
   name: null,
 } as AuthorizedSession
 
+/**
+ * One row, as the database holds it: every update lands on the previous state,
+ * the close is a compare-and-set from the live states, and a read sees what
+ * was written. Answers a reader of the row as it now is.
+ */
+function storedRow(start: Partial<TaskRun>): () => TaskRun {
+  let row = { ...run, ...start } as TaskRun
+  const write = (patch: Partial<TaskRun>) => (row = { ...row, ...patch } as TaskRun)
+  vi.mocked(repository.findRunById).mockImplementation(async () => row)
+  vi.mocked(repository.updateRun).mockImplementation(async (_id, _org, patch) => write(patch as Partial<TaskRun>))
+  vi.mocked(repository.closeActiveRun).mockImplementation(async (_id, _org, patch) =>
+    row.status === 'queued' || row.status === 'running' ? write(patch as Partial<TaskRun>) : null,
+  )
+  return () => row
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
-  // The row as the database would hand it back: every update lands on the
-  // previous state, so the second update sees the first's status.
-  let current: TaskRun = run
-  vi.mocked(repository.updateRun).mockImplementation(async (_id, _org, patch) => {
-    current = { ...current, ...patch } as TaskRun
-    return current
-  })
+  storedRow({})
   vi.mocked(repository.insertRun).mockImplementation(async (values) => ({ ...run, ...values }) as TaskRun)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(pinned)
   vi.mocked(fileResearchReport).mockResolvedValue({
@@ -120,6 +130,13 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => undefined)
 })
 
+/** The completion of a run this report closes; a spec that expects another ending to stand asks the recorder. */
+async function complete(...args: Parameters<typeof completeRunForOutcome>) {
+  const completed = await completeRunForOutcome(...args)
+  if (!completed) throw new Error('another ending stands; nothing was completed')
+  return completed
+}
+
 describe('completeRunForOutcome', () => {
   it('queues the filing of a run that has no definition behind it — an escalated question', async () => {
     // The commissioned run of a chat escalation (ADR-0062): one row, no
@@ -127,7 +144,7 @@ describe('completeRunForOutcome', () => {
     // and the inbox row says so with a null job id rather than inventing one.
     const escalated = { ...run, definitionId: null, conversationId: 's_conv', runMessageId: 'msg-1' } as TaskRun
 
-    const result = await completeRunForOutcome(escalated, { status: 'success', report: '# Bericht' })
+    const result = await complete(escalated, { status: 'success', report: '# Bericht' })
 
     // Not filed here: the document is the job's to make.
     expect(result.filed).toBeNull()
@@ -140,7 +157,7 @@ describe('completeRunForOutcome', () => {
   })
 
   it('queues the filing of a finished deep-research report instead of rendering it here', async () => {
-    const result = await completeRunForOutcome(run, { status: 'success', report: '# Bericht', cards: [{ type: 'legal_basis' }] })
+    const result = await complete(run, { status: 'success', report: '# Bericht', cards: [{ type: 'legal_basis' }] })
 
     expect(queueResearchReportFiling).toHaveBeenCalledWith({
       organizationId: 'org_1',
@@ -163,7 +180,7 @@ describe('completeRunForOutcome', () => {
   })
 
   it('says `queued` before the job exists, so a job that ends at once is never overwritten', async () => {
-    await completeRunForOutcome(run, { status: 'success', report: '# Bericht' })
+    await complete(run, { status: 'success', report: '# Bericht' })
 
     const order = [
       vi.mocked(repository.updateRun).mock.invocationCallOrder.at(-1) ?? 0,
@@ -180,7 +197,7 @@ describe('completeRunForOutcome', () => {
   it('records a filing it could not queue as failed, with the reason, and still closes the run', async () => {
     vi.mocked(queueResearchReportFiling).mockRejectedValueOnce(new Error('database gone'))
 
-    const result = await completeRunForOutcome(run, { status: 'success', report: '# Bericht' })
+    const result = await complete(run, { status: 'success', report: '# Bericht' })
 
     expect(result.run.status).toBe('succeeded')
     expect(repository.updateRun).toHaveBeenLastCalledWith(
@@ -195,26 +212,26 @@ describe('completeRunForOutcome', () => {
 
   it('records a run that has no backend job id as failed rather than queueing nothing', async () => {
     const unsubmitted = { ...run, backendJobId: null } as TaskRun
-    vi.mocked(repository.updateRun).mockResolvedValueOnce({ ...unsubmitted, status: 'succeeded' } as TaskRun)
+    storedRow(unsubmitted)
 
-    const result = await completeRunForOutcome(unsubmitted, { status: 'success', report: '# Bericht' })
+    const result = await complete(unsubmitted, { status: 'success', report: '# Bericht' })
 
     expect(queueResearchReportFiling).not.toHaveBeenCalled()
     expect(result.run.filingStatus).toBe('failed')
   })
 
   it('queues nothing for a run whose report a worker’s earlier attempt already filed', async () => {
-    const filed = { ...run, filingStatus: 'filed', filedDocumentId: 'doc-9' } as TaskRun
-    vi.mocked(repository.updateRun).mockResolvedValueOnce(filed)
+    // The earlier attempt closed the row and filed; this is the worker repeating its report.
+    storedRow({ status: 'succeeded', filingStatus: 'filed', filedDocumentId: 'doc-9' })
 
-    const result = await completeRunForOutcome(run, { status: 'success', report: '# Bericht' })
+    const result = await complete(run, { status: 'success', report: '# Bericht' })
 
     expect(queueResearchReportFiling).not.toHaveBeenCalled()
     expect(result.run.filedDocumentId).toBe('doc-9')
   })
 
   it('closes a failed run without filing anything', async () => {
-    const result = await completeRunForOutcome(run, { status: 'failure', error: 'Budget exhausted' })
+    const result = await complete(run, { status: 'failure', error: 'Budget exhausted' })
 
     expect(result.run.status).toBe('failed')
     expect(result.run.error).toBe('Budget exhausted')
@@ -227,7 +244,7 @@ describe('completeRunForOutcome', () => {
   it('files nothing for a chat run, whose result is its conversation', async () => {
     const chat = { ...run, kind: 'chat' } as TaskRun
 
-    const result = await completeRunForOutcome(chat, { status: 'success', report: 'answer' })
+    const result = await complete(chat, { status: 'success', report: 'answer' })
 
     expect(fileResearchReport).not.toHaveBeenCalled()
     expect(result.filed).toBeNull()
@@ -436,11 +453,7 @@ const delegated = (overrides: Partial<TaskRun> = {}): TaskRun => {
     plan: { prompt: 'Schreibe …', skill: emptySkill, dataSources: null, goal: 'Schreib den Aktenvermerk' },
     ...overrides,
   } as TaskRun
-  let current = row
-  vi.mocked(repository.updateRun).mockImplementation(async (_id, _org, patch) => {
-    current = { ...current, ...patch } as TaskRun
-    return current
-  })
+  storedRow(row)
   return row
 }
 
@@ -453,7 +466,7 @@ describe('completeRunForOutcome, by kind', () => {
     })
     vi.mocked(findDocumentInOrg).mockResolvedValue({ filename: 'aktenvermerk-2026-09-10.md' } as never)
 
-    const { filed } = await completeRunForOutcome(delegated(), { status: 'success', report: '# Aktenvermerk' })
+    const { filed } = await complete(delegated(), { status: 'success', report: '# Aktenvermerk' })
 
     // The run's own id as the reference, so a retried outcome updates the
     // document the first one made rather than filing a second.
@@ -480,7 +493,7 @@ describe('completeRunForOutcome, by kind', () => {
     })
     vi.mocked(findDocumentInOrg).mockResolvedValue({ filename: 'aktenvermerk-2026-09-10.md' } as never)
 
-    await completeRunForOutcome(delegated(), { status: 'success', report: '# Aktenvermerk' })
+    await complete(delegated(), { status: 'success', report: '# Aktenvermerk' })
     expect(transitionDocumentVersion).not.toHaveBeenCalled()
   })
 
@@ -503,7 +516,7 @@ describe('completeRunForOutcome, by kind', () => {
       },
     })
 
-    const { filed } = await completeRunForOutcome(revision, { status: 'success', report: '# Befund, überarbeitet' })
+    const { filed } = await complete(revision, { status: 'success', report: '# Befund, überarbeitet' })
 
     // The If-Match is the hash the LIFECYCLE reported, never one computed here:
     // a self-computed hash agrees with itself and overwrites a reviewer.
@@ -530,7 +543,7 @@ describe('completeRunForOutcome, by kind', () => {
 
   it('records a revision run with no subject as a failed filing rather than throwing', async () => {
     const broken = delegated({ kind: 'revision', plan: { prompt: 'x', skill: emptySkill, dataSources: null } })
-    const { run: closed } = await completeRunForOutcome(broken, { status: 'success', report: '# x' })
+    const { run: closed } = await complete(broken, { status: 'success', report: '# x' })
     expect(closed.filingStatus).toBe('failed')
   })
 
@@ -539,7 +552,7 @@ describe('completeRunForOutcome, by kind', () => {
     // a second document would put a copy of the thread in Berichte.
     for (const kind of ['compliance_check', 'submission_check'] as const) {
       vi.clearAllMocks()
-      const { filed } = await completeRunForOutcome(delegated({ kind }), { status: 'success', report: '# Ergebnis' })
+      const { filed } = await complete(delegated({ kind }), { status: 'success', report: '# Ergebnis' })
       expect(filed).toBeNull()
       expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
       expect(fileResearchReport).not.toHaveBeenCalled()
@@ -628,6 +641,7 @@ describe('recordRunOutcome', () => {
     it('reports once: a worker’s retried report finds the run already ended', async () => {
       vi.mocked(emitInboxItems).mockResolvedValue(1)
 
+      storedRow({ status: 'succeeded' })
       await recordRunOutcome({ ...run, status: 'succeeded' } as TaskRun, { status: 'success' })
 
       expect(captureServer).not.toHaveBeenCalled()
@@ -648,7 +662,7 @@ describe('recordRunOutcome', () => {
     })
   })
 
-  it('settles the run’s block before it closes the row, whoever reported the ending', async () => {
+  it('settles the run’s block whoever reported the ending, after the row is closed', async () => {
     // The reaper's and the cancel route's reports carry no ledger op: there is
     // no worker left to send one. Before, the row closed and the block read
     // „läuft" for good.
@@ -658,25 +672,21 @@ describe('recordRunOutcome', () => {
       order.push('block')
       return true
     })
-    const update = vi.mocked(repository.updateRun).getMockImplementation()
-    vi.mocked(repository.updateRun).mockImplementation(async (...args) => {
+    const close = vi.mocked(repository.closeActiveRun).getMockImplementation()
+    vi.mocked(repository.closeActiveRun).mockImplementation(async (...args) => {
       order.push('row')
-      return update!(...args)
+      return close!(...args)
     })
 
     await recordRunOutcome(row, { status: 'interrupted' })
 
-    expect(settleRunLedger).toHaveBeenCalledWith(expect.objectContaining({ id: 'run-1' }), { status: 'interrupted' })
-    // Block first: a failure between the two leaves the row active, and the
-    // retry (the worker's, or the reconciler's) does both.
-    expect(order[0]).toBe('block')
-    expect(order).toContain('row')
-  })
-
-  it('closes nothing when the block cannot be written, so the report is retried whole', async () => {
-    vi.mocked(settleRunLedger).mockRejectedValueOnce(new Error('db down'))
-    await expect(recordRunOutcome(delegated(), { status: 'failure' })).rejects.toThrow('db down')
-    expect(repository.updateRun).not.toHaveBeenCalled()
+    expect(settleRunLedger).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'run-1' }),
+      { status: 'interrupted' },
+      expect.any(Date),
+    )
+    // Row first: its compare-and-set decides which ending the block is told.
+    expect(order).toEqual(['row', 'block'])
   })
 
   it('tells the requester about a failure too, and files nothing', async () => {
@@ -686,6 +696,72 @@ describe('recordRunOutcome', () => {
     const [[emission]] = vi.mocked(emitInboxItems).mock.calls
     expect(emission[0].type).toBe('task_run.failed')
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
+  })
+
+  describe('the first ending stands', () => {
+    it('keeps the ending the reconciler recorded when the worker’s success arrives late', async () => {
+      const row = storedRow({ status: 'interrupted', error: 'Vom Betrieb abgebrochen.', finishedAt: new Date(0) })
+
+      // The worker read the run while it was still running; its report lands after the close.
+      const result = await recordRunOutcome(run, { status: 'success', report: '# Bericht' })
+
+      expect(row()).toMatchObject({ status: 'interrupted', error: 'Vom Betrieb abgebrochen.', finishedAt: new Date(0) })
+      expect(result).toEqual({ notified: false, filed: null, closed: false })
+      expect(queueResearchReportFiling).not.toHaveBeenCalled()
+      expect(emitInboxItems).not.toHaveBeenCalled()
+      expect(captureServer).not.toHaveBeenCalled()
+    })
+
+    it('keeps the worker’s success when a failure for the same run arrives late', async () => {
+      const row = storedRow({ status: 'succeeded', finishedAt: new Date(0) })
+      await recordRunOutcome(run, { status: 'failure', error: 'Job timed out' })
+      expect(row()).toMatchObject({ status: 'succeeded', finishedAt: new Date(0) })
+      expect(emitInboxItems).not.toHaveBeenCalled()
+    })
+
+    it('settles the block with the ending the row holds, not with the report that lost', async () => {
+      // The reconciler lost the close to the worker: the row says succeeded.
+      storedRow({ status: 'succeeded', finishedAt: new Date(0) })
+
+      await recordRunOutcome(run, { status: 'failure', error: 'Job timed out' }, { onlyIfActive: true })
+
+      expect(settleRunLedger).toHaveBeenCalledTimes(1)
+      expect(vi.mocked(settleRunLedger).mock.calls[0]?.[1]).toEqual({ status: 'success' })
+    })
+
+    it('closes the row before it settles the block, so the block is only ever told the ending that won', async () => {
+      const row = storedRow({ status: 'running' })
+      vi.mocked(settleRunLedger).mockImplementation(async () => {
+        expect(row().status).toBe('interrupted')
+        return true
+      })
+      await recordRunOutcome(run, { status: 'interrupted' })
+      expect(settleRunLedger).toHaveBeenCalledWith(expect.objectContaining({ id: 'run-1' }), { status: 'interrupted' }, expect.any(Date))
+    })
+
+    it('a worker repeating the report it already delivered reaches the filing and the inbox again', async () => {
+      vi.mocked(emitInboxItems).mockResolvedValue(1)
+      const row = storedRow({ status: 'succeeded', finishedAt: new Date(0) })
+
+      const result = await recordRunOutcome(run, { status: 'success', report: '# Bericht' })
+
+      expect(result).toMatchObject({ notified: true, closed: true })
+      expect(queueResearchReportFiling).toHaveBeenCalledTimes(1)
+      // The row keeps when it first ended; the retry announces nothing.
+      expect(row().finishedAt).toEqual(new Date(0))
+      expect(captureServer).not.toHaveBeenCalled()
+    })
+
+    it('still closes the row and tells the requester when the block cannot be written: the heal settles it', async () => {
+      vi.mocked(emitInboxItems).mockResolvedValue(1)
+      const row = storedRow({ status: 'running' })
+      vi.mocked(settleRunLedger).mockRejectedValueOnce(new Error('db down'))
+
+      const result = await recordRunOutcome(run, { status: 'failure', error: 'Budget exhausted' })
+
+      expect(row().status).toBe('failed')
+      expect(result).toMatchObject({ notified: true, closed: true })
+    })
   })
 
   describe('onlyIfActive — the run reconciler’s mode', () => {
@@ -721,15 +797,17 @@ describe('recordRunOutcome', () => {
     })
 
     it('settles the block even when the row had already ended — a closed run is never left „läuft"', async () => {
-      vi.mocked(repository.closeActiveRun).mockResolvedValue(null)
+      storedRow({ status: 'failed', error: 'Job timed out', finishedAt: new Date(0) })
       await recordRunOutcome(run, { status: 'failure', error: 'Job timed out' }, { onlyIfActive: true })
-      expect(settleRunLedger).toHaveBeenCalledWith(run, { status: 'failure', error: 'Job timed out' })
+      expect(settleRunLedger).toHaveBeenCalledWith(run, { status: 'failure', error: 'Job timed out' }, new Date(0))
     })
 
-    it('the worker’s own report still closes unconditionally, so a retried report reaches the inbox', async () => {
+    it('the worker’s own report closes by the same compare-and-set, and a repeated one reaches the inbox', async () => {
       vi.mocked(emitInboxItems).mockResolvedValue(1)
+      storedRow({ status: 'succeeded' })
       const result = await recordRunOutcome({ ...run, status: 'succeeded' } as TaskRun, { status: 'success' })
-      expect(repository.closeActiveRun).not.toHaveBeenCalled()
+      expect(repository.closeActiveRun).toHaveBeenCalledTimes(1)
+      expect(repository.updateRun).not.toHaveBeenCalled()
       expect(result).toMatchObject({ notified: true, closed: true })
     })
   })

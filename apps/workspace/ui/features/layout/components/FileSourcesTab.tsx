@@ -18,7 +18,7 @@ import { FileSourceCard, FileSourceCardSkeleton } from './FileSourceCard'
 import { DeleteFileConfirmationModal } from './DeleteFileConfirmationModal'
 import { useUploadDestination } from './UploadDestination'
 import { FilePreviewDialog } from '@/features/documents/components/file-preview-dialog'
-import { useFileUpload, FileUploadZone } from '@/features/documents'
+import { useFileUpload, FileUploadZone, UploadAnywayButton } from '@/features/documents'
 import { useDocumentsStore } from '@/features/documents/store'
 import { mapToDisplayStatus } from '@/features/documents/utils'
 import { trackedFileToFileItem } from '@/features/documents/types'
@@ -48,8 +48,11 @@ const UploadErrorAlert: FC<{ message: string; onClose: () => void; className?: s
   return (
   <Alert variant="destructive" className={className}>
     <AlertDescription className="flex w-full items-start justify-between gap-2">
-      <span>{message}</span>
-      <button
+      <span>
+        {message}
+        <UploadAnywayButton className="flex" />
+      </span>
+      <button data-attr="chat-close"
         type="button"
         onClick={onClose}
         aria-label={t('dismissError')}
@@ -120,6 +123,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
   const {
     uploadFiles,
     deleteFile,
+    dismissFiles,
     sessionFiles: targetFiles,
     isUploading,
     isPolling,
@@ -231,6 +235,10 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
     setIsDeleteModalOpen(true)
   }, [])
 
+  // A cancelled upload is taken off the list, as in the upload tray: no
+  // question asked, and nothing is deleted.
+  const handleDismiss = useCallback((id: string) => dismissFiles([id]), [dismissFiles])
+
   // Actually performs the delete after confirmation
   const handleConfirmDelete = useCallback(async () => {
     if (fileIdToDelete) {
@@ -249,11 +257,11 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
   }, [])
 
   const uploadTargetControls = projectId ? (
-    <div className="flex flex-col gap-2 rounded-xl bg-muted p-3">
-      <span className="text-xs font-semibold uppercase text-muted-foreground">{t('fileSourcesTab.uploadTo')}</span>
+    <div className="flex flex-col gap-2 rounded-surface bg-muted p-3">
+      <span className="text-xs font-medium text-muted-foreground">{t('fileSourcesTab.uploadTo')}</span>
       <div className="flex gap-2">
         <Button
-          variant={uploadTarget === 'project' ? 'default' : 'outline'}
+          variant={uploadTarget === 'project' ? 'default' : 'secondary'}
           size="sm"
           onClick={() => setUploadTarget('project')}
           disabled={!projectCollectionName}
@@ -261,7 +269,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
           {t('fileSourcesTab.targetProject')}
         </Button>
         <Button
-          variant={uploadTarget === 'session' ? 'default' : 'outline'}
+          variant={uploadTarget === 'session' ? 'default' : 'secondary'}
           size="sm"
           onClick={() => setUploadTarget('session')}
         >
@@ -359,7 +367,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
       {uploadTargetControls}
 
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase text-muted-foreground">
+        <span className="text-xs font-medium text-muted-foreground">
           {t('fileSourcesTab.filesCount', { target: uploadTargetLabel, count: targetFiles.length })}
         </span>
         <Button
@@ -404,8 +412,8 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
             // A project document is deleted in the project's Files, where the
             // delete runs the legal-hold check and erases every version. This
             // dialog lists what the chat can see; it only deletes the chat's own
-            // attachments.
-            onDelete={isProjectTarget ? undefined : handleDeleteClick}
+            // attachments. A cancelled upload is dismissed on either shelf.
+            onDelete={file.status === 'canceled' ? handleDismiss : isProjectTarget ? undefined : handleDeleteClick}
             onOpen={handleOpenPreview}
           />
         ))}

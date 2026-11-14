@@ -261,6 +261,30 @@ and where each lives in this repo, whenever a reviewer corrects you, something
 surprises you, or you correct yourself twice for one reason:
 [`correction-ratchet.md`](correction-ratchet.md).
 
+## Everything you learn is written down
+
+Reworking the project mail inbox (PR #831) in October 2026 began with eleven
+scouts and thirteen consultants reading the code for a day. Their reports turned
+up dozens of facts no doc held: an operation description that named the wrong
+status code, an ADR still „proposed“ for a feature in production, a processor
+register naming a database the platform had already left, the eight steps to add
+a notification type, the rule that a migration journal's `when` must exceed the
+last applied one. All of it sat in a scratch directory that dies with the
+session. The owner's verdict: everything we learn about the system is written
+down, and that is a hard rule, not a courtesy.
+
+Before, the obligation said "Nothing, once" in its failure column: a fact left
+unwritten cost nothing until the next person re-earned it. Now the rule in
+`AGENTS.md` counts a subagent's report as your own research, asks for each fact
+to be re-checked in the code first (a consultant can be confidently wrong, and a
+wrong note costs more than a missing one), and the closing checklist of the
+definition of done carries a **What we learned** line: each fact and the file it
+went to, or "none, because …".
+
+A discrepancy between a doc and the code is fixed in the same change, in
+whichever of the two is wrong. Writing "the doc says 400, the code says 409" in
+a PR body and moving on leaves the next agent to act on the wrong one.
+
 ## Slice work so it runs in parallel
 
 When a change is large enough to hand to several agents (or people), cut it
@@ -352,3 +376,58 @@ documents ([ADR-0133](../adr/0133-piloti-reads-the-estate-through-standard-files
 
 The rule lives in [`docs/adr/AGENTS.md`](../adr/AGENTS.md) and in the
 template's comments.
+
+## Cost a move before you build it
+
+On 11 November 2026 an audit asked which of our own sweeps, leases and clocks
+the workflow engine could take over
+([`hatchet-use-2026-11.md`](../audit/hatchet-use-2026-11.md)). Nine moves
+looked like obvious wins from the inventory. Read against the code, six were
+not: the job row's second wait had three readers that cannot ask the engine,
+the housekeeping clocks had to stay for deployments that run without it, a
+research run's cancel was already pushed, and three more would have added code
+or a second mechanism. The one that was built before anyone costed it, the
+folder-card build, added about 140 lines where a reduction had been promised.
+
+The costing that finally ran took one reader two minutes a move and asked four
+things: what exists today and how many lines of it would go, which construct
+replaces it and what that costs in new lines, what behaviour changes or is
+lost, and the verdict with the net figure. It answered "do not" three times
+out of three, with reasons that are now written where the code is. That is the
+order: cost first, in the code, and build only what clears the bar the owner
+set (there: less code, fewer mechanisms, nothing lost).
+
+A frame is not a finding either. The day began as "find every implicit state
+machine" and found 120; declaring a lifecycle was worth it for about a dozen
+records. What paid was a reader with one plain question about one area: what
+can go wrong here? The forty defects of that day came from that question, not
+from the label.
+
+A second case, the same day. The audit of implicit state machines planned
+three steps for a document's state, and each was costed before it was built.
+The first shrank from a guarded upsert with a new column, about 120 lines, to
+six lines, because a finished read must still overwrite a cancel. The second
+became a parity test and the third a ratchet, because the single way in
+already existed
+([`implicit-state-machines-2026-11.md`](../audit/implicit-state-machines-2026-11.md#where-a-records-state-lives)).
+
+## Dead here is not dead in production
+
+The same day a migration dropped `bff_job_lane_turns`. A scout had proven the
+table dead: no reader and no writer anywhere on the branch. Production was two
+weeks and a whole workflow engine behind `develop`, and its running release
+still claimed every background job through that table. The drop would have
+broken production's old pods during the rollout of its next release, and any
+rollback to it. `ci/migration_contract.py` caught it; no person and no agent
+had.
+
+So a removal is checked against what production runs, not against the branch:
+`git fetch origin prod`, then `git grep` on `FETCH_HEAD` for the table, column,
+route or variable, before the migration is written. The folder-card table's
+unused columns stayed for the same reason. The `migration:contract` label says
+"production is past every build that reads this"; whoever sets it has looked.
+
+The wider lesson is the gap itself. Thirty-six migrations and one engine apart,
+every removal on `develop` is a guess about production, and every promotion is
+a single large step. Promoting in small steps, often, is what makes the check
+above cheap.

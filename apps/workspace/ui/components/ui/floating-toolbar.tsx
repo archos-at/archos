@@ -25,7 +25,9 @@ export function FloatingToolbar({ className, ...props }: ComponentProps<typeof B
     <ButtonGroup
       data-slot="floating-toolbar"
       className={cn(
-        'border-base bg-popover/95 gap-0.5 shadow-md backdrop-blur-md',
+        // The group's border goes clear: the shadow's ring is the edge (design-language.md, „One edge“), and
+        // high contrast still draws the border below.
+        'border-transparent bg-popover/95 gap-0.5 shadow-md backdrop-blur-md',
         'contrast-more:bg-popover contrast-more:border-foreground/40',
         className,
       )}
@@ -51,7 +53,7 @@ export function ToolbarIconButton({
       size="icon"
       className={cn(
         // Never squeezed: a pill too long for its stage scrolls, and every target keeps its 28px (WCAG 2.5.8).
-        'text-muted-foreground hover:text-foreground size-7 shrink-0 rounded-md [&_svg]:size-3.5 pointer-coarse:size-11',
+        'text-muted-foreground hover:text-foreground size-7 shrink-0 rounded-control [&_svg]:size-3.5 pointer-coarse:size-11',
         'aria-pressed:bg-accent aria-pressed:text-foreground contrast-more:text-foreground',
         className,
       )}
@@ -75,7 +77,7 @@ export function ToolbarTextButton({
       variant="ghost"
       size="sm"
       className={cn(
-        'text-muted-foreground hover:text-foreground h-7 shrink-0 rounded-md px-1.5 text-xs font-normal tabular-nums pointer-coarse:h-11',
+        'text-muted-foreground hover:text-foreground h-7 shrink-0 rounded-control px-1.5 text-xs font-normal tabular-nums pointer-coarse:h-11',
         'contrast-more:text-foreground',
         className,
       )}
@@ -125,7 +127,7 @@ export function ToolbarDivider({ className, ...props }: ComponentProps<'span'>):
 
 /**
  * A typing surface inside a pill: the page number, a search query. The field
- * recipe (border promotion and halo on focus) at the pill's `size-7` height,
+ * recipe (its border turns ink on focus) at the pill's `size-7` height,
  * on the pill's own ground so it reads as cut into it rather than as a second
  * floating object. 16px on a coarse pointer, or iOS zooms the page on focus.
  */
@@ -138,7 +140,7 @@ export const ToolbarField = forwardRef<HTMLInputElement, ComponentProps<'input'>
       ref={ref}
       data-slot="toolbar-field"
       className={cn(
-        'border-input bg-input-background text-foreground placeholder:text-muted-foreground h-7 min-w-0 rounded-md border px-2 text-xs tabular-nums outline-none',
+        'border-input bg-input-background text-foreground placeholder:text-muted-foreground h-7 min-w-0 rounded-control border px-2 text-xs tabular-nums outline-none',
         'pointer-coarse:h-11 pointer-coarse:text-base',
         FIELD_FOCUS_RING,
         className,
@@ -159,8 +161,8 @@ export function FloatingNote({ className, ...props }: ComponentProps<'p'>): JSX.
     <p
       data-slot="floating-note"
       className={cn(
-        'border-base bg-popover/95 text-muted-foreground flex max-w-full min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-md backdrop-blur-md',
-        'contrast-more:bg-popover contrast-more:border-foreground/40 contrast-more:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0',
+        'bg-popover/95 text-muted-foreground flex max-w-full min-w-0 items-center gap-1.5 rounded-surface px-2.5 py-1.5 text-xs shadow-md backdrop-blur-md',
+        'contrast-more:bg-popover contrast-more:border contrast-more:border-foreground/40 contrast-more:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0',
         className,
       )}
       {...props}

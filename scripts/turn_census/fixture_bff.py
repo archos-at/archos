@@ -33,7 +33,7 @@ read which lookups a turn made and with what arguments.
 ``--set workspace`` hands it a ``fixture_workspace.FixtureWorkspace`` instead:
 then it serves Piloti's MCP door (``POST /api/mcp``) and a turn context with
 the WORKSPACE block, logs what the door answered beside each call, and drops
-every other route the same way.
+every other route the same way. Every turn context carries its project's Land's law (``fixture_law.py``).
 
 Every set also files proposals: ``POST /api/internal/proposals`` (ADR-0105) records the proposal a tool
 asks for and answers with its id, as the BFF's route does, so a row can assert that a write was PROPOSED
@@ -55,6 +55,8 @@ from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+
+import fixture_law
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURES = ROOT / "apps" / "workspace" / "tests" / "fixtures" / "precedent"
@@ -92,9 +94,9 @@ Embed = Callable[[list[str]], "list[list[float]] | None"]
 def production_embedder() -> Embed | None:
     """The deployment's embedding model, built as the note-embeddings route builds it; None without a key."""
     try:
-        from knowledge_layer.llamaindex.embedding import make_embed_model
-        from knowledge_layer.llamaindex.embedding import resolve_embed_api_key
-        from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
+        from knowledge_layer.embedding import make_embed_model
+        from knowledge_layer.embedding import resolve_embed_api_key
+        from knowledge_layer.search import LlamaIndexRetriever
     except ImportError:
         return None
     model = LlamaIndexRetriever.DEFAULT_EMBED_MODEL
@@ -513,7 +515,7 @@ class FixtureBFF:
         self.log_path = log_path
         self._lock = threading.Lock()
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
-        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread = threading.Thread(target=self._server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
 
     @property
     def url(self) -> str:
@@ -604,14 +606,14 @@ class FixtureBFF:
             if path == "/api/mcp":
                 return 200, self.workspace.handle(body, conversation)
             if path == "/api/internal/turn-context":
-                return 200, self.workspace.turn_context(conversation)
+                return 200, fixture_law.with_law(self.workspace.turn_context(conversation))
             # `--set visual`: where `look` finds a file's storage key.
             document_file = getattr(self.workspace, "document_file", None)
             if path == "/api/internal/document-file" and document_file is not None:
                 return document_file(body)
             return None
         if path == "/api/internal/turn-context":
-            return 200, office.turn_context()
+            return 200, fixture_law.with_law(office.turn_context(), office.current)
         if path == "/api/internal/cross-project/search":
             return 200, office.search(body)
         if path == "/api/internal/cross-project/projects":

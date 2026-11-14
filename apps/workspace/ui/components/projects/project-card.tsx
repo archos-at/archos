@@ -4,7 +4,7 @@
  * Project card, styled after the click-dummy's Projektübersicht (spec §1/§3):
  * an outer subtle-surface card whose upper part is a raised "header card"
  * (rounded bottom, subtle divider shadow) carrying the project name, status
- * chip and summary line; below it a footer strip with the activity timestamp
+ * chip and location line; below it a footer strip with the activity timestamp
  * and a shortcut to the project's Übersicht.
  *
  * THE card for "a project, listed" — the resume rail on projects-home and any
@@ -25,8 +25,9 @@ import type { Project } from '@/lib/db/schema/projects'
 import {
   ProjectActivity,
   ProjectOpenLink,
+  ProjectMailWaiting,
   ProjectOverviewLink,
-  ProjectSummaryLine,
+  ProjectLocationLine,
 } from './project-atoms'
 import { ProjectStatusMark } from './project-status'
 
@@ -40,11 +41,16 @@ interface ProjectCardProps {
    * under the neutral label (see `ProjectActivity`).
    */
   activityAt?: string
+  /**
+   * Mails waiting in the project's E-Mail-Eingang for the viewer (ADR-0137);
+   * absent or 0 shows nothing. Only a reader who may file the mail gets one.
+   */
+  mailWaiting?: number
 }
 
-export function ProjectCard({ project, docCount = 0, activityAt }: ProjectCardProps): JSX.Element {
+export function ProjectCard({ project, docCount = 0, activityAt, mailWaiting = 0 }: ProjectCardProps): JSX.Element {
   // docCount is accepted for API stability but the card face mirrors the
-  // click-dummy (name · summary · last activity) and does not surface it. The
+  // click-dummy (name · location · last activity) and does not surface it. The
   // dense list row does, where there is a column for it.
   void docCount
 
@@ -55,10 +61,10 @@ export function ProjectCard({ project, docCount = 0, activityAt }: ProjectCardPr
     <RaisedCard interactive>
       <RaisedCardBody>
         <div className="flex items-center justify-between gap-2.5">
-          {/* `text-sm font-semibold` is the ramp's card/subsection title — and
+          {/* `text-sm font-medium` is the ramp's card/subsection title — and
               it is what makes the rail outrank the list typographically rather
               than only by shape, since the row's name is `font-medium`. */}
-          <h3 className="min-w-0 text-sm font-semibold">
+          <h3 className="min-w-0 text-sm font-medium">
             <ProjectOpenLink project={project} />
           </h3>
           {/* Quiet while active, like the row: the rail holds active projects, so
@@ -66,13 +72,14 @@ export function ProjectCard({ project, docCount = 0, activityAt }: ProjectCardPr
           <ProjectStatusMark project={project} size="md" />
         </div>
 
-        <ProjectSummaryLine project={project} className="mt-0.5" />
+        <ProjectLocationLine project={project} className="mt-0.5" />
       </RaisedCardBody>
 
       {/* Footer tab on the tray: activity · time · Übersicht. */}
       <RaisedCardFooter>
         <ProjectActivity project={project} activityAt={activityAt} compact />
-        <ProjectOverviewLink project={project} showLabel className="-mr-2 ml-auto" />
+        <ProjectMailWaiting project={project} count={mailWaiting} className="ml-auto" />
+        <ProjectOverviewLink project={project} showLabel className={mailWaiting > 0 ? '-mr-2' : '-mr-2 ml-auto'} />
       </RaisedCardFooter>
     </RaisedCard>
   )

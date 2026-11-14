@@ -295,8 +295,6 @@ export const projects: typeof en.projects = {
     },
   },
   card: {
-    summaryFallback:
-      'Arbeitsbereich des Planungsbüros. Fügen Sie Dokumente und ein Briefing hinzu, damit {productName} aus diesem Projekt arbeiten kann.',
     status: {
       active: 'Aktiv',
       paused: 'Ruhend',
@@ -311,6 +309,8 @@ export const projects: typeof en.projects = {
     open: '{name} öffnen',
     overview: 'Übersicht',
     overviewAria: 'Übersicht von {name} öffnen',
+    mailWaiting: '{count, plural, one {# E-Mail wartet} other {# E-Mails warten}}',
+    mailWaitingAria: '{count, plural, one {# E-Mail wartet in {name} auf Ablage} other {# E-Mails warten in {name} auf Ablage}}',
   },
   officeShelfCard: {
     title: 'Büroablage',
@@ -349,6 +349,26 @@ export const projects: typeof en.projects = {
       searching: 'Suche läuft…',
       suggestions: 'Adressvorschläge',
       keepTyped: 'Oder einfach so lassen: {productName} übernimmt die Adresse, wie Sie sie tippen.',
+      attribution: '© OpenStreetMap-Mitwirkende',
+    },
+    site: {
+      countryLabel: 'Staat',
+      federalStateLabel: 'Bundesland',
+      unset: 'Nicht angegeben',
+      fromPostalCode: 'Aus der Postleitzahl',
+      help: 'Der Standort entscheidet, welches Baurecht gilt. Leer gelassen schlägt die Postleitzahl einer österreichischen Adresse das Bundesland vor; Sie bestätigen es in der Erfassung.',
+      country: { at: 'Österreich', de: 'Deutschland', ch: 'Schweiz', other: 'Anderer Staat' },
+      state: {
+        vienna: 'Wien',
+        lower_austria: 'Niederösterreich',
+        upper_austria: 'Oberösterreich',
+        styria: 'Steiermark',
+        carinthia: 'Kärnten',
+        salzburg: 'Salzburg',
+        tyrol: 'Tirol',
+        vorarlberg: 'Vorarlberg',
+        burgenland: 'Burgenland',
+      },
     },
     sameAddress: {
       heading: 'An dieser Adresse gibt es schon ein Projekt',
@@ -374,29 +394,6 @@ export const projects: typeof en.projects = {
     },
     cancel: 'Abbrechen',
     submit: 'Projekt anlegen',
-  },
-  applicableStandards: {
-    heading: 'Anwendbare Standards',
-    description: 'OIB-Richtlinien, die auf Basis des Briefings für dieses Projekt relevant sind.',
-    briefIncomplete:
-      'Vervollständigen Sie das Projekt-Briefing für eine auf dieses Gebäude zugeschnittene Anwendbarkeit.',
-    status: {
-      required: 'Erforderlich',
-      check: 'Prüfen',
-      likely: 'Wahrscheinlich',
-    },
-    askQuestion: 'Welche Anforderungen von {code} ({title}) gelten für dieses Projekt?',
-    source: 'Quelle',
-    sourceAria: 'Quelle für {code} öffnen',
-    sourceTitle: 'OIB-Quelle öffnen',
-    askGrid: '{productName} fragen',
-    askAgentAria: '{productName} zu {code} fragen',
-    askAgentTitle: '{productName} zu dieser Richtlinie fragen',
-    emptyTitle: 'Noch keine anwendbaren Standards',
-    emptyDescription:
-      'Vervollständigen Sie das Projekt-Briefing, damit {productName} ermitteln kann, welche OIB-Richtlinien auf dieses Gebäude zutreffen.',
-    disclaimer:
-      'Nur zur Orientierung — keine Rechtsberatung. Prüfen Sie die Anwendbarkeit anhand der aktuellen Bauordnung und der zuständigen Behörde.',
   },
   dangerZone: {
     deleteSuccess:
@@ -458,6 +455,8 @@ export const projects: typeof en.projects = {
       loadFailed: 'Wir konnten die Projektfragen nicht laden.',
       saveConflict:
         'Dieses Briefing wurde an anderer Stelle geändert. Bitte aktualisieren Sie und versuchen Sie es erneut.',
+      saveClosed: "Dieses Projekt ist abgeschlossen und kann nur gelesen werden. Öffnen Sie es wieder, um das Briefing zu ändern.",
+      saveForbidden: "Sie dürfen das Briefing dieses Projekts nicht ändern. Bitten Sie eine Person mit Bearbeitungsrechten um die Änderung.",
       saveFailed:
         'Wir konnten das Projekt-Briefing nicht speichern. Bitte versuchen Sie es erneut.',
     },
@@ -576,20 +575,6 @@ export const projects: typeof en.projects = {
     },
   },
   memory: {
-    kinds: {
-      decision: 'Entscheidungen',
-      constraint: 'Einschränkungen',
-      open_question: 'Offene Fragen',
-      derived_fact: 'Abgeleitete Fakten',
-      preference: 'Präferenzen',
-    },
-    kindSingular: {
-      decision: 'Entscheidung',
-      constraint: 'Einschränkung',
-      open_question: 'Offene Frage',
-      derived_fact: 'Abgeleiteter Fakt',
-      preference: 'Präferenz',
-    },
     verification: {
       unverified: 'nicht verifiziert',
       source_grounded: 'quellenbasiert',
@@ -624,20 +609,22 @@ export const projects: typeof en.projects = {
     },
     errors: {
       requestFailed: 'Anfrage fehlgeschlagen ({status})',
-      loadFailed: 'Projektspeicher konnte nicht geladen werden',
+      loadFailed: 'Das Projektgedächtnis konnte nicht geladen werden',
       updateFailed: 'Aktualisierung fehlgeschlagen',
       deleteFailed: 'Löschen fehlgeschlagen',
-      addFailed: 'Speichereintrag konnte nicht hinzugefügt werden',
-      title: 'Beim Projektspeicher ist etwas schiefgelaufen',
+      addFailed: 'Die Notiz konnte nicht hinzugefügt werden',
+      title: 'Beim Projektgedächtnis ist etwas schiefgelaufen',
     },
-    added: 'Eintrag hinzugefügt.',
-    updated: 'Eintrag aktualisiert.',
-    deleted: 'Eintrag entfernt.',
-    heading: 'Projektspeicher',
+    added: 'Notiz hinzugefügt.',
+    updated: 'Notiz aktualisiert.',
+    deleted: 'Notiz entfernt.',
+    heading: 'Projektgedächtnis',
     description: 'Was {productName} über dieses Projekt gelernt hat — bearbeitbar.',
-    addMemory: 'Eintrag hinzufügen',
-    kindAria: 'Art des Eintrags',
-    scopeAria: 'Geltungsbereich des Eintrags',
+    // Wer liest (ADR-0180): die eine Zeile unter der Überschrift.
+    audience: 'Alle Mitglieder dieses Projekts sehen diese Notizen.',
+    addMemory: 'Notiz hinzufügen',
+    kindAria: 'Art der Notiz',
+    scopeAria: 'Geltungsbereich der Notiz',
     scopeProject: 'Dieses Projekt',
     scopeOrganization: 'Alle meine Projekte',
     addPlaceholder: 'Eine prägnante, in sich geschlossene Erkenntnis zu diesem Projekt…',
@@ -647,7 +634,7 @@ export const projects: typeof en.projects = {
     emptyDescription:
       '{productName} hat zu diesem Projekt noch nichts erfasst. Das geschieht, während Sie chatten — oder fügen Sie selbst etwas hinzu.',
     orgWide: 'organisationsweit',
-    confidence: 'Konfidenz {confidence}',
+    confidence: { low: 'Sicherheit: gering', medium: 'Sicherheit: mittel', high: 'Sicherheit: hoch' },
     save: 'Speichern',
     pinned: 'Angeheftet',
     remove: 'Entfernen',
@@ -663,7 +650,7 @@ export const projects: typeof en.projects = {
     edit: 'Bearbeiten',
     editTitle: 'Bearbeiten',
     removeAria: 'Entfernen',
-    removeTitle: 'Aus dem Speicher entfernen',
+    removeTitle: 'Aus dem Projektgedächtnis entfernen',
   },
   overview: {
     workspaceCreated: 'Projekt-Arbeitsbereich · erstellt {date}',

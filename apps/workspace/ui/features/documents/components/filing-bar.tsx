@@ -111,7 +111,7 @@ function FilingBarLine({
           <>
             {decision.error && <SuggestionNote tone="error">{decision.error}</SuggestionNote>}
             <SuggestionButton
-              variant="ghost"
+              variant="secondary"
               loading={decision.busy?.action === 'dismiss'}
               aria-disabled={decision.busy !== null}
               onClick={decision.dismiss}
@@ -120,11 +120,12 @@ function FilingBarLine({
               {t('filing.keep')}
             </SuggestionButton>
             <SuggestionButton
-              variant="outline"
+              variant="secondary"
               loading={decision.busy?.action === 'apply'}
               aria-disabled={decision.busy !== null}
               onClick={decision.apply}
               data-testid="filing-bar-apply"
+              data-attr="files-filing-move"
             >
               {suggestion.isNew ? t('filing.createAndMove') : t('filing.move')}
             </SuggestionButton>

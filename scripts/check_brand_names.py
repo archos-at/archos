@@ -5,8 +5,8 @@
 Why this exists
 ---------------
 
-The product has been called AI-Q, then Grid, now Piloti, and Piloti is about to
-change too. Every rename so far was a code change across thousands of lines,
+The product has been called AI-Q, then Grid, then Piloti, now ARCHOS, and it is
+about to change again. Every rename so far was a code change across thousands of lines,
 because the name sat in identifiers, file names, environment variables, routes
 and resource names. The name belongs in user-facing copy, read from one place,
 so the next rename is a copy change.
@@ -19,7 +19,7 @@ and a baseline (`ci/brand_names_baseline.json`) holding the hits each file had
 when the check arrived.
 
 - A hit is a word of a token (a camelCase, snake_case, kebab-case or dotted
-  name) that is one of the brands: `aiq`, `piloti`, `grid` (``brand_words``).
+  name) that is one of the brands: `aiq`, `archos`, `piloti`, `grid` (``brand_words``).
 - A file's count is its hits in its own name plus, for a code or config file
   (``CONTENT_SUFFIXES``), its hits in the text. A directory is keyed `dir/`
   and counts the hits in its own name, so a new file in an old directory is
@@ -30,17 +30,27 @@ when the check arrived.
 What is not a hit
 -----------------
 
-- The name as a word in prose: the bare token `Piloti` or `Grid` (a comment, a
-  docstring, a string a person reads). That copy is the brand's business, and
-  the place to centralise it is the `productName` constant, not this check.
+- The name as a word in prose: the bare token `Piloti`, `Grid` or `ARCHOS` (a
+  comment, a docstring, a string a person reads, a generated fixture that renders
+  `PRODUCT_NAME` into copy). That copy is the brand's business, and the place to
+  centralise it is the `PRODUCT_NAME` constant; `scripts/check_brand_prose.py`
+  counts it in text, this check does not.
 - `grid` the English word: a bare lowercase `grid`, CSS and Tailwind
   (`grid-cols-2`, `gridTemplateColumns`), and `grid` as the last word, the
   layout noun (`FileGrid`, `document_grid`, `stat-grid`).
 - The repository's own name and URLs (``REPOSITORY``), which only the
-  repository's owners rename.
+  repository's owners rename: `archos-at/archos` and the `archos-at` org
+  (`ghcr.io/archos-at/...`, `github.com/archos-at/...`). The image or repo
+  name after the org is not exempt, so an existing `grid-oib-*` hit stays.
 - The Kubernetes and Compose tier names `aiq-agent` and `aiq-api`
   (``PENDING_INFRA_NAMES``), until the deploy rename (ADR-0145 row 10c) moves
   them in its three operator-applied deploys.
+- The module path on a Python ``from``/``import`` line into the chat agent's
+  package (``IMPORT_PATH``). The package's directory is the identifier, kept on
+  purpose because the checkpointer restores a graph by it, and is counted once
+  under its ``dir/`` key; every import of it is a consequence of that one name.
+  Counted per import, each new test of the package was a new hit only a
+  ``--rebaseline`` could admit. The path anywhere else still counts.
 - History and copy (``EXCLUDED``): ADRs, audits, release notes, migrations,
   the i18n dictionaries and the site's content, published assets, lockfiles,
   and Markdown, whose paths and names follow the code they describe.
@@ -66,8 +76,8 @@ from pathlib import Path
 from pathlib import PurePosixPath
 
 BASELINE = Path("ci/brand_names_baseline.json")
-BRANDS = ("aiq", "piloti", "grid")
-PROSE = {"Piloti", "Grid"}
+BRANDS = ("aiq", "archos", "piloti", "grid")
+PROSE = {"Piloti", "Grid", "ARCHOS", "Archos"}
 CONTENT_SUFFIXES = (
     ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".astro", ".css", ".html", ".hog",
     ".yaml", ".yml", ".json", ".toml", ".sh", ".sql", ".example",
@@ -82,13 +92,16 @@ EXCLUDED = re.compile(
             r"^docs/(adr|audits)/",  # decisions and audits: history, written once
             r"^releasenotes/",  # what shipped, under the name it shipped with
             r"(^|/)migrations/|^apps/workspace/migrations/",  # Alembic and Drizzle history, written once
-            r"(^|/)i18n/dictionaries/|^apps/site/src/(i18n|data)/",  # copy, where the name belongs
+            r"(^|/)i18n/dictionaries/",  # copy, where the name belongs
+            r"^apps/website/src/data/changelog\.json$",  # generated from releasenotes/, excluded above
+            r"^apps/workspace/bff/release-notes/release-notes\.generated\.json$",  # the same, the app's copy
+            r"^packages/brand/signatures/",  # email signatures, generated from identity.json
             r"(^|/)public/",  # published assets: their URLs are public
             r"(^|/)(uv\.lock|bun\.lockb?|package-lock\.json|apm\.lock\.yaml)$",  # rendered from manifests
             r"\.mdx?$",  # prose, which follows the code it names
             r"^ci/[^/]*baseline[^/]*\.json$",  # ratchet baselines: they list paths, not names
             r"^\.github/filters\.yml$",  # CI path filters: they list paths, not names
-            r"^scripts/check_brand_names\.py$|^tests/test_check_brand_names\.py$",  # this check
+            r"^scripts/check_brand_(names|prose)\.py$|^tests/test_check_brand_(names|prose)\.py$",  # these checks
             # The layout test names the old directories it forbids; the import test plants one in a fixture.
             r"^tests/test_(repo_layout|test_imports)\.py$",
             # The one-release fallback that reads the old, prefixed variable names, and its tests.
@@ -97,6 +110,10 @@ EXCLUDED = re.compile(
             r"^deploy/pulumi/src/names\.ts$",
             # The one-release fallback that reads the old x-grid-* header names, and its tests.
             r"^apps/workspace/bff/http/legacy-header-names\.|^apps/agent-host/src/agent_host/legacy_headers\.py$",
+            # The brand's one file, where the name is meant to live, and the copies a sync script writes from it
+            # (apps/*/**/identity.json, and the agent's beside agent.common.brand). The product is renamed by
+            # editing that file, so it is not a code identifier.
+            r"^packages/brand/identity\.json$|^apps/[^/]+/(.*/)?identity\.json$|^packages/agent/src/agent/common/identity\.json$",
             r"^tests/test_legacy_headers\.py$",
             # The legacy Postgres rename (database and role names): it names the old names by design.
             r"^deploy/postgres/rename-legacy-names\.sh$|^deploy/pulumi/src/data/postgres-rename\.ts$",
@@ -108,17 +125,23 @@ EXCLUDED = re.compile(
             r"^scripts/rls-test-db\.sh$",
             # The one release the BFF also sends the mode header under its old name, beside `x-chat-mode`.
             r"^apps/workspace/bff/turns/headless-mode\.ts$",
+            # The website's redirects from old public addresses, which keep the spelling they were published under.
+            r"^apps/website/redirects\.mjs$",
         )
     )
 )
 
 URL = re.compile(r"\b(?:https?|git|ssh)://\S+|\bgit@[\w.-]+:\S+")
-HOST = re.compile(r"\.(?:at|ai|app|com|de|dev|eu|io|net|org)$")  # a host name, or an email address's
+# A host name, or an email address's. `.tech` is the brand's own domain (identity.json's "domain").
+HOST = re.compile(r"\.(?:at|ai|app|com|de|dev|eu|io|net|org|tech)$")
 # The Kubernetes and Compose tier names `aiq-agent` and `aiq-api` are not
 # counted: renaming them recreates resources and an operator applies it (ADR-0145
 # row 10c). Delete this set with that rename.
 PENDING_INFRA_NAMES = re.compile(r"(?<![A-Za-z0-9])(?:aiq-agent|aiq-api)(?![A-Za-z0-9])")
-REPOSITORY = re.compile(r"\bgrid-check/grid-oib-agent\b|\bgrid-oib-agent\b|\bgrid-check\b", re.IGNORECASE)
+REPOSITORY = re.compile(
+    r"\bgrid-check/grid-oib-agent\b|\bgrid-oib-agent\b|\bgrid-check\b|(?<![\w.-])archos-at(?:/archos(?![\w-]))?(?![\w-])",
+    re.IGNORECASE,
+)
 BRAND = re.compile("|".join(BRANDS), re.IGNORECASE)
 TOKEN_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-")
 WORD = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
@@ -166,12 +189,34 @@ def branded_tokens(text: str) -> list[str]:
     return tokens
 
 
+#: The module path of a Python import into the chat agent's package (see "What is not a hit").
+IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
+
+
+def _without_exempt_names(text: str) -> str:
+    """``text`` with URLs, the repository's own name and the pending infra names blanked.
+
+    Each substitution runs only where a plain substring says it can match: the
+    three regexes over every file were half of this check (2.7s of 5.3,
+    2026-11-10), REPOSITORY alone 1.8s, and most files hold none of them.
+    """
+    if "://" in text or "git@" in text:
+        text = URL.sub(" ", text)
+    lowered = text.lower()
+    if "grid-" in lowered or "archos-at" in lowered:
+        text = REPOSITORY.sub(" ", text)
+    if "aiq-a" in text:
+        text = PENDING_INFRA_NAMES.sub(" ", text)
+    if "agent.agents." in text:
+        text = IMPORT_PATH.sub(r"\1", text)
+    return text
+
+
 def count_text(text: str) -> int:
     """The brand hits in ``text``, URLs and the repository's own name left out."""
     if not BRAND.search(text):
         return 0
-    text = PENDING_INFRA_NAMES.sub(" ", REPOSITORY.sub(" ", URL.sub(" ", text)))
-    return sum(len(brand_words(token)) for token in branded_tokens(text))
+    return sum(len(brand_words(token)) for token in branded_tokens(_without_exempt_names(text)))
 
 
 def is_content(path: str) -> bool:

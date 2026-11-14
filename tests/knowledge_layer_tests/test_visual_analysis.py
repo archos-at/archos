@@ -15,9 +15,9 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import visual_analysis as va
-from knowledge_layer.llamaindex import visual_domains as vd
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import visual_analysis as va
+from knowledge_layer.ingest import visual_domains as vd
 
 
 @pytest.fixture
@@ -362,7 +362,7 @@ class TestParsing:
         import logging
 
         segments = [{"domain": "general", "segment_type": "photo", "summary": f"p{i}"} for i in range(15)]
-        with caplog.at_level(logging.WARNING, logger="knowledge_layer.llamaindex.visual_analysis"):
+        with caplog.at_level(logging.WARNING, logger="knowledge_layer.ingest.visual_analysis"):
             analysis = va.parse_visual_analysis(_reply(segments), registry)
         assert analysis is not None
         assert len(analysis["segments"]) == va._MAX_SEGMENTS
@@ -440,6 +440,33 @@ class TestSegmentPayloads:
         assert data["registry"] == registry.fingerprint
         assert data["segment"]["domain"] == "general"
         assert data["document"]["title"] == "Wohnbau Nord"
+
+    def test_a_chunks_drawing_data_is_what_the_dossier_lifts_facts_from(self, registry):
+        # The contract between the two halves: the chunk payload the ingest stores and
+        # the dossier lift that reads it back (``adapter._reading_of``).
+        from agent.knowledge.dossier import lifted_drawing_facts
+
+        reply = _reply(
+            [
+                {
+                    "domain": "architecture",
+                    "segment_type": "section",
+                    "summary": "Schnitt A-A.",
+                    "quantities": [
+                        {
+                            "object": "Wohnen",
+                            "property": "lichte Raumhöhe",
+                            "value": "2,60",
+                            "unit": "m",
+                            "source": "text",
+                        }
+                    ],
+                }
+            ]
+        )
+        payloads = va.segment_payloads(va.parse_visual_analysis(reply, registry), registry)
+        facts = lifted_drawing_facts([(1, json.loads(payload["drawing_data"])) for payload in payloads])
+        assert [(fact["key"], fact["value"]) for fact in facts] == [("room_height", "2,60")]
 
 
 def _two_floor_plans_reply() -> str:
@@ -560,7 +587,7 @@ class TestOneAnalysisForEverySource:
         assert "Floor plan — EG (scale 1:100)" in caption
 
     def test_embedded_raster_and_rendered_page_run_the_same_analyser(self, monkeypatch, registry):
-        from knowledge_layer.llamaindex import processing
+        from knowledge_layer.ingest import processing
 
         seen: list[bytes] = []
 
@@ -589,7 +616,7 @@ class TestOneAnalysisForEverySource:
         assert pages[0]["fields"]["analysis"] == images[0][0]["fields"]["analysis"]
 
     def test_an_embedded_raster_yields_per_segment_chunks(self, monkeypatch, registry):
-        from knowledge_layer.llamaindex import processing
+        from knowledge_layer.ingest import processing
 
         monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", self._fields(registry)))
         record = {

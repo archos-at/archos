@@ -46,9 +46,12 @@
  *   properties, not event properties ("only admins of this office", "only
  *   English"). No email, no name: pending the owner's explicit permission. `person_profiles:
  *   'identified_only'` means a signed-out visitor never creates a person.
- * - **Tenant context travels as properties, not groups.** PostHog group
- *   analytics is a paid add-on, billed on every identified event once
- *   subscribed, so `posthog.group()` is deliberately not used.
+ * - **Tenant context travels as properties and as a group.** The properties
+ *   above stay (surveys target person properties), and the office is also the
+ *   `organization` group (`posthog.group('organization', id, { name })`), so
+ *   per-office funnels and retention need no SQL join. Server events send the
+ *   same group in `$groups`. `release` (the deployed commit) is registered at
+ *   init, and again after every `reset()`, which clears super properties.
  * - **Autocapture sees words.** Element text and attributes are captured so a
  *   click reads "Export" rather than "button.btn-3". Security exceptions are not
  *   up for debate and live in two places: elements carrying `ph-no-capture`
@@ -106,6 +109,10 @@ type PostHogProperties = Record<string, string | number | boolean | null | undef
  * `document_opened` and `ifc_model_opened` are the three ways a reader goes from
  * an answer to its evidence.
  *
+ * `whats_new_shown`, `whats_new_dismissed`, `whats_new_opened`, `whats_new_opted_out` and
+ * `whats_new_opted_in` are the weekly "Neu diese Woche" notice's (`features/whats-new`,
+ * ADR-0156): the week it showed, how it was closed, and the person's switch for it.
+ *
  * Properties are non-identifying by rule: enums, counts, booleans, ids of our
  * own rows. Never free text, never file names, never an address.
  */
@@ -145,6 +152,17 @@ export type PostHogEvent =
   | 'usage_notice_dismissed'
   | 'viewer_action_outcome'
   | 'viewer_actions_auto_changed'
+  | 'whats_new_shown'
+  | 'whats_new_dismissed'
+  | 'whats_new_opened'
+  | 'whats_new_opted_out'
+  | 'whats_new_opted_in'
+  // The E-Mail-Eingang (ADR-0137): ids, codes and counts only, never a sender, subject, name or address.
+  | 'inbound_mail_details_opened'
+  | 'inbound_mail_filed_as_suggested'
+  | 'inbound_mail_filed_outcome_opened'
+  | 'inbound_mail_address_copied'
+  | 'inbound_mail_address_contact_saved'
 
 let initialized = false
 
@@ -293,7 +311,20 @@ export interface IdentityClient {
   get_distinct_id: () => string
   reset: () => void
   identify: (distinctId: string) => void
+  register?: (properties: Record<string, string>) => void
 }
+
+/** The deployed commit, kept so a `reset()` can put it back. */
+let releaseTag = ''
+
+/** Stamp `release` on every following event. */
+export const registerRelease = (client: Pick<IdentityClient, 'register'>, release: string): void => {
+  releaseTag = release
+  if (release) client.register?.({ release })
+}
+
+/** The PostHog group type of an office; the server sends the same one. */
+export const ORGANIZATION_GROUP = 'organization'
 
 /**
  * Make the SDK's person the one the server says is signed in.
@@ -317,10 +348,16 @@ export const adoptServerIdentity = (client: IdentityClient, distinctId: string):
  *
  * `identity` is the server-known session (signed-out visitors pass none): it
  * becomes `bootstrap`, so the first pageview already belongs to the person.
+ *
+ * `appHostname` is the app's own host: requests to it carry PostHog's session
+ * header, which the BFF puts on its request span so a trace in PostHog Tracing
+ * opens beside its replay (`bff/api/trace-session.ts`). Only the app's own
+ * host, so no third party ever receives the session or distinct id.
  */
 export const buildPosthogInitOptions = (
   config: PostHogConfig,
-  identity?: PostHogIdentity | null
+  identity?: PostHogIdentity | null,
+  appHostname?: string
 ): Partial<PostHogSdkConfig> => ({
   api_host: config.proxy ? POSTHOG_PROXY_PATH : config.host,
   // With a path as `api_host` the SDK cannot derive the app host any more; the
@@ -330,15 +367,15 @@ export const buildPosthogInitOptions = (
   persistence: 'localStorage+cookie',
   cross_subdomain_cookie: true,
   person_profiles: 'identified_only',
-  ...(identity
-    ? {
-        bootstrap: { distinctID: identity.distinctId, isIdentifiedID: true },
-        loaded: (client: IdentityClient) => adoptServerIdentity(client, identity.distinctId),
-      }
-    : {}),
+  ...(identity ? { bootstrap: { distinctID: identity.distinctId, isIdentifiedID: true } } : {}),
+  // After the identity is adopted, because adopting may `reset()`, which clears super properties.
+  loaded: (client: IdentityClient) => {
+    if (identity) adoptServerIdentity(client, identity.distinctId)
+    registerRelease(client, config.release ?? '')
+  },
   capture_pageview: 'history_change',
   capture_heatmaps: true,
-  capture_performance: true,
+  capture_performance: { web_vitals: true, web_vitals_attribution: ['CLS', 'INP', 'LCP'], network_timing: true },
   capture_dead_clicks: true,
   // The SDK's own URL masking: query values named here become `<masked>` in
   // `$current_url`, `$referrer`, the campaign and `$initial_*` person properties,
@@ -357,6 +394,7 @@ export const buildPosthogInitOptions = (
   disable_session_recording: !config.sessionReplay,
   enable_recording_console_log: false,
   session_recording: buildSessionRecordingOptions(config.replaySampleRate),
+  ...(appHostname ? { tracing_headers: [appHostname] } : {}),
   debug: process.env.NODE_ENV === 'development',
 })
 
@@ -368,7 +406,7 @@ export const buildPosthogInitOptions = (
 export const initPosthogClient = (config: PostHogConfig, identity?: PostHogIdentity | null): void => {
   if (initialized || typeof window === 'undefined') return
   if (!config.host || !config.projectToken) return
-  posthog.init(config.projectToken, buildPosthogInitOptions(config, identity))
+  posthog.init(config.projectToken, buildPosthogInitOptions(config, identity, window.location.hostname))
   initialized = true
 }
 
@@ -442,6 +480,17 @@ export const registerPosthogContext = (context: PostHogContext): void => {
   }
   if (Object.keys(present).length > 0) posthog.register(present)
   posthog.setPersonProperties(person)
+  // The office as a group: every following event carries `$groups`, and the
+  // group profile gets its name. Dropped with the organization on a switch.
+  if (context.organizationId) {
+    posthog.group(
+      ORGANIZATION_GROUP,
+      context.organizationId,
+      context.organizationName ? { name: context.organizationName } : undefined
+    )
+  } else {
+    posthog.resetGroups()
+  }
 }
 
 /**
@@ -470,6 +519,7 @@ export const isPosthogOptedOut = (): boolean => {
 export const resetPosthog = (): void => {
   if (!initialized) return
   posthog.reset()
+  registerRelease(posthog, releaseTag)
 }
 
 const SESSION_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

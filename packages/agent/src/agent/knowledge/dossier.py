@@ -35,6 +35,8 @@ from datetime import date
 from typing import Any
 from typing import Literal
 
+from openai import ContentFilterFinishReasonError
+from openai import LengthFinishReasonError
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
@@ -113,8 +115,14 @@ MAX_DIGEST_CHARS = 16_000
 MIN_PAGE_CHARS = 160
 
 #: Output budget of one dossier. The summary model it runs on is capped at one
-#: sentence (``summary_llm.max_tokens``), and a dossier is a JSON object.
-MAX_OUTPUT_TOKENS = 3000
+#: sentence (``summary_llm.max_tokens``), and a dossier is a JSON object. The
+#: model reasons even at ``reasoning_effort: none`` (its reasoning cannot be
+#: switched off, ``llm_factory._REASONING_MANDATORY``), and reasoning tokens are
+#: spent from this same budget: 3000 ran out mid-reasoning on a 40-page document
+#: ("the length limit was reached"). Sized like the permit extraction on the same
+#: model (``permit_extraction.MAX_OUTPUT_TOKENS``); a clipped reply is retried once
+#: with the budget doubled (:func:`_invoke_with_length_retry`).
+MAX_OUTPUT_TOKENS = 8000
 
 #: What each document type is, as the model reads it: the German name an office uses first.
 _TYPE_GUIDE = {
@@ -282,6 +290,11 @@ def dossier_record(reply: DossierReply) -> dict[str, Any]:
     }
 
 
+def _misfit(exc: ValidationError) -> str:
+    """Where a reply does not fit, as field paths and error kinds only: never the document's words."""
+    return "; ".join(f"{'.'.join(str(part) for part in error['loc'])} ({error['type']})" for error in exc.errors()[:6])
+
+
 def parse_dossier(raw: Any) -> dict[str, Any] | None:
     """A reply (a JSON object, or its text) as the stored record, or ``None`` when it does not fit. Pure."""
     from agent.common.json_utils import extract_json
@@ -292,7 +305,7 @@ def parse_dossier(raw: Any) -> dict[str, Any] | None:
     try:
         return dossier_record(DossierReply.model_validate(parsed))
     except ValidationError as exc:
-        logger.warning("Dossier reply does not fit the schema (%d errors)", exc.error_count())
+        logger.warning("Dossier reply does not fit the schema (%d errors): %s", exc.error_count(), _misfit(exc))
         return None
 
 
@@ -347,27 +360,61 @@ def write_dossier(digest: str, llm: Any, *, file_name: str) -> dict[str, Any] | 
     from langchain_core.messages import HumanMessage
     from langchain_core.messages import SystemMessage
 
-    from agent.common.llm_factory import strict_json_response_format
     from agent.common.message_utils import content_to_text
     from agent.knowledge.permit_extraction import llm_model_name
     from agent.observability.direct_trace import observed_generation
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": digest}]
     try:
-        structured = llm.bind(max_tokens=MAX_OUTPUT_TOKENS, response_format=strict_json_response_format(DossierReply))
         with observed_generation(
             GENERATION_NAME,
             model=llm_model_name(llm),
             messages=messages,
             metadata={"file_name": file_name, "digest_chars": len(digest), "version": DOSSIER_VERSION},
         ) as generation:
-            response = structured.invoke([SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=digest)])
+            response = _invoke_with_length_retry(
+                llm, [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=digest)], file_name
+            )
             text = content_to_text(getattr(response, "content", response))
             generation.finish({"choices": [{"message": {"content": text}}], "usage": _usage(response)})
         return parse_dossier(text)
-    except Exception as exc:  # noqa: BLE001 - the dossier is an annotation; it never fails an ingest
-        logger.warning("Dossier for %s failed: %s", file_name, exc)
+    except ContentFilterFinishReasonError:
+        # The provider's filter refused this digest; the same digest is refused again, so no retry.
+        logger.warning(
+            "Dossier for %s not written: the provider's content filter rejected the request "
+            "(ContentFilterFinishReasonError); the document is ingested without a dossier",
+            file_name,
+        )
         return None
+    except Exception as exc:  # noqa: BLE001 - the dossier is an annotation; it never fails an ingest
+        logger.warning("Dossier for %s failed: %s: %s", file_name, type(exc).__name__, exc)
+        return None
+
+
+def _invoke_once(llm: Any, messages: list[Any], max_tokens: int) -> Any:
+    from agent.common.llm_factory import strict_json_response_format
+
+    structured = llm.bind(max_tokens=max_tokens, response_format=strict_json_response_format(DossierReply))
+    return structured.invoke(messages)
+
+
+def _invoke_with_length_retry(llm: Any, messages: list[Any], file_name: str) -> Any:
+    """One strict call; a reply the output budget clipped is asked again once with the budget doubled.
+
+    Mirrors the VLM's truncation retry (``llamaindex.adapter._vlm_chat_create``):
+    a clipped structured reply is unusable, and one more attempt with room is cheap next to
+    losing the dossier. A second clip raises and the caller fails open.
+    """
+    try:
+        return _invoke_once(llm, messages, MAX_OUTPUT_TOKENS)
+    except LengthFinishReasonError:
+        logger.warning(
+            "Dossier for %s ran out of output tokens at %d; retrying with %d",
+            file_name,
+            MAX_OUTPUT_TOKENS,
+            MAX_OUTPUT_TOKENS * 2,
+        )
+    return _invoke_once(llm, messages, MAX_OUTPUT_TOKENS * 2)
 
 
 def _usage(response: Any) -> dict[str, int]:
@@ -393,7 +440,7 @@ def lifted_drawing_facts(analyses: Iterable[tuple[int | None, dict[str, Any]]]) 
     """
     lifted: list[dict[str, Any]] = []
     for page, analysis in analyses:
-        for segment in (analysis or {}).get("segments") or []:
+        for segment in _segments_of(analysis):
             for quantity in segment.get("quantities") or []:
                 # Only what is printed on the sheet: a value the model inferred is not a statement.
                 if quantity.get("source") != "text":
@@ -411,6 +458,23 @@ def lifted_drawing_facts(analyses: Iterable[tuple[int | None, dict[str, Any]]]) 
                         }
                     )
     return lifted
+
+
+def _segments_of(analysis: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The segments of one analysis, in either shape it arrives in.
+
+    A whole reply holds ``segments``; a chunk's ``drawing_data`` holds the ONE
+    ``segment`` it was cut from (``visual_analysis.segment_payloads``), which is
+    the shape the ingest hands this module. Reading only ``segments`` lifted
+    nothing from any real ingest.
+    """
+    if not analysis:
+        return []
+    segments = analysis.get("segments")
+    if isinstance(segments, list):
+        return [segment for segment in segments if isinstance(segment, dict)]
+    segment = analysis.get("segment")
+    return [segment] if isinstance(segment, dict) else []
 
 
 _QUANTITY_KEYS = (

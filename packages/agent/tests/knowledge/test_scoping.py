@@ -5,6 +5,8 @@ import json
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+from knowledge_layer.search import scope as scope_module
+
 from agent.common.source_kinds import Shelf
 from agent.knowledge.scoping import ScopedCollection
 from agent.knowledge.scoping import _base64url_decode
@@ -396,7 +398,7 @@ class TestGetCollectionScopeFromContextOr:
             result = get_collection_scope_from_context_or(None, None)
             assert result == scope
 
-    def test_context_empty_list_falls_back(self):
+    def test_a_request_with_an_empty_scope_falls_back_without_the_base(self):
         from agent.knowledge.scoping import get_collection_scope_from_context_or
 
         encoded = base64.urlsafe_b64encode(json.dumps([]).encode()).decode()
@@ -411,13 +413,19 @@ class TestGetCollectionScopeFromContextOr:
 
         with (
             patch("agent.knowledge.scoping.Context.get", return_value=ctx),
-            patch(
-                "knowledge_layer.search_scope.resolve_scoped_collections",
+            # The mock answers every header with the scope; no project profile rides this turn.
+            patch("agent.project_context.get_profile_context_from_context", return_value=None),
+            patch.object(
+                scope_module,
+                "resolve_scoped_collections",
                 return_value=[ScopedCollection("oib_knowledge", Shelf.BASE)],
             ),
         ):
             result = get_collection_scope_from_context_or(mock_config, None)
-            assert result == ["oib_knowledge"]
+            # The mock answers every header, so this is a request whose signed scope is empty: it names no
+            # countries, reads no base corpus, and the legacy fallback no longer lists the base collection
+            # (the same as a signed ``countries: []``). A read of no request keeps it, see the next test.
+            assert result == []
 
     def test_missing_header_falls_back(self):
         from agent.knowledge.scoping import get_collection_scope_from_context_or
@@ -433,8 +441,9 @@ class TestGetCollectionScopeFromContextOr:
 
         with (
             patch("agent.knowledge.scoping.Context.get", return_value=ctx),
-            patch(
-                "knowledge_layer.search_scope.resolve_scoped_collections",
+            patch.object(
+                scope_module,
+                "resolve_scoped_collections",
                 return_value=[
                     ScopedCollection("oib_knowledge", Shelf.BASE),
                     ScopedCollection("s_abc", Shelf.SESSION),

@@ -1,4 +1,4 @@
-"""Tests for the OpenRouter cross-encoder reranker (``knowledge_layer.cross_encoder``).
+"""Tests for the OpenRouter cross-encoder reranker (``knowledge_layer.search.cross_encoder``).
 
 All offline: ``httpx.MockTransport`` stands in for the provider, so the request
 body contract and the documented example payload shape are pinned without
@@ -13,9 +13,9 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from knowledge_layer import cross_encoder as ce
-from knowledge_layer.cross_encoder import CrossEncoderReranker
-from knowledge_layer.cross_encoder import resolve_cross_encoder
+from knowledge_layer.search import CrossEncoderReranker
+from knowledge_layer.search import cross_encoder as ce
+from knowledge_layer.search import resolve_cross_encoder
 
 
 @pytest.fixture(autouse=True)
@@ -143,7 +143,7 @@ async def test_without_the_zdr_seam_the_rerank_is_skipped_not_sent_unpinned(monk
 
 def test_the_default_reranker_is_one_with_a_zdr_endpoint(monkeypatch) -> None:
     """Every rerank is pinned, so a default without a ZDR endpoint would refuse every call."""
-    from knowledge_layer import cross_encoder
+    from knowledge_layer.search import cross_encoder
 
     monkeypatch.setattr(cross_encoder, "DEFAULT_MODEL", "")
     assert cross_encoder.CrossEncoderReranker(api_key="k").model == "qwen/qwen3-reranker-8b"
@@ -396,3 +396,83 @@ async def test_an_org_with_no_key_of_its_own_still_reranks(monkeypatch, tracker)
     await _reranker(api_key="platform-key").rerank("Fluchtweg", [_chunk("a")])  # pragma: allowlist secret
 
     assert seen[0].headers["Authorization"] == "Bearer platform-key"
+
+
+def _licensed(chunk_id: str, content: str, *, attested: bool) -> SimpleNamespace:
+    metadata = {"licence_class": "licensed", "ai_processing_attested": attested}
+    return SimpleNamespace(chunk_id=chunk_id, content=content, metadata=metadata)
+
+
+def _byok(monkeypatch) -> None:
+    from agent.common import credential_resolution
+
+    monkeypatch.setattr(ce, "_organization_id_in_scope", lambda: "org_byok")
+    monkeypatch.setattr(
+        credential_resolution,
+        "resolve_llm_credential",
+        lambda **_kw: credential_resolution.ResolvedCredential(
+            api_key="org-own-key",  # pragma: allowlist secret
+            base_url="https://byok.example/api/v1",
+            model="m",
+            source="byok",
+        ),
+    )
+
+
+async def test_licensed_text_never_goes_to_an_org_s_own_reranker(monkeypatch, tracker) -> None:
+    """ADR-0164: licensed text reaches zero-retention endpoints through OpenRouter only. A BYOK reranker is
+    outside those terms, so a search holding licensed text keeps its retrieval order and sends nothing."""
+    from agent.common.licensed_text import begin_licensed_capture
+    from agent.common.licensed_text import end_licensed_capture
+
+    seen = _serve(monkeypatch, _ranked)
+    _byok(monkeypatch)
+
+    token = begin_licensed_capture(text_allowed=True)
+    try:
+        chunks = [_chunk("a"), _licensed("b", "Mindesthöhe 111 cm", attested=True)]
+        ranked = await _reranker().rerank("Brüstung", chunks)
+    finally:
+        end_licensed_capture(token)
+
+    assert ranked is None and seen == []
+    await _reranker().rerank("Brüstung", [_chunk("a")])
+    assert len(seen) == 1, "positive control: the same org reranks text that is not licensed"
+
+
+async def test_an_unattested_licensed_chunk_is_sent_to_no_reranker_at_all(monkeypatch, tracker) -> None:
+    seen = _serve(monkeypatch, _ranked)
+    monkeypatch.setattr(ce, "_organization_id_in_scope", lambda: None)
+
+    await _reranker().rerank(
+        "Brüstung", [_chunk("a", "Geländer"), _licensed("b", "Mindesthöhe 111 cm", attested=False)]
+    )
+
+    sent = seen[0].content.decode()
+    assert "Mindesthöhe 111 cm" not in sent and "Geländer" in sent
+
+
+async def test_an_attested_licensed_chunk_is_sent_empty_on_a_turn_that_may_read_no_licensed_text(
+    monkeypatch, tracker
+) -> None:
+    """The flag off (or no turn) means listed only: no reranker reads the passage, attested or not."""
+    from agent.common.licensed_text import begin_licensed_capture
+    from agent.common.licensed_text import end_licensed_capture
+
+    seen = _serve(monkeypatch, _ranked)
+    monkeypatch.setattr(ce, "_organization_id_in_scope", lambda: None)
+    chunks = [_chunk("a", "Geländer"), _licensed("b", "Mindesthöhe 111 cm", attested=True)]
+
+    token = begin_licensed_capture(text_allowed=False)
+    try:
+        await _reranker().rerank("Brüstung", chunks)
+    finally:
+        end_licensed_capture(token)
+    token = begin_licensed_capture(text_allowed=True)
+    try:
+        await _reranker().rerank("Brüstung", chunks)
+    finally:
+        end_licensed_capture(token)
+
+    assert "Mindesthöhe 111 cm" not in seen[0].content.decode()
+    assert "Mindesthöhe 111 cm" in seen[1].content.decode(), "positive control: the flag on, OpenRouter reads it"

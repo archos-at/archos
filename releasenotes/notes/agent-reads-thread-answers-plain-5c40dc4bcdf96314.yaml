@@ -1,0 +1,8 @@
+---
+# area: general
+fixes:
+  - >
+    An agent you connect that reads one of your conversations
+    back now gets each answer as plain text, the same as when it asked the
+    question itself. Before, it saw placeholders such as [[card:1]] where the
+    chat shows a card, and project values as their internal names.

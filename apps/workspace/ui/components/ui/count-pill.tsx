@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 /**
- * CountPill — the small, soft rounded-full micro-badge that carries a count or
+ * CountPill — the small, soft micro-badge that carries a count or
  * ratio ("5 Dokumente", "3/8 erfasst", "7" unread). It is a static,
  * non-interactive label; the shape lives here once so the surfaces that need it
  * cannot drift apart on padding.
@@ -47,7 +47,9 @@ const countPillVariants = cva(
   {
     variants: {
       tone: {
-        muted: 'bg-muted font-medium text-muted-foreground',
+        // Muted ink on the muted fill measured 4.44:1 at 11px (axe, 2026-10-27), under AA's 4.5:1:
+        // the tabs' cure, ink at 70 % (`design-language.md`, „Measured contrasts“).
+        muted: 'bg-muted font-medium text-foreground/70',
         attention: 'bg-primary font-semibold text-primary-foreground',
       },
     },

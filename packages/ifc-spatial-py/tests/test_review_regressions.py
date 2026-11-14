@@ -37,7 +37,7 @@ from ifc_spatial.tools import ToolError
 from ifc_spatial.tools import call
 from ifc_spatial.tools import create_tools
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 STACKED = FIXTURES / "floor-slab-and-window.ifc"
 NO_BODIES = FIXTURES / "house-with-rooms.ifc"

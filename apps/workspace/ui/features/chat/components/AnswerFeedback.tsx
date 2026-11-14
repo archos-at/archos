@@ -113,10 +113,10 @@ export interface AnswerFeedbackProps {
  * and overlapping catchments hand a tap on one to the other.
  */
 const thumbBase = cn(
-  'inline-flex size-6 items-center justify-center rounded-md pointer-coarse:size-11',
-  'text-muted-foreground/70',
+  'inline-flex size-6 items-center justify-center rounded-control pointer-coarse:size-11',
+  'text-muted-foreground',
   PRESSABLE,
-  'hover:bg-accent hover:text-foreground',
+  'hover:bg-hover hover:text-foreground',
   FOCUS_RING
 )
 
@@ -225,7 +225,7 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
         <span
           aria-hidden={verdict !== null || undefined}
           className={cn(
-            'text-muted-foreground/80 group-hover/feedback:text-muted-foreground col-start-1 row-start-1 text-xs',
+            'text-muted-foreground group-hover/feedback:text-muted-foreground col-start-1 row-start-1 text-xs',
             'duration-quick transition-[color,opacity] ease-out motion-reduce:transition-none',
             verdict !== null && 'opacity-0'
           )}
@@ -265,7 +265,7 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
         </p>
       </span>
       <div className="flex items-center gap-1">
-        <button
+        <button data-attr="chat-up"
           type="button"
           onClick={handleUp}
           aria-pressed={verdict === 'up'}
@@ -274,7 +274,7 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
         >
           <ThumbsUp className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
         </button>
-        <button
+        <button data-attr="chat-down"
           type="button"
           onClick={handleDown}
           aria-pressed={verdict === 'down'}
@@ -349,7 +349,7 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
                         // `pointer-coarse:text-base`, which this deliberately does NOT
                         // undo — a field this small still zooms iOS on focus, and a
                         // comment box is exactly where somebody is typing prose.
-                        className="min-h-14 resize-none rounded-lg py-2 text-xs"
+                        className="min-h-14 resize-none rounded-control py-2 text-xs"
                       />
                       <FieldLabel
                         htmlFor={expectedId}
@@ -363,7 +363,7 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
                         onChange={(event) => setExpected(event.target.value)}
                         placeholder={t('feedback.expectedPlaceholder')}
                         maxLength={2000}
-                        className="h-8 rounded-lg text-xs"
+                        className="h-8 rounded-control text-xs"
                       />
                       {/* Full ink when it will do something, 40% when it will not:
                   the difference is a contrast jump, not grey vs. grey. */}

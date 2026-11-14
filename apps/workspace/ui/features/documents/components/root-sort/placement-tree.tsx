@@ -25,6 +25,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { SectionLabel } from '@/components/ui/section-label'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,7 +86,7 @@ export function PlacementTreeView({
   )
 
   return (
-    <div className="border-border overflow-hidden rounded-lg border">
+    <div className="border-border overflow-hidden rounded-surface border">
       <ul
         aria-label={t('rootSort.review.treeLabel')}
         className="max-h-[min(60dvh,32rem)] overflow-y-auto"
@@ -106,9 +107,9 @@ export function PlacementTreeView({
       </ul>
       {!onlyUnsure && tree.stays.length > 0 && (
         <section aria-label={t('rootSort.review.staysLabel')} className="border-border border-t">
-          <h3 className="text-muted-foreground bg-muted/40 px-3 py-2 text-[10.5px] font-medium tracking-wider uppercase">
+          <SectionLabel as="h3" className="bg-muted px-3 py-2">
             {t('rootSort.review.staysLabel')}
-          </h3>
+          </SectionLabel>
           <ul>
             {tree.stays.map((file) => (
               <FileRow
@@ -266,7 +267,7 @@ function FileRow({ file, depth, onToggleFile, onRetarget, targets }: FileRowProp
           {t(file.certainty === 'sure' ? 'rootSort.tree.sure' : 'rootSort.tree.unsure')}
         </Badge>
       )}
-      {file.chosenByPerson && <Badge variant="outline">{t('rootSort.tree.changed')}</Badge>}
+      {file.chosenByPerson && <Badge variant="secondary">{t('rootSort.tree.changed')}</Badge>}
       <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
         {file.reason || (placed || file.chosenByPerson ? '' : t('rootSort.tree.noReason'))}
       </span>

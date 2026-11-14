@@ -317,6 +317,12 @@ client reads leniently:**
   from `parseWireEvent` as `{type: 'UNKNOWN', of, ...envelope}`, its body
   dropped. The fold passes over it, so its `seq` still counts and the turn
   settles; the Herleitung draws nothing for it.
+- A new key inside a known object is the same case: `confidence_check.unavailable_reason`
+  (why the answer check gave no level) reaches an older bundle stripped, and
+  its turn reads as before. Its `cause` is an enum, so the field carries
+  `x-unknown-as-null` (below): a bundle that knows the field reads a cause
+  added later as no reason, and the turn still settles
+  (`test_wire_v2_open_tabs.py`, `wire-v2.spec.ts`).
 
 Changing what a known field may hold is a break. `answer_confidence_version`
 is the worked example: the confidence rule changed (the answer check,
@@ -325,6 +331,12 @@ answer therefore travels as `2`, and the new `confidence_check` tells it apart
 from a stored per-sentence turn; an older bundle strips it and shows the level.
 `packages/agent/tests/common/test_wire_v2_open_tabs.py` checks a checked and an
 unavailable `RUN_FINISHED` against the schema as it stood before.
+
+A server-to-client field whose values grow (`answer_confidence_capped_reason`)
+carries `x-unknown-as-null` in its schema (`json_schema_extra` in `wire_v2.py`; also `confidence_check.unavailable_reason`);
+the generator emits it with `.catch(null)`, so a value the bundle does not know
+reads as absent and the turn settles. A bundle built before the marker still
+refuses the new value once.
 
 So a new field on `TurnResult`, a new step kind, a new `CUSTOM` or a new event
 type needs no client release first. An old tab simply does not show it, and
@@ -445,8 +457,8 @@ where it emits in v2:
 | `emit_documents_waiting` | `turn/inventory.py`, **setup phase**, before waiting on indexing | `load_inventory` is split: `pending_uploads()` returns what is pending, `_run` yields the waiting step, then awaits `wait_for_uploads()` |
 | Skill events (`SELECTION_STEP_NAME`, `skill:<name>`) | `skills/events.py` | `SkillStep` through `emit_step` |
 | Clarification trace row | `agents/piloti/clarify.py:676` | `ClarificationStep` |
-| Decision records (`status:decision:*`) | `common/decisions.py:478`, `packages/knowledge-layer/src/decisions.py:167` | technical `StatusStep` |
-| The Trace-Lanes fan-out, which the UI regex-read out of the agent runtime TOOL_END payload (`## Trace-Lanes` + JSON) | `packages/knowledge-layer/src/trace_lanes.py` `trace_lanes_for_hits`, `read_passage.py`, `ris_adapter/lookup/render.py`, rendered by `common/grounding_block.render_grounding_block` | `render_grounding_block` emits one `SourcesStep` from `block.lanes`, which becomes typed `TraceLane` models rather than a JSON string. That is one producer site for every evidence tool. The `## Trace-Lanes` line in the tool text is left for now; see F2 |
+| Decision records (`status:decision:*`) | `common/decisions.py:478`, `packages/knowledge-layer/src/search/decisions.py:167` | technical `StatusStep` |
+| The Trace-Lanes fan-out, which the UI regex-read out of the agent runtime TOOL_END payload (`## Trace-Lanes` + JSON) | `packages/knowledge-layer/src/search/trace_lanes.py` `trace_lanes_for_hits`, `read_passage/tool.py`, `ris_adapter/lookup/render.py`, rendered by `common/grounding_block.render_grounding_block` | `render_grounding_block` emits one `SourcesStep` from `block.lanes`, which becomes typed `TraceLane` models rather than a JSON string. That is one producer site for every evidence tool. The `## Trace-Lanes` line in the tool text is left for now; see F2 |
 | Tool calls (agent runtime TOOL steps that the executed-steps chips read) | the runtime's LangChain profiler, through the step adaptor | One `AsyncCallbackHandler` (`action_rows.ToolStepCallback`: `on_tool_start/end/error` → `ToolStep`, basename only), added once to the conversation graph's run config. the runtime's profiler still bills and traces through its own handler |
 | Live prose: `_ProseTokenHandler` → `AnswerStreamSink.push/put/retract` (deltas, `Masthead`, `Snapshot`, `Cards`) | `turn/answer_stream.py`, with `common/answer_prose_stream.py` and `agents/piloti/answer_pipeline.LiveAnswer` | The handler writes bodies: `TEXT_MESSAGE_START`, coalesced `_CONTENT` (flushed when 50 ms have passed since the last flush, before any other body, and at `on_llm_end`), `_END` when the `answer` string closes, `STATE_SNAPSHOT` from `LiveAnswer.settle` (still in `to_thread`, where the writer works), `masthead`, one `card`/`card_refused` per card (the tools' cards first, then the envelope's, as today), and `answer_retracted`. `LiveAnswer` and the verifier are unchanged |
 | The terminal `ChatResponseChunk` with its extras on `model_extra`, lifted by name in `websocket_reconnect.py` (`_TRANSPARENCY_EXTRA_FIELDS`, `_SKILLS_EXTRA_FIELDS`, `_PERSISTED_EXTRA_FIELDS`) | `turn/response.py` `build_response`, `conversation_register._answer_chunks` | `build_result(state, cards, message_id) -> TurnResult`, a typed model, and `_run` yields `RunFinishedBody`. The lift tables, the `setattr` loops and `common/nat_converters.py` are deleted. A refusal is `RunFinishedBody(outcome="refused")` |
@@ -549,7 +561,7 @@ same text on both sides. The client stores the same cut (`stopStreaming`,
 `stopTurnView`), so a reload shows what the reader saw when they pressed Stop,
 whichever of the two writes of the row reaches the BFF first (both insert under
 one id and the second no-ops). The rule has one copy per language,
-`TurnTextFold.stopped` and `features/chat/lib/stopped-answer.ts`, and
+`TurnTextFold.stopped` and `bff/turns/stopped-answer.ts`, and
 `contracts/wire/v2/stopped-cases.jsonl` holds both to the same cases. A Stop that
 crosses the finished answer (the reveal runs up to about a second behind the
 wire) finds no turn to cancel: the server has stored the whole answer and
@@ -616,7 +628,7 @@ Expiry sends `interaction_resolved{expired}`, then `RUN_ERROR{interaction_expire
 
 ### e.1 One pure fold
 
-`features/chat/lib/turn-fold.ts` exports `foldTurnEvent(view: TurnView | undefined, event: WireEvent): TurnView`
+`bff/turns/turn-fold.ts` exports `foldTurnEvent(view: TurnView | undefined, event: WireEvent): TurnView`
 and `foldTurnEvents(view, events)`. The fold is pure, it is the only
 interpretation of the wire, and the live socket, the replay after `attach` and
 the spectator stream all use it.
@@ -666,7 +678,11 @@ the auth refresh before each attempt, and `attach` for every open turn on open.
 The socket is not open until the server's `hello` (§a): it sends nothing
 before it, and a socket that stays silent for `HELLO_TIMEOUT_MS` (5 s) or opens
 with anything else fails the attempt; a spent ladder then ends `incompatible`,
-not `failed`. The watchdog declares the socket dead after 3 × `every_ms` of
+not `failed`. The two steps before the hello are bounded too: a preparation
+(auth refresh and socket address) that has not answered in `PREPARE_TIMEOUT_MS`
+(10 s) and a dial that has not opened in `DIAL_TIMEOUT_MS` (15 s) are failed
+attempts like any other and take the ladder; an abandoned preparation's late
+answer opens nothing. The watchdog declares the socket dead after 3 × `every_ms` of
 silence during a running turn, counting only frames it could parse. Close code
 `4426` means reload, and so does a frame this bundle cannot parse after the
 hello: dropping it would leave its turn unable to fold another `seq`. An
@@ -803,7 +819,7 @@ and a reader-order change, nothing more.
 | Producers | One test per producer that goes **through the compiled graph** under `astream` and asserts the body it wrote. The most important: the writer reaches the Piloti inner graph through the real agent runtime function boundary, which `test_stream_writer_reach.py` stands in for with a plain async function. Also: setup steps are yielded, `ToolStepCallback` emits basename only, a `sources` step equals the records' lanes, and prose deltas are coalesced | `packages/agent/tests/turn/`, `…/agents/piloti/`, `…/common/test_turn_status.py`, `…/skills/` |
 | Handler | Auth, binding, rejection codes, cancel authorisation (asker yes, colleague `not_asker`, bus path), HITL round trip and expiry, attach replay and splice with no duplicate or missing seq, stage stamping after the terminal, persistence built from `TurnResult`. A test that builds the app and asserts the runtime's `websocket_endpoint` and `WebSocketMessageHandler` are the runtime's own objects. A ruff `banned-api` for `nat.data_models.api_server` everywhere, and for the internal modules `nat.plugin_api` covers | `apps/agent-host/tests/test_chat_socket.py` |
 | Golden replay | One real turn recorded through the whole backend (a fake LLM with a recorded token stream and the real graph) and compared frame for frame, `ts` excepted, with a committed golden JSONL. Every frame is under 4 KB except `STATE_SNAPSHOT` and `RUN_FINISHED` (under 64 KB), the two that carry the sources | `packages/agent/tests/turn/test_golden_turn.py` |
-| Fold | Every fixture turn folds to the expected `TurnView`. Duplicate seq keeps identity, and a gap is flagged. Snapshot, retraction and terminal replacement. Card before marker. Spectator mid-turn start. The persisted projection round-trips through `sanitizeProvenance` | `features/chat/lib/turn-fold.spec.ts` |
+| Fold | Every fixture turn folds to the expected `TurnView`. Duplicate seq keeps identity, and a gap is flagged. Snapshot, retraction and terminal replacement. Card before marker. Spectator mid-turn start. The persisted projection round-trips through `sanitizeProvenance` | `bff/turns/turn-fold.spec.ts` |
 | Migration | Old stored steps (real rows captured from staging, anonymised) convert to the v2 shape, and the dropped kinds are gone | `message-provenance.spec.ts`; the migration spec for 0097 was retired once 0097 had run in production |
 | Browser | `/dev/stream-socket` (being built now by another engineer) is ported to v2: it replays the fixtures and a recorded long turn through the real socket client, fold and store, and reports frame bytes and main-thread time in `window.__streamSocket` | `app/dev/stream-socket` |
 | Proxy | `ws-teardown.spec.ts`, `ws-frames.spec.ts` (plus a v2 `user_message` case) and the header-stripping spec pass **unchanged** | `src/lib/proxy`, `src/lib/limits` |
@@ -843,7 +859,7 @@ separately. The exit criterion in the definition of done is the measured diff.
 
 **S1 · Backend producers → writer.**
 - **Owns:** `common/turn_status.py`, `skills/events.py`, `common/decisions.py`,
-  `packages/knowledge-layer/src/decisions.py`, `packages/knowledge-layer/src/register.py`
+  `packages/knowledge-layer/src/search/decisions.py`, `packages/knowledge-layer/src/register.py`
   (lanes as models), `common/grounding_block.py`, `turn/inventory.py`,
   `turn/subject_document.py`, and the one-line call sites in
   `agents/piloti/clarify.py`, `agents/deep_researcher/*` and the Python packages under `packages/`
@@ -891,7 +907,7 @@ separately. The exit criterion in the definition of done is the measured diff.
   deleted and the rest are ported.
 
 **S4 · UI transport and fold.**
-- **Owns:** `features/chat/lib/turn-fold.ts` (new), `adapters/api/turn-socket.ts`
+- **Owns:** `bff/turns/turn-fold.ts` (new), `adapters/api/turn-socket.ts`
   (new; replaces `websocket-client.ts`), `adapters/api/schemas.ts`,
   `adapters/api/step-event-schemas.ts` (deleted),
   `features/chat/lib/intermediate-step-parser.ts` (deleted),

@@ -1,5 +1,6 @@
 /** The review operations (ADR-0122). See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for the rules. */
 
+import { quarantineDecisionsSchema } from '@/lib/upload-screening/decisions-wire'
 import { z } from 'zod'
 import {
   createAnnotationRequestSchema,
@@ -26,6 +27,7 @@ import {
 } from '@/lib/annotations/export-request'
 import { projectProtocolQuerySchema } from '@/lib/annotations/project-types'
 import type { AgentOperation } from '../operation'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const documentParams = z.object({
   id: z.string().describe('The document id, from a project document listing or workspace-search.'),
@@ -192,7 +194,7 @@ export const reviewOperations = [
     domain: 'review',
     summary: 'Ask for changes on a version under review',
     description:
-      'Sends a version in review back for rework. `comment` is required; `delegateRevision` hands the rework to Piloti as a task.',
+      'Sends a version in review back for rework. `comment` is required; `delegateRevision` hands the rework to ' + PRODUCT_NAME + ' as a task.',
     method: 'POST',
     path: '/api/documents/[id]/versions/[versionId]/changes',
     params: versionParams,
@@ -217,7 +219,7 @@ export const reviewOperations = [
     domain: 'review',
     summary: 'List the annotations on a document',
     description:
-      'Every annotation on the document with its place, status, assignee and replies, including Piloti’s open proposals. ' +
+      'Every annotation on the document with its place, status, assignee and replies, including ' + PRODUCT_NAME + '’s open proposals. ' +
       'The ids feed annotation-get.',
     method: 'GET',
     path: '/api/documents/[id]/annotations',
@@ -284,7 +286,7 @@ export const reviewOperations = [
     domain: 'review',
     summary: 'Reply in an annotation’s thread',
     description:
-      'Replies in an annotation’s thread; `addressesPiloti` or a Piloti mention asks it to answer. Returns the annotation with its thread.',
+      'Replies in an annotation’s thread; `addressesPiloti` or a mention of ' + PRODUCT_NAME + ' asks it to answer. Returns the annotation with its thread.',
     method: 'POST',
     path: '/api/documents/[id]/annotations/[annotationId]/replies',
     params: annotationParams,
@@ -296,7 +298,7 @@ export const reviewOperations = [
     domain: 'review',
     summary: 'Reword one of your own replies',
     description:
-      'Rewords one’s own reply while the annotation is live and Piloti has not taken it up (else 409). Returns the annotation with its thread.',
+      'Rewords one’s own reply while the annotation is live and ' + PRODUCT_NAME + ' has not taken it up (else 409). Returns the annotation with its thread.',
     method: 'PATCH',
     path: '/api/documents/[id]/annotations/[annotationId]/replies/[replyId]',
     params: replyParams,
@@ -309,7 +311,7 @@ export const reviewOperations = [
     domain: 'review',
     summary: 'Take back one of your own replies',
     description:
-      'Deletes one’s own reply while the annotation is live and Piloti has not taken it up (else 409), permanently.',
+      'Deletes one’s own reply while the annotation is live and ' + PRODUCT_NAME + ' has not taken it up (else 409), permanently.',
     method: 'DELETE',
     path: '/api/documents/[id]/annotations/[annotationId]/replies/[replyId]',
     params: replyParams,
@@ -369,6 +371,24 @@ export const reviewOperations = [
     sensitivity: 'control',
     load: () => import('@/app/api/documents/[id]/quarantine/release/route'),
   },
+  {
+    name: 'quarantine-decide',
+    domain: 'review',
+    summary: 'Allow, delete or recheck several held documents at once',
+    description:
+      'A reviewer decides about up to 50 held documents from quarantine-list in one call: `allow` reads each like any other ' +
+      'upload, `delete` removes each for good, `recheck` screens each again with the rules in force now (a match holds it ' +
+      'again). Every document is checked on its own; the answer is `results`, one `{ id, outcome }` per document, ' +
+      'the outcome one of allowed, rechecking, deleted, changed (someone decided first), not_found, forbidden or failed ' +
+      '(`changed` when someone decided first). The decision cannot be taken back.',
+    method: 'POST',
+    path: '/api/quarantine/decisions',
+    body: quarantineDecisionsSchema,
+    destructive: true,
+    sensitivity: 'control',
+    examples: [{ body: { decision: 'allow', documentIds: ['doc_1', 'doc_2'] } }],
+    load: () => import('@/app/api/quarantine/decisions/route'),
+  },
 
   // ---- Revisions: how one document replaces another ----
   {
@@ -426,7 +446,7 @@ export const reviewOperations = [
       format: z.enum(ANNOTATION_EXPORT_FORMATS).optional().describe('pdf (default), docx or md.'),
       scope: z.enum(ANNOTATION_EXPORT_SCOPES).optional().describe('open (default): what still asks something; all: closed ones too.'),
       revision: z.enum(ANNOTATION_EXPORT_REVISIONS).optional().describe('current (default), or all to include earlier revisions’ closed annotations.'),
-      includeProposals: z.enum(['0', '1']).optional().describe('1 adds Piloti’s untaken proposals under a heading of their own.'),
+      includeProposals: z.enum(['0', '1']).optional().describe('1 adds ' + PRODUCT_NAME + '’s untaken proposals under a heading of their own.'),
     }),
     binaryResponse: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
     load: () => import('@/app/api/documents/[id]/annotations/export/route'),

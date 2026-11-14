@@ -22,12 +22,14 @@ from agent.common import filter_tools_by_sources
 from agent.common import format_user_facing_tool_error
 from agent.common import get_all_tool_refs
 from agent.common import get_checkpointer
+from agent.common import get_disabled_sources_from_context
 from agent.common import get_langchain_llm
 from agent.common import is_verbose
 from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
 from agent.common.image_view_budget import begin_image_view_budget
 from agent.common.image_view_budget import end_image_view_budget
+from agent.common.law_gate import law_sources_withheld
 from agent.common.request_llm_context import RequestLLMContext
 from agent.common.request_llm_context import read_request_llm_context
 from nat.plugin_api import Builder
@@ -356,7 +358,9 @@ def _agent_for_request(
 async def run_deep_research(state: DeepResearchAgentState, lazy: LazyTools) -> DeepResearchAgentState:
     """Run deep research for one request against the resolved tool set."""
     tools, agent = await lazy.get()
-    selected_tools = filter_tools_by_sources(tools, state.data_sources)
+    # A legal database runs only where the run's knowledge context allows its country (ADR-0175).
+    disabled = set(get_disabled_sources_from_context()) | law_sources_withheld()
+    selected_tools = filter_tools_by_sources(tools, state.data_sources, disabled)
     # Read off the loop: each per-org dial can fall back to a blocking BFF call.
     llm_context = await read_request_llm_context()
     active_agent = _agent_for_request(lazy.blueprint, agent, tools, selected_tools, llm_context)

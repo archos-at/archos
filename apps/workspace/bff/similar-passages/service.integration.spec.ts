@@ -42,9 +42,6 @@ vi.mock('@/lib/authz/org-role-permissions', () => ({ rolesHoldPermission: vi.fn(
 vi.mock('@/lib/workos/client', () => ({
   getWorkOS: () => ({
     authorization: {
-      check: vi.fn(async ({ resourceExternalId }: { resourceExternalId?: string }) => ({
-        authorized: resourceExternalId !== undefined && GRANTED.has(resourceExternalId),
-      })),
       // A granted project holds every project permission.
       listEffectivePermissionsByExternalId: vi.fn(async ({ externalId }: { externalId: string }) => ({
         autoPagination: async () => (GRANTED.has(externalId) ? PROJECT_PERMISSION_SPECS.map(({ slug }) => ({ slug })) : []),
@@ -74,6 +71,7 @@ describe('the similar-passages suite is not silently skipped in CI', () => {
 interface BackendCall {
   body: { source: Record<string, unknown>; collections: string[] }
   scope: string[]
+  base?: { collection: string; shelf?: string; countries?: string[] }
 }
 
 describe.skipIf(!url)('similar passages against live Postgres', () => {
@@ -226,8 +224,14 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
         if (!target.endsWith('/v1/collections/similar')) throw new Error(`unexpected fetch ${target}`)
         const headers = new Headers(init?.headers)
         const envelope = headers.get('x-request-context') ?? ''
-        const scope = JSON.parse(Buffer.from(envelope, 'base64url').toString()).collectionScope as string[]
-        calls.push({ body: JSON.parse(String(init?.body)), scope })
+        const entries = JSON.parse(Buffer.from(envelope, 'base64url').toString()).collectionScope as Array<
+          string | { collection: string; shelf?: string; countries?: string[] }
+        >
+        const scope = entries.map((entry) => (typeof entry === 'string' ? entry : entry.collection))
+        const base = entries.find(
+          (entry): entry is { collection: string; shelf?: string; countries?: string[] } => typeof entry !== 'string' && entry.shelf === 'base',
+        )
+        calls.push({ body: JSON.parse(String(init?.body)), scope, base })
         return new Response(
           JSON.stringify({
             origin: 'point',
@@ -346,6 +350,8 @@ describe.skipIf(!url)('similar passages against live Postgres', () => {
 
     expect(calls[0].body.source).toMatchObject({ collection: 'oib_knowledge', file_name: 'OIB-Richtlinie_2.pdf' })
     expect(calls[0].scope).toContain('oib_knowledge')
+    // The corpus is signed as the base entry carrying the office's countries, or the agent tier reads none of it.
+    expect(calls[0].base).toMatchObject({ collection: 'oib_knowledge', shelf: 'base', countries: expect.any(Array) })
     expect(calls[0].body.collections).not.toContain('oib_knowledge')
     // The cited corpus file is not an office document, so the project's own documents may all come back.
     expect(response.groups[0]).toMatchObject({ kind: 'current', documents: [{ filename: 'Brandschutzkonzept.pdf' }] })

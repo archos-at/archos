@@ -78,7 +78,7 @@ Body: { projectId: string, file: File }
 
 1. **Auth check** — `requireAuthorizedSession()` + `requireProjectAccess(session, projectId, 'project:edit')`
 2. **Generate documentId** — `uuidv4()`
-3. **Store in SeaweedFS** — `PutObjectCommand` with key `org/{orgId}/project/{projId}/doc/{docId}/{filename}` (built by `buildStorageKey()` in `s3.ts`). The filename segment goes through `storageKeySegment`: separators are flattened, and a name the pipelines write beside the original (`_render.pdf`, `_thumb.jpg`, `_img`, `_bim`, compared without case) or a dot-only name gets a `_` prefix, so a user file named `_render.pdf` is stored as `__render.pdf` and cannot be mistaken for a derived object. The row keeps the user's filename
+3. **Store in SeaweedFS** — `PutObjectCommand` with key `org/{orgId}/project/{projId}/doc/{docId}/{filename}` (built by `buildStorageKey()` in `s3.ts`). The filename segment goes through `storageKeySegment`: separators are flattened, and a name the pipelines write beside the original (`_render.pdf`, `_thumb.jpg`, `_img`, `_bim`), a prefix the app stages under a project (`mail-imports`, the Outlook import's archive), each compared without case, or a dot-only name gets a `_` prefix, in every segment of the folder path as in the filename, so a user file named `_render.pdf` is stored as `__render.pdf` and cannot be mistaken for a derived object. The row keeps the user's filename
 4. **Insert DB row** — Drizzle `documents` table with `status: 'uploaded'`, storing `documentId`, `organizationId`, `projectId`, `createdBy`, `filename`, `storageKey`, `collectionName`, `fileSize`, `contentType`
 5. **Generate presigned GET URL** — `getSignedUrl(s3Client, GetObjectCommand, { expiresIn: INGEST_JOB_REF_TTL_SECONDS })`. 24 hours, not the 600 s `SEAWEED_PRESIGNED_URL_TTL_SECONDS` default the other signed reads use: the ingest job downloads the file when the bounded ingest pool reaches it, which can be well after dispatch (Step 3)
 6. **Trigger ingestion** — POST to `{BACKEND_URL}/v1/ingest` with `{ file_ref: presignedUrl, collection: collectionName, document_id: documentId, file_name: filename, folder_path }`. `file_name` is the row's own `documents.filename`, stated rather than derived from the presigned URL's last path segment, because it is the join key every chunk purge addresses
@@ -88,9 +88,10 @@ Body: { projectId: string, file: File }
 
 Two kinds of file skip steps 6 and 7 and return `processing` with no ingest
 job id: an IFC model (`beginModelExtraction`) and, when `GOTENBERG_URL` is set,
-an office file. Each is queued as a `bim_extract` or `office_rendition` job on
-`bff_job_queue` (ADR-0079, [`kubernetes.md`](../deployment/kubernetes.md) §6.3c)
-and the row remembers the queue job as `metadata.bffJobId`. Without a converter,
+an office file. Each becomes a `bim_extract` or `office_rendition` BFF job, a
+`bff-job` run on Hatchet (ADR-0150, [`kubernetes.md`](../deployment/kubernetes.md) §6.3c;
+its row in `bff_job_queue` stays the record of the job), and the row remembers the
+job as `metadata.bffJobId`. Without a converter,
 a Word, presentation, `.xls` or `.ods` file returns `failed` at once.
 
 ### Office files: convert, then ingest
@@ -131,9 +132,21 @@ original, only without a thumbnail. The re-ingest action („Erneut lesen“,
 `POST /api/documents/{id}/reingest`) takes the same path and converts again. A
 process restart during a conversion gives the claim back and another pod runs
 it. A row left at `processing` without a live job (from before the jobs, or one
-whose job died) is found by the sweep `POST /api/internal/maintenance/
-reconcile-background-work`, which the scheduler worker calls every tick: a row
+whose job died) is found by the `reconcile-background-work` Hatchet task, every minute: a row
 with no job gets a new one, a row whose job is dead is failed with its reason.
+
+A job that goes dead does not wait for that task: the run that buries it
+(`buried`, `apps/workspace/bff/jobs-queue/task-run.ts`) fails the rows that name
+it in the same run (`failDocumentsOfDeadJob`,
+`apps/workspace/bff/documents/stuck-processing.ts`), with the sweep's own listing
+and write, minus the quarter of an hour a row must otherwise have waited. That
+covers what step 4's last attempt cannot: a run whose pod was lost on its last
+attempt, a payload that no longer parses and a kind nobody knows never reach
+the handler, and a folder restore or a placement re-read has no last-attempt
+write of its own. Any kind is covered, because the rows are found by the job id
+they name (`metadata.bffJobId`), one batch of 50; the sweep keeps its dead-job
+branch for the rest, for a pod that died between the two writes and for a
+release that buried a job before this existed.
 
 **SeaweedFS config** (`apps/workspace/bff/s3.ts`):
 - Endpoint: `process.env.SEAWEED_ENDPOINT`
@@ -153,6 +166,12 @@ Body: {
   file_name: str | None, folder_path: str | None, thumbnail_upload_url: str | None,
   # the older file this upload replaces, when a person filed it as a new Fassung (ADR-0099)
   revision_of: str | None,
+  # the document type a person chose when filing it, one of DOCUMENT_TYPE_TAGS (422 otherwise)
+  document_type: str | None,
+  # a filed mail (ADR-0137): the E-Mail-Verlauf's newest message, or the message an attachment came with
+  mail_thread: {latest_sent_at, message_count, locale} | None,
+  mail_origin: {sent_at, received_at?, from_name?, from_domain?, signer_domain?, sender_trust,
+                thread_document_id?, locale} | None,
   # office renditions (ADR-0070, ADR-0071): presigned GETs of _render.pdf
   preview_ref: str | None, extraction_ref: str | None,
   # provenance, all four together or none (ADR-0054)
@@ -167,7 +186,7 @@ once more, so every second spent before the job id is returned is a false
 and a retry landing on another replica while the first attempt was still
 downloading.
 
-1. Validates `file_ref` and `collection` are present, and passes `file_ref`, `extraction_ref`, `preview_ref` and `thumbnail_upload_url` through the object-store SSRF gates. It is the only gate those URLs meet: the job fetches them later without asking again
+1. Validates the body: `file_ref`, `extraction_ref`, `preview_ref` and `thumbnail_upload_url` are each an `ObjectStoreUrl` (`agent_host.object_store_url`), so a URL whose origin is not the configured object store is refused with 422 before the handler runs; `collection` must be present (400); a `document_type` outside `DOCUMENT_TYPE_TAGS` is a 422. The durable queue's worker checks the URLs once more when it reads the row back; nothing else does. Every request to one of them, the download (`DeferredObjectDownload`) and the thumbnail upload, goes to the URL rebuilt on the configured endpoint's origin (`object_store_request_url`): only the object's path and its presigned query come from the caller, never the host it names
 2. With a `document_id`, looks for a live job under the dispatch key (sha256 of `document_id` and the object path of `file_ref`), under a per-key lock on this replica, and answers with that job's id when one exists
 3. Otherwise submits to the active ingestor: `ingestor.submit_job([DeferredObjectDownload(file_ref)], collection, config={cleanup_files: True, original_filenames: [...], ...})`. `original_filenames` is `file_name` when the BFF stated one and the URL basename otherwise; it becomes each chunk's `file_name` metadata. A rendition goes in as `extraction_paths: [DeferredObjectDownload(extraction_ref, suffix=".pdf")]`, positional like `original_filenames`, so the chunks are read from the PDF and still carry the original's name (`Bericht.docx`). `DeferredObjectDownload`'s `repr` is `<deferred object download>`: no presigned URL is logged or visible in the job config
 4. Returns `{ job_id, status: 'pending', document_id }` (202) and fetches nothing itself. An office original with `preview_ref` and no `extraction_ref` (a spreadsheet) gets the rendition as the job's second deferred download (`preview_paths`), drawn into its thumbnail only after the screen passes (ADR-0086)
@@ -202,7 +221,7 @@ The ingestion route delegates to the active ingestor singleton, which is set up 
 
 ## Step 4: Background Ingestion (`LlamaIndex`)
 
-**File**: `packages/knowledge-layer/src/llamaindex/adapter.py`
+**File**: `packages/knowledge-layer/src/ingest/adapter.py`
 
 The `LlamaIndexIngestor.submit_job()` creates a job with `JobState.PENDING` and hands `_run_ingestion()` to the bounded ingest pool. An entry of `file_paths` is a local path (the multipart upload, the OIB sync) or a deferred download (`/v1/ingest`); the latter is kept unchecked, since nothing is on disk yet.
 
@@ -210,13 +229,13 @@ The `LlamaIndexIngestor.submit_job()` creates a job with `JobState.PENDING` and 
 
 For each file:
 
-0. **Download and thumbnail** — a deferred original is downloaded first (`knowledge_layer.deferred_files.resolve_original`): one GET without redirects, into a temp file whose suffix comes from the response's `Content-Type` (the object path as fallback, scrubbed), owned and deleted by the job whether or not `cleanup_files` is set. A failed download fails the file with the stable error `original_download_failed: …` and nothing else is fetched for it, the rendition included; the log names the error class and HTTP status, never the URL. Then the rendition, when there is one. The 400px card thumbnail is drawn later, once the file's upload screen has passed (ADR-0086): from the rendition or a PDF original after its text screen, from an image once it passes on its name, from a spreadsheet's `preview_paths` rendition after its extracted text is screened. A quarantined file has none
+0. **Download and thumbnail** — a deferred original is downloaded first (`knowledge_layer.ingest.deferred_files.resolve_original`): one GET without redirects, into a temp file whose suffix comes from the response's `Content-Type` (the object path as fallback, scrubbed), owned and deleted by the job whether or not `cleanup_files` is set. A failed download fails the file with the stable error `original_download_failed: …` and nothing else is fetched for it, the rendition included; the log names the error class and HTTP status, never the URL. Then the rendition, when there is one. The 400px card thumbnail is drawn later, once the file's upload screen has passed (ADR-0086): from the rendition or a PDF original after its text screen, from an image once it passes on its name, from a spreadsheet's `preview_paths` rendition after its extracted text is screened. A quarantined file has none
 1. **Text extraction** — a PDF is read per page with pdfplumber, recording each line's font size and weight (`line_styles`). `.xlsx`/`.xlsm` go through `office_extractors`; `.md`, `.txt`, `.csv` and `.tsv` through `text_formats`, which decodes without dropping a byte (BOM, else strict UTF-8, else cp1252, else Latin-1; the encoding is stored as `source_encoding`). Any other extension falls to `SimpleDirectoryReader`. When the job carries an extraction path for the file, the PDF rendition is read instead and every later step treats it as a PDF: pages, tables, images and visual pages. For a `.pptx` or `.pptm` a companion reads the speaker notes from the original, one unit per slide labelled with its rendition page, because a PDF export drops them. On a job whose config carries `screening`, the [upload screen](#upload-screening-before-the-first-model-call) runs on this extracted text before anything below
    **Chunking.** Every text chunk carries a locator a citation and `read_passage(clause=…)` can use:
 
    | Source | Unit | Locator (`clause_id`) | `page_label` |
    |---|---|---|---|
-   | OIB Richtlinie (`oib_doc_class` set) | a Punkt (`clause_chunking`) | `3.5.2`, `Tabelle 3` | first page |
+   | OIB Richtlinie (`oib_doc_class` set), or a released text: a file the platform's records name as an edition's text, known by the `knowledge_edition_id` its ingest job carries (ADR-0173), whatever its name (`oib-rl-2-2023-text-80c174ce27a0.pdf`) or its human-set `doc_class` (`chunking_choice.text_documents_for_pages`) | a Punkt (`clause_chunking`); an annex the contents page lists after the last Punkt, and the colophon, are per-page chunks | `3.5.2`, `Tabelle 3` | first page |
    | Any other PDF with a heading structure | chunks of ~640 tokens inside a section that may span pages, 96 tokens of overlap inside the section, heading breadcrumb as the first line (`section_chunking`) | the heading's number (`3.2`, `§ 4`, `Artikel 2`), else its title path (`Brandschutz › Allgemeines`) | page the chunk's own text starts on; `page_end` where it ends |
    | A PDF without one | one Document per page, split by `SentenceSplitter` | none | the page |
    | `.md` (the IFC digest too) | one section per ATX heading, packed to the same budget, breadcrumb first | the heading path under the document title (`Geschoße › EG`) | none |
@@ -224,19 +243,21 @@ For each file:
    | `.csv`/`.tsv` | row groups that each repeat the header | `Zeilen 2-41` (file lines) | none |
    | `.xlsx`/`.xlsm` sheet | row groups that each repeat the header, at most 10,000 rows a sheet; the rest are stated in the last group and counted as `rows_over_cap` on the file's job status | `Raumliste: Zeilen 2-41` | the sheet name |
 
+   A released text is a base-corpus file: an office's confirmed copy of an edition carries `knowledge_edition_id` too and is cut on its headings, as every office upload is. A released text the Punkt chunker cannot read (a glossary, a list of standards) takes the heading path; one that numbers long sections without being a Richtlinie (a Leitfaden) is cut on its Punkte, each piece citing the Punkt's first page. A corpus file named the old way keeps its pages. `platform-knowledge-sync` skips unchanged bytes, so a change here reaches an indexed file through `oib_sync.CHUNK_FORMAT_VERSION`: bump it, and the next sync re-ingests every file, its stored mark kept.
+
    A PDF counts as structured when it has at least three headings, at least half its text sits under one, and at most 30% of its lines are headings (`section_chunking.structure_is_usable`). A heading is a short line in a larger type than the body, in bold, or opened by a German numbering; lines that repeat at the top or bottom of most pages are running headers and are dropped. A transcribed page's Markdown ATX headings (`## 1 Befund`) are section headings. A numbered line in body type counts only when its title reads as one: at most 8 words, no finite verb, not ending mid-sentence. A line that runs on in lowercase into a line of another style is not a heading. Locators are normalised, so `§3` and `Art.3` become `§ 3` and `Art. 3`. `read_passage(page=N)` returns the chunks whose `[page_label, page_end]` range covers N, so a section chunk that starts on page 2 and ends on page 3 is found for page 3.
 2. **Table extraction** (PDF only, optional) — Uses `pdfplumber` to extract the tables the text pass did not already index as captioned tables; each becomes row groups that repeat the header row (`content_type: "table"`, `table_part` orders them), so the splitter never cuts a table into header-less rows. The tables are read right after the text, before the upload screen, and screened with it: the table pass opens the PDF on its own and also reads a page the text pass lost
 3. **Image extraction** (PDF only, optional) — Uses `pypdfium2` to extract the embedded rasters worth a caption, at least 100×100 px by the image object's own metadata, so an icon is filtered without being decoded. Every candidate is sized from metadata (`PdfImage.get_px_size()`, no pixels read), the per-document cap `MAX_IMAGES_PER_DOCUMENT` (64) is applied right there — largest first, everything past it never decoded — and only the kept rasters are decoded, one at a time, each downscaled to `VLM_MAX_IMAGE_DIM` before it is held. Peak memory is one raster instead of the document's, which is the bound that keeps an ingest pod inside its limit on a plan set ([ingest memory runbook](../deployment/ingest-memory-runbook.md)). Each kept raster is sent to the VLM API (default: `openai/gpt-6-luna` via OpenRouter — image input verified, caption quality on OIB drawings still open, see the Configuration table) for classification (chart vs image) and captioning; captions become `Document` objects with `content_type: "chart"` or `"image"` metadata
 
-   Every PDFium call in the process (page triage, page renders, image extraction, thumbnails, `look`) is serialized through `pdfium_lock` in `knowledge_layer/llamaindex/pdfium_lock.py`, because PDFium is not thread-safe; the lock is held for the PDFium work alone — reading a page's objects, decoding one raster — and image encoding happens after it is released.
+   Every PDFium call in the process (page triage, page renders, image extraction, thumbnails, `look`) is serialized through `pdfium_lock` in `knowledge_layer/ingest/pdfium_lock.py`, because PDFium is not thread-safe; the lock is held for the PDFium work alone — reading a page's objects, decoding one raster — and image encoding happens after it is released.
 
 4. **Summarization** (optional) — If `generate_summary` is enabled, the first and last chunks are combined and sent, as two **concurrent** calls to the same `summary_model` LLM, for a one-sentence summary and a tag classification (document type + OIB discipline; see "Backfilling tags" below). Both calls independently swallow exceptions/timeouts and return nothing on failure. A deterministic, text-derived fallback summary now fires whenever the LLM summary is missing — for any reason, independent of whether tag classification succeeded — so a document that finishes ingestion always gets a `document_metadata` row (see "Silent summary-row loss" below for the fix and the reconciliation backstop).
-5. **Indexing** — All `Document` objects are cut by a `SentenceSplitter` with the job's chunk size and overlap, embedded with the ingestor's embedder (OpenRouter, `openai/text-embedding-3-large` by default; see "Embedding-model changes" below — stored vectors only match query vectors from the same model) and written to Qdrant by `qdrant/writes.write_chunks`, which puts the office, project, document, folder, project facts, `indexed_at` and the facts people set on every point. A write Qdrant refuses fails the file (ADR-0115)
+5. **Indexing** — All `Document` objects are cut by a `SentenceSplitter` with the job's chunk size and overlap, embedded with the ingestor's embedder (OpenRouter, `openai/text-embedding-3-large` by default; see "Embedding-model changes" below — stored vectors only match query vectors from the same model) and written to Qdrant by `vector_store/writes.write_chunks`, which puts the office, project, document, folder, project facts, `indexed_at` and the facts people set on every point. A write Qdrant refuses fails the file (ADR-0115)
 6. **Job completion** — Status updated to `JobState.COMPLETED` with metadata about chunks, tables, charts, and images created
 
 ### Upload screening, before the first model call
 
-A job whose config carries `screening` (the organization's policy, sent by the BFF on `POST /v1/ingest`; see the [endpoint contract](../api/python-endpoints.md)) checks each file's locally extracted text, read as a person reads it (invisible characters left out, a hyphen at a line break joined, a PDF's pages also joined without their running headers and footers), against the office's terms and detectors (`packages/knowledge-layer/src/llamaindex/screening.py`) before any of it is sent to a model. A match fails the file with its typed verdict on `file_details[].quarantine` (`{"reasons":[…],"checked":…}`, plus `"omitted":N` when the verdict leaves N reasons out; `QuarantineVerdict`, ADR-0113), the same verdict in the legacy `error_message` `quarantined:{…}` for one release, and the loop moves to the next file; nothing of a quarantined file is transcribed, captioned, summarised or embedded. The job without a policy (the OIB corpus sync) runs exactly as before. A policy that is present but cannot be applied (malformed, or naming no rule this build knows; `content_screen.screening_config_unusable`) fails closed: every file of the job fails with `screening_unavailable:` before it is read, category `configuration` (retryable, the next dispatch sends the policy afresh), and waits held like any file without a verdict. A PDF whose scanned pages were transcribed is screened again on the transcript before anything else reads it; a match there is held with `after_transcription: true`, since the vision model saw those pages.
+A job whose config carries `screening` (the organization's policy, sent by the BFF on `POST /v1/ingest`; see the [endpoint contract](../api/python-endpoints.md)) checks each file's locally extracted text, read as a person reads it (invisible characters left out, a hyphen at a line break joined, a PDF's pages also joined without their running headers and footers), against the office's terms and detectors (`packages/knowledge-layer/src/ingest/screening.py`) before any of it is sent to a model. A match fails the file with its typed verdict on `file_details[].quarantine` (`{"reasons":[…],"checked":…}`, plus `"omitted":N` when the verdict leaves N reasons out; `QuarantineVerdict`, ADR-0113), the same verdict in the legacy `error_message` `quarantined:{…}` for one release, and the loop moves to the next file; nothing of a quarantined file is transcribed, captioned, summarised or embedded. The job without a policy (the OIB corpus sync) runs exactly as before. A policy that is present but cannot be applied (malformed, or naming no rule this build knows; `content_screen.screening_config_unusable`) fails closed: every file of the job fails with `screening_unavailable:` before it is read, category `configuration` (retryable, the next dispatch sends the policy afresh), and waits held like any file without a verdict. A PDF whose scanned pages were transcribed is screened again on the transcript before anything else reads it; a match there is held with `after_transcription: true`, since the vision model saw those pages.
 
 Where it sits, per file, against the five places ingestion sends content out:
 
@@ -257,7 +278,7 @@ Each file of a screened job gets `file_details[].screening` on its job status: `
 
 ### Fassungen across file names (ADR-0099)
 
-Two steps run per file after its summary row is written, on the same `summary_llm` (`packages/knowledge-layer/src/llamaindex/revisions.py`, the prompts and parsers in `agent/knowledge/document_revisions.py`). Both are bounded by `REVISION_TIMEOUT_SECONDS`, fail-open, skipped for the base corpus (it replaces through its own hash registry) and skipped when summarising is off. Neither links, hides or re-files anything: only a person's `PUT /v1/collections/{collection}/revision` writes `superseded_by`.
+Two steps run per file after its summary row is written, on the same `summary_llm` (`packages/knowledge-layer/src/ingest/revisions.py`, the prompts and parsers in `agent/knowledge/document_revisions.py`). Both are bounded by `REVISION_TIMEOUT_SECONDS`, fail-open, skipped for the base corpus (it replaces through its own hash registry) and skipped when summarising is off. Neither links, hides or re-files anything: only a person's `PUT /v1/collections/{collection}/revision` writes `superseded_by`.
 
 | The file's name is | Step | Stored on the file's own row |
 |---|---|---|
@@ -310,6 +331,104 @@ Three things change for an uploaded image.
   `[IMAGE from page N]` marker (`_strip_visual_marker`). The marker is for
   retrieval, which cites a page. People read the summary, so it starts with the
   description.
+- **Photo facts.** The EXIF of the original image is read before the JPEG
+  re-encode drops it (`photo_facts.read_photo_facts`) and stored as
+  `document_metadata.capture`: `captured_at`, `latitude`, `longitude`,
+  `camera`. People who may open the file see it. `latitude` and `longitude`
+  never reach a model; `captured_at` (as a date) and `camera` may. A re-ingest
+  writes `capture` again from the new bytes. `captured_at` also feeds the
+  `document_date` payload field, where the title block's `revision_date` wins
+  when both exist (`_document_date` in `qdrant/payload.py`).
+
+A project document's Dokumentart is its type tag (`DOCUMENT_TYPE_TAGS` in
+`agent/knowledge/document_classification.py`, mirrored in
+`lib/documents/tag-vocabulary.ts`, both held to one order by
+`tests/test_tag_vocabulary_parity.py`), not `doc_class`, which classifies the
+base corpus. A letter or an e-mail is `correspondence` (an E-Mail-Verlauf is
+one), minutes are `Sonstiges`. `correspondence` is the first type stored as an
+English token: a person reads it through i18n (`files.documentTag`, via
+`tagLabel`), and every surface that shows, counts, filters or searches tags goes
+through that label. The older types are still stored as German words and read as
+themselves until their rename.
+
+**A type chosen at filing.** Whoever files a file can say what it is:
+`ShelfUploadInput.documentType` (a `DocumentTypeTag`), which the dispatch sends
+as `document_type` on `POST /v1/ingest`, through the office-rendition job
+payload too. The route refuses a value outside `DOCUMENT_TYPE_TAGS` (422) and
+copies it into the job config. The job then treats it as a field a person set,
+beside `_read_human_set_fields`:
+
+| Step | What happens |
+|---|---|
+| after classification (`_chosen_document_type`, `_with_document_type`) | the chosen type replaces every type tag the classifier or the photo rule read, and leads; the discipline tags stay, up to `MAX_TAGS`. The permit check and the Fassung reading see this list |
+| after the summary row is written (`_keep_chosen_document_type`) | the list is stored with `set_document_tags_by_person`, so `tags_set_by = 'person'`. When the row already holds a person's tags (a re-upload, or tags carried from another spelling), those are the base and only their type is replaced |
+| every later read („Erneut lesen", a reindex) | no dispatch carries the choice again, and none needs to: `register` keeps a person's tags, so the classifier never overwrites the type. A person's later edit in the tag editor replaces it like any tag |
+
+The marker is the store's one person flag, so it also keeps the row's topics, as
+a person's edit in the tag editor does. The same bytes already filed
+(`unchanged`) never store the choice: nothing is dispatched.
+
+**A held file keeps it.** A file the screening holds (ADR-0086) stops at the
+verdict, before anything is stored, so its reading never stores the choice. The
+dispatch therefore records what it carried on the BFF row, beside the job id and
+the digest of the bytes that job reads: `documents.metadata.filingChoice`
+(`{documentType?, revisionOfId?}`, `setDocumentIngestJob`). The Fassung is the
+older document's id, never its name. The reviewer's release
+(`releaseQuarantinedDocument`) reads the choice back from the row it loaded and
+sends it again, but only while that digest is the row's (`storedFilingChoice`,
+`lib/documents/filing-choice.ts`); the id is first resolved again
+(`resolveReleasedRevisionOf`: active, past screening, same shelf and
+collection), `revision_of` carries the older file's name as it is then, and a
+choice that no longer resolves is dropped. Every later dispatch
+rewrites the metadata, and one that carries no choice (a re-index, a placement
+move) drops it: were a re-index to send the type again, it would overwrite a
+person's later edit in the tag editor, since the job treats it as the newest
+choice. A file stranded at `processing` on the rendition path still carries its
+choice in the queued job's payload, not on the row.
+
+**A filed mail (ADR-0137).** A conversation a person files from a project's
+E-Mail-Eingang is one document, the E-Mail-Verlauf: the BFF renders it as
+Markdown with one `##` section per message (`lib/mail-thread/render.ts`) and
+dispatches it with `mail_thread`; every attachment the person files is its own
+document and is dispatched with `mail_origin`. Both models refuse any key they
+do not know (`extra="forbid"`), an address as a name, a trust outside
+`SENDER_TRUSTS` and a time without an offset (422), and the two together. The
+job does three things with them:
+
+| Step | What happens |
+|---|---|
+| chunking | nothing new: a `.md` is cut by `text_formats.markdown_documents`, one section per ATX heading, cited by its heading (`clause_id`), so each message is one passage and a quote (`### Zitat aus der E-Mail vom …`) is cited under the message that kept it. A body line that looks like a heading was escaped by the renderer and stays inside its real sender's section |
+| stamping (`_stamp_chunk_metadata`) | `mail_thread` puts `source_format: mail` on every chunk (excluded from the embedding and the LLM header, indexed as a keyword). `norm_registry.lane_for_hit` reads it after the stated author and before the doc_class: `project_mail` on a project, `office_mail` on the Büroablage, label „E-Mail“, the shelf's kind. A mail from `ma37.wien.gv.at` never reaches the authority lane. The grounding block states it as `Format: mail — E-Mail` (ADR-0061), so a replayed turn places it the same way |
+| after the summary row (`_store_mail_facts`) | `mail_thread` and `mail_origin` land on the row through `agent.knowledge.mail_facts`, which keeps no address. The Verlauf's `latest_sent_at` is its `document_date` in the payload; an attachment keeps its own date (the day it was mailed is where it came from, not when it was written). A re-upload of the name without them clears both |
+
+`list_files` prints a Verlauf as `E-Mail-Verlauf · 5 E-Mails, zuletzt
+14.05.2026` and an attachment as `kam mit der E-Mail vom 04.05.2026 08:30 von
+Ing. Paul Gruber (verkehrsplanung-gruber.at)`; `read_passage` opens an
+attachment's read with the same line. The domain in brackets is the signing
+domain only when the sender was verified (`member_verified`,
+`external_verified`); every other sender's From domain carries „Domain nicht
+bestätigt“ (an archive entry's „aus dem Outlook-Archiv“), the words of the
+Verlauf's own headings, in the thread's locale. So the agent attributes a statement
+to its mail and never presents an unconfirmed sender as the Behörde. The
+original `.eml` is never dispatched.
+
+The filing job sets both through the upload path (`ShelfUploadInput.mailThread`,
+`.mailOrigin`, from `lib/mail-thread/ingest-facts.ts`), and every dispatch that
+carries one records it with the filing choice (`documents.metadata.filingChoice`,
+`lib/documents/filing-choice.ts`), as it does `documentType`. So a Verlauf the
+content screening holds (the full text of a mail) keeps its lane and its date
+through the reviewer's release, and a held attachment keeps its „kam mit der
+E-Mail …“ line: the release re-dispatch reads the record back from the row,
+parsed as the backend parses it, so a record that no longer fits is no record
+rather than a 422. An office file's conversion job carries both the same way
+(`office_rendition` payload). `ingest-mail-contract.spec.ts` pins both keys and
+both models' fields against `requests.py`.
+
+`PATCH /api/documents/[id]/tags` (`document-tags-update`) cannot do this job:
+it needs the metadata row, which only the ingest job writes, and a type set
+before that job ran would be overwritten by its own classification.
+`ingest-document-type-contract.spec.ts` pins the key and the vocabulary across
+the BFF and the backend.
 
 ### A re-upload replaces the previous version once it has indexed
 
@@ -354,8 +473,9 @@ the release's reading.
 
 A file that fails after some of its chunks were inserted (an embedding batch
 timing out halfway through a long PDF) takes those chunks back out:
-`_discard_partial_version` deletes exactly the ids this attempt sent to Qdrant.
-They are fresh node ids, so the kept version's chunks are never among them. Left in, they sat
+`_discard_partial_version` deletes the ids this attempt sent to Qdrant, minus
+any the kept version also holds: ids are deterministic (`chunk_identity.chunk_id`),
+so a re-read of the same bytes writes over the kept chunks with the same text. Left in, they sat
 beside the kept version as part of a version nobody published.
 
 The lock (`keyed_lock` in `agent/knowledge/leader_lock.py`) is held from
@@ -387,7 +507,7 @@ stay retrievable, with no row behind it.
 So once a file is in the vector store, and before its predecessor is retired,
 the ingestor asks the BFF whether the document it was dispatched for still
 exists: `GET /api/internal/document-exists?documentId=&collection=[&organizationId=]`
-with the service token (`knowledge_layer/llamaindex/document_presence.py`,
+with the service token (`knowledge_layer/ingest/document_presence.py`,
 `_deleted_while_indexing` in the adapter). The job config carries the
 `document_id` and `organization_id` that `/v1/ingest` received. On
 `{ "exists": false }` the file:
@@ -471,7 +591,7 @@ Session-scoped collections (`s_*`) are automatically reaped by a background thre
 ### Fixed: silent summary-row loss on double LLM failure (2026-07-16)
 
 The summary and tag-classification calls in Step 4 above run concurrently
-against the same `summary_llm` (`packages/knowledge-layer/src/llamaindex/adapter.py`,
+against the same `summary_llm` (`packages/knowledge-layer/src/ingest/adapter.py`,
 ~lines 1795–1965) and both fail open (log a warning, return `None`) on
 error/timeout. `register_summary()` — the only call that writes a row into
 the `document_metadata` table — only runs when a summary value exists. Previously the
@@ -514,8 +634,10 @@ catches it on the next ingestion run for that collection.
 Two pollers read two different things.
 
 **Upload progress**: `UploadOrchestrator` (`apps/workspace/ui/features/documents/orchestrator.ts`, a singleton outside the React lifecycle)
-- Polls the backend JOB every 5 seconds through the BFF proxy: `GET /api/v1/documents/{jobId}/status` (`documentsClient.getJobStatus`), which reaches `GET /v1/documents/{job_id}/status` in `documents.py` and returns `IngestionJobStatus` with per-file progress
-- Maximum 420 poll attempts (~35 minutes)
+- Reads the backend JOB through the BFF proxy: `GET /api/v1/documents/{jobId}/status` (`documentsClient.getJobStatus`), which reaches `GET /v1/documents/{job_id}/status` in `documents.py` and returns `IngestionJobStatus` with per-file progress
+- For a project or office-shelf upload it reads when the shelf's live channel says a read settled (`shelf.changed`, passed on by `useUploadOrchestrator` as `UploadOrchestrator.askNow()`; the server publishes it from `reconcileDocumentStatuses`, which the ingest worker's settle push reaches the moment the job ends), and once a minute otherwise (`FALLBACK_POLL_MS`), so a lost hint costs time and never strands a row. There is no attempt budget: a long read is followed for as long as it runs. After 35 minutes on one job the person is told once that it is still being read (`STILL_READING_AFTER_MS`). A hint that arrives while a status read is in flight asks once more after it
+- A chat's attachments are on no shelf and have no channel: their listing is re-read every 5 seconds for 420 attempts (~35 minutes), then once a minute (`pollSessionDocuments`)
+- A row no job follows (a detached extraction, a job the store forgot) is asked about by document id on the same hint and the same floor (`lib/document-watch.ts`)
 - Persists job state to localStorage for recovery on page refresh
 - Updates `TrackedFile` entries in the Zustand store from the job status. A file the job ends `failed` with a `quarantine` verdict becomes `held`, not `failed` (`trackedStatusOfJobFile`; a job from before the typed field is read by its `quarantined:{…}` error), so the tray never offers to retry a file the content check held back (ADR-0086). A row settled by a document status read takes the status's read family instead (`trackedPatchFromStatus`): `quarantined` is `held`, `uploaded` and `stored` are `stored`, never `success`. The tray's states: [`docs/ux/file-upload-and-explorer.md`](../ux/file-upload-and-explorer.md#the-rule)
 
@@ -577,39 +699,57 @@ The collection file list is fetched at most once per collection per request.
 A read in progress can be stopped from the file's own menu, or from the upload
 list while the row is being read. Both send one request,
 `POST /api/documents/{id}/cancel` (`cancelDocumentIngest` in
-`lib/documents/reingest.ts`), which reads the row's `metadata.ingestJobId` and
+`bff/documents/reingest.ts`), which reads the row's `metadata.ingestJobId` and
 forwards `POST /v1/documents/{job_id}/cancel` to the backend.
 
-The stop is expressed through the ingest claim, not a second control channel:
-`cancel` (`packages/agent/src/agent/common/claim_queue.py`) marks the job's queue row
-`cancelled` — a terminal status that is never claimed again and is not counted
-by KEDA — and blanks its payload. A worker reading the file then finds its
-heartbeat refused (the lease renews only while the row is `claimed`) and stops
-at its next `_assert_still_owner`, before it reads the next page or writes the
-next chunk, so no half-indexed document is left behind. A job still `queued` is
-settled immediately.
+The backend's `cancel` (`apps/agent-host/src/agent_host/jobs/ingest_dispatch.py`)
+does three things in order: it marks the stored run id as stopped by a person
+(`ingest_run_hold.mark_stopped_by_person`), cancels the job's Hatchet run by
+that id, and settles the job's status row `cancelled`
+(`ingest_status_store.settle_cancelled`), which also clears the row's `owner`
+and its hold (`held_until`). A run still waiting never starts. A running one
+finds its claim guard false at its next `_assert_still_owner`, before it reads
+the next file and again before it writes a file's chunks, so no half-indexed
+document is left behind; its last word (`ingest_workflow._stopped`) settles the
+row `cancelled` once more if it finds it live.
+
+**A run that has been told to stop writes no live or failed status again.**
+Between the stop and its next check the worker is still inside a long step, and
+its heartbeat sees a row it no longer owns. For any other row that means
+another replica settled it wrongly, and the owner writes it back
+(`ingest_status_store`: the owner, while it lives, is right about its job). For
+a stopped run the adapter's `_persist` drops that write and every progress or
+failure write after it, so the row stays `cancelled` and a re-ingest in that
+window starts a new job instead of joining the dying one. One write still goes
+through: `completed`. A single-file job past its last check has its chunks
+indexed, and the row must say so.
 
 The answer is one of three: `cancelled` (a live job was stopped), `finished`
-(the durable queue held no live job — the row the reader clicked was stale), or
-`unavailable` (the durable ingest queue is off, or the work runs inside the BFF,
-so no queue can reach it). Only `cancelled` changes the row: to the terminal
-`cancelled` status (migration 0153). Nothing was indexed, the bytes stay, and a
-re-ingest reads them again. `cancelled` is neutral in the UI („Abgebrochen“),
-never a failure. Because a stop can land between the worker's last ownership
-check and its write, a `cancelled` row is re-checked for thirty minutes like an
-`interrupted` one (`resolveCancelledRow`, `reconcile-status.ts`): a job that did
-finalize heals the row to `completed`.
+(no live job was left: the row the reader clicked was stale, or the job
+completed or failed while its run was being cancelled), or `unavailable` (the
+job has no Hatchet run, because it runs in an API pod's own pool or inside the
+BFF, or Hatchet could not be reached). Only `cancelled` changes the document
+row: to the terminal `cancelled` status (migration 0153). The files the job had
+not finished were not indexed, the bytes stay, and a re-ingest reads them
+again. `cancelled` is neutral in the UI („Abgebrochen“), never a failure.
+Because a stop can land between the worker's last ownership check and its
+write, a `cancelled` row is re-checked for thirty minutes like an `interrupted`
+one (`resolveCancelledRow`, `reconcile-status.ts`): a job that did finalize
+heals the row to `completed`.
 
-The queue row is kept as a tombstone — not deleted — so the status store can
-settle the job terminal `cancelled` (`settle_cancelled`,
-`ingest_status_store.py`), and is purged on the same clock as a dead row
-(`purge_retired`, `claim_queue.py`).
+What stays open is narrow: a status write that lands after the cancel settled
+the row and before the cancel reached the worker makes the row `processing`
+again until the run's last word. If the worker dies hard in that gap, nobody
+settles it, but the row is no longer held: it reads `interrupted` (retryable)
+once its heartbeat is 120 s old. Before, the hold kept it `processing` for the
+rest of the run's schedule, up to 30 h 45 min from the dispatch with the
+defaults (`ingest_workflow.hold_seconds`).
 
 ### Which failures are read again
 
 A terminal job also says *why* each file failed (`agent/knowledge/ingest_failures.py`):
 `FileProgress.failure_category` and `retryable`, and the job's `reader_version`
-(`packages/knowledge-layer/src/reader_version.py`). Step 2 writes them onto the row
+(`packages/knowledge-layer/src/ingest/reader_version.py`). Step 2 writes them onto the row
 (`ingest_failure_category`, `ingest_retryable`, `ingest_reader_version`, migration 0134),
 and `lib/documents/retry-policy.ts` (`canRetry`) decides from them whether reading the
 file again can come out differently:

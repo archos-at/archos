@@ -41,6 +41,7 @@ import { OFFICE_SHELF, projectShelf, type DocumentShelf } from '@/lib/documents/
 import { surfaceStateOf } from '@/lib/documents/surface-state'
 import { documentTypeOf, DISCIPLINE_TAGS } from '@/lib/documents/tag-vocabulary'
 import type { FolderRow } from '@/lib/documents/shelf-folders'
+import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { listProjectFolders } from '@/lib/projects/folder-service'
 import { folderPathKey } from '@/lib/projects/folders'
 import { isProjectClosed } from '@/lib/projects/project-status'
@@ -106,7 +107,7 @@ export async function shelfFolders(session: AuthorizedSession, shelf: DocumentSh
 /** Which Dokumentart lands in which folder of a shelf, from its screened, filed documents. */
 export async function shelfDocTypes(organizationId: string, shelf: DocumentShelf, folders: ShelfFolders) {
   const sample = await listFiledDocuments(organizationId, shelf, SCREENED_ONLY)
-  const enriched = await reconcileDocumentStatuses(sample, organizationId)
+  const enriched = await reconcileDocumentStatuses(sample, organizationId, 'read')
   const samples: FiledSample[] = enriched
     .filter((row) => hasPassedScreening(row) && !folders.isRestricted(row.folderId))
     .map((row) => ({ folderPath: folders.pathOf(row.folderId), tags: row.tags }))
@@ -154,7 +155,7 @@ async function batchDocuments(
     return { judged: all.filter((row) => row.status !== 'quarantined'), all }
   }
   const screened = await listBatchDocuments(session.organizationId, batch.id, SCREENED_ONLY)
-  const enriched = await reconcileDocumentStatuses(screened, session.organizationId)
+  const enriched = await reconcileDocumentStatuses(screened, session.organizationId, 'read')
   return {
     judged: enriched.filter((row) => hasPassedScreening(row) && surfaceStateOf(row.status) === 'citable'),
     all,
@@ -276,6 +277,10 @@ export async function reviewUploadFiling(
       originTraceId: judgement.traceId,
     })
   }
+  // The suggestions stand on the shelf's file rows: tell the workspaces open
+  // on it to read them, instead of each asking every few seconds while an
+  // upload is on screen (`useFilingSuggestions`). After the writes, ids of nothing.
+  if (plan.create.length > 0 || withdrawn > 0) publishShelfChanged(organizationId, shelf)
   const sinceSealMs = batch.sealedAt ? Date.now() - new Date(batch.sealedAt).getTime() : null
   console.debug(
     `[filing] batch ${batch.id} (${basis}): ${plan.create.length} proposed, ${withdrawn} withdrawn, ` +

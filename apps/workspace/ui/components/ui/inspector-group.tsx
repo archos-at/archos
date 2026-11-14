@@ -42,7 +42,7 @@ export function InspectorSection({
   return (
     <section aria-label={label} className={cn('flex flex-col gap-2', className)} {...props}>
       <div className="flex min-h-5 items-center justify-between gap-2 px-3">
-        <SectionLabel as="p" icon={icon} className="font-semibold tracking-[0.05em]">
+        <SectionLabel as="p" icon={icon}>
           {label}
         </SectionLabel>
         {action}
@@ -59,10 +59,11 @@ export function InspectorGroup({
   return (
     <div
       data-slot="inspector-group"
+      data-surface="sheet"
       className={cn(
-        'bg-card border-border/70 shadow-2xs overflow-hidden rounded-lg border',
-        // The first row's hairline would draw a second edge under the group's
-        // own border, so it is the one separator that is never drawn.
+        // A white sheet on the rail's desk, with its edge and elevation 1 (paper on a desk), as an iOS inset group
+        // on its grey. The first row's hairline would draw an edge at its top, so it is never drawn.
+        'bg-sheet shadow-sm overflow-hidden rounded-surface',
         '[&>:first-child>[data-slot=inspector-row-body]]:border-t-0',
         className
       )}
@@ -93,11 +94,11 @@ export function InspectorRow({
           label however many lines the value wraps to. `aria-hidden`: the label
           beside it is already the accessible name. */}
       <span className="flex h-5 shrink-0 items-center self-start pt-2.5 [box-sizing:content-box]">
-        <Icon className="text-muted-foreground/70 size-3.5" aria-hidden />
+        <Icon className="text-muted-foreground size-3.5" aria-hidden />
       </span>
       <div
         data-slot="inspector-row-body"
-        className="border-border/60 flex min-w-0 flex-1 items-start justify-between gap-3 border-t py-2.5 pr-3"
+        className="border-hairline flex min-w-0 flex-1 items-start justify-between gap-3 border-t py-2.5 pr-3"
       >
         {/* The LABEL never truncates: it is the key, and „Proj…" tells the
             reader nothing. A long value wraps in its own column instead. */}

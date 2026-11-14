@@ -21,6 +21,7 @@ import { I18nProvider } from '@/i18n'
 import type { CitationSource } from '@/features/chat/types'
 import type { Findings } from '@/lib/conversations/message-findings'
 import type { PlanDocument } from '@/lib/runs/plan-documents'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const DOCUMENTS: PlanDocument[] = [
   { name: 'Einreichplan_EG.pdf', title: 'Einreichplan Erdgeschoß', shelf: 'project' },
@@ -142,7 +143,7 @@ const REPORT = [
 
 const Section = ({ label, children }: { label: string; children: ReactNode }) => (
   <section className="flex flex-col gap-3">
-    <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">{label}</h2>
+    <SectionLabel as="h2">{label}</SectionLabel>
     {children}
   </section>
 )
@@ -160,7 +161,7 @@ export default function ResearchReportPreviewPage() {
         className="text-foreground mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 md:p-8"
       >
         <header>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="text-xl font-semibold">
             Tiefenrecherche: Plan, Unterlagen, Befunde
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">

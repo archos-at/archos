@@ -1,0 +1,22 @@
+---
+improvements:
+  - >
+    The sidebar entry that opens a conversation is now simply called "Chat", on the
+    desktop and on the phone.
+  - >
+    Section headings, table headers and other labels are no longer set in
+    capitals, and numbers no longer show a zero with a slash through it.
+  - >
+    Each project in your project list shows its address under its name, so you
+    can tell projects apart at a glance. The two project lists on the overview
+    now line up.
+  - >
+    In a chat, the thread title is the same size as the "New chat" button beside
+    it, and the project chip under the input field, which did nothing, is gone.
+  - >
+    When you review a document, clicking the active markup tool again puts it
+    down. The Open and Done filters show a count only when there is something to
+    count.
+  - >
+    The inbox no longer repeats its heading when nothing is waiting for you; it
+    says there are no open requests.

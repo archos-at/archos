@@ -4,8 +4,10 @@ import { S3ServiceException } from '@aws-sdk/client-s3'
 
 import {
   assertValidBucketName,
+  BucketOwnershipError,
   bucketForWrite,
   ensureTenantBucket,
+  ensureTenantBucketChecked,
   perOrgBucketsEnabled,
   resolveDocumentBucket,
   tenantBucketName,
@@ -323,6 +325,27 @@ describe('ensureTenantBucket', () => {
     // its own alongside the other tenant's.
     expect(names(s3.calls)).not.toContain('PutObjectCommand')
     expect(owners(s3.objects)).toEqual(['org_SOMEONE_ELSE'])
+  })
+
+  // The class and code are what a refused mail delivery reports
+  // (`inbound_mail_refused.error`): the message names organizations and never
+  // leaves the pod's log, so without them a refused bucket reads as a bare 503.
+  it.each([
+    ['foreign_claim', new Map([[claimKey('org_SOMEONE_ELSE'), 'org_SOMEONE_ELSE']])],
+    ['unclaimed_objects', new Map([['org/other/doc.pdf', 'x']])],
+  ] as const)('refuses as a BucketOwnershipError with code %s', async (code, objects) => {
+    const s3 = fakeS3({ bucketExists: true, objects: new Map(objects) })
+    const refusal = await ensureTenantBucket({ send: s3.send } as never, ORG).catch((error: unknown) => error)
+    expect(refusal).toBeInstanceOf(BucketOwnershipError)
+    expect(refusal).toMatchObject({ name: 'BucketOwnershipError', code })
+  })
+
+  it('keeps a store fault as the cause of the UpstreamError it answers with', async () => {
+    const fault = s3Error('InternalError', 503)
+    const s3 = fakeS3({ bucketExists: true, headFails: Object.assign(fault, { $fault: 'server' }) })
+    const error = await ensureTenantBucketChecked({ send: s3.send } as never, ORG).catch((e: unknown) => e)
+    expect(error).toMatchObject({ code: 'UPSTREAM_ERROR' })
+    expect((error as Error).cause).toBe(fault)
   })
 
   it('does not cache a bucket it refused', async () => {

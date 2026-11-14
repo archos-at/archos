@@ -25,7 +25,7 @@ import { FOCUS_RING } from '@/components/ui/focus-ring'
 const chipVariants = cva(
   // `max-w-full`: a chip never outgrows its row. Its label only gives way when
   // it is wrapped in `ChipLabel`, which truncates; the count and icon stay whole.
-  'inline-flex items-center gap-1 rounded-md border font-medium w-fit max-w-full whitespace-nowrap shrink-0 ' +
+  'inline-flex items-center gap-1 rounded-full border font-medium w-fit max-w-full whitespace-nowrap shrink-0 ' +
     // background/border ride along so the interactive hover fills below
     // transition instead of snapping; `scale` keeps the press dip smooth (the
     // property Tailwind v4's `active:scale-*` sets, not `transform`).
@@ -73,15 +73,16 @@ const chipVariants = cva(
       },
     },
     // Hover is interactive-only: a static status chip lighting up on hover
-    // would promise a click that does not exist. Neutrals step one surface up
-    // (secondary/muted → accent, outline → secondary, ink wash → deeper wash);
+    // would promise a click that does not exist. Neutrals step one down the ladder
+    // (secondary/muted, a fill of the desk, → the selected grey; outline, no fill, → the pointer's wash; ink wash →
+    // deeper wash);
     // provenance variants keep their tint and gain a signal hairline instead,
     // so the hue that carries the meaning is never replaced.
     compoundVariants: [
       { interactive: true, variant: 'default', className: 'hover:bg-primary/15' },
-      { interactive: true, variant: 'secondary', className: 'hover:bg-accent' },
-      { interactive: true, variant: 'outline', className: 'hover:bg-secondary' },
-      { interactive: true, variant: 'muted', className: 'hover:bg-accent' },
+      { interactive: true, variant: 'secondary', className: 'hover:bg-selected' },
+      { interactive: true, variant: 'outline', className: 'hover:bg-hover' },
+      { interactive: true, variant: 'muted', className: 'hover:bg-selected' },
       { interactive: true, variant: 'success', className: 'hover:border-success' },
       { interactive: true, variant: 'warning', className: 'hover:border-warning' },
       { interactive: true, variant: 'info', className: 'hover:border-info' },
@@ -120,7 +121,7 @@ Chip.displayName = 'Chip'
 /**
  * A count pill for the trailing edge of a Chip (e.g. "Piloti noted \u00b7 3").
  *
- * It IS {@link CountPill} — the design language's one rounded-full numeric pill
+ * It IS {@link CountPill} — the design language's one numeric pill
  * — not a second shape with its own padding and min-width, which is what this
  * used to be. The only thing it overrides is the fill: `CountPill`'s `bg-muted`
  * would vanish on a `muted` chip (the default), so the count rides on the chip's
@@ -131,7 +132,7 @@ const ChipCount = React.forwardRef<HTMLSpanElement, CountPillProps>(({ className
   <CountPill
     ref={ref}
     data-slot="chip-count"
-    className={cn('bg-foreground/10 font-semibold text-inherit', className)}
+    className={cn('bg-foreground/10 font-medium text-inherit', className)}
     {...props}
   />
 ))

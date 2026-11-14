@@ -8,7 +8,7 @@ from collections.abc import Sequence
 # verify. A mermaid node label is written `A["Anwendungsbereich"]`, which the
 # ASCII branch of `QUOTED_SPAN_RE` reads as a quoted claim — so a sourced
 # answer carrying a diagram had every one of its labels flagged, and
-# `annotate_unverified_quotes` inserted its marker after the closing quote,
+# the annotator of the time (gone since ADR-0125's amendment) inserted its marker after the closing quote,
 # i.e. INSIDE the bracket:
 #
 #     A["OIB-Richtlinie 2<br/>Brandschutz" [nicht wörtlich in der Quelle belegt]]

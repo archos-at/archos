@@ -194,7 +194,7 @@ export function PlatformSkillCatalog(): JSX.Element {
   const headerActions = canManage ? (
     <div className="flex flex-wrap items-center gap-2">
       {!categoriesFailed ? (
-        <Button size="sm" variant="outline" onClick={() => setCategoriesOpen(true)}>
+        <Button size="sm" variant="secondary" onClick={() => setCategoriesOpen(true)}>
           <Tags aria-hidden />
           {tSkills('toolbox.categories.button')}
         </Button>
@@ -251,7 +251,7 @@ export function PlatformSkillCatalog(): JSX.Element {
                   )}
                 >
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <p className="text-foreground min-w-0 truncate font-mono text-sm font-semibold">
+                    <p className="text-foreground min-w-0 truncate font-mono text-sm font-medium">
                       <span aria-hidden className="text-muted-foreground">
                         /
                       </span>

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { archiveRequestSchema } from '@/lib/documents/lifecycle-types'
 import { byNameRequestSchema } from '@/lib/documents/by-name-types'
 import {
+  documentDownloadQuerySchema,
   documentFileQuerySchema,
   documentSummaryQuerySchema,
   moveDocumentSchema,
@@ -16,6 +17,7 @@ import { SHELF_SCOPES } from '@/lib/documents/shelf-scope'
 import { searchBodyInputSchema, searchBodySchema, searchExportQuerySchema, searchScopeQuerySchema, suggestBodySchema } from '@/lib/search/search-wire'
 import type { AgentOperation } from '../operation'
 import { MAX_UPLOAD_BYTES, documentUploadFields, uploadBodySchemaWith } from '../upload-wire'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const documentParams = z.object({
   id: z.string().describe('The document id, from document-list or workspace-search.'),
@@ -72,7 +74,7 @@ export const documentsOperations = [
     domain: 'documents',
     summary: 'Rename a document',
     description:
-      'Set the name Piloti shows for a document (`displayName`); `null` clears it so the file name shows again. ' +
+      'Set the name ' + PRODUCT_NAME + ' shows for a document (`displayName`); `null` clears it so the file name shows again. ' +
       'The stored file name never changes. Needs write access to the document’s project or shelf.',
     method: 'PATCH',
     path: '/api/documents/[id]',
@@ -200,7 +202,7 @@ export const documentsOperations = [
   {
     name: 'document-visual-details-get',
     domain: 'documents',
-    summary: 'Read what Piloti saw on a drawing or image',
+    summary: 'Read what ' + PRODUCT_NAME + ' saw on a drawing or image',
     description:
       'The visual reading of a drawing or image document: what the vision model found on its pages. ' +
       'Empty for documents that have no visual reading.',
@@ -239,7 +241,9 @@ export const documentsOperations = [
     domain: 'documents',
     summary: 'Cancel a document’s running ingestion',
     description:
-      'Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.',
+      'Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. ' +
+      '`result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` ' +
+      'is the status the document holds afterwards, which is not `cancelled` when the read ended first.',
     method: 'POST',
     path: '/api/documents/[id]/cancel',
     params: documentParams,
@@ -341,11 +345,14 @@ export const documentsOperations = [
     summary: 'Get a time-limited download link for a document',
     description:
       'Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. ' +
+      'With `format=pdf`, the link is to the PDF rendered from an office document or a DXF drawing (at a standard scale), ' +
+      'for a person who wants it printed or attached. ' +
       'The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. ' +
       'The bytes are not sent here; for a PDF use document-file-get. Records the access.',
     method: 'GET',
     path: '/api/documents/[id]/download',
     params: documentParams,
+    query: documentDownloadQuerySchema,
     load: () => import('@/app/api/documents/[id]/download/route'),
   },
   {

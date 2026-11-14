@@ -19,19 +19,19 @@ import type { JSX } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  type LucideIcon,
   Bandage,
-  BookOpenCheck,
   Building2,
   Cpu,
   DatabaseZap,
+  Globe2,
   HardDrive,
   LayoutGrid,
   MessageSquarePlus,
-  Scale,
+  Plug,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  type LucideIcon,
 } from 'lucide-react'
 import { SectionStrip, type SectionNavItem } from '@/components/shell/section-nav'
 import { cn } from '@/lib/utils'
@@ -69,8 +69,8 @@ export const PLATFORM_SECTION_GROUPS = [
   {
     key: 'content',
     sections: [
-      { key: 'knowledge', href: '/app/platform/knowledge', icon: BookOpenCheck },
-      { key: 'norms', href: '/app/platform/norms', icon: Scale },
+      // Each country's knowledge, as reviewed data releases, in one place (ADR-0165).
+      { key: 'countries', href: '/app/platform/countries', icon: Globe2 },
       { key: 'cards', href: '/app/platform/cards', icon: LayoutGrid },
     ],
   },
@@ -79,6 +79,9 @@ export const PLATFORM_SECTION_GROUPS = [
     sections: [
       { key: 'storage', href: '/app/platform/storage', icon: HardDrive },
       { key: 'maintenance', href: '/app/platform/maintenance', icon: DatabaseZap },
+      // Where staff connect their own assistant to this console and to the
+      // cluster's MCP servers (ADR-0126, ADR-0154).
+      { key: 'agents', href: '/app/platform/agents', icon: Plug },
     ],
   },
 ] as const satisfies readonly {
@@ -98,8 +101,8 @@ export type PlatformSectionKey = PlatformSection['key']
  * The overview lives at the bare `/app/platform`, so it must match exactly —
  * a prefix test would light it up on every subsection. Subsections match their
  * own route and anything nested under it, but on a path boundary: a bare
- * `startsWith` would also mark `/app/platform/norms` active on a sibling route
- * such as `/app/platform/norms-draft`.
+ * `startsWith` would also mark `/app/platform/countries` active on a sibling route
+ * such as `/app/platform/countries-draft`.
  */
 function isActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false
@@ -153,7 +156,7 @@ export function PlatformNav(): JSX.Element {
                         'px-3 py-1.5',
                         active
                           ? 'bg-secondary text-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                          : 'text-muted-foreground hover:bg-hover hover:text-foreground'
                       )}
                     >
                       <Icon

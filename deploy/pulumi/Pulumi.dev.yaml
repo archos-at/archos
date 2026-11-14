@@ -59,7 +59,12 @@ config:
   grid-oib:storageClass: single-replica
   # ── Ingress / TLS ── One key moves every public host: app./s3./otel. derive
   # from baseDomain (per-host appDomain/s3Domain/otelDomain keys remain as overrides).
-  grid-oib:baseDomain: dev.piloti.at
+  grid-oib:baseDomain: dev.archos.tech
+  # The domain move (docs/deployment/domain-cutover.md): the former apex and
+  # app. host keep answering, with a 301 to the same path on their new twin.
+  # Their DNS stays in the former zone (formerDnsZone* below). Unset it once
+  # nobody arrives there any more; keep it at least until prod has moved too.
+  grid-oib:formerBaseDomain: dev.piloti.at
   grid-oib:letsEncryptEmail: matthias@bigls.net
   grid-oib:useStagingIssuer: "false" # staging CA verified; prod LE certs now issue
   # Provider ships an unremovable metrics stack — don't install a second one.
@@ -86,7 +91,12 @@ config:
   # `seaweedfsFilerStore` / `seaweedfsFilerStorageSize` below are already set so
   # that flipping one line is all the window needs.
   grid-oib:seaweedfsTopology: single
-  grid-oib:seaweedfsStorageSize: 10Gi
+  # 10Gi filled on 2026-11-12 (8 GB of it Langfuse blobs, which keep no
+  # retention): the volumes went read-only and project mail and uploads failed.
+  # The deploy grows the live volume to this size and never shrinks it
+  # (seaweedfsGrowVolume, src/data/pvc-grow.ts).
+  grid-oib:seaweedfsStorageSize: 30Gi
+  grid-oib:seaweedfsGrowVolume: "true"
   grid-oib:seaweedfsBucket: grid-documents
   grid-oib:seaweedfsAccessKey: grid
   # Read-only identity for the aiq-agent tier (the `look` tool, ADR-0039).
@@ -130,20 +140,17 @@ config:
   grid-oib:qdrantCpu: "1"
   grid-oib:qdrantMemory: 4Gi
   grid-oib:qdrantStorageSize: 20Gi
-  # Qdrant's web dashboard at qdrant.dev.piloti.at, behind the operator gate:
+  # Qdrant's web dashboard at qdrant.<baseDomain>, behind the operator gate:
   # ON by default here, because the Connect application below (otelOidc*) is
-  # set. Register https://qdrant.dev.piloti.at/oauth2/callback on that
+  # set. Register https://qdrant.<baseDomain>/oauth2/callback on that
   # application in WorkOS before this deploys, or its sign-in fails with
   # invalid_redirect_uri (docs/deployment/qdrant-runbook.md, "Dashboard").
   # To keep it off and port-forward instead:
   # grid-oib:qdrantDashboardEnabled: "false"
-  # Copies the retired Chroma into Qdrant on the deploy that removes it, once:
-  # the Job reads the still-running server, and the backend tiers roll after it.
-  # Switch it off (`pulumi config rm`) once the import verified and retrieval
-  # checks out in the product: docs/deployment/qdrant-runbook.md, "Migrating from
-  # Chroma on Kubernetes". It also suspends the base-corpus sync and the vector
-  # reconcile until then.
-  grid-oib:chromaMigration: "true"
+  # The migration off Chroma ran here long ago; `chromaMigration` stays off. While
+  # it was on it also suspended the base-corpus sync and the vector reconcile, so
+  # no corpus file was re-ingested on dev until 2026-11-12
+  # (docs/contributing/gotchas.md, "base-corpus files stay stale").
   # ── Agent (smaller on staging) ──
   grid-oib:backendRequestsCpu: "500m"
   grid-oib:backendRequestsMemory: 1Gi
@@ -159,11 +166,21 @@ config:
   # Drain budget for in-flight research jobs on shutdown (see Pulumi.prod.yaml).
   # Shorter on staging: faster deploys matter more than saving a staging job.
   grid-oib:agentWorkerDrainSeconds: "180"
-  # ── Ingestion tier (ADR-0076) ── scales to zero while nothing is queued.
-  grid-oib:ingestWorkerMinReplicas: "0"
+  # ── Ingestion tier (ADR-0076) ── never below one pod: the base corpus hands its jobs to
+  # Hatchet only (`ingest_dispatch.enqueue_only`, no fallback), and Hatchet takes them only
+  # once a worker has registered `ingest-document`. At zero no worker ever registered it,
+  # every corpus job was refused, the backlog KEDA scales on stayed empty, and Austria's
+  # 49 texts failed to index on 2026-11-12. `ingest-worker.spec.ts` holds every stack to it.
+  grid-oib:ingestWorkerMinReplicas: "1"
   grid-oib:ingestWorkerMaxReplicas: "3"
   grid-oib:ingestWorkerConcurrency: "2"
   grid-oib:ingestWorkerDrainSeconds: "180"
+  # No high-memory pool on staging: its pod requests 12Gi, which the 16 GB app
+  # nodes here (no batch node group) never had free, so from 2026-11-03 every
+  # deploy waited 37 minutes on an unschedulable `ingest-worker-heavy` pod and
+  # failed before anything else rolled out. Off, every file goes to the standard
+  # pool (ingestHeavyFileBytes becomes 0), which is how staging ran before #1465.
+  grid-oib:ingestWorkerHeavyEnabled: "false"
   # Staging is meant to be re-creatable, so the data resources are NOT protected
   # here — `pulumi destroy` must work without a manual unprotect. Prod keeps the
   # default (true).
@@ -178,6 +195,13 @@ config:
   # AuthKit domain of this stack's WorkOS environment: the agent doors' authorization server (ADR-0122).
   grid-oib:workosAuthkitDomain: grateful-view-25-staging.authkit.app
   grid-oib:registryUsername: matthiasbigl
+  # One operator reviews, approves alone and publishes a country's knowledge
+  # change request (KNOWLEDGE_SINGLE_OPERATOR, migration 0233): the owner's
+  # decision of 2026-11-11, for dev only. Never set it in Pulumi.prod.yaml.
+  grid-oib:knowledgeSingleOperator: "true"
+  # The promotion's carry of reviewed knowledge releases (ADR-0181). Dev is the
+  # stack the bundles come from, so here the Job only logs that stable holds them.
+  grid-oib:knowledgeCarry: "true"
   # ── Observability / OTel Collector + Aspire dashboard (ADR-0029) ──
   # Deployed only when the flag is on AND every dependency is set; otherwise
   # `pulumi preview` logs a warning naming what is missing and the tier
@@ -210,7 +234,7 @@ config:
   # drift from each other; `loadBalancerIp` above is now the one place the
   # address is written.
   #
-  # Cloudflare OPERATES the zone; piloti.at stays registered at GoDaddy with its
+  # Cloudflare OPERATES the zone; the domain stays registered at GoDaddy with its
   # NS records delegated. This is not a preference — GoDaddy's own DNS API is
   # gated behind 10+ domains or a Discount Domain Club membership, so a small
   # account cannot drive it from code at all.
@@ -220,7 +244,7 @@ config:
   # records, so the new zone can be dug directly while GoDaddy is still
   # authoritative. See docs/deployment/kubernetes.md § 3b "Cutover order".
   #   1. `dig` every record type off the live zone (GoDaddy's UI truncates).
-  #   2. Add piloti.at to Cloudflare and DELETE every record its auto-scan
+  #   2. Add the domain to Cloudflare and DELETE every record its auto-scan
   #      imported — Cloudflare round-robins duplicate A records rather than
   #      rejecting them, so an imported record plus a created one is an
   #      intermittently wrong answer, not an error.
@@ -237,11 +261,24 @@ config:
   #
   # DEV STACK IS LIVE: the delegation already moved to Cloudflare before this
   # feature merged, so dnsEnabled is "true" here with the real zone id and token.
+  #
+  # Since the domain move this stack writes to TWO zones with one token: its
+  # hosts into the new zone, the former apex and app. host into the former one.
+  # The token is an ACCOUNT-owned API token (Manage Account → API Tokens), on
+  # both zones: Zone → DNS → Edit and Zone → Zone → Read. Project mail (the block
+  # at the end, on piloti.at) adds Zone → Zone Settings → Edit and Zone → Email
+  # Routing Rules → Edit on piloti.at, and Account → Workers Scripts → Edit and
+  # Account → Email Routing Addresses → Edit (project-mail-runbook.md §4). It lives in
+  # ESC like every other secret of this stack, not here (a stack-file value
+  # would win over ESC): the `esc env set` line in step 3 above.
+  # Prove it reaches both zones before a deploy needs it (it also prints the
+  # zone id dnsZoneId needs):
+  #   CLOUDFLARE_API_TOKEN=<token> deploy/pulumi/scripts/check-cloudflare-token.sh --stack dev
   grid-oib:dnsEnabled: "true"
-  grid-oib:dnsZoneName: piloti.at
-  grid-oib:dnsZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id, Cloudflare zone Overview page)
-  grid-oib:cloudflareApiToken:
-    secure: AAABAD5L+SCK2AhyqX/QqKlpHgDWIgYWvBO8TlwzYzUsaLb8//GZe0dAcvp348Xg0Ikbje8EUWvTiouh2jp4H/sI2l4d3XueTw8WlLm+qV2dPbPDhA==
+  grid-oib:dnsZoneName: archos.tech
+  grid-oib:dnsZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id, printed by check-cloudflare-token.sh 2026-11-05)
+  grid-oib:formerDnsZoneName: piloti.at
+  grid-oib:formerDnsZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id, Cloudflare zone Overview page)
   # ── err2issue: ERROR telemetry -> GitHub issues (ADR-0031) ──
   # A second consumer on the collector's logs signal. Requires the
   # observability tier above (it has no receiver of its own).
@@ -265,12 +302,30 @@ config:
   # or duplicate stays closed when its error recurs; completed ones reopen).
   grid-oib:err2issueEnabled: "true"
   grid-oib:err2issueGithubRepo: GRID-check/grid-oib-agent
+  # ── The website's CMS (ADR-0155) ──
+  # Payload at cms.<baseDomain>, its own namespace, the
+  # cms-pg cluster and the cms-files bucket. Its secrets default to one-way
+  # HMACs of pgAppPassword, so nothing new goes into ESC. The host is behind the
+  # platform gate (otelOidc*, like Langfuse's): platform staff are signed in
+  # from it, as editors on a first visit, and cmsAdminEmail as administrator.
+  # The images alone are open. cms-pg's PITR archive (cmsPgBackupsEnabled) is
+  # off until an off-cluster bucket exists: staging's posts are the MDX import.
+  grid-oib:cmsEnabled: "true"
+  grid-oib:cmsAdminEmail: biglmatthias@gmail.com
+  # ── Platform MCP gateway (ADR-0154) ──
+  # platform-mcp.<baseDomain>: /langfuse/mcp and /cms/mcp for platform owners'
+  # agents, signed in with WorkOS. Its session key is derived from
+  # pgAppPassword unless mcpGatewaySessionKey is set. The resource indicators
+  # and the JWT template's roles claim are set in WorkOS staging.
+  grid-oib:mcpGatewayEnabled: "true"
+  grid-oib:mcpGatewayPlatformOrgId: org_01KX06QQJN3KA25R9G2PNFBGXV
   # ── Feedback → GitHub issues ──
   # Bug reports from the in-app feedback form are filed as issues by the BFF,
   # with the err2issue PAT and repo above (feedbackIssuesEnabled defaults on).
   # To send them elsewhere: grid-oib:feedbackIssuesRepo owner/repo.
-  # ── BFF background pool (ADR-0079) ── scales to zero while nothing is queued.
-  grid-oib:bffJobsMinReplicas: "0"
+  # ── BFF background pool (ADR-0079) ── one replica at least: it is also the
+  # one worker of the scheduling crons, which no backlog wakes it for.
+  grid-oib:bffJobsMinReplicas: "1"
   grid-oib:bffJobsMaxReplicas: "2"
   grid-oib:bffJobsConcurrency: "2"
   grid-oib:bffJobsDrainSeconds: "60"
@@ -288,3 +343,30 @@ config:
   grid-oib:posthogHost: https://eu.i.posthog.com
   grid-oib:posthogProjectToken: phc_CVrz2Nt2hoJSmBQ9duYHDbWSjkdyQkQxKs7GHxDvg27X # pragma: allowlist secret (public project token)
   grid-oib:posthogSessionReplay: "true"
+  # ── Project mail (Cloudflare Email Routing, ADR-0138) ──
+  # ON and receiving since 2026-11-05 (unpaused after the first paused deploy).
+  # Dev goes first: the launch gates run here before prod
+  # (runbook §8a, docs/deployment/project-mail-runbook.md). On dev the scanner and the
+  # paused domain went in one promotion: while paused every delivery is a retry the
+  # sender's server repeats, so no mail waits on a scanner still fetching signatures.
+  # The unpause was its own change. On dev the owner unpaused without the formal G0
+  # run: piloti.at's apex receives no mail, so no one's mail was at stake (runbook §8a).
+  # Prod keeps G0, G4 (paused) and G7 before its unpause.
+  #
+  # Promotion 1, the scanner alone. Wait for its pod to be ready before promotion 2:
+  grid-oib:malwareScanEnabled: "true"
+  #
+  # Promotion 2, paused. Before it: the signing key in dev's ESC environment, never in
+  # this file (runbook §5, with the dev environment's name). The receiving domain is in
+  # the piloti.at zone, not archos.tech: Email Routing's state is one object per zone, so
+  # dev and prod each need a zone of their own (stack-files.spec.ts). piloti.at's apex
+  # has no MX, so nothing here can take anyone's mail. Its _dmarc is prod's dnsDmarc:
+  # no inboundMailDmarc here. Subaddressing: deploy.yml switches it on after `pulumi up`.
+  grid-oib:inboundMailDomain: inbox.dev.piloti.at
+  grid-oib:inboundMailZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id of piloti.at, Cloudflare zone Overview page)
+  #   Where postmaster@ and abuse@ forward. This stack OWNS the destination address
+  #   (Cloudflare keeps each once per account); prod shares it, verified, without creating
+  #   it (inboundMailOperatorAddressShared). Change it here and prod's preview refuses its
+  #   address: stack-files.spec.ts says so on the pull request.
+  grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-dev@archos.tech
+  grid-oib:inboundMailPaused: "false"

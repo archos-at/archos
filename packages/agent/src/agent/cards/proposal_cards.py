@@ -41,6 +41,11 @@ PROPOSAL_ID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F
 SERVER_FILLED_CARD_FIELDS = frozenset({"proposal_id"})
 
 
+#: Fields the server stamps while a card validates (``FormulaCard.site_binding``): replaced whatever the model
+#: wrote, and hidden from the shapes like the fields above.
+SERVER_SET_CARD_FIELDS = SERVER_FILLED_CARD_FIELDS | {"site_binding"}
+
+
 class ProjectProfilePatchOperation(CardModel):
     """A JSON Patch operation targeting a project profile section."""
 
@@ -128,6 +133,12 @@ class MemoryProposalCard(CardModel):
         max_length=500,
         description="The earlier note this one corrects, quoted verbatim; accepting the proposal retires it",
     )
+    # default_factory, not default: an absent topic is an optional field in the generated schema, not a null default.
+    topic: str | None = Field(
+        default_factory=lambda: None,
+        max_length=40,
+        description="The subject the note is filed under on its shelf; the browser sends it with the note",
+    )
     proposal_id: str | None = Field(
         default=None,
         pattern=PROPOSAL_ID_PATTERN,
@@ -141,7 +152,7 @@ class MemoryProposalCard(CardModel):
 class OperationProposalCard(CardModel):
     """A workspace operation the agent PROPOSES through the MCP surface and a person runs.
 
-    System-emitted for a write operation Piloti called on the product's own MCP
+    System-emitted for a write operation the agent called on the product's own MCP
     server (ADR-0122): the call changed nothing, it stored an ``operation``
     proposal (ADR-0105) and this card shows it. Accepting runs the operation
     as the ACCEPTING person through the operation's own route, so that route's

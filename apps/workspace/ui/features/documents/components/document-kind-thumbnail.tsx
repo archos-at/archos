@@ -20,16 +20,6 @@ import { ImageIcon, ImageOff } from 'lucide-react'
 import type { DocumentKind } from '../document-kind'
 import { cn } from '@/lib/utils'
 
-/**
- * Office-gold source tint for the image placeholder's format chip. Mirrors
- * `TINTS.office` in `../document-kind` (photos map to the office family) so the
- * colour never travels without an icon + label — never a lone glyph.
- */
-const OFFICE_TINT = {
-  background: 'var(--source-office-tint, var(--background-color-feedback-warning-subtle))',
-  color: 'var(--source-office-text, var(--text-color-feedback-warning))',
-} as const
-
 type SvgProps = Omit<SVGProps<SVGSVGElement>, 'viewBox' | 'children'>
 
 /* --------------------------------------------------------------------------
@@ -279,10 +269,10 @@ function SitePlanFill() {
 function DocumentFill() {
   return (
     <div className="absolute inset-0 flex flex-col gap-[6px] px-[18px] py-[15px]">
-      <div className="h-[6px] w-[52%] rounded-sm bg-current opacity-40" />
-      <div className="mb-[5px] h-[4px] w-[30%] rounded-sm bg-current opacity-20" />
+      <div className="h-[6px] w-[52%] rounded-full bg-current opacity-40" />
+      <div className="mb-[5px] h-[4px] w-[30%] rounded-control bg-current opacity-20" />
       {[100, 94, 97, 88, 96, 62].map((w, i) => (
-        <div key={i} className="h-[4px] rounded-sm bg-current opacity-20" style={{ width: `${w}%` }} />
+        <div key={i} className="h-[4px] rounded-control bg-current opacity-20" style={{ width: `${w}%` }} />
       ))}
     </div>
   )
@@ -294,16 +284,16 @@ function NoticeFill() {
     <div className="absolute inset-0 flex flex-col gap-[6px] px-[18px] py-[15px]">
       <div className="mb-[6px] flex items-start justify-between">
         <div className="flex flex-col gap-[4px]">
-          <div className="h-[5px] w-16 rounded-sm bg-current opacity-40" />
-          <div className="h-[4px] w-10 rounded-sm bg-current opacity-20" />
+          <div className="h-[5px] w-16 rounded-control bg-current opacity-40" />
+          <div className="h-[4px] w-10 rounded-control bg-current opacity-20" />
         </div>
         <div className="size-[18px] shrink-0 rounded-full border-[1.5px] border-current opacity-40" />
       </div>
       {[100, 92, 96, 70, 88, 54].map((w, i) => (
-        <div key={i} className="h-[4px] rounded-sm bg-current opacity-20" style={{ width: `${w}%` }} />
+        <div key={i} className="h-[4px] rounded-control bg-current opacity-20" style={{ width: `${w}%` }} />
       ))}
       <div className="absolute bottom-3 right-4 flex size-10 -rotate-12 items-center justify-center rounded-full border-[1.5px] border-current opacity-30">
-        <div className="h-[3px] w-5 rounded-sm bg-current" />
+        <div className="h-[3px] w-5 rounded-control bg-current" />
       </div>
     </div>
   )
@@ -360,13 +350,13 @@ function SheetFill() {
 function TextFill() {
   return (
     <div className="absolute inset-0 flex flex-col gap-[6px] px-[18px] py-[15px]">
-      <div className="h-[7px] w-[46%] rounded-sm bg-current opacity-45" />
-      <div className="h-[4px] w-full rounded-sm bg-current opacity-20" />
-      <div className="mb-[3px] h-[4px] w-[78%] rounded-sm bg-current opacity-20" />
+      <div className="h-[7px] w-[46%] rounded-full bg-current opacity-45" />
+      <div className="h-[4px] w-full rounded-control bg-current opacity-20" />
+      <div className="mb-[3px] h-[4px] w-[78%] rounded-control bg-current opacity-20" />
       {[86, 94, 62].map((w, i) => (
         <div key={i} className="flex items-center gap-[7px]">
           <span className="size-[4px] shrink-0 rounded-full bg-current opacity-35" />
-          <span className="h-[4px] rounded-sm bg-current opacity-20" style={{ width: `${w}%` }} />
+          <span className="h-[4px] rounded-control bg-current opacity-20" style={{ width: `${w}%` }} />
         </div>
       ))}
     </div>
@@ -429,22 +419,25 @@ export function DocumentKindThumbnail({
           data-kind={kind}
           data-testid="document-kind-thumbnail"
           data-state="failed"
+          title={failedLabel}
           className={cn(
-            'absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted text-muted-foreground/70',
+            // The sheet's own white, the glyph saying what failed: a grey well in the white sheet was a box in a box.
+            'absolute inset-0 flex flex-col items-center justify-center bg-sheet text-muted-foreground',
             className
           )}
         >
-          <ImageOff className="size-6 opacity-50" aria-hidden />
-          {failedLabel && (
-            <span className="px-3 text-center text-xs font-medium leading-tight">{failedLabel}</span>
-          )}
+          {/* The glyph alone, at the 16px of every glyph on the tile: a centred sentence on grey made it the
+              loudest tile in the grid, and the tile's name already says what the file is. The words stay as its title. */}
+          <ImageOff className="size-4 opacity-60" aria-hidden />
+          {failedLabel && <span className="sr-only">{failedLabel}</span>}
         </div>
       )
     }
 
-    // An image with no thumbnail: a WARM, intentional placeholder — soft paper
-    // wash + image glyph + a format chip (icon travels WITH a label, office-gold
-    // family) — never a lone glyph that reads as a browser broken-image icon.
+    // An image with no thumbnail: an intentional placeholder on the sheet's white,
+    // an image glyph over the format in words — never a lone glyph that reads as a
+    // browser broken-image icon. No tint: ochre says „needs you“ (paper on a desk,
+    // principle 7), and a format is no verdict.
     if (kind === 'photo') {
       return (
         <div
@@ -453,17 +446,16 @@ export function DocumentKindThumbnail({
           data-testid="document-kind-thumbnail"
           data-state="placeholder"
           className={cn(
-            'absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-gradient-to-br from-muted/40 via-muted/60 to-muted text-muted-foreground',
+            'absolute inset-0 flex flex-col items-center justify-center gap-2 bg-sheet text-muted-foreground',
             className
           )}
         >
           <ImageIcon className="size-[26px] opacity-45" aria-hidden />
           {formatLabel && (
             <span
-              // The eyebrow ramp step (10.5px / uppercase / tracking-wider),
-              // rendered as a tinted chip rather than a bare label.
-              className="inline-flex items-center rounded-sm px-2 py-[3px] text-[10.5px] font-bold uppercase leading-none tracking-wider"
-              style={OFFICE_TINT}
+              // The codes' 11/16/500 (paper on a desk). Capitals and tracking because the label is a file-format
+              // code (PDF, DWG), not because the eyebrow is set in capitals.
+              className="text-[11px] font-medium uppercase leading-4 tracking-wider"
             >
               {formatLabel}
             </span>

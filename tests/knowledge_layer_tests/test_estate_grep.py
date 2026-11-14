@@ -21,8 +21,8 @@ import re
 import pytest
 from knowledge_layer import stored_pages
 from knowledge_layer.browse import FileRow
-from knowledge_layer.estate_grep import GrepRefused
-from knowledge_layer.estate_grep import compile_query
+from knowledge_layer.estate import GrepRefused
+from knowledge_layer.estate import compile_query
 from knowledge_layer_testing.estate_grep import COLLECTION
 from knowledge_layer_testing.estate_grep import OFFICE
 from knowledge_layer_testing.estate_grep import PROJECT
@@ -81,6 +81,14 @@ class TestContent:
         assert "## Lines around the matches" in result.text and "#page=" in result.text
         assert [hit.citation_key for hit in collected] == [hit.citation_key for hit in result.hits]
         assert len({hit.page for hit in result.hits}) == len(result.hits), "one block per page"
+
+    async def test_the_lines_around_the_matches_are_fenced_as_data(self) -> None:
+        """The index prints the documents' own lines: they sit in the passages' fence."""
+        result = await _backend(Retriever({COLLECTION: _chunks()})).grep("Fluchtweg", output_mode="content", context=1)
+        index = result.text[result.text.index("## Lines around the matches") :]
+        opened, closed = index.index("<document_content>\n"), index.index("\n</document_content>")
+        assert opened < index.index("#page=") < index.index("> ") < closed
+        assert index.index("Cite the passages above") > closed
 
 
 class TestNeverASilentNo:

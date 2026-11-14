@@ -28,10 +28,11 @@ import { describe, expect, it } from 'vitest'
 import { translatorFor } from '@/i18n/namespace'
 import { answerExportCopy } from '@/i18n/namespaces/answer-export'
 import type { DocBlock } from './blocks'
-import { buildAnswerDocument, type AnswerDocumentInput } from './answer-document'
+import { buildAnswerDocument, EXPORTED_CAPPED_REASONS, type AnswerDocumentInput } from './answer-document'
 import { CARD_EXPORT, isCheck, SKIPPED_FIELDS, skippedNested } from './cards'
 import { answerCardSchema } from '@/shared/cards/schemas'
 import { previewFixtureFor } from '@/features/cards/preview-fixtures'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const german = translatorFor(answerExportCopy, 'de')
 const english = translatorFor(answerExportCopy, 'en')
@@ -175,13 +176,13 @@ describe('the marking on an unreviewed document', () => {
     // has to approve a change to it rather than discover it in a diff of a
     // dictionary file.
     expect(text(buildAnswerDocument(input({ agentAuthored: true }), german, 'de'))).toContain(
-      'Dieses Dokument hat Piloti erstellt; ein Mensch hat es nicht geprüft. Es ist ein Entwurf und kein Nachweis — prüfen Sie jede Angabe, bevor Sie das Dokument weitergeben oder einreichen.'
+      `Dieses Dokument hat ${PRODUCT_NAME} erstellt; ein Mensch hat es nicht geprüft. Es ist ein Entwurf und kein Nachweis — prüfen Sie jede Angabe, bevor Sie das Dokument weitergeben oder einreichen.`
     )
     expect(text(buildAnswerDocument(input({ agentAuthored: true }), english, 'en'))).toContain(
       'AI-generated — not reviewed'
     )
     expect(text(buildAnswerDocument(input({ agentAuthored: true }), english, 'en'))).toContain(
-      'Piloti wrote this document; no person has reviewed it. It is a draft, not proof of compliance — check every statement before you pass the document on or submit it.'
+      `${PRODUCT_NAME} wrote this document; no person has reviewed it. It is a draft, not proof of compliance — check every statement before you pass the document on or submit it.`
     )
   })
 
@@ -316,6 +317,23 @@ describe('fields the stored answer does not have', () => {
     expect(output).toContain('Verlässlichkeit: mittel')
     expect(output).toContain('Begründung des Assistenten: Die Quelle nennt die Länge')
     expect(output).toContain('nicht wortgleich gegen die Quelle prüfbar')
+  })
+
+  // Each cap an export can carry, with its own sentence: a reason mapped to the wrong key reads as another cap.
+  it.each([
+    ['ungrounded', 'nicht durch Quellen belegt'],
+    ['quote_unverified', 'nicht wortgleich gegen die Quelle prüfbar'],
+    ['law_unsettled', 'verbindliche Fassung des Baurechts steht für diesen Standort noch nicht geprüft fest'],
+  ] as const)('explains the %s cap in its own words', (cappedReason, sentence) => {
+    const output = text(
+      buildAnswerDocument(input({ confidence: { level: 'medium', cappedReason } }), german, 'de')
+    )
+    expect(output).toContain(sentence)
+    expect(EXPORTED_CAPPED_REASONS).toContain(cappedReason)
+  })
+
+  it('names every cap it can export', () => {
+    expect([...EXPORTED_CAPPED_REASONS].sort()).toEqual(['law_unsettled', 'open_point', 'quote_unverified', 'ungrounded'])
   })
 })
 
@@ -536,9 +554,9 @@ describe('the drawing this export cannot draw', () => {
       ],
     }
     const output = text(
-      buildAnswerDocument(input({ answer: '', cards: [tab], diagramPlaceholder: 'Als Grafik in Piloti.' }), german, 'de')
+      buildAnswerDocument(input({ answer: '', cards: [tab], diagramPlaceholder: `Als Grafik in ${PRODUCT_NAME}.` }), german, 'de')
     )
-    expect(output).toContain('Als Grafik in Piloti.')
+    expect(output).toContain(`Als Grafik in ${PRODUCT_NAME}.`)
     expect(output).not.toContain('BW->>BB')
   })
 })

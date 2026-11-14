@@ -1,32 +1,34 @@
 """What this package refuses to do with input it does not control.
 
-Three of these are not questions about a building. They are questions about the
-PROCESS the building is measured in, and every one of them was reproduced
-against the code before it was fixed:
+Four of these are not questions about a building. They are questions about the
+PROCESS the building is measured in, and each was reproduced against the code
+before it was fixed. (A fifth, ``open_model(url=…)`` reading whatever a URL
+named, went with the URL itself on 2026-11-04: the engine opens a path its host
+fetched through the host's own access check.)
 
-  - ``open_model(url=…)`` fetched whatever the URL named. The agent chooses the
-    URL and the server makes the connection, so a tool for reading a model was
-    also a reader of ``http://169.254.169.254/latest/meta-data/`` and of every
-    port on the loopback interface — and the failure text said which ports were
-    open;
   - ``write_ids(name=…)`` joined ``name`` onto the target directory, so an
     absolute name replaced the directory and a ``..`` walked out of it;
   - ``render.plan`` derived the raster HEIGHT from the model's aspect ratio and
     allocated it. A 400 m × 2 m gallery is 365 megapixels at the default width,
-    which is 1.41 GB and an OOM-killed worker rather than a refused request.
+    which is 1.41 GB and an OOM-killed worker rather than a refused request;
+  - opening a model followed its length unit's conversion chain with no limit,
+    so a chain leading back to itself never returned;
+  - a file the parser dies on in C took the process with it, and with the process
+    every conversation running there.
 
-The first two are refusals and read as ``ToolError``: the call could not be
-made. None of them is an ``undecidable`` — that is a finding about an export,
-and "we will not connect there" is a finding about us.
+The first is a refusal and read as ``ToolError``: the call could not be
+made. The last two are refusals about the file, a ``ModelUnreadableError``.
+None of them is an ``undecidable`` — that is a finding about an export, and
+"we will not connect there" is a finding about us.
 """
 
 from __future__ import annotations
 
-import email.message
-import http.server
-import io
-import socketserver
-import threading
+import os
+import resource
+import signal
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -34,173 +36,11 @@ import ifcopenshell
 import pytest
 from ifc_spatial import render
 from ifc_spatial.model import SpatialModel
-from ifc_spatial.tools import ALLOW_PRIVATE_URLS_ENV
+from ifc_spatial.project_units import MAX_UNIT_STEPS
 from ifc_spatial.tools import ToolError
-from ifc_spatial.tools import _GuardedRedirectHandler
-from ifc_spatial.tools import _opener
-from ifc_spatial.tools import _read_source
-from ifc_spatial.tools import _refuse_unroutable_destination
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
-
-
-# ── [4] the destination of a download ───────────────────────────────────────
-
-
-class _Counter(http.server.BaseHTTPRequestHandler):
-    """Answers anything, and counts. The count is the assertion."""
-
-    hits = 0
-
-    def do_GET(self) -> None:  # noqa: N802 — BaseHTTPRequestHandler's name
-        type(self).hits += 1
-        body = b"ISO-10303-21;\nEND-ISO-10303-21;\n"
-        self.send_response(200)
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def log_message(self, *args: Any) -> None:  # noqa: D102 — silence the test log
-        return
-
-
-@pytest.fixture()
-def loopback_server():
-    """A real HTTP server on 127.0.0.1 — a stand-in for everything inside the
-    perimeter that a URL from an agent must not reach."""
-    handler = type("_H", (_Counter,), {"hits": 0})
-    server = socketserver.TCPServer(("127.0.0.1", 0), handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    try:
-        yield handler, f"http://127.0.0.1:{server.server_address[1]}/modell.ifc"
-    finally:
-        server.shutdown()
-        server.server_close()
-
-
-def test_a_loopback_url_is_refused_before_a_socket_is_opened(loopback_server, monkeypatch) -> None:
-    """The reproduction, verbatim: this URL returned the server's bytes.
-
-    The hit count is the part that matters. A guard that refuses AFTER the
-    request has been made has already told the attacker whether the port is
-    open, which is the whole value of an SSRF probe.
-    """
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    handler, url = loopback_server
-
-    with pytest.raises(ToolError) as raised:
-        _read_source({"url": url})
-
-    assert handler.hits == 0
-    assert "öffentlichen Netzes" in str(raised.value)
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "http://127.0.0.1/modell.ifc",
-        "http://127.1/modell.ifc",
-        "http://0.0.0.0/modell.ifc",
-        # The cloud metadata endpoint — the reason link-local is on this list.
-        "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
-        "http://10.0.0.5/modell.ifc",
-        "http://172.16.0.1/modell.ifc",
-        "http://192.168.1.1/modell.ifc",
-        # Carrier-grade NAT: routable-looking, not the public internet.
-        "http://100.64.0.1/modell.ifc",
-        "http://224.0.0.1/modell.ifc",
-        "https://[::1]/modell.ifc",
-        # Loopback wearing an IPv6 hat. A check that reads only the outer form
-        # lets this one through.
-        "https://[::ffff:127.0.0.1]/modell.ifc",
-        "http://[fd00::1]/modell.ifc",
-        "http://[fe80::1]/modell.ifc",
-    ],
-)
-def test_every_address_outside_the_public_internet_is_refused(url: str, monkeypatch) -> None:
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    with pytest.raises(ToolError):
-        _refuse_unroutable_destination(url)
-
-
-def test_a_public_address_is_not_refused(monkeypatch) -> None:
-    """The guard has to leave the tool usable, which is the half that is easy to
-    lose: a check that refuses everything passes every security test."""
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    _refuse_unroutable_destination("https://93.184.216.34/modell.ifc")
-    _refuse_unroutable_destination("http://93.184.216.34:8080/modell.ifc")
-
-
-@pytest.mark.parametrize("url", ["file:///etc/passwd", "ftp://example.com/m.ifc", "gopher://x/1"])
-def test_only_http_and_https_are_read(url: str, monkeypatch) -> None:
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    with pytest.raises(ToolError) as raised:
-        _read_source({"url": url})
-    assert "http://" in str(raised.value)
-
-
-def test_a_redirect_hop_is_checked_like_the_first_one(monkeypatch) -> None:
-    """A public URL answering ``302 → 169.254.169.254`` is the standard way past
-    a guard that only reads what the caller typed."""
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    import urllib.request
-
-    request = urllib.request.Request("https://93.184.216.34/modell.ifc")
-    handler = _GuardedRedirectHandler()
-
-    with pytest.raises(ToolError):
-        handler.redirect_request(
-            request,
-            io.BytesIO(b""),
-            302,
-            "Found",
-            email.message.Message(),
-            "http://169.254.169.254/latest/meta-data/",
-        )
-
-
-def test_the_download_still_goes_through_the_guarded_opener() -> None:
-    """Pins the wiring, not the behaviour.
-
-    Every hop check in this file is dead code the moment ``_read_source`` goes
-    back to a bare ``urllib.request.urlopen``, and nothing else in the suite
-    would notice.
-    """
-    assert any(isinstance(handler, _GuardedRedirectHandler) for handler in _opener.handlers)
-
-
-def test_a_failed_connection_does_not_report_which_failure_it_was(monkeypatch) -> None:
-    """„Connection refused" and „timed out" are a port scanner.
-
-    The two words are the difference between a closed port and a filtered one on
-    a host the agent cannot otherwise see, and the agent picks the URL.
-    """
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    # `.invalid` is reserved by RFC 2606 and never resolves.
-    with pytest.raises(ToolError) as raised:
-        _read_source({"url": "https://kein-modell.invalid/haus.ifc"})
-
-    text = str(raised.value)
-    assert "path verwenden" in text
-    for leak in ("Errno", "refused", "Connection", "urlopen", "timed out", "getaddrinfo"):
-        assert leak not in text
-
-
-def test_a_host_that_knows_its_own_network_can_opt_back_in(loopback_server, monkeypatch) -> None:
-    """The escape hatch a MinIO on the compose network needs.
-
-    Opt-in and not opt-out, because the two mistakes are not symmetric: a
-    deployment that needed this and did not set it reads a refusal and fixes it
-    in one environment variable, while a deployment that never needed it and was
-    never asked fetches an agent's URL from inside its own perimeter and nobody
-    finds out.
-    """
-    monkeypatch.setenv(ALLOW_PRIVATE_URLS_ENV, "1")
-    handler, url = loopback_server
-
-    assert _read_source({"url": url}).startswith(b"ISO-10303-21;")
-    assert handler.hits == 1
 
 
 # ── [30] the size of a raster ───────────────────────────────────────────────
@@ -460,3 +300,320 @@ def test_a_real_document_still_lands_under_the_given_name(tmp_path: Path) -> Non
 
     assert facts["path"] == str(tmp_path / "haus.ids")
     assert (tmp_path / "haus.ids").is_file()
+
+
+# ── a length unit with no end ─────────────────────────
+
+
+UNITS_FEET = FIXTURES / "units-feet.ifc"
+FOOT = "#10=IFCCONVERSIONBASEDUNIT(#7,.LENGTHUNIT.,'FOOT',#9);"
+FOOT_FACTOR = "#9=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(0.3048),#8);"
+UNIT_LIST = "#13=IFCUNITASSIGNMENT((#10,#11,#12));"
+
+_OPEN_AND_PRINT = """
+import sys
+from ifc_spatial.model import ModelUnreadableError, SpatialModel
+try:
+    print(repr(SpatialModel(sys.argv[1]).unit_scale))
+except ModelUnreadableError as refused:
+    print(refused.reason)
+"""
+
+
+def _foot_through(conversions: int) -> str:
+    """The foot's factor, reaching the metre through ``conversions`` more units."""
+    lines = ["#9=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(0.3048),#100);"]
+    for i in range(conversions):
+        unit, factor, target = 100 + 2 * i, 101 + 2 * i, 102 + 2 * i if i + 1 < conversions else 8
+        lines.append(f"#{unit}=IFCCONVERSIONBASEDUNIT(#7,.LENGTHUNIT.,'U',#{factor});")
+        lines.append(f"#{factor}=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(1.),#{target});")
+    return "\n".join(lines)
+
+
+def _open_units_in_a_child(tmp_path: Path, *swaps: tuple[str, str]) -> str:
+    """A regression here never returns, so it has to fail this test and not hang the run."""
+    text = UNITS_FEET.read_text()
+    for old, new in swaps:
+        assert old in text
+        text = text.replace(old, new)
+    path = tmp_path / "units.ifc"
+    path.write_text(text)
+    done = subprocess.run(
+        [sys.executable, "-c", _OPEN_AND_PRINT, str(path)],
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=30,
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src")},
+    )
+    assert done.returncode == 0, done.stderr[-500:]
+    return done.stdout.strip()
+
+
+@pytest.mark.parametrize(
+    "swaps",
+    [
+        pytest.param([(FOOT_FACTOR, FOOT_FACTOR.replace("#8)", "#10)"))], id="points-at-itself"),
+        pytest.param(
+            [
+                (
+                    FOOT_FACTOR,
+                    "#9=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(3.),#50);\n"
+                    "#50=IFCCONVERSIONBASEDUNIT(#7,.LENGTHUNIT.,'YARD',#51);\n"
+                    "#51=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(0.3048),#10);",
+                )
+            ],
+            id="two-units-point-at-each-other",
+        ),
+        pytest.param(
+            [
+                ("FILE_SCHEMA(('IFC2X3'))", "FILE_SCHEMA(('IFC4'))"),
+                (FOOT_FACTOR, FOOT_FACTOR.replace("#8)", "#10)")),
+                (
+                    FOOT,
+                    FOOT.replace("IFCCONVERSIONBASEDUNIT", "IFCCONVERSIONBASEDUNITWITHOFFSET").replace("#9)", "#9,0.)"),
+                ),
+            ],
+            id="with-offset-points-at-itself",
+        ),
+        pytest.param([(FOOT_FACTOR, _foot_through(MAX_UNIT_STEPS - 1))], id="a-chain-past-the-limit"),
+        pytest.param(
+            [(UNIT_LIST, f"#13=IFCUNITASSIGNMENT(({'#10,' * (MAX_UNIT_STEPS // 2)}#10,#11,#12));")],
+            id="a-list-of-short-chains-past-the-limit",
+        ),
+        pytest.param(
+            [(UNIT_LIST, f"#13=IFCUNITASSIGNMENT(({'#8,' * (MAX_UNIT_STEPS - 1)}#10,#11,#12));")],
+            id="a-list-of-plain-length-units-past-the-limit",
+        ),
+    ],
+)
+def test_a_length_unit_that_cannot_be_followed_is_refused_with_a_reason(tmp_path: Path, swaps) -> None:
+    assert "Längeneinheit" in _open_units_in_a_child(tmp_path, *swaps)
+
+
+@pytest.mark.parametrize(
+    ("swaps", "scale"),
+    [
+        pytest.param([], 0.3048, id="foot"),
+        pytest.param(
+            [
+                (
+                    FOOT_FACTOR,
+                    "#9=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(3.),#50);\n"
+                    "#50=IFCCONVERSIONBASEDUNIT(#7,.LENGTHUNIT.,'FOOT',#51);\n"
+                    "#51=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(0.3048),#8);",
+                )
+            ],
+            0.9144000000000001,
+            id="yard-via-foot",
+        ),
+        pytest.param([(FOOT_FACTOR, _foot_through(MAX_UNIT_STEPS - 2))], 0.3048, id="a-chain-at-the-limit"),
+        pytest.param(
+            [(UNIT_LIST, f"#13=IFCUNITASSIGNMENT(({'#8,' * (MAX_UNIT_STEPS - 2)}#10,#11,#12));")],
+            0.3048,
+            id="a-list-of-plain-length-units-at-the-limit",
+        ),
+        pytest.param(
+            [
+                (
+                    UNIT_LIST,
+                    "#60=IFCCONVERSIONBASEDUNIT(#7,.USERDEFINED.,'U',#9);\n"
+                    f"#13=IFCUNITASSIGNMENT(({'#60,' * MAX_UNIT_STEPS}#60,#10,#11,#12));",
+                )
+            ],
+            0.3048,
+            id="a-long-list-of-units-the-scale-never-reads",
+        ),
+        pytest.param(
+            [
+                (
+                    UNIT_LIST,
+                    "#60=IFCMEASUREWITHUNIT(IFCRATIOMEASURE(1.),#61);\n"
+                    "#61=IFCCONVERSIONBASEDUNIT(#7,.AREAUNIT.,'A',#60);\n"
+                    "#13=IFCUNITASSIGNMENT((#10,#61,#12));",
+                )
+            ],
+            0.3048,
+            id="a-loop-on-a-unit-the-scale-never-reads",
+        ),
+    ],
+)
+def test_a_length_unit_that_can_be_followed_reports_the_same_scale(tmp_path: Path, swaps, scale: float) -> None:
+    assert _open_units_in_a_child(tmp_path, *swaps) == repr(scale)
+
+
+# ── a file the parser dies on ───────────────────────────────────────────────
+
+_NAME = "FILE_NAME('h.ifc','2026-08-12T00:00:00',(''),(''),'','','');\n"
+_SCHEMA = "FILE_SCHEMA(('IFC4'));\n"
+
+#: In a child, because without the probe this is a SIGSEGV and the test run would die of it.
+_OPEN_AND_PRINT_THE_REFUSAL = """
+import sys
+from ifc_spatial.model import ModelUnreadableError, SpatialModel
+try:
+    SpatialModel(sys.argv[1])
+except ModelUnreadableError as refusal:
+    print(refusal.reason)
+except Exception:
+    pass
+"""
+
+#: A host whose worker threads get 2 MiB, which is what glibc gives them when RLIMIT_STACK is unlimited.
+_OPEN_ON_A_2_MIB_WORKER = """
+import sys, threading
+threading.stack_size(2 * 1024 * 1024)
+from ifc_spatial.model import ModelUnreadableError, SpatialModel
+def open_it():
+    try:
+        SpatialModel(sys.argv[1])
+    except ModelUnreadableError as refusal:
+        print(refusal.reason)
+opener = threading.Thread(target=open_it)
+opener.start()
+opener.join()
+"""
+
+_MIB = 1024 * 1024
+
+
+def _open_in_a_child(
+    tmp_path: Path, header: str, data: str, script: str = _OPEN_AND_PRINT_THE_REFUSAL
+) -> subprocess.CompletedProcess[str]:
+    path = tmp_path / "broken.ifc"
+    path.write_text(
+        "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION((''),'2;1');\n"
+        f"{header}ENDSEC;\nDATA;\n{data}ENDSEC;\nEND-ISO-10303-21;\n"
+    )
+    return subprocess.run(
+        [sys.executable, "-c", script, str(path)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+
+def test_a_file_the_parser_dies_on_is_refused_and_the_process_lives(tmp_path: Path) -> None:
+    child = _open_in_a_child(tmp_path, _NAME + "FILE_SCHEMA(('HEADER_SECTION_SCHEMA'));\n", "")
+    assert child.returncode == 0, child.stderr[-500:]
+    assert "neu exportieren" in child.stdout
+
+
+# A SIGSEGV on macOS; whether Linux faults too is not established, so these hold
+# only that the process lives.
+@pytest.mark.parametrize(
+    ("header", "data"),
+    [
+        pytest.param(_NAME + _SCHEMA, "#1=IFCWALL('x\n", id="string-open-to-the-end-in-data"),
+        pytest.param("FILE_NAME('h.ifc\n", "", id="string-open-to-the-end-in-the-header"),
+    ],
+)
+def test_a_string_left_open_does_not_take_the_process(tmp_path: Path, header: str, data: str) -> None:
+    child = _open_in_a_child(tmp_path, header, data)
+    assert child.returncode == 0, child.stderr[-500:]
+
+
+def test_nesting_the_hosts_stack_cannot_hold_does_not_fit_the_probe_either(tmp_path: Path) -> None:
+    from ifc_spatial.crash_probe import crashes_the_parser
+
+    path = tmp_path / "nested.ifc"
+    path.write_text(
+        "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION((''),'2;1');\n"
+        f"{_NAME}{_SCHEMA}ENDSEC;\nDATA;\n"
+        f"#1=IFCPROJECT({'(' * 40_000}{')' * 40_000});\n"
+        "ENDSEC;\nEND-ISO-10303-21;\n"
+    )
+    assert crashes_the_parser(str(path)) is True
+
+
+def test_nesting_a_host_on_small_worker_stacks_cannot_hold_is_refused(tmp_path: Path) -> None:
+    child = _open_in_a_child(
+        tmp_path, _NAME + _SCHEMA, f"#1=IFCPROJECT({'(' * 12_000}{')' * 12_000});\n", _OPEN_ON_A_2_MIB_WORKER
+    )
+    assert child.returncode == 0, child.stderr[-500:]
+    assert "neu exportieren" in child.stdout
+
+
+@pytest.mark.parametrize(
+    ("limit", "threads", "probe"),
+    [
+        pytest.param(8 * _MIB, 0, 4 * _MIB, id="the-usual-8-mib"),
+        pytest.param(resource.RLIM_INFINITY, 0, _MIB, id="unlimited-gives-glibc-threads-2-mib"),
+        pytest.param(8 * _MIB, _MIB, _MIB // 2, id="host-threads-set-smaller"),
+        pytest.param(8191 * 1024, 0, 4 * _MIB - 64 * 1024, id="a-limit-of-no-whole-pages"),
+        pytest.param(100 * 1024, 0, 64 * 1024, id="a-limit-too-small-to-halve-keeps-a-floor"),
+    ],
+)
+def test_the_probe_gets_half_the_smallest_stack_the_host_opens_on(
+    monkeypatch: pytest.MonkeyPatch, limit: int, threads: int, probe: int
+) -> None:
+    from ifc_spatial import crash_probe
+
+    seen: list[str] = []
+
+    def run(command: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        seen.extend(command)
+        return subprocess.CompletedProcess(args=[], returncode=0)
+
+    monkeypatch.setattr(crash_probe.resource, "getrlimit", lambda _which: (limit, resource.RLIM_INFINITY))
+    monkeypatch.setattr(crash_probe.threading, "stack_size", lambda: threads)
+    monkeypatch.setattr(crash_probe.subprocess, "run", run)
+    crash_probe.crashes_the_parser(str(HOUSE))
+    assert int(seen[-1]) == probe
+
+
+def test_the_child_that_reads_the_upload_gets_no_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ifc_spatial import crash_probe
+
+    seen: dict[str, Any] = {}
+
+    def run(*_args: Any, **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(args=[], returncode=0)
+
+    monkeypatch.setattr(crash_probe.subprocess, "run", run)
+    crash_probe.crashes_the_parser(str(HOUSE))
+    assert seen["env"] == {}
+
+
+@pytest.mark.parametrize(
+    ("fixture", "schema"),
+    [("Ifc4_SampleHouse.ifc", "IFC4"), ("units-feet.ifc", "IFC2X3")],
+)
+def test_a_valid_model_passes_the_probe_and_opens(fixture: str, schema: str) -> None:
+    from ifc_spatial.crash_probe import crashes_the_parser
+
+    assert crashes_the_parser(str(FIXTURES / fixture)) is False
+    assert SpatialModel(str(FIXTURES / fixture)).file.schema == schema
+
+
+@pytest.mark.parametrize(
+    ("returncode", "crashed"),
+    [
+        (0, False),
+        (1, False),
+        (-signal.SIGKILL, False),
+        (-signal.SIGTERM, False),
+        (-signal.SIGSEGV, True),
+        (-signal.SIGBUS, True),
+        (-signal.SIGABRT, True),
+    ],
+)
+def test_only_a_death_the_parser_caused_counts_as_a_crash(
+    monkeypatch: pytest.MonkeyPatch, returncode: int, crashed: bool
+) -> None:
+    from ifc_spatial import crash_probe
+
+    finished = subprocess.CompletedProcess(args=[], returncode=returncode)
+    monkeypatch.setattr(crash_probe.subprocess, "run", lambda *_args, **_kwargs: finished)
+    assert crash_probe.crashes_the_parser(str(HOUSE)) is crashed
+
+
+def test_a_probe_that_cannot_start_leaves_the_file_to_the_real_open(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from ifc_spatial.crash_probe import crashes_the_parser
+
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "no-such-python"))
+    assert crashes_the_parser(str(HOUSE)) is False

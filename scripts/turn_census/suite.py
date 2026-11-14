@@ -38,6 +38,9 @@ and not when it should not, cited the right project, said when nothing
 comparable exists, and flagged an older edition
 (docs/roadmap/office-experience.md, step A).
 
+`--set editions` (`tests/fixtures/editions/at_edition_questions.yaml`, `edition_eval.py`) asks which
+OIB-RL edition binds in an Austrian Land on a given day, with no project; `--only r3` runs one group.
+
 `--set visual` (`tests/fixtures/visual/visual_questions.yaml`, ADR-0128) asks questions answered by looking
 at a drawing: three sheets are rendered from `drawings.json` into the output directory and served by the
 fixture BFF, and the report counts looks and the IoU of their regions against the gold boxes. `--look off`
@@ -54,6 +57,7 @@ reported not applicable; horizon rows are listed, never run.
     python scripts/turn_census/suite.py --baseline /tmp/suite/before/results.json
     python scripts/turn_census/suite.py --report /tmp/suite/after/results.json
     python scripts/turn_census/suite.py --set precedent --runs 2
+    python scripts/turn_census/suite.py --set editions --only r1 r2 --runs 1
     python scripts/turn_census/suite.py --set visual --runs 2 [--look off]
     python scripts/turn_census/suite.py --set north-star --runs 2
     python scripts/turn_census/suite.py --set files --arm all --runs 3 --out /tmp/fs/before
@@ -88,8 +92,11 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 QUESTIONS = ROOT / "tests" / "fixtures" / "derivation" / "loop_eval_questions.yaml"
 PRECEDENT_QUESTIONS = ROOT / "tests" / "fixtures" / "precedent" / "precedent_questions.yaml"
+#: The sets whose rows are norm questions without a project, each in its own file (``--set``).
+NORM_QUESTIONS = {"loop": QUESTIONS, "editions": ROOT / "tests" / "fixtures" / "editions" / "at_edition_questions.yaml"}
 sys.path.insert(0, str(HERE))
 
+import fixture_law  # noqa: E402
 import turn_input  # noqa: E402
 from census import ensure_key  # noqa: E402  (a sibling script, not a package)
 from census import kind as call_kind  # noqa: E402
@@ -100,16 +107,18 @@ from census import run_stamp  # noqa: E402
 from census import source_packages  # noqa: E402
 from census import timed_out  # noqa: E402
 from census import tree_pythonpath  # noqa: E402
+from cited_files import cited_families  # noqa: E402
+from eval_sets import set_module  # noqa: E402
 from files_eval import recorded_calls  # noqa: E402
 from fixture_bff import lookups_served  # noqa: E402
 from fixture_bff import marks_proposed  # noqa: E402
 from fixture_bff import proposals_filed  # noqa: E402
 from fixture_bff import writes_attempted  # noqa: E402
+from suite_cli import parse_args  # noqa: E402
 from workspace_eval import run_conversation  # noqa: E402
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 #: A cited corpus file's Richtlinie number: `oib-rl_2.1_…`, `oib-richtlinie_2.2_…`.
-_CITED_FAMILY = re.compile(r"(?:rl|richtlinie)_(\d+(?:\.\d+)?)_", re.IGNORECASE)
 _LOG_SIGNALS = {
     # The one repair (ADR-0067): a flagged quote, and a patch attempt on one
     # close enough to its passage. Each flagged quote's closeness is in the
@@ -226,39 +235,21 @@ def load_precedent_questions(path: Path = PRECEDENT_QUESTIONS) -> list[dict]:
     return list((yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("questions") or [])
 
 
-def _files_questions() -> list[dict]:
-    """The office-file set (``files_eval.py``): questions about a fixture project's own files."""
-    from files_eval import load_questions as load_files_questions
-
-    return load_files_questions()
-
-
-def _visual_questions() -> list[dict]:
-    """The visual set (``visual_eval.py``): questions answered by looking at a drawing."""
-    from visual_eval import load_questions as load_visual_questions
-
-    return load_visual_questions()
-
-
-def _north_star_questions() -> list[dict]:
-    """The north-star set (``north_star_eval.py``): the exemplars, as files-set and visual-set rows."""
-    from north_star_eval import load_questions as load_north_star_questions
-
-    return load_north_star_questions()
-
-
-def _workspace_questions() -> list[dict]:
-    """The workspace set (``workspace_eval.py``): office work in the fixture office, some rows several turns."""
-    from workspace_eval import load_questions as load_workspace_questions
-
-    return load_workspace_questions()
+def set_questions(name: str | None) -> list[dict]:
+    """Every row of a set, whatever its ``suite``: a fixture set's from its own module, a norm set's from its file."""
+    if name == "precedent":
+        return load_precedent_questions()
+    if module := set_module(name):
+        return module.load_questions()
+    return load_questions(path=NORM_QUESTIONS.get(str(name), QUESTIONS), core_only=False)[0]
 
 
 def load_questions(path: Path = QUESTIONS, *, core_only: bool = True) -> tuple[list[dict], list[str]]:
-    """The runnable questions and the ids skipped because they need a project."""
+    """The runnable questions and the ids skipped for a project; a row of a set but loop's carries its ``set``."""
     import yaml
 
-    rows = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("questions") or []
+    named = next((name for name, file in NORM_QUESTIONS.items() if file == path and name != "loop"), None)
+    rows = [{**r, "set": named} if named else r for r in yaml.safe_load(path.read_text("utf-8"))["questions"]]
     runnable, skipped = [], []
     for row in rows:
         if row.get("family") is None:
@@ -391,7 +382,7 @@ def observe(
     run.answer = final_answer(log_text)
     run.envelope = {"kind": envelope.get("kind"), "cards": envelope.get("cards") or []} if envelope else None
     run.kind = str((envelope or {}).get("kind") or "")
-    run.cited_families = sorted(set(_CITED_FAMILY.findall(run.answer)))
+    run.cited_families = cited_families(run.answer)
     requests = record.parent / "requests.jsonl"
     run.lookups = lookups_served(requests, record.stem)
     if "escalated" in run.signals:
@@ -522,8 +513,8 @@ def check(question: dict, run: Run, envelope: dict | None) -> dict[str, bool]:
     if question.get("kind"):
         accepted = [question["kind"], *((question.get("expect") or {}).get("kind_also") or [])]
         checks["kind"] = run.kind in accepted
-    family = _family_number(question.get("family"))
-    if family:
+    module = set_module(question.get("set"))
+    if (family := _family_number(question.get("family"))) and getattr(module, "CHECKS_FAMILY", True):
         checks["family_cited"] = family in run.cited_families
     expect = question.get("expect") or {}
     # The reader sees the prose AND the cards (a variant's table sits in a tab),
@@ -545,6 +536,10 @@ def check(question: dict, run: Run, envelope: dict | None) -> dict[str, bool]:
             expect, run, answer, question=str(question.get("question") or ""), judge=_judge(), projects=projects
         )
     )
+    if callable(
+        set_checks := getattr(module, "set_checks", None)
+    ):  # after precedent_checks, which clears judge signals
+        checks.update(set_checks(question, run, answer, _judge()))
     return checks
 
 
@@ -745,22 +740,8 @@ def render(
         "",
         *(failing or ["None."]),
     ]
-    if meta.get("set") == "workspace":
-        from workspace_eval import report_lines
-
-        lines += ["", *report_lines(runs)]
-    if meta.get("set") == "files":
-        from files_eval import report_lines as files_report_lines
-
-        lines += ["", *files_report_lines(runs, meta)]
-    if meta.get("set") == "visual":
-        from visual_eval import report_lines as visual_report_lines
-
-        lines += ["", *visual_report_lines(runs, meta)]
-    if meta.get("set") == "north-star":
-        from north_star_eval import report_lines as north_star_report_lines
-
-        lines += ["", *north_star_report_lines(runs, meta)]
+    if module := set_module(meta.get("set")):
+        lines += ["", *module.report_lines(runs, meta)]
     if skipped:
         lines += ["", f"Skipped, need a project: {', '.join(skipped)}."]
     if not_in_corpus:
@@ -852,25 +833,24 @@ def source_commit() -> str:
 
 
 def _ingest_corpus(poll_seconds: float = 5.0, timeout_seconds: float = 3600.0) -> str | None:
-    """Queue the corpus's ingest jobs and run them here; None when done, else why not.
+    """Run the corpus's ingest jobs here; None when done, else why not.
 
-    The base corpus is ingested by jobs on the durable ingest queue (ADR-0082), and
-    ``oib_sync.sync()`` only queues them. Nothing else claims them on a developer machine,
-    so for this run this process is the ingest worker: it attaches a claiming source to the
-    ingestor, then syncs until no file waits on a job. A file whose job failed is reported,
-    not retried: the sync does not queue it again.
+    The corpus is ingested by Hatchet's ``ingest-document`` runs (ADR-0150), with no worker on a
+    developer machine, so here the sync's hand-over runs each job at once, until no file waits on
+    a job. A file whose job failed is reported, not retried: the sync does not queue it again.
     """
     from agent import corpus_store
     from agent import oib_sync
-    from agent_host.jobs import ingest_dispatch
 
-    print("queueing the corpus:", oib_sync.sync(enqueue=ingest_dispatch.enqueue_only))
-    if not ingest_dispatch.attach(oib_sync._get_oib_ingestor()):
-        return "the ingest queue is off or has no database (INGEST_QUEUE, SUMMARY_DB): nothing can ingest the corpus"
+    def run_corpus_job_here(prepared) -> bool:
+        oib_sync._get_oib_ingestor().run_prepared(prepared)
+        return True
+
+    print("ingesting the corpus:", oib_sync.sync(enqueue=run_corpus_job_here))
     unfinished = (oib_sync.JobProgress.WAITING, oib_sync.JobProgress.RUNNING)
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        result = oib_sync.sync(enqueue=ingest_dispatch.enqueue_only)
+        result = oib_sync.sync(enqueue=run_corpus_job_here)
         rows = corpus_store.list_files()
         waiting = [
             name
@@ -936,7 +916,7 @@ def _corpus_ready() -> bool:
     ingested" for another cause (an unreachable server) is not silent.
     """
     try:
-        from knowledge_layer.qdrant.store import get_store
+        from knowledge_layer.vector_store import get_store
 
         from agent.oib_sync import COLLECTION_NAME
 
@@ -1246,20 +1226,7 @@ def _rerender(report: Path, baseline: dict | None) -> int:
     data = json.loads(report.read_text())
     runs = [Run(**row) for row in data["runs"]]
     chosen = data["meta"].get("set")
-    rows = (
-        load_precedent_questions()
-        if chosen == "precedent"
-        else _workspace_questions()
-        if chosen == "workspace"
-        else _files_questions()
-        if chosen == "files"
-        else _visual_questions()
-        if chosen == "visual"
-        else _north_star_questions()
-        if chosen == "north-star"
-        else load_questions(core_only=False)[0]
-    )
-    by_id = {str(q["id"]): q for q in rows}
+    by_id = {str(q["id"]): q for q in set_questions(chosen)}
     for index, run in enumerate(runs):
         question = by_id.get(run.question_id)
         if question is None:
@@ -1336,14 +1303,19 @@ def _preflight(out: Path, ingest: bool, corpus: Path | None = None, needs_corpus
     return 0
 
 
-def select_questions(only: list[str] | None, every: bool) -> tuple[list[dict], list[str]] | None:
-    """The questions to run and the ids skipped for a project; None (and why, on stderr) for a bad ``--only``."""
+def select_questions(
+    only: list[str] | None, every: bool, path: Path = QUESTIONS
+) -> tuple[list[dict], list[str]] | None:
+    """The questions to run and the ids skipped for a project; None (and why, on stderr) for a bad ``--only``.
+
+    An ``--only`` token is a question id or a row's ``group`` (the editions set's ``r1`` … ``r5``).
+    """
     if not only:
-        return load_questions(core_only=not every)
-    runnable, needs_project = load_questions(core_only=False)
+        return load_questions(path=path, core_only=not every)
+    runnable, needs_project = load_questions(path=path, core_only=False)
     wanted = set(only)
-    questions = [q for q in runnable if str(q["id"]) in wanted]
-    missing = wanted - {str(q["id"]) for q in questions}
+    questions = [q for q in runnable if wanted & {str(q["id"]), str(q.get("group"))}]
+    missing = wanted - {str(q["id"]) for q in questions} - {str(q.get("group")) for q in questions}
     if skipped := sorted(missing & set(needs_project)):
         print(
             f"Needs a project, which the suite has no backend for; nothing was run: {', '.join(skipped)}",
@@ -1377,9 +1349,9 @@ def run_set(questions: list[dict], args: argparse.Namespace, stamp: str, meta: d
         if args.set == "files"
         else start_visual_bff(args.out, args.look == "on")
         if args.set == "visual"
-        else (None, None)
+        else fixture_law.start_law_bff(args.out, precedent_envelope)
     )
-    if bff is not None and args.set not in ("files", "visual"):
+    if bff is not None and args.set not in ("files", "visual", "loop"):
         # A run ranked by tokens alone measures a kinder search than production's: the report says which it was.
         meta["fixture_search"] = "embeddings" if bff.embed is not None else "tokens only (no embedding key)"
     try:
@@ -1422,69 +1394,7 @@ def main(argv: list[str] | None = None) -> int:
     # an --ingest reads and the inventory are resolved there too, wherever the
     # suite was started from.
     os.chdir(ROOT)
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--all", action="store_true", help="every question with a family, not only `suite: core`")
-    parser.add_argument("--only", nargs="*", help="question ids to run")
-    parser.add_argument("--runs", type=int, default=2)
-    parser.add_argument("--workers", type=int, default=3)
-    parser.add_argument("--out", type=Path, default=Path("/tmp/answer_suite") / time.strftime("%Y%m%d-%H%M%S"))
-    parser.add_argument(
-        "--baseline",
-        type=Path,
-        help="an earlier results.json (or --arm all directory) to compare against; also writes compare.md",
-    )
-    parser.add_argument("--report", type=Path, help="re-render a results.json; no model calls")
-    parser.add_argument("--ingest", action="store_true", help="sync the OIB corpus into Qdrant first")
-    parser.add_argument(
-        "--corpus",
-        type=Path,
-        help="with --ingest: the base corpus is this directory's PDFs (e.g. data/oib), not the object store",
-    )
-    parser.add_argument("--override", nargs=2, action="append", metavar=("KEY", "VALUE"))
-    parser.add_argument(
-        "--set",
-        choices=("loop", "precedent", "workspace", "files", "visual", "north-star"),
-        default="loop",
-        help=(
-            "loop: the norm questions; precedent: questions in a fixture office's project (fixture_bff.py); "
-            "workspace: office work through the MCP door (fixture_workspace.py); "
-            "files: questions about a fixture project's own files (files_eval.py); "
-            "visual: questions answered by looking at a drawing (visual_eval.py); "
-            "north-star: the exemplars of docs/architecture/north-star-answers.md (north_star_eval.py)"
-        ),
-    )
-    parser.add_argument(
-        "--look",
-        choices=("on", "off"),
-        default="on",
-        help="--set visual: off sets VIEW_IMAGES_ENABLED=0 for the run, the paired arm for what looking is worth",
-    )
-    parser.add_argument(
-        "--arm",
-        choices=("semantic", "grep", "hybrid", "all", "search", "navigate", "both"),
-        default="hybrid",
-        help=(
-            "--set files (ADR-0133): semantic = ranked search only; grep = list, read and literal search; "
-            "hybrid = as shipped; all = the three in turn, each into its own directory under --out. "
-            "search, navigate and both are the earlier names of the three"
-        ),
-    )
-    parser.add_argument(
-        "--compare",
-        nargs=2,
-        type=Path,
-        metavar=("BEFORE", "AFTER"),
-        help="compare two runs (each a results.json or an --arm all directory) arm by arm; no model calls",
-    )
-    args = parser.parse_args(argv)
-    if args.corpus is not None and not args.ingest:
-        parser.error("--corpus is what --ingest reads; give both")
-    if args.arm != "hybrid" and args.set != "files":
-        parser.error("--arm is for --set files")
-    if args.look != "on" and args.set != "visual":
-        parser.error("--look is for --set visual")
-    if args.baseline is not None and not args.baseline.exists():
-        parser.error(f"--baseline {args.baseline} does not exist")
+    args = parse_args(argv, description=__doc__)
     if args.compare:
         return write_compare(*args.compare)
     if args.report:
@@ -1494,18 +1404,8 @@ def main(argv: list[str] | None = None) -> int:
     not_applicable: list[str] = []
     horizon: list[str] = []
     fixture_sets = ("files", "visual", "north-star")
-    if args.set in ("precedent", "workspace", *fixture_sets):
-        rows = (
-            load_precedent_questions()
-            if args.set == "precedent"
-            else _workspace_questions()
-            if args.set == "workspace"
-            else _visual_questions()
-            if args.set == "visual"
-            else _north_star_questions()
-            if args.set == "north-star"
-            else _files_questions()
-        )
+    if args.set in ("precedent", "workspace", "golden", *fixture_sets):
+        rows = set_questions(args.set)
         if args.set == "files":
             from files_eval import split_applicable
 
@@ -1516,7 +1416,7 @@ def main(argv: list[str] | None = None) -> int:
             rows, not_applicable, horizon = split(rows)
         selected = ([q for q in rows if not args.only or str(q["id"]) in set(args.only)], [])
     else:
-        selected = select_questions(args.only, args.all)
+        selected = select_questions(args.only, args.all, NORM_QUESTIONS[args.set])
     if selected is None:
         return 2
     corpus = args.corpus.resolve() if args.corpus else None
@@ -1532,11 +1432,15 @@ def main(argv: list[str] | None = None) -> int:
         from fixture_files import seed
         from fixture_visual import load_project
 
-        # The files set expects its project to be seeded already; this one seeds its own, idempotently.
+        # Each fixture set seeds the project it reads, idempotently: only what changed is embedded again.
         print(f"seeded {sum(seed(load_project()).values())} chunk(s) of the visual project")
-        if args.set == "north-star":
-            # Its files rows ask the office-file project, which the files set leaves to be seeded beforehand.
-            print(f"seeded {sum(seed().values())} chunk(s) of the office-file project")
+    if args.set in ("files", "north-star"):
+        from fixture_files import seed
+
+        # The north-star set's files rows ask the office-file project too. Seeding it here is what keeps
+        # a run from reading an older seed: the E-Mail-Verlauf's rows (ADR-0137) need its chunks as the
+        # real Markdown chunker cuts them, and its records on the metadata row.
+        print(f"seeded {sum(seed().values())} chunk(s) of the office-file project")
     questions, skipped = selected
     families = corpus_families() if args.set not in ("workspace", *fixture_sets) else None
     not_in_corpus = [f"{q['id']} ({lacking})" for q in questions if (lacking := lacking_family(q, families))]

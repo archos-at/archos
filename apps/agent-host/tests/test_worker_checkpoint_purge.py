@@ -4,14 +4,11 @@ checkpointing is not configured."""
 
 import inspect
 
-import pytest
 from sqlalchemy import text
 
 from agent_host.jobs import agent_job
-from agent_host.jobs import queue
 from agent_host.jobs.event_store import EventStore
 from agent_host.jobs.runner import _purge_deep_checkpoint
-from agent_host.jobs.runner import _purge_deep_checkpoint_unless_reclaimed
 
 _TABLES = ("checkpoints", "checkpoint_blobs", "checkpoint_writes")
 
@@ -72,49 +69,7 @@ def _rows_left(engine) -> int:
         return sum(len(conn.execute(text(f"SELECT thread_id FROM {t}")).all()) for t in _TABLES)
 
 
-def _queue_with_reclaim(tmp_path) -> str:
-    """Worker-A stalls past the stale window; worker-B reclaims the claim."""
-    db_url = f"sqlite:///{tmp_path / 'queue.db'}"
-    queue.ensure_research_queue_table(db_url)
-    queue.enqueue(db_url, "job-1", {"input_text": "x"})
-    queue.claim_next(db_url, "worker-A", 30, 3)
-    with queue._connection(db_url) as conn:
-        conn.execute(
-            text("UPDATE research_job_queue SET heartbeat_at = datetime('now', '-120 seconds') WHERE job_id = 'job-1'")
-        )
-        conn.commit()
-    queue.claim_next(db_url, "worker-B", 30, 3)
-    return db_url
-
-
-@pytest.mark.asyncio
-async def test_a_reclaimed_loser_leaves_the_checkpoint_to_the_new_owner(tmp_path, monkeypatch):
-    engine = _checkpoint_db(tmp_path, monkeypatch)
-    db_url = _queue_with_reclaim(tmp_path)
-
-    assert await _purge_deep_checkpoint_unless_reclaimed(db_url, "job-1", "worker-A") is False
-    assert _rows_left(engine) == len(_TABLES)
-
-
-@pytest.mark.asyncio
-async def test_the_owner_purges_its_checkpoint(tmp_path, monkeypatch):
-    engine = _checkpoint_db(tmp_path, monkeypatch)
-    db_url = _queue_with_reclaim(tmp_path)
-
-    assert await _purge_deep_checkpoint_unless_reclaimed(db_url, "job-1", "worker-B") is True
-    assert _rows_left(engine) == 0
-
-
-@pytest.mark.asyncio
-async def test_an_unclaimed_run_has_no_claim_and_purges(tmp_path, monkeypatch):
-    engine = _checkpoint_db(tmp_path, monkeypatch)
-
-    assert await _purge_deep_checkpoint_unless_reclaimed("sqlite://", "job-1", None) is True
-    assert _rows_left(engine) == 0
-
-
-def test_the_runner_never_purges_without_the_claim_check():
-    """Ratchet: the unconditional call is what deleted the winner's checkpoint."""
-    source = inspect.getsource(agent_job)
-    assert "_purge_deep_checkpoint(" not in source
-    assert "_purge_deep_checkpoint_unless_reclaimed(" in source
+def test_every_run_purges_its_checkpoint_once_terminal():
+    """``run_agent_job``'s ``finally`` purges; a lost worker never reaches it, so a retry resumes."""
+    source = inspect.getsource(agent_job.run_agent_job)
+    assert "_purge_deep_checkpoint, request.job_id" in source

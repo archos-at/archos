@@ -100,8 +100,6 @@ export interface InputAreaProps {
   isAuthenticated?: boolean
   /** Connection mode: 'websocket' auto-connects, 'sse' disables auto-connect (default: 'websocket') */
   connectionMode?: ConnectionMode
-  /** Name of the active project, shown in the composer scope chip */
-  projectName?: string
   /**
    * Whether the collaboration surfaces are reachable for this org (ADR-0032…0035,
    * dark-launched behind the per-org `collaboration` flag).
@@ -120,7 +118,6 @@ export function useInputAreaController({
   placeholder,
   isAuthenticated = false,
   connectionMode = 'websocket',
-  projectName,
   canCollaborate = false,
   canChatInProject = true,
 }: InputAreaProps) {
@@ -1496,10 +1493,6 @@ export function useInputAreaController({
       f.status === 'stored'
   ).length
 
-  // Scope chip label: the active project (display-only scope; cross-project
-  // search does not exist yet — spec §2.3, honest disabled option).
-  const scopeLabel = projectName || tChat('composer.scopeFallback')
-
   // Single composer hint slot: exactly one helper line below the control row —
   // the first applicable in priority order (viewer > no-project-chat > busy >
   // mention > awaiting > research lock). Same strings and conditions as the
@@ -1676,7 +1669,6 @@ export function useInputAreaController({
     handleFilesSelected,
     handlePaste,
     attachedFilesCount,
-    scopeLabel,
     composerHint,
   }
 }

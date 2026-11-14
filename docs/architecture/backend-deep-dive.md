@@ -123,8 +123,11 @@ field at its default, and each is reset at the turn boundary in
   workspace records from `common/workspace_records.py`, the profile and the
   inventory, measurements, readings, and what the quote check found), and
   returns a level and the statements it found unbacked or contradicted
-  (`TurnResult.confidence_check`). The quote gate below is the one rule on top;
-  the self-report sets no level. A check that cannot run surfaces no level.
+  (`TurnResult.confidence_check`). Three caps sit on top, in this order: the
+  quote gate below (medium under a verified citation, low without one), the law
+  gate (`"law_unsettled"`, at most medium), and the answer's own ceiling
+  (`"open_point"`: medium for an open point it names, never above its
+  self-report). A check that cannot run surfaces no level.
   Deep research keeps rule 1, the answer-level floors described in the rest of
   this entry.
   - `"ungrounded"` — rule 1: citation verification left the report without
@@ -135,6 +138,16 @@ field at its default, and each is reset at the turn boundary in
     registry's captured `chunk_text`, fail-open; the offending span is annotated
     inline with `[nicht wörtlich in der Quelle belegt]` and the answer is never
     otherwise altered).
+  - `"law_unsettled"` — the answer rests on building law the turn's records do
+    not settle (ADR-0139's amendment of 2026-11-10, `common/law_gate.py`).
+  - `"open_point"` — the answer's own words hold it lower: the check read an
+    open point its main point depends on, in its prose or its confidence reason
+    (`Check.open_points`, scored as `confidence-open-points`; at most "medium"),
+    or the answer rated itself lower (at most its own level: the self-report is
+    a ceiling the check never raises). The grader grades whether the evidence backs each
+    statement, and „die Bindung ist nicht an der Quelle geprüft" is backed by a
+    record that says so, so the level alone read such an answer "high" beside a
+    reason naming the gap (golden case `at-a6`, 2026-11-12).
   - `"normative_claim_uncited"` / `"measurement_only"` — no longer produced;
     they named rule 1's measurement branches for chat, which the answer check
     replaced (ADR-0139). Stored turns still carry the tokens.
@@ -350,7 +363,8 @@ backend pieces live in `chat_socket.py` and `conversation_bus.py`; the design is
 - **Every turn ends.** `run_turn`'s `finally` guarantees one terminal whatever
   escaped; the turn has a deadline (`CHAT_TURN_DEADLINE_SECONDS`) on its
   own clock, which stops while it waits on a person; a Stop waits at most
-  `workflow_stream.PRODUCER_TEARDOWN_SECONDS` for the workflow's teardown. The
+  `workflow_stream.PRODUCER_TEARDOWN_SECONDS` for the workflow's teardown, and
+  gives back the admission slots that teardown still holds. The
   chat's runtime session manager runs with `max_concurrency=0`: the runtime's semaphore
   queued a turn after `RUN_STARTED` behind turns waiting on HITL answers, and
   ADR-0040's admission (`MAX_ACTIVE_TURNS`) is the gate that refuses at
@@ -637,7 +651,7 @@ to the folder's files before retrieval and is checked again post-merge
 alongside `doc_class` / `title_contains` / `file_name`, so it works uniformly
 across the base, session and project layers, and it covers the **subtree**:
 `Brandschutz` also reads `Brandschutz/Fluchtwege`. The narrowing is a payload
-condition on `folder_ancestors` inside the search (`qdrant/prefilter.py`). `_format_results` emits an `Ordner:` line
+condition on `folder_ancestors` inside the search (`vector_store/prefilter.py`). `_format_results` emits an `Ordner:` line
 per hit so a cited passage can say where its document lives. The store read
 (`_resolve_folder_paths`) is one batched query per in-scope collection and fails
 open to an empty map — which means "at the root", so a `folder=`-scoped search
@@ -652,10 +666,19 @@ the folder.
 
 Every backend call carries a base64url `X-Grid-Collection-Scope` header =
 `[oib_knowledge, archiv_<org>, proj_<id>, s_<conversation>]`, built in
-`src/lib/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
+`apps/workspace/bff/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
 RAG multi-tenant boundary. Note `resolveProjectCollectionName` short-circuits to
 no project scope when `session.organizationId` is falsy (anonymous /
-`REQUIRE_AUTH=false`).
+`REQUIRE_AUTH=false`). `oib_knowledge` is in every scope, whatever the project's
+site. Its entry is signed with the countries the request may read (`base-entry.ts`):
+the office's corpus countries, and for a project those of them its own knowledge
+context reads (`projectCorpusCountries`, ADR-0173 `retrieval.countries`). So an unplaced
+project (`site_unknown`) reads the office's countries as information and a project
+placed in a country the office does not hold reads none, on every path: a turn or run
+that binds its context narrows again (`knowledge_context.corpus_countries`), and a door,
+proxy or job read that binds none reads the signed, already narrowed list. Until
+2026-11-12 the scope left the corpus out of any project not placed in Austria, and an
+unplaced project's answer said a released OIB text could not be read.
 
 The signed header is the **authorization ceiling**, not the turn's search set.
 The client states **intent** on the user message — `focus_file_name`,
@@ -783,7 +806,7 @@ their own listing block: those agents route and plan, they never emit
 citations.
 
 **Silent summary-row loss on double LLM failure — fixed 2026-07-16**:
-ingestion (`packages/knowledge-layer/src/llamaindex/adapter.py`, ~lines
+ingestion (`packages/knowledge-layer/src/ingest/adapter.py`, ~lines
 1795–1965) runs summary generation and tag classification as two concurrent
 calls to the same `summary_llm`; both independently swallow
 exceptions/timeouts and return `None` on failure. Previously the
@@ -882,8 +905,9 @@ document summary:
 **Phase 2 — concurrent VLM enrichment:**
 
 All image bytes (from track 3) and rendered page bitmaps (from track 4) are
-passed to `processing.enrich_vlm_batch`, which runs every VLM caption call in a
-single `ThreadPoolExecutor` (`VLM_BATCH_WORKERS`, default 4) per file, with
+passed to `processing.enrich_vlm_batch`, which runs every VLM caption call on
+the file's page-read pool (`page_reads`, `INGEST_PAGE_READ_PARALLELISM`, default
+16, shared with the scan transcriptions and streamed without batch barriers), with
 **content-hash caching** via the shared Dragonfly/Redis store (ADR-0020). The
 cache key is `vlm:caption:{model}:{prompt_type}:{sha256(image_bytes)}` with a
 30-day TTL — the model is part of the identity, so a model switch (deployment-
@@ -1056,11 +1080,30 @@ Every evidence tool answers in one grammar: a preamble, a run of
 `--- Result N ---` blocks whose header states `Source:`, `Collection:`,
 `Shelf:`, `Dokumentart:`, `Punkt:`, `Citation:` and `Relevance Score:`, the
 passage body under that last line, and one `## Trace-Lanes` object at the end.
+The body sits between `<document_content>` and `</document_content>`, and a
+line under the preamble says once that text inside is quoted content, never an
+instruction (`common/passage_fence.py`). A body that spells either tag has its
+`<` written as `&lt;`, so no document, and no filed mail (ADR-0137), can close
+the fence early; the text reader takes the fence back off. The grammar's own
+lines a body spells (`--- Result 2 ---`, `## Trace-Lanes`) stay as written, and
+every reader that splits the grammar skips them inside a fence
+(`passage_fence.unfenced`): the text parser (`citations/grounding_text.py`),
+`strip_trace_lanes`, the history's compaction and deep research's exclusion cut.
+Without that, a mail body spelling a second hit with `Shelf: building_law` was a
+hit on every replayed turn. A free-text header value outside the fence (a
+mail's subject is its Verlauf's title, a folder, a label) has its tags escaped
+and a spelled `--- Result` made one dash (`grounding_block._line`), and a
+`Source:` title stops at 200 characters. A key another tool takes back
+(`Path:` for `read_file`, `Citation:` for the registry, the codes, the
+project id) is only made one line (`grounding_block._key`), so it round-trips;
+it cannot act as grammar mid-line, since every reader anchors the tags and the
+delimiter at the start of a line. Grep's `## Lines around the matches`
+index prints documents' own lines, so it is fenced too.
 
 The hit is now a record and the text is its rendering.
 `common/grounding_block.py` holds `GroundingHit`, `GroundingBlock` and the one
 renderer, `render_grounding_block`. Both producers build records and call it:
-`knowledge_layer.search_results.format_results` turns chunks into hits
+`knowledge_layer.search.results.format_results` turns chunks into hits
 (`_grounding_hit`, which is also where the Trace-Lanes fan-out reads a hit's
 shelf, Dokumentart and title from, so the header and the fan-out cannot
 disagree), and `ris_adapter.lookup.render.format_passages` turns `Passage`
@@ -1079,16 +1122,18 @@ in a per-turn `ContextVar` that `ChatAgent.run` opens beside
 looks the block up by that hash and builds `SourceEntry`s by field copy, so a
 passage body cannot supply a header field the producer omitted. `ChatAgent.run`
 is the only caller that opens the capture, so the structured read is what a
-Piloti turn gets for `knowledge_search`, `read_passage` and `ris_lookup`, and
+Piloti turn gets for `knowledge_search`, `read_passage` and `law_lookup`, and
 the deep researcher, the conversation path and the job runner parse the text.
 The text parsers in `citations/text_parsers.py`
 (`_parse_knowledge_layer` and the eleven `_KL_*` regexes) stay for the callers
 that hold the bytes without the records: a registry hydrated from the shared
 cache, a turn replayed out of Postgres, and the job runner's callback in
 `apps/agent-host/src/agent_host/jobs/callbacks.py`. A text those parsers find no
-`Citation:` line in carries no sources at all; the generic URL extractor beneath
-them reads the tools with no registered parser (web search), never a passage
-body. Nothing reads a FAILED call either: both capture loops skip a
+`Citation:` line in carries no sources at all. A web search is read by its
+result records (`citations/web_results.py`: one `<Document href>` header per
+hit, never an address inside a page's text, and no address `common/url_safety.py`
+refuses); the generic URL extractor beneath them reads only the tools with no
+registered parser, never a passage body. Nothing reads a FAILED call either: both capture loops skip a
 `ToolMessage` whose `status` is `error`, so the words a tool failure returns are
 the model's to act on and nobody's evidence. The contract test asserts the
 two readers produce the same entries
@@ -1114,7 +1159,7 @@ worker that has read a Gliederung and knows the Punkt it needs was still asking
 the corpus to find that passage by similarity, and every batch spent that way is
 a round the run does not get back.
 
-`read_passage` (`packages/knowledge-layer/src/read_passage.py`) is that lookup:
+`read_passage` (`packages/knowledge-layer/src/read_passage/tool.py`) is that lookup:
 `document` (exact indexed name, stored display title, or the derived OIB title)
 plus `clause` (the `clause_id` the Punkt chunker verified against the corpus's own
 contents pages) or `page` (`punkt` is accepted as the former name of `clause` for one release). `document` with neither is the **outline**: the
@@ -1158,7 +1203,7 @@ downstream learns a second shape. That claim was false for one release:
 fell to the non-URL fallback and registered one source whose citation key was
 the string `read_passage`. A citation to a passage the turn OPENED rather than
 searched was then dropped as `citation_key_not_in_registry`. The tool name is
-registered explicitly now, beside `ris_lookup`. Its collection scope, base corpus and file
+registered explicitly now, beside `law_lookup` (and `ris_lookup`, its name in a stored turn). Its collection scope, base corpus and file
 exclusions are read off the `knowledge_search` instance named in its config
 (`knowledge_search: knowledge_search`) rather than restated, so the two cannot
 end up pointed at different corpora. And it is listed under the same
@@ -1192,7 +1237,7 @@ countable in a trace.
 ### Agentic retrieval quality package (ADR-0039)
 
 Five retrieval-quality improvements sit in the knowledge layer's ranked search
-(`knowledge_search.py`, `ranked_search.py`, `fusion.py`) and `llamaindex` package, all
+(`search/`: `knowledge_search.py`, `ranked_search.py`, `fusion.py`, the retriever), all
 **fail-open** (any error degrades to the previous plain behavior, never raises):
 
 1. **Agentic filters** — `knowledge_search` is the evidence tool (read/cite).
@@ -1204,7 +1249,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
    `top_k` candidates so the filters still leave ≥ `top_k` results. `doc_class`
    (and `folder`, and the superseded exclusion) run inside the vector search
    as payload conditions, so only `title_contains` and `file_name` still
-   over-fetch (`qdrant/prefilter.py`). `doc_class`
+   over-fetch (`vector_store/prefilter.py`). `doc_class`
    and titles are **store-authoritative**: `_resolve_doc_classes` /
    `_resolve_display_titles` build `(collection, file_name) → value` maps via
    `agent.knowledge.factory` (`get_document_doc_classes` /
@@ -1225,7 +1270,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
    exact term (`extract_exact_terms`, token-based, shared utility in
    `packages/agent/src/agent/common/legal_terms.py` — deliberately **no regex**; up to
    three technical tokens) the dense ranking restricted to chunks containing
-   it (`qdrant/search.py`). The channels are fused server-side by **reciprocal
+   it (`vector_store/search.py`). The channels are fused server-side by **reciprocal
    rank fusion** (`k=60`). This fixes
    exact-keyword misses (e.g. a norm number or a precise term that the embedding
    model did not weight) without an embedding re-index.
@@ -1233,7 +1278,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
 3. **Reranker** — a cross-encoder first, the LLM judge as its fallback.
    `reranker_provider` (config field, env default `RERANKER_PROVIDER`; the
    reference config sets `openrouter`, model `cohere/rerank-v3.5`) names
-   OpenRouter's reranking endpoint (`knowledge_layer/cross_encoder.py`; a
+   OpenRouter's reranking endpoint (`knowledge_layer/search/cross_encoder.py`; a
    self-hosted reranker speaking the same shape fits through
    `RERANKER_BASE_URL`) that scores each
    (query, passage) pair over the full chunk in ~100ms, bounded by
@@ -1251,7 +1296,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
 
 3a. **The retrieval loop** — optional `requery_llm` (the reference config points
    it at the same `rerank_llm`) and `requery_max_queries` (default 2). The
-   judge (`knowledge_layer/requery.py`) reads the head of the fused pool beside
+   judge (`knowledge_layer/search/requery.py`) reads the head of the fused pool beside
    the reranker and says whether it contains the governing statement the
    question needs; a sufficient pool costs no extra latency. An insufficient
    one gets the judge's alternative formulations, each retrieved from every
@@ -1323,7 +1368,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
    directly; and **stored embedded rasters** — the images
    `_extract_images_from_pdf` cuts out of a PDF are no longer discarded after
    captioning. For a document the BFF dispatched (one with a `document_id` in
-   the ingest body), `llamaindex/image_store.py` asks the BFF for one presigned
+   the ingest body), `ingest/image_store.py` asks the BFF for one presigned
    PUT per raster (`POST /api/internal/document-image-upload-url`; the backend
    holds a read-only object-store credential, so it writes the way the
    thumbnail is written) and stores it as `<doc dir>/_img/<index>.jpg`, at most
@@ -1407,9 +1452,9 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   re-verification. Austria: the nine state building codes, Wiener
   Garagengesetz, WBTV, Kleingartengesetz, and the federal acts (ASchG, AStV,
   BKAG, ZTG, WGG, DMSG, UVP-G, WRG, ForstG, GewO). Pointer index only: full
-  texts are still fetched live — by `ris_lookup` on the chat surface (it takes
+  texts are still fetched live — by `law_lookup` on the chat surface (it takes
   the pointer, downloads the law and returns the answering §§ as citable
-  passages: `packages/ris-adapter/src/lookup/`), and by `ris_fetch_document` in
+  passages: `packages/agent/src/agent/knowledge/law_lookup/`), and by `ris_fetch_document` in
   deep research, which still drives the three older RIS tools itself.
 - **The OIB corpus is not in the catalog.** The `oib_corpus_files` table and its
   objects → `oib_knowledge` are its own source of truth; what a corpus file *is* (Richtlinie / Leitfaden /
@@ -1420,7 +1465,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   config (a `file_name NOT IN [...]` filter on the base collection only —
   session/project collections are never filtered). The same base-collection
   filter always carries `chunking != "page"`
-  (`_NON_EVIDENCE_CHUNKING` in the knowledge layer's `search_scope.py`): the Punkt
+  (`_NON_EVIDENCE_CHUNKING` in the knowledge layer's `search/scope.py`): the Punkt
   chunker emits each Richtlinie's cover page and Impressum as per-page chunks,
   they are the only chunks still carrying the running title, and a title-shaped
   query therefore returned four cover pages at page 1 and nothing citable. `$ne`
@@ -1441,26 +1486,53 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   the YAML seed's pointers in place (merge-only; curated fields never
   clobbered).
 - **Prompt rendering** — `render_block_for_prompt(project_context)` renders
-  the doctrine-adjacent catalog block: Bundesrecht lane, the project's own
-  Bundesland lane (other states' law is dropped — `focus_entries` semantics),
-  the curated `binding_note` lines, a static OIB-corpus citation note, and the
-  project applicability section (`applicability.render_project_block`). The
-  Normenhierarchie doctrine itself is one constant (`NORM_DOCTRINE`) injected
-   into the deep-researcher, planner and writer templates as
-   `{{ norm_doctrine }}`.
-  **Piloti renders neither.** `ris_lookup` resolves a catalog pointer out of
-  the question itself, so the list is a per-turn copy of something the tool
-  already holds, and the doctrine is constant per deployment, so it belongs in
-  the cacheable prefix. Piloti renders the applicability section alone
-  (`prompt.oib_applicability`, derived from this project's `confirmed:` facts)
-  and keeps the doctrine in its system prompt, `chat_static.md`
-  (`<building_law>`). See the ADR-0060 amendment.
-- **Jurisdiction** — `resolve_country(project_context)` regexes the structured
-   `country=<cc>` fact from the prompt text (`at`/`de`/`ch`/`other`, authored
-   by the intake wizard's new A2_country question); absent → `"at"`. Every
-   prompt now carries a **Jurisdiction & Country Handling** block that instructs
-   the agent: for `at` → full OIB/RIS pipeline, binding precision; for non-AT →
-   Austrian corpus only, comparative guidance, recommend local verification.
+  the RIS catalogue for deep research: Bundesrecht lane, the project's own
+  Bundesland lane (other states' law is dropped — `focus_entries` semantics).
+  Addresses only, and only where the run's knowledge context lets the RIS
+  tools run (`law_gate.law_sources_withheld`); no `binding_note`, no corpus
+  edition, no verdicts (ADR-0175). **Piloti renders none of it**: `law_lookup`
+  resolves a catalog pointer out of the question itself (ADR-0060 amendment).
+- **Which law applies** — the turn's knowledge context alone (ADR-0173,
+   ADR-0175, `common/knowledge_context.py`). The BFF resolves it on every turn
+   and puts it in every research run's payload (`knowledge_context`;
+   `agent_host/jobs/agent_job_setup.bind_knowledge`). Nothing
+   reads the project's text for a country or a Land, and nothing defaults to
+   one: absent or malformed, the context is `knowledge_unavailable`, which
+   withholds the legal-database tools (`law_gate.law_sources_withheld`), the
+   base corpus (`knowledge_layer.search.scoped_collections_for_site`), the
+   OIB family prefetch, and every edition's binding role, and the turn reads
+   the gate's note (`knowledge_context.gate_note`). The method that holds in
+   every country is constant: `<legal_method>` in `chat_static.md`, and
+   `law_gate.LEGAL_METHOD` for deep research's `{{ norm_doctrine }}`, which
+   appends the gate's note or the chain. Deep research's **Jurisdiction**
+   block (`law_gate.JURISDICTION_GROUNDING`) says to follow them.
+- **OIB edition per Land** — relation records of the Austria pack
+   (`configs/knowledge-packs/at.json`, ADR-0168). Since the cut-over
+   (ADR-0175) the BFF resolves the project's site against the platform's records (`bff/base-knowledge/chain/`)
+   and the knowledge context carries the chain text (`text`) and each
+   edition's role (`uses`), with the open-coverage, freshness and
+   connecting-factor corrections applied, and each use's designation, edition
+   label and the work's identifiers at its source (`sourceRefs`,
+   `{scheme, value}`); the contract is
+   `apps/workspace/tests/fixtures/knowledge-context.schema.json`. It is the turn's one answer to which
+   law applies: the citation chip reads the same roles the gate does
+   (`citations/roles.py`), so a citation never says binding where the gate says
+   information. A cited passage finds its use by the id of the record it was
+   read as (`SourceEntry.edition_id`, `work_id`: a corpus point's
+   `knowledge_edition_id`, a legal-database passage's work by the identifier
+   its source record reads off the document), never by a URL, a host or a file
+   name's spelling, and the citation then carries the use's edition label,
+   route, dates, language and public address
+   ([`design/citations.md`](../design/citations.md), slice 1). The chain text is the turn context's
+   `<building_law>` block (`law_gate.turn_building_law_block`), the only
+   building-law text a turn reads, and a gate that withholds law shows the
+   note instead. A cited base-corpus passage maps to its edition by its
+   corpus file, and its role is the chip's `binding_status` (OIB-RL 2:2023 is
+   `interpretive` in Steiermark); a passage no role reaches is `unknown`. A
+   static prompt still served from Langfuse with the old `<building_law>`
+   block is not served (`prompt.RETIRED_STATIC_BLOCK`): the bundled file is.
+   The summary per Land is in
+   [`country-extensibility.md`](country-extensibility.md#oib-editions-per-land).
 - **Bundesland** — `resolve_federal_state`: the validated envelope token wins
    (`ausserhalb_oesterreichs` → None is final), then the structured
    `federal_state=<token>` prompt fact, then free-text state-name probing.
@@ -1474,12 +1546,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    facts (fluchtniveau, BG Fläche, Anzahl Geschoße, Bauweise, Nutzung,
    Brandschutzanlagen, …) as binding constraints, derive building classes from
    them, flag contradictions, and surface gaps.
-- **Applicability** — `common/applicability.py` is a small hand-written module
-  (no DSL): OIB verdicts from project facts (mirrors the UI's
-  `applicable-standards.ts`), German trigger hints for the four boolean intake
-  facts (Kleingarten, Denkmalschutz, Betriebsanlage, Stellplatz), and the
-  prompt section Piloti renders from the project context.
-- **Display tagging** — `lane_for_hit` / `citations/binding.py::source_lane`
+- **Display tagging** — `lane_for_hit` / `citations/source_identity.py::source_lane`
   map a retrieval or citation hit to a stratum + lane label (Bundesrecht /
   Landesrecht / Verordnung via catalog rank; OIB lanes via filename class;
   Projektwissen / Büroablage / Web via collection origin) for the research
@@ -1540,7 +1607,7 @@ question about a small part of it.
 | Path | Was | Is | How |
 |---|---|---|---|
 | `compliance` (first request) | ~1.5 s, ~60 MB of JSON parsed on the event loop | ~0.3 s | `bim_models.rule_inputs` — the thirteen keys the catalogue reads, pruned at extraction time (`lib/bim/rule-inputs.ts`). 1 409 → 219 bytes per element. |
-| `compliance` (repeat) | ~1.5 s again | ~0 | A 64-entry, 1 h memo keyed by model id + Gebäudeklasse + Hauptnutzung (`lib/bim/compliance-cache.ts`). A `ready` model is immutable, so the key is the whole input. |
+| `compliance` (repeat) | ~1.5 s again | ~0 | A 64-entry, 1 h memo keyed by model id + `updated_at` + Gebäudeklasse + Hauptnutzung + the rules' basis at the site (`lib/bim/compliance-cache.ts`, `basisKey` in `lib/bim/rule-basis.ts`). A re-upload keeps the model id and moves `updated_at` with the elements, so the key is the whole input. The basis comes from the project's knowledge context (`contextForPage`), so every `complianceRun`, a memo hit included, first pays that context's input reads: five small queries (office countries, project profile, office time zone, records stamp, pack sequences), and the graph and sources only on a context-cache miss. |
 | a filtered element page, 1 match | 6 474 ms | **9 ms** | `bim_elements.search_keys` + its GIN index, AND-ed in as a pre-filter (0038). |
 | a filtered element page, 50 000 matches | 1 277 ms | **315 ms** | The pre-filter DROPPED, and `(model_id, ifc_type, express_id)` walked in order until the page is full (0039). |
 | `properties` | past the 30 s timeout → **HTTP 500** | ~0.6 s | A scan bounded at ~5 000 elements, stratified by IFC type, reported as a sample. |
@@ -1755,8 +1822,8 @@ run (the runner holds a `run_id`), because then the 404 means the BFF has not
 yet written the backend job id onto the row. The ledger client keeps its single
 short attempt; a lost terminal op is settled by the reconciler below.
 What the retry does not heal the BFF's run reconciler does
-(`apps/workspace/bff/runs/reconcile.ts`, driven by the `skill-scheduler`
-tick): it asks the job store for the verdict of every run still active after
+(`apps/workspace/bff/runs/reconcile.ts`, driven by the `runs-reconcile`
+Hatchet task every minute): it asks the job store for the verdict of every run still active after
 ten minutes without a check (`GET /v1/internal/jobs/{id}/outcome`, service
 token, tenant checked against `job_access`), which also hands back the run
 message rebuilt by `run_message_for_outcome`, and closes the run through the
@@ -1789,16 +1856,15 @@ LangGraph checkpointing for the deep-research graph, configured via
 `deep_research_agent.checkpoint_db` (env `DEEP_CHECKPOINT_DB`; unset by
 default) — see §9's "Async deep-research jobs are not restart-safe" bullet
 for the full mechanism and its manual-resubmit resume contract. A run's rows
-(`thread_id == job_id`) are purged when it ends, by the runner's `finally`
-(`_purge_deep_checkpoint_unless_reclaimed`) and again by the DB worker. Both skip
-the purge when another worker now holds the job's claim: the rows are keyed by
-job, so after a reclaim they are the new owner's resume point.
+(`thread_id == job_id`) are purged when it ends, by `run_agent_job`'s
+`finally`. A worker Hatchet lost never reaches it, so the retry Hatchet starts
+resumes from those rows (ADR-0150).
 
 **Agent Skills and Jobs (ADR-0046)**: project-level **jobs** — a prompt on a
 timer, with a skill optionally attached — can fire this same async pipeline on
-a cron schedule. A dedicated `skill-scheduler` container claims due `jobs` rows
-in `app` (`FOR UPDATE SKIP LOCKED`) and fires through the BFF's internal
-endpoint into `POST /v1/internal/skills/submit` (internal-token-guarded wrapper
+a cron schedule. A Hatchet scheduled run per due definition fires the
+`fire-task-definition` task of the `bff-jobs` worker (ADR-0150), which takes
+the occurrence in `app` and submits into `POST /v1/internal/skills/submit` (internal-token-guarded wrapper
 around `submit_agent_job`, so admission control and cost tracking apply
 unchanged). The agent follows the job's `output` (`chat` →
 `researcher`, `deep-research` → `deep_researcher`). The attached skill reaches
@@ -1962,11 +2028,28 @@ The agent can now persist curated findings across turns. Full design:
   `organizationId`, `projectId` null).
 - **Read path**: `buildProjectMemoryDigest()`
   (`apps/workspace/bff/projects/memory-service.ts`) merges org-wide +
-  project items (active only; pinned first, then most recently updated,
-  bounded), tags each line with scope/kind/confidence/verification, and the
-  digest rides the WS upgrade as the `x-grid-project-memory` header
-  (`server.js` → `packages/agent/src/agent/project_context.py`), injected into prompts
-  alongside `x-grid-project-context`.
+  project items (active only; the pinned ones, then the ones recalled for
+  this turn's question, bounded) and tags each line with
+  scope/kind/confidence/verification. A signed-in chat turn does not get the
+  digest in a handshake header (ADR-0077): the agent calls
+  `POST /api/internal/turn-context` at turn setup and reads it from
+  `projectMemory` in the response
+  (`packages/agent/src/agent/turn/context_client.py`). A turn whose signed
+  scope holds restricted-folder collections also calls
+  `GET /api/internal/memory/digest` and takes that digest, which may carry
+  restricted notes. The `x-grid-project-memory` header is left in two places:
+  the handshake of a deployment where nobody signs in
+  (`apps/workspace/bff/turns/turn-headers.js`), and the job worker, which
+  fetches the digest from `GET /api/internal/memory/digest` and writes it into
+  its own request state (`apps/agent-host/src/agent_host/jobs/agent_job_setup.py`).
+  `packages/agent/src/agent/project_context.py` reads the header in both.
+- **Personal memory (ADR-0180)**: a third home, in a table of its own
+  (`personal_memory`, row-level security on the person). The same turn-context
+  response carries the asker's block as `personalMemory`, only when the asker
+  alone reads the answer, and `temporary`, which tells the agent to skip its
+  memory writers. The agent writes through `POST /api/internal/personal-memory`
+  (`packages/agent/src/agent/knowledge/personal_memory.py`). The design is in
+  `project-memory-design.md`, first section.
 
 ## 8b. Runtime model overrides & usage metering (2026-07-07)
 
@@ -2253,7 +2336,8 @@ office's skills (`resolve_served_skills`) under `/skills/office/`. Full design a
 `task verify` is the local gate: host-native, defined once in the root
 `Taskfile.yml`. CI calls the same definitions but schedules them differently, so
 a local pass is strong evidence rather than a guarantee. `task verify:fast`
-skips two production builds, `workspace:build` and `site:build`. Full command list, the
+runs only the tiers and UI specs the diff against `origin/develop` reaches, without
+the two production builds and without coverage. Full command list, the
 checks that sit outside `verify`, and the traps `task --list` does not carry:
 `docs/contributing/testing-and-verification.md`.
 

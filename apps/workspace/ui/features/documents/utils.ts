@@ -5,7 +5,7 @@
  */
 
 import { reportsQuarantine } from '@/lib/upload-screening/quarantine'
-import type { DocumentFileStatus, TrackedFileStatus } from './types'
+import type { DocumentFileStatus, JobState, TrackedFileStatus } from './types'
 import type { ListedFileStatus } from '@/adapters/api/documents-schemas'
 import type { FileSourceStatus } from '@/features/layout/components/FileSourceCard'
 
@@ -21,6 +21,24 @@ export const mapBackendStatus = (backendStatus: string): DocumentFileStatus => {
   }
   return statusMap[backendStatus] || 'uploading'
 }
+
+/**
+ * Whether an ingest job has ended, for every reader that asks: the poll, which
+ * stops on it, and the resume after a reload, which re-adds a job's rows only
+ * while it runs. Each used to spell the list itself, and the resume's had no
+ * `cancelled`: a file a person had stopped came back after a reload as a failed
+ * row. A record over the whole vocabulary, so a new job state does not compile
+ * until someone says here whether it ends the job.
+ */
+const JOB_STATE_HAS_ENDED: Record<JobState, boolean> = {
+  pending: false,
+  processing: false,
+  completed: true,
+  failed: true,
+  cancelled: true,
+}
+
+export const isEndedJobStatus = (status: JobState): boolean => JOB_STATE_HAS_ENDED[status]
 
 /**
  * A file the backend reports, as a tracked-file status: an ingest job's file
@@ -93,8 +111,9 @@ export const mapUploadResponseStatus = (
  * model path, the agent's byte lookup for a chat subject included. The chat
  * cannot answer from it, so it gets the neutral „Abgelegt“, never the green
  * „Verfügbar“. `held` has its own look: nothing failed, so not „Fehler“.
+ * `canceled` is the reader's own decision: at rest, no spinner, not an error.
  */
-export const mapToDisplayStatus = (status: string): FileSourceStatus => {
+export const mapToDisplayStatus = (status: TrackedFileStatus): FileSourceStatus => {
   switch (status) {
     case 'uploading':
       return 'uploading'
@@ -110,8 +129,16 @@ export const mapToDisplayStatus = (status: string): FileSourceStatus => {
       return 'held'
     case 'deleting':
       return 'deleting'
-    default:
+    case 'canceled':
+      return 'canceled'
+    default: {
+      // Unreachable while the cases cover the type: a status added to
+      // `TrackedFileStatus` fails the typecheck on this line until it has a
+      // case, where it used to be drawn silently as an upload in flight. Only
+      // a value outside the type (untyped data at runtime) still lands here.
+      status satisfies never
       return 'uploading'
+    }
   }
 }
 

@@ -25,7 +25,9 @@ import { BYTES_PER_MB, maxDocumentBytesFrom, maxIfcBytesFrom } from './request-b
 // unconditionally and re-added only when the flag allows. Unlike images it has
 // no capability half — extraction runs in this process, so there is no
 // dependency that could be missing (see FEATURE_FLAGS.ifcModels).
-const DEFAULT_ACCEPTED_TYPES = '.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx'
+// `.dxf` is shown, indexed and cited through the PDF the backend draws from it
+// (ADR-0152); its converter is the backend itself, so nothing can be missing.
+export const DEFAULT_ACCEPTED_TYPES = '.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf'
 const DEFAULT_MAX_FILE_COUNT = 10
 const DEFAULT_EXPIRATION_CHECK_INTERVAL_HOURS = 0
 
@@ -62,6 +64,12 @@ const EXTENSION_TO_MIME: Record<string, string[]> = {
   // always went through (validation is by extension), which made it worse: the
   // upload worked and the app said it would not.
   '.ifczip': ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
+  // DXF has a registered type that almost no browser sends: Windows reports
+  // `image/vnd.dxf` when a CAD program registered it, everything else sends
+  // `application/octet-stream` or nothing. The extension decides, as for IFC.
+  // `application/dxf` first: `mimeTypeForFileName` gives a file taken out of a ZIP
+  // the FIRST type here, and an `image/*` one would read as a photo in the browser.
+  '.dxf': ['application/dxf', 'image/vnd.dxf', 'image/x-dxf', 'application/x-dxf', 'application/octet-stream'],
 }
 
 /**
@@ -222,3 +230,34 @@ export const getFileUploadConfigFromEnv = (
     imageUploadBlockedReason,
   }
 }
+
+/** What the flag-governed types depend on: the two product flags and the derived VLM capability. */
+export type UploadTypeGates = Required<
+  Pick<FileUploadConfigOptions, 'imageUploadEnabled' | 'vlmAvailable' | 'ifcUploadEnabled'>
+>
+
+/**
+ * The extension of `fileName` as the upload allow-list reads it: lowercased,
+ * with its dot, or `''` when there is none. A name that only starts with a dot
+ * (`.env`) has none.
+ */
+export const uploadExtensionOf = (fileName: string): string => {
+  const dot = fileName.lastIndexOf('.')
+  return dot > 0 ? fileName.slice(dot).toLowerCase() : ''
+}
+
+/**
+ * The extensions an upload may have, lowercased, in the accept-list's order:
+ * the server-side allow-list, read from the same {@link getFileUploadConfigFromEnv}
+ * the picker's list comes from. The one resolver for a caller with a session
+ * (`assertUploadTypeAllowed`) and one without (`acceptedTypesForOrganization`),
+ * so a type the upload refuses is never offered elsewhere, nor the reverse.
+ */
+export const acceptedUploadExtensions = (
+  gates: UploadTypeGates,
+  env: Record<string, string | undefined> = process.env
+): string[] =>
+  getFileUploadConfigFromEnv(env, gates)
+    .acceptedTypes.split(',')
+    .map((ext) => ext.trim().toLowerCase())
+    .filter(Boolean)

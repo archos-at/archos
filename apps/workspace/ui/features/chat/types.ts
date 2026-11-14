@@ -8,7 +8,6 @@ import type { PageRegion } from '@/features/knowledge/lib/page-region'
 import type { AnswerCard } from '@/shared/cards/schemas'
 import type { CardInteractions } from '@/features/cards/card-decision'
 import type { ProjectStatus } from '@/lib/projects/project-status'
-import type { DraftMention } from '@/lib/mentions/mention-text'
 import type {
   AnswerConfidenceCappedReason,
   StoredThinkingStep,
@@ -26,8 +25,10 @@ import type { SessionsSlice } from './stores/sessions-store'
 import type { InteractionSlice } from './stores/interaction-store'
 
 import type { Shelf, SourceKind } from '@/lib/source-kinds'
-import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
+import type { CitationLineWire } from '@/shared/citation-line'
 import type { ChatEffort } from '@/lib/reasoning-settings/catalog'
+
+export type { ComposerPrefill, ComposerSubject } from './composer-types'
 
 /** Message role types */
 export type MessageRole = 'user' | 'assistant' | 'system'
@@ -44,47 +45,6 @@ export type MessageType =
 
 /** File upload status types for banner messages */
 export type FileUploadStatusType = 'uploaded' | 'pending_warning'
-
-/** What this Ask Piloti turn is about — the same composer, not a second chat. */
-export interface ComposerSubject {
-  resourceType: 'document'
-  resourceId: string
-  title?: string | null
-  /** Stored file name — retrieval identity, not the label. */
-  filename?: string | null
-  /**
-   * Which knowledge shelf the file sits on. Sent as ``focus_shelf``; the
-   * agent maps it to the shelves it may keep. "Summarize this upload"
-   * does not walk the Archiv (#429); a project file does not mix in
-   * Büro hits (#436).
-   */
-  shelf?: 'project' | 'office_shelf' | 'session'
-  /**
-   * The subject's OPEN version — the one still being worked on — when it has
-   * one, so the turn can read a document retrieval cannot see.
-   *
-   * Only a published version reaches the retrieval index (ADR-0054), so a
-   * draft, an in-review or a changes-requested document has no chunks and the
-   * focus filter falls open to the whole corpus. These two fields travel to the
-   * agent as ``focus_version_id`` / ``focus_version_state``; it reads the
-   * version's bytes into the conversation's working directory instead.
-   *
-   * Absent means "the live bytes are the published ones" and nothing changes.
-   */
-  versionId?: string | null
-  versionState?: DocumentVersionState | null
-}
-
-/** A queued composer prefill: the text plus any structured mentions it renders. */
-export interface ComposerPrefill {
-  text: string
-  mentions?: DraftMention[]
-  /**
-   * Optional subject of this ask (a project file). IFC walls, applicable
-   * standards and Files all land here — one pipe.
-   */
-  subject?: ComposerSubject
-}
 
 /** File status for file operations */
 export type FileStatus = 'uploading' | 'ingesting' | 'success' | 'deleted' | 'error'
@@ -293,7 +253,7 @@ export interface ChatMessage {
    * Which path the turn turned out to take, observed after the answer rather
    * than classified before it: `meta` is a direct reply (no source consulted,
    * no self-assessment), `shallow` and `deep` are research, `error` a failed
-   * turn. Drives the answer's role tab — a `meta` reply reads as a "Hinweis".
+   * turn. Drives the answer's kind — a `meta` reply reads as a "Hinweis".
    */
   routingDecision?: 'meta' | 'shallow' | 'deep' | 'error'
   /** Narration shown when the turn escalated shallow→deep this turn. */
@@ -478,6 +438,11 @@ export interface Conversation {
    * `RESOURCE_RIGHTS_LOST`, cleared by the next list that says otherwise.
    */
   contentLocked?: boolean
+  /**
+   * The server row's `temporary` (ADR-0180): nothing from this chat is kept in
+   * any memory. Set here for a chat not stored yet, and sent with its create.
+   */
+  temporary?: boolean
   /** Per-session enabled data source IDs (persisted across refresh) */
   enabledDataSourceIds?: string[]
 }
@@ -564,7 +529,7 @@ export interface CitationSource {
   shelf?: Shelf
   /**
    * Identity of the DOCUMENT this source is a passage of, as the backend
-   * registry groups it (`citations.binding.document_key`). Absent on
+   * registry groups it (`citations.source_identity.document_key`). Absent on
    * messages persisted before the wire carried it, where the client derives an
    * equivalent key from filename/collection instead.
    */
@@ -601,53 +566,16 @@ export interface CitationSource {
    * every source of the chat's own scope.
    */
   project?: CitationProject
+  /**
+   * What the citation's line states, from the knowledge records: edition, role,
+   * route, dates, the text read and its public address (`@/shared/citation-line`).
+   * In wire spelling, so the stored citation and the live one are one shape.
+   * Absent on a source no record reaches and on messages stored before it travelled.
+   */
+  line?: CitationLineWire
 }
 
-/** Wire shape of a structured source attached to a shallow ChatResponse. */
-export interface WireCitationSource {
-  content?: string
-  url?: string | null
-  title?: string | null
-  citation_key?: string | null
-  collection?: string | null
-  source_type?: string | null
-  tool?: string | null
-  origin?: string | null
-  /** Citation label ([N]) this source carries in the answer prose. */
-  number?: number | null
-  /** Backend identity of the document this source is a passage of. */
-  document_id?: string | null
-  file_name?: string | null
-  page?: number | null
-  /** The Punkt this passage belongs to ("3.5.2"), when the chunker established one. */
-  clause?: string | null
-  /** @deprecated The pre-rename spelling of `clause`; read by `citationFromWire`, never written. */
-  punkt?: string | null
-  /** Retrieval score (cosine similarity) the knowledge layer printed for this passage. */
-  score?: number | null
-  /** The retrieved passage text, bounded by the serializer. */
-  snippet?: string | null
-  kind?: string | null
-  /** Shelf the chunk came from: `archiv | project | session | base` (ADR-0047). */
-  shelf?: string | null
-  lane?: string | null
-  lane_label?: string | null
-  binding_note?: string | null
-  /**
-   * Coarse binding status the backend classified this source as:
-   * `binding` (statute/ordinance) | `declared_binding` (OIB-Richtlinie /
-   * the lane a Land declares binding) | `interpretive` (Leitfaden/ÖNORM,
-   * interpretive) | `unknown` (matched no catalogued norm — the honest
-   * default, never a guess). Rides the `sources` schema's `.passthrough()`;
-   * declared here so the renderer can badge it. Structured companion to the
-   * prose `binding_note`.
-   */
-  binding_status?: string | null
-  /** Boxes on the page, `[{box: [x0, y0, x1, y1], label}]` normalised 0-1 (issue #433). */
-  regions?: unknown
-  /** `{id, name, status}` of the other project (ADR-0094); validated by `projectFromWire`. */
-  project?: unknown
-}
+export type { WireCitationSource } from './wire-citation-source'
 
 /**
  * The chat store: the union of its three slices, each of which declares (and

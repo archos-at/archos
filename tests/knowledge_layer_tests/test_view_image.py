@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import base64
 
-import knowledge_layer.llamaindex.adapter as llm_adapter
+import knowledge_layer.ingest.adapter as llm_adapter
 import pytest
+from knowledge_layer import view_image as view_image_module
 from knowledge_layer.view_image import ViewLimits
 from knowledge_layer.view_image import _find_pdf
 from knowledge_layer.view_image import _is_enabled
@@ -49,20 +50,23 @@ async def _invoke(
         def _boom(*_args, **_kwargs):
             raise render_raises
 
-        monkeypatch.setattr("knowledge_layer.view_image._render_page", _boom)
-        monkeypatch.setattr("knowledge_layer.view_image._render_page_from_bytes", _boom)
+        monkeypatch.setattr(view_image_module, "_render_page", _boom)
+        monkeypatch.setattr(view_image_module, "_render_page_from_bytes", _boom)
     else:
         monkeypatch.setattr(
-            "knowledge_layer.view_image._render_page",
+            view_image_module,
+            "_render_page",
             lambda _pdf_path, _page_number, _max_dim: render_result,
         )
         monkeypatch.setattr(
-            "knowledge_layer.view_image._render_page_from_bytes",
+            view_image_module,
+            "_render_page_from_bytes",
             lambda _pdf_bytes, _page_number, _max_dim: render_result,
         )
 
     monkeypatch.setattr(
-        "knowledge_layer.view_image._find_pdf",
+        view_image_module,
+        "_find_pdf",
         lambda _name: pdf_path,
     )
 
@@ -256,7 +260,7 @@ def test_render_page_makes_every_pdfium_call_under_the_process_lock(monkeypatch)
     import sys
     from types import ModuleType
 
-    from knowledge_layer.llamaindex import pdfium_lock as lock_module
+    from knowledge_layer.ingest import pdfium_lock as lock_module
     from PIL import Image
 
     held = lock_module._LOCK._is_owned
@@ -334,13 +338,15 @@ def _patch_seaweed_chain(
 
     _patch_seaweed_chain.seen = []
 
-    monkeypatch.setattr("knowledge_layer.view_image._resolve_storage_location", _resolve)
+    monkeypatch.setattr(view_image_module, "_resolve_storage_location", _resolve)
     monkeypatch.setattr(
-        "knowledge_layer.view_image._fetch_seaweed_bytes",
+        view_image_module,
+        "_fetch_seaweed_bytes",
         lambda _key, _bucket=None: fetched,
     )
     monkeypatch.setattr(
-        "knowledge_layer.view_image._normalize_image_to_jpeg",
+        view_image_module,
+        "_normalize_image_to_jpeg",
         lambda _bytes, _max_dim: normalized,
     )
 
@@ -600,9 +606,9 @@ async def test_per_turn_cap_stops_the_tool_before_any_work(monkeypatch, tmp_path
     try:
         for _ in range(2):
             result = await _invoke(monkeypatch, tmp_path, pdf_path="x.pdf")
-            monkeypatch.setattr("knowledge_layer.view_image._render_page", _counting_render)
+            monkeypatch.setattr(view_image_module, "_render_page", _counting_render)
             assert isinstance(result, list)
-        monkeypatch.setattr("knowledge_layer.view_image._render_page", _counting_render)
+        monkeypatch.setattr(view_image_module, "_render_page", _counting_render)
         capped = await _invoke(monkeypatch, tmp_path, pdf_path="x.pdf")
     finally:
         end_image_view_budget(token)
@@ -622,18 +628,62 @@ async def test_per_turn_cap_stops_the_tool_before_any_work(monkeypatch, tmp_path
 # =============================================================================
 
 
-def test_find_pdf_fetches_a_base_corpus_file_that_is_not_local(monkeypatch, tmp_path) -> None:
+@pytest.fixture
+def _readable_in_xa():
+    """A turn whose office may read the invented country ``XA``."""
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    set_turn_knowledge_context(KnowledgeContext(gate="core", retrieval_countries=frozenset({"XA"})))
+    yield
+    set_turn_knowledge_context(None)
+
+
+def test_find_pdf_fetches_a_released_base_corpus_file_that_is_not_local(monkeypatch, tmp_path, _readable_in_xa) -> None:
     from agent import corpus_store
     from tests.object_corpus_fakes import install
 
     install(monkeypatch, tmp_path)
     corpus_store.put("OIB-3.pdf", b"%PDF from the object store")
+    corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id="XA"))
     (tmp_path / "cache" / "OIB-3.pdf").unlink()  # another replica uploaded it
 
     found = _find_pdf("OIB-3.pdf")
 
     assert found == str(tmp_path / "cache" / "OIB-3.pdf")
     assert (tmp_path / "cache" / "OIB-3.pdf").read_bytes() == b"%PDF from the object store"
+
+
+@pytest.mark.parametrize(
+    "mark",
+    [
+        None,  # a draft upload: no release wrote a mark
+        "ZZ",  # unreleased: the country no office is entitled to
+        "XB",  # released, but to another country
+    ],
+    ids=["draft", "unreleased", "other-country"],
+)
+def test_find_pdf_refuses_a_file_not_released_to_the_turn(monkeypatch, tmp_path, _readable_in_xa, mark) -> None:
+    from agent import corpus_store
+    from tests.object_corpus_fakes import install
+
+    install(monkeypatch, tmp_path)
+    corpus_store.put("OIB-3.pdf", b"%PDF held back")
+    if mark is not None:
+        corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id=mark))
+
+    assert _find_pdf("OIB-3.pdf") is None
+
+
+def test_find_pdf_reads_nothing_without_a_request(monkeypatch, tmp_path) -> None:
+    from agent import corpus_store
+    from tests.object_corpus_fakes import install
+
+    install(monkeypatch, tmp_path)
+    corpus_store.put("OIB-3.pdf", b"%PDF")
+    corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id="XA"))
+
+    assert _find_pdf("OIB-3.pdf") is None
 
 
 def test_find_pdf_for_a_file_the_corpus_does_not_list_is_none(monkeypatch, tmp_path) -> None:
@@ -644,12 +694,48 @@ def test_find_pdf_for_a_file_the_corpus_does_not_list_is_none(monkeypatch, tmp_p
     assert _find_pdf("unknown.pdf") is None
 
 
-def test_find_pdf_is_fail_open_when_the_corpus_lookup_breaks(monkeypatch) -> None:
+def test_find_pdf_is_fail_open_when_the_corpus_lookup_breaks(monkeypatch, _readable_in_xa) -> None:
     from agent import corpus_store
 
     def broken(_name):
         raise RuntimeError("database down")
 
     monkeypatch.setattr(corpus_store, "ensure_local", broken)
+    monkeypatch.setattr(corpus_store, "released_to", lambda _name, _countries: True)
 
     assert _find_pdf("OIB-3.pdf") is None
+
+
+# =============================================================================
+# look: a name that is a base-corpus file resolves only where it is released
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    ("mark", "readable"),
+    [("XA", True), (None, False), ("ZZ", False), ("XB", False)],
+    ids=["released", "draft", "unreleased", "other-country"],
+)
+async def test_look_resolves_a_base_corpus_name_only_when_released(
+    monkeypatch, tmp_path, _readable_in_xa, mark, readable
+) -> None:
+    from agent import corpus_store
+    from agent.tools.look import resolve
+    from tests.object_corpus_fakes import install
+
+    install(monkeypatch, tmp_path)
+    corpus_store.put("OIB-3.pdf", b"%PDF")
+    if mark is not None:
+        corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id=mark))
+
+    async def not_in_any_collection(_name):
+        return ""
+
+    monkeypatch.setattr(resolve, "_probe", not_in_any_collection)
+
+    resolved = await resolve.resolve_document("OIB-3.pdf")
+
+    if readable:
+        assert resolved == resolve.Resolved("OIB-3.pdf")
+    else:
+        assert resolved == resolve.NOT_FOUND.format(name="OIB-3.pdf")

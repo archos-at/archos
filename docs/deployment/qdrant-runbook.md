@@ -56,9 +56,11 @@ application (`https://qdrant.dev.piloti.at/oauth2/callback` for staging,
 `https://qdrant.piloti.at/oauth2/callback` for prod). The dashboard is on by
 default, so do it before the deploy ([Dashboard](#on-a-public-host)).
 
-**3. The migration flag. A setting, not a secret.** `chromaMigration: "true"`
-is already in `Pulumi.dev.yaml`; prod gets it in the promotion PR, and every
-stack removes it after its migration
+**3. The migration flag. A setting, not a secret.** Every stack has run the
+migration and removed the flag (prod on 2026-10-18; dev's flag was left on until
+2026-11-12, which suspended its base-corpus sync for weeks, and
+`deploy/pulumi/stack-files.spec.ts` now fails a stack that sets it). For a new
+stack migrating off Chroma, set it, and remove it after its migration
 ([Migrating from Chroma on Kubernetes](#migrating-from-chroma-on-kubernetes)).
 
 **Check before deploying**, without printing a value:
@@ -70,9 +72,8 @@ pulumi config --stack dev | grep -E 'qdrant(ApiKey|ReadOnlyApiKey|S3SecretKey)|o
 pulumi preview --stack dev   # names any missing or colliding key
 ```
 
-**Compose and Coolify** need none of this. Compose runs Qdrant without a key on
-its internal network, and Coolify generates the key itself
-(`SERVICE_PASSWORD_QDRANT`).
+**Compose** needs none of this: it runs Qdrant without a key on its internal
+network.
 
 ## Before you start
 
@@ -843,7 +844,7 @@ From `deploy/compose`, with `DC="docker compose --env-file ../.env -f docker-com
 > and the new points make the import's `--verify` report them as extra. The
 > app tiers would also answer from an empty store meanwhile. `$DC run` in
 > step 4 starts only what the import needs, never the clock. If the new
-> release must run before the import (as on Coolify, below), set
+> release must run before the import, set
 > `VECTOR_IMPORT_PENDING=true` in `../.env` first, and remove it after.
 
 1. **Stop every writer**, on the release that still runs Chroma. Stopping the
@@ -919,67 +920,6 @@ default `/tmp/chroma_data`):
 uv run --script deploy/migration/chroma_export.py --persist-dir /tmp/chroma_data --out vector-export/export
 QDRANT_URL=http://localhost:6333 .venv/bin/python scripts/import_vectors.py --in vector-export/export --verify
 ```
-
-### On Coolify
-
-**Undrilled.** Coolify builds the backend image at deploy and has no "start
-some services" step, so the new release's Qdrant and image exist only once it
-is deployed, and a deploy starts every service, the `housekeeping` clock
-included, which calls the base-corpus sync the moment `aiq-api` is healthy.
-The procedure therefore takes the application offline for the import (a
-maintenance window: announce it; users get no answers until step 6) and sets
-`VECTOR_IMPORT_PENDING` so that first sync does not queue the corpus for
-re-embedding. Coolify names everything after the resource's UUID (in its URL
-and in `docker ps`); `<uuid>` below is that.
-
-1. **Stop** the resource in Coolify (on the release that still runs Chroma).
-2. **Export** from the Chroma volume, `<uuid>_chroma_data`, on the Coolify
-   host, as in step 2 above (a checkout of the repository on the host gives
-   `deploy/migration`):
-
-   ```bash
-   docker volume ls --format '{{.Name}}' | grep chroma_data      # <uuid>_chroma_data
-   docker run --rm -v <uuid>_chroma_data:/chroma:ro -v "$PWD/deploy/migration:/migration:ro" \
-     -v /root/vector-export:/exchange ghcr.io/astral-sh/uv:0.11.32-python3.12-trixie-slim \
-     uv run --script /migration/chroma_export.py --persist-dir /chroma --out /exchange/export
-   ```
-
-3. **Set `VECTOR_IMPORT_PENDING=true`** in the resource's Environment
-   Variables, then point the resource at the release with Qdrant and
-   **deploy**. Coolify generates `SERVICE_PASSWORD_QDRANT` for it.
-4. **Take the application offline** at once: stop every service that serves
-   users or writes, and leave `qdrant`, `postgres`, `pgbouncer` and `aiq-api`
-   running:
-
-   ```bash
-   docker ps --format '{{.Names}}' | grep '<uuid>'
-   docker stop frontend-<uuid> bff-jobs-<uuid> ingest-worker-<uuid> agent-worker-<uuid> \
-     aiq-agent-<uuid> purger-<uuid> skill-scheduler-<uuid> housekeeping-<uuid>
-   ```
-
-5. **Import** in the image the deploy built, with `aiq-api`'s own
-   environment, on the stack's network (Coolify's managed network is named
-   `<uuid>`). That environment carries what the importer reads:
-   `QDRANT_URL=http://qdrant:6333`, `QDRANT_API_KEY` (the value of
-   `SERVICE_PASSWORD_QDRANT`), and the metadata store's DSN
-   (`SUMMARY_DB`, `NAT_JOB_STORE_DB_URL`, on `pgbouncer`, with
-   `SERVICE_PASSWORD_POSTGRES`):
-
-   ```bash
-   IMAGE=$(docker inspect aiq-api-<uuid> --format '{{.Config.Image}}')
-   docker inspect aiq-api-<uuid> --format '{{range .Config.Env}}{{println .}}{{end}}' > /root/aiq-api.env
-   docker run --rm --network <uuid> --env-file /root/aiq-api.env -v /root/vector-export:/exchange:ro \
-     "$IMAGE" python scripts/import_vectors.py --in /exchange/export --dry-run
-   docker run --rm --network <uuid> --env-file /root/aiq-api.env -v /root/vector-export:/exchange:ro \
-     "$IMAGE" python scripts/import_vectors.py --in /exchange/export --verify
-   rm /root/aiq-api.env        # it holds every secret of the backend
-   ```
-
-   The exit codes are step 4's above.
-6. **Remove `VECTOR_IMPORT_PENDING`** from the Environment Variables and
-   **restart** the resource, which starts everything again. Then verify in
-   the product as in step 5 above. Leaving the variable set would stop a
-   store that really is reset from ever being refilled.
 
 ## Migrating from Chroma on Kubernetes
 

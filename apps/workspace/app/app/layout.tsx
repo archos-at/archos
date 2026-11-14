@@ -16,7 +16,7 @@ import type { JSX } from 'react'
 import { type ReactNode } from 'react'
 import { getUserSession } from '@/lib/auth/session'
 import { runWithTenantSlot } from '@/lib/db/tenant-context'
-import { isProjectKnowledgePageEnabled, isSkillsEnabled } from '@/lib/authz/feature-flags'
+import { isInboundMailEnabled, isProjectKnowledgePageEnabled, isSkillsEnabled } from '@/lib/authz/feature-flags'
 import { getNavFlags } from '@/lib/authz/nav'
 import { KeyboardShortcuts } from '@/components/shell'
 import { isAuthRequired } from '@/lib/auth/auth-required'
@@ -61,8 +61,10 @@ export default async function AppLayout({ children }: AppLayoutProps): Promise<J
             showKnowledge={isProjectKnowledgePageEnabled(session)}
             showSkills={isSkillsEnabled(session)}
             canAccessOfficeShelf={navFlags.canAccessOfficeShelf}
+            canAccessOfficeStandards={navFlags.canAccessOfficeStandards}
             canCollaborate={navFlags.canCollaborate}
             canAccessInbox={navFlags.canAccessInbox}
+            inboundMail={isInboundMailEnabled(session)}
           />
         )
       }

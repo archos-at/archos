@@ -8,6 +8,7 @@ testpaths = [
     "evals",
     "packages/agent/tests",
     "packages/knowledge-layer/tests",
+    "packages/public-sources/tests",
     "packages/ris-adapter/tests",
     "packages/tavily-web-search/tests",
 ]
@@ -35,7 +36,7 @@ addopts = "--import-mode=importlib -m 'not live'"
 # The test-support packages come last: `<distribution>_testing`, one per suite
 # family, so a suite imports its helpers by a name that no directory move changes
 # (ADR-0145 row 5; tests/test_test_imports.py holds it).
-pythonpath = [".", "packages/agent/src", "apps/agent-host/src", "evals/oib-retrieval/src", "packages/knowledge-layer/testing", "packages/ris-adapter/testing", "packages/agent/tests/testing"]
+pythonpath = [".", "packages/agent/src", "apps/agent-host/src", "evals/oib-retrieval/src", "packages/knowledge-layer/testing", "packages/ris-adapter/testing", "packages/public-sources/testing", "packages/agent/tests/testing"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 markers = [
@@ -66,7 +67,7 @@ target-version = "py314"
 [tool.ruff.per-file-target-version]
 "ci/**/*.py" = "py312"
 "scripts/check_*.py" = "py312"
-"scripts/release_notes.py" = "py312"
+"scripts/release_notes*.py" = "py312"
 "deploy/migration/**/*.py" = "py312"
 
 [tool.ruff.lint]
@@ -158,14 +159,14 @@ include_external_packages = true
 
 [[tool.importlinter.contracts]]
 id = "qdrant-client-confined"
-name = "Only knowledge_layer.qdrant imports qdrant_client"
+name = "Only knowledge_layer.vector_store imports qdrant_client"
 type = "forbidden"
 source_modules = ["agent", "agent_host", "knowledge_layer"]
 forbidden_modules = ["qdrant_client"]
 # Who names the client, not who reaches a module that does: everything reaches
-# knowledge_layer.qdrant, which is the point of confining the client there.
+# knowledge_layer.vector_store, which is the point of confining the client there.
 allow_indirect_imports = true
-ignore_imports = ["knowledge_layer.qdrant.** -> qdrant_client"]
+ignore_imports = ["knowledge_layer.vector_store.** -> qdrant_client"]
 
 [[tool.importlinter.contracts]]
 id = "agent-api-seam"
@@ -187,24 +188,32 @@ ignore_imports = [
   # The port: `agent.knowledge.factory` builds the BaseRetriever and
   # BaseIngestor the agent talks to, so it is the one module that should.
   "agent.knowledge.factory -> knowledge_layer.**",
+  # The licence port (ADR-0164): a document's licence, and a licensed passage's source
+  # for a later turn, read where the marks and the text live.
+  "agent.knowledge.licences -> knowledge_layer.estate",
   # Known bypasses of the port, from before this contract. Route each one
   # through the port and delete its line; a new one fails the build.
   "agent.agents.piloti.register -> knowledge_layer.chat_binding",
   "agent.agents.piloti.register -> knowledge_layer.estate",
   "agent.knowledge.collection_pages -> knowledge_layer.chunk_positions",
-  "agent.knowledge.collection_pages -> knowledge_layer.qdrant.payload",
-  "agent.knowledge.collection_pages -> knowledge_layer.qdrant.reads",
+  "agent.knowledge.collection_pages -> knowledge_layer.vector_store",
+  "agent.knowledge.collection_pages -> knowledge_layer.vector_store.reads",
   "agent.knowledge.folder_cards.inputs -> knowledge_layer.browse",
   "agent.knowledge.folder_cards.worker -> knowledge_layer.browse",
-  "agent.knowledge.folder_cards.worker -> knowledge_layer.qdrant.folders",
-  "agent.knowledge.folder_cards.worker -> knowledge_layer.qdrant.store",
-  "agent.knowledge.scoping -> knowledge_layer.search_scope",
-  "agent.oib_sync -> knowledge_layer.llamaindex.adapter",
-  "agent.tools.cross_project.hit_judge -> knowledge_layer.decisions",
-  "agent.tools.cross_project.register -> knowledge_layer.trace_lanes",
-  "agent.tools.look.reading -> knowledge_layer.llamaindex.adapter",
+  "agent.knowledge.folder_cards.worker -> knowledge_layer.vector_store.folders",
+  "agent.knowledge.folder_cards.worker -> knowledge_layer.vector_store",
+  "agent.knowledge.scoping -> knowledge_layer.search",
+  "agent.oib_sync -> knowledge_layer.ingest.adapter",
+  "agent.tools.cross_project.hit_judge -> knowledge_layer.search",
+  "agent.tools.cross_project.register -> knowledge_layer.search",
+  "agent.tools.look.reading -> knowledge_layer.ingest",
   "agent.tools.look.register -> knowledge_layer.view_image",
   "agent.tools.look.resolve -> knowledge_layer.view_image",
+  # The law lookup, moved out of ris_adapter (outside `agent`, so unbound by this contract):
+  # the corpus's passage bound and its lane fan-out, read rather than restated. The port
+  # (`agent.knowledge.factory`) is at its size ceiling; route both through it when it shrinks.
+  "agent.knowledge.law_lookup.render -> knowledge_layer.search",
+  "agent.knowledge.law_lookup.sections -> knowledge_layer.search",
 ]
 
 [tool.yapf]
@@ -231,7 +240,7 @@ dev = [
     "pytest-cov>=4.1.0",
     "pytest-env>=1.8.1",
     "pre-commit>=3.5.0",
-    "ruff~=0.17.1",
+    "ruff~=0.17.2",
     "yapf>=0.40.0",
     "mypy>=2.3.0",
     "fakeredis[lua]>=2.40.0",
@@ -239,6 +248,7 @@ dev = [
     "agent",
     "tavily-web-search",
     "ris-adapter",
+    "public-sources",
     "knowledge-layer[all]",
     "agent-host",
     # The eval harness (evals/), so its tests and `task be:eval:*` import it
@@ -251,6 +261,8 @@ dev = [
     # Runs only the tests a pull request's change reaches (ci.yml `backend-affected`).
     "pytest-testmon>=2.2.0",
     "import-linter>=2.15",
+    # The oracle the German tax-ID check is held to (agent.common.de_numbers); tests only.
+    "python-stdnum>=1.20",
 ]
 
 [tool.uv]
@@ -284,6 +296,7 @@ members = [
     # pytest's testpaths and the Taskfile's PY_PACKAGES to one another.
     "packages/agent",
     "packages/knowledge-layer",
+    "packages/public-sources",
     "packages/ris-adapter",
     "packages/tavily-web-search",
     "apps/agent-host",
@@ -293,6 +306,7 @@ members = [
 agent = { workspace = true }
 tavily-web-search = { workspace = true }
 ris-adapter = { workspace = true }
+public-sources = { workspace = true }
 knowledge-layer = { workspace = true }
 agent-host = { workspace = true }
 oib-retrieval = { path = "evals/oib-retrieval", editable = true }

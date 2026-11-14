@@ -64,7 +64,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { TimeAgo } from '@/components/ui/time-ago'
-import { SeriesPaletteStyle } from '@/components/charts/palette'
 import { useLocale, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import { CONVERSATION_TAG_KEYS, type ConversationTagKey } from '@/lib/conversations/tags'
@@ -306,7 +305,7 @@ export function AnswerFeedbackHealth({
           title={t('answerFeedback.noMatch')}
           action={
             filtered ? (
-              <Button variant="outline" size="sm" onClick={clearFilters} data-testid="clear-filters-empty">
+              <Button variant="secondary" size="sm" onClick={clearFilters} data-testid="clear-filters-empty">
                 <X className="size-3.5" aria-hidden />
                 {t('answerFeedback.filters.clearAll')}
               </Button>
@@ -343,7 +342,6 @@ export function AnswerFeedbackHealth({
 
   return (
     <div className="usage-viz flex flex-col gap-6" data-testid="answer-feedback-health">
-      <SeriesPaletteStyle />
       {header}
       <Card>
         <CardContent>
@@ -800,7 +798,7 @@ function TurnsCard({ data, busy, filters, locale, onClearFilters, onOpenTurn }: 
   return (
     <Card data-testid="feedback-turns-card">
       <CardHeader className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold">{t(heading)}</h3>
+        <h3 className="text-sm font-medium">{t(heading)}</h3>
         <CountPill>{formatCount(data.turns.length, locale)}</CountPill>
         {capped ? (
           <span className="text-muted-foreground text-xs">
@@ -818,7 +816,7 @@ function TurnsCard({ data, busy, filters, locale, onClearFilters, onOpenTurn }: 
                 size="sm"
                 title={t('answerFeedback.noMatch')}
                 action={
-                  <Button variant="outline" size="sm" onClick={onClearFilters}>
+                  <Button variant="secondary" size="sm" onClick={onClearFilters}>
                     <X className="size-3.5" aria-hidden />
                     {t('answerFeedback.filters.clearAll')}
                   </Button>

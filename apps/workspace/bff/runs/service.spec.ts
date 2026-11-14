@@ -343,7 +343,7 @@ describe('settleRunLedger', () => {
     expect(await settleRunLedger(run, { status: 'success' }, T1)).toBe(false)
   })
 
-  it('lets a real write failure through, so the caller can leave the row active and retry', async () => {
+  it('lets a real write failure through, so the caller knows the block is not settled and leaves it to the heal', async () => {
     vi.mocked(mergeMessageMetadata).mockRejectedValue(new Error('connection reset'))
     await expect(settleRunLedger(run, { status: 'success' }, T1)).rejects.toThrow('connection reset')
   })
@@ -440,6 +440,30 @@ describe('applyRunLedgerOp', () => {
     expect(ledger.status).toBe('done')
     expect(ledger.result).toEqual({ filedAt: T1.toISOString(), fileId: 'doc-1' })
     expect(ledger.finishedAt).toBe(T1.toISOString())
+  })
+
+  it('keeps the ending the reaper settled when the worker it gave up on flushes again', async () => {
+    const reaped = failRun(openPhase(emptyRunLedger(RUN, T0), 'researching', T0), 'Job timed out', T0)
+    vi.mocked(findMessageInConversation).mockResolvedValue(message({ run_ledger: reaped }))
+
+    const appended = await applyRunLedgerOp(RUN, { op: 'append', status: 'running' }, T1)
+    expect(appended.ledger).toEqual(reaped)
+
+    const finished = await applyRunLedgerOp(RUN, { op: 'finish', result: { filedAt: T1.toISOString() } }, T1)
+    expect(finished.ledger).toEqual(reaped)
+  })
+
+  it('stores a salvaged run as interrupted with its result, the way the worker says it', async () => {
+    const interrupted = { ...openPhase(emptyRunLedger(RUN, T0), 'writing', T0), status: 'interrupted' as const }
+    vi.mocked(findMessageInConversation).mockResolvedValue(message({ run_ledger: interrupted }))
+
+    const { ledger } = await applyRunLedgerOp(
+      RUN,
+      { op: 'finish', result: { filedAt: T1.toISOString(), reportMessageId: 'message-9' } },
+      T1,
+    )
+    expect(ledger.status).toBe('interrupted')
+    expect(ledger.result).toEqual({ filedAt: T1.toISOString(), reportMessageId: 'message-9' })
   })
 
   it('finishes with an error, keeping what had been completed', async () => {

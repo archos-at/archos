@@ -41,8 +41,8 @@ const ProjectChatPage = async ({ params }: ProjectChatPageProps): Promise<ReactN
     // Defaults to TRUE, and FAILS CLOSED from there — which is the opposite of
     // what this comment used to claim, so state it plainly:
     // `requireProjectAccess` collapses a transport failure into the same
-    // `NotFoundError` it uses for a denial (`checkResourcePermission` catches
-    // the SDK error and returns false; `projects.spec.ts` pins that as "fails
+    // `NotFoundError` it uses for a denial (`effectiveResourcePermissions` catches
+    // the SDK error and grants nothing; `projects.spec.ts` pins that as "fails
     // CLOSED when the FGA call itself errors"). A `catch` here therefore cannot
     // tell "you may not chat" from "WorkOS is down", so during an outage an
     // Editor sees a locked composer.
@@ -72,10 +72,9 @@ const ProjectChatPage = async ({ params }: ProjectChatPageProps): Promise<ReactN
     }
 
     // Project lookup for the chat surface: the project name in the
-    // thread-header breadcrumb and the composer scope chip (WS-3). The Deep
-    // Research section needs only the project id, which the job proxy checks
-    // and signs (ADR-0084). Fail-soft: a missing row just degrades to a
-    // nameless scope chip, never a broken chat.
+    // thread header (WS-3). The Deep Research section needs only the project
+    // id, which the job proxy checks and signs (ADR-0084). Fail-soft: a missing
+    // row just degrades to a nameless header, never a broken chat.
     let projectName: string | null = null
     try {
       // Scoped to the session's organization: the previous lookup matched on id

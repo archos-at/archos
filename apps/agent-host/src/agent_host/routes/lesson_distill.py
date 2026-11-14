@@ -43,8 +43,8 @@ from agent.common.openrouter import ZERO_DATA_RETENTION
 from agent.common.openrouter import limited_async_http_client
 from agent.observability.direct_trace import observed_generation
 
-from ..models.requests import LessonDistillRequest
-from ..models.requests import LessonDistillResponse
+from ..models.lesson_distill import LessonDistillRequest
+from ..models.lesson_distill import LessonDistillResponse
 from ._llm_json import extract_json_object
 from ._llm_json import message_content
 from .generate_summary import _llm_settings

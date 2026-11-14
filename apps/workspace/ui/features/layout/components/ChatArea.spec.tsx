@@ -7,8 +7,9 @@ import type { ChatMessage } from '@/features/chat/types'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
 import type { UseSpectatedTurnOptions } from '@/features/collaboration/hooks/use-spectated-turn'
-import { initialTurnView, type TurnView } from '@/features/chat/lib/turn-fold'
+import { initialTurnView, type TurnView } from '@/lib/turns/turn-fold'
 import { useAnswerRevealStore } from '@/features/chat/stores/answer-reveal-store'
+import { RESTORING_NOTE_AFTER_MS, watchRestoring } from '@/features/chat/connection-restoring'
 
 /**
  * The store slice and the messages ChatArea reads, as these tests fixture them.
@@ -258,6 +259,7 @@ vi.mock('@/features/collaboration/hooks/use-sharing', () => ({
 }))
 
 import { useChatStore } from '@/features/chat/store'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 // Time-of-day greeting shown on the authenticated empty state.
 const GREETING_RE = /good (morning|afternoon|evening)/i
@@ -307,7 +309,7 @@ describe('ChatArea', () => {
     render(<ChatArea isAuthenticated={false} />)
 
     expect(
-      screen.getByText(/piloti opens after your organization is verified/i)
+      screen.getByText(new RegExp(`${PRODUCT_NAME} opens after your organization is verified`, 'i'))
     ).toBeInTheDocument()
     expect(screen.getByText(/sign in to open the project workspace/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sign in with.*sso/i })).toBeInTheDocument()
@@ -2056,14 +2058,14 @@ describe('ChatArea — the awaiting banner is reachable', () => {
     setThread(waitingThread())
 
     render(<ChatArea isAuthenticated canCollaborate />)
-    await user.click(screen.getByRole('button', { name: 'Ask Piloti instead' }))
+    await user.click(screen.getByRole('button', { name: `Ask ${PRODUCT_NAME} instead` }))
 
     // `@Piloti` is what releases the wait server-side, so the ruling does it —
     // no separate release call, and the message stays honestly authored. The
     // token travels as a STRUCTURED mention: as plain text it would send as a
     // remark to the chat and the wait would persist (spec MN-3).
-    expect(mockSetComposerPrefill).toHaveBeenCalledWith('@Piloti ', [
-      { targetId: 'agent:piloti', display: 'Piloti' },
+    expect(mockSetComposerPrefill).toHaveBeenCalledWith(`@${PRODUCT_NAME} `, [
+      { targetId: 'agent:piloti', display: PRODUCT_NAME },
     ])
   })
 })
@@ -2147,7 +2149,7 @@ describe('ChatArea — the hand-back offer', () => {
     render(<ChatArea isAuthenticated canCollaborate />)
 
     expect(screen.getByTestId('handback-offer')).toHaveTextContent(
-      'Anna Berger replied — let Piloti carry on?'
+      `Anna Berger replied — let ${PRODUCT_NAME} carry on?`
     )
   })
 
@@ -2161,7 +2163,7 @@ describe('ChatArea — the hand-back offer', () => {
     render(<ChatArea isAuthenticated canCollaborate />)
 
     expect(screen.getByTestId('handback-offer')).toHaveTextContent(
-      'Anna Berger, Tobias Kern replied — let Piloti carry on?'
+      `Anna Berger, Tobias Kern replied — let ${PRODUCT_NAME} carry on?`
     )
   })
 
@@ -2181,12 +2183,12 @@ describe('ChatArea — the hand-back offer', () => {
     setThread(resolvedThread())
 
     render(<ChatArea isAuthenticated canCollaborate />)
-    await user.click(screen.getByRole('button', { name: 'Let Piloti carry on' }))
+    await user.click(screen.getByRole('button', { name: `Let ${PRODUCT_NAME} carry on` }))
 
     // Structured, for the same reason as the awaiting banner: a plain-text
     // `@Piloti` here would have been a remark to the chat, not a hand-back.
-    expect(mockSetComposerPrefill).toHaveBeenCalledWith('@Piloti — please carry on from here.', [
-      { targetId: 'agent:piloti', display: 'Piloti' },
+    expect(mockSetComposerPrefill).toHaveBeenCalledWith(`@${PRODUCT_NAME} — please carry on from here.`, [
+      { targetId: 'agent:piloti', display: PRODUCT_NAME },
     ])
     // And it steps aside — the composer now holds the offer. It leaves on the
     // exit easing rather than vanishing, so wait for it to have gone.
@@ -2304,7 +2306,7 @@ describe('ChatArea — the engagement notice is reachable', () => {
     render(<ChatArea isAuthenticated canCollaborate />)
 
     expect(screen.getByTestId('engagement-notice')).toHaveTextContent(
-      'Piloti answers when mentioned'
+      `${PRODUCT_NAME} answers when mentioned`
     )
   })
 
@@ -2332,7 +2334,7 @@ describe('ChatArea — the engagement notice is reachable', () => {
     render(<ChatArea isAuthenticated canCollaborate />)
 
     expect(screen.getByTestId('engagement-notice')).toHaveTextContent(
-      'Should Piloti wait to be mentioned?'
+      `Should ${PRODUCT_NAME} wait to be mentioned?`
     )
   })
 
@@ -2358,7 +2360,7 @@ describe('ChatArea — the engagement notice is reachable', () => {
 
     expect(screen.getByTestId('engagement-notice')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Let Piloti answer everything' })
+      screen.queryByRole('button', { name: `Let ${PRODUCT_NAME} answer everything` })
     ).not.toBeInTheDocument()
   })
 })
@@ -2622,6 +2624,64 @@ describe('ChatArea — opening a thread, its endings and its dock', () => {
     use(thread([question(), answer('Antwort')]))
     rerender(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
     await waitFor(() => expect(screen.getByTestId('thread-status-dock')).toHaveTextContent(/reconnected/i))
+  })
+
+  test('a socket still reconnecting under a running answer is said in the same line, to a screen reader too, and goes when it is open', async () => {
+    vi.useFakeTimers()
+    const onStatus = watchRestoring('c1', () => undefined)
+    try {
+      use(thread([question(), answer('Erster Satz.', { isStreaming: true })], { isStreaming: true, currentUserMessageId: 'user-1' }))
+      render(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+      const dock = screen.getByTestId('thread-status-dock')
+      const announced = () => dock.querySelector('[aria-live="polite"]')
+
+      // A drop the next attempt mends says nothing.
+      act(() => onStatus('reconnecting'))
+      act(() => void vi.advanceTimersByTime(RESTORING_NOTE_AFTER_MS - 1))
+      expect(dock).not.toHaveTextContent(/restoring the connection/i)
+
+      act(() => void vi.advanceTimersByTime(1))
+      expect(dock).toHaveTextContent(/restoring the connection/i)
+      expect(announced()).toHaveTextContent(/restoring the connection/i)
+      // A line, not a card and not the lost line.
+      expect(screen.queryByTestId('error-card')).not.toBeInTheDocument()
+      expect(dock).not.toHaveTextContent(/connection lost/i)
+
+      act(() => onStatus('open'))
+      expect(announced()).toBeEmptyDOMElement()
+      vi.useRealTimers()
+      await waitFor(() => expect(dock).not.toHaveTextContent(/restoring the connection/i))
+    } finally {
+      act(() => onStatus('closed'))
+      vi.useRealTimers()
+    }
+  })
+
+  test('a socket reconnecting under an idle thread says nothing, and a spent ladder says lost in its place', () => {
+    vi.useFakeTimers()
+    const onStatus = watchRestoring('c1', () => undefined)
+    try {
+      use(thread([question(), answer('Antwort')]))
+      const { rerender } = render(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+      const dock = screen.getByTestId('thread-status-dock')
+      act(() => onStatus('reconnecting'))
+      act(() => void vi.advanceTimersByTime(RESTORING_NOTE_AFTER_MS))
+      expect(dock).not.toHaveTextContent(/restoring the connection/i)
+
+      // An answer starts meanwhile: now somebody waits on the socket.
+      use(thread([question(), answer('Antwort')], { isStreaming: true, currentUserMessageId: 'user-1' }))
+      rerender(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+      expect(dock).toHaveTextContent(/restoring the connection/i)
+
+      // The ladder is spent: the thread carries the transient error, and the line says lost.
+      const lost: MessageFixture = { id: 'err-conn', role: 'assistant', content: '', messageType: 'error', errorData: { errorCode: 'connection.failed' } }
+      use(thread([question(), answer('Antwort'), lost], { isStreaming: true, currentUserMessageId: 'user-1' }))
+      rerender(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+      expect(dock.querySelector('[aria-live="polite"]')).toHaveTextContent(/connection lost/i)
+    } finally {
+      act(() => onStatus('closed'))
+      vi.useRealTimers()
+    }
   })
 
   test('a colleague typing is said in the dock, outside the thread it would bob', () => {

@@ -65,6 +65,7 @@ import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { collectionFileRef, purgeIngestedChunks } from '@/lib/documents/collection-file-ref'
 import { IN_FLIGHT_DOCUMENT_STATUSES } from '@/lib/documents/document-status'
 import { reconcileDocumentStatuses } from '@/lib/documents/reconcile-status'
+import type { SettledBy } from '@/lib/analytics/ingest-events'
 import { markDocumentIngestFailed } from '@/lib/documents/repository'
 import { dispatchDocument } from '@/lib/documents/document-dispatch'
 import { INGEST_DISPATCH_FAILED_MESSAGE } from '@/lib/documents/ingest-dispatch'
@@ -140,11 +141,15 @@ const mustWait = (row: PlacementRow): boolean =>
  * for a reader before it could ever move. Fail-open: a backend that cannot
  * answer leaves the statuses as read, so those rows wait.
  */
-async function withSettledStatuses(organizationId: string, misplaced: Misplaced[]): Promise<Misplaced[]> {
+async function withSettledStatuses(
+  organizationId: string,
+  misplaced: Misplaced[],
+  settledBy: SettledBy
+): Promise<Misplaced[]> {
   const inFlight = misplaced.filter(({ row }) => mustWait(row)).map(({ row }) => row)
   if (inFlight.length === 0) return misplaced
   try {
-    const reconciled = await reconcileDocumentStatuses(inFlight, organizationId)
+    const reconciled = await reconcileDocumentStatuses(inFlight, organizationId, settledBy)
     const statusById = new Map(reconciled.map((row) => [row.id, row.status]))
     return misplaced.map(({ row, target }) => ({ row: { ...row, status: statusById.get(row.id) ?? row.status }, target }))
   } catch (error) {
@@ -157,13 +162,15 @@ async function withSettledStatuses(organizationId: string, misplaced: Misplaced[
 interface PlacementRun {
   result: PlacementResult
   handedOff: number
+  /** Who asked: a person's change (`read`) or the placement sweep (`sweep`), for the settles it causes. */
+  settledBy: SettledBy
 }
 
 /** Move what this page has in the wrong place, within the call's move budget; count the rest as pending. */
 async function placePage(organizationId: string, misplaced: Misplaced[], run: PlacementRun): Promise<void> {
   const { result } = run
   const attempted = (): number => result.moved + result.failed.length
-  const settled = attempted() < PLACEMENT_MOVES ? await withSettledStatuses(organizationId, misplaced) : misplaced
+  const settled = attempted() < PLACEMENT_MOVES ? await withSettledStatuses(organizationId, misplaced, run.settledBy) : misplaced
   for (const { row, target } of settled) {
     if (attempted() >= PLACEMENT_MOVES || mustWait(row)) {
       result.pending += 1
@@ -294,7 +301,7 @@ async function projectPlacement(organizationId: string, projectId: string, proje
 export async function placeProjectDocuments(organizationId: string, projectId: string): Promise<PlacementResult> {
   await invalidateProjectPromptViewCache(projectId, organizationId)
   try {
-    return await retryProjectPlacement(organizationId, projectId)
+    return await retryProjectPlacement(organizationId, projectId, 'read')
   } finally {
     await invalidateProjectPromptViewCache(projectId, organizationId)
   }
@@ -306,8 +313,12 @@ export async function placeProjectDocuments(organizationId: string, projectId: s
  * is left cached, because the sweep ticks over every restricted project and
  * would otherwise empty the cache of each of them every time.
  */
-export async function retryProjectPlacement(organizationId: string, projectId: string): Promise<PlacementResult> {
-  const run: PlacementRun = { result: { moved: 0, failed: [], pending: 0 }, handedOff: 0 }
+export async function retryProjectPlacement(
+  organizationId: string,
+  projectId: string,
+  settledBy: SettledBy
+): Promise<PlacementResult> {
+  const run: PlacementRun = { result: { moved: 0, failed: [], pending: 0 }, handedOff: 0, settledBy }
   const project = await findProjectInOrg(projectId, organizationId)
   if (!project) return run.result
   const { tree, placement } = await projectPlacement(organizationId, projectId, project.collectionName)

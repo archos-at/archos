@@ -61,6 +61,9 @@ READ_PASSAGE_TOOL = "read_passage"
 READ_FILE_TOOL = "read_file"
 
 
+#: The corpus key of a legal database's line (the UI's copy names it).
+_LEGAL_DATABASE_CORPUS = "ris"
+
 _SEARCH_CORPORA: tuple[tuple[str, str], ...] = (
     (KNOWLEDGE_SEARCH_TOOL, "knowledge"),
     # The locator reads the same corpus through the same scope, so it is the
@@ -68,7 +71,9 @@ _SEARCH_CORPORA: tuple[tuple[str, str], ...] = (
     # Herleitung. What differs is only how the line READS — see
     # :data:`LOCATOR_TOOL_BASENAMES`.
     (READ_PASSAGE_TOOL, "knowledge"),
-    ("ris_", "ris"),
+    ("ris_", _LEGAL_DATABASE_CORPUS),
+    # The country-neutral law lookup reads a legal database as the RIS tools did: the same line.
+    ("law_lookup", _LEGAL_DATABASE_CORPUS),
     ("advanced_web_search", "web"),
     ("web_search", "web"),
     ("surface_documents", "documents"),
@@ -76,6 +81,9 @@ _SEARCH_CORPORA: tuple[tuple[str, str], ...] = (
     # Unterlagen“, not the knowledge corpus.
     ("list_files", "documents"),
     ("ifc_", "ifc"),
+    # A DXF drawing of the project measured as a site (ADR-0153): a read of the
+    # reader's own file, so the line says „in Ihren Unterlagen“ like the browser.
+    ("dxf_measure", "documents"),
     # The office's OTHER projects (ADR-0094): the line
     # says „in anderen Projekten“, so the reader sees the chat leave its project.
     ("project_lookup", "otherProjects"),

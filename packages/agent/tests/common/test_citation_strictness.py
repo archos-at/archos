@@ -91,34 +91,37 @@ class TestLocus:
         assert locus_in_entry(Locus("paragraph", "5"), SourceEntry(url="https://example.com/a")) is None
 
 
-class TestVerifyCitationsLabels:
+class TestVerifyCitationsDropsWithoutAMarker:
+    """ADR-0125, amended 2026-11-10: an unresolved citation is removed, and no verification marker reaches prose."""
+
     SECTION = "\n\n## Quellen\n- [1] oib-rl_2.pdf, p.12\n- [2] erfunden.pdf, p.1"
 
-    def test_an_unresolvable_marker_is_labelled_where_it_stood(self):
+    def test_an_unresolvable_marker_is_removed_with_the_space_before_it(self):
         result = verify_citations(
-            "Die Höhe beträgt 2,50 m [1]. Das gilt immer [2]." + self.SECTION, _registry(_oib()), label_dropped=True
+            "Die Höhe beträgt 2,50 m [1]. Das gilt immer [2]." + self.SECTION, _registry(_oib()), drop_unresolved=True
         )
         body = result.verified_report.partition("\n\n")[0]
-        assert body == f"Die Höhe beträgt 2,50 m [1]. Das gilt immer {DROPPED_CITATION_MARKER}."
-
-    def test_without_the_flag_it_is_removed_as_before(self):
-        result = verify_citations("Das gilt immer [2]." + self.SECTION, _registry(_oib()))
+        assert body == "Die Höhe beträgt 2,50 m [1]. Das gilt immer."
         assert DROPPED_CITATION_MARKER not in result.verified_report
 
-    def test_adjacent_dropped_markers_become_one_label(self):
-        result = verify_citations("Das gilt [2][3]." + self.SECTION, _registry(_oib()), label_dropped=True)
-        assert result.verified_report.count(DROPPED_CITATION_MARKER) == 1
+    def test_without_the_flag_it_is_removed_too(self):
+        result = verify_citations("Das gilt immer [2]." + self.SECTION, _registry(_oib()))
+        assert result.verified_report.startswith("Das gilt immer.")
 
-    def test_an_empty_registry_labels_every_number_and_drops_the_invented_list(self):
-        result = verify_citations("Das gilt [1]." + self.SECTION, SourceRegistry(), label_dropped=True)
-        assert result.verified_report == f"Das gilt {DROPPED_CITATION_MARKER}."
+    def test_adjacent_dropped_markers_all_go(self):
+        result = verify_citations("Das gilt [2][3]." + self.SECTION, _registry(_oib()), drop_unresolved=True)
+        assert result.verified_report.startswith("Das gilt.")
+
+    def test_an_empty_registry_drops_every_number_and_the_invented_list(self):
+        result = verify_citations("Das gilt [1]." + self.SECTION, SourceRegistry(), drop_unresolved=True)
+        assert result.verified_report == "Das gilt."
         assert [entry["number"] for entry in result.removed_citations] == [1]
 
-    def test_a_locus_the_cited_passage_does_not_hold_is_labelled(self):
+    def test_a_locus_the_cited_passage_does_not_hold_is_removed(self):
         report = "Die Raumhöhe regelt Punkt 3.5.2 [1], die Fluchtwege Punkt 4.1 [1]." + self.SECTION
-        result = verify_citations(report, _registry(_oib()), label_dropped=True, check_locus=True)
+        result = verify_citations(report, _registry(_oib()), drop_unresolved=True, check_locus=True)
         body = result.verified_report.partition("\n\n")[0]
-        assert body == f"Die Raumhöhe regelt Punkt 3.5.2 [1], die Fluchtwege Punkt 4.1 {DROPPED_CITATION_MARKER}."
+        assert body == "Die Raumhöhe regelt Punkt 3.5.2 [1], die Fluchtwege Punkt 4.1."
         assert [entry["reason"] for entry in result.removed_citations if entry["number"] == 1] == [
             LOCUS_MISMATCH_REASON
         ]
@@ -127,11 +130,11 @@ class TestVerifyCitationsLabels:
 
     def test_a_citation_whose_every_locus_misses_loses_its_line(self):
         report = "Das regelt § 12 [1]." + "\n\n## Quellen\n- [1] oib-rl_2.pdf, p.12"
-        result = verify_citations(report, _registry(_oib()), label_dropped=True, check_locus=True)
+        result = verify_citations(report, _registry(_oib()), drop_unresolved=True, check_locus=True)
         assert result.valid_citations == []
         assert "oib-rl_2.pdf" not in result.verified_report
 
     def test_without_the_flag_no_locus_is_checked(self):
         report = "Das regelt § 12 [1]." + "\n\n## Quellen\n- [1] oib-rl_2.pdf, p.12"
-        result = verify_citations(report, _registry(_oib()), label_dropped=True)
+        result = verify_citations(report, _registry(_oib()), drop_unresolved=True)
         assert [citation["number"] for citation in result.valid_citations] == [1]

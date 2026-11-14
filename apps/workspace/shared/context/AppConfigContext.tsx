@@ -78,6 +78,12 @@ export interface AppConfig {
    * its session.
    */
   posthogIdentity?: PostHogIdentity | null
+  /**
+   * The public website's origin (`LANDING_URL`, `https://<webDomain>`), for the
+   * help links into it (`publicSiteLink`, `@/shared/public-site`). `null` or
+   * absent: unset or not an origin, and the UI shows no such link.
+   */
+  publicSiteUrl?: string | null
 }
 
 const AppConfigContext = createContext<AppConfig | null>(null)
@@ -94,6 +100,12 @@ interface AppConfigProviderProps {
 export const AppConfigProvider = ({ config, children }: AppConfigProviderProps): ReactNode => {
   return <AppConfigContext.Provider value={config}>{children}</AppConfigContext.Provider>
 }
+
+/**
+ * The public website's origin, or null. Unlike {@link useAppConfig} it does not
+ * need the provider: a component rendered outside it shows no link to the site.
+ */
+export const usePublicSiteUrl = (): string | null => useContext(AppConfigContext)?.publicSiteUrl ?? null
 
 /**
  * Hook to access runtime app configuration.

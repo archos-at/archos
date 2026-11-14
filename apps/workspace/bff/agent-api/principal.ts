@@ -49,10 +49,19 @@ import { getPlatformOrganizationId, isPlatformStaff } from '@/lib/authz/platform
 import { isUuid } from '@/lib/ids'
 import { INTERNAL_TOKEN_HEADER, requireInternalToken } from '@/lib/internal-auth'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
-import { type DoorResource, acceptedAudiences, authkitDomain, authkitIssuer, doorOf, doorResourceUrl } from './mcp-config'
+import {
+  type DoorResource,
+  acceptedAudiences,
+  authkitDomain,
+  authkitIssuer,
+  doorOf,
+  doorResourceUrl,
+  requestHost,
+} from './mcp-config'
 import { SENSITIVITIES, type Sensitivity } from './operation'
 import type { AgentDoor } from './exposure'
 import { hasHeader, readHeader } from '@/lib/http/legacy-header-names'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /**
  * Who acts, in the words of OAuth token exchange (RFC 8693): the SUBJECT is the
@@ -136,7 +145,8 @@ const refuse = (status: number, message: string): AuthChallenge =>
 
 const remoteKeys = new Map<string, JWTVerifyGetKey>()
 
-function keysFor(domain: string, deps: PrincipalDeps): JWTVerifyGetKey {
+/** AuthKit's signing keys for `domain`, one remote key set per domain; `deps.jwks` in a spec. */
+export function authkitKeys(domain: string, deps: PrincipalDeps = {}): JWTVerifyGetKey {
   if (deps.jwks) return deps.jwks
   let keys = remoteKeys.get(domain)
   if (!keys) {
@@ -176,7 +186,7 @@ export function tokenVerifier(
   return {
     async verifyAccessToken(token): Promise<AuthInfo> {
       try {
-        const { payload } = await jwtVerify(token, keysFor(domain, deps), {
+        const { payload } = await jwtVerify(token, authkitKeys(domain, deps), {
           issuer,
           audience: audiences,
           algorithms: ['RS256'],
@@ -206,7 +216,9 @@ async function externalPrincipal(request: Request, deps: PrincipalDeps): Promise
   const door = doorOf(request)
   const domain = authkitDomain()
   const issuer = authkitIssuer()
-  const resource = doorResourceUrl(door)
+  // The 401 points at the metadata under the host the client used: on a former
+  // host after a domain move, that host's (mcp-config.ts).
+  const resource = doorResourceUrl(door, process.env, requestHost(request))
   if (!domain || !issuer || !resource) {
     return refuse(
       503,
@@ -232,11 +244,11 @@ async function externalPrincipal(request: Request, deps: PrincipalDeps): Promise
   if (!organizationId) {
     return refuse(
       403,
-      'The token is not bound to an organization. Sign in to Piloti with an organization and authorize the client again.',
+      'The token is not bound to an organization. Sign in to ' + PRODUCT_NAME + ' with an organization and authorize the client again.',
     )
   }
 
-  if (door === 'platform') return platformPrincipal(auth, userId, organizationId)
+  if (door === 'platform') return platformPrincipal(auth, userId)
 
   if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.agentMcp, organizationId))) {
     return refuse(403, 'Agent access (MCP) is not enabled for this organization.')
@@ -263,28 +275,29 @@ function freshSession(userId: string, organizationId: string): Promise<Authorize
 }
 
 /**
- * The platform door's caller (ADR-0126): a token issued in the GRID Platform
- * organization, which has switched the door on (`platform-agent-mcp`), for a
- * person who is platform staff there now. Staff is the precondition only, as in
- * the console: every operation's route still asks for its own `platform:*`
- * permission. A token of any other organization is refused, platform staff's
- * own included, since only the platform organization's membership carries the
- * platform role.
+ * The platform door's caller (ADR-0126): a person who is platform staff in the
+ * GRID Platform organization now, which has switched the door on
+ * (`platform-agent-mcp`). Staff is the precondition only, as in the console:
+ * every operation's route still asks for its own `platform:*` permission.
+ *
+ * The organization the person picked at sign-in does not decide it. A token
+ * names one organization, and a member of an office and of the platform who
+ * picked the office would otherwise be refused here and have to authorize the
+ * client again. The session is resolved in the platform organization from live
+ * membership, so it carries exactly the platform rights the person holds there.
+ * What this gives up is the platform organization's own sign-in policy (SSO or
+ * MFA required for it), which a sign-in through another organization never met:
+ * keep that policy unset on the platform organization, or bring back the check
+ * on `organizationId` (`docs/deployment/platform-mcp-gateway.md`).
  */
-async function platformPrincipal(auth: AuthInfo, userId: string, organizationId: string): Promise<AgentPrincipal | AuthChallenge> {
+async function platformPrincipal(auth: AuthInfo, userId: string): Promise<AgentPrincipal | AuthChallenge> {
   const platformOrganizationId = await getPlatformOrganizationId()
   // Not provisioned, or WorkOS did not answer: the door cannot tell who is staff, so it is closed for now.
   if (!platformOrganizationId) return refuse(503, 'The platform organization could not be resolved. Try again shortly.')
-  if (organizationId !== platformOrganizationId) {
-    return refuse(
-      403,
-      'The platform door takes tokens of the GRID Platform organization only. Sign in to Piloti in that organization and authorize the client again.',
-    )
-  }
-  if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformAgentMcp, organizationId))) {
+  if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformAgentMcp, platformOrganizationId))) {
     return refuse(403, 'Agent access to the platform console (MCP) is not enabled.')
   }
-  const session = await freshSession(userId, organizationId)
+  const session = await freshSession(userId, platformOrganizationId)
   if (!session) return refuse(403, 'You are not a member of the GRID Platform organization.')
   if (!(await isPlatformStaff(session))) return refuse(403, 'You hold no platform permission.')
 
@@ -293,7 +306,7 @@ async function platformPrincipal(auth: AuthInfo, userId: string, organizationId:
     session,
     clientId: auth.clientId || null,
     scopes: auth.scopes,
-    sensitiveOptIns: await sensitiveOptInsOf(organizationId),
+    sensitiveOptIns: await sensitiveOptInsOf(platformOrganizationId),
     door: 'platform',
   }
 }
@@ -337,7 +350,7 @@ export async function resolvePrincipal(
   deps: PrincipalDeps = {},
 ): Promise<AgentPrincipal | AuthChallenge> {
   if (hasHeader(request.headers, INTERNAL_TOKEN_HEADER)) {
-    if (doorOf(request) === 'platform') return refuse(403, 'Piloti does not use the platform door.')
+    if (doorOf(request) === 'platform') return refuse(403, PRODUCT_NAME + ' does not use the platform door.')
     return agentPrincipal(request)
   }
   return externalPrincipal(request, deps)

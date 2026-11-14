@@ -4,9 +4,10 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { XIcon } from 'lucide-react'
 
-import { twMerge } from 'tailwind-merge'
 
-import { cn } from '@/lib/utils'
+import { cn, twMerge } from '@/lib/utils'
+import { useTranslations } from '@/i18n'
+import { commonCopy } from '@/i18n/namespaces/common'
 import { useSheetPull } from '@/components/ui/sheet-pull'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { OVERLAY_MOTION } from '@/components/ui/overlay-motion'
@@ -52,7 +53,7 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
  * (the `phone:` variant, `globals.css`). From `sm` up on anything else it is
  * the centred card, whatever this says.
  *
- * - `sheet` (the default): anchored to the bottom edge, rounded on top, capped
+ * - `sheet` (the default): anchored to the bottom edge, square on top, capped
  *   in `dvh` under the status bar, scrolling inside, its footer pinned at the
  *   bottom with the buttons stacked full width and the primary one (last in the
  *   DOM, as on the desktop's right) nearest the thumb. A grabber says it pulls
@@ -125,7 +126,7 @@ const SHEET_GEOMETRY =
   'phone:top-auto phone:bottom-0 phone:translate-y-0 phone:max-h-[calc(100dvh-max(1.5rem,env(safe-area-inset-top)+0.75rem))] max-sm:max-w-none'
 
 const SHEET_CHROME: ReadonlyArray<readonly [string, string]> = [
-  ['phone:rounded-t-2xl phone:rounded-b-none', 'rounded-t-none'],
+  ['phone:rounded-overlay', 'rounded-t-none'],
   ['phone:border-b-0', 'border-b-0'],
   ['max-sm:border-x-0', 'border-x-0'],
 ]
@@ -294,13 +295,16 @@ const DialogContent = React.forwardRef<
       showCloseButton = true,
       mobilePresentation,
       fullScreenOnMobile = false,
-      closeLabel = 'Close',
+      closeLabel,
       instant = false,
       onOpenAutoFocus,
       ...props
     },
     ref
   ) => {
+    // The close button's name in the reader's language, unless the caller names it.
+    const t = useTranslations(commonCopy)
+    const closeName = closeLabel ?? t('actions.close')
     const closeRef = React.useRef<HTMLButtonElement>(null)
     const dismiss = React.useCallback(() => closeRef.current?.click(), [])
     const pull = useSheetPull(dismiss)
@@ -337,7 +341,7 @@ const DialogContent = React.forwardRef<
             focusPanelUnderFinger(event)
           }}
           className={cn(
-            'bg-popover text-popover-foreground fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] grid-cols-1 gap-4 overflow-y-auto overscroll-contain rounded-xl border p-6 shadow-lg sm:max-w-lg',
+            'bg-popover text-popover-foreground fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] grid-cols-1 gap-4 overflow-y-auto overscroll-contain rounded-overlay p-6 shadow-lg sm:max-w-lg',
             !instant && CARD_MOTION,
             phoneClasses,
             className
@@ -376,7 +380,7 @@ const DialogContent = React.forwardRef<
                   ref={closeRef}
                   data-slot="dialog-close"
                   className={cn(
-                    'text-muted-foreground duration-quick hover:bg-accent hover:text-foreground pointer-coarse:size-11 pointer-coarse:top-2.5 pointer-coarse:right-2.5 absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-md outline-none transition-colors ease-out disabled:pointer-events-none disabled:opacity-50',
+                    'text-muted-foreground duration-quick hover:bg-hover hover:text-foreground pointer-coarse:size-11 pointer-coarse:top-2.5 pointer-coarse:right-2.5 absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-control outline-none transition-colors ease-out disabled:pointer-events-none disabled:opacity-50',
                     // Below the status bar and clear of the Dynamic Island's
                     // side, centred on the title's first line (the full
                     // screen's top padding less half the button).
@@ -386,7 +390,7 @@ const DialogContent = React.forwardRef<
                   )}
                 >
                   <XIcon className="size-4" />
-                  <span className="sr-only">{closeLabel}</span>
+                  <span className="sr-only">{closeName}</span>
                 </DialogPrimitive.Close>
               )}
             </div>
@@ -433,7 +437,7 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     data-slot="dialog-title"
-    className={cn('text-lg font-semibold leading-none', className)}
+    className={cn('text-lg font-medium leading-none', className)}
     {...props}
   />
 ))

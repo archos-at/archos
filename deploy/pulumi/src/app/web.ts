@@ -3,12 +3,16 @@ import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
 import { appPullPolicy, webImage } from '../config/images'
 import { assertHpaTargetIsProportional, assertMemoryFitsLimit, toResourceRequirements } from '../config/resources'
-import { webPosthogEnv } from "./config";
+import { webPosthogEnv } from "./posthog-env";
+import { webCmsEnv } from "../platform/cms";
 import { commonLabels } from "../platform/namespaces";
 import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { ROLLOUT, gracefulShutdown, surgeRollout } from "../platform/rollout";
 import { PORT, UID } from "../constants";
+
+/** The website's health route, `HEALTH_PATH` in apps/website/runtime/security-headers.mjs (web.spec.ts holds the two together). */
+export const WEB_HEALTH_PATH = "/healthz";
 
 export interface Web {
   deployment: k8s.apps.v1.Deployment;
@@ -18,13 +22,13 @@ export interface Web {
 }
 
 /**
- * Landing site (apps/site): Astro on the Node standalone adapter. The pages
- * are prerendered at build time (static HTML + assets served by the adapter),
- * with SSR routes for the Keystatic admin, the sign-in hand-off and the
- * analytics script, which read their settings from the env below per request.
- * No database, no app secrets, no
- * cross-service calls — so unlike the frontend tier this workload has no
- * dependency on `grid-secrets`. It DOES carry the registry imagePullSecrets:
+ * Public website (apps/website): Astro on the Node standalone adapter. The
+ * pages are prerendered at build time (static HTML + assets served by the
+ * adapter), with SSR routes for the sign-in hand-off and the analytics script, which read their settings from the env below per request.
+ * No database, no app secrets — so unlike the frontend tier this workload has
+ * no dependency on `grid-secrets`. Its one cross-service call is the CMS
+ * (ADR-0155), when deployed: blog pages read from it, with the read-only token
+ * in its own `web-cms` Secret. It DOES carry the registry imagePullSecrets:
  * the web image is pulled from the same registry as the other app images, so
  * a private registry without the pull Secret is an instant ImagePullBackOff.
  * Runs HORIZONTALLY: stateless, HPA on CPU.
@@ -88,16 +92,21 @@ export function installWeb(
                   // prerendered pages: the same pair the app tier reads as
                   // NEXT_PUBLIC_POSTHOG_* (grid-oib:posthogHost, posthogProjectToken).
                   ...webPosthogEnv(cfg),
+                  // The CMS (ADR-0155): where it is and the read token, from `web-cms`. Empty without it.
+                  ...webCmsEnv(cfg),
                 ],
                 resources: toResourceRequirements(cfg.web.resources),
                 lifecycle: shutdown.lifecycle,
+                // `/healthz` is answered by the server process itself
+                // (apps/website/runtime/server.mjs), uncached and never a page view;
+                // the Dockerfile's HEALTHCHECK uses the same path.
                 readinessProbe: {
-                  httpGet: { path: "/", port: PORT.web },
+                  httpGet: { path: WEB_HEALTH_PATH, port: PORT.web },
                   initialDelaySeconds: 5,
                   periodSeconds: 10,
                 },
                 livenessProbe: {
-                  httpGet: { path: "/", port: PORT.web },
+                  httpGet: { path: WEB_HEALTH_PATH, port: PORT.web },
                   initialDelaySeconds: 15,
                   periodSeconds: 15,
                   failureThreshold: 5,

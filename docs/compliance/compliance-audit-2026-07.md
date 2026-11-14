@@ -8,6 +8,16 @@
 - **Companion documents:** [`external-dependencies.md`](external-dependencies.md)
   (full third-party register + model-switching statement), the legal pages shipped at
   `apps/workspace/bff/legal/content/{de,en}.ts` (served at `/legal/*`).
+- **Status since the audit (checked 2026-10-22):** the text below is the July
+  state. Still open: the Art. 30 record, TOMs, the AVV/DPA template and the
+  DPIA (roadmap 5; no such document exists in the repo); organization and user
+  erasure and any export (roadmap 2); the audit trail still sends the actor's
+  email, client IP and user agent to WorkOS (`lib/audit/service.ts`,
+  `requestContext` and `actor.name`). Partly closed: the purger erases projects,
+  folders and conversations (`apps/workspace/purger/index.js`,
+  [`deletion-pipeline.md`](../architecture/deletion-pipeline.md)); chat
+  checkpoints idle past 14 days are deleted
+  (`CHAT_CHECKPOINT_RETENTION_SECONDS`, `agent_host/routes/jobs.py`).
 
 ## Executive summary
 
@@ -51,7 +61,7 @@ Full persona report highlights (severity · finding · key evidence):
 | Crit | Conversation delete removes only DB rows; LangGraph checkpoints (full content) persist indefinitely | `lib/conversations/repository.ts:87-92`; `docs/architecture/deletion-pipeline.md` (self-acknowledged) |
 | High | Chat prompts logged cleartext at INFO | `packages/agent/src/agent/agents/chat_researcher/register.py:518` |
 | High | WorkOS EU data residency unverified (own ADR); audit events ship email + client IP + doc filenames to WorkOS; no DPA evidence | ADR-0002 Open Questions; `lib/audit/service.ts:56-93` |
-| High | Document content flows to NVIDIA US API by config default (embeddings/VLM) | `packages/knowledge-layer/src/llamaindex/adapter.py:583-591` |
+| High | Document content flows to NVIDIA US API by config default (embeddings/VLM) | `packages/knowledge-layer/src/ingest/adapter.py:583-591` |
 | High | `REQUIRE_AUTH=false` default (Art. 25(2) violation); anon mode has known cross-tenant memory-write gap (S3) | `deploy/.env.example`; `docs/architecture/memory-reflection-audit.md` |
 | High | No retention limits for `messages`, `llm_usage_events` (deliberately survive purge, user-attributed), `project_memory`, checkpoints, WorkOS audit logs | schema comments in `lib/db/schema/budgets.ts` |
 | Med | Memory reflection persists LLM distillates without PII filter (open finding S4); Tavily & co. receive prompt-derived queries undocumented; weak dev credentials/open ports in dev compose; optional tracing exfiltrates prompts; legal holds lack expiry/review | respective audit files |

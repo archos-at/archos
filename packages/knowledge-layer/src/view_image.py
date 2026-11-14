@@ -19,7 +19,7 @@ Three source shapes are covered, without re-ingest:
   are fetched from SeaweedFS and returned directly (re-encoded to JPEG).
 - **Stored embedded rasters** — an image the ingest pipeline cut out of a
   PDF and kept beside the document (``<doc dir>/_img/<index>.jpg``, see
-  ``llamaindex/image_store.py``). Addressed by ``image_index``; the hit's
+  ``ingest/image_store.py``). Addressed by ``image_index``; the hit's
   ``Image:`` line names the index. Fetched at its own resolution instead of
   rendering the page it sits on.
 
@@ -54,8 +54,8 @@ import os
 from dataclasses import dataclass
 from dataclasses import replace
 
-from knowledge_layer.llamaindex.pdfium_lock import detached_pil
-from knowledge_layer.llamaindex.pdfium_lock import pdfium_lock
+from knowledge_layer.ingest import detached_pil
+from knowledge_layer.ingest.pdfium_lock import pdfium_lock
 
 from agent.common import seaweed_s3
 from agent.common.image_view_budget import MAX_IMAGE_VIEWS_PER_TURN
@@ -110,16 +110,17 @@ def _is_enabled() -> bool:
 
 
 def _find_pdf(file_name: str) -> str | None:
-    """The base-corpus PDF ``file_name``, fetched into this replica's cache if needed, or ``None``.
-
-    The corpus table decides what a base-corpus file is
-    (``corpus_store.ensure_local``). Fail-open like the rest of the tool: a
-    corpus that cannot be read counts as "not a base-corpus file", and the caller
-    goes on to the project/Archiv lookup.
+    """The base-corpus PDF ``file_name`` the turn may read, fetched into this replica's cache, or ``None``.
+    The corpus table decides what a base-corpus file is; one not released to a country of the turn
+    (``corpus_countries``, as for chunk reads) answers as an absent one. Fail-open otherwise: an unreadable
+    corpus counts as "not a base-corpus file" and the caller tries the project/Archiv lookup.
     """
     try:
         from agent import corpus_store
+        from agent.common.knowledge_context import corpus_countries
 
+        if not corpus_store.released_to(file_name, corpus_countries() or ()):
+            return None
         cached = corpus_store.ensure_local(file_name)
     except Exception:  # noqa: BLE001 - fail-open contract
         logger.warning("look: base-corpus lookup failed for %s", file_name, exc_info=True)
@@ -797,7 +798,7 @@ async def _gate(
     if not try_consume_image_view("overview" if overview else "region"):
         return None, _spent(tool)
     try:
-        from knowledge_layer.llamaindex import adapter as _adapter
+        from knowledge_layer.ingest import adapter as _adapter
 
         if not _adapter._get_vlm_api_key():
             return None, (

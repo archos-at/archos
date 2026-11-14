@@ -34,6 +34,7 @@ vi.mock('@/shared/context', () => ({
 
 const mockUploadFiles = vi.fn()
 vi.mock('@/features/documents', () => ({
+  UploadAnywayButton: () => null,
   useFileUpload: vi.fn(() => ({
     uploadFiles: mockUploadFiles,
     sessionFiles: [],
@@ -55,6 +56,7 @@ vi.mock('@/features/documents/components/file-preview-dialog', () => ({ FilePrev
 import { useChatStore } from '@/features/chat/store'
 import { useLayoutStore } from '../store'
 import { InputArea } from './InputArea'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const PHOTOS_ON = getFileUploadConfigFromEnv({}, { imageUploadEnabled: true, vlmAvailable: true })
 const NO_VISION = getFileUploadConfigFromEnv({}, { imageUploadEnabled: true, vlmAvailable: false })
@@ -151,7 +153,7 @@ describe('attaching on a touch screen', () => {
 
     expect(screen.getByTestId('composer-attach-camera')).toHaveAttribute('data-disabled')
     expect(screen.getByTestId('composer-attach-library')).toHaveAttribute('data-disabled')
-    expect(menu).toHaveTextContent('Piloti needs an image model to read them')
+    expect(menu).toHaveTextContent(`${PRODUCT_NAME} needs an image model to read them`)
     expect(screen.queryByTestId('composer-camera-input')).not.toBeInTheDocument()
   })
 })

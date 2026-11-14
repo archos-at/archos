@@ -17,6 +17,8 @@
 import { useState, type JSX } from 'react'
 import { UsageNotice } from '@/features/chat/components/UsageNotice'
 import type { ChatUsageNotice } from '@/lib/budgets/usage-notice'
+import { PRODUCT_NAME } from '@/lib/brand'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const base: ChatUsageNotice = {
   level: 'warning',
@@ -85,7 +87,7 @@ function Sample({ title, notice }: { title: string; notice: ChatUsageNotice }): 
   const [dismissed, setDismissed] = useState(false)
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{title}</h2>
+      <SectionLabel as="h2">{title}</SectionLabel>
       <div className="bg-card flex flex-col gap-2 rounded-xl border p-3">
         {dismissed ? (
           <button type="button" className="text-muted-foreground text-left text-xs underline" onClick={() => setDismissed(false)}>
@@ -94,7 +96,7 @@ function Sample({ title, notice }: { title: string; notice: ChatUsageNotice }): 
         ) : (
           <UsageNotice notice={notice} onDismiss={() => setDismissed(true)} />
         )}
-        <div className="text-muted-foreground rounded-lg border px-3 py-2.5 text-sm">Ask Piloti about this project …</div>
+        <div className="text-muted-foreground rounded-lg border px-3 py-2.5 text-sm">Ask {PRODUCT_NAME} about this project …</div>
       </div>
     </section>
   )

@@ -8,7 +8,7 @@
 'use client'
 
 import { type FC, useState, useEffect } from 'react'
-import { Check, FileText, ShieldAlert, Trash2, X } from 'lucide-react'
+import { Ban, Check, FileText, ShieldAlert, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
@@ -30,8 +30,18 @@ import { formatBytes } from '@/lib/format'
  * `held`: the content check held the file back (ADR-0086). Not an error:
  * nothing failed, and the card says why in the quarantine sentence.
  * `stored`: kept and never read, so the chat cannot answer from it; neutral.
+ * `canceled`: the reader stopped the upload. At rest, so no spinner; the row's
+ * one control takes it off the list, as the upload tray's does.
  */
-export type FileSourceStatus = 'uploading' | 'ingesting' | 'available' | 'held' | 'stored' | 'error' | 'deleting'
+export type FileSourceStatus =
+  | 'uploading'
+  | 'ingesting'
+  | 'available'
+  | 'held'
+  | 'stored'
+  | 'error'
+  | 'deleting'
+  | 'canceled'
 
 export interface FileSourceCardProps {
   /** Unique identifier for the file */
@@ -66,7 +76,8 @@ export interface FileSourceCardProps {
   /**
    * Callback when delete is clicked. Omitted, the row has no delete control:
    * the chat's file dialog lists project files without deleting them, because
-   * a project document is deleted in the project's Files.
+   * a project document is deleted in the project's Files. On a `canceled` row
+   * the same control is labelled as a dismissal, and the caller hands it one.
    */
   onDelete?: (id: string) => void
   /**
@@ -117,6 +128,11 @@ const STATUS_CONFIG: Record<
     labelKey: 'fileSourceCard.statusDeleting',
     textClass: 'text-muted-foreground',
     showSpinner: true,
+  },
+  canceled: {
+    labelKey: 'fileSourceCard.statusCanceled',
+    textClass: 'text-muted-foreground',
+    showSpinner: false,
   },
 }
 
@@ -234,7 +250,10 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
 
   const isProcessing = status === 'uploading' || status === 'ingesting'
   const isDeleting = status === 'deleting'
-  const deleteDisabled = isBusy || isProcessing || isDeleting
+  // A cancelled row's control dismisses a notice and deletes nothing, so a
+  // running answer is no reason to hold it back.
+  const isCanceled = status === 'canceled'
+  const deleteDisabled = !isCanceled && (isBusy || isProcessing || isDeleting)
   // Only an available file has something to preview; before that there is no
   // persisted document behind the row.
   const canOpen = !!onOpen && status === 'available'
@@ -259,7 +278,7 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {/* Title, file size, and timestamp */}
         <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-semibold">{title}</span>
+          <span className="truncate text-sm font-medium">{title}</span>
           {fileSize != null && fileSize > 0 && (
             <span className="shrink-0 text-xs text-muted-foreground">
               {formatBytes(fileSize, locale)}
@@ -289,6 +308,7 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
             )}
             {status === 'error' && <X className="size-3 text-error" aria-hidden="true" />}
             {status === 'held' && <ShieldAlert className="size-3 text-warning" aria-hidden="true" />}
+            {isCanceled && <Ban className="size-3 text-muted-foreground" aria-hidden="true" />}
             <span className={cn(config.showSpinner ? 'text-sm' : 'text-xs', config.textClass)}>
               {label}
             </span>
@@ -339,7 +359,7 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
   return (
     <motion.div
       className={cn(
-        'group flex items-start justify-between rounded-2xl bg-card p-3 shadow-xs transition-colors duration-quick ease-out',
+        'group flex items-start justify-between rounded-surface bg-card p-3 transition-colors duration-quick ease-out shadow-xs',
         status === 'error' && 'ring-1 ring-error/40'
       )}
       initial={{ opacity: 0, y: 8 }}
@@ -354,7 +374,7 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
             type="button"
             onClick={() => onOpen?.(id)}
             aria-label={t('fileSourceCard.open', { title })}
-            className="focus-visible:ring-ring/50 -m-1 flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left focus-visible:outline-none focus-visible:ring-2"
+            className="focus-visible:ring-ring/50 -m-1 flex min-w-0 flex-1 items-center gap-3 rounded-control p-1 text-left focus-visible:outline-none focus-visible:ring-2"
           >
             {rowBody}
           </button>
@@ -372,23 +392,27 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
             // Hover is the only trigger a touch device cannot generate, so without
             // it this row's delete was a control that existed, took a tab stop, and
             // could never be seen on a phone.
-            className="ml-2 size-8 flex-shrink-0 rounded-full text-muted-foreground opacity-0 transition-opacity duration-quick ease-out hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
+            className="ml-2 size-8 flex-shrink-0 rounded-control text-muted-foreground opacity-0 transition-opacity duration-quick ease-out hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
             onClick={handleDelete}
             disabled={deleteDisabled}
             aria-label={
-              deleteDisabled
-                ? t('fileSourceCard.deleteDisabled', { title })
-                : t('fileSourceCard.delete', { title })
+              isCanceled
+                ? t('fileSourceCard.dismiss', { title })
+                : deleteDisabled
+                  ? t('fileSourceCard.deleteDisabled', { title })
+                  : t('fileSourceCard.delete', { title })
             }
             title={
-              isProcessing
-                ? t('fileSourceCard.waitUpload')
-                : deleteDisabled
-                  ? t('fileSourceCard.cannotDeleteBusy')
-                  : t('fileSourceCard.deleteFile')
+              isCanceled
+                ? t('fileSourceCard.dismiss', { title })
+                : isProcessing
+                  ? t('fileSourceCard.waitUpload')
+                  : deleteDisabled
+                    ? t('fileSourceCard.cannotDeleteBusy')
+                    : t('fileSourceCard.deleteFile')
             }
           >
-            <Trash2 className="size-4" aria-hidden="true" />
+            {isCanceled ? <X className="size-4" aria-hidden="true" /> : <Trash2 className="size-4" aria-hidden="true" />}
           </Button>
         )}
       </div>
@@ -403,8 +427,8 @@ export const FileSourceCard: FC<FileSourceCardProps> = ({
  * a lone centered spinner.
  */
 export const FileSourceCardSkeleton: FC = () => (
-  <div className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-xs">
-    <Skeleton className="size-8 shrink-0 rounded-lg" />
+  <div className="flex items-center gap-3 rounded-surface bg-card p-3 shadow-xs">
+    <Skeleton className="size-8 shrink-0 rounded-control" />
     <div className="flex min-w-0 flex-1 flex-col gap-2">
       <Skeleton className="h-3.5 w-1/2" />
       <Skeleton className="h-3 w-1/4" />

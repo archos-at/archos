@@ -142,10 +142,10 @@ def _increments():
 class TestWorker:
     async def test_a_change_sends_the_old_card_and_the_diff_only(self, folder):
         model = FakeModel(_card)
-        await worker.run_once(llm=model)
+        await worker.build_collection("proj", ORG, llm=model)
         factory.register_summary("proj", "Akt 4.pdf", "Akt, neu gelesen.")
 
-        report = await worker.run_once(llm=model)
+        report = await worker.build_collection("proj", ORG, llm=model)
 
         assert report.outcomes == {"fresh": 1}
         prompt = model.calls[-1]
@@ -155,10 +155,10 @@ class TestWorker:
 
     async def test_a_removed_child_loses_its_facts_without_a_model_call(self, folder):
         model = FakeModel(_card)
-        await worker.run_once(llm=model)
+        await worker.build_collection("proj", ORG, llm=model)
         factory.unregister_summary("proj", "Akt 1.pdf")
 
-        report = await worker.run_once(llm=model)
+        report = await worker.build_collection("proj", ORG, llm=model)
 
         assert report.outcomes == {"fresh": 1}
         assert len(model.calls) == 1
@@ -168,11 +168,11 @@ class TestWorker:
 
     async def test_a_removal_the_abstract_names_is_rewritten_not_pruned(self, folder):
         first = FakeModel(lambda prompt: {"abstract": "Akten, darunter Akt 1.", "key_facts": []})
-        await worker.run_once(llm=first)
+        await worker.build_collection("proj", ORG, llm=first)
         factory.unregister_summary("proj", "Akt 1.pdf")
         second = FakeModel(lambda prompt: {"abstract": "Akten des Projekts.", "key_facts": []})
 
-        report = await worker.run_once(llm=second)
+        report = await worker.build_collection("proj", ORG, llm=second)
 
         assert report.outcomes == {"fresh": 1}
         assert len(second.calls) == 1 and "Akt 1.pdf" in second.calls[0]
@@ -186,37 +186,37 @@ class TestWorker:
 
     async def test_the_tenth_increment_is_followed_by_a_full_build_that_resets_the_counter(self, folder):
         model = FakeModel(_card)
-        await worker.run_once(llm=model)
+        await worker.build_collection("proj", ORG, llm=model)
         for round_ in range(incremental.MAX_INCREMENTS):
             factory.register_summary("proj", "Akt 6.pdf", f"Fassung {round_}.")
-            await worker.run_once(llm=model)
+            await worker.build_collection("proj", ORG, llm=model)
         assert _increments() == incremental.MAX_INCREMENTS
 
         factory.register_summary("proj", "Akt 6.pdf", "Noch einmal.")
-        await worker.run_once(llm=model)
+        await worker.build_collection("proj", ORG, llm=model)
 
         assert "## Documents directly in this folder (6)" in model.calls[-1]
         assert _increments() == 0
 
     async def test_a_large_change_is_a_full_build(self, folder):
         model = FakeModel(_card)
-        await worker.run_once(llm=model)
+        await worker.build_collection("proj", ORG, llm=model)
         for name in NAMES[:4]:
             factory.register_summary("proj", name, "Alles neu.")
 
-        await worker.run_once(llm=model)
+        await worker.build_collection("proj", ORG, llm=model)
 
         assert "## Documents directly in this folder (6)" in model.calls[-1]
 
     async def test_the_trace_says_the_mode_and_the_diff(self, folder):
         model = FakeModel(_card)
-        await worker.run_once(llm=model)
+        await worker.build_collection("proj", ORG, llm=model)
         factory.register_summary("proj", "Akt 4.pdf", "Neu.")
         direct_trace.reset_tracer_provider()
         exporter = InMemorySpanExporter()
         direct_trace.install_tracer_provider(None, env={}, exporter=exporter)
         try:
-            await worker.run_once(llm=model)
+            await worker.build_collection("proj", ORG, llm=model)
             direct_trace._provider.force_flush()
         finally:
             direct_trace.reset_tracer_provider()

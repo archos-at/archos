@@ -8,7 +8,8 @@
  * tiles and the same three-step list twice, once as a promise and once as a
  * receipt. The design language asks for the opposite (no decoration, one focal
  * point, 20px page titles), and the screen asks one question, so it is now
- * built like the question it is: a narrow column, one field, one ink button,
+ * built like the question it is: a narrow column, the name and the office's
+ * country (its seat, never the law of its sites), one ink button,
  * and three quiet lines saying what happens next. Everything else it said was
  * restating the button.
  *
@@ -29,11 +30,15 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyStateDisc } from '@/components/ui/empty-state'
+import { SectionLabel } from '@/components/ui/section-label'
 import { Spinner } from '@/components/ui/spinner'
 import { useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { onboardingCopy } from '@/i18n/namespaces/onboarding'
 import type { JSX } from 'react'
+import { HOME_COUNTRIES, type HomeCountry } from '@/lib/organizations/home-country'
+
+const isHomeCountry = (value: string): value is HomeCountry => (HOME_COUNTRIES as readonly string[]).includes(value)
 
 export interface OrganizationSetupProps {
   /** The signed-in account, shown beside sign-out. */
@@ -45,7 +50,7 @@ export interface OrganizationSetupProps {
   /** A translated failure from the last attempt. */
   error: string | null
   /** Resolves when created; rejects are the caller's to turn into `error`. */
-  onCreate: (name: string) => Promise<void>
+  onCreate: (input: { name: string; homeCountry: HomeCountry }) => Promise<void>
   onSignOut: () => void
 }
 
@@ -67,7 +72,7 @@ export function OrganizationSetup({
           once it is paid, so the row sat on the island instead of below it. The
           side insets are for a phone on its side. */}
       <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] md:px-6">
-        <Logo kind="horizontal" size="small" />
+        <Logo size="small" />
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-muted-foreground hidden min-w-0 truncate text-xs sm:block">
             {email ? t('account.signedInAs', { email }) : t('account.signedIn')}
@@ -97,8 +102,8 @@ export function OrganizationSetup({
 function SetupHeading({ eyebrow, title, children }: { eyebrow: string; title: string; children: React.ReactNode }): JSX.Element {
   return (
     <div>
-      <p className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">{eyebrow}</p>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">{title}</h1>
+      <SectionLabel as="p">{eyebrow}</SectionLabel>
+      <h1 className="mt-2 text-xl font-medium">{title}</h1>
       <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">{children}</p>
     </div>
   )
@@ -109,19 +114,25 @@ function SetupForm({
   onCreate,
 }: {
   error: string | null
-  onCreate: (name: string) => Promise<void>
+  onCreate: (input: { name: string; homeCountry: HomeCountry }) => Promise<void>
 }): JSX.Element {
   const t = useTranslations(onboardingCopy)
 
   const schema = z.object({
     name: z.string().trim().min(1, t('validation.nameRequired')).max(100, t('validation.nameTooLong')),
+    // No default: the office says where it is; nothing guesses it (migration 0200).
+    homeCountry: z.string().refine(isHomeCountry, t('validation.homeCountryRequired')),
   })
 
   const form = useAppForm({
-    defaultValues: { name: '' },
+    defaultValues: { name: '', homeCountry: '' },
     validators: { onChange: schema },
-    onSubmit: async ({ value }) => onCreate(value.name.trim()),
+    onSubmit: async ({ value }) => {
+      if (!isHomeCountry(value.homeCountry)) return
+      await onCreate({ name: value.name.trim(), homeCountry: value.homeCountry })
+    },
   })
+  const countryOptions = HOME_COUNTRIES.map((code) => ({ value: code, label: t(`form.homeCountries.${code}`) }))
 
   const next: { icon: LucideIcon; label: string }[] = [
     { icon: Lock, label: t('next.private') },
@@ -163,6 +174,17 @@ function SetupForm({
               />
             )}
           </form.AppField>
+          <form.AppField name="homeCountry">
+            {(field) => (
+              <field.SelectField
+                label={t('form.homeCountryLabel')}
+                placeholder={t('form.homeCountryPlaceholder')}
+                description={t('form.homeCountryHint')}
+                options={countryOptions}
+                required
+              />
+            )}
+          </form.AppField>
           <form.AppForm>
             <form.SubmitButton className="w-full">{t('form.submit')}</form.SubmitButton>
           </form.AppForm>
@@ -170,9 +192,9 @@ function SetupForm({
       </Card>
 
       <section className="mt-8" aria-labelledby="setup-next">
-        <h2 id="setup-next" className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+        <SectionLabel as="h2" id="setup-next">
           {t('next.heading')}
-        </h2>
+        </SectionLabel>
         <ul className="mt-3 space-y-2.5">
           {next.map(({ icon: Icon, label }) => (
             <li key={label} className="text-muted-foreground flex items-start gap-2.5 text-sm">
@@ -199,7 +221,7 @@ function InviteOnly({ onSignOut }: { onSignOut: () => void }): JSX.Element {
         {t('inviteOnly.description')}
       </SetupHeading>
       <p className="text-muted-foreground mt-4 text-sm leading-relaxed">{t('inviteOnly.wrongAccount')}</p>
-      <Button type="button" variant="outline" className="mt-6" onClick={onSignOut}>
+      <Button type="button" variant="secondary" className="mt-6" onClick={onSignOut}>
         <LogOut className="size-4" aria-hidden />
         {tc('actions.signOut')}
       </Button>
@@ -212,7 +234,7 @@ function SetupDone({ name }: { name: string }): JSX.Element {
   return (
     <div role="status" aria-live="polite">
       <EmptyStateDisc icon={Check} />
-      <h1 className="mt-5 text-xl font-semibold tracking-tight">{t('success.title')}</h1>
+      <h1 className="mt-5 text-xl font-medium">{t('success.title')}</h1>
       <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">
         {t('success.description', { name })}
       </p>

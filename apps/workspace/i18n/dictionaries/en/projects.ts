@@ -296,8 +296,6 @@ export const projects = {
     },
   },
   card: {
-    summaryFallback:
-      'Planning-office workspace. Add documents and a brief so {productName} can work from this project.',
     status: {
       active: 'Active',
       paused: 'Paused',
@@ -313,6 +311,9 @@ export const projects = {
     open: 'Open {name}',
     overview: 'Overview',
     overviewAria: 'Open overview of {name}',
+    /** `ProjectMailWaiting`: mail waiting in the project's E-Mail-Eingang, for a reader who may file it. */
+    mailWaiting: '{count, plural, one {# mail waits} other {# mails wait}}',
+    mailWaitingAria: '{count, plural, one {# mail waits to be filed in {name}} other {# mails wait to be filed in {name}}}',
   },
   officeShelfCard: {
     title: 'Office filing',
@@ -349,6 +350,26 @@ export const projects = {
       searching: 'Searching…',
       suggestions: 'Address suggestions',
       keepTyped: 'Or leave it as it is: {productName} takes the address as you type it.',
+      attribution: '© OpenStreetMap contributors',
+    },
+    site: {
+      countryLabel: 'Country',
+      federalStateLabel: 'Federal state',
+      unset: 'Not stated',
+      fromPostalCode: 'From the postal code',
+      help: 'The site decides which building law applies. Left empty, the postal code of an Austrian address suggests the federal state; you confirm it during setup.',
+      country: { at: 'Austria', de: 'Germany', ch: 'Switzerland', other: 'Another country' },
+      state: {
+        vienna: 'Vienna',
+        lower_austria: 'Lower Austria',
+        upper_austria: 'Upper Austria',
+        styria: 'Styria',
+        carinthia: 'Carinthia',
+        salzburg: 'Salzburg',
+        tyrol: 'Tyrol',
+        vorarlberg: 'Vorarlberg',
+        burgenland: 'Burgenland',
+      },
     },
     sameAddress: {
       heading: 'There is already a project at this address',
@@ -374,28 +395,6 @@ export const projects = {
     },
     cancel: 'Cancel',
     submit: 'Create project',
-  },
-  applicableStandards: {
-    heading: 'Applicable standards',
-    description: 'OIB-Richtlinien relevant to this project, based on the brief.',
-    briefIncomplete: 'Complete the project brief for applicability tailored to this building.',
-    status: {
-      required: 'Required',
-      check: 'Check',
-      likely: 'Likely',
-    },
-    askQuestion: 'Which requirements of {code} ({title}) apply to this project?',
-    source: 'Source',
-    sourceAria: 'Open the source for {code}',
-    sourceTitle: 'Open the OIB source',
-    askGrid: 'Ask {productName}',
-    askAgentAria: 'Ask {productName} about {code}',
-    askAgentTitle: 'Ask {productName} about this Richtlinie',
-    emptyTitle: 'No applicable standards yet',
-    emptyDescription:
-      'Complete the project brief so {productName} can work out which OIB-Richtlinien apply to this building.',
-    disclaimer:
-      'Orientation only — not legal advice. Confirm applicability against the current Bauordnung and the authority having jurisdiction.',
   },
   dangerZone: {
     deleteSuccess: 'Project deleted. An organization admin can restore it until {date}.',
@@ -455,6 +454,8 @@ export const projects = {
     errors: {
       loadFailed: 'We could not load the project questions.',
       saveConflict: 'This brief was changed elsewhere. Please refresh and try again.',
+      saveClosed: "This project is closed and can only be read. Reopen it to change the brief.",
+      saveForbidden: "You do not have permission to change this project's brief. Ask someone with edit rights to make the change.",
       saveFailed: 'We could not save the project brief. Please try again.',
     },
     conflictReload: 'Refresh',
@@ -570,20 +571,6 @@ export const projects = {
     },
   },
   memory: {
-    kinds: {
-      decision: 'Decisions',
-      constraint: 'Constraints',
-      open_question: 'Open questions',
-      derived_fact: 'Derived facts',
-      preference: 'Preferences',
-    },
-    kindSingular: {
-      decision: 'Decision',
-      constraint: 'Constraint',
-      open_question: 'Open question',
-      derived_fact: 'Derived fact',
-      preference: 'Preference',
-    },
     verification: {
       unverified: 'unverified',
       source_grounded: 'source-grounded',
@@ -620,17 +607,19 @@ export const projects = {
       loadFailed: 'Failed to load project memory',
       updateFailed: 'Update failed',
       deleteFailed: 'Delete failed',
-      addFailed: 'Could not add memory',
+      addFailed: 'Could not add the note',
       title: 'Something went wrong with project memory',
     },
-    added: 'Memory added.',
-    updated: 'Memory updated.',
-    deleted: 'Memory removed.',
+    added: 'Note added.',
+    updated: 'Note updated.',
+    deleted: 'Note removed.',
     heading: 'Project memory',
     description: 'What {productName} has learned about this project — editable.',
-    addMemory: 'Add memory',
-    kindAria: 'Memory kind',
-    scopeAria: 'Memory scope',
+    // Who reads (ADR-0180): the one line under the heading.
+    audience: 'Every member of this project sees these notes.',
+    addMemory: 'Add note',
+    kindAria: 'Kind of note',
+    scopeAria: 'Scope of the note',
     scopeProject: 'This project',
     scopeOrganization: 'All my projects',
     addPlaceholder: 'One concise, self-contained finding about this project…',
@@ -640,7 +629,7 @@ export const projects = {
     emptyDescription:
       "{productName} hasn't recorded anything about this project yet. It will as you chat — or add something yourself.",
     orgWide: 'org-wide',
-    confidence: '{confidence} confidence',
+    confidence: { low: 'Confidence: low', medium: 'Confidence: medium', high: 'Confidence: high' },
     save: 'Save',
     pinned: 'Pinned',
     remove: 'Remove',
@@ -656,7 +645,7 @@ export const projects = {
     edit: 'Edit',
     editTitle: 'Edit',
     removeAria: 'Remove',
-    removeTitle: 'Remove from memory',
+    removeTitle: 'Remove from project memory',
   },
   overview: {
     workspaceCreated: 'Project workspace · created {date}',

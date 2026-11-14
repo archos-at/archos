@@ -21,10 +21,13 @@ ALLOWED = (
     "apps/agent-host/entrypoint.py",
     "tests/test_entrypoint_roles.py",
     "tests/test_no_legacy_env_names.py",
+    # The prose check's test plants identifiers to show it leaves them to the identifier check.
+    "tests/test_check_brand_prose.py",
+    # The recorded times are keyed by test id, and a parametrized id quotes its old name.
+    "tests/.test_durations",
     "apps/workspace/scripts/legacy-env-names.cjs",
     "apps/workspace/scripts/legacy-env-names.spec.mjs",
     "deploy/compose/docker-compose.yaml",
-    "deploy/compose/docker-compose.coolify.yaml",
     "docs/deployment/environment-variables.md",
     "docs/adr/0145-the-repository-is-laid-out-by-job.md",
     "docs/adr/0079-background-work-runs-on-one-claim-substrate.md",
@@ -43,9 +46,10 @@ PROSE = (".md", ".mdx")
 GRID_ALLOWED = (
     "scripts/check_brand_names.py",
     "tests/test_check_brand_names.py",
+    "tests/test_check_brand_prose.py",
     "tests/.test_durations",
     "apps/workspace/migrations/",
-    "apps/site/src/data/",
+    "apps/website/src/data/",
 )
 
 
@@ -75,7 +79,7 @@ def test_no_code_or_config_spells_a_grid_prefixed_variable():
     offenders = [
         f"{path}:{n}"
         for path, text in _tracked_texts()
-        if not path.endswith(PROSE) and not path.startswith(GRID_ALLOWED)
+        if not path.endswith(PROSE) and not path.startswith(GRID_ALLOWED) and "GRID_" in text
         for n, line in enumerate(text.splitlines(), 1)
         if GRID_NAME.search(GRID_FALLBACK.sub("", line))
     ]

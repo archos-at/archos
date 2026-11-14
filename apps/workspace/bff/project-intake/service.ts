@@ -22,6 +22,8 @@
 
 import { normalizeProfileKey, normalizeProfileValue } from '@/lib/project-profile/legacy-names'
 import 'server-only'
+import { projectLawFor } from '@/lib/base-knowledge/context/project-law'
+import { lawWithheldAt } from './classification'
 import { ConflictError, ForbiddenError, NotFoundError, ServiceUnavailableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
@@ -43,7 +45,9 @@ import { onIntakeCompleted, onIntakeReady } from './attention'
 import { planDecisions } from './decisions'
 import { documentEvidence, reasonFromEvidence } from './evidence'
 import { computeNeeds } from './needs'
+import { readSetupRecords } from './setup-records'
 import { planRecord, planWithdraw, staticRefusal, type ScreenedValue } from './record'
+import { setupUnpublished } from './setup-scope'
 import { patchForKeys } from './profile-edits'
 import {
   addIntakeDismissed,
@@ -77,6 +81,7 @@ import {
   type StartIntakeRequest,
 } from './types'
 import { buildIntakeView, intakeCounts } from './view'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** Writing the profile (`PROFILE_WRITE` in `profile-service.ts`): a decision, a reading, starting one. */
 const PROFILE_WRITE: readonly ProjectPermission[] = ['project:memory:write', 'project:edit']
@@ -128,8 +133,7 @@ export function unreadDocuments(documents: readonly ExtractableDocument[], read:
   return documents.filter((document) => !seen.has(`${document.documentId}\u0000${contentKeyOf(document)}`))
 }
 
-const needsOf = (profile: ProjectProfile, row: ProjectIntakeRow): Need[] =>
-  computeNeeds(profile, definition, { mode: row.mode, dismissed: row.dismissed })
+const needsOf = (profile: ProjectProfile, row: ProjectIntakeRow, records: Awaited<ReturnType<typeof readSetupRecords>>): Need[] => computeNeeds(profile, definition, { mode: row.mode, dismissed: row.dismissed, records })
 
 // ---------------------------------------------------------------------------
 // Access
@@ -174,7 +178,7 @@ async function tellRequester(ended: ProjectIntakeRow): Promise<void> {
     const project = await findProjectInOrg(ended.projectId, ended.organizationId)
     const decisiveOpen =
       ended.status === 'ready'
-        ? needsOf(await loadProfile(ended.organizationId, ended.projectId), ended).filter(
+        ? needsOf(await loadProfile(ended.organizationId, ended.projectId), ended, await readSetupRecords(ended.organizationId)).filter(
             (need) => need.decisive && need.state === 'open'
           ).length
         : 0
@@ -205,23 +209,21 @@ const intakeCompleted = () =>
 
 async function viewOf(session: AuthorizedSession, row: ProjectIntakeRow): Promise<IntakeView> {
   const { organizationId } = session
-  const [profile, documents, canDecide, canManage] = await Promise.all([
+  const [profile, documents, canDecide, canManage, applicableLaw, records] = await Promise.all([
     loadProfile(organizationId, row.projectId),
     readableDocuments(organizationId, row.projectId),
     holds(session, row.projectId, PROFILE_WRITE),
     row.mode === 'closing' ? holds(session, row.projectId, 'project:manage') : Promise.resolve(false),
+    projectLawFor(organizationId, row.projectId), readSetupRecords(organizationId),
   ])
-  const open = row.status !== 'completed'
   const unread = unreadDocuments(documents, row.documentsRead)
   return buildIntakeView({
-    row,
-    profile,
-    definition,
-    needs: needsOf(profile, row),
+    row, profile, definition, applicableLaw,
+    needs: needsOf(profile, row, records), records,
     unreadDocuments: unread.length,
     readingDocuments: { readable: documents, unread },
     canDecide,
-    canComplete: open && (row.mode === 'closing' ? canManage : canDecide),
+    canComplete: row.status !== 'completed' && (row.mode === 'closing' ? canManage : canDecide),
   })
 }
 
@@ -304,7 +306,7 @@ async function beginReading(
     // requester is told either way, on the row a later reading folds into.
     if (ended) await tellRequester(ended)
     console.error(`[project-intake] submitting the reading of ${projectId} failed:`, error)
-    throw new ServiceUnavailableError('Piloti could not start reading the documents. Try again in a moment.', {
+    throw new ServiceUnavailableError(PRODUCT_NAME + ' could not start reading the documents. Try again in a moment.', {
       reason: 'submit-failed',
     })
   }
@@ -474,18 +476,19 @@ export async function intakeNeeds(
   jobId: string
 ): Promise<InternalIntakeNeedsResponse> {
   const row = await requireCurrentReading(session, projectId, jobId)
-  const [profile, documents] = await Promise.all([
+  const [profile, documents, records] = await Promise.all([
     loadProfile(session.organizationId, projectId),
     readableDocuments(session.organizationId, projectId),
+    readSetupRecords(session.organizationId),
   ])
   const unread = [...new Set(unreadDocuments(documents, row.documentsRead).map((document) => document.fileName))]
   return {
-    needs: needsOf(profile, row).slice(0, MAX_INTAKE_NEEDS),
+    needs: needsOf(profile, row, records).slice(0, MAX_INTAKE_NEEDS),
     unreadFiles: unread.slice(0, MAX_UNREAD_FILES),
     description: row.description ?? null,
-    location: row.location ?? null,
-    mode: row.mode,
+    location: row.location ?? null, mode: row.mode,
     previousSummary: row.summary ?? null,
+    setupPublished: !setupUnpublished(profile, records),
   }
 }
 
@@ -530,15 +533,11 @@ export async function recordIntakeValues(
     value: normalizeProfileValue(value.key, value.value),
   }))
   const row = await requireCurrentReading(session, projectId, jobId)
-  const documents = await readableDocuments(organizationId, projectId)
+  const [documents, lawWithheld, records] = await Promise.all([readableDocuments(organizationId, projectId), lawWithheldAt(organizationId, projectId), readSetupRecords(organizationId)])
   const readableFiles = new Set(documents.map((document) => document.fileName))
   const screened = await screenValues(organizationId, row, values, readableFiles)
   return writeProfile(session, projectId, (current) => {
-    const plan = planRecord(current, definition, screened, {
-      now: new Date().toISOString(),
-      readingId: jobId,
-      needs: { mode: row.mode, dismissed: row.dismissed },
-    })
+    const plan = planRecord(current, definition, screened, { now: new Date().toISOString(), readingId: jobId, needs: { mode: row.mode, dismissed: row.dismissed, records }, lawWithheld, records })
     const value = { results: plan.results, opened: plan.opened.slice(0, MAX_INTAKE_NEEDS) }
     return { value, before: current, after: plan.profile, keys: plan.changedKeys }
   })
@@ -557,8 +556,9 @@ export async function withdrawIntakeValues(
 ): Promise<InternalIntakeWithdrawResponse> {
   const keys = sentKeys.map(normalizeProfileKey)
   await requireCurrentReading(session, projectId, jobId)
+  const [lawWithheld, records] = await Promise.all([lawWithheldAt(session.organizationId, projectId), readSetupRecords(session.organizationId)])
   const results = await writeProfile(session, projectId, (current) => {
-    const plan = planWithdraw(current, definition, keys, { now: new Date().toISOString(), readingId: jobId })
+    const plan = planWithdraw(current, definition, keys, { now: new Date().toISOString(), readingId: jobId, lawWithheld, records })
     return { value: plan.results, before: current, after: plan.profile, keys: plan.changedKeys }
   })
   return { results }
@@ -613,13 +613,14 @@ export async function finishIntakeReading(
 ): Promise<{ status: IntakeStatus }> {
   const { organizationId } = session
   const row = await requireCurrentReading(session, projectId, jobId)
-  const [profile, documents, project] = await Promise.all([
+  const [profile, documents, project, records] = await Promise.all([
     loadProfile(organizationId, projectId),
     readableDocuments(organizationId, projectId),
     requireProject(organizationId, projectId),
+    readSetupRecords(organizationId),
   ])
   const documentsRead = mergeDocumentsRead(row.documentsRead, documents, input.documentsRead)
-  const needs = needsOf(profile, row)
+  const needs = needsOf(profile, row, records)
   const counts = intakeCounts(profile, definition, needs, documentsRead.length)
   const summary = input.summary.trim() ? (await maskAnswerText(organizationId, input.summary.trim())).text : null
   const ended = await endIntakeReading(organizationId, projectId, jobId, {

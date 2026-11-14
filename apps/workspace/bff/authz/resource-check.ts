@@ -1,17 +1,18 @@
 /**
  * The one WorkOS FGA round-trip, shared by every resource tier (ADR-0038).
  *
- * Project and skill checks were about to grow two copies of the same
- * instrumentation + optional-cache logic. They get one instead, so a change to
- * the caching posture (or to how a stalled check names itself in the logs)
- * cannot apply to one tier and silently miss the other.
+ * Every per-resource answer is ONE call, {@link effectiveResourcePermissions}:
+ * everything a membership holds on a resource, cached under one key, so the
+ * project gate, the project listing and the folder clearance read the same
+ * entry and cannot disagree about what someone holds.
  *
- * **Fails closed**: any transport or SDK error resolves to `false`. An
+ * **Fails closed**: any transport or SDK error resolves to an empty set. An
  * authorization check that cannot complete is a denial, never a default-allow.
  */
 
 import 'server-only'
-import { getCached } from '@/lib/cache'
+import { randomUUID } from 'node:crypto'
+import { getCached, setCached } from '@/lib/cache'
 import { getWorkOS } from '@/lib/workos/client'
 import { timedWorkOSCall } from '@/lib/workos/instrumentation'
 
@@ -24,36 +25,34 @@ export interface ResourceCheckInput {
    * tenant is never served to another.
    */
   readonly organizationId?: string | null
-  readonly permissionSlug: string
   readonly resourceExternalId: string
   readonly resourceTypeSlug: 'project' | 'folder'
 }
 
 /**
- * Short-TTL cache of WorkOS FGA answers: `authorization.check` results and
- * effective permission sets ({@link effectiveResourcePermissions}).
+ * Short-TTL cache of WorkOS FGA answers ({@link effectiveResourcePermissions}).
  *
- * `AUTHZ_CACHE_TTL_MS` (default `30000`; `0` switches it OFF) caches the
- * answer for (organizationMembershipId, resourceType, resourceId[, permission]). On by default since 2026-09: the websocket-scope route and every
- * project save paid up to three WorkOS round-trips per request for a grant
- * that changes a few times a year.
+ * `AUTHZ_CACHE_TTL_MS` (default `30000`; `0` switches it OFF) caches what a
+ * membership holds on one resource. On by default since 2026-09: the
+ * websocket-scope route and every project save paid up to three WorkOS
+ * round-trips per request for a grant that changes a few times a year.
  *
- * Security tradeoff, accepted with the default:
- *   - A grant or revocation propagates up to TTL later. Keep it short (30–60s),
- *     matching the existing feature-flag cache.
- *   - Tenancy is enforced IN the key, not around it: the key shape is
- *     `authz:check:{org}:{membership}:{type}:{id}:{perm}` (and
- *     `authz:effective:{org}:{membership}:{type}:{id}`), with the literal
- *     segment `no-org` when the caller has no organization. A resource can
- *     never be served across-org from cache — the per-resource grant is cached
- *     only within the (org, membership) that earned it — and the segment is
- *     always present so a caller that forgets the org cannot collide with one
- *     that passed it. Tenancy itself is still checked on every request against
- *     Postgres before this cache is consulted.
- *   - Error-induced denials are NEVER cached (see below): only completed
- *     WorkOS answers populate the entry.
- *   - Org admins bypass FGA before this cache is consulted, so an admin
- *     grant/revoke is unaffected.
+ * A grant or revocation made IN the product is seen at once: every change of a
+ * membership's resource roles starts a new generation of that membership's
+ * cached answers ({@link forgetResourceGrants}), and every answer is filed under
+ * the generation current when it was read. A read in flight while the roles
+ * changed lands under the old generation, where nothing reads it again, so a
+ * person taken off a project cannot be cached back onto it. Only a change made
+ * outside the product (the WorkOS dashboard, a directory sync) waits out the TTL.
+ *
+ * Tenancy is enforced IN the key, not around it: the key shape is
+ * `authz:effective:{org}:{membership}:{generation}:{type}:{id}`, with the
+ * literal segment `no-org` when the caller has no organization. A resource can
+ * never be served across-org from cache, and tenancy itself is still checked on
+ * every request against Postgres before this cache is consulted.
+ *
+ * Error-induced denials are NEVER cached: only completed WorkOS answers
+ * populate an entry. Org admins bypass FGA before this cache is consulted.
  */
 export const DEFAULT_AUTHZ_CACHE_TTL_MS = 30_000
 
@@ -65,54 +64,39 @@ export function authzCacheTtlMs(): number {
 }
 
 /**
- * Ask WorkOS whether a membership holds `permissionSlug` on one resource.
- *
- * Every round-trip is timed, so a stalled check names itself in the logs (the
- * fast path stays silent — see `timedWorkOSCall`).
+ * How long a membership's grants generation is kept. Far longer than any
+ * answer filed under it; if the store evicts it anyway, the next read starts a
+ * new generation, which only makes every cached answer unreachable.
  */
-export async function checkResourcePermission(input: ResourceCheckInput): Promise<boolean> {
-  const {
-    organizationMembershipId,
-    organizationId,
-    permissionSlug,
-    resourceExternalId,
-    resourceTypeSlug,
-  } = input
+const GRANTS_GENERATION_TTL_MS = 24 * 60 * 60 * 1000
 
-  // Transport/SDK errors THROW out of the loader: `getCached` only stores
-  // loader RESULTS, never rejections, so an error-induced denial cannot poison
-  // the entry for a full TTL. The fail-closed `false` is applied OUTSIDE the
-  // cache (below), without writing anything.
-  const liveCheck = () =>
-    timedWorkOSCall(`authorization.check ${permissionSlug}`, () =>
-      getWorkOS()
-        .authorization.check({
-          organizationMembershipId,
-          permissionSlug,
-          resourceExternalId,
-          resourceTypeSlug,
-        })
-        .then((result) => result.authorized)
-    )
+const grantsGenerationKey = (organizationId: string | null | undefined, organizationMembershipId: string) =>
+  `authz:grants-generation:${organizationId ?? 'no-org'}:${organizationMembershipId}`
 
-  const ttlMs = authzCacheTtlMs()
-  try {
-    if (ttlMs <= 0) return await liveCheck()
-    // The store is fail-open by design: a cache outage degrades to a live check.
-    return await getCached(
-      `authz:check:${organizationId ?? 'no-org'}:${organizationMembershipId}:${resourceTypeSlug}:${resourceExternalId}:${permissionSlug}`,
-      ttlMs,
-      liveCheck
-    )
-  } catch (error) {
-    // Fail closed. A check that did not complete is not an allow — and, by
-    // construction above, this `false` is never cached.
-    console.warn(
-      `[authz] FGA check failed for ${permissionSlug} on ${resourceTypeSlug}:${resourceExternalId}:`,
-      error
-    )
-    return false
-  }
+/** The current generation of a membership's cached resource answers. */
+async function grantsGeneration(
+  organizationId: string | null | undefined,
+  organizationMembershipId: string
+): Promise<string> {
+  return getCached(grantsGenerationKey(organizationId, organizationMembershipId), GRANTS_GENERATION_TTL_MS, async () =>
+    randomUUID()
+  )
+}
+
+/**
+ * Makes every cached resource answer of one membership unreachable. Run after
+ * every change of that membership's roles on a resource, failed or not: a
+ * change that got part-way changed something.
+ */
+export async function forgetResourceGrants(
+  organizationId: string | null | undefined,
+  organizationMembershipId: string
+): Promise<void> {
+  await setCached(
+    grantsGenerationKey(organizationId, organizationMembershipId),
+    randomUUID(),
+    GRANTS_GENERATION_TTL_MS
+  )
 }
 
 function isNotFound(error: unknown): boolean {
@@ -122,15 +106,17 @@ function isNotFound(error: unknown): boolean {
 /**
  * Every permission a membership holds on one resource, in ONE WorkOS call:
  * `listEffectivePermissionsByExternalId`, which counts roles assigned on the
- * resource and on its ancestors, the same set `check` answers one permission
- * at a time. A caller that needs several answers about one resource asks once.
+ * resource and on its ancestors. A caller that needs several answers about one
+ * resource asks once.
  *
- * Cached like {@link checkResourcePermission}, under a key with the
- * organization in it. A resource WorkOS has never heard of (404) holds nothing,
+ * Cached under a key with the organization and the membership's grants
+ * generation in it. A resource WorkOS has never heard of (404) holds nothing,
  * and that answer is cached; any other failure grants nothing and is not cached.
  */
 export async function effectiveResourcePermissions(
-  input: Omit<ResourceCheckInput, 'permissionSlug'>
+  input: ResourceCheckInput,
+  /** `strict`: a failed lookup throws instead of holding nothing, for a caller that waits a fault out (the receive job). */
+  options: { strict?: boolean } = {}
 ): Promise<ReadonlySet<string>> {
   const { organizationMembershipId, organizationId, resourceExternalId, resourceTypeSlug } = input
 
@@ -151,16 +137,16 @@ export async function effectiveResourcePermissions(
 
   const ttlMs = authzCacheTtlMs()
   try {
-    const slugs =
-      ttlMs <= 0
-        ? await load()
-        : await getCached(
-            `authz:effective:${organizationId ?? 'no-org'}:${organizationMembershipId}:${resourceTypeSlug}:${resourceExternalId}`,
-            ttlMs,
-            load
-          )
+    if (ttlMs <= 0) return new Set(await load())
+    const generation = await grantsGeneration(organizationId, organizationMembershipId)
+    const slugs = await getCached(
+      `authz:effective:${organizationId ?? 'no-org'}:${organizationMembershipId}:${generation}:${resourceTypeSlug}:${resourceExternalId}`,
+      ttlMs,
+      load
+    )
     return new Set(slugs)
   } catch (error) {
+    if (options.strict) throw error
     console.warn(`[authz] effective permissions failed on ${resourceTypeSlug}:${resourceExternalId}:`, error)
     return new Set()
   }

@@ -41,6 +41,10 @@ vi.mock('@/lib/events/bus', () => ({
 }))
 
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
+// The roster lock is a database transaction; what is tested here runs inside it.
+vi.mock('@/lib/projects/member-change-lock', () => ({
+  withProjectMembersLock: (_org: string, _project: string, work: () => Promise<unknown>) => work(),
+}))
 
 vi.mock('@/lib/authz/project-membership', () => ({
   canUserAccessProject: vi.fn(),
@@ -50,9 +54,14 @@ vi.mock('@/lib/authz/project-membership', () => ({
 const listRoleAssignmentsForResource = vi.fn()
 const removeRoleAssignment = vi.fn().mockResolvedValue(undefined)
 const getOrganizationMembership = vi.fn()
+// The caller is a Project Admin: every project permission, so the grant
+// ceiling lets them take any project role away.
+const listEffectivePermissionsByExternalId = vi.fn(async () => ({
+  autoPagination: async () => (await import('@/lib/authz/catalog')).PROJECT_PERMISSION_SPECS.map(({ slug }) => ({ slug })),
+}))
 vi.mock('@/lib/workos/client', () => ({
   getWorkOS: () => ({
-    authorization: { listRoleAssignmentsForResource, removeRoleAssignment },
+    authorization: { listRoleAssignmentsForResource, removeRoleAssignment, listEffectivePermissionsByExternalId },
     userManagement: { getOrganizationMembership },
   }),
 }))

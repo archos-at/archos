@@ -1,6 +1,7 @@
 """Runtime checks as Langfuse scores (ADR-0089)."""
 
 import re
+import typing
 from pathlib import Path
 
 import pytest
@@ -10,10 +11,10 @@ from agent.common.wire_v2 import QuoteStamp
 from agent.common.wire_v2 import TurnResult
 from agent.observability import langfuse_scores
 from agent.observability.answer_scores import dialect_scores
+from agent.observability.citation_scores import citation_scores
 from agent.observability.langfuse_scores import SCORE_DEFINITIONS
 from agent.observability.langfuse_scores import RuntimeScore
 from agent.observability.langfuse_scores import card_validity_score
-from agent.observability.langfuse_scores import citation_scores
 from agent.observability.langfuse_scores import emit_scores
 from agent.observability.langfuse_scores import score_body
 from agent.observability.langfuse_scores import score_id
@@ -172,9 +173,28 @@ class TestOneListOfNames:
         for definition in SCORE_DEFINITIONS:
             assert (definition.data_type == "CATEGORICAL") == bool(definition.categories), definition.name
 
+    @pytest.mark.parametrize(
+        ("score", "field"),
+        [("answer-confidence", "answer_confidence"), ("confidence-capped", "answer_confidence_capped_reason")],
+    )
+    def test_every_category_a_turn_can_emit_is_declared(self, score, field):
+        """Review of #1582: ``law_unsettled`` was emitted and declared nowhere. Every value the turn's wire type
+        allows reaches ``turn_outcome_scores``, so each must be a declared category (and ``none`` for a cap)."""
+        allowed = {arg for arg in typing.get_args(TurnResult.model_fields[field].annotation) if arg is not type(None)}
+        values = {value for arg in allowed for value in (typing.get_args(arg) or (arg,))}
+        categories = next(d for d in SCORE_DEFINITIONS if d.name == score).categories
+        emitted = set()
+        for value in values:
+            result = TurnResult(message_id="m", text="t", **({"answer_confidence": "medium"} | {field: value}))
+            emitted |= {s.value for s in turn_outcome_scores(result) if s.name == score}
+        assert emitted == values and emitted <= set(categories)
+
     def test_every_score_the_bff_writes_is_defined(self):
         source = "\n".join(path.read_text() for path in (REPO / "apps/workspace/bff/langfuse").glob("*.ts"))
-        written = set(
+        # Every score module names its score in one `*_SCORE_NAME` constant, so a new one is found
+        # without this test knowing its name; the literals catch a name written inline.
+        constants = set(re.findall(r"""_SCORE_NAME = ['"]([a-z-]+)['"]""", source))
+        literals = set(
             re.findall(
                 r"""['"](user-feedback[a-z-]*|piloti-decision|revision-notice|document-check|diagram-filed)['"]""",
                 source,
@@ -182,7 +202,8 @@ class TestOneListOfNames:
         )
         defined = {definition.name for definition in SCORE_DEFINITIONS if definition.writer == "bff"}
 
-        assert written <= defined
+        assert len(constants) >= 5
+        assert constants | literals <= defined
 
     @pytest.mark.parametrize("definition", SCORE_DEFINITIONS, ids=lambda definition: definition.name)
     def test_every_score_is_documented(self, definition):
@@ -193,7 +214,7 @@ class TestSteerCount:
     def test_a_steered_turn_scores_its_notes_and_says_how_many_were_read(self):
         from agent.common.steering import SteerInbox
         from agent.common.steering import SteerNote
-        from agent.observability.langfuse_scores import steer_scores
+        from agent.observability.answer_scores import steer_scores
 
         inbox = SteerInbox()
         inbox.offer(SteerNote(steer_id="a", text="x"))
@@ -208,7 +229,7 @@ class TestSteerCount:
 
     def test_an_unsteered_turn_writes_no_score(self):
         from agent.common.steering import SteerInbox
-        from agent.observability.langfuse_scores import steer_scores
+        from agent.observability.answer_scores import steer_scores
 
         assert steer_scores(SteerInbox()) == []
 

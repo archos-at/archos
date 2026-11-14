@@ -71,7 +71,7 @@ export const LoadError = React.forwardRef<HTMLDivElement, LoadErrorProps>(
               <div className="mt-2 flex flex-wrap gap-2">
                 {onRetry ? (
                   <BusyButton
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     busy={busy}
                     busyLabel={t('loadError.retrying')}

@@ -23,7 +23,7 @@ export const settings = {
       label: 'Project settings',
       overview: 'Overview',
       members: 'Members',
-      memory: 'Memory',
+      memory: 'Project memory',
       usage: 'Usage & budget',
       documents: 'Documents & index',
       references: 'Similar projects',
@@ -68,13 +68,13 @@ export const settings = {
         open: 'Documents & index',
       },
       memory: {
-        label: 'Memory',
+        label: 'Project memory',
         notes: '{count, plural, one {note} other {notes}}',
         toReview: '{count, plural, one {# to review} other {# to review}}',
         allReviewed: 'All confirmed',
         empty: '{productName} has not noted anything about this project yet.',
         error: 'Memory could not be loaded.',
-        open: 'Memory',
+        open: 'Project memory',
       },
       members: {
         label: 'Members',
@@ -126,6 +126,9 @@ export const settings = {
       knowledgeTitle: 'Knowledge base',
       knowledgeDescription: 'What the project’s knowledge base contains, chunk by chunk.',
       knowledgeLink: 'Open knowledge base',
+      inboundMailTitle: 'Project mail address',
+      inboundMailDescription:
+        'Put it in Cc when you write to the authority, the structural engineer or the client, or forward documents to it. Mail someone who may file in the project sends from their own address, verified by their own domain, is filed directly. Everything else waits in Project mail under Files until someone files it; for mail from verified domains {productName} suggests a folder, a name and a document type for each attachment.',
     },
   },
 }

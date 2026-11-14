@@ -4,6 +4,7 @@ import { Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchField } from '@/components/ui/search-field'
 import { Spinner } from '@/components/ui/spinner'
+import type { ControlSize } from '@/components/ui/control-height'
 import { cn } from '@/lib/utils'
 
 interface FileSearchFieldProps {
@@ -23,6 +24,8 @@ interface FileSearchFieldProps {
   runButton?: { label: string; isSearching: boolean }
   /** Sizing for the form. Defaults to filling its row (the sticky band). */
   className?: string
+  /** The `size` of the buttons in the field's row, so the field stands as tall as they do. */
+  size?: ControlSize
 }
 
 interface FileSearchBannerProps {
@@ -62,10 +65,11 @@ export function FileSearchField({
   resetLabel,
   runButton,
   className,
+  size = 'default',
 }: FileSearchFieldProps) {
   return (
     <form
-      className={cn('flex min-h-9 min-w-0 items-center gap-2', className)}
+      className={cn('flex min-w-0 items-center gap-2', size === 'sm' ? 'min-h-8' : 'min-h-9', className)}
       onSubmit={(e) => {
         e.preventDefault()
         onSubmit()
@@ -80,8 +84,14 @@ export function FileSearchField({
         placeholder={placeholder}
         label={searchLabel}
         clearLabel={resetLabel}
-        inputClassName="pr-10 md:pr-9"
-        clearClassName="right-1 size-9 pointer-coarse:size-11 md:right-1.5 md:size-6"
+        size={size}
+        // A field is a white field with the 3:1 field border (paper on a desk, lines): the desk well it was read as
+        // a grey press and nearly vanished into the paper (round 3). In dark it is cut into the paper, its border lit.
+        inputClassName="pr-10 md:pr-9 border-field-border bg-sheet shadow-none hover:border-foreground/60 focus-visible:border-foreground dark:bg-background"
+        clearClassName={cn(
+          'right-1 pointer-coarse:size-11 md:right-1.5 md:size-6',
+          size === 'sm' ? 'size-7' : 'size-9'
+        )}
       />
       {runButton && (
         <Button
@@ -119,7 +129,7 @@ export function FileSearchBanner({
 }: FileSearchBannerProps) {
   return (
     <div
-      className="flex min-h-9 shrink-0 items-center gap-2 border-b border-primary/20 bg-primary/5 px-4 py-2 text-xs animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none"
+      className="flex min-h-9 shrink-0 items-center gap-2 bg-primary/5 px-4 py-2 text-xs animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none"
       role="status"
       data-testid={bannerTestId}
     >
@@ -133,9 +143,9 @@ export function FileSearchBanner({
       <span className="min-w-0 flex-1 truncate text-foreground">{bannerText}</span>
       <Button
         type="button"
-        variant="ghost"
+        variant="secondary"
         size="sm"
-        className="h-7 shrink-0 gap-1.5 px-2 text-muted-foreground transition-colors duration-snap ease-out hover:text-foreground motion-reduce:transition-none"
+        className="shrink-0 gap-1.5"
         onClick={onResetSemantic}
       >
         <X className="size-3.5" aria-hidden />
@@ -157,7 +167,7 @@ export function FileSearchBar({ semanticActive, canSearch, runLabel, ...props }:
           surface: the list has to stay faintly visible scrolling under it.
           `shrink-0` on both bands says the same thing the chip row now says:
           chrome above a listing never absorbs the listing's overflow. */}
-      <div className="sticky top-0 z-10 shrink-0 border-b bg-background/95 px-4 py-2.5 backdrop-blur">
+      <div className="sticky top-0 z-10 shrink-0 bg-background px-4 py-2.5">
         <FileSearchField
           {...props}
           runButton={canSearch ? { label: runLabel, isSearching: props.isSearching } : undefined}

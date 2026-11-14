@@ -1,8 +1,8 @@
 # Piloti — Kubernetes deployment (Pulumi)
 
 TypeScript Pulumi program that deploys the entire Piloti stack to a Kubernetes
-cluster: the `aiq-agent` backend (the chat tier), the Next.js frontend/BFF, the purger and
-skill-scheduler workers, plus CloudNativePG Postgres, a Dragonfly cache, and
+cluster: the `aiq-agent` backend (the chat tier), the Next.js frontend/BFF, the purger,
+the bff-jobs workers, plus CloudNativePG Postgres, a Dragonfly cache, and
 SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic Let's Encrypt TLS.
 
 > Operator walkthrough (prereqs, DNS, day-2, scaling roadmap):
@@ -12,11 +12,12 @@ SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic L
 
 | Layer | Resources |
 |-------|-----------|
-| Platform | namespace `grid` (+ default-deny NetworkPolicies), cert-manager (Gateway-API) + Let's Encrypt `ClusterIssuer`, Envoy Gateway, observability (ADR-0029: `otel-collector` Deployment + Service + ConfigMap — only when `observabilityEnabled` **and** something consumes it: Langfuse, `posthogLogsEnabled` or `posthogMetricsEnabled`; with metrics, ADR-0119, an `otel-agent` DaemonSet and a read-only ServiceAccount and ClusterRole for each), Langfuse (ADR-0044: `langfuse-web` + `langfuse-worker` Deployments, `clickhouse` StatefulSet, a dedicated ingestion queue, HTTPRoute + SecurityPolicy — only when `langfuseEnabled` **and** its config deps are set; flag **on by default**), (metrics-server only on bare clusters) |
+| Platform | namespace `grid` (+ default-deny NetworkPolicies), cert-manager (Gateway-API) + Let's Encrypt `ClusterIssuer`, Envoy Gateway, observability (ADR-0029: `otel-collector` Deployment + Service + ConfigMap — only when `observabilityEnabled` **and** something consumes it: Langfuse, `posthogLogsEnabled`, `posthogMetricsEnabled` or `posthogTracesEnabled`; with metrics, ADR-0119, an `otel-agent` DaemonSet and a read-only ServiceAccount and ClusterRole for each), Langfuse (ADR-0044: `langfuse-web` + `langfuse-worker` Deployments, `clickhouse` StatefulSet, a dedicated ingestion queue, HTTPRoute + SecurityPolicy — only when `langfuseEnabled` **and** its config deps are set; flag **on by default**), (metrics-server only on bare clusters) |
 | Data | CloudNativePG operator + `Cluster` (`jobs`, `checkpoints`, `app`) with optional PITR backups to SeaweedFS (`ScheduledBackup`), Dragonfly, SeaweedFS (one StatefulSet under `seaweedfsTopology=single`; master + volume + filer StatefulSets, and a `seaweedfs_filer` CNPG database + role, under `split`) + bucket-init Job, Qdrant, the one vector store (ADR-0115: `qdrant` StatefulSet + headless and ClusterIP Services + PDB + `qdrant-snapshot` CronJob + `qdrant-alert-rules` ConfigMap, always; operating it: [`qdrant-runbook.md`](../../docs/deployment/qdrant-runbook.md)). No Chroma: `chromaMigration` copies the retired store into Qdrant on the deploy that removes it, and its volume `data-chroma-0` is kept, unmanaged, as the way back |
-| App | `aiq-agent` StatefulSet (no PVC; +PDB/spread in db mode), `frontend` Deployment + HPA + PDB, `agent-worker` Deployment + HPA + PDB (db mode), `purger`, `skill-scheduler`, a one-shot `drizzle-kit migrate` Job, a one-shot WorkOS audit-schema reconcile Job (when `requireAuth`), the one-shot `chroma-migration` Job + its `chroma-migration-exporter` ConfigMap (only when `chromaMigration`) |
+| App | `aiq-agent` StatefulSet (no PVC; +PDB/spread in db mode), `frontend` Deployment + HPA + PDB, `agent-worker` Deployment + HPA + PDB (db mode), `purger`, a one-shot `drizzle-kit migrate` Job, a one-shot WorkOS audit-schema reconcile Job (when `requireAuth`), the one-shot `chroma-migration` Job + its `chroma-migration-exporter` ConfigMap (only when `chromaMigration`) |
 | Edge | Gateway API (Envoy Gateway, HA: 2 replicas + PDB) + HTTPRoutes with cert-manager TLS for `app.<baseDomain>` and `s3.<baseDomain>` |
 | DNS | Cloudflare A records for exactly the Gateway's HTTPS listener hosts, plus optionally the zone-level `www` / `_dmarc` / apex-redirect records — only when `dnsEnabled` (off by default; records are otherwise maintained by hand) |
+| Mail | Project mail at Cloudflare (ADR-0138): Email Routing on the receiving subdomain (`inbox.<zone>`, by default in the app zone), its one literal rule `project@<domain>`, and the Email Worker that refuses addresses that are not project-shaped (`project+<slug>.<token>@<domain>`) and posts the rest, RFC 9421-signed, to the BFF; the RFC 2142 forwards `postmaster@`/`abuse@` to the operator's destination address; and, when set, the zone apex's DMARC record — only when `inboundMailDomain` is set (off by default). The zone's subaddressing setting is one API call outside Pulumi, which `deploy.yml` makes after `pulumi up` (`scripts/inbound-mail-after-deploy.sh`; the provider's only handle onboards the apex) |
 
 ## Prerequisites
 
@@ -140,7 +141,8 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | **Storage** | | |
 | **`storageClass`** | — | Provider class for every PVC: `premium` (3 replicas) / `standard` (2) / `single-replica` (1) |
 | **Ingress / TLS** | | |
-| **`baseDomain`** | — | Single source for every public host: `app.`/`s3.`/`otel.` subdomains derive from it, so a domain move is a one-key change. The **apex** itself is the landing site's host (apps/site) |
+| **`baseDomain`** | — | Single source for every public host: `app.`/`s3.`/`otel.` subdomains derive from it, so a domain move is a one-key change. The **apex** itself is the public website's host (apps/website) |
+| `formerBaseDomain` | _(unset)_ | During a domain move only: the domain this stack served before. Its apex and `app.` host get a TLS listener each and answer 301 to `webDomain` / `appDomain`, path kept (`src/app/former-domain.ts`). Off by default. Runbook: [`docs/deployment/domain-cutover.md`](../../docs/deployment/domain-cutover.md) |
 | `appDomain` / `s3Domain` / `webDomain` | derived from `baseDomain` | Optional per-host overrides (e.g. an S3 endpoint on a different zone); `webDomain` defaults to the bare `baseDomain` |
 | **`letsEncryptEmail`** | — | ACME account email (placeholder rejected) |
 | `useStagingIssuer` | `true` | LE staging CA until DNS/TLS verified, then flip false |
@@ -153,11 +155,24 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `dnsEnabled` | `false` | Manage the stack's A records in Cloudflare instead of by hand. The record set is derived from the same config the Gateway listeners are, so the two cannot drift. Requires a pinned `loadBalancerIp`. Off = records are maintained manually, exactly as before |
 | `dnsZoneId` | — | Cloudflare zone id (zone → Overview → API). Required when enabled |
 | `dnsZoneName` | — | The zone **apex** — not necessarily `baseDomain`, since a stack may live on a subdomain of its zone. Every managed host is checked to fall inside it: the Cloudflare API treats a name outside the zone as relative and appends the zone, creating a record that resolves nowhere and reporting success |
-| 🔒 `cloudflareApiToken` | — | Scoped to that one zone: `Zone:DNS:Edit`, plus `Zone:Dynamic URL Redirects:Edit` when `dnsApexRedirectTo` is set |
+| 🔒 `cloudflareApiToken` | — | Scoped to that one zone (both zones during a domain move): `Zone:DNS:Edit`, plus `Zone:Dynamic URL Redirects:Edit` when `dnsApexRedirectTo` is set. With `inboundMailDomain` set it adds, on the mail domain's zone, `Zone:Zone Settings:Edit`, `Zone:Email Routing Rules:Edit` and `Zone:Zone:Read`, plus Account `Workers Scripts:Edit` with the account listed under the token's Account Resources (a token scoped to the zone alone lacks it). Check it with `scripts/check-cloudflare-token.sh --stack <stack>` |
+| `formerDnsZoneName` / `formerDnsZoneId` | this stack's zone | During a domain move only, when `formerBaseDomain` lies in another zone: that zone, where the former apex and `app.` host keep their A records at the Gateway so their 301s answer. Both or neither |
 | `dnsTtl` | `600` | TTL for unproxied records |
 | `dnsZoneBaseline` | `false` | Whether this stack owns the zone-level records (`www`, `_dmarc`, the apex). **At most one stack** — two stacks writing the same record is not an API error, the later `up` silently wins |
 | `dnsDmarc` | — | Value of the `_dmarc` TXT record, when the baseline is owned here |
 | `dnsApexRedirectTo` | — | Absolute URL the apex and `www` redirect to (302) while no stack serves the apex. Unset it once one does — `loadConfig` refuses both at once |
+| **Project mail (Cloudflare Email Routing, ADR-0138)** — taking it to production: [`docs/deployment/project-mail-runbook.md`](../../docs/deployment/project-mail-runbook.md); reference: [`docs/deployment/kubernetes.md` §3c](../../docs/deployment/kubernetes.md#3c-project-mail-cloudflare-email-routing-adr-0138) | | |
+| `inboundMailDomain` | — | The receiving domain of the project addresses, normally a subdomain of the app zone (`inbox.example.org`): the apex's MX stay with the company's mail provider. Setting it turns the feature on: Email Routing on that domain, its one literal rule and the Worker at Cloudflare, `INBOUND_MAIL_DOMAIN` on the frontend and `bff-jobs`. Email Routing adds and locks the domain's MX and SPF records and a DKIM TXT. **Must lie in `inboundMailZoneId`** (its apex or a subdomain; refused at load time for a domain outside `dnsZoneName` on the DNS zone's id, at preview for any other mismatch). On the app zone it needs `dnsEnabled` and `dnsZoneBaseline`. Refused while `malwareScanEnabled` is false: every part of a mail is scanned before it can be filed. Refused at preview if the domain has MX records pointing anywhere but `*.mx.cloudflare.net`. Needs the zone's **subaddressing** on, one `PATCH …/email/routing`: `deploy.yml` makes it after `pulumi up` when it is off (`scripts/inbound-mail-after-deploy.sh subaddress`; by hand for a stack applied outside CI, the runbook's §7). Each organization also needs the `inbound-mail` WorkOS entitlement. At most one stack per mail zone. **Never unset it to turn the feature off**: set `inboundMailEnabled: false` first |
+| `inboundMailLocalPart` | `project` | The local part of the one routing rule and of every project address, in front of the `+`: `project+<slug>.<token>@<domain>`. 1 to 32 of `[a-z0-9-]`, no hyphen at either end. Reaches the frontend and `bff-jobs` as `INBOUND_MAIL_LOCAL_PART` and the Worker as `ADDRESS_LOCAL_PART`. Changing it changes every project's address |
+| `inboundMailZoneId` | `dnsZoneId` when `inboundMailDomain` is `dnsZoneName` or a subdomain of it | Cloudflare zone `inboundMailDomain` lives in. Set it only for a domain on a zone of its own. 32 hex digits (dashboard → the zone → Overview → API); anything else, a placeholder included, is refused at load time |
+| `inboundMailOperatorAddress` | — | **Required with the domain**, switched off too: the mailbox `postmaster@<domain>` and `abuse@<domain>` forward to (RFC 2142). One plain address, not on the receiving domain itself. Pulumi creates it as an account-level destination address (kept on delete: other zones' rules may use it; one that already exists is imported, the runbook's §4) and the two forwarding rules. Cloudflare mails it a verification link; the rules exist from the first `up` and deliver once someone clicks. Stack output `inboundMailOperator` says what Pulumi last read. With `inboundMailOperatorAddressShared` it is not created here |
+| `inboundMailOperatorAddressShared` | `false` | `true`: `inboundMailOperatorAddress` is a destination address the account already holds, owned elsewhere (another stack's, or added by hand), so this stack declares none and the forwards point at it: no verification mail, no apply that stops at the forwards with Cloudflare error 2054. The preview refuses it unless the account holds it **verified** (`getEmailRoutingAddresses`, Account · Email Routing Addresses · Read). `stack-files.spec.ts` refuses a shared address no committed stack owns. Prod shares dev's since 2026-11-14 |
+| `inboundMailDmarc` | — | The `_dmarc.<zone apex>` TXT record, published by the mail block for a mail zone of its own (`v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:<operator>`). Unset: no record. Refused unless it parses as DMARC (RFC 7489 §6.3), without `inboundMailDomain`, and beside `dnsDmarc` on the same zone (two DMARC records are none): at load time in one stack, in `stack-files.spec.ts` across stacks, and at preview when the name already holds a DMARC record this stack did not write |
+| `inboundMailEnabled` | `true` | The managed off switch. `false` keeps the domain and Email Routing, updates the rule in place to disabled (no rule then matches, and Cloudflare refuses the addresses at SMTP time; never Drop, which loses mail silently), deletes the Worker after that, and takes the domain off the frontend. The keys are then not needed |
+| `inboundMailPaused` | `false` | The incident lever: the Worker answers every project address with a temporary failure before reading it, and the BFF answers 503 (`INBOUND_MAIL_PAUSED`). Senders retry for days; nothing bounces. The promote that first sets the domain sets this too; unpause after launch gates G0–G9 (`scripts/inbound-mail-smoke.ts`) |
+| `inboundMailDirectFiling` | `true` | The kill switch of direct filing alone (`INBOUND_MAIL_DIRECT_FILING`, frontend and `bff-jobs`): `false` keeps receiving mail but queues no sender job, so a verified writer's mail waits for any of the project's writers instead of being filed as them (ADR-0137, amendment of 2026-11-03). The first lever for a sender-rule incident, before `inboundMailPaused` |
+| 🔒 `inboundMailSigningKeys` | — | Required with the domain while enabled. JSON, keyid → base64 secret of at least 32 bytes, one or two entries: `{"mi-2026-10":"<openssl rand -base64 32>"}`. Reaches the frontend as `INBOUND_MAIL_SIGNING_KEYS`; the Worker gets only the entry it signs with, as a `secret_text` binding. Checked as the BFF checks it (a map it cannot use is a 503 on every delivery). Rotate: add the successor, set `inboundMailSigningKeyId` to it, promote; then remove the old entry and promote. Never edit the Worker's binding in the dashboard: the next `up` restores it from state |
+| `inboundMailSigningKeyId` | the only key | The keyid the Worker signs with. Required while the map holds two keys |
 | **Edge rate limiting (ADR-0040 L1)** | | |
 | `rateLimitEnabled` | `true` | Deploy the global rate limit service + its counter store and attach the per-route rules. Off = the app-layer limiters are the only ones |
 | `rateLimitShadowMode` | `true` | Evaluate every rule and emit its telemetry, but never refuse. **Ships on**: pick real numbers from the would-have-blocked counts, then flip it off |
@@ -165,6 +180,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `rateLimitApp` | `600`/min | Catch-all budget per client IP on the app host (deliberately loose — stops runaway clients, does not shape traffic) |
 | `rateLimitAppAuth` | `20`/min | `/api/auth/*` — the credential-stuffing surface |
 | `rateLimitAppWsUpgrade` | `30`/min | `/websocket` upgrades; mirrors `WS_UPGRADE_RATE_LIMIT` |
+| — | — | `/api/internal/signed/*` (the RFC 9421 signed internal routes, today the project mail webhook) has a route of its own and **no** edge bucket: all of it arrives from Cloudflare's shared egress, so a per-client bucket would let other Cloudflare traffic defer mail. Its edge ceiling is a `Content-Length` of at most 27 MiB matched on the header (Envoy answers 413 otherwise, without buffering a byte), and its upstream budget is 120 s (`SIGNED_INTERNAL_ROUTE` in `src/signed-route-constants.ts`). The BFF limits per signing key, address and organization after the signature |
 | `rateLimitS3` | `300`/min | Presigned preview/download URLs (one preview fans out into many GETs) |
 | `rateLimitWeb` | `120`/min | Landing site + blog |
 | `rateLimitStoreMaxmemory` | `256mb` | Counter-store dataset cap (floor 256mb — Dragonfly's per-thread boot minimum) |
@@ -187,7 +203,21 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `pgBackupRetention` | `30d` | Barman retention window |
 | `pgBackupSchedule` | `0 0 2 * * *` | 6-field CNPG cron (sec min hour …) |
 | `pgBackupEncryption` | unset | Server-side encryption on the PITR archive: `AES256` or `aws:kms`, written to `barmanObjectStore.{wal,data}.encryption`. **Refused against the in-cluster SeaweedFS**, which has no SSE and would answer 200 while storing plaintext — use it only with an external S3 that documents SSE. Unset (the default) means the archive is unencrypted and `pulumi up` warns. See `docs/deployment/kubernetes.md` §7e |
-| 🔒 `pgScalerPassword` | derived from `pgAppPassword` | Password of `keda_scaler`, the read-only login KEDA's `postgresql` scaler counts the queue tables with (SELECT on the `status` column of `ingest_job_queue`, `research_job_queue` and `bff_job_queue`, and nothing else). Optional: unset, it is an HMAC of `pgAppPassword`, so it is never the owner's password and needs no new secret to deploy. Set it to rotate the scaler's credential alone; it lives in the `grid-keda-scaler` Secret, which no pod reads, so a rotation restarts nothing |
+| 🔒 `pgScalerPassword` | derived from `pgAppPassword` | Password of `keda_scaler` on the app cluster, still kept by the rename Jobs. Nothing reads through it any more: the worker tiers scale on Hatchet's backlog (below), and the grants it held on the claim-queue tables are gone with them |
+| **Background work: Hatchet (ADR-0150)** | | Always deployed, in the `background-work` namespace: the `hatchet-ha` chart (API, gRPC engine, controllers, scheduler, two replicas each with PDBs; the dashboard behind a ClusterIP Caddy, no route), the `background-work-pg` CloudNativePG cluster (database and role `hatchet`), a three-node `RabbitmqCluster` from the RabbitMQ Cluster Operator as Hatchet's message queue, the `hatchet-token-sync` Job that copies the worker token into `hatchet-client-token` in the app namespace, the namespace's NetworkPolicies and the `background-work-alert-rules` ConfigMap. Runbook: [`hatchet.md`](../../docs/deployment/hatchet.md) |
+| `hatchetChartVersion` | `0.21.0` | The `hatchet-ha` chart from `https://hatchet-dev.github.io/hatchet-charts`. Move it with `hatchetImageTag`, on dev first |
+| `hatchetImageTag` | `v0.114.2` | Hatchet's image tag for every component (the chart's `sharedConfig.image.tag`); also the Compose `hatchet-lite` pin |
+| `hatchetAdminEmail` | `letsEncryptEmail` | The dashboard's seeded admin login |
+| 🔒 `hatchetAdminPassword` | derived from `pgAppPassword` | Its password. Unset, an HMAC of `pgAppPassword`; read it back from the `hatchet-shared-config` Secret (`ADMIN_PASSWORD`) |
+| `hatchetRabbitmqStorageSize` | `10Gi` | Each RabbitMQ node's volume. Initial size only, like every StatefulSet claim |
+| `backgroundWorkPgInstances` | `2` | Instances of `background-work-pg`: a primary and a replica |
+| `backgroundWorkPgStorageSize` | `20Gi` | Its PVC per instance |
+| `backgroundWorkPgCpu` / `backgroundWorkPgMemory` | `2` / `4Gi` | Its CPU and memory limits (memory requested at its limit, CPU requested at 500m) |
+| 🔒 `backgroundWorkPgPassword` | derived from `pgAppPassword` | Password of `hatchet`, the role that owns database `hatchet`; its `CONNECTION LIMIT` comes from `backgroundWorkPgConnectionBudget` |
+| 🔒 `backgroundWorkPgScalerPassword` | derived from `pgAppPassword` | Password of `keda_scaler` on `background-work-pg`, the read-only login the worker tiers' ScaledObjects count Hatchet's backlog with (column SELECT on `v1_queue_item`, `v1_task`, `v1_task_runtime`). In the `background-work-keda-scaler` Secret, which no pod reads |
+| `backgroundWorkPgBackupsEnabled` | `false` | PITR archive of `background-work-pg`. Unlike `pgBackupsEnabled` it has no in-cluster default: it needs an endpoint outside the cluster |
+| `backgroundWorkPgBackupEndpoint` / `backgroundWorkPgBackupAccessKey` / 🔒 `backgroundWorkPgBackupSecretKey` | — | Required with the archive on |
+| `backgroundWorkPgBackupBucket` / `backgroundWorkPgBackupRetention` / `backgroundWorkPgBackupSchedule` / `backgroundWorkPgBackupEncryption` | `background-work-pg-backups` / `14d` / `0 30 2 * * *` / unset | As the `pgBackup*` keys |
 | **Dragonfly (cache)** | | |
 | `dragonflyMaxmemory` | `512mb` | Dataset cap (cache evicts above it) |
 | `dragonflyMemoryLimit` | `768Mi` | Pod memory limit; must exceed maxmemory |
@@ -215,12 +245,11 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `gotenbergEnabled` | `true` | Office → PDF converter. Required for indexing Word, presentation, `.xls` and `.ods` files, which the backend reads only from the PDF (ADR-0071). `false` drops the workload and the frontend's `GOTENBERG_URL`: those files are then marked failed with a retryable reason, and `.xlsx`/`.xlsm` index without preview or thumbnail. With `networkPolicies` on it admits the frontend alone and has no egress (`gotenberg-frontend-only`); its flags refuse LibreOffice's outbound fetches either way. Drains a conversion in flight for up to 120s on a rollout |
 | `gotenbergReplicas` | `ceil(bffJobsMaxReplicas × bffJobsRenditionConcurrency / 2)` (2 by default) | Converter replicas. A replica is sized for 2 conversions (one running, one ready behind it, `GOTENBERG_SLOTS_PER_REPLICA`), so its capacity is twice this, and the `bff-jobs` pool's ceiling (`bffJobsMaxReplicas × bffJobsRenditionConcurrency`) may not exceed it (`gotenberg.spec.ts` holds the defaults to it). Unset, it follows the pool; set it higher to leave headroom for readers opening a preview, whose conversions the frontend pods run themselves |
 | `gotenbergImage` | `gotenberg/gotenberg:8.37.0-libreoffice` | Pinned, LibreOffice-only variant: no Chromium, so no HTML/URL → PDF routes. The container args are 8.x flag names, and an unknown flag (any `--chromium-*` on this variant) stops it at boot. Keep equal to the Compose pin (`gotenberg.spec.ts` checks) |
-| **Geocoder (address search, ADR-0120)** | | |
-| `geocoderEnabled` | `false` | Self-hosted [Photon](https://github.com/komoot/photon) over the Austrian OSM extract: a `geocoder` StatefulSet of one with an index volume, and `GEOCODER_URL=http://geocoder:2322` on the frontend. Off, the project dialog's address stays a plain text field. The first start downloads the pinned jar from GitHub and the ~1 GB index from `download1.graphhopper.com`, so the cluster needs HTTPS egress to both. With `networkPolicies` on it admits the frontend alone and may only reach DNS and port 443 (`geocoder-frontend-only`) |
-| `geocoderImage` / `geocoderFetchImage` | `eclipse-temurin:21.0.12.1_1-jre-noble@sha256:…` / `alpine:3.22.6@sha256:…` | The Java runtime Photon runs on, and the init container that fetches and verifies the jar (sha256 pinned in `GEOCODER`, `src/constants.ts`) and the index (md5 published beside it). Official images, digest-pinned |
-| `geocoderIndexUrl` | GraphHopper's `photon-db-austria-1.0-latest.tar.bz2` | The Photon 1.x index; `<url>.md5` must exist beside it. Move it with the jar on a Photon major bump |
-| `geocoderStorageSize` | `10Gi` | The index volume. The index unpacks to about 2 GB; a refresh holds the tarball, the new index and the old one at once |
-| `geocoderIndexMaxAgeDays` | `30` | At pod start, an index older than this is fetched again, and the old one is served if that fails. Nothing restarts the pod on a clock; `kubectl -n grid rollout restart statefulset/geocoder` refreshes on demand |
+| **Geocoder (address search, ADR-0151, ADR-0159)** | | |
+| `geocoderUrl` | _(empty: off)_ | The [Photon](https://github.com/komoot/photon) instance behind the project dialog's address search, passed to the frontend alone as `GEOCODER_URL` (the `bff-jobs` pool does not get it). komoot's public instance needs no account; the adapter asks it for the Austrian bounding box and drops every hit outside AT. Nothing runs in the cluster for it: the frontend reaches it over its open HTTPS egress. Empty (the default since ADR-0159: every keystroke goes to the geocoder, and komoot is in no processor register) leaves address search off, and the dialog's address stays a plain text field, stored as unconfirmed; set `https://photon.komoot.io` to opt a stack in; a value that is no http(s) URL fails the plan |
+| **Malware scanner (ClamAV, ADR-0157)** | | |
+| `malwareScanEnabled` | `false` | clamd and freshclam in a `clamav` Deployment of one (`src/app/clamav.ts`), and `MALWARE_SCAN_URL=tcp://clamav:3310` on the frontend and the `bff-jobs` pool. Off, every scan fails closed (`not-configured`) and nothing that needs a clean scan is filed. Requests 2 GiB of memory; freshclam needs HTTPS egress to `database.clamav.net`. The pod is ready only while its signatures are under 48 hours old. With `networkPolicies` on it admits the frontend and the `bff-jobs` pool alone (`clamav-bff-only`). Its config is `deploy/compose/clamav/{clamd,freshclam}.conf`, shared with Compose |
+| `malwareScanImage` | `clamav/clamav:1.5.4@sha256:…` | The official image with its signatures baked in. Refused unless pinned by digest; keep it equal to the Compose pin. `malwareScanUrl` is refused on every stack: the URL is always the stack's own clamd |
 | **SeaweedFS (S3)** | | |
 | `seaweedfsImage` | `chrislusf/seaweedfs:latest` | Prod template pins 3.80 (storage engine) |
 | `seaweedfsStorageSize` | `20Gi` | Object-store volume (grow via PVC patch) |
@@ -237,6 +266,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | 🔒 `seaweedfsFilerDbPassword` | — | Login for the dedicated `seaweedfs_filer` Postgres role. REQUIRED when `seaweedfsTopology=split` and `seaweedfsFilerStore=postgres`; without it the deploy fails at plan time instead of shipping a filer that boots and cannot reach its store |
 | `seaweedfsVolumeSizeLimitMB` | `1024` | Cap on one volume file. A volume server derives its writable-slot count from `free / limit`, so SeaweedFS's own `30000` default computes **one** slot on a 20Gi PVC and zero on 10Gi — which surfaces as "No writable volumes and no free volumes left" on every upload. Volumes grow lazily, so a small limit costs nothing. Ceiling `30000` (`weed master` fatals above it) |
 | `seaweedfsVolumeMaxCount` | `64` | Writable volume slots a volume server will hold open (`-max`). Applies to **both** topologies — `single` hardcoded 8 until staging ran out of them. A bucket is a SeaweedFS COLLECTION and each one needs a writable volume of its own, so with `seaweedfsPerOrgBuckets` on, this number is the ceiling on how many organizations can ever be onboarded. SeaweedFS grows a new collection by up to 7 volumes at once, so 64 slots hold about nine buckets, platform buckets included; prod sets 512 after the tenth failed (2026-10-20), where the app reports „Object storage is unavailable“. Hitting it looks nothing like a capacity problem: `/dir/status` reports `Max:8 Free:0`, the new org's collection shows `writables: null`, and its first write fails with a bare S3 `InternalError` while the disk sits all but empty. Slots are a ceiling, not a reservation — SeaweedFS grows volumes lazily, so raising this costs nothing until the volumes are used |
+| `seaweedfsSingleRequestsMemory` / `seaweedfsSingleLimitsMemory` | `256Mi` / `1Gi` | Memory of the `single` topology's one `weed server` process; CPU stays the constant. Prod sets `1Gi` / `4Gi` after 2026-11-02, when eight ingest pods downloading at once took it to 1,062 MB of 1 GiB and it restarted five times in 15 minutes, failing every download in those seconds. A change restarts the only storage server, so apply it in a quiet hour. The split topology sizes each role separately (`DATA_RESOURCES`) |
 | `seaweedfsVolumeMinFreeSpace` | `2GiB` | Free space at which a volume server marks all of its volumes read-only. Rejected below one `seaweedfsVolumeSizeLimitMB`: the brake has to engage before a growing volume can hit ENOSPC mid-write, not after. A bare number means *percent* to SeaweedFS and is left unchecked |
 | `seaweedfsDefaultReplication` | `000` | Copy placement, `<diffDataCenter><diffRack><sameRack>`. Each volume pod reports its Kubernetes **node** as its rack, so `010` is what actually lands the two copies on two machines. Refused when it asks for more copies than there are volume servers — otherwise volume growth starts failing once the first volume fills, which reads as uploads spontaneously breaking rather than as a config error |
 | **SeaweedFS per-organization buckets** (ADR-0043) | | |
@@ -260,40 +290,41 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | 🔒 `jobPayloadKek` | — | REQUIRED for db mode (encrypts job payloads at rest) |
 | `allowPlaintextJobPayloads` | `false` | Dev-only escape hatch for the KEK requirement |
 | `agentWorkerRequestsCpu/Memory`, `agentWorkerLimitsCpu/Memory` | 1 / 2Gi / 4 / 8Gi | Worker sizing |
-| `agentWorkerMinReplicas` / `agentWorkerMaxReplicas` | 1 / 8 | KEDA bounds for the worker tier, which scales on `research_job_queue` depth (not CPU). 0 lets it idle while nothing waits; dev sets 0 |
+| `agentWorkerMinReplicas` / `agentWorkerMaxReplicas` | 1 / 8 | KEDA bounds for the worker tier, which scales on the `research-run` backlog in Hatchet (not CPU). 0 lets it idle while nothing waits; dev sets 0 |
 | `agentWorkerConcurrency` | `1` | Jobs per worker process; KEDA asks for one replica per this many open jobs |
-| `agentWorkerDrainSeconds` | `600` | Seconds a terminating worker may spend finishing already-claimed research jobs (`RESEARCH_WORKER_DRAIN_SECONDS`); the grace period is this plus 30 s. A job still running when it ends is requeued without costing an attempt and started over by another worker, so the budget decides how much work a deploy repeats. Costs deploy latency — workers roll one at a time. Floor 30 |
+| `agentWorkerDrainSeconds` | `600` | Seconds a terminating worker may spend finishing the research runs it holds (the Hatchet SDK waits for them on SIGTERM; no env variable carries it); the grace period is this plus 30 s. A run still going when it ends is a lost worker's, which Hatchet assigns again, so the budget decides how much work a deploy repeats. Costs deploy latency — workers roll one at a time. Floor 30 |
 | **The api tier** (ADR-0082): `aiq-api`, every backend HTTP route but the chat socket, which `BACKEND_URL` names | | |
 | `apiMinReplicas` / `apiMaxReplicas` | 2 / 4 (prod 1 / 3, dev 1 / 2) | Bounds of its CPU HPA. A ceiling below the floor fails the plan |
 | `apiHpaCpuTargetPercent` | `70` | HPA target average CPU, as a percentage of requests (`apiRequestsCpu`) |
 | `apiRequestsCpu/Memory`, `apiLimitsCpu/Memory` | 500m / 1536Mi / 2 / 6Gi | Sizing |
 | **Ingestion tier, BFF pool and KEDA** (ADR-0076, ADR-0079) | | |
-| `ingestWorkerMinReplicas` / `ingestWorkerMaxReplicas` | 1 / 5 (prod 1 / 8) | KEDA bounds for the ingest tier, which scales on `ingest_job_queue` depth. The ceiling is held to the provider budget below: the deploy fails when it is more than 2x `vlmFleetConcurrency`. Prod's 8 x 2 x 4 = 64 sits exactly at it |
+| `ingestWorkerMinReplicas` / `ingestWorkerMaxReplicas` | 1 / 5 (prod 1 / 8) | KEDA bounds for the ingest tier, which scales on the `ingest-document` backlog in Hatchet. The ceiling is held to the provider budget below: the deploy fails when it is more than 2x `vlmFleetConcurrency`. Prod's 8 x 2 x 4 = 64 sits exactly at it |
 | `ingestWorkerRequestsCpu/Memory`, `ingestWorkerLimitsCpu/Memory` | 500m / 4Gi / 2 / 6Gi (prod: 1 / 6Gi / 2 / 6Gi, on the batch group) | Sizing. The memory request is what a worker holds while it parses, so the scheduler cannot pack several onto one node; prod sets request = limit, so it cannot overcommit at all |
 | `ingestWorkerConcurrency` / `ingestWorkerDrainSeconds` | 3 (prod 2) / 600 | Jobs per worker (also KEDA's jobs-per-replica target) / SIGTERM budget; the grace period is the drain plus 30 s |
 | `ingestMaxPerOrg` | `0` | Most ingest jobs one organisation may run fleet-wide at once; 0 = no cap (the claim is fair regardless) |
-| `bffJobsEnabled` | `true` | Run the `bff-jobs` pool. It runs project reindex, failed-ingestion rescan, IFC extraction, Office → PDF rendition and research-report filing, so with it off none of those runs |
+| `bffJobsEnabled` | `true` | Must stay `true`: `false` fails the plan. The `bff-jobs` pool runs project reindex, failed-ingestion rescan, IFC extraction, Office → PDF rendition, research-report filing, and the scheduling crons (every scheduled automation's fire and every maintenance sweep), which no other worker runs |
 | `bffJobsRequestsCpu/Memory`, `bffJobsLimitsCpu/Memory` | 250m / 512Mi / 1 / 2Gi | Sizing. The limit is double a frontend pod's because an IFC model is parsed in the pod, several times its own size in memory, `bffJobsConcurrency` of them at once |
-| `bffJobsMinReplicas` / `bffJobsMaxReplicas` | 1 / 4 | KEDA bounds for the `bff-jobs` pool, which scales on `bff_job_queue` depth |
+| `bffJobsMinReplicas` / `bffJobsMaxReplicas` | 1 / 4 | KEDA bounds for the `bff-jobs` pool, which scales on the `bff-job` backlog in Hatchet. The floor must be at least 1, or the plan fails: a cron adds nothing to that backlog, so at zero no automation fires and no sweep runs |
 | `bffJobsConcurrency` / `bffJobsDrainSeconds` | 2 / 60 | Jobs per pod (also KEDA's target) / SIGTERM budget; the grace period is the drain plus 30 s |
 | `bffJobsMaxPerOrg` | `0` | Most jobs one organisation may run fleet-wide at once; 0 = no cap (the claim is fair regardless) |
-| `bffJobsMode` | `http` | `BFF_JOBS_MODE`: where a slice runs. `http` spawns the BFF (`node server.js`) in each pod and asks it per slice; `inprocess` runs the services bundled at image build in the supervisor and spawns no server (ADR-0079 amendment 1). Any other value fails the plan |
 | `bffJobsRenditionConcurrency` | `1` | `GOTENBERG_MAX_CONCURRENCY` in a `bff-jobs` pod: Office conversions one pod runs at Gotenberg at once. The fleet's conversion ceiling is this times `bffJobsMaxReplicas` (`renditionCeiling`), and it is held to `gotenbergReplicas` (below): raise either side of the product and Gotenberg's replicas must follow, or conversions queue inside the converter and run out their API timeout |
 | `installKeda` | `true` | Install KEDA (chart pinned in `src/platform/keda.ts`, the release the plan's CRDs are validated against). `false` when the cluster already runs one, which must then be the same release |
 | **Provider budget** (ADR-0076, ADR-0081) | | |
 | `vlmFleetConcurrency` | `32` | `VLM_FLEET_CONCURRENCY`: vision calls in flight across every ingest process at once (0 = off). Held to `providerModelLimitCeiling` and `providerLimitCeiling`: a vision call holds a slot in both pools, so a larger pool never fills |
-| `vlmBatchWorkers` | `4` | `VLM_BATCH_WORKERS`: vision calls one file runs at once. With the ingest tier's replicas and concurrency it sets the peak that `vlmFleetConcurrency` is checked against |
+| `ingestPageReadParallelism` | `16` | `INGEST_PAGE_READ_PARALLELISM`: threads one file's page reads (OCR and vision together) share. It bounds a file's threads and memory; `vlmFleetConcurrency` caps the calls, and the plan fails when this is larger than it |
 | `providerLimitCeiling` / `providerModelLimitCeiling` | 128 / 32 | `PROVIDER_LIMIT_CEILING` / `PROVIDER_MODEL_LIMIT_CEILING`: model calls in flight fleet-wide, all models together and any one model; where the adaptive limiter starts and what it recovers to |
 | **Frontend** | | |
 | `frontendRequestsCpu/Memory`, `frontendLimitsCpu/Memory` | 100m / 256Mi / 1 / 1Gi | Sizing |
 | `frontendMinReplicas` / `frontendMaxReplicas` | 2 / 6 | HPA bounds |
 | `frontendHpaCpuTargetPercent` | `70` | HPA target |
-| **Web (landing site, apps/site)** | | |
+| **Web (the public website, apps/website)** | | |
 | `webRequestsCpu/Memory`, `webLimitsCpu/Memory` | 50m / 128Mi / 250m / 256Mi | Sizing — static-first Astro site, near-idle CPU |
 | `webMinReplicas` / `webMaxReplicas` | 2 / 4 | HPA bounds |
 | `webHpaCpuTargetPercent` | `70` | HPA target |
 | **LLM / models** | | |
 | 🔒 **`openrouterApiKey`** / 🔒 **`tavilyApiKey`** | — | Provider keys |
+| 🔒 `openrouterChatKey` / 🔒 `openrouterResearchKey` / 🔒 `openrouterIngestKey` | `openrouterApiKey` | One OpenRouter key per workload, each with its own credit limit in OpenRouter: chat, api and the frontend; the agent-worker; the ingest-worker. Each pod gets only its own, as `OPENROUTER_API_KEY` (and `EMBED_API_KEY`, `VLM_API_KEY`). Runbook: `docs/deployment/kubernetes.md` §6.3e |
+| `pgBackupEndpoint` / `pgBackupBucket` / `pgBackupAccessKey` / 🔒 `pgBackupSecretKey` | in-cluster SeaweedFS, `grid-pg-backups` | The app cluster's PITR archive. An external endpoint needs its own key pair; on `prod`, once any off-cluster backup endpoint is set, the in-cluster SeaweedFS is refused. Runbook: `docs/deployment/kubernetes.md`, "Moving the app archive off-cluster" |
 | `embedModel` / `embedBaseUrl` | text-embedding-3-large / OpenRouter | Embeddings |
 | `vlmModel` / `vlmBaseUrl` | gpt-6-luna / OpenRouter | Vision model |
 | **Auth / platform** | | |
@@ -316,11 +347,11 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `vectorReconcileEnabled` | `true` | Creates the `vector-reconcile` CronJob, which calls `POST /api/internal/maintenance/reconcile-vectors`: the same sweep a platform owner can start from Platform → Vector maintenance — delete indexed chunks whose document row is gone, forget inventory (summary) rows whose chunks are gone. Default-**on**: the orphans it recovers are invisible in the product, so nobody knows to start the manual run |
 | `vectorReconcileSchedule` | `0 3 * * 0` | 5-field cron for the sweep. Weekly, Sunday 03:00 UTC: every collection is scanned each tick and the store is only written to when a past delete left something behind, so a tighter period costs scans without recovering anything sooner |
 | **Observability** (ADR-0029) | | |
-| `observabilityEnabled` | `true` | Feature flag for the OTel Collector. Deployed when the flag is on **AND** something consumes it: Langfuse, `posthogLogsEnabled` or `posthogMetricsEnabled`. With no consumer `preview` warns and nothing is provisioned, including the producers' OTLP env. The Aspire dashboard and err2issue it used to feed are retired; their keys (`otelPrimaryApiKey`, `otelDomain`, `dashboardImage`, `dashboardMaxLogCount`, `dashboardMaxTraceCount`, and every `err2issue*` and `feedbackIssues*` key) are ignored and can be deleted from the stack file |
+| `observabilityEnabled` | `true` | Feature flag for the OTel Collector. Deployed when the flag is on **AND** something consumes it: Langfuse, `posthogLogsEnabled`, `posthogMetricsEnabled` or `posthogTracesEnabled`. With no consumer `preview` warns and nothing is provisioned, including the producers' OTLP env. The Aspire dashboard and err2issue it used to feed are retired; their keys (`otelPrimaryApiKey`, `otelDomain`, `dashboardImage`, `dashboardMaxLogCount`, `dashboardMaxTraceCount`, and every `err2issue*` and `feedbackIssues*` key) are ignored and can be deleted from the stack file |
 | **`otelOidcIssuer`** | — | Issuer of the platform WorkOS **Connect** application (the environment's AuthKit domain, `https://<tenant>.authkit.app`). Read by Langfuse alone now, which is deployed only when all three `otelOidc*` keys are set |
 | **`otelOidcClientId`** | — | Client id of that Connect application (confidential client) |
 | 🔒 `otelOidcClientSecret` | — | Its client secret. The Gateway SecurityPolicy exchanges the code with `client_secret_basic`, so a public/PKCE-only client cannot be used |
-| `collectorImage` | digest-pinned `otel/opentelemetry-collector-contrib@sha256:…` (0.163.2) | OTel Collector image (single OTLP ingestion point); override only for a deliberate upgrade |
+| `collectorImage` | digest-pinned `otel/opentelemetry-collector-contrib@sha256:…` (0.165.0) | OTel Collector image (single OTLP ingestion point); override only for a deliberate upgrade |
 | **Langfuse** (ADR-0044) — durable LLM observability, self-hosted **free/OSS** build. No licence key is set anywhere; the visible cost is that data-retention policies are an Enterprise feature, so trace data never expires and `clickhouseStorageSize` is a number to watch (the server's own system logs self-clean after 14 days). Full operator guide: [`docs/deployment/kubernetes.md` §9b](../../docs/deployment/kubernetes.md) | | |
 | `langfuseEnabled` | `true` | Feature flag. Deployed only when the flag is on **AND** every 🔒 key below is set **AND** `observabilityEnabled` is not `false` **AND** the `otelOidc*` Connect application is set (its UI signs in against it) — Langfuse has no receiver of its own, the collector feeds it, and Langfuse is what brings the collector up on a stack with no dashboard. Otherwise `preview` warns naming what is missing and nothing is provisioned (no workloads, no `https-langfuse` listener, no collector exporter, no identity attributes). Default-**on**, so setting the 🔒 keys is all a stack needs; set the flag to `false` to opt out of four workloads and a PVC that grows |
 | `langfuseDomain` | `langfuse.<baseDomain>` | Public host. Register `https://<host>/oauth2/callback` as a redirect URI on the **same** WorkOS Connect application as `otelOidc*` — not a second one |
@@ -337,16 +368,31 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `langfuseInitUserEmail` | `letsEncryptEmail` | That account's email |
 | `langfuseOrgId` / `langfuseProjectId` | `grid` / `grid-oib` | Headless-init identifiers. Deliberately not derived from the hostname: headless init matches on them, so a value that moved with the domain would create a SECOND project and orphan every stored trace |
 | `langfuseDefaultRole` | `VIEWER` | Role a NEW Langfuse user gets in `langfuseOrgId` / `langfuseProjectId` on first SSO sign-in (`LANGFUSE_DEFAULT_ORG_ROLE` and `_PROJECT_ROLE`). `OWNER`, `ADMIN`, `MEMBER`, `VIEWER` or `NONE`, refused at load time otherwise, because Langfuse refuses to start on an unknown one. `NONE` joins the org with no access and no project. Applied only when an account is created or first linked, so a promotion made in the Langfuse UI is never reverted. See kubernetes.md §9b, "Giving analysts read-only access" |
-| `langfuseWebImage` / `langfuseWorkerImage` | digest-pinned `ghcr.io/langfuse/langfuse{,-worker}@sha256:…` (4.71.0) | Two keys because upstream publishes two images — but they **must be the same version**, and digests are opaque so nothing can check it. Bump together. Both are scanned by the trivy `image-scan` job |
+| `langfuseWebImage` / `langfuseWorkerImage` | digest-pinned `ghcr.io/langfuse/langfuse{,-worker}@sha256:…` (4.74.0) | Two keys because upstream publishes two images — but they **must be the same version**, and digests are opaque so nothing can check it. Bump together. Both are scanned by the trivy `image-scan` job |
 | `clickhouseImage` | digest-pinned `clickhouse/clickhouse-server@sha256:…` (26.8 LTS) | Single-node analytical store. Langfuse v4 needs 25.12 or newer. `CLICKHOUSE_CLUSTER_ENABLED=false` makes the migrator emit plain `MergeTree`, so growing to a real cluster is a migration, not a replica count |
 | `clickhouseStorageSize` | `50Gi` | The trace store is the tier's unbounded resource — see the retention note above. The server's own system logs are TTL-bounded at 14 days (`system-log-ttl.xml` in `src/data/clickhouse.ts`) and cannot fill the disk the way `system.trace_log` did on dev in August 2026. Growing the PVC is a PVC patch (`volumeClaimTemplates` is immutable and `ignoreChanges`d) |
 | `langfuseV4HistoricBackfill` | `false` | Rewrite historic traces into v4's tables. Needs about three times the current ClickHouse disk as headroom |
 | `langfuseQueueMaxmemory` / `langfuseQueueMemoryLimit` | `512mb` / `1Gi` | Ingestion-queue dataset cap and pod memory limit. Eviction is OFF, so "full" means ingestion stops (loudly) rather than oldest-drops (silently) |
+| **The website's CMS** (ADR-0155) — Payload in namespace `cms`: the `cms` Deployment (one replica, `Recreate`; image `cms`, built by CI from `apps/cms`; read-only root; migrations and provisioning on start), the `cms-pg` CloudNativePG cluster, the `cms-files` bucket and `cms` S3 identity, the `https-cms` listener and the `cms` HTTPRoute, the namespace's NetworkPolicies plus two in the app namespace (to SeaweedFS's S3 port and to the website), and the website's `web-cms` Secret and `CMS_*` env. Off by default | | |
+| `cmsEnabled` | `false` | Deploy the CMS. Takes effect only with `networkPolicies` on; otherwise the plan warns and deploys none of it |
+| `cmsDomain` | `cms.<baseDomain>` | The admin panel, the REST API and the MCP server (`/api/mcp`) |
+| `cmsImage` | `<imageRegistry>/cms:<imageTag>` | A full image reference instead of the commit's own build: a rollback or a hotfix of the CMS alone |
+| `cmsCpu` / `cmsMemory` | `1` / `1Gi` | The CMS's limits; memory requested at its limit, CPU at 250m |
+| `cmsPgInstances` / `cmsPgStorageSize` | `1` / `5Gi` | `cms-pg`'s instances and volume |
+| 🔒 `cmsSecret` / `cmsAdminPassword` / `cmsPgPassword` / `cmsS3SecretKey` / `cmsWebsiteApiKey` / `cmsSocialHandoffApiKey` / `cmsRevalidateToken` / `cmsPreviewSecret` | HMACs of `pgAppPassword` | Each defaults to its own one-way HMAC, so the CMS needs no new secret; set one to rotate it alone. `cmsAdminEmail` defaults to `letsEncryptEmail` |
+| `cmsPgBackupsEnabled` / `cmsPgBackupEndpoint` / `cmsPgBackupAccessKey` / 🔒 `cmsPgBackupSecretKey` / `cmsPgBackupBucket` / `cmsPgBackupRetention` / `cmsPgBackupSchedule` / `cmsPgBackupEncryption` | `false` / — / — / — / `cms-pg-backups` / `30d` / `0 15 2 * * *` / unset | `cms-pg`'s PITR archive, to object storage outside the cluster, as the `backgroundWorkPg*` keys. Turn it on before the first post is written there |
+| **Platform MCP gateway** (ADR-0154): agentgateway behind Envoy, where platform staff's agents reach in-cluster MCP servers signed in with WorkOS. Runbook: [`docs/deployment/platform-mcp-gateway.md`](../../docs/deployment/platform-mcp-gateway.md) | | |
+| `mcpGatewayEnabled` | `false` | The `https-platform-mcp` listener (certificate `platform-mcp-tls`), its DNS record under `dnsEnabled`, the `platform-mcp-gateway` HTTPRoute, Deployment (2 replicas), Service, ConfigMap and session Secret, and the `allow-edge-to-platform-mcp-gateway` and `allow-platform-mcp-gateway-to-langfuse` NetworkPolicies. Off, none of these exist. On, it needs `workosAuthkitDomain`, Langfuse, and the two keys below, or the plan fails naming the missing one |
+| `mcpGatewayDomain` | `platform-mcp.<baseDomain>` | Its public host. Must stay under the WorkOS resource indicator `https://<host>/*` |
+| `mcpGatewayPlatformOrgId` | — | WorkOS id (`org_…`) of the platform organization: a token with any other `org_id` gets 403. Not `platformOrgExternalId` |
+| 🔒 `mcpGatewaySessionKey` | — | 64 hex characters (`openssl rand -hex 32`). agentgateway encrypts MCP session ids with it, and both replicas share it. Rotating it ends open sessions; clients reconnect |
 
 ## Validation (no target cluster required)
 
 ```bash
-npm run typecheck   # tsc: every typed manifest, incl. Gateway/Envoy CRD specs
+npm run typecheck   # tsc: every typed manifest, incl. Gateway/Envoy CRD specs,
+                    # the launch-gate tool, and the Email Worker against
+                    # @cloudflare/workers-types (tsconfig.worker.json)
 npm run validate    # pulumi preview → schema-check every CustomResource in the
                     # plan against the real upstream CRD schemas (CNPG + KEDA)
 npm run policy      # pulumi preview --policy-pack ./policy → CrossGuard
@@ -359,6 +405,36 @@ workflow runs all three as its gates before the apply; the apply itself is a
 plain `up` on the same runner, so the policy pack does **not** re-run there —
 the gate preview is the policy checkpoint (accepted residual, see
 `docs/deployment/pulumi-cloud-feature-audit.md`).
+
+### Project mail's launch gates
+
+`scripts/inbound-mail-smoke.ts` runs the launch gates G0–G9 of project mail
+against a deployed stack, after the promote that set `inboundMailDomain`
+with `inboundMailPaused: true` and before the unpause, and again after any
+bump of the Worker's `COMPATIBILITY_DATE` (G8). It never writes to
+Cloudflare and sends nothing without `--run`; its header lists the
+environment it reads. Never point it at a customer office's address: the
+probes are held mail in the test office. The order to run them in, and what to
+do when one fails: [`docs/deployment/project-mail-runbook.md`](../../docs/deployment/project-mail-runbook.md) §8.
+
+```bash
+bun scripts/inbound-mail-smoke.ts plan                # every gate's steps
+bun scripts/inbound-mail-smoke.ts g0                  # G0: both MX sets over public DNS, subaddressing, the rules, the test mail (read-only)
+bun scripts/inbound-mail-smoke.ts cloudflare          # G7: subaddressing, the rule and the RFC 2142 forwards, MX, Worker settings (read-only)
+bun scripts/inbound-mail-smoke.ts signed --run        # G3 at the BFF and the edge
+bun scripts/inbound-mail-smoke.ts signed --run --expect-paused   # G4, while paused
+bun scripts/inbound-mail-smoke.ts malware --run       # G6: EICAR and a limit-exceeding archive
+bun scripts/inbound-mail-smoke.ts dkim-share ./export # G9, offline, over .eml / .mbox
+```
+
+`deploy.yml` runs two of them after every `pulumi up` of a stack with mail on,
+through `scripts/inbound-mail-after-deploy.sh gates` (the job summary has the
+lines): `cloudflare` always, and `signed --run` (`--expect-paused` while
+paused) once the GitHub environment's secret `INBOUND_MAIL_TEST_ADDRESS` names a
+test-office address; without it that half says it was skipped. Both read the
+stack output `inboundMailCloudflare` and use the deploy token. `g0` stays a
+person's run: it reads public DNS, which caches the subdomain's NXDOMAIN for
+30 minutes after a first apply, and it ends in a mail to send.
 
 ### Rollout safety
 
@@ -392,6 +468,9 @@ src/config.ts            typed config: DeployConfig and loadConfig
 src/config/              one module per concern: its keys, defaults and checks
 src/platform/            provider, namespace, cert-manager, gateway (Envoy),
                          dns (Cloudflare records for the Gateway's hosts),
+                         inbound-mail (Email Routing's one rule + the Email
+                         Worker, inbound-mail-worker.js, uploaded verbatim),
+                         email-routing (the mail domain + its MX guard),
                          metrics-server, scheduling (PDB/spread), rollout
                          (update strategy, drain, secret checksum)
 policy/                  CrossGuard policy pack (own package.json + bun.lock)
@@ -404,6 +483,8 @@ src/names.ts             every object name, legacy and brand-free (ADR-0147)
 scripts/                 deploy.yml's helpers: GHCR tag lookup, the staging
                          image resolver + downgrade guard (reads the
                          `deployedImages` output), CR schema validation,
+                         inbound-mail-smoke.ts (project mail's launch
+                         gates G0–G9, below),
                          the workspace stack file and ESC environment
 workspace/               the `workspace` project (ADR-0147): this program
                          again, for the namespace `workspace`

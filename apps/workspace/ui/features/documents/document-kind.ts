@@ -134,63 +134,28 @@ export function fileExtensionLabel(filename: string): string {
 }
 
 /**
- * Tint (background + text CSS values) for a file-extension chip.
+ * Tint (background + text CSS values) for a file-extension chip: one quiet
+ * ink-on-paper tile for every format.
  *
- * There is no dedicated file-type token family yet, so the chips lean on the
- * provenance/source token family from the overhaul spec (§4) with graceful
- * fallbacks to today's semantic feedback tokens — never raw hex — so they
- * render correctly both before and after the WS-1 token retune lands:
- *   documents (pdf/doc/txt) → project-knowledge green,
- *   plans (dwg/dxf/ifc)     → law blue,
- *   photos                  → office gold,
- *   everything else         → neutral.
+ * It used to borrow the provenance colours by format (PDF and Word the green of
+ * project knowledge, DWG and IFC the blue of building law, photos the gold of
+ * the Büroablage), so a PDF chip told a reader „Projekt“ and a drawing chip
+ * „Baurecht“, beside chips that meant exactly that. A format is not a signal
+ * (`design-language.md`, principle 2: chroma is the source signal system's
+ * alone), and the letters already say which format it is.
  */
 export interface ExtChipTint {
   background: string
   color: string
 }
 
-const TINTS = {
-  law: {
-    background: 'var(--source-law-tint, var(--background-color-feedback-info-subtle))',
-    color: 'var(--source-law-text, var(--text-color-feedback-info))',
-  },
-  project: {
-    background: 'var(--source-project-tint, var(--background-color-feedback-success-subtle))',
-    color: 'var(--source-project-text, var(--text-color-feedback-success))',
-  },
-  office: {
-    background: 'var(--source-office-tint, var(--background-color-feedback-warning-subtle))',
-    color: 'var(--source-office-text, var(--text-color-feedback-warning))',
-  },
-  neutral: {
-    background: 'var(--source-auto-tint, var(--muted))',
-    color: 'var(--source-auto-text, var(--muted-foreground))',
-  },
-} as const satisfies Record<string, ExtChipTint>
-
-const EXT_TINT: Record<string, ExtChipTint> = {
-  pdf: TINTS.project,
-  doc: TINTS.project,
-  docx: TINTS.project,
-  txt: TINTS.project,
-  md: TINTS.project,
-  rtf: TINTS.project,
-  dwg: TINTS.law,
-  dxf: TINTS.law,
-  ifc: TINTS.law,
-  ifczip: TINTS.law,
-  jpg: TINTS.office,
-  jpeg: TINTS.office,
-  png: TINTS.office,
-  gif: TINTS.office,
-  webp: TINTS.office,
-  svg: TINTS.office,
-  heic: TINTS.office,
+const NEUTRAL: ExtChipTint = {
+  background: 'var(--source-auto-tint, var(--muted))',
+  color: 'var(--source-auto-text, var(--muted-foreground))',
 }
 
-export function extChipTint(extLabel: string): ExtChipTint {
-  return EXT_TINT[extLabel.toLowerCase()] ?? TINTS.neutral
+export function extChipTint(_extLabel: string): ExtChipTint {
+  return NEUTRAL
 }
 
 /**
@@ -221,6 +186,7 @@ export type FileFormatKey =
   | 'markdown'
   | 'plainText'
   | 'ifc'
+  | 'dxf'
   | 'email'
   | 'image'
   | 'extension'
@@ -269,6 +235,8 @@ const TYPE_FORMAT: Record<string, NamedFormat> = {
   'application/x-step': 'ifc',
   'application/ifc': 'ifc',
   'model/ifc': 'ifc',
+  'application/dxf': 'dxf',
+  'image/vnd.dxf': 'dxf',
   'message/rfc822': 'email',
   'application/vnd.ms-outlook': 'email',
 }
@@ -300,6 +268,8 @@ const EXT_FORMAT: Record<string, NamedFormat> = {
   '.txt': 'plainText',
   '.ifc': 'ifc',
   '.ifczip': 'ifc',
+  // The format, not what is drawn: only its Dokumentart says a file is a plan.
+  '.dxf': 'dxf',
   '.eml': 'email',
   '.msg': 'email',
 }

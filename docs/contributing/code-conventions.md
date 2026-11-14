@@ -25,6 +25,14 @@ punished exactly the decoupling that keeps a change's test selection small
 ([`docs/audit/blast-radius-2026-10.md`](../audit/blast-radius-2026-10.md)).
 A dynamic `import()` is an expression and counts.
 
+**Comments are not counted either**: a line that holds only a `//`, `/* … */`
+or `#` comment, and a Python docstring (a function's own docstring is also left
+out of its sixty lines). An explanation is not logic. While it counted, a file
+sitting at its baseline could take a new comment only by losing an old one, and
+on 2026-11-11 three doc blocks were squeezed to one line each to make room for
+a five-line fix: the ratchet was being satisfied by deleting explanation. It is
+a ratchet on code. A line of code with a trailing comment counts, as code.
+
 It is a ratchet. `ci/size_baseline.json` records every file and function that
 was over when the check arrived, at its size then:
 
@@ -55,43 +63,11 @@ the site's `src/data/` and `src/i18n/`). The list is `EXCLUDED` in the script.
 
 ## No brand names
 
-No code or infrastructure name carries the product's name: no `aiq`, `grid`
-or `piloti` in an identifier, file or folder name, environment variable,
-route, header, table, metric, event, resource or tool name. The product was
-AI-Q, then Grid, now Piloti, and the next name is coming; every earlier rename
-was a code change across thousands of lines. Name the thing for what it does:
-`MAX_ACTIVE_JOBS_PER_ORG`, not `MAX_ACTIVE_JOBS_PER_ORG`; a wake job, not
-`piloti_wakes`. The product's name is copy, read from one place:
-`PRODUCT_NAME` in `apps/workspace/bff/brand.ts`, which the dictionaries
-reach as `{productName}`, and `agent.common.brand.PRODUCT_NAME`, which a
-prompt reaches as `{{ product_name }}`. `tests/test_product_name_parity.py`
-holds the two equal.
-
-`scripts/check_brand_names.py`, the `brand-names` hook in `task lint:repo`
-(CI's **Repo checks** job), holds it. It is a ratchet like the size check:
-`ci/brand_names_baseline.json` records the hits each file had when the check
-arrived, a file may not gain one, and a cleanup makes the check fail until
-`--update` lowers the entry. A move re-keys entries: `--rebaseline`, and check
-its diff shows only the move. A directory is its own key (`dir/`), so a new
-file inside `packages/agent/src/agent/` is fine and a new `piloti_x/` folder is not.
-
-Not a hit: the name as a word in prose (`Piloti` or `Grid` alone, in a
-comment or a string a person reads), `grid` the English word (CSS and Tailwind,
-`grid` as a layout noun at the end of a name, `FileGrid`), URLs, host names and
-the repository's own name, and the Python package names `agent` and
-`agent_host` until their scripted rename (ADR-0145 row 10a). Not checked: ADRs, audits, release notes,
-migrations, the i18n dictionaries and the site's content, published assets,
-lockfiles and Markdown. The list is `EXCLUDED` in the script.
-
-An externally visible name (an MCP tool an outside agent calls, a public
-route, an analytics event) is renamed with the old name kept as an alias for
-one release, never as a hard break.
-
-A name two deployed tiers exchange (the `x-grid-*` service headers between
-the BFF and the backend) moves by expand, switch, contract, because the tiers
-roll out side by side: first every receiver reads the new name beside the old
-(`lib/http/legacy-header-names.ts`, `agent_host.legacy_headers`), the next
-release the senders switch, the release after the old name goes.
+No code or infrastructure name carries a brand, and the product's name is copy
+read from `packages/brand/identity.json` (ADR-0149). The rule, its two
+ratchets, "rename when you touch it" and the steps for a stored or external
+name are in [`naming.md`](naming.md#no-brand-in-a-name), with every other
+naming rule.
 
 ## Python
 
@@ -109,8 +85,13 @@ new or touched:
 
 - **Two levels of nesting inside a function, at most.** A third `if`/`for`/
   `try` inside a function body is a function waiting to be named. Ruff's
-  `PLR1702` (`max-nested-blocks = 2`) is the check; it is turned on for the
-  paths that already meet it and joins the rest as they are brought under.
+  `PLR1702` (`max-nested-blocks = 2`) is the check, run by the `nesting` hook
+  (`scripts/check_nesting.py`) over `packages/*/src` and `apps/agent-host/src`.
+  `pyproject.toml` still ignores the rule, and Ruff 0.17 keeps it in preview, so
+  a bare `ruff check` never reports it. The hook is a ratchet on
+  `ci/nesting_baseline.json`: a file there may not gain a finding, every other
+  file may have none, and `--update` lowers an entry when you name an inner
+  block.
 - **Early exit, never an `else` ladder.** Guard clauses first, the happy path
   last and unindented. `if not x: return` beats wrapping the body in `if x:`.
 - **Sixty lines is long.** Past that, the function is doing two things.
@@ -135,6 +116,38 @@ new or touched:
 None of this is a licence to rewrite a file you are passing through. Touch a
 function, leave it meeting the bar; leave the neighbours alone unless the
 change needs them.
+
+### A package is imported by its surface
+
+The knowledge layer is laid out by job: `knowledge_layer.ingest`, `.search`,
+`.read_passage`, `.browse`, `.estate` and `.vector_store`. Each package's
+`__init__.py` exports what code outside it uses, as a `_LAZY` map
+(`agent.lazy_exports`, `cache=False`): a name loads on first use and is read
+from its submodule every time, so a test that patches the submodule is seen
+through the package too. Outside the package, import the name from the
+package:
+
+```python
+from knowledge_layer.search import RankedSearch  # yes
+from knowledge_layer.search.ranked_search import RankedSearch  # no: the file's path is now a contract
+```
+
+Before the surfaces, laying the layer out by job rewrote nearly a thousand
+references, most in tests, and the dotted patch strings among them
+(`patch("knowledge_layer.….name")`) failed only when the test ran. So:
+
+- **A name outside code needs goes in `_LAZY` and `__all__`**, never a name a
+  submodule also has (`tests/test_import_weight.py`).
+- **A patch is on the module object**, `monkeypatch.setattr(results, "format_results", …)`
+  or `patch.object(scope, "resolve_scoped_collections", …)` with the module
+  imported, never a dotted string: a move then fails at import, where a
+  rewrite tool sees it. Patch where the name is looked up, which is the
+  submodule, not the package.
+- **What still names a submodule from outside** (a private helper a test
+  calls, a module a test patches, a logger name) is counted per file in
+  `ci/package_surface_baseline.json` by `scripts/check_package_surfaces.py`
+  (the `package-surfaces` hook), and may only shrink: `--update` lowers it.
+  A new package with a surface joins `PACKAGES` there.
 
 ## TypeScript
 
@@ -188,6 +201,13 @@ is invisible because each one looks locally correct. German transliteration
 where its absence had been shipping `Beispielstraße` as the filename
 `Beispielstra-e`. All three now call `lib/text/latinize.ts`.
 
+A split moves a module's side-effect imports (a stylesheet, a polyfill) with
+the code that needs them. When `ReasoningFlow` was split into modules, no new
+module took `import '@xyflow/react/dist/style.css'`, and the Herleitung
+rendered as a staircase while every spec passed, because the specs mock React
+Flow. `tests/react-flow-stylesheet.spec.ts` now holds that one; for any other
+library with a stylesheet, check the import at each render site.
+
 Sharing is not merging. Keep the pieces that genuinely differ separate and say
 why: `latinize` splits into `transliterateGerman` and `foldDiacritics` precisely
 because Markdown anchors must not gain diacritic folding, since their ids are
@@ -217,5 +237,9 @@ per organization, changed in the dashboard with no deploy, and reaches the
 Python tier through the BFF (`GET /api/internal/stages`), which has no WorkOS
 client of its own. `FOLDER_CARDS` and `OFFICE_CONVENTIONS` were built
 as variables and replaced by the `folder-cards` and `office-conventions` flags;
-their tuning (`FOLDER_CARDS_MONTHLY_TOKENS`) stayed. Registering a flag:
+their tuning (`FOLDER_CARDS_MONTHLY_TOKENS`) stayed. One exception remains:
+`FILING_SUGGESTIONS=off` (`lib/filing/trigger.ts`) switches filing
+suggestions off for a whole deployment. It is still a variable, documented in
+[`environment-variables.md`](../deployment/environment-variables.md), and
+becomes a flag the next time filing suggestions are touched. Registering a flag:
 [`workos-provisioning.md`](../deployment/workos-provisioning.md).

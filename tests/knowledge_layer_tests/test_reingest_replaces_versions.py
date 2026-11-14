@@ -41,16 +41,17 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.llamaindex import adapter as adapter_module
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-from knowledge_layer.llamaindex.adapter import _PreviousVersion
-from knowledge_layer.qdrant import store as store_module
+from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import deferred_files as deferred_files_module
+from knowledge_layer.ingest.adapter import _PreviousVersion
+from knowledge_layer.vector_store import store as store_module
 from knowledge_layer_testing import reingest as harness
-from knowledge_layer_testing.qdrant import chunk_texts
-from knowledge_layer_testing.qdrant import record
-from knowledge_layer_testing.qdrant import write
 from knowledge_layer_testing.reingest import _seed_previous_version
 from knowledge_layer_testing.reingest import _wait_terminal
+from knowledge_layer_testing.vector_store import chunk_texts
+from knowledge_layer_testing.vector_store import record
+from knowledge_layer_testing.vector_store import write
 
 # The harness's fixtures, under the names these tests ask for.
 live_ingestor = harness.live_ingestor
@@ -680,7 +681,7 @@ def test_two_jobs_for_one_name_leave_only_the_later_version(tmp_path, monkeypatc
 @pytest.fixture()
 def presence(monkeypatch):
     """The BFF's answer about the dispatched document, and who asked."""
-    from knowledge_layer.llamaindex import document_presence
+    from knowledge_layer.ingest import document_presence
 
     # `answers` are given first, one per question; `answer` after that.
     state = SimpleNamespace(answer=True, answers=[], asked=[])
@@ -788,6 +789,8 @@ def test_an_unreachable_bff_keeps_the_new_version(tmp_path, monkeypatch, live_in
     # Nothing listens on port 9: the real client gets a refused connection.
     monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://127.0.0.1:9")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "secret")
+    # One refused connect says "no answer"; the retry ladder behind it is 15 s of real backoff.
+    monkeypatch.setattr("agent.common.connect_retry.CONNECT_RETRIES", 0)
     _seed_previous_version(live_ingestor, stores, "proj_down", "statik.txt")
     upload = tmp_path / "tmp_upload.txt"
     upload.write_text("Neue Fassung der Statik.", encoding="utf-8")
@@ -835,7 +838,7 @@ def test_a_document_deleted_while_its_job_waited_is_not_read_at_all(tmp_path, mo
     """The download, OCR and vision calls would all be for chunks that go back out."""
     read = []
     monkeypatch.setattr(
-        "knowledge_layer.deferred_files.resolve_original", lambda entry, downloaded: read.append(entry) or entry
+        deferred_files_module, "resolve_original", lambda entry, downloaded: read.append(entry) or entry
     )
     upload = tmp_path / "tmp_upload.txt"
     upload.write_text("Ein Dokument, das es nicht mehr gibt.", encoding="utf-8")
@@ -854,7 +857,7 @@ def test_a_screening_policy_that_cannot_be_applied_holds_the_file_unread(tmp_pat
     """The office asked for its files to be checked: a file read without the check would reach a model."""
     read = []
     monkeypatch.setattr(
-        "knowledge_layer.deferred_files.resolve_original", lambda entry, downloaded: read.append(entry) or entry
+        deferred_files_module, "resolve_original", lambda entry, downloaded: read.append(entry) or entry
     )
     upload = tmp_path / "tmp_upload.txt"
     upload.write_text("Gehaltsabrechnung März", encoding="utf-8")

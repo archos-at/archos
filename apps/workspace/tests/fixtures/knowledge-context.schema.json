@@ -1,0 +1,644 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The knowledge context a turn carries",
+  "description": "Generated from apps/workspace/bff/base-knowledge/context/wire.ts. Do not edit by hand: turn-law.fixture.spec.ts rewrites this file and fails when it is stale.",
+  "$defs": {
+    "KnowledgeContext": {
+      "type": "object",
+      "properties": {
+        "gate": {
+          "type": "object",
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "organization_unplaced",
+                "site_unknown",
+                "not_entitled",
+                "knowledge_unavailable",
+                "none",
+                "open",
+                "core",
+                "full"
+              ]
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "no_site",
+                    "no_territory"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "leaves": {
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "territoryId": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "certainty": {
+                    "type": "string",
+                    "enum": [
+                      "verified",
+                      "unverified"
+                    ]
+                  },
+                  "entitled": {
+                    "type": "boolean"
+                  },
+                  "coverage": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "open",
+                          "core",
+                          "full"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "municipalLaw": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "territoryId",
+                  "country",
+                  "certainty",
+                  "entitled",
+                  "coverage",
+                  "municipalLaw"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "state",
+            "reason",
+            "leaves"
+          ],
+          "additionalProperties": false
+        },
+        "packs": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "packId": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "packId",
+              "seq"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "chains": {
+          "type": "object",
+          "additionalProperties": {
+            "maxItems": 16,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+        },
+        "procedures": {
+          "maxItems": 4,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "procedureType": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "filedOn": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "decidedOn": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "referenceDates": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "basis": {
+                      "type": "string",
+                      "enum": [
+                        "undetermined",
+                        "filed_on"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "date",
+                    "basis"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "procedureType",
+              "filedOn",
+              "decidedOn",
+              "referenceDates"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "uses": {
+          "maxItems": 500,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "workId": {
+                "type": "string"
+              },
+              "editionId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "binding",
+                  "guidance",
+                  "interpretation",
+                  "authority_practice",
+                  "information"
+                ]
+              },
+              "qualifier": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "uncurated",
+                      "office_maintained"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "via": {
+                "type": "string",
+                "enum": [
+                  "territory",
+                  "relation",
+                  "none"
+                ]
+              },
+              "route": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "workId": {
+                        "type": "string"
+                      },
+                      "designation": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "editionLabel": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "provision": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "workId",
+                      "designation",
+                      "editionLabel",
+                      "provision"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "roleSince": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "date": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "freshness": {
+                "type": "string",
+                "enum": [
+                  "current",
+                  "check_due",
+                  "newer_known",
+                  "superseded"
+                ]
+              },
+              "lastCheckedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "connectsBy": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "site",
+                    "office_seat",
+                    "client"
+                  ]
+                }
+              },
+              "labels": {
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "uncurated_source",
+                    "check_overdue",
+                    "unchecked_since",
+                    "depends_on_connecting_factor"
+                  ]
+                }
+              },
+              "corpusFiles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "designation": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "editionLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "issuer": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sourceRefs": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "scheme": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    }
+                  },
+                  "required": [
+                    "scheme",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "sourceUrl": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "language": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 35
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "textStatus": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "authentic",
+                      "official_non_prevailing",
+                      "translation"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "applicability": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "verdict": {
+                        "type": "string",
+                        "enum": [
+                          "applies",
+                          "check",
+                          "not_applicable"
+                        ]
+                      },
+                      "basis": {
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "open": {
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "provision": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "verdict",
+                      "basis",
+                      "open",
+                      "provision"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "workId",
+              "editionId",
+              "role",
+              "qualifier",
+              "via",
+              "route",
+              "roleSince",
+              "date",
+              "freshness",
+              "lastCheckedAt",
+              "connectsBy",
+              "labels",
+              "corpusFiles",
+              "designation",
+              "editionLabel",
+              "issuer",
+              "sourceRefs",
+              "sourceUrl",
+              "language",
+              "textStatus",
+              "applicability"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 16000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retrieval": {
+          "type": "object",
+          "properties": {
+            "countries": {
+              "maxItems": 300,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              }
+            }
+          },
+          "required": [
+            "countries"
+          ],
+          "additionalProperties": false
+        },
+        "updatedSinceLastAnswer": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "undetermined": {
+          "maxItems": 500,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "workId": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "history_not_held",
+                  "edition_dates_unknown",
+                  "ambiguous_editions"
+                ]
+              }
+            },
+            "required": [
+              "workId",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "sources": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "revisionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "country": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              "config": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            },
+            "required": [
+              "key",
+              "revisionId",
+              "country",
+              "config"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "sourcesDropped": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
+        }
+      },
+      "required": [
+        "gate",
+        "packs",
+        "chains",
+        "date",
+        "procedures",
+        "uses",
+        "text",
+        "retrieval"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

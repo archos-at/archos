@@ -3,13 +3,10 @@
 import { FileTextPage } from './file-text-page'
 import Image from 'next/image'
 
-import { Download, RotateCcw, Sparkles, X } from 'lucide-react'
+import { Download, RotateCcw, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
-import { SectionLabel } from '@/components/ui/section-label'
-
-import { ClampedText } from '@/components/ui/clamped-text'
 import { documentFileUrl } from '@/lib/documents/urls'
 
 import { isOptimizerEligible } from '@/lib/images/optimizable'
@@ -22,13 +19,13 @@ import { dropFileSubject } from '../lib/open-file-peek'
 import { ReviewPageLayer } from './review/review-page-layer'
 import { InlineMarkPeek } from './inline-mark-peek'
 
-import { PEEK_SUMMARY_CLAMP_LINES, PageMock, PeekPanel, PeekStage } from './file-preview-peek'
+import { PageMock, PeekPanel, PeekStage } from './file-preview-peek'
 
 import { IfcFilePreview } from './file-preview-pane-lazy'
 import type { FilePreviewController } from './use-file-preview-controller'
 
 export function FilePreviewDocumentPanel({ controller }: { controller: FilePreviewController }) {
-  const { actions, annotateLead, canPreview, file, findSimilar, handlePdfFailed, inlineViewer, isLoading, isModel, isOfficeRendition, isTextual, kind, linkedLocus, loadPreview, openReview, pdfInWell, peeking, previewFailed, previewGone, previewImageUrl, previewText, previewUrl, projectId, reader, review, setPreviewFailed, setPreviewImageUrl, setPreviewUrl, showModels, shownFinding, shownPage, shownType, sideways, t, viewerTarget, wellHostsViewer, wellRef } = controller
+  const { actions, annotateLead, canPreview, file, findSimilar, handlePdfFailed, inlineViewer, isHeld, isLoading, isModel, isOfficeRendition, isTextual, kind, linkedLocus, loadPreview, openReview, pdfInWell, peekView, peeking, previewFailed, previewGone, previewImageUrl, previewText, previewUrl, projectId, reader, review, setPreviewFailed, setPreviewImageUrl, setPreviewUrl, showModels, shownFinding, shownPage, shownType, sideways, t, viewerTarget, wellHostsViewer, wellRef } = controller
   return (
     <>
           {/* Left: live preview, or a decorative page mock while loading / when
@@ -38,21 +35,23 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
               column. The Maximize2 affordance in the header still opens the
               full-screen viewer for PDFs and images. */}
           {/* The ground under the document. A flat grey box read as "an iframe in
-              a panel"; a soft vertical gradient with the page raised off it on a
-              real shadow reads as a document ON something — which is what a
+              a panel"; a flat tone with the page set on it on a
+              hairline reads as a document ON something — which is what a
               drawing on a desk actually looks like, and the whole reason this
               column exists rather than a download link. */}
-          <PeekPanel peeking={peeking} value="document">
+          <PeekPanel peeking={peeking} active={peekView === 'document'} view="document">
           <PeekStage peeking={peeking}>
             <div
               ref={wellRef}
               data-testid="file-preview-well"
+              // The well scrolls on its own, so a keyboard user must be able to reach it (WCAG 2.1.1).
+              tabIndex={0}
               className={cn(
-                'flex min-w-0 justify-center',
+                'focus-visible:ring-ring/60 flex min-w-0 justify-center focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset',
                 // A PDF brings its own stage (the viewer's), so the well under it
                 // is no ground of its own: the document looks the same here as in
                 // every other place a PDF opens.
-                !peeking && !pdfInWell && 'from-muted/25 to-muted/60 bg-gradient-to-b',
+                !peeking && !pdfInWell && 'bg-desk',
                 wellHostsViewer || (reader && (isModel || pdfInWell))
                   ? cn(
                       'h-full min-h-0 flex-1 overflow-hidden',
@@ -192,11 +191,11 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                       setPreviewFailed(true)
                     }}
                     className={cn(
-                      'bg-background h-fit max-h-full w-auto max-w-full rounded-lg border object-contain',
+                      'bg-sheet h-fit max-h-full w-auto max-w-full rounded-surface object-contain',
                       // The reader's well is the screen: the image fits it whole,
                       // on a phone on its side too (852px wide is past `@2xl`).
                       !reader && '@2xl:max-h-none',
-                      peeking ? 'shadow-md' : 'shadow-lg'
+                      'shadow-md' /* the page lies on the stage at elevation 2: elevation 3 is a dialog's, and drew a wide halo no token named */
                     )}
                   />
                 )
@@ -207,7 +206,9 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                     previewGone
                       ? t('preview.gone')
                       : previewFailed
-                        ? t('preview.loadFailed')
+                        ? isHeld
+                          ? t('preview.heldNoPreview')
+                          : t('preview.loadFailed')
                         : t('preview.noInlinePreview')
                   }
                   action={
@@ -218,7 +219,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                       // reader cannot do from inside a viewer that will not load.
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="gap-1.5"
                         onClick={() =>
@@ -231,10 +232,11 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                         <X className="size-3.5" aria-hidden />
                         {t('preview.goneAction')}
                       </Button>
-                    ) : previewFailed && (canPreview || isTextual) ? (
+                    ) : previewFailed && isHeld ? // No retry: a held file's bytes stay withheld until it is released, so it meets the same refusal.
+                    null : previewFailed && (canPreview || isTextual) ? (
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="gap-1.5"
                         onClick={loadPreview}
@@ -251,7 +253,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                       // an icon the reader has to go and find in the chrome.
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="gap-1.5"
                         onClick={() => void actions.download()}
@@ -267,46 +269,10 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
             </div>
           </PeekStage>
 
-          {/* WHAT AGENT MADE OF IT, in the peek.
-              The peek dropped the whole rail — properties, tags, the lot — which
-              is right: a 320px column beside a conversation is not where a
-              reader edits metadata. But it dropped the SUMMARY with it, and the
-              summary is the one line of that rail this surface is actually about:
-              the peek exists because this document is what the next question is
-              about, so "does Piloti understand it, and as what" is the question
-              the reader has, and the answer was two clicks away in the enlarged
-              view.
-              It also lands where there was nothing. A portrait plan fitted to a
-              320px pane is half its height, so the well below the drawing was
-              several hundred pixels of empty ground — the reader's eye had
-              nowhere to go and nothing to do. Capped and scrollable so a
-              twelve-line ingestion summary cannot take the document's place, and
-              absent entirely when there is no summary yet. */}
-          {/* Set on the card, not boxed: the stage above is the one framed
-              thing in the column, and a bordered card inside a tinted band under
-              it was the third frame in 300px. The label and the text are enough
-              to make it a section; a capped height keeps a long summary from
-              taking the document's place. */}
-          {peeking && file.summary && (
-            <section
-              aria-label={t('preview.indexed.title')}
-              data-testid="file-peek-summary"
-              className="scroll-fade-bottom max-h-[38%] shrink-0 overflow-y-auto overscroll-contain px-4 pt-3.5 pb-4"
-            >
-              <SectionLabel as="p" icon={Sparkles} className="font-semibold tracking-[0.05em]">
-                {t('preview.indexed.title')}
-              </SectionLabel>
-              <ClampedText
-                key={file.id}
-                lines={PEEK_SUMMARY_CLAMP_LINES}
-                moreLabel={t('preview.summaryMore')}
-                lessLabel={t('preview.summaryLess')}
-                className="text-foreground/90 mt-2 text-[13px] leading-[1.6] text-pretty"
-              >
-                {file.summary}
-              </ClampedText>
-            </section>
-          )}
+          {/* No summary under the document any more. The read summary stood here
+              as a footer band, which made the peek beside a conversation two things
+              at once; it is a section of the details now, behind the ⓘ in the
+              peek's toolbar, and the document has the column. */}
           </PeekPanel>
     </>
   )

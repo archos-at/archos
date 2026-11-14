@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { SectionLabel } from '@/components/ui/section-label'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
 import { intakeProfileStepCopy } from '@/i18n/namespaces/intake-profile-step'
@@ -69,7 +70,7 @@ export function ClassCard({ derivations, onAnswer }: ClassCardProps): JSX.Elemen
         <div className="flex items-center gap-4 md:gap-5">
           <ClassTile value={null} />
           <div className="min-w-0">
-            <p className="text-base font-semibold">{t('class.open')}</p>
+            <p className="text-base font-medium">{t('class.open')}</p>
             <p className="text-muted-foreground mt-1 text-[13px] leading-snug">{t('class.none')}</p>
           </div>
         </div>
@@ -91,7 +92,7 @@ function ClassTile({ value, highRise = false }: { value: number | null; highRise
       )}
     >
       {!highRise && <span className="text-[11px] tracking-[0.06em] opacity-70">{t('class.eyebrow')}</span>}
-      <span className="text-[30px] font-semibold leading-none md:text-4xl">
+      <span className="text-[30px] font-medium leading-none md:text-4xl">
         {highRise ? t('class.highRiseTile') : (value ?? '–')}
       </span>
     </div>
@@ -138,7 +139,7 @@ function ClassResult({
         <ClassTile value={derivation.value} highRise={derivation.highRise} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-            <p className="text-base font-semibold" data-testid="profile-class-title">
+            <p className="text-base font-medium" data-testid="profile-class-title">
               {title}
             </p>
             {switcher}
@@ -175,7 +176,7 @@ function ClassResult({
       </div>
       <CollapsibleContent data-testid="profile-class-working">
         <div className="border-border mt-4 space-y-2 border-t pt-3 text-[13px]">
-          <p className="text-muted-foreground text-[11px] uppercase tracking-[0.06em]">{t('class.inputs')}</p>
+          <SectionLabel as="p">{t('class.inputs')}</SectionLabel>
           <ul className="space-y-1">
             {derivation.inputs.map((input) => (
               <li key={input.key} className="flex items-baseline justify-between gap-3">

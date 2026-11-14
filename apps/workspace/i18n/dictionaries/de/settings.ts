@@ -25,7 +25,7 @@ export const settings: typeof en.settings = {
       label: 'Projekteinstellungen',
       overview: 'Übersicht',
       members: 'Mitglieder',
-      memory: 'Gedächtnis',
+      memory: 'Projektgedächtnis',
       usage: 'Nutzung & Budget',
       documents: 'Dokumente & Index',
       references: 'Ähnliche Projekte',
@@ -70,13 +70,13 @@ export const settings: typeof en.settings = {
         open: 'Dokumente & Index',
       },
       memory: {
-        label: 'Gedächtnis',
+        label: 'Projektgedächtnis',
         notes: '{count, plural, one {Notiz} other {Notizen}}',
         toReview: '{count, plural, one {# zu prüfen} other {# zu prüfen}}',
         allReviewed: 'Alles bestätigt',
         empty: '{productName} hat sich zu diesem Projekt noch nichts gemerkt.',
-        error: 'Das Gedächtnis konnte nicht geladen werden.',
-        open: 'Gedächtnis',
+        error: 'Das Projektgedächtnis konnte nicht geladen werden.',
+        open: 'Projektgedächtnis',
       },
       members: {
         label: 'Mitglieder',
@@ -130,6 +130,9 @@ export const settings: typeof en.settings = {
       knowledgeTitle: 'Wissensbasis',
       knowledgeDescription: 'Was die Wissensbasis des Projekts enthält, Abschnitt für Abschnitt.',
       knowledgeLink: 'Wissensbasis öffnen',
+      inboundMailTitle: 'E-Mail-Adresse des Projekts',
+      inboundMailDescription:
+        'Setzen Sie sie in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben, oder leiten Sie Unterlagen an sie weiter. Was jemand, der im Projekt ablegen darf, von der eigenen Adresse sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles andere wartet im E-Mail-Eingang unter Dateien, bis jemand es ablegt; für E-Mails von bestätigten Domains schlägt {productName} zu jedem Anhang Ordner, Namen und Dokumentart vor.',
     },
   },
 }

@@ -50,10 +50,13 @@ import { documentDisplayName, splitDocumentName } from '@/lib/documents/display-
 import { calendarDayIn, OFFICE_TIME_ZONE } from '@/lib/format'
 import { listDocumentVersions } from '@/lib/documents/version-repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
+import { escapeInline, escapeLineStarts, escapeMarkdown } from '@/lib/text/markdown-escape'
 import { BlocksDocument } from '@/lib/pdf/blocks-to-pdf'
 import type { CoverFact } from '@/lib/pdf/branding'
 import { MAX_MARKDOWN_PDF_CHARS, PDF_MEDIA_TYPE, TABLE_CELL_COST_CHARS } from '@/lib/pdf/markdown-pdf'
 import { DOCX_MEDIA_TYPE, renderDocx } from '@/lib/answer-export/docx'
+import { aiProvenanceMarking, type AiProvenance } from '@/lib/ai-provenance'
+import { withAiProvenanceXmp } from '@/lib/pdf/xmp-metadata'
 import { labelled, paragraph, type DocBlock, type DocRun } from '@/lib/answer-export/blocks'
 import { getLocale, getTranslations } from '@/i18n/server'
 import type { Translator } from '@/i18n/translate'
@@ -61,6 +64,7 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { listAnnotations } from './service'
 import { isLive, isOverdue, type AnnotationView } from './types'
 import { protocolFileNameOf, type AnnotationExportOptions } from './export-request'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 export const MARKDOWN_MEDIA_TYPE = 'text/markdown; charset=utf-8'
 
@@ -101,6 +105,22 @@ export interface Protocol {
   title: string
   facts: CoverFact[]
   body: DocBlock[]
+  /**
+   * Set when the Protokoll holds text the agent wrote (a mark it set, a reply, a
+   * proposal): the file is then marked `compositeWithTrainedAlgorithmicMedia`
+   * (Art. 50(2) AI Act). Null for the office's own words alone, which no model
+   * generated and which a marking would misdescribe.
+   */
+  aiProvenance: AiProvenance | null
+}
+
+/** Whether any text in the selection is the agent's: a mark or proposal it set, or a reply it wrote. */
+export function holdsAgentText(selection: ProtocolSelection): boolean {
+  return [...selection.marks, ...selection.proposals].some(
+    (annotation) =>
+      // Two authors exist (`ANNOTATION_AUTHORS`): whatever is not a person's is the agent's.
+      annotation.authorKind !== 'person' || annotation.replies.some((reply) => reply.authorKind !== 'person')
+  )
 }
 
 /** Piloti's mark that no person took over: a proposal still, or one dismissed as one. */
@@ -163,7 +183,7 @@ export function formatters(locale: string, now: Date): Formatters {
 
 /** „Piloti · für Anna Berger", or plain „Piloti" when the directory does not know the person. */
 const agentFor = (t: Translator, name: string | null): string =>
-  name ? t('review.attribution.agentFor', { name }) : 'Piloti'
+  name ? t('review.attribution.agentFor', { name }) : PRODUCT_NAME
 
 /** Who set the mark, who closed it, and whether Piloti works it now: one small line each. */
 function attributionLines(annotation: AnnotationView, t: Translator, f: Formatters): string[] {
@@ -335,6 +355,7 @@ export function buildProtocol(
     title: t('review.export.document.title', { name: stem }),
     facts: headerFacts(header, selection, options, t, f),
     body: [{ kind: 'heading', level: 2, text: t('review.export.document.marks') }, ...marks, ...proposals],
+    aiProvenance: holdsAgentText(selection) ? { composite: true } : null,
   }
 }
 
@@ -344,24 +365,6 @@ const withHeader = (protocol: Protocol): DocBlock[] => [
   ...protocol.facts.map((fact) => labelled(fact.label, fact.value)),
   ...protocol.body,
 ]
-
-/**
- * Text, escaped so that it stays text: an Anmerkung that carries a `*` or a
- * `[` is what a person typed, not Markdown. Every ASCII punctuation may be
- * backslash-escaped in CommonMark; only the characters that act anywhere are
- * escaped here, the ones that act at a line's start by {@link escapeLineStarts}.
- */
-const escapeInline = (text: string): string => text.replace(/[\\`*_[\]<>|~]/g, (char) => `\\${char}`)
-
-/** „# Termin", „- offen", „1. Stock" at a line's start are text, not a heading or a list (`>` is escaped inline). */
-const escapeLineStarts = (text: string): string =>
-  text
-    .replace(/^(\s*)(#{1,6}|[+-])(?=[\s+-]|$)/gm, (_match, indent: string, marker: string) => `${indent}\\${marker}`)
-    .replace(/^(\s*\d{1,9})([.)])(?=\s|$)/gm, (_match, digits: string, mark: string) => `${digits}\\${mark}`)
-    .replace(/^(\s*)(=+\s*)$/gm, (_match, indent: string, rule: string) => `${indent}\\${rule}`)
-
-/** Inline text escaped and line starts neutralised: a string that stays text wherever it lands. */
-const escapeMarkdown = (text: string): string => escapeLineStarts(escapeInline(text))
 
 function runsToMarkdown(runs: readonly DocRun[]): string {
   return runs
@@ -445,11 +448,14 @@ async function renderPdf(protocol: Protocol): Promise<Uint8Array> {
       reason: 'too-long-for-pdf',
     })
   }
+  const marking = protocol.aiProvenance ? aiProvenanceMarking(protocol.aiProvenance) : undefined
   const element = React.createElement(BlocksDocument, {
     cover: { title: protocol.title, facts: protocol.facts },
     blocks: protocol.body,
+    keywords: marking,
   })
-  return new Uint8Array(await renderToBuffer(element as unknown as PdfDocumentElement))
+  const bytes = new Uint8Array(await renderToBuffer(element as unknown as PdfDocumentElement))
+  return marking ? withAiProvenanceXmp(bytes, marking) : bytes
 }
 
 /** „Anmerkungen – Grundriss EG – Fassung 3.pdf": what the office files it under. */
@@ -470,7 +476,10 @@ export function protocolFileName(
 
 export async function renderProtocol(protocol: Protocol, format: AnnotationExportOptions['format']) {
   if (format === 'pdf') return { bytes: await renderPdf(protocol), mediaType: PDF_MEDIA_TYPE }
-  if (format === 'docx') return { bytes: renderDocx(withHeader(protocol)), mediaType: DOCX_MEDIA_TYPE }
+  if (format === 'docx') {
+    const aiProvenance = protocol.aiProvenance ?? undefined
+    return { bytes: renderDocx(withHeader(protocol), { aiProvenance }), mediaType: DOCX_MEDIA_TYPE }
+  }
   return { bytes: new TextEncoder().encode(blocksToMarkdown(withHeader(protocol))), mediaType: MARKDOWN_MEDIA_TYPE }
 }
 

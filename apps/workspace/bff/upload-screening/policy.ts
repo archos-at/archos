@@ -4,7 +4,7 @@
  * One policy, two gates. The NAME gate runs in the browser before a byte is
  * sent, and again in the BFF on receipt (`./name-screen`). The CONTENT gate
  * runs inside the ingest job, on text extracted locally, before the first model
- * call (`packages/knowledge-layer/src/llamaindex/screening.py`); the BFF hands it
+ * call (`packages/knowledge-layer/src/ingest/screening.py`); the BFF hands it
  * the content half of this policy on every dispatch (`toIngestScreening`).
  *
  * The content half also screens CHAT: the composer masks a message against
@@ -18,7 +18,7 @@
 import { z } from 'zod'
 
 /** Number-shape detectors the content gate can run. Each validates a checksum, not just a shape. */
-export const SCREENING_DETECTORS = ['iban', 'at_svnr', 'credit_card'] as const
+export const SCREENING_DETECTORS = ['iban', 'at_svnr', 'credit_card', 'de_svnr', 'de_tax_id'] as const
 export type ScreeningDetector = (typeof SCREENING_DETECTORS)[number]
 
 export interface UploadScreeningPolicy {
@@ -64,7 +64,30 @@ export const SUGGESTED_SCREENING_POLICY: UploadScreeningPolicy = {
     'Buchhaltung',
     'Steuer',
   ],
-  nameExceptions: ['Berechnung', 'Bauvertrag'],
+  // Words of a planning office's own drawings, schedules and reports that
+  // contain a term without meaning it: a building's controls, its staff rooms,
+  // the moisture in a screed, a contractor's invoice being checked. Measured on
+  // a sample of project file names, where the bare terms stopped 23 of 35.
+  nameExceptions: [
+    'Berechnung',
+    'Bauvertrag',
+    'Steuerung',
+    'Steuerleitung',
+    'Steuerventil',
+    'Personalraum',
+    'Personalräume',
+    'Personalaufzug',
+    'Personaleingang',
+    'Feuchtegehalt',
+    'Feuchtigkeitsgehalt',
+    'Wassergehalt',
+    'Salzgehalt',
+    'Chloridgehalt',
+    'Luftgehalt',
+    'Vertragsplan',
+    'Rechnungsprüfung',
+    'Abrechnung',
+  ],
   contentTerms: [
     'Gehaltsabrechnung',
     'Lohnzettel',
@@ -77,7 +100,7 @@ export const SUGGESTED_SCREENING_POLICY: UploadScreeningPolicy = {
     'Krankenstandsbestätigung',
     'Kontoauszug',
   ],
-  detectors: ['iban', 'at_svnr', 'credit_card'],
+  detectors: ['iban', 'at_svnr', 'credit_card', 'de_svnr', 'de_tax_id'],
 }
 
 const MAX_TERMS = 200

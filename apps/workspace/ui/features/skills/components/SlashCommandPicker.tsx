@@ -116,7 +116,7 @@ function HighlightedName({ name, query }: { name: string; query: string }): JSX.
   return (
     <>
       {name.slice(0, at)}
-      <mark className="bg-transparent font-semibold text-foreground">
+      <mark className="bg-transparent font-medium text-foreground">
         {name.slice(at, at + needle.length)}
       </mark>
       {name.slice(at + needle.length)}
@@ -210,7 +210,7 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
         onSelect={() => onSelect(skill)}
         className={cn(
           'flex-col items-start gap-0.5 rounded-lg px-2.5 py-1.5 transition-colors duration-snap ease-out',
-          'data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground',
+          'data-[selected=true]:bg-hover data-[selected=true]:text-accent-foreground',
         )}
       >
         {/* `asChild` so the row carries OUR stable id (see slashOptionDomId). */}
@@ -241,7 +241,7 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
         // line plus two description lines), and at 320 the fourth row was cut
         // through the middle of its own sentence. The fade softened it but the
         // slice still read as a rendering fault rather than as "scroll for more".
-        'bg-popover text-popover-foreground flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl border shadow-lg',
+        'bg-popover text-popover-foreground flex max-h-[360px] w-full flex-col overflow-hidden rounded-xl shadow-lg',
           'animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none',
           className,
         )}
@@ -301,7 +301,7 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
           className="flex shrink-0 items-center gap-2 border-t bg-muted px-3 py-2 pointer-coarse:hidden"
           aria-label={t('composer.picker.keyboardHint')}
         >
-          <Slash className="size-3 shrink-0 text-muted-foreground/70" aria-hidden />
+          <Slash className="size-3 shrink-0 text-muted-foreground" aria-hidden />
           <KbdGroup>
             <Kbd>↑</Kbd>
             <Kbd>↓</Kbd>

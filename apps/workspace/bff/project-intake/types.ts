@@ -12,7 +12,8 @@
 
 import { z } from 'zod'
 import { geocodeResultSchema } from '@/lib/geocoding/types'
-import type { ApplicableStatus } from '@/lib/oib/applicable-standards'
+import { SETUP_DETERMINANTS, type SetupDeterminant } from '@/lib/base-knowledge/wire/vocab'
+import { projectLawSchema } from '@/lib/base-knowledge/wire/project-law'
 import {
   DERIVATION_RULES,
   derivationInputSchema,
@@ -286,14 +287,9 @@ export type SuggestionGroup = z.infer<typeof suggestionGroupSchema>
 // Step 4, Rückfragen: the location register (`location-register.ts`)
 // ---------------------------------------------------------------------------
 
-/**
- * What the location decides about a project, by the ticket's table
- * „Standortinformationen aus den Unterlagen": the plot (Grundbuch), Widmung
- * and Bebauungsbestimmungen, Denkmalschutz, Naturgefahren and Altlasten (one
- * profile key holds both, `gefahrenzonen`), and Lärm.
- */
-export const LOCATION_DETERMINANTS = ['plot', 'zoning', 'heritage', 'hazards', 'noise'] as const
-export type LocationDeterminant = (typeof LOCATION_DETERMINANTS)[number]
+/** What the location decides about a project: one list, the setup records' (`SETUP_DETERMINANTS`). */
+export const LOCATION_DETERMINANTS = SETUP_DETERMINANTS
+export type LocationDeterminant = SetupDeterminant
 
 /**
  * Where a register entry comes from. `needsReview`: the entry names the law
@@ -381,30 +377,14 @@ export const intakeViewSchema = z.object({
   canDecide: z.boolean(),
   /** The reader may finish the review: `project:manage` for a closing intent, else profile write. */
   canComplete: z.boolean(),
-  // --- Step 5, Steckbrief (ticket 26) -------------------------------------
+  // --- Step 5, Steckbrief (ticket 31) -------------------------------------
   /**
-   * The rule set's Ampel: which OIB-Richtlinien apply, required / likely /
-   * check, as `getApplicableStandards` (`lib/oib/applicable-standards.ts`)
-   * computes it from the profile's confirmed values only, so a suggestion
-   * changes it once a person takes it. The same verdicts the overview's panel
-   * shows. `buildIntakeView` always sends it; optional so a view built
-   * elsewhere (a fixture) may leave the panel out.
+   * The law at the project's site from the platform's records (ADR-0175,
+   * `lib/base-knowledge/context/project-law.ts`): the gate and the editions the
+   * chain names with their role, the same the turn reads. `viewOf` always sends
+   * it; optional so a view built elsewhere (a fixture) may leave the card out.
    */
-  applicableStandards: z
-    .array(
-      z.object({
-        code: z.string().min(1).max(32),
-        titleEn: z.string().max(300),
-        titleDe: z.string().max(300),
-        scope: z.string().max(1000),
-        oibUrl: z.string().max(500),
-        status: z.enum(['required', 'likely', 'check'] as const satisfies readonly ApplicableStatus[]),
-        reason: z.string().max(1000),
-        decidingFact: z.string().max(100).optional(),
-      })
-    )
-    .max(40)
-    .optional(),
+  applicableLaw: projectLawSchema.optional(),
   // --- end Step 5 ----------------------------------------------------------
   // -- Step 4, Rückfragen ----------------------------------------------------
   /**
@@ -413,6 +393,11 @@ export const intakeViewSchema = z.object({
    * from a BFF without the register (a rolling deploy) shows no requests.
    */
   locationRegister: locationRegisterViewSchema.optional(),
+  /**
+   * False when no setup record is released for the project's country: the review then asks and
+   * derives nothing and says so. Optional on the wire (a rolling deploy); absent reads as published.
+   */
+  setupPublished: z.boolean().optional(),
   // --- Step 3, Erfassung (`reading`, `steps/reading-step.tsx`) ---------------
   // The reading's milestones, live while it runs. Values, contradictions and
   // decisive gaps are `counts` above: computed from the profile on every read,
@@ -439,7 +424,7 @@ export const intakeViewSchema = z.object({
       federalState: z.string().max(200).nullable(),
       municipality: z.string().max(200).nullable(),
       address: z.string().max(500).nullable(),
-      source: z.enum(['geocoder', 'document', 'person']).nullable(),
+      source: z.enum(['register', 'geocoder', 'document', 'person']).nullable(),
       confirmed: z.boolean(),
     }),
   }),
@@ -576,6 +561,8 @@ export const internalIntakeNeedsResponseSchema = z.object({
    * Null before the first reading finished.
    */
   previousSummary: z.string().max(MAX_INTAKE_SUMMARY_LENGTH).nullable(),
+  /** False when no setup record is released for the project's country, so no question or class follows from it. */
+  setupPublished: z.boolean().optional(),
 })
 export type InternalIntakeNeedsResponse = z.infer<typeof internalIntakeNeedsResponseSchema>
 

@@ -48,9 +48,12 @@ import {
   buildingsTouchedBy,
   buildingIdsOf,
   buildingClassKey,
+  classificationFor,
   isBuildingClassKey,
   withDerivedClass,
 } from './derivation-view'
+import { classificationInputs, setupUnpublished, type SetupScopeOptions } from './setup-scope'
+import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import {
   isMeaningfulValue,
   pointerSegment,
@@ -127,6 +130,13 @@ export interface RecordContext {
   /** The reading's job id: a suggestion it creates carries it, and only it may withdraw that suggestion. */
   readingId: string
   needs: ComputeNeedsOptions
+  /** The released setup records to classify by. */
+  records: readonly StoredRuleset[]
+  /**
+   * The project's knowledge context withholds law at its site: no class is derived, and a stored one stays
+   * untouched, as while the setup is unpublished. The view hides a derived class meanwhile (`profileAsTheLawShows`).
+   */
+  lawWithheld?: boolean
 }
 
 /** Write one value onto the profile, or say why not. */
@@ -180,16 +190,36 @@ export interface RecordPlan {
   opened: OpenedNeed[]
 }
 
-/** The profile with the class of every building whose inputs changed derived again; the class keys that moved join `changed`. */
+/**
+ * The profile with the class of every building whose inputs changed derived again (every building with
+ * `everyBuilding`); the class keys that moved join `changed`.
+ */
 function withClassesDerived(
+  before: ProjectProfile,
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
   changed: Set<string>,
-  now: string
+  now: string,
+  scope: Pick<SetupScopeOptions, 'records' | 'lawWithheld'>,
+  everyBuilding = false
 ): ProjectProfile {
+  // Law withheld at the site (no site, not entitled, unreadable, no base yet): nothing can be derived, so
+  // nothing may be taken away either, as while the setup is unpublished. A derived class is hidden, not lost.
+  if (scope.lawWithheld) return profile
+  // No records released for the country (before or after the batch): nothing can be derived, so
+  // nothing may be taken away either; the stored classes stay until the records publish.
+  if (setupUnpublished(before, scope.records) && setupUnpublished(profile, scope.records)) return profile
   let current = profile
-  for (const buildingId of buildingsTouchedBy(changed, buildingIdsOf(current, definition))) {
-    const derived = withDerivedClass(current, definition, buildingId, now)
+  // Read before the loop: a class written below moves no input, and the site is the batch's.
+  const classification = classificationFor(current, scope)
+  const all = buildingIdsOf(current, definition)
+  // Without a classification no class may stand, and a site that selects another one moves every class:
+  // every building is visited. A site change within one classification (another Land) moves none.
+  const moved = classificationFor(before, scope)?.rulesetId !== classification?.rulesetId
+  const touched =
+    classification && !moved && !everyBuilding ? buildingsTouchedBy(changed, all, classificationInputs(classification)) : all
+  for (const buildingId of touched) {
+    const derived = withDerivedClass(current, definition, buildingId, now, scope)
     current = derived.profile
     if (derived.changed) changed.add(buildingClassKey(buildingId))
   }
@@ -223,12 +253,28 @@ export function planRecord(
     results.push(applied.result)
     if (applied.result.outcome !== 'refused') changed.add(entry.key)
   }
-  current = withClassesDerived(current, definition, changed, context.now)
+  current = withClassesDerived(profile, current, definition, changed, context.now, { records: context.records, lawWithheld: context.lawWithheld })
   const opened = openedNeeds(
     computeNeeds(profile, definition, context.needs),
     computeNeeds(current, definition, context.needs)
   )
   return { results, profile: current, changedKeys: [...changed], opened }
+}
+
+/**
+ * Every building's class derived again with no new value: what the records released since the class was
+ * written say (`rederive.ts`). The same rule as a reading's write, so law withheld or an unpublished setup
+ * leaves the profile as it is. `changedKeys` is empty when nothing moved.
+ */
+export function planRederive(
+  profile: ProjectProfile,
+  definition: ProjectIntakeDefinition,
+  context: Pick<RecordContext, 'now' | 'records' | 'lawWithheld'>
+): { profile: ProjectProfile; changedKeys: string[] } {
+  const changed = new Set<string>()
+  const scope = { records: context.records, lawWithheld: context.lawWithheld }
+  const current = withClassesDerived(profile, profile, definition, changed, context.now, scope, true)
+  return { profile: current, changedKeys: [...changed] }
 }
 
 /** Why `readingId` may not withdraw the suggestion under `key`; null when it may. */
@@ -259,7 +305,7 @@ export function planWithdraw(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
   keys: readonly string[],
-  context: Pick<RecordContext, 'now' | 'readingId'>
+  context: Pick<RecordContext, 'now' | 'readingId' | 'records' | 'lawWithheld'>
 ): WithdrawPlan {
   let current = profile
   const results: WithdrawResult[] = []
@@ -276,6 +322,6 @@ export function planWithdraw(
     results.push({ key, outcome: 'withdrawn' })
     changed.add(key)
   }
-  current = withClassesDerived(current, definition, changed, context.now)
+  current = withClassesDerived(profile, current, definition, changed, context.now, { records: context.records, lawWithheld: context.lawWithheld })
   return { results, profile: current, changedKeys: [...changed] }
 }

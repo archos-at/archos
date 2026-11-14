@@ -119,13 +119,13 @@ type Copied = 'plain' | 'withSources' | null
  * that opens a share sheet is a confidently wrong target.
  */
 const actionButton = cn(
-  'inline-flex size-6 items-center justify-center rounded-md pointer-coarse:size-11',
+  'inline-flex size-6 items-center justify-center rounded-control pointer-coarse:size-11',
   // The shared press: its transition list carries the hover background too,
   // which this list used to leave out, so the fill snapped in under an
   // easing colour.
-  'text-muted-foreground/70',
+  'text-muted-foreground',
   PRESSABLE,
-  'hover:bg-accent hover:text-foreground',
+  'hover:bg-hover hover:text-foreground',
   FOCUS_RING
 )
 
@@ -275,7 +275,7 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
       {showPlainCopy && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <button data-attr="chat-copy-answer"
               type="button"
               onClick={handleCopyAnswer}
               aria-label={copyLabel}
@@ -305,7 +305,7 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
       {withSources && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <button data-attr="chat-copy-with-sources"
               type="button"
               onClick={handleCopyWithSources}
               aria-label={copyWithSourcesLabel}
@@ -337,7 +337,7 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
         // and the thread's address when it has one. Present only where there is
         // a sheet and a finger; the copy beside it stays the way out everywhere
         // else, and the fallback when the sheet refuses.
-        <button
+        <button data-attr="answer-share"
           type="button"
           onClick={() => void handleShare()}
           aria-label={t('answerActions.share')}
@@ -350,7 +350,7 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
       {canExport && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <button data-attr="chat-download-docx"
               type="button"
               onClick={() => void handleDownloadDocx()}
               disabled={exporting}

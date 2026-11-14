@@ -112,9 +112,12 @@ def repo(mod, tmp_path, monkeypatch):
             "pyproject.toml": "[project]\n",
             "apps/workspace/deploy/Dockerfile": "FROM node\nCOPY . .\n",
             "apps/workspace/page.tsx": "export {}\n",
-            "apps/site/Dockerfile": "FROM node\nCOPY . .\n",
-            "apps/site/index.astro": "<p/>\n",
+            "apps/website/Dockerfile": "FROM node\nCOPY . .\n",
+            "apps/website/index.astro": "<p/>\n",
+            "apps/cms/Dockerfile": "FROM node\nCOPY . .\n",
+            "apps/cms/src/payload.config.ts": "export {}\n",
             "docs/readme.md": "hi\n",
+            "deploy/pulumi/Pulumi.prod.yaml": "config:\n  proj:baseDomain: live.example.org\n  proj:replicas: 2\n",
         },
     )
     monkeypatch.setattr(mod, "ROOT", tmp_path)
@@ -129,7 +132,24 @@ def test_only_an_input_change_renames_the_image(mod, repo):
     write(repo, {"src/app.py": "print(2)\n"})
     after = mod.hashes("HEAD", week=WEEK)
     assert after["backend"] != before["backend"]
-    assert {k: after[k] for k in ("frontend", "web")} == {k: before[k] for k in ("frontend", "web")}
+    assert {k: after[k] for k in ("frontend", "web", "cms")} == {k: before[k] for k in ("frontend", "web", "cms")}
+
+
+def test_the_website_is_built_for_the_domain_prod_serves(mod, repo):
+    web = next(image for image in mod.IMAGES if image.name == "web")
+    assert mod.build_args(web) == {"PUBLIC_SITE_URL": "https://live.example.org"}
+    assert all(mod.build_args(image) == {} for image in mod.IMAGES if image.name != "web")
+
+    before = mod.hashes("HEAD", week=WEEK)
+    write(
+        repo, {"deploy/pulumi/Pulumi.prod.yaml": "config:\n  proj:baseDomain: live.example.org\n  proj:replicas: 3\n"}
+    )
+    assert mod.hashes("HEAD", week=WEEK) == before, "another prod key does not rebuild the website"
+
+    write(repo, {"deploy/pulumi/Pulumi.prod.yaml": "config:\n  proj:baseDomain: moved.example.org\n"})
+    after = mod.hashes("HEAD", week=WEEK)
+    assert after["web"] != before["web"], "the domain move rebuilds the website with its new address"
+    assert {k: after[k] for k in ("frontend", "backend")} == {k: before[k] for k in ("frontend", "backend")}
 
 
 def test_a_new_week_renames_every_image_so_base_images_are_refreshed(mod, repo):
@@ -158,19 +178,21 @@ def test_a_pull_request_builds_the_images_it_changes(mod, repo):
     build, images = mod.plan_pull_request(moved, week=WEEK)
 
     assert [entry["name"] for entry in build] == ["frontend"]
-    assert [entry["name"] for entry in images] == ["backend", "frontend", "web"]
+    assert [entry["name"] for entry in images] == ["backend", "frontend", "web", "cms"]
     assert build[0]["repository"] == "grid-oib-frontend" and build[0]["context"] == "apps/workspace"
+    # A new image is named for its job alone (ADR-0145); the old three keep their prefix until their move.
+    assert next(entry for entry in images if entry["name"] == "cms")["repository"] == "cms"
     assert mod.plan_pull_request(base, week=WEEK)[0] == build
 
 
 def test_a_pull_request_that_moves_an_image_builds_it(mod, repo):
     # The base had the site somewhere else, so it has no Dockerfile at the path
     # the image names now: nothing to compare, so the image is built.
-    git(repo, "mv", "apps/site", "site-before-the-move")
+    git(repo, "mv", "apps/website", "site-before-the-move")
     git(repo, "commit", "-q", "-m", "the old layout")
     base = git(repo, "rev-parse", "HEAD")
     git(repo, "checkout", "-q", "-b", "move")
-    git(repo, "mv", "site-before-the-move", "apps/site")
+    git(repo, "mv", "site-before-the-move", "apps/website")
     git(repo, "commit", "-q", "-m", "the move")
 
     build, _ = mod.plan_pull_request(base, week=WEEK)
@@ -181,11 +203,12 @@ def test_a_pull_request_that_moves_an_image_builds_it(mod, repo):
 @pytest.mark.parametrize(
     ("answers", "expected"),
     [
-        ({"backend": True, "frontend": True, "web": True}, []),
-        ({"backend": True, "frontend": False, "web": True}, ["frontend"]),
+        ({"backend": True, "frontend": True, "web": True, "cms": True}, []),
+        ({"backend": True, "frontend": False, "web": True, "cms": True}, ["frontend"]),
         # The registry could not say: build. An extra build costs minutes; a
         # skipped one ships the wrong code.
-        ({"backend": None, "frontend": True, "web": True}, ["backend"]),
+        ({"backend": None, "frontend": True, "web": True, "cms": True}, ["backend"]),
+        ({"backend": True, "frontend": True, "web": True, "cms": False}, ["cms"]),
     ],
 )
 def test_a_push_builds_what_the_registry_does_not_have(mod, repo, answers, expected):
@@ -199,4 +222,4 @@ def test_a_push_builds_what_the_registry_does_not_have(mod, repo, answers, expec
 
     assert [entry["name"] for entry in build] == expected
     hashes = mod.hashes("HEAD", week=WEEK)
-    assert asked == [(name, f"inputs-{hashes[name]}") for name in ("backend", "frontend", "web")]
+    assert asked == [(name, f"inputs-{hashes[name]}") for name in ("backend", "frontend", "web", "cms")]

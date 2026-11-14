@@ -145,7 +145,7 @@ export function rankByRecallScore(notes: ScorableNote[]): { index: number; score
 /**
  * RRF constant from Cormack, Clarke & Büttcher (SIGIR 2009). 60 is the
  * canonical value — the same one the document retriever's fusion uses
- * (`packages/knowledge-layer/src/llamaindex/hybrid.py`).
+ * (`packages/knowledge-layer/src/search/hybrid.py`).
  */
 export const RRF_K = 60
 

@@ -49,7 +49,8 @@ describe('InboxBadge', () => {
 
   test('accepts positioning overrides so the collapsed rail can place it', () => {
     render(<InboxBadge pending={2} className="absolute -top-1 -right-1" />)
-    expect(screen.getByTestId('inbox-badge')).toHaveClass('absolute')
+    // On the frame that carries its arrival, so the pill and its motion move as one.
+    expect(screen.getByTestId('inbox-badge').parentElement).toHaveClass('absolute')
   })
 
   test('renders through the CountPill primitive, in its attention tone', () => {
@@ -60,5 +61,22 @@ describe('InboxBadge', () => {
     expect(badge).toHaveAttribute('data-slot', 'count-pill')
     // Attention, not the primitive's default muted: this count is a call to act.
     expect(badge).toHaveClass('bg-primary')
+  })
+
+  test('a rise replays the arrival once, and a re-render inside it does not cut it off', () => {
+    const pill = (): Element => screen.getByTestId('inbox-badge').parentElement!
+    const { rerender } = render(<InboxBadge pending={2} />)
+    const atRest = pill()
+    rerender(<InboxBadge pending={3} />)
+    const arriving = pill()
+    // A new pill: the one that plays the arrival.
+    expect(arriving).not.toBe(atRest)
+    // The shell re-renders for its own reasons while the spring runs. The pill
+    // was keyed by „rose in this render“, so this remounted it at rest.
+    rerender(<InboxBadge pending={3} />)
+    expect(pill()).toBe(arriving)
+    // A fall is not an arrival.
+    rerender(<InboxBadge pending={1} />)
+    expect(pill()).toBe(arriving)
   })
 })

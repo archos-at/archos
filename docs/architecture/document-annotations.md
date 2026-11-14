@@ -1218,11 +1218,11 @@ devices with notifications on, one notification per person for the morning's
 reminders however many marks are due (above); the type's mail after two hours
 unread waits for the ADR-0035 sender, like every other mail.
 
-- **When.** The job scheduler's daily clock (`scheduler/index.js`,
-  `sweepAnnotationDue`) posts `POST /api/internal/annotations/due-reminders` at
-  06:45 in Vienna. A start before 06:45 waits for it: a restart at 01:00 would
-  otherwise push at 01:00, and its stamps would silence the 06:45
-  run. A start later in the day catches that day's run up on its first tick.
+- **When.** At 06:45 in Vienna: the `frist-reminder` Hatchet task's cron names
+  the zone (`CRON_TZ=Europe/Vienna 45 6 * * *`,
+  `apps/workspace/bff/scheduling/tasks.ts`), so the engine keeps it on 06:45
+  across daylight saving, and each run calls `enqueueDueReminders`. A day whose 06:45 run never ran is
+  not caught up later; the next morning's reminder includes the overdue marks.
   A failed post retries in an hour, but never past the office's midnight: a
   retry that would fall on the next day waits for its 06:45 instead.
 - **Where it runs.** The route (`enqueueDueReminders`,
@@ -1398,7 +1398,8 @@ office's calendar (Europe/Vienna).
 export's `DocBlock`s and handed to the renderers that already exist: `renderDocx`
 (`lib/answer-export/docx.ts`), `BlocksDocument` (`lib/pdf/blocks-to-pdf.tsx`,
 with its cover page), and `blocksToMarkdown` in `export.ts`, the only new
-writer, which escapes what a person typed so it stays text. No dependency was
+writer, which escapes what a person typed so it stays text
+(`lib/text/markdown-escape.ts`, shared with the E-Mail-Verlauf renderer). No dependency was
 added. A PDF whose layout cost passes `MAX_MARKDOWN_PDF_CHARS` is refused (422)
 before react-pdf blocks the event loop; Word and Markdown have no such bound.
 There is no thumbnail of the marked place: the BFF has no page rasterizer, so

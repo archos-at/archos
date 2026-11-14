@@ -1,0 +1,13 @@
+---
+# area: office-knowledge
+features:
+  - >
+    Questions about an older submission can be answered with the law that
+    applied then: give a procedure's filing and decision dates (or a date) and
+    the answer names the edition in force, follows the Land's reference date
+    and transitional rules, and says which date is still missing instead of
+    assuming today. The law lookup can read the version of a past day from RIS.
+operators:
+  - >
+    On for every organization: the time-editions flag is retired (ADR-0175).
+    Migration 0206 adds the edition transition and the work's history start.

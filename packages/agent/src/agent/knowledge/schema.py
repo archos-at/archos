@@ -150,9 +150,12 @@ class JobState(StrEnum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
-    #: A person stopped the job before it finished (``claim_queue.CANCELLED``).
-    #: Terminal, and neither a failure nor a success: nothing went wrong, but
-    #: nothing was indexed either. A reader shows it as its own state.
+    #: A person stopped the job before it finished, or a newer upload of its
+    #: document replaced it (``ingest_status_store.cancelled``,
+    #: ``ingest_execution.settle_superseded``). Terminal, and neither a failure
+    #: nor a success: nothing went wrong, and the files it had not finished
+    #: were not indexed. Files that finished before the stop keep ``success``
+    #: and their chunks. A reader shows it as its own state.
     CANCELLED = "cancelled"
 
 
@@ -205,7 +208,7 @@ class QuarantineReason(BaseModel):
     """One reason the upload screen held a file back (ADR-0086, ADR-0113).
 
     A term the office listed, or a detector (``iban``, ``at_svnr``,
-    ``credit_card``); never a matched value. A detector's ``sample`` is masked
+    ``credit_card``, ``de_svnr``, ``de_tax_id``); never a matched value. A detector's ``sample`` is masked
     before it gets here (``AT61 •••• •••• •••• 3201``). ``kind`` is open: a
     detector the job learns first reaches a reader as a kind it does not know,
     which it reads as ``other`` rather than failing the whole verdict.
@@ -310,7 +313,7 @@ class FileInfo(BaseModel):
     topics: list[str] | None = Field(
         None,
         description=(
-            "Open topics (Themen) Piloti recognised in the document, or set by a person; "
+            "Open topics (Themen) the agent recognised in the document, or set by a person; "
             "free terms such as 'Attika', beside the controlled tags."
         ),
     )
@@ -341,7 +344,7 @@ class FileInfo(BaseModel):
         None,
         description=(
             "File name of the newer Fassung in this collection that a PERSON confirmed replaces this one. "
-            "Piloti never sets it on its own."
+            "The agent never sets it on its own."
         ),
     )
     supersedes: list[str] | None = Field(
@@ -351,7 +354,7 @@ class FileInfo(BaseModel):
     revision_suggestion: dict[str, Any] | None = Field(
         None,
         description=(
-            "Piloti's open suggestion that this document is a newer Fassung of another: of (the older file name), "
+            "The agent's open suggestion that this document is a newer Fassung of another: of (the older file name), "
             "confidence (0..1), reason (German, short), basis ('title_block', 'name' or 'content'). "
             "Absent once dismissed."
         ),
@@ -472,7 +475,7 @@ class IngestionJobStatus(BaseModel):
     reader_version: str | None = Field(
         None,
         description=(
-            "The extraction logic that read the files (`knowledge_layer.reader_version."
+            "The extraction logic that read the files (`knowledge_layer.ingest.reader_version."
             "INGEST_READER_VERSION`), stamped when a worker starts the job. A file that failed "
             "`deterministic` under one reader may read under a newer one. Null until the job runs."
         ),
@@ -556,6 +559,17 @@ class AvailableDocument(BaseModel):
         page_count: Optional number of pages the file has, counted when it was ingested (a backfill
             fills the older rows). ``None`` for a file without pages, such as a text file, and for a row
             ingested before the count was kept: the listing says nothing rather than guess.
+        mail_thread: Optional, on a filed E-Mail-Verlauf: ``latest_sent_at`` (the newest message's
+            send time, RFC 3339 UTC), ``message_count`` and ``locale``
+            (:mod:`~agent.knowledge.mail_facts`). Its date is the document's own date.
+        mail_origin: Optional, on a file filed from a mail: the message it came with, ``sent_at``,
+            ``received_at``, ``from_name``, ``from_domain``, ``signer_domain``, ``sender_trust``,
+            ``thread_document_id`` and ``locale``; a forwarded message's ``from_*`` and ``sent_at``
+            are its author's, and ``forwarded_by_name``, ``forwarded_by_domain`` and
+            ``forwarded_at`` its forwarder's. Display names and domains only, never an
+            address. A reader names the sender's domain only as :func:`~agent.knowledge.
+            mail_facts.mail_origin_label` does: the signing domain when it was verified, else
+            „Domain nicht bestätigt“, and never for a forward's author.
         added_at: Optional ``YYYY-MM-DD`` the document was first indexed under
             this name (the row's ``created_at``; a re-ingest keeps it). A
             string, not a datetime, because the row rides the checkpointed turn
@@ -583,6 +597,8 @@ class AvailableDocument(BaseModel):
     dossier: dict[str, Any] | None = None
     doc_references: list[dict[str, Any]] | None = None
     coverage: dict[str, Any] | None = None
+    mail_thread: dict[str, Any] | None = None
+    mail_origin: dict[str, Any] | None = None
     added_at: str | None = None
     collection: str | None = None
     shelf: str | None = None

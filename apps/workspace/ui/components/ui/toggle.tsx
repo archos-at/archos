@@ -8,25 +8,28 @@ import { cn } from '@/lib/utils'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 
 const toggleVariants = cva(
-  // One radius for the whole scale (`rounded-md`, 8px): the `inverted` variant
-  // used to override the base with `rounded-lg`, so two toggles sitting in the
-  // same filter row rounded differently depending on which variant they were.
-  // 8px is also what nests correctly inside the segmented group's `rounded-lg`
-  // tray — an item as round as its container reads as a bulge.
+  // One radius for the whole scale (`rounded-control`, 4px): the `inverted`
+  // variant once overrode the base, so two toggles in the same filter row
+  // rounded differently depending on which variant they were.
   //
   // Press dip: `scale` (what v4's `active:scale-*` sets) joins the transition list at the snap duration while
   // colors stay at quick (the Button press split). Transform-only motion, so
   // no layout shift.
-  "inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,opacity,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out outline-none disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 motion-reduce:transition-none active:scale-[0.98] motion-reduce:active:scale-100 " +
+  "inline-flex items-center justify-center gap-1.5 rounded-control text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,opacity,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out outline-none disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 motion-reduce:transition-none active:scale-[0.98] motion-reduce:active:scale-100 " +
     FOCUS_RING,
   {
     variants: {
       variant: {
-        default: 'bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground',
+        default: 'bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground',
         outline:
-          'border border-border bg-transparent text-muted-foreground shadow-xs hover:bg-accent hover:text-foreground data-[state=on]:border-border data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-foreground data-[state=on]:shadow-xs',
+          'border border-border bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground data-[state=on]:border-border data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-foreground',
         inverted:
-          'text-muted-foreground hover:bg-accent hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-2xs',
+          'text-muted-foreground hover:bg-hover hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-2xs',
+        // A filter chip (paper on a desk, principle 4): never the press's shape. A 28px pill of the desk's fill and no
+        // edge at rest, one step down the ladder under the pointer; picked, the selected grey with its tick (the
+        // caller's `Check`, shown `in-data-[state=on]`). Round 3 drew it as the press, and „Für Sie“ read as a command
+        // beside „Protokoll exportieren“. Never a thumb either: a thumb lives on a track.
+        chip: 'rounded-full bg-desk text-foreground font-medium hover:bg-selected data-[state=on]:bg-selected data-[state=on]:hover:bg-pressed',
       },
       // Aligned to `Button`'s size scale, one name = one height, so a toggle
       // and a button placed side by side in a toolbar line up. The scale used
@@ -48,6 +51,14 @@ const toggleVariants = cva(
         'icon-sm': 'size-7 px-0 pointer-coarse:size-11',
       },
     },
+    // A chip is 28px whatever the size says; under a finger 36px, its catchment 44px (an overhang the gap absorbs).
+    compoundVariants: [
+      {
+        variant: 'chip',
+        className:
+          'relative h-7 px-3 pointer-coarse:h-9 pointer-coarse:min-w-11 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[""]',
+      },
+    ],
     defaultVariants: {
       variant: 'default',
       size: 'default',

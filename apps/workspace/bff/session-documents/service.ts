@@ -26,6 +26,7 @@ import { auditScreeningOverride } from '@/lib/upload-screening/service'
 import { normalizeOriginPath } from '@/lib/documents/origin-path'
 import { assertMayReplaceHeld, shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { acceptedUploadBatchId } from '@/lib/upload-batches/service'
+import { announceDocumentUploaded } from '@/lib/analytics/ingest-events'
 import 'server-only'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { s3Client, bucketAdminS3Client, buildSessionStorageKey } from '@/lib/s3'
@@ -55,6 +56,7 @@ import { listDocumentVersionObjects } from '@/lib/documents/version-repository'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { purgeCollectionChunks } from './cleanup'
 import { collectionFileRef } from '@/lib/documents/collection-file-ref'
+import { storedContentType } from '@/lib/documents/preview-types'
 import { quarantineVerdictOf, type QuarantineVerdict } from '@/lib/upload-screening/quarantine'
 import {
   deleteSessionDocument as deleteSessionDocumentRow,
@@ -96,7 +98,7 @@ export async function listSessionDocuments(
   const rows = await listSessionDocumentRows(conversationId, session.organizationId, reader, SESSION_DOCUMENT_LIST_LIMIT)
   // Narrowed again after the reconcile, by the same rule: a row the query let
   // through on an earlier verdict can come back `quarantined`.
-  const reconciled = keepReadable(await reconcileDocumentStatuses(rows, session.organizationId), reader)
+  const reconciled = keepReadable(await reconcileDocumentStatuses(rows, session.organizationId, 'read'), reader)
 
   return {
     documents: reconciled.map(
@@ -256,7 +258,7 @@ export async function uploadSessionDocument(
         Bucket: storageBucket,
         Key: storageKey,
         Body: bytes,
-        ContentType: file.type || 'application/octet-stream',
+        ContentType: storedContentType(file) ?? 'application/octet-stream',
       }),
     )
 
@@ -270,7 +272,7 @@ export async function uploadSessionDocument(
         storageKey,
         storageBucket,
         fileSize: file.size,
-        contentType: file.type || null,
+        contentType: storedContentType(file),
         contentHash,
         folderId: null,
         createdBy: session.userId,
@@ -297,7 +299,7 @@ export async function uploadSessionDocument(
         storageBucket,
         collectionName,
         fileSize: file.size,
-        contentType: file.type || null,
+        contentType: storedContentType(file),
         contentHash,
         uploadBatchId,
         status: 'uploaded',
@@ -318,7 +320,7 @@ export async function uploadSessionDocument(
   await recordUploadedVersionOrDiscard(session, documentId, request, {
     storageKey,
     storageBucket,
-    contentType: file.type || null,
+    contentType: storedContentType(file),
     fileSize: file.size,
     contentHash,
   })
@@ -334,6 +336,14 @@ export async function uploadSessionDocument(
     storageKey,
     storageBucket,
     collectionName,
+  })
+
+  announceDocumentUploaded(session.organizationId, session.userId, {
+    source: 'chat',
+    filename,
+    documentId,
+    uploadId: uploadBatchId,
+    replaced,
   })
 
   // Data-provenance event: who brought which file into which conversation.

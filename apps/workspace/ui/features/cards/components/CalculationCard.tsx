@@ -38,6 +38,7 @@
 import { useState, type FC } from 'react'
 import { ChevronDown, Sigma } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations, type Translator } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import {
@@ -75,9 +76,7 @@ const LimitLine: FC<{ limit: CalculationLimitData; unit: string; t: Translator }
 
   return (
     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
-      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {t('cards.calculation.limitLabel')}
-      </span>
+      <SectionLabel>{t('cards.calculation.limitLabel')}</SectionLabel>
       <span className="font-mono text-foreground">{text}</span>
       {limit.label && <span className="text-muted-foreground">{limit.label}</span>}
       {limit.reference && (

@@ -10,9 +10,8 @@
  *   - `prompt`: REQUIRED, 1–8000 chars, trimmed. It is what the job IS; the old
  *     shape derived it from the pinned skill, which made "ask this question
  *     every Monday" unexpressible without first inventing a skill for it.
- *   - `skillName`: OPTIONAL/nullable. Absent means no skill, and then
- *     `skillSnapshot` is NULL as well — the pair is enforced in the database by
- *     `jobs_skill_pair_check`, so no writer may produce one without the other.
+ *   - `skillName`: OPTIONAL/nullable. Absent means no skill, and then the
+ *     definition's `plan.skill` is `{}` (`emptySkillSnapshot`).
  *   - `output`: a plain enum over `JOB_OUTPUTS`. It is the USER's choice on the
  *     job, not something derived from skill metadata: `grid-execution` (and
  *     `grid-schedulable`) no longer exist.
@@ -95,12 +94,13 @@ export function withAlwaysOnSources(dataSources: string[] | null): string[] | nu
 }
 
 /**
- * What a skill-less job's run records in `job_runs.skill_snapshot`.
+ * What a skill-less job's run records in `task_runs.skill_snapshot`, and its
+ * definition in `plan.skill`.
  *
- * That column is NOT NULL even though `jobs.skill_snapshot` is nullable, so
- * run history keeps ONE shape to read: `{}` is the documented value for "no
- * skill was attached" (see the column comment in `schema/jobs.ts`). The cast is
- * the honest expression of that — an empty object really is what the row holds.
+ * The column is NOT NULL, so run history keeps ONE shape to read: `{}` is the
+ * documented value for "no skill was attached" (`schema/task-model.ts`). The
+ * cast is the honest expression of that — an empty object really is what the
+ * row holds.
  */
 export function emptySkillSnapshot(): SkillSnapshot {
   return {} as SkillSnapshot
@@ -217,16 +217,3 @@ export const patchJobSchema = z
   .superRefine(refineSchedule)
 
 export type PatchJobInput = z.infer<typeof patchJobSchema>
-
-/**
- * Body of the internal fire endpoint the scheduler POSTs.
- *
- * Still `scheduleId`, and deliberately: the scheduler container and the BFF
- * deploy separately, so renaming the wire field would break every scheduled run
- * in the window between the two deploys — the same hazard the `execution` ->
- * `output` rename is carrying a compatibility shim for. It names a
- * `task_definitions.id` since migration 0086.
- */
-export const internalFireSchema = z.object({
-  scheduleId: z.guid(),
-})

@@ -12,8 +12,9 @@ Architecture:
     └── factory.py               # Registry + factory pattern
 
     packages/knowledge-layer/src/ # Backend implementations
-    ├── llamaindex/              # LlamaIndex readers and chunking, OpenRouter embeddings
-    └── qdrant/                  # The vector store (ADR-0115): every chunk, every read
+    ├── ingest/                  # Reading a file: LlamaIndex readers and chunking, OpenRouter embeddings
+    ├── search/                  # Finding passages: the retriever, fusion, rerank, the requery judge
+    └── vector_store/            # The vector store (ADR-0115): every chunk, every read
 
 Usage:
     from agent.knowledge import Chunk, BaseRetriever, get_retriever
@@ -71,6 +72,8 @@ from .factory import set_document_tags_by_person
 from .factory import set_document_topics_by_person
 from .factory import unregister_summary
 from .factory import update_document_tags
+from .factory_mail import set_document_mail_origin
+from .factory_mail import set_document_mail_thread
 from .inventory import allocate_inventory
 from .inventory import allocate_inventory_detailed
 from .inventory import get_inventory_drops
@@ -140,6 +143,8 @@ __all__ = [
     "get_document_display_titles",
     "set_document_folder_path",
     "set_document_page_count",
+    "set_document_mail_thread",
+    "set_document_mail_origin",
     "set_document_provenance",
     "get_document_provenance",
     "get_document_folder_paths",

@@ -51,6 +51,7 @@ import {
 } from './export'
 import { listAnnotations } from './service'
 import type { AnnotationReplyView, AnnotationView } from './types'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const SESSION = {
   userId: 'user_anna',
@@ -241,21 +242,21 @@ describe('the Protokoll', () => {
 
   it("names whom Piloti wrote a reply for, and who stands behind a mark Piloti set", () => {
     const md = markdownOf()
-    expect(md).toContain('- **Piloti · für Anna Berger · 09.10.2026:** Erledigt: im Schnitt B-B mit 1,25 m kotiert.')
-    expect(md).toContain('*von Piloti gesetzt · für Anna Berger · 07.10.2026*')
+    expect(md).toContain(`- **${PRODUCT_NAME} · für Anna Berger · 09.10.2026:** Erledigt: im Schnitt B-B mit 1,25 m kotiert.`)
+    expect(md).toContain(`*von ${PRODUCT_NAME} gesetzt · für Anna Berger · 07.10.2026*`)
     expect(md).toContain('*Gesetzt von Anna Berger · 07.10.2026*')
   })
 
   it('leaves the proposals out by default, and puts them under their own heading when asked', () => {
     expect(markdownOf()).not.toContain('Geländer zu niedrig?')
-    expect(markdownOf()).not.toContain('Vorschläge von Piloti, nicht geprüft')
+    expect(markdownOf()).not.toContain(`Vorschläge von ${PRODUCT_NAME}, nicht geprüft`)
 
     const md = markdownOf({ includeProposals: true })
-    const heading = md.indexOf('## Vorschläge von Piloti, nicht geprüft')
+    const heading = md.indexOf(`## Vorschläge von ${PRODUCT_NAME}, nicht geprüft`)
     expect(heading).toBeGreaterThan(md.indexOf('Nr. 5 ·'))
     expect(md.indexOf('### Nr. 6 · Seite 1 · Hinweis · Vorschlag')).toBeGreaterThan(heading)
-    expect(md).toContain('*Vorschlag von Piloti · für Anna Berger · 07.10.2026*')
-    expect(md).toContain('Umfang: Offene Anmerkungen · alle Fassungen · mit Vorschlägen von Piloti')
+    expect(md).toContain(`*Vorschlag von ${PRODUCT_NAME} · für Anna Berger · 07.10.2026*`)
+    expect(md).toContain(`Umfang: Offene Anmerkungen · alle Fassungen · mit Vorschlägen von ${PRODUCT_NAME}`)
   })
 
   it('names the Fassungen it covers as they are: the current one alone only while nothing earlier came along', () => {
@@ -367,7 +368,7 @@ describe('exportAnnotationProtocol', () => {
     expect(file.mediaType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     const xml = readZipEntries(file.bytes).get('word/document.xml') ?? ''
     expect(xml).toContain('Nr. 4 · Seite 2 · Mangel · offen')
-    expect(xml).toContain('Piloti · für Anna Berger')
+    expect(xml).toContain(`${PRODUCT_NAME} · für Anna Berger`)
   })
 
   it('writes a PDF whose words survive layout', async () => {
@@ -377,6 +378,45 @@ describe('exportAnnotationProtocol', () => {
     expect(pdf.text).toContain('Anmerkungen – Grundriss EG')
     expect(pdf.text).toContain('Nr. 4 · Seite 2 · Mangel · offen')
     expect(pdf.text).toContain('Fassung 3 von 5')
+  })
+
+  /**
+   * Art. 50(2) AI Act: the agent's marks and replies are in this file, so it is
+   * marked, as a person's document with a model's part in it. The control is
+   * the same export of the office's own marks alone, which carries no marking
+   * at all: nothing in it was generated.
+   */
+  describe('the AI marking', () => {
+    const COMPOSITE = 'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia'
+    const officeOnly = async () => {
+      const listing = await listAnnotations(SESSION, 'doc_1')
+      vi.mocked(listAnnotations).mockResolvedValue({
+        ...listing,
+        annotations: [mark({ number: 1 }), mark({ number: 2, replies: [reply()] })],
+      })
+    }
+
+    it('marks a PDF holding the agent’s text composite, in XMP and in Keywords', async () => {
+      const pdf = await readPdf((await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'pdf' })).bytes)
+      expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBe(COMPOSITE)
+      expect(String(pdf.info.Keywords)).toContain(`DigitalSourceType=${COMPOSITE}`)
+    })
+
+    it('marks a Word file holding the agent’s text composite', async () => {
+      const file = await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'docx' })
+      const custom = readZipEntries(file.bytes).get('docProps/custom.xml') ?? ''
+      expect(custom).toContain(`name="DigitalSourceType"><vt:lpwstr>${COMPOSITE}`)
+    })
+
+    it('leaves the office’s own marks unmarked, in both formats', async () => {
+      await officeOnly()
+      const pdf = await readPdf((await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'pdf' })).bytes)
+      expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBeUndefined()
+      expect(pdf.info.Keywords).toBeUndefined()
+      await officeOnly()
+      const docx = await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'docx' })
+      expect(readZipEntries(docx.bytes).has('docProps/custom.xml')).toBe(false)
+    })
   })
 
   it('refuses a PDF too long to lay out, and points at the formats that have no such limit', async () => {

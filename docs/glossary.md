@@ -16,6 +16,13 @@ identifier, a file name or a module. Say the German term to users and the code
 name to the compiler. The stored values, URLs and permission slugs that still
 read German are listed after the table.
 
+The banned stems live in [`ci/german_stems.json`](../ci/german_stems.json):
+`stems` for identifiers, `prose_words` for what an agent reads. Do not copy the
+list here. A cleanup shrinks the ratchet's baseline
+(`ci/english_names_baseline_py.json` for Python): rerun
+`tests/test_english_names.py` or `apps/workspace/tests/english-names.spec.ts` with
+`UPDATE_ENGLISH_NAMES=1` to lock it in.
+
 | Domain term | Code name | Not |
 |---|---|---|
 | Fassung | `revision` (`lib/documents/revision-*`, `DocumentRevisions`, `revision_diff.py`) | `version`, which is the approval states |
@@ -28,6 +35,18 @@ read German are listed after the table.
 | Gebäudeklasse, Bauwerk | `buildingClass`, `building` | |
 | Herleitung | `derivation` (`/dev/derivation`) | |
 | Papierkorb | `bin` (`/dev/bin`) | |
+| E-Mail-Eingang | `inbound mail` (`lib/inbound-mail`, `inbound_mails`, `inbound-mail-*`, route `/files/mail`) | `inbox` (the Postfach), `intake` (the project setup) |
+| E-Mail-Adresse des Projekts | `inbound mail address` (`inbound_mail_addresses`, `inbound-mail-address-*`) | `projectAddress` (the site's address) |
+| E-Mail-Verlauf | `mail thread` (`lib/mail-thread`, `mail_threads`); one filed e-mail is a `mail thread entry` | `conversation` (a chat) |
+| ablegen, verwerfen, wiederherstellen (a held mail's part) | `file`, `dismiss`, `restore` | `accept`, `reject`, `approve` (Freigabe's) |
+| Verlauf folgen | `follow` / `unfollow` (`mail_thread_follows`) | `subscribe` |
+| herauslösen | `detach` (`mail-thread-entry-detach`) | `delete`, `remove` |
+| Original (.eml) | `original` (`original_storage_key`, `_mail-originals/`) | `raw` (the staged `raw.eml` before filing) |
+| Korrespondenz (Dokumentart) | `correspondence` | `mail` (the format, `source_format: mail`) |
+| Domain bestätigt / nicht bestätigt | `sender_trust` `*_verified` / `*_unverified` (`not_checked` for the archive) | `trusted`, `authenticated sender` |
+| direkt abgelegt (a member's own mail, filed as they sent it) | the sender class `verified_writer`; the decision's `via = 'sender'`; `waitReason` `not_filed` (left waiting) and `paused` (switched off) | `auto_file`, `automatic` (a sender flag: mail sent by a machine) |
+| Haben Sie diese E-Mail gesendet? (a mail only its member may file) | the sender class `unverified_writer`; `acknowledgeSender`, `onlySenderReleases`, the refusal `sender_only`, `mailClaimOf` (`own` / `colleague`) | `release`, `approve` (Freigabe's) |
+| the sender, as the E-Mail-Eingang classes it | `INBOUND_MAIL_SENDER_CLASSES`: `verified_writer`, `unverified_writer`, `office_member`, `external` (`inbound_mails.sender_class`, `lib/inbound-mail/sender-class.ts`) | `sender_trust`, which is the domain's verdict, not who the sender is to the project |
 | Punkt, Absatz (of a norm) | `clause`, `subsection` (`clause_chunking.py`, `build_clause_index.py`; the Qdrant keys `clause_id`, `clause_path`, `chunking: "clause"`; the `read_passage` argument `clause`) | |
 | Richtlinie (OIB) | `guideline` (the Qdrant key `guideline`; `norm_registry.oib_doc_class` returns `guideline`, `guide`, `explanatory_note`, `definitions`, `referenced_standards`, `amendment`) | |
 | Nutzung, Bauweise, Vorhabensart | `use` / `uses`, `construction_method`, `work_type` (the boost weights `use`, `use_max`; the `project_facts` payload keys) | |
@@ -37,6 +56,9 @@ read German are listed after the table.
 | Gesetzesnummer (RIS law number in a norm's verify seed) | `statute_number` | the RIS URL parameter `Gesetzesnummer`, which is the external API's |
 | Spatial result keys (`warum`, `abhilfe`, `lage`, `trennend`, `gemeinsam`, `oeffnungen` …) | `why`, `remedy`, `position`, `separating`, `shared`, `openings` … (`ifc-spatial`, `ifc-spatial-py`) | |
 | Befund, Befundmatrix | `finding`, `findingsMatrix` | |
+| Postfach (what needs a person's attention) | `inbox` (`lib/inbox/`, the `inbox-*` operations in `catalog/collaboration.ts`) | the mail import (`lib/mail-import/`), which is not a mail inbox |
+| Projekterfassung | `project-intake` (`lib/project-intake/`, the page `/app/projects/[id]/setup`, ADR-0111) | `inbox` |
+| Verlauf | `conversation` for a chat; an annotation's replies are its `thread` (`lib/annotations/`). `POST /api/documents/[id]/thread` is the exception: it answers a chat `conversationId` (ADR-0106) | bare `thread` for a chat |
 | erfüllt, nicht erfüllt, offen, nicht anwendbar | `met`, `notMet`, `open`, `notApplicable` | |
 | Laufblock | `RunBlock`; states `running`, `waiting`, `done`, `cancelled`, `interrupted` | |
 | Aktenvermerk | `fileNote` | |
@@ -61,8 +83,8 @@ would let two pods take different locks.
 
 What an agent reads (operation names, descriptions, schemas, refusals, the MCP
 server's instructions) uses these words and no others, in English, one word per
-concept, with the standard's word where one exists (AGENTS.md, "Industry
-standard first"; ADR-0122). A person reads the German word in the last column,
+concept, with the standard's word where one exists ([naming
+rules](contributing/naming.md); ADR-0122). A person reads the German word in the last column,
 through i18n. `lib/agent-api/english-only.spec.ts` holds the agent surface to
 English.
 
@@ -70,7 +92,7 @@ English.
 |---|---|---|---|---|
 | Task (task definition) | Work handed to Piloti, standing (on a schedule) or one-off: a name, a prompt, an optional skill, data sources and a schedule or due time | A2A `Task` is one attempt; ours is the definition behind attempts | `task_definitions` (`lib/db/schema/task-model.ts`); route `/api/projects/[id]/tasks`, wire `lib/tasks/task-wire.ts` (`TaskView`); operations `task-list`, `task-get`, `task-create`, `task-update`, `task-delete` | Aufgabe |
 | Task run | One attempt at a task, or one commissioned deep research: queued, running, ended. Persisted in `task_runs`, shown as the run block | A2A `Task` (one unit of work with a lifecycle) | `task_runs` (`task-model.ts`), `lib/runs/`; route `/api/projects/[id]/runs`, wire `TaskRunView`, status `TASK_RUN_STATUSES`; operations `task-run-start`, `project-task-run-list` (filter by `taskId`, `status`, `review`), `task-run-get`, `task-run-cancel`, `task-run-commission`, `task-run-document-add`, `task-run-write-now`, `task-run-review`; inbox types `task_run.completed`, `task_run.failed`, `task_run.waiting` | Lauf |
-| Job | A claim-queue item only: the row a worker claims and runs. Never a task or a task run | Queue job (any job queue) | `research_job_queue`, a run's `backendJobId`, `bff_job_queue`; the claim in `agent.common.claim_queue` | none |
+| Job | A unit of background work a worker runs: one Hatchet run (`research-run`, `ingest-document`, `bff-job`; ADR-0150). Never a task or a task run | Hatchet run; queue job | a run's `backendJobId`, `job_info`; the Hatchet layers (`agent_host/jobs/research_workflow.py`). The claim-queue tables (`research_job_queue`, `ingest_job_queue`, `bff_job_queue`) are kept until the cutover drains them | none |
 | Schedule | When a task runs: once at a due time, on a 5-field cron with an IANA time zone, or only by hand | cron, IANA tz | `lib/jobs/schedule.ts` (`cadenceOf`) | Zeitplan |
 | Run status | A task run's state. Four vocabularies today: `TASK_RUN_STATUSES` (`queued`, `running`, `succeeded`, `failed`, `interrupted`, `skipped`, `error`), the ledger's `RUN_STATUSES` (`created`, `running`, `waiting`, `done`, `failed`, `cancelled`, `interrupted`), the run block's and the backend job store's. A2A's states map as `submitted` = queued/created, `working` = running, `input-required` = waiting, `completed` = succeeded/done, `failed` = failed/error, `canceled` = cancelled/interrupted; one persisted vocabulary is a follow-up (ADR-0122) | A2A `TaskState` | `lib/tasks/task-vocabulary.ts`, `lib/runs/run-ledger-types.ts`, `lib/runs/run-vocabulary.ts` | angelegt, läuft, wartet, fertig, fehlgeschlagen, abgebrochen, unterbrochen |
 | Agent surface, MCP server | What only Piloti has (the office's workspace, Piloti's domain knowledge, Piloti itself), offered to agents through one MCP server at `/api/mcp` | MCP server (Model Context Protocol) | `lib/agent-api/`, `app/api/mcp/route.ts`; [`architecture/agent-surface.md`](architecture/agent-surface.md) | none |
@@ -84,14 +106,16 @@ English.
 | Signed request context | The HMAC-signed envelope the BFF mints per agent request, naming the person, organization, project and conversation; the backend and Piloti echo it, never sign it. Not the answer envelope | A signed token carrying claims (like a JWT, HMAC) | `lib/request-context.ts`; header `X-Grid-Request-Context` | none |
 | Requester, on behalf of | The person a task run, a proposal or a change acts for; `onBehalfOf` on a change record names them when Piloti made the change | RFC 8693 subject | `task_runs.requester_user_id`; `lib/changes/service.ts` (`onBehalfOf`) | „für Miriam“ |
 | Sensitivity | The class of an operation that widens access (`access`), touches the organization's secrets (`secret`) or turns a control down (`control`); extra guards apply | OAuth step-up scope | `lib/agent-api/operation.ts` (`Sensitivity`), `policy.ts` | none |
-| Exposure config | The one file that decides who sees each operation of the agent door: one entry per catalog operation and read tool, with `external` (an outside agent on an office door, and OpenAPI), `piloti` (`true`, `false`, or `native:<tool>`: Piloti does it with that native tool, so its door hides the operation) and `platform` (the platform door), plus `withheld` and a `reason`. Visibility only: an already filed proposal still applies. Sensitivity stays on the operation | none | `lib/agent-api/exposure.config.ts` (`EXPOSURE`), `exposure.ts` (`isExposedTo`, `isOnDoor`), `tests/fixtures/exposure.json` | none |
+| Exposure config | The one file that decides who sees each operation of the agent door: one entry per catalog operation and read tool, with `external` (an outside agent on an office door, and OpenAPI), `piloti` (`true`, `false`, or `native:<tool>`: Piloti does it with that native tool, so its door hides the operation) and `platform` (the platform door), plus `withheld` (with a category; `tenant-content` for a console operation that reads what offices wrote, ADR-0160) and a `reason`. Visibility only: an already filed proposal still applies. Sensitivity stays on the operation | none | `lib/agent-api/exposure.config.ts` (`EXPOSURE`), `exposure.ts` (`isExposedTo`, `isOnDoor`), `tests/fixtures/exposure.json` | none |
 | Withheld operation | An operation kept in the catalog but offered on no door: product configuration, a service we only proxy, model compute with no office artifact, or a person's screen state (`withheld: { category, reason }` in its exposure config entry). It reads as an unknown name everywhere; replacing the entry offers it again | none | `lib/agent-api/exposure.config.ts` (`Withholding`, `WITHHELD_CATEGORIES`), `exposure.ts` (`isOnDoor`) | none |
 | Door | One way agents reach the catalog: `office` (`/api/mcp`, A2A, Piloti's workspace door) or `platform` (the platform door). The principal carries it, set from the endpoint its token's audience binds | MCP server | `lib/agent-api/exposure.ts` (`AgentDoor`, `doorOfPrincipal`); what each door offers is the exposure config | none |
-| Platform door | The operator console's own MCP server at `/api/platform/mcp`, for platform staff: the `platform` domain only, a token audience of its own that the office doors refuse (and the reverse), the GRID Platform organization only, flag `platform-agent-mcp` (ADR-0126) | MCP server; RFC 8707 resource | `app/api/platform/mcp/route.ts`, `lib/agent-api/mcp-door-route.ts`, `principal.ts` (`platformPrincipal`), `mcp-config.ts` (`platformMcpResourceUrl`) | none |
+| Platform door | The operator console's own MCP server at `/api/platform/mcp`, for platform staff: the `platform` domain's platform-public operations only (tenant content is on no door, ADR-0160), a token audience of its own that the office doors refuse (and the reverse), the GRID Platform organization only, flag `platform-agent-mcp` (ADR-0126) | MCP server; RFC 8707 resource | `app/api/platform/mcp/route.ts`, `lib/agent-api/mcp-door-route.ts`, `principal.ts` (`platformPrincipal`), `mcp-config.ts` (`platformMcpResourceUrl`) | none |
 | Call decision | What the server does with one call: `run` it, or `propose` it (Piloti's writes) | MCP tool annotations decide the client's confirmation; ours is server-side | `lib/agent-api/policy.ts` (`callDecision`) | none |
 | Wire module | A pure `lib/**/*-wire.ts` module holding a route's zod schema, imported by the route and the operation, so there is one contract | OpenAPI schema component | `lib/api/wire-modules.spec.ts` | none |
 | Proposal, kind `operation` | A write Piloti attempted through the agent surface, stored for a person to accept (it runs as them) or dismiss | none | `lib/agent-api/operation-proposals.ts`, `lib/proposals/kinds.ts`, `operation-applier.ts` (ADR-0105) | Vorschlag |
 | Change record | One row per change Piloti applied to an annotation or a thread, with its turn, for the turn's card and for undo | Audit record | `lib/changes/` (ADR-0109) | none |
+| Personal memory | The notes the agent keeps about one person (kinds `preference` and `profile`), read by that person and nobody else, held by row-level security on the person. Never "user memory" or "private memory". Project memory and organization memory are the other two homes of a note (ADR-0180) | none | `personal_memory`, `lib/personal-memory/`; operations `personal-memory-*`; `remember` with scope `personal` | none yet: the screens are not built |
+| Temporary conversation | A conversation whose `temporary` flag is set: no memory write that names it is kept (403 `TEMPORARY_CONVERSATION`), and reading is untouched. Never "incognito" or "ephemeral" | none | `conversations.temporary`, `lib/conversations/temporary.ts`; `conversation-create`, `conversation-update` | none yet: the switch has no control in the UI |
 | Steering | A note the asker types into a running turn, read at its next tool round; not a new turn | none | chat wire `steer` ([`api/websocket-protocol.md`](api/websocket-protocol.md#steering-a-running-turn-steer)) | none |
 | Wake | Piloti answering in an annotation's thread when someone names it or answers its question, with nobody's chat open | none | `lib/annotations/wake*.ts` (ADR-0106) | weckt |
 | Mention request | An outstanding request for a named person's input in a conversation, until it is released | none | `mention_requests` (`lib/db/schema/mention-requests.ts`); operation `mention-request-release` | Erwähnung |
@@ -100,7 +124,7 @@ English.
 | Revision | One state of a document in its timeline | none | `revision` ([above](#german-domain-term-english-code-name)) | Fassung |
 | Annotation | A mark on one page of one revision, with its thread | W3C Web Annotation | `lib/annotations/` | Anmerkung |
 | Answer envelope | The JSON object a research answer is generated as (prose, kind, verdict, cards). Not the signed request context | none | `packages/agent/src/agent/common/answer_envelope.py` | none |
-| Allow (a held upload) | A reviewer lets an upload the content check held back through. Never "release", which collides with approval | none | operations `document-quarantine-allow`, `document-quarantine-allow-request` (routes still `…/release`, a follow-up) | zulassen |
+| Allow (a held upload) | A reviewer lets an upload the content check held back through. Never "release", which collides with approval | none | operations `document-quarantine-allow`, `document-quarantine-allow-request`, `quarantine-decide` (several at once) (routes still `…/release`, a follow-up) | zulassen |
 | Conversation | A thread with Piloti and people in it | A2A `contextId` | `conversations`; agents read "conversation" | Chat |
 | Assignee | The person an annotation is assigned to, who answers it and closes it | none | `assigneeUserId` (`lib/annotations/`) | Zuständig |
 
@@ -113,13 +137,14 @@ replaced `agent_capability_missing`.
 
 | Term | Meaning | Defined in |
 |---|---|---|
+| Lifecycle, state, move, event | A lifecycle is the states one record can be in and every legal move between them, declared once in a statechart's shape (ADR-0179). A move is named by the event that asks for it (`close`, `reopen`); a final state has no move out; a live state has one. It holds no state itself: the record's state is its column, and a move is the writer's compare-and-set. Not a lifecycle matrix, which says what a reader sees at each edge of a surface, and not a Hatchet run's queued, running or retrying, which are the engine's | [`apps/workspace/shared/lifecycle/define-lifecycle.ts`](../apps/workspace/shared/lifecycle/define-lifecycle.ts), [`architecture/lifecycles.generated.md`](architecture/lifecycles.generated.md) |
 | BFF | The Next.js server in `apps/workspace` (API routes plus the `server.js` WebSocket gateway). It owns identity, authorization, tenancy and the `app` database; the Python agent is stateless and trusts what the BFF sends it | [`apps/workspace/AGENTS.md`](../apps/workspace/AGENTS.md) |
 | Agent runtime | The third-party library the Python agent runs on (NVIDIA NeMo Agent Toolkit, the `nvidia-nat*` distributions). Tools register with `@register_function`, are discovered through a `nat.plugins` entry point, and agents are `_type` entries in `configs/*.yml` | [`packages/agent/src/agent/AGENTS.md`](../packages/agent/src/agent/AGENTS.md) |
 | Signed request context | The `X-Grid-Request-Context` envelope the BFF mints for every agent request, HMAC-signed, carrying the scope, project context and memory the agent may use | [`apps/workspace/bff/request-context.ts`](../apps/workspace/bff/request-context.ts) |
 | Workspace primitive, typed client | A workspace capability exposed as one HTTP API with a typed client, which the UI, the agent's tools and tasks all call as equal clients (ADR-0055) | [`docs/adr/0055-api-first-workspace-primitives.md`](adr/0055-api-first-workspace-primitives.md) |
 | Route factories | `apiRoute`, `internalApiRoute`, `publicApiRoute`, `platformApiRoute`: the only sanctioned wrappers for a BFF route handler, each declaring its authorization | [`apps/workspace/bff/api/handler.ts`](../apps/workspace/bff/api/handler.ts) |
 | `SourceKind` | The code form of a source kind (`building_law`, `office`, `project`, `web`, plus `measurement` for model measurements). Defined in Python and mirrored by hand in `source-kinds.ts`; changing one and not the other renders the chip as unknown | [`packages/agent/src/agent/common/source_kinds.py`](../packages/agent/src/agent/common/source_kinds.py) |
-| `doc_class`, norm lanes | The stored Dokumentart (human-set, beats any filename guess), and the finer `norm_registry` lanes (`building_law_oib`, `building_law_state`, …) that sub-label a source kind | [`packages/agent/src/agent/knowledge/document_classification.py`](../packages/agent/src/agent/knowledge/document_classification.py) |
+| `doc_class`, norm lanes | The base corpus's norm class (closed vocabulary `DOCUMENT_CLASSES`: `oib_guideline` … `law`, `other`), human-set and beating any filename guess, and the finer `norm_registry` lanes (`building_law_oib`, `building_law_state`, …) that sub-label a source kind. A fine lane maps to its kind by prefix (`kind_for_lane`, mirrored by `kindForLane` in `source-kinds.ts`), so a new `office_*` or `project_*` lane needs no `SourceKind` change, but `lane_for_hit` must produce it: a user's shelf yields plain `office` or `project`, and the one fine lane that beats the shelf is `office_piloti` (stated provenance, `authored_by`). Not the Dokumentart of a project document: that is its type tag (`DOCUMENT_TYPE_TAGS`: `Grundriss`, `Gutachten`, `Sonstiges`, …) in `document_metadata.tags` | [`packages/agent/src/agent/knowledge/document_classification.py`](../packages/agent/src/agent/knowledge/document_classification.py) |
 | Answer envelope | The one JSON object a research answer is generated as: the `answer` prose plus optional anatomy (kind, verdict, takeaways, callout, cards) | [`packages/agent/src/agent/common/answer_envelope.py`](../packages/agent/src/agent/common/answer_envelope.py) |
 | Grounding block | The single renderer for what an evidence tool returns: each hit becomes a `--- Result N ---` block with source, citation and score, and a `## Trace-Lanes` line names the collections searched | [`packages/agent/src/agent/common/grounding_block.py`](../packages/agent/src/agent/common/grounding_block.py) |
 | Knowledge layer | The `packages/knowledge-layer` package (LlamaIndex ingestion, Qdrant storage) behind `knowledge_search` | [`packages/AGENTS.md`](../packages/AGENTS.md) |
@@ -136,6 +161,9 @@ replaced `agent_capability_missing`.
 | Ask (`agent_asks`) | A question another agent puts to Piloti for a person (ADR-0124): `agent-ask-create` on the MCP door, `SendMessage` on the A2A door. Runs as a headless turn (trigger `agent_consult`) in the person's own thread; its states are the A2A task states. Not an Aufgabe (`task`) and not a task run | [`apps/workspace/bff/agent-asks/service.ts`](../apps/workspace/bff/agent-asks/service.ts) |
 | A2A | The Agent2Agent protocol: how one agent hands work to another. Piloti serves it at `/api/a2a` (JSON-RPC, 1.0 and 0.3) with its agent card at `/.well-known/agent-card.json`. Its words map onto ours: an A2A **task** is an ask, its **context** (`contextId`) the conversation, a **message** a question or an answer in it, a **part** the message's text, an **artifact** the answer or a document Piloti filed | [`docs/adr/0124-agents-consult-piloti-over-mcp-and-a2a.md`](adr/0124-agents-consult-piloti-over-mcp-and-a2a.md) |
 | Piloti vs GRID | Piloti is the name in anything a user reads; GRID is the repository, the `GRID_*` variables, the `x-grid-*` headers and the CSS variables | [`apps/workspace/bff/brand.ts`](../apps/workspace/bff/brand.ts) |
+| Signed internal route | A BFF route under `/api/internal/signed/`, authenticated by an RFC 9421 HTTP Message Signature (`internalApiRoute`'s `auth: { signature }`) instead of the internal token, and excluded from the Next proxy so its body streams. Today only the project-mail webhook | [`ADR-0138`](adr/0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md), `apps/workspace/bff/internal-auth.ts` |
+| Mail standards in project mail | RFC 5321 (SMTP; the envelope, `x-envelope-to` / `x-envelope-from`), RFC 5322 (the message format; one From, the singleton headers), RFC 6376 (DKIM), RFC 9989 (DMARC alignment), RFC 8601 (`Authentication-Results`, our evidence line, never with `spf=`), RFC 3834 (automatic replies, dropped), RFC 5256 (the base subject), RFC 8621 §3 (thread matching by references and subject), RFC 9421 (HTTP Message Signatures) and RFC 9530 (`Content-Digest`) for the Worker's post | [`inbound-mail.md`](architecture/inbound-mail.md) |
+| Render lease | The compare-and-set claim on a mail thread (`render_lease_holder`, `render_lease_until`) every writer of a Verlauf's next Fassung takes, because Fassung N+1 must hold every section of Fassung N and an upload cannot sit inside a transaction | `apps/workspace/bff/mail-thread/append.ts`, `write-repository.ts` |
 
 ## The chat wire
 
@@ -143,7 +171,7 @@ replaced `agent_capability_missing`.
 |---|---|---|
 | Chat wire v2 | The WebSocket protocol of a turn: typed events stamped `(turn_id, seq)`, closed by `RUN_FINISHED` with the authoritative result | [`docs/api/websocket-protocol.md`](api/websocket-protocol.md) |
 | `attach` | The client message that re-registers a socket to a turn from a sequence number, replaying what it missed; sent on reconnect and reload | [`docs/api/websocket-protocol.md`](api/websocket-protocol.md) |
-| `foldTurnEvent` | The one pure function that turns a wire event into the turn's view state, shared by the live socket, the replay and the spectator stream | [`apps/workspace/ui/features/chat/lib/turn-fold.ts`](../apps/workspace/ui/features/chat/lib/turn-fold.ts) |
+| `foldTurnEvent` | The one pure function that turns a wire event into the turn's view state, shared by the live socket, the replay and the spectator stream | [`apps/workspace/bff/turns/turn-fold.ts`](../apps/workspace/bff/turns/turn-fold.ts) |
 | A2UI | The rendering layer every card is drawn through; its catalog is generated from the backend's card schema (`npm run generate:cards`) | [`docs/architecture/cards.md`](architecture/cards.md) |
 | System card | A card type only a tool may emit (`memory_proposal`, `document_draft`, `task_created`, …); the model may not fabricate one | [`docs/architecture/cards.md`](architecture/cards.md) |
 
@@ -151,6 +179,9 @@ replaced `agent_capability_missing`.
 
 | Term | Meaning | Defined in |
 |---|---|---|
+| Ruleset | A base knowledge record whose payload is a decision table (`decision_table.v1`): a country rule held as data, by purpose (`classification`, `competence`, `reference_date`, `derivation`), territory and validity. Rows apply first hit under Kleene's three-valued logic; the result is a row or `undetermined` with the facts still to ask (`unknownInputs`) | [ADR-0166](adr/0166-country-rules-are-rulesets-run-by-one-three-valued-evaluator.md), [`apps/workspace/bff/base-knowledge/rulesets/`](../apps/workspace/bff/base-knowledge/rulesets/) |
+| Address register, register release | An official address list (Austria: the BEV Adressregister) imported whole into the cell's Postgres, one release per reference date, one `active` per register. A typed site address is `verified` only when exactly one register address matches; otherwise it stays `unverified` with a reason (`incomplete`, `no_register`, `no_register_hit`, `ambiguous`, `multi_leaf`) | [ADR-0172](adr/0172-a-site-address-resolves-against-official-registers-in-the-cell.md), [`apps/workspace/bff/site-resolution/`](../apps/workspace/bff/site-resolution/) |
+| Reference date (Stichtag), transition, as-of | Which edition of a work applied to a permit procedure: the legislating node's `reference_date` ruleset names the procedure event (`filed_on`, …) whose day decides, and an amending edition's `transition` table (`old_law`, `new_law`, `choice`) decides each boundary the procedure crosses. An edition is in force on `[inForceFrom, inForceTo)`: `inForceTo` is the first day no longer in force, like every interval in base knowledge (migration 0217), and a source that prints the last day (RIS) is read one day later; before a work's `historyAvailableFrom` the answer is `history_not_held`. A procedure lives on the profile as `filed_on@p1`, `decided_on@p1` (`'pending'` while open). Operation `base-knowledge-edition-as-of`; `law-lookup` takes `as_of` (ADR-0171) | [`apps/workspace/bff/base-knowledge/time/as-of.ts`](../apps/workspace/bff/base-knowledge/time/as-of.ts) |
 | Tenant slot | The request-scoped context (`runWithTenantSlot`) that carries the organization as data. A query outside one throws `MissingTenantContextError` | [`apps/workspace/bff/db/tenant-context.ts`](../apps/workspace/bff/db/tenant-context.ts) |
 | `getUserSession` | The one funnel every authenticated path goes through to resolve the caller and publish the organization and user into the tenant slot | [`apps/workspace/bff/auth/session.ts`](../apps/workspace/bff/auth/session.ts) |
 | `withPageSession` | The wrapper that gives a server component or server action an authorized session and an open tenant slot | [`apps/workspace/bff/auth/require-auth.ts`](../apps/workspace/bff/auth/require-auth.ts) |
@@ -166,6 +197,7 @@ replaced `agent_capability_missing`.
 | WorkOS, AuthKit | The identity provider. Hosted AuthKit handles login; WorkOS organizations and roles are authoritative, with no local copy (ADR-0002, ADR-0007) | [`docs/architecture/multitenancy-and-auth-spec.md`](architecture/multitenancy-and-auth-spec.md) |
 | Dragonfly | The Redis-protocol shared cache across BFF replicas, which also holds each conversation's frame stream (ADR-0020) | [`docs/adr/0020-dragonfly-shared-cache.md`](adr/0020-dragonfly-shared-cache.md) |
 | SeaweedFS | The object store for document bytes, one bucket per organization (ADR-0043) | [`docs/adr/0043-seaweedfs-split-topology-and-per-tenant-buckets.md`](adr/0043-seaweedfs-split-topology-and-per-tenant-buckets.md) |
+| Licensed seam, `licence_class` | Text an office marked `licensed` (its own ÖNORM copy, a paid commentary) is a reference token in every transcript, trace and cache, expanded whole only inside a zero-retention model call; each quote of it in a reply is capped at its `quote_max_chars`. Only a copy whose office attested AI processing (`ai_processing_attested`) is read at all. Flag `licensed-seam`; off lists the passage without text (ADR-0164) | [`packages/agent/src/agent/common/licensed_text.py`](../packages/agent/src/agent/common/licensed_text.py) |
 | Langfuse | The LLM trace store, and where the platform prompt is managed (ADR-0044) | [`docs/adr/0044-langfuse-durable-llm-observability.md`](adr/0044-langfuse-durable-llm-observability.md) |
 | err2issue | The retired path that turned ERROR-level logs into deduplicated GitHub issues (ADR-0031); PostHog error tracking replaces it | [`docs/adr/0031-err2issue-errors-to-github-issues.md`](adr/0031-err2issue-errors-to-github-issues.md) |
 
@@ -183,7 +215,7 @@ replaced `agent_capability_missing`.
 | Term | Meaning | Defined in |
 |---|---|---|
 | `task` | go-task, the runner every repo command goes through; `task --list` is the live list | [`Taskfile.yml`](../Taskfile.yml) |
-| `task verify` | The local merge gate; `verify:fast` skips the two production builds | [`docs/contributing/testing-and-verification.md`](contributing/testing-and-verification.md) |
+| `task verify` | The local merge gate; `verify:fast` runs the tiers and UI specs the diff reaches, without the two production builds | [`docs/contributing/testing-and-verification.md`](contributing/testing-and-verification.md) |
 | Definition of done | The bar for calling work done: observed evidence, summed up in a closing checklist in the PR | [`docs/contributing/definition-of-done.md`](contributing/definition-of-done.md) |
 | Correction ratchet | After a correction, close the layer that let the error through, so a second occurrence is caught by machinery | [`docs/contributing/correction-ratchet.md`](contributing/correction-ratchet.md) |
 | Gotchas register | Known failures indexed by the symptom you arrive with | [`docs/contributing/gotchas.md`](contributing/gotchas.md) |
@@ -193,7 +225,7 @@ replaced `agent_capability_missing`.
 | AGENTS.md, CLAUDE.md bridge | Each area's guide is an `AGENTS.md`; a one-line `CLAUDE.md` beside it imports it for Claude | [`docs/contributing/agent-onboarding-files.md`](contributing/agent-onboarding-files.md) |
 | Skill or document | A repo skill exists only for agent-specific procedure; anything a contributor needs too is a document | [`docs/contributing/agent-skills.md`](contributing/agent-skills.md) |
 | apm, `apm.lock.yaml` | The agent package manager that installs third-party skills, and the lockfile that hashes them; `task agents:audit` fails on drift | [`docs/contributing/agent-skills.md`](contributing/agent-skills.md) |
-| reno, release note | One YAML note per customer-visible change (`task release:note -- <slug>`), published to the changelog. The `no-release-note` label exempts a change nobody can notice | [`docs/contributing/release-notes.md`](contributing/release-notes.md) |
+| reno, release note | One YAML note per customer-visible change (`task release:note -- <slug>`), published to the app's What's new, by week and product area; the public changelog shows the weekly summaries (ADR-0156). The `no-release-note` label exempts a change nobody can notice | [`docs/contributing/release-notes.md`](contributing/release-notes.md) |
 | oxlint, `grid/*` rules | The UI linter, and the repo's own rules it runs as a JS plugin (tenant scope, tenant cache key, motion vocabulary, card type scale, restricted syntax) | [`docs/contributing/lint-evaluation.md`](contributing/lint-evaluation.md) |
 
 ## CI

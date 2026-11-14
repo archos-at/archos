@@ -153,6 +153,7 @@ function makeConfig(overrides: Record<string, unknown> = {}) {
         metadataSchedule: "0 3 * * *",
       },
       encryptVolumeData: true,
+      singleMemory: { request: "256Mi", limit: "1Gi" },
     },
     // `renderS3Config` zips the Langfuse S3 credential onto the catalogue
     // whenever the tier is on (ADR-0044), so the fixture has to carry it even
@@ -169,6 +170,12 @@ function makeConfig(overrides: Record<string, unknown> = {}) {
         s3AccessKey: "grid-qdrant",
         s3SecretKey: pulumi.secret("qdrant-secret"), // pragma: allowlist secret
       },
+    },
+    // The CMS's identity (ADR-0155): zipped on like Langfuse's, off by default.
+    cms: {
+      enabled: false,
+      s3AccessKey: "cms",
+      s3SecretKey: pulumi.secret("cms-secret"), // pragma: allowlist secret
     },
     // No worker groups: no nodeSelector, as on every stack but prod.
     nodeGroups: {},
@@ -648,6 +655,24 @@ describe("single-node topology", () => {
     expect(slots).toBeGreaterThan(8);
   });
 
+  it("keeps the pre-knob memory envelope when a stack sets nothing", async () => {
+    // A resource change restarts the only storage server, so the default must
+    // be exactly what the pod had before the knob existed.
+    const t = await installSingle();
+    const c = container(await statefulSetSpec(t.workloads[0]), "seaweedfs");
+    const r = c.resources as { requests?: Record<string, string>; limits?: Record<string, string> };
+    expect(r.requests).toEqual({ cpu: "100m", memory: "256Mi" });
+    expect(r.limits).toEqual({ cpu: "1", memory: "1Gi" });
+  });
+
+  it("takes its memory from the stack, leaving CPU alone", async () => {
+    const t = await installSingle({ singleMemory: { request: "1Gi", limit: "4Gi" } });
+    const c = container(await statefulSetSpec(t.workloads[0]), "seaweedfs");
+    const r = c.resources as { requests?: Record<string, string>; limits?: Record<string, string> };
+    expect(r.requests).toEqual({ cpu: "100m", memory: "1Gi" });
+    expect(r.limits).toEqual({ cpu: "1", memory: "4Gi" });
+  });
+
   it("still does not re-size the volumes a running stack already holds", async () => {
     // `volumeSizeLimitMB` stays a split-topology knob: slots are a ceiling and
     // cost nothing, but the size limit changes volumes that already exist.
@@ -808,10 +833,7 @@ describe("config checksum", () => {
  * catalogue is the source, and a divergence fails the build.
  */
 describe("compose stacks match the identity catalogue", () => {
-  const COMPOSE_FILES = [
-    "../compose/docker-compose.yaml",
-    "../compose/docker-compose.coolify.yaml",
-  ];
+  const COMPOSE_FILES = ["../compose/docker-compose.yaml"];
 
   /**
    * Pull the identity JSON out of a compose file's `printf` and parse it.

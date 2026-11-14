@@ -174,7 +174,7 @@ The workspace surfaces, each with its own doc:
 - **Research and reports:** [reports Piloti writes](../user-guides/agent-authored-reports.md), [deep research report](deep-research-report.md)
 - **Team and access:** [collaboration lifecycle](collaboration-lifecycle.md), [sensitive data and access](../user-guides/sensitive-data-and-access.md)
 - **Office knowledge:** [project memory design](project-memory-design.md)
-- **Mail import:** [Outlook archive import](mail-import.md)
+- **Project mail:** [the E-Mail-Eingang and the E-Mail-Verläufe](inbound-mail.md), [Outlook archive import](mail-import.md)
 
 ### 5.1 Chat & the agent pipeline
 Chat is **WebSocket-only** (ADR 0009). A turn runs through a LangGraph workflow
@@ -243,8 +243,8 @@ surviving SSE path). It is commissioned as a RUN: one `task_runs` row and one
 message in the thread that asked, carrying the ledger the run block renders
 (ADR-0062). The turn that commissions it answers with nothing but `run_id` and
 `run_message_id` — the block is the narration, and the report lands on it. These
-backend async jobs are not the BFF `jobs` schedule table — that naming
-collision is unpacked in §5.12.
+backend async jobs are not a task's scheduled „job“ (a `task_definitions` row)
+— that naming collision is unpacked in §5.12.
 
 ### 5.6 Documents & ingestion
 Uploads go to SeaweedFS (server-side) under a tenant-scoped key
@@ -323,7 +323,7 @@ happens in the inbox, where the person was told about the result.
 
 Two naming collisions to keep straight. The `task_definitions`/`task_runs`
 tables live in `app` (the collapsed successor of `jobs`/`job_runs`/
-`tasks`); the backend async jobs live in `jobs` (deep-research runs,
+`tasks`, which migration 0226 dropped); the backend async jobs live in `jobs` (deep-research runs,
 §5.5) — a `task_runs.backend_job_id` value names one of the latter. And
 `compliance_check` is a **task kind**, not a chat tool or an agent: the
 purpose-built compliance checker is deleted, and a full Soll-Ist runs as a
@@ -367,8 +367,8 @@ marks it purged. Restore is possible only while the row is un-claimed.
 
 | Store | Owner | Holds |
 |---|---|---|
-| **`app`** (Postgres) | BFF (single writer) | projects, conversations, messages, documents, folders, **project_memory**, **platform_lessons** (+ reports/events), **deletion_queue**, **legal_holds**, user_preferences, **tasks** (the work object), **jobs** (recurring triggers) + **job_runs** (receipts), **skills** |
-| **`jobs`** (Postgres) | backend | backend async-run info/access/events (deep research) — not the BFF `jobs` schedule table (§5.12), document summaries |
+| **`app`** (Postgres) | BFF (single writer) | projects, conversations, messages, documents, folders, **project_memory**, **platform_lessons** (+ reports/events), **deletion_queue**, **legal_holds**, user_preferences, **task_definitions** (what was asked and what makes it run) + **task_runs** (each attempt), **skills** |
+| **`jobs`** (Postgres) | backend | backend async-run info/access/events (deep research) — not a scheduled task, which is a `task_definitions` row in `app` (§5.12), document summaries |
 | **`checkpoints`** (Postgres) | backend | LangGraph conversation checkpoints (thread state) |
 | **SeaweedFS** (`grid-documents`) | BFF writes, backend/purger read | OIB PDFs + uploaded documents, keyed by org/project |
 | **Qdrant** | backend | two physical collections, `piloti_corpus` (the legal corpus, `oib_knowledge`) and `piloti_office` (everything an office uploads). The logical collections `archiv_<org>`, `proj_<id>`, `<proj>_r<folder>` and `s_<conversation>` are payload fields, and a request's scope is one filter compiled in `scope_filter` (ADR-0116). Memory and lessons are not in Qdrant — they live in `app`, with row-resident embeddings for recall ([semantic-notes.md](./semantic-notes.md)). |
@@ -402,6 +402,7 @@ frontend start). → `docs/database/`.
 | Frontend | Next.js 16, React 18, TypeScript, shadcn/ui + Tailwind v4 |
 | BFF / gateway | Next.js app-router API routes + a Node `server.js` WS/HTTP proxy |
 | AI orchestration | The agent runtime + LangGraph; the Postgres research queue for async jobs |
+| Background work | Self-hosted Hatchet (`hatchet-ha`, RabbitMQ, its own Postgres cluster `background-work-pg`) in place of our claim queues (ADR-0150) |
 | LLM | any OpenAI-compatible endpoint (reference boot floor: OpenAI GPT-5.6 Luna via OpenRouter; the served model is an admin decision at runtime) |
 | Embeddings | any OpenAI-compatible endpoint (reference: OpenAI text-embedding-3-large via OpenRouter) |
 | RAG / vector store | Qdrant via `qdrant-client` (+ LlamaIndex ingestion) |
@@ -460,7 +461,7 @@ What lives where in the checkout.
 | `packages/agent/src/agent/` | Backend agent (LangGraph agents, cards, knowledge layer) |
 | `packages/knowledge-layer`, `packages/ris-adapter`, `packages/tavily-web-search` | The Python packages of the uv workspace: the knowledge layer, the RIS adapter and web search, each a plugin entry point |
 | `apps/workspace/` | Next.js app: UI + BFF API routes + WS proxy (`server.js`) |
-| `apps/site/` | Public Piloti landing page + blog (Astro microservice; `de`/`en`, Keystatic CMS for platform-owner blog writing) |
+| `apps/website/` | The public website (Astro, static with a few server endpoints, `de`/`en`, blog in MDX), built from `packages/brand`; the `web` image builds it |
 | `apps/agent-host/` | The backend FastAPI front-end plugin (`_type: agent_host`): REST routes, async jobs, `/v1/ingest` |
 | `evals/` | Piloti's evals, each with its tests: `oib-retrieval` and the live `turn-shapes` check |
 | `packages/` | Libraries outside the uv and bun workspaces: `ifc-spatial` and `ifc-spatial-py` (the IFC spatial engine, ADR-0045) and `brand` (the Piloti mark and the script that renders every icon from it) |
@@ -469,5 +470,5 @@ What lives where in the checkout.
 | `docs/architecture/` | Architecture docs (see `backend-deep-dive.md`, `project-memory-design.md`, `docs/audit/citation-system-audit-2026-07.md` for the citation pipeline as built) |
 | `skills/` | API-consumer skill examples |
 | `scripts/` | Utility scripts, including `scripts/upload_oib_corpus.py` |
-| `releasenotes/` | reno release notes — one YAML file per user-visible change, published to piloti.at/changelog |
+| `releasenotes/` | reno release notes — one YAML file per user-visible change, published to the app's What's new; the website's changelog shows the weekly summaries (ADR-0156) |
 | `data/oib/` | A local, gitignored copy of the OIB Richtlinien PDFs for the evals and tests. The platform does not read it: the base corpus is uploaded through the admin UI into object storage |

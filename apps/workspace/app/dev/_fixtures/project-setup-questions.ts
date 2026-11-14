@@ -13,6 +13,7 @@ import type { IntakeMode, IntakeView, LocationRegisterView } from '@/lib/project
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import { emptyProjectProfile } from '@/lib/project-profile/patch-engine'
 import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
+import { SHIPPED_SETUP_RECORDS } from '@/lib/base-knowledge/rulesets/shipped'
 import { FIXTURE_LOCATION, INTAKE_CLOSING, INTAKE_READING, INTAKE_READY, OPEN_PHASE } from './project-intake'
 
 const AT = '2026-10-20T08:00:00.000Z'
@@ -38,8 +39,10 @@ function registerOf(
   location: LocationRegisterInput['location'],
   mode: IntakeMode = 'active'
 ): LocationRegisterView {
-  const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode, dismissed: [] })
-  return locationRegisterFor({ profile, location, mode, needs })
+  // The build's records, as an office whose country is not published yet reads them.
+  const records = SHIPPED_SETUP_RECORDS
+  const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode, dismissed: [], records })
+  return locationRegisterFor({ profile, location, mode, needs, records })
 }
 
 /** The Aufstockung in Wien: a Bestand with Wohnungen, Zubau and Umbau; the reading found the Widmung. */
@@ -66,10 +69,11 @@ export const QUESTIONS_TYPED_ADDRESS: IntakeView = {
   location: null,
   questions: [],
   openQuestions: [OPEN_PHASE],
-  locationRegister: registerOf(profileOf({ site_address: 'Hauptstraße 4, 3420 Kritzendorf' }), null),
+  // Placed in Austria, the Land still open: a project nothing places gets no document until it is (ADR-0169).
+  locationRegister: registerOf(profileOf({ site_address: 'Hauptstraße 4, 3420 Kritzendorf', country: 'at' }), null),
 }
 
-/** Piloti still reads: the round says so and takes what is already known. */
+/** The agent still reads: the round says so and takes what is already known. */
 export const QUESTIONS_READING: IntakeView = { ...INTAKE_READING, locationRegister: REGISTER_READY }
 
 /** A past project: no Bundesland was found, so it is the one question; no document is requested. */

@@ -92,7 +92,7 @@ export const UploadScreeningCard: FC<{ canEdit: boolean }> = ({ canEdit }) => {
         variant="bare"
         title={t('screening.loadError')}
         action={
-          <Button variant="outline" size="sm" onClick={() => void load()}>
+          <Button variant="secondary" size="sm" onClick={() => void load()}>
             {tc('actions.retry')}
           </Button>
         }
@@ -253,7 +253,7 @@ export const UploadScreeningForm: FC<{ initial: UploadScreeningState; canEdit: b
       {canEdit && (
         <div className="flex flex-wrap justify-end gap-2">
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={() => setDraft(initial.suggestion)}
             disabled={saving || atSuggestion}
           >

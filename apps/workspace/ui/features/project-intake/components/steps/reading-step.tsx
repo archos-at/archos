@@ -110,7 +110,7 @@ export function ReadingStep({
 
   return (
     <div className="mx-auto w-full max-w-[640px] md:pt-2" data-testid="setup-step-reading" data-phase={phase}>
-      <h1 className="text-[22px] font-semibold tracking-tight md:text-2xl">{t(`heading.${phase}`)}</h1>
+      <h1 className="text-[22px] font-medium md:text-2xl">{t(`heading.${phase}`)}</h1>
       {(phase === 'waiting' || phase === 'waitingWithDocuments' || phase === 'failed') && (
         <p className="text-muted-foreground mt-1.5 text-sm">{t(`lead.${phase}`)}</p>
       )}
@@ -157,7 +157,7 @@ export function ReadingStep({
           }
           aside={
             onNext && (
-              <button type="button" className={ASIDE_ACTION_CLASS} onClick={onNext}>
+              <button data-attr="intake-next" type="button" className={ASIDE_ACTION_CLASS} onClick={onNext}>
                 {t('withoutDocuments')}
               </button>
             )
@@ -180,7 +180,7 @@ export function ReadingStep({
           }
           aside={
             onNext && (
-              <button type="button" className={ASIDE_ACTION_CLASS} onClick={onNext}>
+              <button data-attr="intake-next" type="button" className={ASIDE_ACTION_CLASS} onClick={onNext}>
                 {t('nextAnyway')}
               </button>
             )

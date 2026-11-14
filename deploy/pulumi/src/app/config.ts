@@ -1,13 +1,22 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
-import { APP_DEFAULTS, KEDA_SCALER_ROLE, LANGFUSE, PORT, QDRANT } from "../constants";
+import { APP_DEFAULTS, LANGFUSE, PORT, QDRANT } from "../constants";
 import { APP_DB, CHECKPOINTS_DB, JOBS_DB, RUNTIME_ROLE, type Postgres } from "../data/postgres";
 import { FRONTEND_DRAIN_SECONDS, secretChecksum } from "../platform/rollout";
 import { frontendLangfuseEnv, LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from "../platform/langfuse";
 import { logicalName, objectName } from "../names";
+import { inboundMailAppEnv } from "../config/inbound-mail";
 import { API_TIER, CHAT_TIER } from "./tier-names";
+import { posthogEnv } from "./posthog-env";
+import { hatchetEnv } from "./hatchet-env";
+import { publicSourceFetcherEnv } from "./public-source-fetcher";
+import { openrouterKeyEnv, openrouterSecretValues } from "./model-keys";
+import type { ModelWorkload } from "../config/app-services";
+import { heavyFileBytesEnv } from "../config/workers";
 
+/** The BFF's `service.name`; the collector routes its spans by it (`APP_TRACE_SERVICES`). */
+export const BFF_SERVICE_NAME = "grid-ui";
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
 export interface AppWiring {
@@ -19,8 +28,8 @@ export interface AppWiring {
   seaweedPublicEndpoint: pulumi.Output<string>;
   /** Office → PDF converter URL (set when cfg.gotenberg.enabled, ADR-0070). */
   gotenbergUrl?: pulumi.Output<string>;
-  /** The self-hosted Photon's URL (set when cfg.geocoder.enabled, ADR-0120). */
-  geocoderUrl?: pulumi.Output<string>;
+  /** clamd's `tcp://` URL (set when cfg.malwareScan.enabled, ADR-0157). */
+  malwareScanUrl?: pulumi.Output<string>;
   /** The Qdrant cluster's client URL (ADR-0115): the one vector store, so there is no embedded one. */
   qdrantUrl: pulumi.Output<string>;
   /** Every DSN states its route (`via`), pooled or direct: see `PgRoute` in `data/postgres.ts`. */
@@ -36,15 +45,15 @@ export const SECRET_NAME = objectName("appSecret"); // pragma: allowlist secret 
 export const PULL_SECRET_NAME = objectName("registryPullSecret"); // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
 
 /**
- * dockerconfigjson pull Secret for the app namespace, created only when
- * registry credentials are configured (private app images). Every app pod
- * spec references it via imagePullSecrets; the data tier pulls public
- * upstream images and needs nothing.
+ * dockerconfigjson pull Secret for a namespace (the app's; the CMS's own copy is
+ * `resourceName` "cms-registry-pull"), created only when registry credentials are
+ * configured (private images); pod specs reference it via imagePullSecrets.
  */
 export function buildRegistryPullSecret(
   cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
+  resourceName = logicalName("grid-registry-pull"), dependsOn: pulumi.Resource[] = [],
 ): k8s.core.v1.Secret | undefined {
   const creds = cfg.images.pullCredentials;
   if (!creds) return undefined;
@@ -63,13 +72,13 @@ export function buildRegistryPullSecret(
     }),
   );
   return new k8s.core.v1.Secret(
-    logicalName("grid-registry-pull"),
+    resourceName,
     {
       metadata: { name: PULL_SECRET_NAME, namespace },
       type: "kubernetes.io/dockerconfigjson",
       stringData: { ".dockerconfigjson": dockerConfigJson },
     },
-    { provider },
+    { provider, dependsOn },
   );
 }
 
@@ -87,55 +96,15 @@ export interface AppSecrets {
   checksum: pulumi.Output<string>;
 }
 
-/** The Secret KEDA's TriggerAuthentications read the queue DSNs from; no pod references it. */
-export const SCALER_SECRET_NAME = objectName("kedaScalerSecret"); // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
-
 /**
- * The Secret key of the DSN KEDA reads the Python claim queues (`jobs`)
- * through, and the one for the BFF queue (`app`).
+ * The app's public origin. The BFF pins it from `WORKOS_REDIRECT_URI`
+ * (`configuredAppOrigin`), and a signed internal route checks a signature's
+ * `@target-uri` against it, so a caller outside the cluster that signs
+ * requests (the inbound mail Worker's `BFF_URL`) must be given this same
+ * string. One function, so the two cannot drift.
  */
-export const JOBS_QUEUE_DSN_KEY = "KEDA_JOBS_QUEUE_DB_URL";
-export const BFF_QUEUE_DSN_KEY = "KEDA_BFF_QUEUE_DB_URL";
-
-/**
- * What KEDA's `postgresql` scaler connects with, in a Secret of its own
- * (ADR-0079): the read-only scaler login (`KEDA_SCALER_ROLE`, SELECT on the queue
- * tables and nothing else, `queue-scaler-grants.ts`), never the owner.
- *
- * Its own Secret, not keys of `grid-secrets`, for two reasons. No pod reads these
- * values, and a Secret that every pod's checksum covers would roll the frontend,
- * the backend and every worker on a rotation of a credential none of them holds.
- * And the operator in `keda` reads only what a TriggerAuthentication names, so
- * the scaler's credential sits apart from the keys of the application's own.
- *
- * Each DSN's host is the FQDN, because the operator resolves names in its own
- * namespace and a bare service name resolves there to nothing: the scaler would
- * error on every poll and the tier would never scale out. Both Python queues
- * live in one database, so the ingest and research tiers read one key.
- */
-export function buildScalerSecret(w: AppWiring): k8s.core.v1.Secret {
-  const dsn = (db: string) =>
-    // Direct: the operator opens a session per poll, from another namespace, as a
-    // login capped at KEDA_SCALER_CONNECTION_LIMIT (counted in the budget's direct
-    // reserve). The scaler reads the primary's own queue tables, whether or not
-    // the pooler is up.
-    w.dsn({
-      db,
-      via: "direct",
-      as: { user: KEDA_SCALER_ROLE, password: w.cfg.postgres.scalerPassword },
-      clusterWide: true,
-    });
-  return new k8s.core.v1.Secret(
-    logicalName("grid-keda-scaler"),
-    {
-      metadata: { name: SCALER_SECRET_NAME, namespace: w.namespace },
-      stringData: {
-        [JOBS_QUEUE_DSN_KEY]: dsn(JOBS_DB),
-        ...(w.cfg.bffJobs.enabled ? { [BFF_QUEUE_DSN_KEY]: dsn(APP_DB) } : {}),
-      },
-    },
-    { provider: w.provider },
-  );
+export function appOrigin(cfg: DeployConfig): string {
+  return `https://${cfg.ingress.appDomain}`;
 }
 
 /**
@@ -152,11 +121,16 @@ export function buildScalerSecret(w: AppWiring): k8s.core.v1.Secret {
 export function buildSecrets(w: AppWiring): AppSecrets {
   const { cfg } = w;
   const values: Record<string, pulumi.Input<string>> = {
-    OPENROUTER_API_KEY: cfg.llm.openrouterApiKey,
+    ...openrouterSecretValues(cfg),
     TAVILY_API_KEY: cfg.llm.tavilyApiKey,
     INTERNAL_API_TOKEN: cfg.internal.apiToken,
     ADMIN_TOKEN: cfg.internal.adminToken,
     CORPUS_EXPORT_TOKEN: cfg.internal.corpusExportToken,
+    // The key map the inbound mail Worker's signatures are checked against
+    // (`platform/inbound-mail.ts`, ADR-0138). Its own secret, because it also
+    // lives outside the cluster, in a Cloudflare Worker binding. Empty = the
+    // signed route answers 503 and the Worker's senders retry.
+    INBOUND_MAIL_SIGNING_KEYS: cfg.inboundMail.signingKeys,
     JOB_PAYLOAD_KEK: cfg.internal.jobPayloadKek,
     WEB_PUSH_VAPID_PRIVATE_KEY: cfg.webPush.privateKey,
     // PostHog Support (feedback tickets). Absent unless the stack sets it, so
@@ -253,39 +227,6 @@ export const BACKEND_URL = `http://${API_TIER}:${PORT.backend}`;
 export const BACKEND_CHAT_URL = `http://${CHAT_TIER}:${PORT.backend}`;
 
 /**
- * The Python tiers' PostHog pair (`POSTHOG_HOST`, `POSTHOG_PROJECT_TOKEN`), or
- * nothing unless both are configured, plus `POSTHOG_RELEASE_ID` when the deploy
- * resolved a release for the backend image (posthog-python reads it itself and
- * sends it as `$release_id`). Exported for `posthog.spec.ts`.
- */
-export function posthogEnv(cfg: DeployConfig): EnvVar[] {
-  const { host, projectToken, releaseId } = cfg.posthog;
-  if (host === "" || projectToken === "") return [];
-  return [
-    { name: "POSTHOG_HOST", value: host },
-    { name: "POSTHOG_PROJECT_TOKEN", value: projectToken },
-    ...(releaseId === "" ? [] : [{ name: "POSTHOG_RELEASE_ID", value: releaseId }]),
-  ];
-}
-
-/**
- * The landing site's PostHog pair (`PUBLIC_POSTHOG_HOST`,
- * `PUBLIC_POSTHOG_PROJECT_TOKEN`), or nothing unless both are configured: the
- * same stack keys the other runtimes read, under the names the Astro tier uses.
- * `apps/site/src/pages/web-analytics.js.ts` reads them per request (the
- * pages are prerendered and the image builds with no env files) and answers an
- * empty script without them. Exported for `web.spec.ts`.
- */
-export function webPosthogEnv(cfg: DeployConfig): EnvVar[] {
-  const { host, projectToken } = cfg.posthog;
-  if (host === "" || projectToken === "") return [];
-  return [
-    { name: "PUBLIC_POSTHOG_HOST", value: host },
-    { name: "PUBLIC_POSTHOG_PROJECT_TOKEN", value: projectToken },
-  ];
-}
-
-/**
  * Backend environment shared by every role of the image. Postgres DSNs
  * everywhere (never SQLite) — the hard precondition for durability and any
  * future replica. The admission caps are the
@@ -293,10 +234,11 @@ export function webPosthogEnv(cfg: DeployConfig): EnvVar[] {
  * §4, §6). `chatEnv`, `apiEnv` and the worker envs add `PROCESS_ROLE`.
  */
 
-export function backendEnv(w: AppWiring, otelServiceName = "backend-chat"): EnvVar[] {
+export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workload: ModelWorkload = "chat"): EnvVar[] {
   const { cfg } = w;
   const env: EnvVar[] = [
     { name: "APP_ENV", value: "production" },
+    ...hatchetEnv(),
     { name: "LOG_LEVEL", value: "INFO" },
     { name: "HOST", value: "0.0.0.0" },
     { name: "PORT", value: String(PORT.backend) },
@@ -326,6 +268,7 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat"): EnvV
     // How long a terminating replica waits for its turns; the pod's grace period
     // is this plus the endpoint drain and slack (`backendRollout`).
     { name: "CHAT_DRAIN_SECONDS", value: String(cfg.backend.drainSeconds) },
+    ...publicSourceFetcherEnv(),
     // Project-memory write path (backend → frontend BFF).
     { name: "FRONTEND_INTERNAL_URL", value: `http://frontend:${PORT.frontend}` },
     sref("INTERNAL_API_TOKEN"),
@@ -338,11 +281,10 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat"): EnvV
     { name: "REQUIRE_AUTH", value: String(cfg.auth.requireAuth) },
     { name: "WORKOS_CLIENT_ID", value: cfg.auth.workosClientId },
     // OTLP tracing via the cluster collector (ADR-0029 amendment). Producers
-    // send plain OTLP in-cluster — the collector alone holds the Langfuse
-    // key. HTTP/protobuf to :4318 — the full /v1/traces path is required: the
-    // The agent-runtime exporter posts to the endpoint as-is (path appending only happens
-    // for SDK env-var defaults, not for an endpoint the config passes
-    // explicitly). OTEL_SERVICE_NAME becomes service.name on the spans so
+    // send plain OTLP in-cluster — the collector alone holds the Langfuse key.
+    // HTTP/protobuf to :4318 with the full /v1/traces path: the agent-runtime exporter posts
+    // to the endpoint as-is (only SDK env-var defaults get the path appended).
+    // OTEL_SERVICE_NAME becomes service.name on the spans so
     // chat tier and worker tier are distinct resources in Langfuse.
     // Injected only when the observability tier is deployed — otherwise every
     // span export would retry against a Service that doesn't exist.
@@ -381,23 +323,23 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat"): EnvV
     { name: "MAX_QUEUED_JOBS_PER_ORG", value: String(cfg.backend.maxQueuedJobsPerOrg) },
     { name: "INGEST_MAX_WORKERS", value: String(cfg.backend.ingestMaxWorkers) },
     { name: "INGEST_MAX_PER_ORG", value: String(cfg.ingestWorker.maxPerOrg) },
+    { name: "INGEST_HEAVY_FILE_BYTES", value: String(heavyFileBytesEnv(cfg.ingestWorker)) },
     // No env for the base corpus: it lives in SeaweedFS and the knowledge
     // database (ADR-0082 step A2), and the per-replica cache defaults to
     // /tmp/base-corpus (BASE_CORPUS_CACHE_DIR), a place the pod may lose.
-    // LLM / embeddings / VLM (all via OpenRouter).
-    sref("OPENROUTER_API_KEY"),
+    // LLM / embeddings / VLM (all via OpenRouter), on this workload's own key
+    // (`model-keys.ts`) as OPENROUTER_API_KEY, EMBED_API_KEY and VLM_API_KEY.
+    ...openrouterKeyEnv(workload, SECRET_NAME),
     sref("TAVILY_API_KEY"),
     { name: "EMBED_MODEL", value: cfg.llm.embedModel },
     { name: "EMBED_BASE_URL", value: cfg.llm.embedBaseUrl },
-    srefAs("EMBED_API_KEY", "OPENROUTER_API_KEY"),
     { name: "VLM_MODEL", value: cfg.llm.vlmModel },
     { name: "VLM_BASE_URL", value: cfg.llm.vlmBaseUrl },
-    srefAs("VLM_API_KEY", "OPENROUTER_API_KEY"),
-    // What the one OpenRouter key is asked to carry (ADR-0076, ADR-0081). Set
+    // What the OpenRouter keys are asked to carry (ADR-0076, ADR-0081). Set
     // from the stack so the budget is read where `ingestWorkerMaxReplicas` is:
     // `assertVlmPeakFitsCeiling` holds the two together.
     { name: "VLM_FLEET_CONCURRENCY", value: String(cfg.providerLimits.vlmFleetConcurrency) },
-    { name: "VLM_BATCH_WORKERS", value: String(cfg.providerLimits.vlmBatchWorkers) },
+    { name: "INGEST_PAGE_READ_PARALLELISM", value: String(cfg.providerLimits.pageReadParallelism) },
     { name: "PROVIDER_LIMIT_CEILING", value: String(cfg.providerLimits.limitCeiling) },
     { name: "PROVIDER_MODEL_LIMIT_CEILING", value: String(cfg.providerLimits.modelLimitCeiling) },
     // No EXTRACT_* here: tables, images and charts are on in code and a
@@ -473,12 +415,11 @@ export function apiEnv(w: AppWiring): EnvVar[] {
  */
 export function workerEnv(w: AppWiring): EnvVar[] {
   return [
-    ...backendEnv(w, "grid-agent-worker"),
+    ...backendEnv(w, "grid-agent-worker", "research"),
     { name: "PROCESS_ROLE", value: "worker" },
     { name: "RESEARCH_WORKERS", value: String(w.cfg.agentWorker.concurrency) },
-    // The drain budget the pod's grace period is derived from (`agent-worker.ts`):
-    // a job still running when it ends is given back to the queue, not killed.
-    { name: "RESEARCH_WORKER_DRAIN_SECONDS", value: String(w.cfg.agentWorker.drainSeconds) },
+    // No drain variable: on SIGTERM the Hatchet SDK waits for the runs it holds
+    // for as long as the pod's grace period (`agentWorkerDrainSeconds` + 30 s).
   ];
 }
 
@@ -496,17 +437,15 @@ const INGEST_WITHHELD_ENV = new Set(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LA
  * per-process concurrency.
  */
 export function ingestWorkerEnv(w: AppWiring, livenessFile: string): EnvVar[] {
-  const overridden = new Set(["INGEST_MAX_WORKERS"]);
   return [
-    ...backendEnv(w, "grid-ingest-worker").filter(
-      (e) => !(typeof e.name === "string" && (overridden.has(e.name) || INGEST_WITHHELD_ENV.has(e.name))),
+    ...backendEnv(w, "grid-ingest-worker", "ingest").filter(
+      (e) => !(typeof e.name === "string" && (e.name === "INGEST_MAX_WORKERS" || INGEST_WITHHELD_ENV.has(e.name))),
     ),
     { name: "PROCESS_ROLE", value: "ingest-worker" },
     { name: "INGEST_MAX_WORKERS", value: String(w.cfg.ingestWorker.concurrency) },
     // What one embedded raster may allocate before it is refused (adapter.py).
     // Set from the stack where the tier's memory is, because it is a memory bound.
     { name: "MAX_IMAGE_PIXELS", value: String(w.cfg.ingestWorker.maxImagePixels) },
-    { name: "INGEST_WORKER_DRAIN_SECONDS", value: String(w.cfg.ingestWorker.drainSeconds) },
     { name: "WORKER_LIVENESS_FILE", value: livenessFile },
   ];
 }
@@ -516,8 +455,9 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
   const { cfg } = w;
   return [
     { name: "APP_ENV", value: "production" },
+    ...hatchetEnv(),
     { name: "REQUIRE_AUTH", value: String(cfg.auth.requireAuth) },
-    { name: "LANDING_URL", value: `https://${cfg.ingress.webDomain}` },
+    { name: "LANDING_URL", value: cfg.ingress.webOrigin },
     // Every backend HTTP call goes to the api role; only the WebSocket proxy
     // goes to chat, and it has no fallback to the api URL (ADR-0082 step B).
     { name: "BACKEND_URL", value: BACKEND_URL },
@@ -544,6 +484,10 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // The corpus export (`/api/internal/oib-corpus`). No caller since the
     // answer-suite CI workflow was removed; unset disables it.
     sref("CORPUS_EXPORT_TOKEN"),
+    // Project mail (ADR-0138). The key map is always wired; empty fails closed. The rest only
+    // while the inbox is on (`inboundMailAppEnv`), the Worker's own pause aside.
+    sref("INBOUND_MAIL_SIGNING_KEYS"),
+    ...inboundMailAppEnv(cfg.inboundMail),
     { name: "ALLOW_AGENT_ORG_MEMORY", value: String(cfg.auth.allowAgentOrgMemory) },
     // WorkOS AuthKit.
     { name: "WORKOS_CLIENT_ID", value: cfg.auth.workosClientId },
@@ -555,8 +499,8 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // runtime only while the image is built without it — Next.js would inline
     // a build-time value); WORKOS_REDIRECT_URI is the first-party callback
     // route's explicit runtime override and is immune to build-time inlining.
-    { name: "NEXT_PUBLIC_WORKOS_REDIRECT_URI", value: `https://${cfg.ingress.appDomain}/api/auth/callback` },
-    { name: "WORKOS_REDIRECT_URI", value: `https://${cfg.ingress.appDomain}/api/auth/callback` },
+    { name: "NEXT_PUBLIC_WORKOS_REDIRECT_URI", value: `${appOrigin(cfg)}/api/auth/callback` },
+    { name: "WORKOS_REDIRECT_URI", value: `${appOrigin(cfg)}/api/auth/callback` },
     // PostHog product analytics (fail-open: empty host/token keeps the
     // browser client disabled — see apps/workspace/bff/analytics/posthog.ts).
     // Read by the BFF per request into AppConfig, so pointing a deployment at
@@ -602,14 +546,16 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     { name: "SEAWEED_PRESIGNED_URL_TTL_SECONDS", value: String(APP_DEFAULTS.presignedUrlTtlSeconds) },
     { name: "PROJECT_PURGE_GRACE_DAYS", value: String(APP_DEFAULTS.projectPurgeGraceDays) },
     { name: "FOLDER_PURGE_GRACE_DAYS", value: String(APP_DEFAULTS.folderPurgeGraceDays) },
-    // Model catalog. Pricing (margin, credit price) is a platform setting in
-    // the database (ADR-0053), not an environment variable.
+    // Model catalog reads (no completions, so no credit spent): the chat key,
+    // which the Secret holds under this name. Pricing is a platform setting.
     sref("OPENROUTER_API_KEY"),
     // Platform tier.
     { name: "PLATFORM_OWNER_EMAILS", value: cfg.auth.platformOwnerEmails },
     { name: "PLATFORM_ORG_EXTERNAL_ID", value: cfg.auth.platformOrgExternalId },
     { name: "DISABLE_SELF_SERVE_ORGS", value: String(cfg.auth.disableSelfServeOrgs) },
     { name: "AUDIT_LOGS_ENABLED", value: String(cfg.auth.auditLogsEnabled) },
+    // Platform knowledge governance: `true` lets one operator approve and publish alone (dev only).
+    { name: "KNOWLEDGE_SINGLE_OPERATOR", value: String(cfg.auth.knowledgeSingleOperator) },
     // Shared cache + WS rate limiting (needed for >1 replica correctness).
     // Authenticated: the URL carries the password, so it comes from the Secret.
     sref("REDIS_URL"),
@@ -638,19 +584,21 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // source it indexes those from (ADR-0071). Absent ⇒ those files are
     // marked failed (retryable); .xlsx/.xlsm index without preview.
     ...(w.gotenbergUrl ? [{ name: "GOTENBERG_URL", value: w.gotenbergUrl }] : []),
-    // Address search for the project dialog (ADR-0120), behind `/api/geocode`.
-    // Absent ⇒ the route answers `enabled: false` and the address stays a plain
-    // text field. Only ever the in-cluster Photon: an address is client data.
-    ...(w.geocoderUrl ? [{ name: "GEOCODER_URL", value: w.geocoderUrl }] : []),
-    // OTLP tracing via the cluster collector — injected only when the
-    // observability tier is deployed, which is what makes
-    // src/instrumentation.ts register @vercel/otel (it no-ops without the
-    // endpoint). NOTE the BASE URL here vs. the backend's full /v1/traces
-    // path: the JS OTLP HTTP exporter appends the signal path per the OTEL
-    // spec; the Python agent-runtime exporter does not.
+    // Address search for the project dialog (ADR-0151), behind `/api/geocode`:
+    // off unless the stack sets `geocoderUrl` (ADR-0159). Empty ⇒ the route
+    // answers `enabled: false` and the address stays a plain text field.
+    ...(cfg.geocoderUrl ? [{ name: "GEOCODER_URL", value: cfg.geocoderUrl }] : []),
+    // The malware scanner (ADR-0157): the in-cluster clamd, never anything
+    // else. Inherited by the bff-jobs pool, whose receive jobs scan what
+    // arrives; the request path scans an original before serving it. Absent ⇒
+    // every scan fails `not-configured`, and nothing waiting on one is filed.
+    ...(w.malwareScanUrl ? [{ name: "MALWARE_SCAN_URL", value: w.malwareScanUrl }] : []),
+    // OTLP via the collector, only when it is deployed (instrumentation.ts no-ops
+    // without it). A BASE URL: the JS exporter appends the signal path, the
+    // Python agent-runtime exporter does not, so the backend gets /v1/traces.
     ...(cfg.observability.enabled
       ? [
-          { name: "OTEL_SERVICE_NAME", value: "grid-ui" },
+          { name: "OTEL_SERVICE_NAME", value: BFF_SERVICE_NAME },
           { name: "OTEL_EXPORTER_OTLP_ENDPOINT", value: "http://otel-collector:4318" },
         ]
       : []),
@@ -721,80 +669,4 @@ export function purgerEnv(w: AppWiring): EnvVar[] {
         ]
       : []),
   ];
-}
-
-/**
- * Skill-scheduler worker environment.
- *
- * Every name here must match what `apps/workspace/scheduler/index.js` reads. It
- * did not: the worker moved to the `SKILL_*` names with Agent Skills and
- * this block kept emitting the `WORKFLOW_*` ones, so the container saw an
- * unset start gate and exited 0 as a no-op on every deployment.
- */
-export function schedulerEnv(w: AppWiring): EnvVar[] {
-  const { cfg } = w;
-  return [
-    sref("APP_DATABASE_URL"),
-    { name: "FRONTEND_INTERNAL_URL", value: `http://frontend:${PORT.frontend}` },
-    sref("INTERNAL_API_TOKEN"),
-    { name: "SKILL_SCHEDULER_POLL_MS", value: String(APP_DEFAULTS.schedulerPollMs) },
-    { name: "SKILL_SCHEDULER_BATCH", value: String(APP_DEFAULTS.schedulerBatch) },
-    { name: "SKILL_RUNS_RETENTION_DAYS", value: String(APP_DEFAULTS.skillRunsRetentionDays) },
-    // The daily Langfuse trace retention sweep (ADR-0044); a no-op without the keys.
-    ...(cfg.langfuse.enabled
-      ? [
-          ...langfuseApiEnv(cfg),
-          {
-            name: "TRACE_RETENTION_DAYS",
-            value: String(APP_DEFAULTS.langfuseTraceRetentionDays),
-          },
-        ]
-      : []),
-    // OTLP logs via the cluster collector (see frontendEnv for the gating
-    // rationale). Base URL - the JS exporter derives /v1/logs.
-    ...(cfg.observability.enabled
-      ? [
-          { name: "OTEL_SERVICE_NAME", value: "grid-skill-scheduler" },
-          { name: "OTEL_EXPORTER_OTLP_ENDPOINT", value: "http://otel-collector:4318" },
-        ]
-      : []),
-  ];
-}
-
-/** Minimal env for the drizzle migration Job. */
-export function migrationEnv(): EnvVar[] {
-  // drizzle.config.ts prefers this over APP_DATABASE_URL: DDL needs the
-  // schema owner, and a backfill run as the RLS-bound runtime role would
-  // silently update zero rows (ADR-0041).
-  return [sref("APP_MIGRATION_DATABASE_URL")];
-}
-
-/**
- * Minimal env for the WorkOS audit-schema reconciliation Job. The API key alone
- * — the script talks to nothing else, and the environment it provisions is the
- * one that key belongs to.
- */
-export function auditSchemaEnv(): EnvVar[] {
-  return [sref("WORKOS_API_KEY")];
-}
-
-/**
- * Env for the WorkOS authorization-catalog Job: the API key, and the external
- * id of the platform organization whose org-scoped roles the catalog also
- * provisions (the frontend reads the same value).
- */
-export function authzCatalogEnv(cfg: DeployConfig): EnvVar[] {
-  return [
-    sref("WORKOS_API_KEY"),
-    { name: "PLATFORM_ORG_EXTERNAL_ID", value: cfg.auth.platformOrgExternalId },
-  ];
-}
-
-/**
- * Env for the folder-grants carry-over Job (ADR-0097): the WorkOS key, and the
- * schema owner's connection, because it reads `project_folder_grants` across
- * every organization and the RLS-bound runtime role would see none of it.
- */
-export function folderGrantsCarryOverEnv(): EnvVar[] {
-  return [sref("WORKOS_API_KEY"), sref("APP_MIGRATION_DATABASE_URL")];
 }

@@ -49,6 +49,7 @@ backend:
   - 'ci/german_stems.json'
   # The Python packages (ADR-0145 row 6); ifc-spatial-py is the packages tier's.
   - 'packages/knowledge-layer/**'
+  - 'packages/public-sources/**'
   - 'packages/ris-adapter/**'
   - 'packages/tavily-web-search/**'
   # The one-time Chroma exporter's own tests (`be:test:migration`).
@@ -66,13 +67,23 @@ backend:
   - '.github/actions/setup-python-env/**'
   - '.github/actions/setup-task/**'
   # Read as source by this tier's tests (scripts/check_ci_filter_reads.py --fix writes it):
+  - 'apps/website/package.json'
+  - 'apps/website/public/favicon.svg'
+  - 'apps/website/public/media/share-card.png'
+  - 'apps/website/src/styles/brand/identity.json'
   - 'apps/workspace/app/api/internal/usage/route.ts'
+  - 'apps/workspace/app/icon.svg'
   - 'apps/workspace/bff/agent-api/backend-operations.ts'
   - 'apps/workspace/bff/agent-api/exposure.config.ts'
+  - 'apps/workspace/bff/agent-api/mcp-config.ts'
+  - 'apps/workspace/bff/agent-api/mcp-server.ts'
   - 'apps/workspace/bff/agent-asks/answer-text.ts'
   - 'apps/workspace/bff/analytics/posthog-server.ts'
   - 'apps/workspace/bff/analytics/posthog.ts'
   - 'apps/workspace/bff/analytics/request-error.ts'
+  - 'apps/workspace/bff/base-knowledge/platform/capture-fetch.ts'
+  - 'apps/workspace/bff/base-knowledge/wire/vocab.ts'
+  - 'apps/workspace/bff/bim/query.ts'
   - 'apps/workspace/bff/brand.ts'
   - 'apps/workspace/bff/cross-project/project-facts-mirror.ts'
   - 'apps/workspace/bff/db/schema/budgets.ts'
@@ -82,7 +93,11 @@ backend:
   - 'apps/workspace/bff/documents/retry-policy.ts'
   - 'apps/workspace/bff/documents/semantic-search.ts'
   - 'apps/workspace/bff/documents/tag-vocabulary.ts'
+  - 'apps/workspace/bff/inbound-mail/inbound-mail-vocabulary.ts'
+  - 'apps/workspace/bff/jobs-queue/attempts.ts'
+  - 'apps/workspace/bff/jobs-queue/task.ts'
   - 'apps/workspace/bff/jobs/types.ts'
+  - 'apps/workspace/bff/mail-thread/render-copy.ts'
   - 'apps/workspace/bff/model-config/agent-groups.ts'
   - 'apps/workspace/bff/platform/vector-reconcile.ts'
   - 'apps/workspace/bff/project-profile/legacy-names.json'
@@ -97,15 +112,20 @@ backend:
   - 'apps/workspace/i18n/dictionaries/en/chat.ts'
   - 'apps/workspace/i18n/dictionaries/index.ts'
   - 'apps/workspace/i18n/index.ts'
+  - 'apps/workspace/package.json'
+  - 'apps/workspace/public/sw.js'
   - 'apps/workspace/scripts/legacy-env-names.cjs'
+  - 'apps/workspace/shared/brand/identity.json'
   - 'apps/workspace/shared/cards/generated.ts'
   - 'apps/workspace/tests/fixtures/backend-tools.schema.json'
+  - 'apps/workspace/tests/fixtures/base-knowledge.schema.json'
   - 'apps/workspace/tests/fixtures/cross-project.schema.json'
   - 'apps/workspace/tests/fixtures/document-annotations.schema.json'
   - 'apps/workspace/tests/fixtures/document-lifecycle.schema.json'
   - 'apps/workspace/tests/fixtures/estate-tree.schema.json'
   - 'apps/workspace/tests/fixtures/exposure.json'
   - 'apps/workspace/tests/fixtures/job_fire_headers.json'
+  - 'apps/workspace/tests/fixtures/knowledge-context.schema.json'
   - 'apps/workspace/tests/fixtures/precedent/office.json'
   - 'apps/workspace/tests/fixtures/precedent/permits.json'
   - 'apps/workspace/tests/fixtures/proposals.schema.json'
@@ -116,27 +136,34 @@ backend:
   - 'apps/workspace/tests/fixtures/run-ledger.schema.json'
   - 'apps/workspace/tests/fixtures/surface-parity.json'
   - 'apps/workspace/tests/fixtures/turn-outcome.schema.json'
+  - 'apps/workspace/tests/fixtures/workspace/catalog.json'
   - 'apps/workspace/tests/fixtures/workspace/rendered.json'
   - 'apps/workspace/tests/fixtures/workspace_mcp_requests.json'
   - 'apps/workspace/tests/fixtures/workspace_mcp_responses.json'
+  - 'apps/workspace/tsconfig.json'
+  - 'apps/workspace/ui/adapters/api/documents-schemas.ts'
   - 'apps/workspace/ui/features/a2ui/catalog.tsx'
   - 'apps/workspace/ui/features/cards/card-decision.ts'
   - 'apps/workspace/ui/features/cards/components/AnswerCards.tsx'
   - 'apps/workspace/ui/features/cards/lib/formula-cases.json'
   - 'apps/workspace/ui/features/chat/lib/executed-steps.ts'
   - 'apps/workspace/ui/features/documents/lib/ingest-failure.ts'
+  - 'apps/workspace/ui/features/documents/utils.ts'
   - 'apps/workspace/ui/features/layout/components/InputArea.tsx'
   - 'apps/workspace/workers/job-queue.js'
   - 'apps/workspace/workers/jobs/index.js'
-  - 'apps/workspace/workers/jobs/runner.js'
   - 'ci/brand_names_baseline.json'
   - 'ci/english_names_baseline_py.json'
+  - 'ci/package_surface_baseline.json'
   - 'ci/size_baseline.json'
   - 'contracts/cards/schemas.json'
+  - 'contracts/thread-index.json'
   - 'deploy/compose/docker-compose.yaml'
   - 'deploy/postgres/rename-legacy-names.sh'
+  - 'deploy/posthog/README.md'
   - 'deploy/posthog/support/copy.de.json'
   - 'deploy/pulumi/src/app/config.ts'
+  - 'deploy/pulumi/src/app/public-source-fetcher.ts'
   - 'docs/README.md'
   - 'docs/adr/README.md'
   - 'docs/architecture/agent-capabilities.md'
@@ -144,11 +171,17 @@ backend:
   - 'docs/audit/qdrant-gates-2026-10.md'
   - 'docs/observability/langfuse.md'
   - 'docs/technical-reference/answer-feedback-export.md'
-  - 'packages/ifc-spatial/test/fixtures/Ifc4_SampleHouse.ifc'
-  - 'packages/ifc-spatial/test/fixtures/floor-slab-and-window.ifc'
-  - 'packages/ifc-spatial/test/fixtures/house-with-rooms.ifc'
-  - 'packages/ifc-spatial/test/fixtures/road-ifc4x3.ifc'
-  - 'packages/ifc-spatial/test/fixtures/units-feet.ifc'
+  - 'packages/brand/build-brand-assets.mjs'
+  - 'packages/brand/identity.json'
+  - 'packages/brand/mark.svg'
+  - 'packages/ifc-spatial-py/pyproject.toml'
+  - 'packages/ifc-spatial-py/tests/fixtures/Ifc4_SampleHouse.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/floor-slab-and-window.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/house-with-rooms.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/road-ifc4x3.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/units-feet.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/vocabulary.json'
+  - 'packages/ifc-spatial-py/uv.lock'
   # End of the files this tier's tests read.
 # NOT here, though tests read them: `ci/**`, `releasenotes/**`, the other
 # workflows and this file. Their tests (`task be:test:harness`: the workflow,
@@ -167,6 +200,8 @@ backend:
 # lost a filter; only the job went. See ci.yml's `ci-ok` comment and ADR-0058's
 # "Update (2026-09-09)".
 workspace:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   - 'apps/workspace/**'
   # The BFF's model-config tests read the workflow config (the agent
   # groups it seeds are derived from `llms:`), so a PR touching only
@@ -216,38 +251,88 @@ workspace:
   - '.github/actions/build-image/**'
   # The brand script writes the app's icons (packages/brand/build-brand-assets.mjs).
   - 'packages/brand/**'
+  # shared/public-site.spec.ts holds the app's links into the website to it.
+  - 'contracts/public-site.json'
   # Read as source by this tier's tests (scripts/check_ci_filter_reads.py --fix writes it):
+  - 'apps/agent-host/src/agent_host/models/document_type_tag.py'
+  - 'apps/agent-host/src/agent_host/models/mail_facts.py'
   - 'apps/agent-host/src/agent_host/models/requests.py'
+  - 'apps/agent-host/src/agent_host/routes/ingest.py'
+  - 'contracts/inbound-address.json'
+  - 'contracts/inbound-mail-contract.json'
+  - 'contracts/inbound-mail-signature.json'
+  - 'contracts/thread-index.json'
   - 'deploy/compose/init-db.sql'
   - 'docs/technical-reference/answer-feedback-export.md'
   - 'packages/agent/src/agent/common/status_keys.py'
+  - 'packages/agent/src/agent/knowledge/doc_class_vocabulary.py'
+  - 'packages/agent/src/agent/knowledge/document_classification.py'
   - 'packages/agent/src/agent/skills/events.py'
-  - 'packages/ris-adapter/src/client.py'
+  - 'packages/knowledge-layer/src/ingest/chosen_document_type.py'
+  - 'tests/fixtures/base-knowledge/turn_law_austria.json'
+  - 'tests/fixtures/golden/scoring_parity.json'
   # End of the files this tier's tests read.
 site:
-  - 'apps/site/**'
-  # The brand master and the app's copy: the site's `npm run check` holds
-  # both apps' copies to the master (packages/brand/build-brand-assets.mjs --check).
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
+  # The public website (built from packages/brand).
+  - 'apps/website/**'
+  # The CMS's blocks and its revalidate call: src/lib/rich-text.test.ts and
+  # cms.test.ts hold the website's renderer and route to them (ADR-0155).
+  - 'apps/cms/src/blocks/**'
+  - 'apps/cms/src/hooks/revalidate-website.ts'
+  # The brand package: the website's `bun run check` holds the token and name copies
+  # (sync.mjs --check), the icon copies (build-brand-assets.mjs --check) and the
+  # email signatures to it, and art:check holds the app's riso art to its source.
   - 'packages/brand/**'
+  # src/i18n/public-site.test.ts holds the route table to the pages text outside the site links to.
+  - 'contracts/public-site.json'
+  # The brand rules the website's `bun run check` and `task website:verify` run.
+  - 'scripts/check_brand_rules.mjs'
+  - 'scripts/check_brand_rules.test.mjs'
   - 'apps/workspace/app/icon.svg'
   # The app's inline copy of the mark's path, held by the same --check.
   - 'apps/workspace/bff/brand.ts'
-  # The app's riso art: exported from apps/site/art/riso and held to its
-  # JOBS tables by the site's `npm run check` (art/riso/check.mjs).
+  # The app's riso art: exported from packages/brand/art/riso and held to its
+  # JOBS tables by art:check (in task website:verify).
   - 'apps/workspace/public/art/**'
   - 'apps/workspace/bff/art/**'
   - 'Taskfile.yml'
-  - 'taskfiles/site.yml'
+  - 'taskfiles/website.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/filters.yml'
+  - '.github/actions/setup-bun/**'
+  - '.github/actions/setup-task/**'
+cms:
+  # The website's CMS (apps/cms, Payload, ADR-0155): its own job runs `task cms:verify`
+  # (typecheck, lint, unit tests, and the Postgres suite with the migration drift gate).
+  - '.node-version'
+  - 'apps/cms/**'
+  - 'taskfiles/cms.yml'
+  # Its tests hold its choices and its import to the website's code and posts:
+  # the cover drawings, the categories, the routes a call to action names, the
+  # MDX fixtures the import converts, and the block contracts it registers.
+  - 'apps/website/src/assets/covers/**'
+  - 'apps/website/src/lib/categories.ts'
+  - 'apps/website/src/i18n/paths.ts'
+  - 'apps/website/src/content/blog/**'
+  - 'apps/website/src/components/blocks/contracts.ts'
+  - 'Taskfile.yml'
   - '.github/workflows/ci.yml'
   - '.github/filters.yml'
   - '.github/actions/setup-bun/**'
   - '.github/actions/setup-task/**'
 infra:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   - 'deploy/**'
-  # deploy/pulumi/src/app/web.spec.ts reads the site's Dockerfile and the
+  # deploy/pulumi/src/app/web.spec.ts reads the website's Dockerfile and the
   # server its CMD starts.
-  - 'apps/site/Dockerfile'
-  - 'apps/site/runtime/server.mjs'
+  - 'apps/website/Dockerfile'
+  - 'apps/website/runtime/server.mjs'
+  # deploy/pulumi/src/platform/inbound-mail-worker.spec.ts reads the public site's
+  # help and privacy paths the Worker's refusal links to.
+  - 'contracts/public-site.json'
   # deploy/pulumi/src/data/qdrant-alerts.spec.ts reads the runbook it links.
   - 'docs/deployment/qdrant-runbook.md'
   - 'Taskfile.yml'
@@ -261,26 +346,31 @@ infra:
   - 'apps/agent-host/src/agent_host/chat_socket.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_dispatch.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_worker.py'
-  - 'apps/agent-host/src/agent_host/jobs/queue.py'
-  - 'apps/agent-host/src/agent_host/jobs/worker.py'
+  - 'apps/agent-host/src/agent_host/jobs/research_workflow.py'
   - 'apps/agent-host/src/agent_host/roles.py'
   - 'apps/agent-host/src/agent_host/routes/chat_occupancy.py'
   - 'apps/agent-host/src/agent_host/routes/internal_auth.py'
   - 'apps/agent-host/src/agent_host/routes/jobs.py'
+  - 'apps/agent-host/src/agent_host/routes/oib.py'
+  - 'apps/workspace/bff/malware-scan/config.ts'
+  - 'apps/workspace/bff/model-config/openrouter.ts'
+  - 'apps/workspace/bff/scheduling/sweeps.ts'
+  - 'apps/workspace/config/knowledge-releases/manifest.json'
   - 'apps/workspace/deploy/Dockerfile'
-  - 'apps/workspace/migrations/0104_bff_job_queue.sql'
+  - 'apps/workspace/scripts/build-jobs-bundle.ts'
+  - 'apps/workspace/scripts/knowledge-carry.ts'
   - 'apps/workspace/server.js'
-  - 'apps/workspace/workers/app-database.js'
   - 'apps/workspace/workers/housekeeping-clock.js'
-  - 'apps/workspace/workers/job-queue.js'
   - 'apps/workspace/workers/jobs/index.js'
   - 'apps/workspace/workers/langfuse-traces.js'
-  - 'packages/agent/src/agent/common/claim_queue.py'
+  - 'packages/agent/src/agent/common/credential_resolution.py'
   - 'packages/agent/src/agent/common/provider_limiter.py'
-  - 'packages/agent/src/agent/knowledge/ingest_queue.py'
   - 'packages/agent/src/agent/knowledge/ingest_scheduler.py'
-  - 'packages/knowledge-layer/src/llamaindex/adapter.py'
-  - 'packages/knowledge-layer/src/llamaindex/processing.py'
+  - 'packages/agent/src/agent/knowledge/ingest_workflow.py'
+  - 'packages/knowledge-layer/src/embedding.py'
+  - 'packages/knowledge-layer/src/ingest/adapter.py'
+  - 'packages/knowledge-layer/src/ingest/page_reads.py'
+  - 'packages/knowledge-layer/src/ingest/vision_calls.py'
   # End of the files this tier's tests read.
 # The two standalone IFC packages (ADR-0045). Their own family rather than a
 # line in `backend:` or `workspace:`, because they are outside BOTH workspaces —
@@ -289,16 +379,15 @@ infra:
 # pay for a Next.js build. The `packages` job is ~4 minutes, essentially all of
 # it packages/ifc-spatial-py, which is why it is filtered at all.
 packages:
-  # The IFC packages only: packages/brand has no suite of its own and is
+  # The IFC engine only: packages/brand has no suite of its own and is
   # checked by the site and workspace tiers (ADR-0145).
-  - 'packages/ifc-spatial*/**'
-  # The guide for both, beside them.
+  - 'packages/ifc-spatial-py/**'
+  # The guide for it, beside it.
   - 'packages/*.md'
   - 'Taskfile.yml'
   - 'taskfiles/packages.yml'
   - '.github/workflows/ci.yml'
   - '.github/filters.yml'
-  - '.github/actions/setup-bun/**'
   - '.github/actions/setup-task/**'
 # The per-migration backfill and down checks at the end of
 # scripts/rls-test-db.sh. They read only the migrations and the script, so the
@@ -307,6 +396,16 @@ packages:
 migrations:
   - 'apps/workspace/migrations/**'
   - 'scripts/rls-test-db.sh'
+# The agent-skill lockfile check (`task agents:audit` in Repo checks): the
+# skills, apm's manifest and lockfile, and the pin of apm itself. Nothing else
+# can make apm.lock.yaml stale, and the check fetches every pinned skill
+# repository over the network.
+skills:
+  - 'skills/**'
+  - 'apm.yml'
+  - 'apm.lock.yaml'
+  - 'Taskfile.yml'
+  - 'taskfiles/repo.yml'
 # The pull request SAST scan. Semgrep is diff-aware, so it only ever reports
 # findings the change introduces; this decides whether there is code to scan.
 sast:
@@ -315,3 +414,47 @@ sast:
   - 'deploy/**'
   - 'scripts/**'
   - '.github/**'
+# The `Hatchet engine tests` job: the suites that run the Hatchet layer on a
+# real hatchet-lite (ci/hatchet_engine.sh). Every one of them skips without an
+# engine, so this tier is the only place they run. The code each proves, the
+# SDK pins, and the harness: the scripted workers and handlers, and the RLS
+# script that builds the BFF suite's database.
+hatchet:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
+  # The ingest workflow, and the client both Python workflows build on.
+  - 'packages/agent/src/agent/common/orchestrator_client.py'
+  - 'packages/agent/src/agent/knowledge/ingest_*.py'
+  - 'packages/agent/tests/knowledge/test_ingest_workflow_engine.py'
+  - 'packages/agent/tests/testing/agent_testing/orchestrator_engine_worker.py'
+  # The folder card builder's tasks, which the standard ingest worker serves.
+  - 'packages/agent/src/agent/knowledge/folder_cards/**'
+  - 'packages/agent/tests/knowledge/folder_cards/test_folder_card_workflow_engine.py'
+  - 'packages/agent/tests/testing/agent_testing/folder_cards_engine_worker.py'
+  # The research run: submit, the worker, cancel, and the job store it shares.
+  - 'apps/agent-host/src/agent_host/jobs/**'
+  - 'apps/agent-host/src/agent_host/routes/job_kill.py'
+  - 'apps/agent-host/tests/test_research_workflow_engine.py'
+  - 'apps/agent-host/tests/orchestrator_engine_worker.py'
+  - 'apps/agent-host/tests/conftest.py'
+  # The BFF's background jobs and the scheduler that fires them.
+  - 'apps/workspace/bff/jobs-queue/**'
+  - 'apps/workspace/bff/scheduling/**'
+  - 'apps/workspace/tests/test-utils/scripted-job-handlers.ts'
+  - 'apps/workspace/migrations/**'
+  - 'scripts/rls-test-db.sh'
+  # The SDK versions: hatchet-sdk (packages/agent) and @hatchet-dev/typescript-sdk.
+  - 'packages/agent/pyproject.toml'
+  - 'uv.lock'
+  - 'apps/workspace/package.json'
+  - 'apps/workspace/bun.lock'
+  # The engine and how the job runs.
+  - 'ci/hatchet_engine.sh'
+  - 'deploy/pulumi/src/config/background-work.ts'
+  - 'Taskfile.yml'
+  - 'taskfiles/workspace.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/filters.yml'
+  - '.github/actions/setup-python-env/**'
+  - '.github/actions/setup-bun/**'
+  - '.github/actions/setup-task/**'

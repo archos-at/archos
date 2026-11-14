@@ -13,7 +13,7 @@
  * profile moved under it, a value outside the intake vocabulary) is a failed
  * result with its reason. A refusal that belongs to the decider or to the
  * moment (no right to write, a closed project, a conversation that may not
- * leave its folders now) is thrown: the service gives the claim back and the
+ * leave its folders now, a conversation that is temporary now) is thrown: the service gives the claim back and the
  * proposal stays `proposed` for someone, or some time, it does not refuse.
  */
 
@@ -23,6 +23,7 @@ import { BadRequestError, ConflictError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireMayRememberFrom } from '@/lib/conversations/cross-project-use'
 import { requireMayLeaveConversation } from '@/lib/conversations/restricted-egress'
+import { requireConversationKeepsMemory } from '@/lib/conversations/temporary'
 import { requireResourceAccess } from '@/lib/sharing/access'
 import { patchProjectProfile } from '@/lib/project-profile/profile-service'
 import { addProjectMemoryItem, createOrganizationMemoryItem } from '@/lib/projects/service'
@@ -39,6 +40,8 @@ export interface ApplyContext {
   locale: Locale
   /** The decider's choice to file an organization note in the project instead. */
   memoryScope?: 'project'
+  /** The proposal being applied, so a route that records how a person decided can say it was a card. */
+  proposalId?: string
 }
 
 /** How many words of a note name it in a result or an inbox row. */
@@ -67,6 +70,10 @@ export async function applyMemory(payload: MemoryPayload, context: ApplyContext)
     // authorized first, so the refusal says nothing about a conversation the
     // decider cannot read.
     await requireResourceAccess(session, 'conversation', originConversationId, 'viewer')
+    // A temporary conversation keeps nothing (ADR-0180 rule 2), and a card shown
+    // before the switch is not a way around that. Thrown, so the proposal stays
+    // open: the owner can switch the conversation back and accept it then.
+    await requireConversationKeepsMemory(originConversationId, session.organizationId)
     await requireMayLeaveConversation({ conversationId: originConversationId, locale: context.locale }, session.organizationId, 'memory')
   }
   const input = {
@@ -74,9 +81,12 @@ export async function applyMemory(payload: MemoryPayload, context: ApplyContext)
     content: payload.content,
     confidence: payload.confidence,
     sourceConversationId: originConversationId,
+    topic: payload.topic,
   }
   const options = { supersedesContent: payload.supersedes ?? null }
   const scope = context.memoryScope ?? payload.scope
+  // The topic is resolved against the shelf the note lands on, as a create does: a project
+  // note's by `addProjectMemoryItem`, an office note's by `createOrganizationMemoryItem`.
   const item =
     scope === 'project'
       ? await addProjectMemoryItem(session, projectId, input, options)

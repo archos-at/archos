@@ -13,12 +13,12 @@
  */
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { FolderTree, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
+import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { invalidateProjectFacts } from '@/features/chat/hooks/use-project-facts'
 import { buildPatchPreviewRows } from '@/lib/project-profile/patch-preview'
 import type { ProjectProfilePatchOperation } from '@/lib/project-profile/types'
@@ -73,7 +73,7 @@ export function FileOperationReceipt({
   return (
     <ProposalReceipt
       server={server}
-      eyebrow={<SectionLabel icon={FolderTree}>{t(`cards.fileOperationProposal.eyebrow.${verb}`)}</SectionLabel>}
+      eyebrow={<SectionLabel>{t(`cards.fileOperationProposal.eyebrow.${verb}`)}</SectionLabel>}
       title={title}
       open={
         <>
@@ -229,7 +229,7 @@ export function OperationReceipt({
   return (
     <ProposalReceipt
       server={server}
-      eyebrow={<SectionLabel icon={Zap}>{t('cards.operationProposal.eyebrow')}</SectionLabel>}
+      eyebrow={<SectionLabel>{t('cards.operationProposal.eyebrow')}</SectionLabel>}
       title={proposal?.payload.summary ?? title}
       open={
         <>
@@ -276,6 +276,7 @@ export function MemoryReceipt({
   supersedes?: string | null
 }) {
   const t = useTranslations(chatCopy)
+  const kindLabels = useMemoryKindLabels()
   const server = useServerProposal(proposalId, 'memory')
   const { proposal } = server
   const note = proposal?.payload ?? { scope: null, kind, content, confidence, supersedes }
@@ -286,7 +287,7 @@ export function MemoryReceipt({
       eyebrow={
         <div className="flex flex-wrap items-center gap-1.5">
           <Chip variant="muted" size="sm">
-            {t(`memoryProposal.kind.${note.kind}`)}
+            {kindLabels.kind(note.kind)}
           </Chip>
           <Chip variant="outline" size="sm">
             {t(`cards.proposalReceipt.memory.confidence.${note.confidence}`)}

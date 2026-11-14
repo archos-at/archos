@@ -48,6 +48,12 @@ class SourceEntry:
     # and it is what ``answer_envelope._gate_verdict`` reads to refuse a
     # normative verdict resting on an office document Piloti wrote itself.
     authored_by: str | None = None
+    # The FORMAT of the document the passage came from, when it states one:
+    # ``"mail"`` for a filed E-Mail-Verlauf (``source_kinds.MAIL_SOURCE_FORMAT``),
+    # whose sections are messages. Parsed from the ``Format:`` line. It places
+    # the passage in the mail lane of its shelf (``norm_registry.lane_for_hit``),
+    # so a clerk's e-mail is cited as an e-mail and never as building law.
+    source_format: str | None = None
     # Retrieved passage body for knowledge-layer hits (the chunk content the KB
     # tool returned, truncated at 1500 chars per chunk). Used by
     # ``verify_quoted_spans`` to check that a QUOTED sentence in the answer
@@ -67,20 +73,6 @@ class SourceEntry:
     # is but how nearly it matched; the best score of a page's chunks survives
     # dedup. None for URL/web sources.
     score: float | None = None
-    # BINDING CLASSIFICATION carried to the client (see
-    # ``binding_classification_for_entry``). Both default to the honest-unknown
-    # value on purpose: a source that matched no catalogued norm must NEVER claim
-    # to bind — a fabricated "binding" badge would be a false legal claim, so the
-    # safe default is "we don't know". ``rank`` is the :data:`NormRank` of the
-    # registry entry the source resolved to, or None when it matched none (an OIB
-    # corpus document, or any unrecognised file — those carry no RIS rank).
-    # ``binding_status`` is the coarse bindingness the UI badges: ``binding`` /
-    # ``declared_binding`` / ``interpretive`` / ``unknown``. These are optional
-    # carriers; the wire recomputes the classification fresh (it needs the
-    # registry + Bundesland the raw entry lacks) and they round-trip through the
-    # session-registry cache like the other fields.
-    rank: str | None = None
-    binding_status: str = "unknown"
     # WHERE ON THE PAGE the passage sits, as boxes the viewer draws (issue #433).
     # Stated by the producer for a passage read off a picture of the page (a
     # plan's Grundriss, a photo), never for running text, which the viewer
@@ -109,6 +101,26 @@ class SourceEntry:
     # project is in another Land than the chat's. Carried to the precedent
     # chip's meta line; None when the producer stated none.
     project_federal_state_note: str | None = None
+    # THE KNOWLEDGE RECORD this text was read as, as its producer states it (``GroundingHit.work_id`` /
+    # ``edition_id``): what the citation's role, route and edition are resolved by (``citations/roles.py``).
+    # None for everything no record holds: an office or project document, the web.
+    work_id: str | None = None
+    edition_id: str | None = None
+    # WHERE A PERSON OPENS THE SOURCE in public, as its producer states it (``GroundingHit.public_url``): the
+    # address of the text at the source it was read from. It is NOT ``url``: ``url`` is a registry identity
+    # (one entry per URL, and what a source line may link), and a passage cited by its key has none. A
+    # display field: it dedups nothing, resolves nothing and decides no role. None for a corpus passage,
+    # whose edition's records name the address instead.
+    public_url: str | None = None
+    # The day this turn read the source (ISO, UTC), for a source read live over the network: what "abgerufen
+    # am" must say, however much later the citation is copied. Stamped once, when the registry first takes
+    # the entry (``SourceRegistry.add``); a corpus passage has none.
+    retrieved_at: str | None = None
+    # Which Fassung the text read is, as its producer states it (``GroundingHit.revision``): the index and
+    # the day an office or project document's own name carries, or the day a consolidated law is in force
+    # from as its source states it. None when nothing states one; never the day it was fetched.
+    revision_index: str | None = None
+    revision_date: str | None = None
 
 
 @dataclass
@@ -211,18 +223,13 @@ def normalize_url(url: str) -> str:
     return urlunparse((scheme, netloc, path, "", query_str, ""))
 
 
-# Inline marker appended immediately after a quoted span that could not be
-# verified against any retrieved passage. Fail-open: the sentence is NEVER
-# stripped or altered; only this marker is inserted after the closing quote.
+#: The labels the verifier wrote into an answer's prose before ADR-0125's amendment of 2026-11-10: after
+#: a quoted span no passage held, and where a citation did not resolve. Nothing writes them any more (no
+#: verification marker reaches an answer); they stay named because stored answers carry them and the
+#: BFF translates them for an agent reading one (``bff/agent-asks/answer-text.ts``).
+#: ``test_no_verification_marker_reaches_the_answer`` (the answer-check pipeline's tests) holds that no
+#: answer gains one.
 UNVERIFIED_QUOTE_MARKER = "[nicht wörtlich in der Quelle belegt]"
-
-
-#: What stands where the answer cited something that did not resolve
-#: (``verify_citations(label_dropped=True)``): no retrieved source behind the
-#: number, or a § / Punkt beside it the cited passage does not hold. The claim
-#: stays, as it always did; what changed is that it no longer reads like every
-#: other unmarked sentence, and the answer check reads the label too
-#: (``common/claim_judge.py``). Reader-facing German, like the quote marker.
 DROPPED_CITATION_MARKER = "[Beleg nicht verifiziert]"
 
 

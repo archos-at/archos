@@ -9,10 +9,9 @@
  */
 
 import type { JSX } from 'react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
-import { usePanelRef } from 'react-resizable-panels'
-import { AlertCircle, Download, FileText, Maximize2, PanelRight, X } from 'lucide-react'
+import { AlertCircle, FileText } from 'lucide-react'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { useIsMobile } from '@/hooks/use-is-mobile'
@@ -20,13 +19,12 @@ import { documentDisplayName } from '@/lib/documents/display-name'
 import { cn } from '@/lib/utils'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { Spinner } from '@/components/ui/spinner'
-import { ButtonGroup } from '@/components/ui/button-group'
-import { ToolbarIconButton } from '@/components/ui/floating-toolbar'
 import { useFileFacts } from '../hooks/use-file-facts'
 import { FileExtChip } from './file-ext-chip'
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { DockedSplit } from '@/components/ui/docked-split'
 import { useSettlingRefresh } from '../hooks/use-settling-refresh'
-import { useDocumentActions, type DocumentScope } from './document-actions'
+import type { DocumentScope } from './document-actions'
+import { PeekActions } from './file-preview-peek-actions'
 import { failedWithPreviousVersion, isCitableStatus, isFailedStatus, isSettlingStatus } from './document-status'
 import { FilePreviewPane } from './file-preview-pane'
 import { fileItemFromStatus } from '../lib/document-question'
@@ -302,7 +300,7 @@ export function FilePreviewHost({
           // and the pane behind it did the same, so enlarging a document was
           // two hard cuts. `duration-quick`/`ease-out` is the vocabulary's
           // entry for an opacity change.
-          className="bg-overlay animate-in fade-in-0 fixed inset-0 z-50 backdrop-blur-sm duration-quick ease-out motion-reduce:animate-none"
+          className="bg-overlay animate-in fade-in-0 fixed inset-0 top-[var(--page-inset-top,0px)] left-[var(--page-inset-start,0px)] z-50 backdrop-blur-sm duration-quick ease-out motion-reduce:animate-none"
           onClick={mode === 'expanded' ? peek : close}
           aria-hidden
         />
@@ -355,7 +353,7 @@ export function FilePreviewHost({
           !parked && !peeking && 'group z-40',
           !parked &&
             !peeking &&
-            'bg-popover text-popover-foreground fixed left-1/2 top-1/2 z-50 h-[85dvh] w-[min(960px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border shadow-lg',
+            'bg-popover text-popover-foreground fixed left-[calc(50%+var(--page-inset-start,0px)/2)] top-[calc(50%+var(--page-inset-top,0px)/2)] z-50 h-[min(85dvh,calc(100dvh-var(--page-inset-top,0px)-2rem))] w-[min(960px,calc(100%-var(--page-inset-start,0px)-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-overlay shadow-lg',
           // On a phone, portrait or on its side, the document is the screen:
           // one presentation however it was opened (Dateien, the chat's file
           // pill, a citation), not a card with the page dimmed around it.
@@ -471,8 +469,12 @@ export function useFilePeekBesideChat(): boolean {
 }
 
 /**
- * Keep FilePreviewHost as the right panel's child whenever a file is open, so
- * parked → peek (Files → Chat) is a size change rather than a remount.
+ * Keep FilePreviewHost as the end panel's child whenever a file is open, so
+ * parked → peek (Files → Chat) is a size change rather than a remount. The
+ * split's mechanics (same tree, expand then resize, constant bounds, a width
+ * committed once per gesture, the restore tab) are `DockedSplit`'s; this says
+ * only what is the document's: its width store, and that putting it away keeps
+ * the question (`hide()`, so the composer's "Asking about …" bar stays).
  */
 function FilePreviewSplit({
   split,
@@ -488,180 +490,25 @@ function FilePreviewSplit({
   const hide = useFilePreviewStore((state) => state.hide)
   const peek = useFilePreviewStore((state) => state.peek)
   const dismissed = useFilePeekPlacement() === 'dismissed'
-  const filePanelRef = usePanelRef()
-  const peekWidthRef = useRef(peekWidth)
-  peekWidthRef.current = peekWidth
-
-  // A MOUNT-TIME value, captured once — the seam could not be dragged without it.
-  //
-  // `defaultSize` used to be the LIVE store width, and the panel's `onResize`
-  // wrote every intermediate width straight back into that store. So each
-  // pointer move re-rendered the group with a new `defaultSize`, the library
-  // recomputed the layout from it (a default-size change is one of the sources
-  // its own `LayoutChangedMeta` lists), and the recompute landed on top of the
-  // drag in progress. The seam moved about twenty pixels and then stopped dead,
-  // whichever direction it was pulled — resizable in principle, immovable in
-  // the hand. The width is committed once per gesture now, in
-  // `onLayoutChanged`, and nothing the reader does feeds back into this prop.
-  const mountWidthRef = useRef(peekWidth)
-
-  // The remembered width, adopted before the panel is first sized. Assigning
-  // `peekWidthRef` here as well is what lets the `split` effect below — same
-  // commit, declared after this one — size the panel to it rather than to the
-  // pre-restore default it read during render.
-  const restoredRef = useRef(false)
-  useLayoutEffect(() => {
-    if (restoredRef.current) return
-    restoredRef.current = true
-    const stored = restorePeekWidth()
-    if (stored === null) return
-    peekWidthRef.current = stored
-    filePanelRef.current?.resize(stored)
-  }, [restorePeekWidth, filePanelRef])
-
-  // OPEN THE PANEL, DON'T JUST RESIZE IT.
-  //
-  // The panel is `collapsible`, and on the journey that matters it is COLLAPSED
-  // when `split` flips: Ask Piloti starts in Files, and this bridge lives in the
-  // PROJECT layout, so it mounts once for the whole project — with `split`
-  // false — and is still mounted when the reader lands on chat. `resize()` alone
-  // left it at 0 there: the pane rendered, in `peek` mode, inside a zero-width
-  // panel parked off the right edge. `expand()` first is what takes a collapsed
-  // panel back into the layout; `resize()` then puts it at the reader's width
-  // rather than whatever it was last (which, on a cold mount, is zero).
-  useLayoutEffect(() => {
-    const panel = filePanelRef.current
-    if (!panel) return
-    if (!split) {
-      panel.collapse()
-      return
-    }
-    panel.expand()
-    panel.resize(peekWidthRef.current)
-  }, [split, filePanelRef])
 
   return (
-    <ResizablePanelGroup
-      orientation="horizontal"
-      className="h-full min-h-0 flex-1"
+    <DockedSplit
       id="file-ask"
-      // ONCE PER GESTURE, not once per frame: this fires after the pointer is
-      // released (and on each keyboard resize), which is the library's own
-      // advice for anything that writes the layout to storage. The panel's
-      // per-move `onResize` used to do this job, and paid for it twice — a
-      // synchronous localStorage write per frame, and the feedback loop
-      // described on `mountWidthRef` above.
-      onLayoutChanged={(_layout, meta) => {
-        if (!meta.isUserInteraction) return
-        const size = filePanelRef.current?.getSize()
-        if (!size) return
-        if (size.inPixels > 0) {
-          setPeekWidth(size.inPixels)
-          return
-        }
-        // Dragged shut. The panel is `collapsible` — it has to be, since that
-        // is how the split parks itself when there is no file — so pulling the
-        // seam past the minimum is a gesture the reader can always reach, and
-        // leaving it there would strand a one-pixel sliver of a document they
-        // are still asking about. It means the same thing as the ✕ on the peek:
-        // put the viewer away, keep the question. `hide()` also keeps the
-        // composer's "Asking about …" bar, whose "Show file" brings it back.
-        hide()
-      }}
+      side="end"
+      open={split}
+      width={peekWidth}
+      minWidth={FILE_PEEK_WIDTH_MIN}
+      maxWidth={FILE_PEEK_WIDTH_MAX}
+      defaultWidth={defaultPeekWidth}
+      onWidthChange={setPeekWidth}
+      onDismiss={hide}
+      restoreWidth={restorePeekWidth}
+      resizeLabel={t('preview.resizePeek')}
+      restore={dismissed ? { label: t('assignment.showFile'), onRestore: peek, testId: 'file-peek-restore' } : null}
+      panel={<FilePreviewHost presentation={split ? 'split' : undefined} />}
     >
-      <ResizablePanel
-        key="file-ask-chat"
-        id="file-ask-chat"
-        // NO `defaultSize`. It used to be "100" — 100% of the row — beside a
-        // file panel defaulting to 320px, two defaults summing past the row.
-        // Whenever the group could measure itself at mount (reduced motion was
-        // the reliable trigger) the library settled that by collapsing the file
-        // panel, and `expand()` could not bring it back: the peek never opened
-        // for anyone who had asked their system for less motion. The chat
-        // panel takes whatever the file panel leaves.
-        minSize="40"
-        className="relative min-h-0 min-w-0 overflow-hidden"
-      >
-        {children}
-        {/* THE UNDO, AT THE EDGE THE DOCUMENT LEFT BY.
-            Dragging the seam shut, pressing Escape, clicking the ✕ — three
-            gestures, one result, and the only way back was a control in the
-            composer that belongs to the QUESTION rather than to the viewer. A
-            reader who has just pulled a pane off the screen looks for it where
-            they pulled it, so that is where it waits: a tab on the edge it went
-            out through, which opens it again at the width they had chosen.
-            It costs 20px of a row it only occupies while something is
-            recoverable, and it means no gesture on this surface is one-way. */}
-        {dismissed && (
-          <button
-            type="button"
-            data-testid="file-peek-restore"
-            onClick={peek}
-            aria-label={t('assignment.showFile')}
-            title={t('assignment.showFile')}
-            className={cn(
-              'group/restore bg-card text-muted-foreground hover:text-foreground hover:bg-accent border-base absolute top-1/2 right-0 z-20 flex h-16 w-6 -translate-y-1/2 items-center justify-center rounded-l-lg border border-r-0 shadow-sm',
-              'transition-colors duration-quick ease-out motion-reduce:transition-none',
-              'animate-in fade-in-0 slide-in-from-right-2 duration-base ease-entrance motion-reduce:animate-none',
-              FOCUS_RING,
-            )}
-          >
-            {/* `PanelRight`, not a bare chevron: the rail on the other side of
-                the app opens with `PanelLeft`, so a reader who has met one
-                already knows what this is. It leans out on approach — a tab you
-                pull, not a button you press; one pixel, and it is the whole
-                difference between "something is here" and "take hold of this". */}
-            <PanelRight
-              className="size-3.5 transition-transform duration-quick ease-out group-hover/restore:-translate-x-px motion-reduce:transition-none"
-              aria-hidden
-            />
-          </button>
-        )}
-      </ResizablePanel>
-      {split ? (
-        <ResizableHandle
-          key="file-ask-handle"
-          withHandle
-          // The library makes every separator a tab stop, so this one is a
-          // control a keyboard reader lands on and its arrow keys resize the
-          // pane. Unnamed, it is announced as a separator and nothing else.
-          aria-label={t('preview.resizePeek')}
-          // The library's own double-click COLLAPSES a collapsible panel, and
-          // collapsed is one pixel: two quick clicks near the seam left a
-          // sliver of a document the reader was still asking about, with no
-          // word about where it went. Double-click on a splitter means "put it
-          // back", so that is what it does — the default width, in one pass.
-          disableDoubleClick
-          onDoubleClick={() => {
-            filePanelRef.current?.expand()
-            const width = defaultPeekWidth()
-            filePanelRef.current?.resize(width)
-            setPeekWidth(width)
-          }}
-        />
-      ) : null}
-      <ResizablePanel
-        key="file-ask-file"
-        id="file-ask-file"
-        panelRef={filePanelRef}
-        // CONSTANT, not `split ? … : 0`. These used to collapse to zero with the
-        // flag, which meant the panel's own bounds said "you may not be wider
-        // than nothing" at the exact moment the effect above asked it to open —
-        // and a mount-time `defaultSize` never gets a second chance to say
-        // otherwise. The flag now drives one thing only: collapsed or not.
-        // `defaultSize` is likewise a mount value and not the live width — see
-        // `mountWidthRef`.
-        defaultSize={mountWidthRef.current}
-        minSize={FILE_PEEK_WIDTH_MIN}
-        maxSize={FILE_PEEK_WIDTH_MAX}
-        collapsible
-        collapsedSize={0}
-        className="min-h-0 min-w-0"
-        groupResizeBehavior="preserve-pixel-size"
-      >
-        <FilePreviewHost presentation={split ? 'split' : undefined} />
-      </ResizablePanel>
-    </ResizablePanelGroup>
+      {children}
+    </DockedSplit>
   )
 }
 
@@ -716,8 +563,8 @@ function PeekToolbar({
   onHide: () => void
 }): JSX.Element {
   const t = useTranslations(filesCopy)
-  const actions = useDocumentActions({ document: file, scope })
   const facts = useFileFacts(file)
+  const showDetails = useFilePreviewStore((state) => state.setPeekDetails)
   return (
     <>
     {/* Held 10px off the top, the band the chat's own pills occupy
@@ -727,7 +574,7 @@ function PeekToolbar({
       <FileExtChip filename={file.filename} size="sm" fallback={<FileText className="size-3.5" />} />
       <div className="min-w-0 flex-1">
         <p
-          className="text-foreground truncate text-sm font-semibold leading-tight tracking-[-0.01em]"
+          className="text-foreground truncate text-sm font-medium leading-tight"
           // The pane is 280px at its narrowest and a plan's filename is not.
           title={name}
         >
@@ -742,34 +589,7 @@ function PeekToolbar({
           </p>
         )}
       </div>
-      <ButtonGroup className="border-base bg-card/60 shrink-0 gap-0.5 shadow-none">
-        <ToolbarIconButton
-          onClick={() => void actions.download()}
-          disabled={actions.isDownloading}
-          aria-label={t('preview.download')}
-          title={t('preview.download')}
-        >
-          {/* A signed URL for a 40 MB plan is not instant, and a button that
-              only dims tells the reader their click may not have landed — so
-              they click again. The spinner is the acknowledgement, in the
-              place the icon was. */}
-          {actions.isDownloading ? <Spinner size="xs" aria-hidden /> : <Download aria-hidden />}
-        </ToolbarIconButton>
-        <ToolbarIconButton
-          onClick={onExpand}
-          aria-label={t('assignment.expandFile')}
-          title={t('assignment.expandFile')}
-        >
-          <Maximize2 aria-hidden />
-        </ToolbarIconButton>
-        <ToolbarIconButton
-          onClick={() => dismissPeek(onHide)}
-          aria-label={t('preview.closePreview')}
-          title={t('preview.closePreview')}
-        >
-          <X aria-hidden />
-        </ToolbarIconButton>
-      </ButtonGroup>
+      <PeekActions file={file} scope={scope} onExpand={onExpand} onClose={() => dismissPeek(onHide)} />
     </div>
     {/* A STRIP, not a chip beside the name.
         The status has to be here at all: a peek exists because this file is
@@ -796,7 +616,7 @@ function PeekToolbar({
           // Inset, at the stage's margins and on the radius ladder's inner-panel
           // step, so it reads as a note ABOUT the document below it rather
           // than as a band across the pane.
-          'mx-3 mb-2.5 flex shrink-0 items-start gap-2 rounded-md border px-3 py-2 text-xs',
+          'mx-3 mb-2.5 flex shrink-0 items-start gap-2 rounded-control border px-3 py-2 text-xs',
           // TWO REGISTERS, because they are two different pieces of news.
           // "Still being read" is the ordinary state of a document somebody
           // just uploaded: it resolves itself, so it sits on the quiet ground
@@ -835,20 +655,20 @@ function PeekToolbar({
         {/* NO DEAD ENDS. "Piloti cannot cite this file" was a statement with
             nothing after it — the worst kind of message, because it tells the
             reader the question they are about to ask is already compromised
-            and then leaves them holding it. The enlarged view is where this
+            and then leaves them holding it. The details are where this
             document's own account of the failure lives: the ingestion error in
-            full, and the retry for whoever may run it. So the strip opens it.
+            full, and the retry for whoever may run it. So the strip opens them, as ⓘ does.
             The indexing case needs no control — it resolves itself, and the
             poll above is what makes that visible. */}
         {isFailedStatus(file.status) && (
-          <button
+          <button data-attr="files-expand"
             type="button"
-            onClick={onExpand}
+            onClick={() => showDetails(true)}
             className={cn(
               // A real hit area, not a text run: this is the only way out of
               // the one state on this surface that does not resolve itself,
               // and it was six pixels tall plus its line-height.
-              'text-foreground hover:bg-accent flex h-7 shrink-0 items-center rounded-md px-2 font-medium underline-offset-2 hover:underline',
+              'text-foreground hover:bg-hover flex h-7 shrink-0 items-center rounded-full px-2 font-medium underline-offset-2 hover:underline',
               FOCUS_RING,
             )}
           >

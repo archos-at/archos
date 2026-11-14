@@ -38,4 +38,10 @@ describe('SidebarUserMenu', () => {
 
     expect(screen.queryByTestId('user-menu-switch-organization')).not.toBeInTheDocument()
   })
+
+  test('leads to the person’s own memory, beside the profile (ADR-0180)', async () => {
+    await openMenu([])
+
+    expect(screen.getByTestId('user-menu-memory')).toHaveAttribute('href', '/app/memory')
+  })
 })

@@ -326,6 +326,13 @@ already carried), with the MIME type in its tooltip; the date is on the Fassung.
   That is decoration pretending to be content; on a file surface a reader
   glancing at it sees "a document" and moves on. Skeleton bars now appear only
   while a preview is genuinely loading.
+- **What is shown belongs to one file.** Every load (`loadPreview` in
+  `use-file-preview-controller.tsx`) starts by dropping the last one's URLs, and
+  an answer for a file that is no longer selected is ignored. The pane's failure
+  states draw only without a URL, so a kept one hid them: a next file whose
+  preview request failed showed the previous file's picture under its own name.
+  A failed request now reads „could not be loaded“ with „Erneut versuchen“, and
+  a 404 reads as gone with the way out, whatever was open before.
 
 ## The card of a document that is still being read
 
@@ -362,7 +369,7 @@ Two things changed, and the order matters:
   never exactly it, and a two-line summary next to a one-line one has the same
   problem — so the row still needs the block to grow. The same block in
   `DocumentAnswerCard`'s unresolved tile got the same treatment, for the same
-  reason. This is a property of the shared card, so the Büroablage (which draws the same `FileCard`, with its gold kind chip passed in) is fixed by the same change.
+  reason. This is a property of the shared card, so the Büroablage (which draws the same `FileCard`) is fixed by the same change.
 
 **The second half of the same moment:** the thumbnail cache treated "no
 thumbnail" as permanent. If the page rendered a second before the backend
@@ -431,7 +438,7 @@ card and list choice is.
 
 | Part | What it says | Each count opens |
 |---|---|---|
-| Bar and legend | How many documents in the subtree Piloti has read, and where the rest of those it is meant to read stand: read, being read, failed, held back. The legend adds up to the headline's „von N“. Documents Piloti never reads follow as an aside, „dazu 1 nicht in der Wissensbasis“, outside the sum. | The flat list of that state, across all subfolders |
+| Bar and legend | How many documents in the subtree Piloti has read, and where the rest of those it is meant to read stand: being read, failed, held back. The headline names the read count, so the legend does not repeat it; with it, the legend adds up to the headline's „von N“. Documents Piloti never reads follow last, „16 weitere nicht in der Wissensbasis“, outside the sum, and then the headline says what „alle“ counts („Alle 27 Dokumente der Wissensbasis gelesen“). The bar is a hairline, drawn only while something is still open: everything read is the quiet case, with no bar at all. | The flat list of that state, across all subfolders |
 | What needs a person (first, open) | Failed documents, with one button to read all of them again. Documents held back by the content check. Citable documents Piloti placed in no document type. Each „Anzeigen“ has its own accessible name. | The flat list of those documents |
 | What it is about (folded) | The document types and disciplines Piloti assigned to the citable documents, each family under its label („Dokumentart“, „Fachbereich“), most frequent first, and the kinds of content it found. „Sonstiges“ always comes last. Then the topics Piloti recognised (up to twelve), and for photos the span of days the camera says they were taken on. Folded, its line names the types. A long chip truncates and carries its full text on hover. | The flat list of documents with that tag or topic, or of the dated photos |
 | Where it sticks (folded) | Up to four subfolders, worst first, whose own documents need attention or are being read. Each is named by its path, so the reader lands on the folder with the trouble and not on an ancestor. | Walks into that folder |
@@ -507,9 +514,11 @@ confirms per folder. Every control below is that proposal
 Langfuse score. A decided entry says what happened („In „Bescheide“
 verschoben.“, „Bleibt, wo es ist.“) until the shelf re-reads it away.
 
-While an upload is on screen the shelf asks for its open suggestions every
-4 seconds (`useFilingSuggestions`); otherwise when the shelf is shown and after
-a change.
+While an upload is on screen the shelf reads its open suggestions again when
+its live channel says so (`useFilingSuggestions`): the filing job publishes
+`shelf.changed` once it has proposed or withdrawn something
+(`reviewUploadFiling`), and a poll once a minute stays under it for a lost
+hint. Otherwise they are read when the shelf is shown and after a change.
 
 **The chip, on the file.** The suggestion reaches the person where the file is:
 a small pill on the left of the card's footer, right after the name in the list
@@ -536,7 +545,7 @@ second colour on the card.
 lines, where it is now struck through and muted („Eingang“, or „Projektordner
 (oberste Ebene)“ / „Büroablage (oberste Ebene)“ for a file at the top of the
 shelf) and „→ Behörde/Bescheide“ with „neu“ where created (`PathChange`); the
-reason, up to three lines; and the answer, „Belassen“ (ghost) and
+reason, up to three lines; and the answer, „Belassen“ (tonal) and
 „Verschieben“ or „Anlegen und verschieben“ (primary: in here it is the focal
 action). When the proposal moves more than this file the popover says so („mit
 1 weiteren Datei“), the button reads „Alle 2 verschieben“, and while it is open
@@ -551,8 +560,8 @@ the popover opens, not when the chip mounts.
 folder (`FilingBar`, `features/documents/components/filing-bar.tsx`) when one
 target folder in view collects two files or more; then it lists every target
 folder of the view, one line each: the path in full and never cut, „neu“, the
-count („2 Dateien“), and „Belassen“ (ghost) and „Verschieben“ / „Anlegen und
-verschieben“ (outline), under „Piloti schlägt vor, 3 Dateien abzulegen“. With
+count („2 Dateien“), and „Belassen“ and „Verschieben“ / „Anlegen und
+verschieben“ (both tonal), under „Piloti schlägt vor, 3 Dateien abzulegen“. With
 one file per folder the chip is the shorter way, so the bar stays away. It is
 quiet: the card surface, one hairline, no shadow. Hovering or focusing a line
 fills it and outlines the cards and rows it would move, a 2px strongest-hairline
@@ -829,10 +838,9 @@ What a shelf may differ in is exactly the fields of `FileShelf`:
 | `canCollaborate`, `currentUserId` | collaboration flag | off | Assignment is project-scoped |
 | `askAbout` | opens the project chat | absent | There is no Archiv chat to open |
 | `preview` | `store` (the project shell hosts it; chat shares it) | `dialog` (the sheet has no host) | Where a preview can be mounted |
-| `cardExtras` | none | gold kind chip + tag provenance | The Büroablage provenance signal (spec §4) |
 | `handoverKey` | project id | absent | `ProjectFileDrop` hands a drop to a project only |
 | `messages` | „… in dieses Projekt", „in Piloti’s Wissen" | „… in die Büroablage", „in der Büroablage" | Two sentences naming the shelf |
-| header | `ProjectSectionActions` portal | gold identity row, count pill, sheet close | Each frames the same controls |
+| header | `ProjectSectionActions` portal into the section's `PageHeader` | the same band (`SECTION_HEADER_CLASS`) and `PageHeader`, with a count pill by the title and the sheet's close beside it | Each frames the same controls |
 
 The tag chips of the old Archiv grid are „Kategorie" in the shared filter menu
 (`FileFilters.tags`, any-of), so they work under folders and on every shelf. The
@@ -1025,6 +1033,31 @@ never drains the shelf for the default view.
   `lib/documents/shelf-live.spec.ts` fails a module that writes `documents` or
   `project_folders` without announcing it, unless it is listed with the module
   that does.
+- **Waiting for background work listens to the same channel.** A surface that
+  waits for work on a shelf does not ask on a fast clock; it opens the shelf's
+  channel while something is in flight (`useShelfLive` with `enabled`), reads
+  its own route again on the hint, and keeps a poll once a minute because a
+  hint can be lost (a dropped stream, a pod without Dragonfly). The route stays
+  the only source of what is shown and the only place access is decided: the
+  hint names nothing, and reaches exactly the people who may read the shelf
+  (`project:view`, which is also the gate of each route below).
+
+  | Waiting for | The server says `shelf.changed` when | The surface |
+  |---|---|---|
+  | An upload's read (project or office shelf) | a read settles: `reconcileDocumentStatuses`, reached at once by the ingest worker's settle push | `useUploadOrchestrator` → `UploadOrchestrator.askNow()`: the job's status and the watched rows are read at once |
+  | A filing suggestion | the filing job proposed or withdrew one (`reviewUploadFiling`) | `useFilingSuggestions` |
+  | A project's IFC model | its extraction is ready (`runBimExtractJob`) or failed (`markDocumentIngestFailed`) | `useProjectBimModels` |
+  | A mail import | a slice filed its mails, and the import ended (`lib/mail-import/job.ts`) | `useMailImports`, while the dialog is open |
+
+  Four waits still run on a clock, each for a reason. A chat's attachments
+  (`pollSessionDocuments`, 5 s) are on no shelf, so no channel carries their
+  settle. One document's model (`useDocumentBimModel`, 4 s) knows its document
+  and not its shelf. The Projekterfassung (`useIntake`, 5 s while reading) and
+  the E-Mail-Eingang's count (`useInboundMailWaiting`, once a minute) change
+  with the project, not the shelf: the server already says so to the agent
+  door (`publishProjectChanged`), and no browser channel carries that yet. One
+  `project:<id>` hint channel fed by `publishProjectChanged` would serve both;
+  it is a new channel, so a new authorization decision (`realtime/registry.ts`).
 - **Folder reads cross safely.** Only the newest read of the folder tree
   commits, and a re-read that fails keeps the tree on screen; before, an older
   answer landing last took a just-made folder off the screen, and one failed
@@ -1033,3 +1066,12 @@ never drains the shelf for the default view.
 Still open: a virtualised grid and list, and the kind/tag filters and the
 brief's content facts on the server once the backend's tags are mirrored into
 Postgres.
+
+## Parts to reuse
+
+A new review surface in Dateien composes what the existing ones use: the
+`SuggestionPanel` family (`components/ui/suggestion-panel.tsx`), `FolderPickerSheet`
+and `QuarantineFindings` (`features/documents/components/`), the decision and
+status atoms in `upload-decision-atoms.tsx` and `ingestion-atoms.tsx`, and
+`ItemList` (`components/ui/item.tsx`). A sub-place of Dateien is a route under
+`/files/` (`open-points`, `bin`), with its entry in `files-header-controls.tsx`.

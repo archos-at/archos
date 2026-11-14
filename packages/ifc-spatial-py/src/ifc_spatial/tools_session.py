@@ -8,7 +8,6 @@ from collections.abc import Callable
 from functools import partial
 from typing import Any
 
-from ifc_spatial.tools_fetch import _read_source
 from ifc_spatial.tools_helpers import _lower
 from ifc_spatial.tools_helpers import _short
 from ifc_spatial.tools_types import ToolDef
@@ -93,13 +92,11 @@ def open_model(cache: SpatialCache, register: Callable[[SpatialModel], str], arg
     source = str(args.get("path") or "").strip()
     started = time.perf_counter()
     try:
-        if source:
-            if not os.path.isfile(source):
-                raise ToolError(f'Datei nicht gefunden: "{source}"')
-            model = cache.load(source)
-        else:
-            data = _read_source(args)
-            model = cache.load_bytes(data)
+        if not source:
+            raise ToolError("Eine Quelle angeben: path")
+        if not os.path.isfile(source):
+            raise ToolError(f'Datei nicht gefunden: "{source}"')
+        model = cache.load(source)
     except ToolError:
         raise
     except Exception as error:  # noqa: BLE001
@@ -107,8 +104,9 @@ def open_model(cache: SpatialCache, register: Callable[[SpatialModel], str], arg
         # architect can act on — truncated upload, wrong format, too large
         # for a request process. That sentence is the answer; burying it
         # under a traceback would leave the agent with "es hat nicht
-        # funktioniert", which nobody can do anything with.
-        raise ToolError(f"Modell konnte nicht geöffnet werden: {error}") from None
+        # funktioniert", which nobody can do anything with. The cause stays
+        # attached: the agent's client reads there which refusal this was.
+        raise ToolError(f"Modell konnte nicht geöffnet werden: {error}") from error
     digest = register(model)
     return {
         "model": _short(digest),
@@ -129,59 +127,12 @@ def open_model(cache: SpatialCache, register: Callable[[SpatialModel], str], arg
 
 
 def _open_model_tool(cache: SpatialCache, register: Callable[[SpatialModel], str]) -> ToolDef:
-    return ToolDef(
-        name="open_model",
-        title="IFC-Modell öffnen",
-        description=(
-            "Liest eine IFC-Datei ein und gibt eine model-Kennung plus das Gebäude-Briefing zurück. "
-            "IMMER zuerst aufrufen. Das Briefing nennt die Geschoßnamen, das Property-Vokabular dieser "
-            "Datei und — wichtig — was diese Datei NICHT beantworten kann. Dieselbe Datei zweimal zu "
-            "öffnen ist gratis: das Ergebnis ist über den Inhalt adressiert und wird zwischengespeichert."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "Lokaler Dateipfad zur .ifc-Datei"},
-                "url": {
-                    "type": "string",
-                    "description": (
-                        "HTTP(S)-URL, z. B. eine presigned URL. Nur öffentlich erreichbare Adressen — "
-                        "loopback, private und link-local Adressen werden nicht abgerufen."
-                    ),
-                },
-                "base64": {
-                    "type": "string",
-                    "description": "Dateiinhalt base64-kodiert (nur für kleine Modelle sinnvoll)",
-                },
-            },
-        },
-        handler=partial(open_model, cache, register),
-    )
+    return ToolDef(name="open_model", handler=partial(open_model, cache, register))
 
 
 def _briefing_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
     return ToolDef(
         name="briefing",
-        title="Gebäude-Briefing",
-        description=(
-            "Das Briefing eines bereits geöffneten Modells noch einmal: Geschoße mit Höhen, Zählungen, "
-            "das Property-Vokabular dieser Datei und die blinden Flecken. Aufrufen, bevor auf einen "
-            "Property- oder Geschoßnamen gefiltert wird — ein Name, den dieser Export nie geschrieben "
-            'hat, liefert null Treffer und liest sich wie „das Gebäude hat keine".'
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "format": {
-                    "type": "string",
-                    "enum": ["text", "json"],
-                    "default": "text",
-                    "description": "text = der Block für den Kontext, json = dieselben Fakten als Daten",
-                },
-            },
-            "required": ["model"],
-        },
         handler=lambda args: (
             {"briefing": render_briefing(resolve(args.get("model")))}
             if _lower(args.get("format")) != "json"

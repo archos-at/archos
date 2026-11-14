@@ -35,6 +35,7 @@ import {
   type ShownHighlight,
 } from '../../hooks/use-document-room'
 import { useAgentByline } from './agent-attribution'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** A region smaller than this share of the page, in both directions, was a click: it becomes a point. */
 const MIN_REGION = 0.012
@@ -106,7 +107,7 @@ function AgentCursor({ state, idle }: { state: RoomPeerState; idle?: boolean }):
  */
 export function agentCursorLabel(state: Pick<RoomPeerState, 'label' | 'activity'>, reading: string): string {
   const doing = state.label || state.activity?.label || (state.activity?.state === 'reading' ? reading : null)
-  return doing ? `Piloti · ${doing}` : 'Piloti'
+  return doing ? `${PRODUCT_NAME} · ${doing}` : PRODUCT_NAME
 }
 
 /**
@@ -281,7 +282,7 @@ function PeerSelection({
       {tag && (
         <span
           className={cn(
-            'pointer-events-none absolute z-20 rounded-full px-1.5 py-px text-[10px] leading-4 font-medium whitespace-nowrap text-white shadow-sm',
+            'pointer-events-none absolute z-20 rounded-full px-1.5 py-px text-[10px] leading-4 font-medium whitespace-nowrap text-background shadow-sm',
             region
               ? above
                 ? '-translate-x-full -translate-y-[calc(100%+4px)]'
@@ -494,7 +495,7 @@ const PageCompany = memo(function PageCompany({
                 data-testid="review-peer-draft-tag"
                 data-place={draftTagPlace(state.draft, firstName(state.peer.name), size)}
                 className={cn(
-                  'absolute px-1.5 py-px text-[10px] leading-4 font-medium whitespace-nowrap text-white',
+                  'absolute px-1.5 py-px text-[10px] leading-4 font-medium whitespace-nowrap text-background shadow-sm',
                   DRAFT_TAG_CLASSES[draftTagPlace(state.draft, firstName(state.peer.name), size)]
                 )}
                 style={{ backgroundColor: identityInk(state.peer.userId) }}
@@ -1090,7 +1091,7 @@ export function ReviewPageLayer({
               style={box(ask.region.x, ask.region.y, ask.region.w, ask.region.h)}
             />
             {ask.id !== openAsk?.id && focused && (
-              <button
+              <button data-attr="agent-ask-reopen"
                 type="button"
                 data-testid="agent-ask-reopen"
                 aria-label={t('review.piloti.reopen')}

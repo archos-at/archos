@@ -196,7 +196,7 @@ export const PlanChecklist: FC<{
             >
               <span className="flex-1">{section}</span>
               {!disabled && plan.sections.length > 1 && (
-                <button
+                <button data-attr="chat-remove"
                   type="button"
                   onClick={() => remove(index)}
                   aria-label={t('agentPrompt.plan.removePoint', { point: section })}
@@ -204,7 +204,7 @@ export const PlanChecklist: FC<{
                   // is the 44px square the list row gives it room for. The rows
                   // sit a line apart, so it GROWS (the Touch rule) rather than
                   // overhanging into the row below.
-                  className="rounded-xs text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 inline-flex shrink-0 items-center justify-center focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11"
+                  className="rounded-control text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 inline-flex shrink-0 items-center justify-center focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11"
                 >
                   <X className="size-3.5" aria-hidden />
                 </button>
@@ -298,7 +298,7 @@ export const PlanChecklist: FC<{
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 className="h-7 gap-1 px-2 text-xs pointer-coarse:h-11 pointer-coarse:px-3"
                 onClick={() => setPicking(true)}
                 data-testid="plan-documents-pick"
@@ -372,11 +372,11 @@ const NamedRow: FC<{
         >
           {labelOf(name)}
           {!disabled && (
-            <button
+            <button data-attr="chat-remove"
               type="button"
               onClick={() => onRemove(name)}
               aria-label={removeLabel(labelOf(name))}
-              className="rounded-xs duration-quick ml-0.5 inline-flex items-center justify-center opacity-70 transition-opacity ease-out hover:opacity-100 focus-visible:outline-none pointer-coarse:ml-0 pointer-coarse:size-11"
+              className="rounded-control duration-quick ml-0.5 inline-flex items-center justify-center opacity-70 transition-opacity ease-out hover:opacity-100 focus-visible:outline-none pointer-coarse:ml-0 pointer-coarse:size-11"
             >
               <X className="size-3" aria-hidden />
             </button>
@@ -409,7 +409,7 @@ function ChoiceRow<T extends string>({
         {options.map((option) => {
           const selected = option === value
           return (
-            <button
+            <button data-attr="chat-pick"
               key={option}
               type="button"
               role="radio"
@@ -419,7 +419,7 @@ function ChoiceRow<T extends string>({
               className={cn(
                 // The chip inside is the drawn control (24px); the button is its
                 // 44px box under a finger, the chips a row apart in a wrapping row.
-                'focus-visible:ring-ring/60 inline-flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 pointer-coarse:min-h-11',
+                'focus-visible:ring-ring/60 inline-flex items-center rounded-control focus-visible:outline-none focus-visible:ring-2 pointer-coarse:min-h-11',
                 disabled && 'cursor-default'
               )}
             >

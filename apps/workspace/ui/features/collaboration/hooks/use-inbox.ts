@@ -103,6 +103,7 @@ export interface UseInboxListResult {
   unarchive: (itemId: string) => Promise<boolean>
 }
 
+const NO_ITEMS: InboxItemView[] = []
 const NO_COUNTS: InboxListResponse['counts'] = { requests: 0, unread: 0 }
 
 /**
@@ -121,6 +122,10 @@ export function useInboxList(
   client: InboxClient = inboxClient
 ): UseInboxListResult {
   const [items, setItems] = useState<InboxItemView[]>([])
+  // Which filter `items` answers. Until a read for the current one lands, the
+  // rows on hand are another filter's: shown as loading, never as this list.
+  const [loadedFilter, setLoadedFilter] = useState(filter)
+  const loadedFilterRef = useRef(filter)
   // The rows as last rendered, for a change to snapshot before it patches them.
   const itemsRef = useRef(items)
   useEffect(() => {
@@ -161,12 +166,20 @@ export function useInboxList(
       if (seq !== requestSeq.current) return
       const seen = new Set<string>()
       setItems(rows.filter((row) => (seen.has(row.id) ? false : (seen.add(row.id), true))))
+      setLoadedFilter(filter)
+      loadedFilterRef.current = filter
       setPending(Math.max(0, first.pending))
       setCounts(first.counts)
       setCursor(next)
       setError(false)
     } catch {
       if (seq !== requestSeq.current) return
+      // The rows on hand, if any, are no longer this filter's to show.
+      if (loadedFilterRef.current !== filter) {
+        setItems([])
+        setLoadedFilter(filter)
+        loadedFilterRef.current = filter
+      }
       setError(true)
     } finally {
       if (seq === requestSeq.current) setLoading(false)
@@ -269,7 +282,7 @@ export function useInboxList(
     async (itemIds: string[]) => {
       if (itemIds.length === 0) return
       await optimistic(
-        (item) => ({ ...item, state: item.state === 'unread' ? 'read' : item.state }),
+        (item) => ({ ...item, read: true, state: item.state === 'unread' ? 'read' : item.state }),
         itemIds,
         () => client.markRead(itemIds),
         { itemIds },
@@ -282,7 +295,7 @@ export function useInboxList(
     async (itemIds: string[]) => {
       if (itemIds.length === 0) return
       await optimistic(
-        (item) => ({ ...item, state: item.state === 'read' ? 'unread' : item.state }),
+        (item) => ({ ...item, read: false, state: item.state === 'read' ? 'unread' : item.state }),
         itemIds,
         () => client.markUnread(itemIds),
       )
@@ -292,7 +305,7 @@ export function useInboxList(
 
   const markAllRead = useCallback(async () => {
     await optimistic(
-      (item) => (item.state === 'unread' ? { ...item, state: 'read' } : item),
+      (item) => (item.read ? item : { ...item, read: true, state: item.state === 'unread' ? 'read' : item.state }),
       'all',
       () => client.markAllRead(),
       { all: true },
@@ -311,11 +324,14 @@ export function useInboxList(
     [optimistic, client],
   )
 
+  // Switching the filter used to draw the previous filter's rows under the new
+  // tab for a frame, until the effect above set `loading`.
+  const stale = loadedFilter !== filter
   return {
-    items,
+    items: stale ? NO_ITEMS : items,
     pending,
     counts,
-    loading,
+    loading: loading || stale,
     error,
     mutationError,
     dismissMutationError: () => setMutationError(false),

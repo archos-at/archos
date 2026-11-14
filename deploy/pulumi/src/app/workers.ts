@@ -2,7 +2,7 @@ import * as k8s from "@pulumi/kubernetes";
 import { onNodeGroup } from "../platform/scheduling";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
-import { appPullPolicy, frontendImage } from '../config/images'
+import { appPullPolicy, backendImage, frontendImage } from '../config/images'
 import { commonLabels } from "../platform/namespaces";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import {
@@ -13,9 +13,12 @@ import {
 } from "../platform/rollout";
 import { withLangfuseKeysChecksum } from "../platform/langfuse";
 import { BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, PORT, UID } from "../constants";
-import { AppSecrets, AppWiring, BACKEND_URL, purgerEnv, schedulerEnv, sref } from "./config";
+import { AppSecrets, AppWiring, BACKEND_URL, purgerEnv, sref } from "./config";
 
 const FRONTEND_URL = `http://frontend:${PORT.frontend}`;
+
+/** A backend housekeeping route, on the api role, which registers them (ADR-0082 step B). */
+const housekeepingUrl = (route: string) => `${BACKEND_URL}/v1/maintenance/housekeeping/${route}`;
 
 /** The CronJob that drives the base-corpus sync, suspended while `chromaMigration` is on. */
 export const BASE_CORPUS_SYNC = "housekeeping-base-corpus";
@@ -94,7 +97,7 @@ function internalSweepCronJob(
   cfg: DeployConfig,
   secrets: AppSecrets,
   dependsOn: pulumi.Resource[],
-  sweep: { name: string; schedule: string; url: string; timeoutMs: number; suspend?: boolean },
+  sweep: InternalSweep,
 ): k8s.batch.v1.CronJob {
   return new k8s.batch.v1.CronJob(
     sweep.name,
@@ -112,49 +115,99 @@ function internalSweepCronJob(
         concurrencyPolicy: "Forbid",
         successfulJobsHistoryLimit: 3,
         failedJobsHistoryLimit: 3,
-        jobTemplate: {
-          spec: {
-            // Deliberately lower than JOB_DEFAULTS.backoffLimit: the
-            // bootstrap Jobs retry hard because they wait on services coming
-            // up, whereas a failed sweep is retried by the NEXT tick anyway.
-            // Hammering a broken BFF for ten attempts would just move the
-            // outage into the sweep's path.
-            backoffLimit: 2,
-            ttlSecondsAfterFinished: JOB_DEFAULTS.ttlSecondsAfterFinished,
-            template: {
-              metadata: { labels: commonLabels(sweep.name) },
-              spec: {
-                enableServiceLinks: false, // see platform/security.ts — service-link env collisions
-                imagePullSecrets: w.imagePullSecrets,
-                restartPolicy: "OnFailure",
-                securityContext: {
-                  runAsNonRoot: true,
-                  runAsUser: UID.frontend,
-                  runAsGroup: UID.frontend,
-                },
-                ...onNodeGroup(cfg.nodeGroups.app),
-                containers: [
-                  {
-                    name: sweep.name,
-                    image: frontendImage(cfg),
-                    imagePullPolicy: appPullPolicy(cfg, frontendImage(cfg)),
-                    securityContext: hardenedContainerSecurityContext(),
-                    resources: BOOTSTRAP_JOB_RESOURCES,
-                    command: ["node", "-e", internalSweepScript(sweep.name, sweep.timeoutMs)],
-                    env: [
-                      { name: "SWEEP_URL", value: sweep.url },
-                      // The token never reaches the command line — an `-H`
-                      // argument would show up in `kubectl describe pod` and
-                      // in every process listing in the container.
-                      sref("INTERNAL_API_TOKEN"),
-                    ],
-                  },
-                ],
-              },
-            },
-          },
-        },
+        jobTemplate: { spec: internalSweepJobSpec(w, cfg, sweep) },
       },
+    },
+    { provider: w.provider, dependsOn: [secrets.secret, ...dependsOn] },
+  );
+}
+
+type InternalSweep = { name: string; schedule: string; url: string; timeoutMs: number; suspend?: boolean };
+
+/**
+ * The Job a sweep CronJob starts on each tick. Shared with the one-off run a
+ * deploy starts (`syncBaseCorpusAfterRollout`), so the two cannot drift.
+ */
+function internalSweepJobSpec(
+  w: AppWiring,
+  cfg: DeployConfig,
+  sweep: Pick<InternalSweep, "name" | "url" | "timeoutMs">,
+  podAnnotations?: Record<string, pulumi.Input<string>>,
+): k8s.types.input.batch.v1.JobSpec {
+  return {
+    // Deliberately lower than JOB_DEFAULTS.backoffLimit: the bootstrap Jobs
+    // retry hard because they wait on services coming up, whereas a failed
+    // sweep is retried by the NEXT tick anyway. Hammering a broken BFF for ten
+    // attempts would just move the outage into the sweep's path.
+    backoffLimit: 2,
+    ttlSecondsAfterFinished: JOB_DEFAULTS.ttlSecondsAfterFinished,
+    template: {
+      metadata: { labels: commonLabels(sweep.name), ...(podAnnotations ? { annotations: podAnnotations } : {}) },
+      spec: {
+        enableServiceLinks: false, // see platform/security.ts — service-link env collisions
+        imagePullSecrets: w.imagePullSecrets,
+        restartPolicy: "OnFailure",
+        securityContext: { runAsNonRoot: true, runAsUser: UID.frontend, runAsGroup: UID.frontend },
+        ...onNodeGroup(cfg.nodeGroups.app),
+        containers: [
+          {
+            name: sweep.name,
+            image: frontendImage(cfg),
+            imagePullPolicy: appPullPolicy(cfg, frontendImage(cfg)),
+            securityContext: hardenedContainerSecurityContext(),
+            resources: BOOTSTRAP_JOB_RESOURCES,
+            command: ["node", "-e", internalSweepScript(sweep.name, sweep.timeoutMs)],
+            env: [
+              { name: "SWEEP_URL", value: sweep.url },
+              // The token never reaches the command line — an `-H` argument
+              // would show up in `kubectl describe pod` and in every process
+              // listing in the container.
+              sref("INTERNAL_API_TOKEN"),
+            ],
+          },
+        ],
+      },
+    },
+  };
+}
+
+/** The base-corpus sync route the CronJob `BASE_CORPUS_SYNC` calls. */
+const BASE_CORPUS_SWEEP = {
+  name: BASE_CORPUS_SYNC,
+  url: housekeepingUrl("base-corpus"),
+  timeoutMs: 600_000,
+} as const;
+
+/**
+ * One base-corpus sync cycle right after the api tier rolled out, rather than
+ * up to ten minutes later on the CronJob's tick. A deploy that changes what the
+ * cycle does (base-corpus chunks from before the country field are read by
+ * nobody until a cycle marks them) then takes effect with the rollout.
+ *
+ * The CronJob's own Job spec. Not awaited (`pulumi.com/skipAwait`): the deploy
+ * does not wait for, or fail on, a sweep the CronJob repeats anyway. It runs
+ * again on every deploy that moves an image: the images sit in the pod
+ * template, which a Job cannot change, so a new tag replaces the Job (the
+ * migration Job's mechanism, kubernetes.md §2b). None while `chromaMigration`
+ * is on, for the reason the CronJob is suspended then.
+ */
+export function syncBaseCorpusAfterRollout(
+  w: AppWiring,
+  cfg: DeployConfig,
+  secrets: AppSecrets,
+  dependsOn: pulumi.Resource[],
+): k8s.batch.v1.Job | undefined {
+  if (cfg.chromaMigration.enabled) return undefined;
+  const name = `${BASE_CORPUS_SYNC}-deploy`;
+  return new k8s.batch.v1.Job(
+    name,
+    {
+      metadata: {
+        namespace: w.namespace,
+        labels: commonLabels(name),
+        annotations: { "pulumi.com/skipAwait": "true" },
+      },
+      spec: internalSweepJobSpec(w, cfg, { ...BASE_CORPUS_SWEEP, name }, { "deploy/backend-image": backendImage(cfg) }),
     },
     { provider: w.provider, dependsOn: [secrets.secret, ...dependsOn] },
   );
@@ -176,7 +229,6 @@ export function installWorkers(
   dependsOn: pulumi.Resource[],
 ): {
   purger: k8s.apps.v1.Deployment;
-  scheduler: k8s.apps.v1.Deployment;
   storageAlerts?: k8s.batch.v1.CronJob;
   vectorReconcile?: k8s.batch.v1.CronJob;
   housekeeping: k8s.batch.v1.CronJob[];
@@ -227,53 +279,6 @@ export function installWorkers(
     },
     { provider: w.provider, dependsOn: [secrets.secret, ...dependsOn] },
   );
-
-  // Always created. It drives the run reconciler
-  // (`apps/workspace/bff/runs/reconcile.ts`) as well as the schedules, and
-  // runs exist without Agent Skills (an escalated chat question). Whether a
-  // schedule fires is the organization's `skills` WorkOS flag, checked by the
-  // BFF per fire, so there is no deployment switch here.
-  const scheduler = new k8s.apps.v1.Deployment(
-        "skill-scheduler",
-        {
-          metadata: {
-            name: "skill-scheduler",
-            namespace: w.namespace,
-            labels: commonLabels("skill-scheduler"),
-          },
-          spec: {
-            replicas: 1,
-            ...recreateRollout(ROLLOUT.lightWorker),
-            selector: { matchLabels: commonLabels("skill-scheduler") },
-            template: {
-              metadata: {
-                labels: commonLabels("skill-scheduler"),
-                annotations: secretChecksumAnnotations(withLangfuseKeysChecksum(cfg, secrets.checksum)),
-              },
-              spec: {
-                enableServiceLinks: false, // see platform/security.ts — service-link env collisions
-                imagePullSecrets: w.imagePullSecrets,
-                securityContext: { runAsNonRoot: true, runAsUser: UID.frontend, runAsGroup: UID.frontend },
-                // Finish the claimed scheduler batch before exiting.
-                terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
-                ...onNodeGroup(cfg.nodeGroups.app),
-                containers: [
-                  {
-                    name: "skill-scheduler",
-                    image: frontendImage(cfg),
-                    imagePullPolicy: appPullPolicy(cfg, frontendImage(cfg)),
-                    securityContext: hardenedContainerSecurityContext(),
-                    command: ["node", "scheduler/index.js"],
-                    env: schedulerEnv(w),
-                    resources: workerResources,
-                  },
-                ],
-              },
-            },
-          },
-        },
-        { provider: w.provider, dependsOn: [secrets.secret, ...dependsOn] },
-      );
 
   /**
    * Storage-quota alerting (ADR-0042). A 10-minute ceiling: the sweep is one
@@ -345,7 +350,7 @@ export function installWorkers(
   const housekeepingSweep = ({ route, ...sweep }: HousekeepingSweep) =>
     internalSweepCronJob(w, cfg, secrets, dependsOn, {
       ...sweep,
-      url: `${BACKEND_URL}/v1/maintenance/housekeeping/${route}`,
+      url: housekeepingUrl(route),
     });
   const baseCorpusSync = housekeepingSweep({
     name: BASE_CORPUS_SYNC,
@@ -363,5 +368,5 @@ export function installWorkers(
     baseCorpusSync,
   ];
 
-  return { purger, scheduler, storageAlerts, vectorReconcile, housekeeping, baseCorpusSync };
+  return { purger, storageAlerts, vectorReconcile, housekeeping, baseCorpusSync };
 }

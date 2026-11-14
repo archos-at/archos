@@ -3,7 +3,7 @@
 ADR-0032 promises that sharing is **a platform capability, not a chat feature**:
 "any current or future resource inherits it by declaring itself shareable", and
 anything a second consumer has to change *outside* its own registry entry is a
-substrate defect, not a cost of the new type.
+sharing-layer defect, not a cost of the new type.
 
 Today `conversation` is the only consumer, so that promise has never been tested.
 This document is the honest state of it, measured against the code in
@@ -24,7 +24,7 @@ registry entry.
 polymorphic `(resource_type text, resource_id text)` with matching indexes, and
 none of them has a foreign key to `conversations` (the one FK in
 `migrations/0027_collaboration.sql` is on `conversation_reads`, a chat-only table
-outside the substrate). **A new type needs no migration on these three tables.**
+outside the sharing layer). **A new type needs no migration on these three tables.**
 
 **Effective access.** `lib/sharing/access.ts` — tenancy → container → strongest
 of (visibility, grant, creator) — contains no conversation reference at all.
@@ -38,6 +38,12 @@ publishes are all parameterised on `resourceType`. The four routes under
 `app/api/sharing/[resourceType]/[resourceId]/**` validate the path segment
 against the registry and pass it through, so a new type gets read, visibility,
 grant, revoke, role-change and the candidate picker **with no new route files**.
+The takeover is generic too, and so are its two rules (ADR-0032, amendment
+2026-11-11): `mayTakeOwnership` in `access.ts` offers it only to a project admin
+who can already read the resource, `escalateToOwner` asks for that read itself,
+and `ownership-notice.ts` tells the resource's owners through the
+`resource.ownership_taken` inbox type, whose copy names no resource kind. A new
+type inherits all three by its probe and its `describeRef`.
 
 **The inbox read path.** `lib/inbox/service.ts` has no conversation literal in
 435 lines. Emission, read-time re-authorization, redaction, projection and the
@@ -57,15 +63,53 @@ and the event hub all take the type as data.
    `lib/sharing/registry.ts`.
 2. On your own table: a `visibility` column, a tenancy read and a visibility
    write.
-3. Per inbox item type: the schema union member, two registry entries
-   (`INBOX_TYPE_DEFINITIONS`, `INBOX_TYPE_PRESENTATION`) and its copy in both
-   dictionaries.
+3. Per inbox item type: the steps in
+   [Adding an inbox item type](#adding-an-inbox-item-type).
 4. Your surface's own toolbar/composer wiring, and hooking your delete path into
    the cascade in `lib/collaboration/cleanup.ts`.
 
+### Adding an inbox item type
+
+An inbox type need not belong to a shareable resource; the steps are the same.
+
+1. Add the type to `INBOX_ITEM_TYPES` (`lib/inbox/inbox-vocabulary.ts`; the
+   schema re-exports it).
+2. Add its `INBOX_TYPE_DEFINITIONS` entry (`lib/inbox/registry.ts`):
+   `actionable`, `grouping` (`collapse` or `per-anchor`), `retentionDays`,
+   `gate`, `email` and `push`.
+3. Add its `INBOX_TYPE_PRESENTATION` entry (`lib/inbox/types.ts`). A new icon
+   also goes into `ICONS` in `features/collaboration/components/InboxItemRow.tsx`.
+   Both records are `Record<InboxItemType, …>`, so `tsc` fails until each has
+   the entry.
+4. Add its copy under `collaboration.inbox.types.<i18nKey>` in every dictionary.
+5. Emit with `emitInboxItems`, keyed by `inboxGroupKey`, inside
+   `bestEffortInbox` so a failed row never fails the event. A recipient who is
+   the actor is dropped. The exception is an item that something retries until
+   it is written: `upload.completed` is emitted bare, so a failed write throws
+   and `settleUploadBatches` (`lib/upload-batches/settle.ts`) reopens the
+   batch for the sweep to complete and announce again. Wrapped, the batch
+   would stay completed and its uploader never told.
+6. Settle it when what it announced is answered or gone:
+   `resolveInboxItemsFor`, `resolveInboxItemsAnchoredOn`,
+   `markInboxItemsInertAnchoredOn` (`lib/inbox/service.ts`). A `collapse` row
+   takes the anchor of its NEWEST emission (`upsertInboxItems` sets
+   `anchor_id = excluded.anchor_id`), so settling it by the anchor of the
+   occurrence that just ended misses the row whenever a later one folded in.
+   Settle a collapsed row by its group key for every open recipient
+   (`openRecipientsOf`, then `resolveInboxItemsFor`), once nothing it counts is
+   left: `settleProjectNotices` in `lib/inbound-mail/announce.ts` does this for
+   `inbound_mail.waiting` and `.expiring`.
+7. Touch `lib/inbox/targets.ts` only for a new target kind (its deep link and
+   access check).
+8. No migration: `inbox_items.type` is text with no CHECK (migration 0177).
+   Retention follows from `retentionDays` (`lib/collaboration/retention.ts`
+   takes the longest).
+9. The specs that fail a missing piece: `registry.spec.ts`,
+   `push-policy.spec.ts`, `item-copy.spec.ts`, `targets.spec.ts`.
+
 ## 3. What is still leaking
 
-Each of these is a substrate defect by ADR-0032's own definition. They are listed
+Each of these is a sharing-layer defect by ADR-0032's own definition. They are listed
 worst-first, with what it costs to lift them. **Fix the one you touch** rather
 than working around it, or the second consumer pays and the third pays again.
 
@@ -165,7 +209,7 @@ zero and looks healthy.
 ### 3.7 The mention, awaiting and presence routes are mounted under the chat
 
 `/api/conversations/[id]/{awaiting,mention-candidates,typing,live}` — only the
-release endpoint is substrate-shaped. Client hooks hardcode the same paths.
+release endpoint is shaped for the sharing layer. Client hooks hardcode the same paths.
 
 *Lift:* mount them under `/api/resources/[resourceType]/[resourceId]/…`, keeping
 the conversation paths as one-line delegations.
@@ -188,7 +232,7 @@ genuinely helps.
 
 `defaultVisibility`, `supportsMentions` and `labelKey` are all on
 `ShareableDescriptor` and consumed nowhere; the equivalent facts are hardcoded at
-each site. Treat a field nobody reads as a promise the substrate is not keeping.
+each site. Treat a field nobody reads as a promise the sharing layer is not keeping.
 
 ### 3.10 The container is assumed to be a project
 
@@ -216,10 +260,10 @@ takes it off permanently: the third consumer then pays only §2.
 
 If adding your type makes you edit a file under `lib/sharing`, `lib/inbox`,
 `lib/mentions`, `lib/events` or `lib/collaboration` **for any reason other than
-adding a registry entry**, you have found a substrate defect. Fix it there rather
+adding a registry entry**, you have found a sharing-layer defect. Fix it there rather
 than at your call site, and add it to §1 here when it is gone.
 
-**Do not bolt a new consumer onto a non-working substrate.** YAGNI does not
+**Do not bolt a new consumer onto a non-working sharing layer.** YAGNI does not
 make §3 acceptable. Those rows are defects in a promise ADR-0032 already made,
 not unused features you can defer because the first vertical is small. If your
 change is the second (or third) consumer, every §3 item you would have to
@@ -237,7 +281,7 @@ The files work is the second consumer this document was waiting for
 [ADR-0047](../adr/0059-assignment-is-not-access.md)). That change is not
 allowed to leave this §3 standing.
 
-One place the rule cannot reach, and you have to check by hand: the substrate has
+One place the rule cannot reach, and you have to check by hand: the sharing layer has
 a second implementation outside the BFF. `apps/workspace/purger/purge-project.js`
 carries its own copy of the delete cascade, in CommonJS, outside `tsc --noEmit`
 and outside the lint run over `src` (§3.5). Widening the union will not make it fail to

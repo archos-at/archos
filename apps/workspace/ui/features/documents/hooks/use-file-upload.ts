@@ -19,7 +19,6 @@ import { formatBytes } from '@/lib/format'
 import { useDocumentsStore } from '../store'
 import { useAuth } from '@/adapters/auth'
 import { useAppConfig } from '@/shared/context'
-import { useLayoutStore } from '@/features/layout/store'
 import { mayRetryUpload, type TrackedFile, type UploadIntent } from '../types'
 import { mapUploadResponseStatus } from '../utils'
 import { shouldEmitProgress } from '../lib/upload-progress'
@@ -28,19 +27,21 @@ import { runWithConcurrency, sendWaitingOutRateLimit, UPLOAD_CONCURRENCY } from 
 import { validateFileUpload, type ValidationContext } from '../validation'
 import { summarizeValidation } from '../lib/validation-messages'
 import { UploadOrchestrator } from '../orchestrator'
+import { useUploadOrchestrator } from './use-upload-orchestrator'
 import type { PendingJob } from '../orchestrator'
 import { markSessionHasCollection } from '../persistence'
 import { notifyDocumentsChanged } from '@/lib/documents/document-changes'
 import { loadUploadScreeningPolicy } from '@/adapters/api/upload-screening-policy'
-import { screenUploadName, type NameMatch } from '@/lib/upload-screening/name-screen'
+import type { NameMatch } from '@/lib/upload-screening/name-screen'
+import { screenFileNames, uploadAnywayOffer } from '../lib/name-screened-files'
 import { describeScreenedOut } from '@/lib/upload-screening/quarantine'
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { exclusionsByTerm, openUploadBatch, sealUploadBatch } from '../lib/upload-batch'
-import { capturePosthog } from '@/lib/analytics/posthog'
+import { captureUploadBatch } from './upload-batch-event'
 import { fileExtensionLabel } from '../document-kind'
 import { failedWhileReading } from '../lib/ingest-failure'
 import { requestReingest } from '../lib/reingest-request'
-import { requestCancelIngest } from '../lib/cancel-request'
+import { stopReadingRow } from '../lib/stop-reading'
 import { mayRetryRefusal, uploadRefusalOf } from '../lib/upload-refusal'
 import { uploadFailureSentence, UploadFailureSentence, type UploadFailureCopy } from '../lib/upload-failure'
 import { toast } from 'sonner'
@@ -213,7 +214,6 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
   )
   const { fileUpload: fileUploadConfig } = useAppConfig()
   const clientRef = useRef(createDocumentsClient({ authToken: idToken }))
-  const previousSessionIdRef = useRef<string | undefined>(undefined)
   /**
    * One abort handle per in-flight request, keyed by tracked-file id. Per-file
    * rather than one for the batch: a 150 MB model that the user changed their
@@ -238,6 +238,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
   const setUploading = useDocumentsStore((s) => s.setUploading)
   const setError = useDocumentsStore((s) => s.setError)
   const clearError = useDocumentsStore((s) => s.clearError)
+  const setNameStopped = useDocumentsStore((s) => s.setNameStopped)
 
   const sessionFiles = useMemo(
     () => (collectionName ? trackedFiles.filter((f) => f.collectionName === collectionName) : []),
@@ -259,34 +260,8 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
     UploadOrchestrator.setAuthToken(idToken)
   }, [idToken])
 
-  // One subscription per mount: several surfaces use this hook at once, and
-  // each must hear about the uploads it is showing.
-  useEffect(() => UploadOrchestrator.subscribe({ onComplete, onError }), [onComplete, onError])
-
-  useEffect(() => {
-    const previousSessionId = previousSessionIdRef.current
-
-    if (collectionName !== previousSessionId) {
-      UploadOrchestrator.handleSessionChange(collectionName, shelf === 'session' ? 'session' : 'corpus')
-      previousSessionIdRef.current = collectionName
-    }
-  }, [collectionName, shelf])
-
-  // Retry file loading when knowledgeLayerAvailable becomes true.
-  // On browser refresh, the initial loadFilesForSession call may fire before
-  // fetchDataSources completes, causing it to skip because
-  // knowledgeLayerAvailable is still false. This effect ensures we retry
-  // once the knowledge layer is confirmed available.
-  const knowledgeLayerAvailable = useLayoutStore((state) => state.knowledgeLayerAvailable)
-  useEffect(() => {
-    if (collectionName) {
-      UploadOrchestrator.loadFilesForSession(collectionName)
-    }
-  }, [knowledgeLayerAvailable, collectionName])
-
-  // Note: We intentionally don't cleanup the orchestrator on unmount.
-  // The orchestrator is a singleton that manages polling across component lifecycles.
-  // Cleanup happens via session changes (handleSessionChange) when user switches sessions.
+  // Completion, the collection on screen and the shelf's live hints (`useUploadOrchestrator`).
+  useUploadOrchestrator({ collectionName, projectId, officeShelf, onComplete, onError })
 
   const ensureCollectionExists = useCallback(
     async (collectionName: string): Promise<void> => {
@@ -377,18 +352,12 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
         setError(t('errors.screeningPolicyUnavailable'))
         return 0
       }
-      const screenedOut: Array<{ file: File; matches: NameMatch[] }> = []
-      const validFiles = validationResult.validFiles.filter((file) => {
-        if (options?.screeningReleased?.(file)) return true
-        const verdict = screenUploadName(policy, {
-          filename: file.name,
-          originPath: file.webkitRelativePath || null,
-          folderPath: options?.folderPathFor?.(file) ?? null,
-        })
-        if (verdict.blocked) screenedOut.push({ file, matches: verdict.matches })
-        return !verdict.blocked
-      })
-      const screenedMessage = describeScreenedOut(screenedOut, t)
+      const named = screenFileNames(validationResult.validFiles, policy, t, options)
+      const validFiles = named.allowed
+      const screenedMessage = named.message
+      // „Trotzdem hochladen" in the message: the same batch again, these files released.
+      const offerAnyway = (stopped: File[]) => setNameStopped(uploadAnywayOffer(stopped, options, uploadFiles))
+      offerAnyway(named.stopped.map(({ file }) => file))
       if (validFiles.length === 0) {
         setError(screenedMessage ?? localizedSummary)
         return 0
@@ -473,7 +442,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           expectedCount: entries.length,
           excluded: exclusionsByTerm([
             ...(options?.excludedByScreening ?? []),
-            ...screenedOut.map(({ matches }) => matches),
+            ...named.stopped.map(({ matches }) => matches),
           ]),
         })
         let unchangedCount = 0
@@ -619,14 +588,9 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
         // listings again for each one.
         notifyDocumentsChanged()
 
-        // One event per batch the server took files from: how many, which types,
-        // and which shelf. Counts and extensions only; no name leaves the browser.
+        // One event per batch the server took files from.
         if (uploadedTypes.length > 0) {
-          capturePosthog('document_uploaded', {
-            count: uploadedTypes.length,
-            types: [...new Set(uploadedTypes)].sort().join(','),
-            shelf,
-          })
+          captureUploadBatch(uploadedTypes, shelf)
         }
 
         // Sealed once every request has answered: the files that wrote no row
@@ -655,7 +619,8 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           onError?.(firstFailure.reason instanceof Error ? firstFailure.reason : new Error(message))
         } else if (serverStopped.length > 0) {
           // Every file not uploaded, the browser's stops and the server's, in one sentence.
-          setError(describeScreenedOut([...screenedOut, ...serverStopped], t) ?? failureCopy.failed)
+          setError(describeScreenedOut([...named.stopped, ...serverStopped], t) ?? failureCopy.failed)
+          offerAnyway([...named.stopped, ...serverStopped].map(({ file }) => file))
         } else if (heldReplaced.length > 0 && !screenedMessage) {
           setError(heldReplaced[0])
         }
@@ -738,6 +703,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       setUploading,
       clearError,
       setError,
+      setNameStopped,
       onError,
       removeRecentlyDeletedIds,
       failureCopy,
@@ -754,16 +720,16 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
    * bytes are stored and an ingest job is working on them. There the stop is a
    * request to the backend (`stopReading`), and the row settles the same way —
    * `canceled` — because nothing was indexed and the file can be read again.
+   * `stopReadingRow` writes that, and only when the stop took effect.
    */
   const stopReading = useCallback(
     async (fileId: string, documentId: string): Promise<void> => {
-      const outcome = await requestCancelIngest(documentId)
-      if (outcome.kind === 'cancelled') {
-        updateTrackedFile(fileId, { status: 'canceled' })
+      const outcome = await stopReadingRow(fileId, documentId)
+      if (outcome === 'cancelled') {
         notifyDocumentsChanged()
         return
       }
-      if (outcome.kind === 'finished') {
+      if (outcome === 'finished') {
         // The job had already run to an end, so the row is not stuck: let the
         // orchestrator read where it actually landed rather than say stopped.
         toast.info(t('actions.cancelFinished'))
@@ -773,13 +739,13 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       // Not a failure to retry: the work runs somewhere a queue cannot reach
       // (queue off, or a conversion inside the BFF), and the row is honest as
       // it stands.
-      if (outcome.kind === 'unavailable') {
+      if (outcome === 'unavailable') {
         toast.info(t('actions.cancelUnavailable'))
         return
       }
       toast.error(t('actions.cancelError'))
     },
-    [updateTrackedFile, t]
+    [t]
   )
 
   const cancelFile = useCallback(

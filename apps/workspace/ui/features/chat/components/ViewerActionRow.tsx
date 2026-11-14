@@ -108,7 +108,7 @@ const Row: FC<{ entry: ViewerActionEntry }> = ({ entry }) => {
       )}
       {(entry.status === 'held' || entry.status === 'offered' || entry.status === 'undone') && (
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="h-6 shrink-0 px-2"
           aria-label={t('viewerActions.showAria', { what })}
@@ -147,7 +147,7 @@ export const ViewerActionRow: FC<{ messageId: string }> = ({ messageId }) => {
   return (
     <section
       aria-label={t('viewerActions.region')}
-      className="flex flex-col gap-1.5 rounded-md bg-info-subtle px-2.5 py-2"
+      className="flex flex-col gap-1.5 rounded-control bg-info-subtle px-2.5 py-2"
       data-testid="viewer-action-row"
     >
       <ul className="flex flex-col gap-1">

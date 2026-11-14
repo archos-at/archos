@@ -1,6 +1,5 @@
 import path from 'node:path'
 import type { NextConfig } from 'next'
-import type { withPostHogConfig } from '@posthog/nextjs-config'
 import { LEGACY_ROUTES } from './bff/api/legacy-routes'
 import { AVATAR_IMAGE_PATTERNS } from './bff/images/avatar-hosts'
 import { LOCAL_IMAGE_PATTERNS } from './bff/images/optimizable'
@@ -21,9 +20,17 @@ import { requestBodyLimitBytes } from './shared/config/request-body-limit'
  */
 const requestBodyLimitMB = Math.ceil(requestBodyLimitBytes(process.env) / (1024 * 1024))
 
-/** The config as written; the default export below adds PostHog source maps on the upload path. */
+/** The config as written; the default export below adds source maps for the image build. */
 export const nextConfig: NextConfig = {
   reactStrictMode: true,
+
+  // Version skew protection (Next guides/self-hosting, "Version Skew"). A tab
+  // opened before a deploy posts server action ids the new build does not know
+  // ("Failed to find Server Action", 16 a month). With a deployment id the client
+  // sends it, sees the server's differ, and reloads the page instead of posting a
+  // stale action. The commit the image is built from (`GIT_SHA`, a build arg of
+  // `deploy/Dockerfile`); unset in a local build, which then has no skew to guard.
+  deploymentId: process.env.GIT_SHA?.trim() || undefined,
 
   // `next dev` rewrites AGENTS.md when it detects a coding agent: it upserts a
   // managed block whose heading level differs from ours, so every dev start in an
@@ -41,6 +48,10 @@ export const nextConfig: NextConfig = {
       ...LEGACY_ROUTES.map(({ from, to }) => ({ source: from, destination: to, permanent: true })),
       { source: '/app/archiv', destination: '/app/office-shelf', permanent: true },
       { source: '/app/archiv/:path*', destination: '/app/office-shelf/:path*', permanent: true },
+      // The norm catalog and the base-knowledge page became one place per country, and the corpus upkeep
+      // without a country moved to maintenance.
+      { source: '/app/platform/norms', destination: '/app/platform/countries', permanent: true },
+      { source: '/app/platform/knowledge', destination: '/app/platform/maintenance', permanent: true },
     ]
   },
 
@@ -110,8 +121,10 @@ export const nextConfig: NextConfig = {
   // node_modules (deploy/Dockerfile), so Node resolves it as it does in tests.
   // `ws` likewise: the wake job's chat socket (`lib/turns/headless-turn.ts`),
   // whose optional native peers (`bufferutil`, `utf-8-validate`) a bundler
-  // would try to resolve and inline.
-  serverExternalPackages: ['exceljs', 'ws'],
+  // would try to resolve and inline. The Hatchet SDK likewise (an enqueue
+  // triggers a run, `lib/jobs-queue/orchestrator.ts`): a gRPC client whose agent
+  // adapters name optional peers nothing here installs.
+  serverExternalPackages: ['exceljs', 'ws', '@hatchet-dev/typescript-sdk'],
 
   experimental: {
     serverActions: {
@@ -200,10 +213,18 @@ export const nextConfig: NextConfig = {
       // emits the last one (see next.config headers "Header Overriding
       // Behavior"), so the more specific SAMEORIGIN replaces DENY here rather
       // than both being emitted. The route handler
-      // (streamKnowledgeBaseDocument) sets the same two headers on its Response
-      // as defense-in-depth.
+      // (`streamCorpusPdf`, lib/knowledge/source-pdf.ts) sets the same two headers
+      // on its Response as defense-in-depth.
       {
         source: '/api/knowledge-base/documents/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+        ],
+      },
+      // The platform operator's read of the same PDFs, framed by the same viewer.
+      {
+        source: '/api/platform/knowledge/documents/:fileName',
         headers: [
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
@@ -225,74 +246,35 @@ export const nextConfig: NextConfig = {
   },
 }
 
-type PostHogSourcemapConfig = Parameters<typeof withPostHogConfig>[1]
-type NextConfigFunction = (
-  phase: string,
-  context: { defaultConfig: NextConfig }
-) => Promise<NextConfig>
-
 /**
- * PostHog source maps (`@posthog/nextjs-config`), for the one build that can
- * upload them, or `null` for every other build and for the running server.
+ * Source maps for PostHog error tracking, emitted only when the image build asks
+ * for them (`EMIT_SOURCE_MAPS=1`, set in `deploy/Dockerfile`). The running
+ * server loads this file too and never sets it, so it gets `nextConfig` as
+ * written.
  *
- * On only when the image build hands `next build` a personal API key
- * (`POSTHOG_CLI_API_KEY`, read from a BuildKit secret inside the same RUN,
- * `deploy/Dockerfile`) and a project id. A fork, a pull request, a local build
- * and the runtime have neither, and get `nextConfig` exactly as written. With
- * both, the package turns browser maps on, the PostHog CLI injects chunk ids
- * into the shipped JavaScript, uploads the maps for release `grid-ui` at the
- * commit being built (the `GIT_SHA` the container reports) and deletes
- * them. The Dockerfile then deletes any map left over and fails the build if
- * one survives: Next serves `.next/static` to anyone, and a map carries the
- * original source.
- *
- * `symbol-set` binds the uploaded maps to the release, as the CLI did before
- * this package. Its newer `event` mode injects the release id for posthog-js
- * to send, which the posthog-js this app pins is not known to do.
+ * Nothing is uploaded from inside `next build` any more. The build emits the
+ * maps; the Dockerfile injects PostHog chunk ids into the shipped JavaScript
+ * offline (`posthog-cli sourcemap inject`), copies maps and chunks into a
+ * `sourcemaps` stage that never reaches the runtime image, and deletes every
+ * map from the served trees. CI exports that stage and the Source maps
+ * workflow uploads it after CI, linked to release `workspace-ui` at the build's
+ * commit. Uploading here, through `@posthog/nextjs-config`, took ~232 s of
+ * every frontend build on the deploy's critical path (run 41688820888), and
+ * made an image built with the key differ from one built without it.
  */
-export const posthogSourcemapConfig = (
-  env: NodeJS.ProcessEnv = process.env
-): PostHogSourcemapConfig | null => {
-  const personalApiKey = env.POSTHOG_CLI_API_KEY?.trim()
-  const projectId = env.POSTHOG_PROJECT_ID?.trim()
-  if (!personalApiKey || !projectId) return null
-  const releaseVersion = env.GIT_SHA?.trim()
-  if (!releaseVersion) {
-    throw new Error('GIT_SHA is empty; a PostHog release needs the commit it was built from')
-  }
-  return {
-    personalApiKey,
-    projectId,
-    host: env.POSTHOG_CLI_HOST?.trim() || 'https://eu.posthog.com',
-    sourcemaps: {
-      enabled: true,
-      releaseName: 'grid-ui',
-      releaseVersion,
-      releaseMode: 'symbol-set',
-      deleteAfterUpload: true,
-    },
-  }
-}
+export const withSourceMaps = (
+  config: NextConfig,
+  env: Readonly<Record<string, string | undefined>> = process.env
+): NextConfig =>
+  env.EMIT_SOURCE_MAPS?.trim() === '1'
+    ? {
+        ...config,
+        productionBrowserSourceMaps: true,
+        experimental: { ...config.experimental, serverSourceMaps: true },
+      }
+    : config
 
-/**
- * The config Next loads, at build time and again at runtime. The package is
- * imported only on the upload path: it is a devDependency (it brings the CLI
- * and webpack), absent from the runtime image, which loads this file too.
- * `withPostHogConfig` is the outermost wrapper, as the package requires, and
- * server maps are switched on beside it so server stack frames resolve too.
- */
-export default async function config(
-  phase: string,
-  context: { defaultConfig: NextConfig }
-): Promise<NextConfig> {
-  const posthog = posthogSourcemapConfig()
-  if (!posthog) return nextConfig
-  const { withPostHogConfig } = await import('@posthog/nextjs-config')
-  const withServerMaps: NextConfig = {
-    ...nextConfig,
-    experimental: { ...nextConfig.experimental, serverSourceMaps: true },
-  }
-  // Typed as a NextConfig, returned as the function Next calls with the phase.
-  const wrapped = withPostHogConfig(withServerMaps, posthog) as unknown as NextConfigFunction
-  return wrapped(phase, context)
+/** The config Next loads, at build time and again at runtime. */
+export default function config(): NextConfig {
+  return withSourceMaps(nextConfig)
 }

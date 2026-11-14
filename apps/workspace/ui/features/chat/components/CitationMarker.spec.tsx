@@ -12,6 +12,7 @@ import { AgentResponse } from './AgentResponse'
 import { resetSourcePreviewIndexCache } from './source-preview/source-preview-index'
 import type { CitationSource } from '../types'
 import { popoverMounts, resetPopoverMounts } from '@/test-utils/popover-mounts'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 // Real popover, counted: a read answer must not pay for peeks nobody opened.
 vi.mock('@/components/ui/popover', async (importOriginal) =>
@@ -369,7 +370,7 @@ describe('an inline citation marker', () => {
       const peek = await screen.findByRole('dialog')
 
       expect(
-        await within(peek).findByText('No file for this source is available in Piloti.', {}, { timeout: 5000 })
+        await within(peek).findByText(`No file for this source is available in ${PRODUCT_NAME}.`, {}, { timeout: 5000 })
       ).toBeInTheDocument()
       expect(peek.querySelector('[data-citation-open]')).toBeNull()
     })
@@ -515,7 +516,7 @@ describe('a citation still being settled (ADR-0066)', () => {
     const box = (el: Element) =>
       el.className
         .split(/\s+/)
-        .filter((c) => /^(inline-flex|items-center|rounded-sm|px-|relative|-top-|text-\[|font-|leading-|tabular-|pointer-coarse:)/.test(c))
+        .filter((c) => /^(inline-flex|items-center|rounded-(sm|control)|px-|relative|-top-|text-\[|font-|leading-|tabular-|pointer-coarse:)/.test(c))
         .sort()
     expect(box(pending as Element)).toEqual(box(live))
   })

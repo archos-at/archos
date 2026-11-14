@@ -159,8 +159,8 @@ export interface AgentResponseProps {
   /**
    * Which path the turn turned out to take, observed after the answer (WP-A
    * transparency extra). `'meta'` marks a conversational / clarifying reply (greetings,
-   * capability questions, Rückfragen) — rendered with a quiet neutral "Hinweis"
-   * role tab when the envelope has no `kind`. Envelope `kind` wins when present:
+   * capability questions, Rückfragen) — named a quiet "Hinweis" on a muted
+   * surface when the envelope has no `kind`. Envelope `kind` wins when present:
    * `direct` → Hinweis, `walkthrough` → Antwort, `ruling` (or a legacy
    * no-kind verdict) → Ergebnis. Absent/`'error'` fall back to the "Ergebnis"
    * treatment, so existing callers render exactly as before.
@@ -192,8 +192,7 @@ export interface AgentResponseProps {
   /**
    * The reader pressed Stop on this turn (`ChatMessage.stopped`). The answer
    * keeps what was on screen at the press, says „Gestoppt" where the writing
-   * ended, and does not claim to be complete: the role tab's check is held
-   * back, as for a turn still running.
+   * ended, so it never reads as complete.
    */
   stopped?: boolean
   /**

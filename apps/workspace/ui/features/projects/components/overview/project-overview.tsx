@@ -95,6 +95,13 @@ export interface ProjectOverviewProps {
   /** What the open setup still asks for; given, the setup counts as open and its entry says what waits. */
   setupProgress?: OverviewSetupProgress
   access: ProjectOverviewAccess
+  /**
+   * The project's mail address tile (ADR-0137, `InboundMailAddressTile`), for a
+   * reader who may decide the project's held mail; it draws itself once an
+   * address is active. Absent: no tile. The route passes it in, so the projects
+   * feature never imports the inbound-mail feature (module-seams.md).
+   */
+  inboundMailAddress?: ReactNode
 }
 
 export function ProjectOverview({
@@ -106,6 +113,7 @@ export function ProjectOverview({
   setupOpen = false,
   setupProgress,
   access,
+  inboundMailAddress,
 }: ProjectOverviewProps): JSX.Element {
   const id = data.id
   // Documents and Memory stack beside the hero, so every reader's first two
@@ -134,6 +142,8 @@ export function ProjectOverview({
           href={settingsSectionHref(id, 'documents')}
         />
         <MemoryTile projectId={id} href={settingsSectionHref(id, 'memory')} />
+        {/* Where people look at the project, so the address is handed out where the work starts (WOW §3.5). A row of its own. */}
+        {inboundMailAddress}
         {usage && (
           <UsageTile usage={usage} href={settingsSectionHref(id, 'usage')} span={usageSpan} />
         )}
@@ -280,7 +290,7 @@ function HeroTile({
     >
       <div className="flex min-w-0 flex-col gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <p className="text-balance text-2xl font-semibold tracking-tight md:text-3xl">
+          <p className="text-balance text-2xl font-medium md:text-3xl">
             {data.name}
           </p>
           <ProjectStatusMark project={{ status, closedOutcome: data.lifecycle.closedOutcome }} />
@@ -310,14 +320,14 @@ function HeroTile({
             {t('project.overview.askAgent')}
           </Link>
         </Button>
-        <Button asChild variant="outline">
+        <Button asChild variant="secondary">
           <Link href={`${projectPath}/files`}>
             <FileText className="size-4" aria-hidden />
             {t('project.overview.openFiles')}
           </Link>
         </Button>
         {setupOpen && (
-          <Button asChild variant="outline">
+          <Button asChild variant="secondary">
             <Link href={`${projectPath}/setup`}>
               <Sparkles className="size-4" aria-hidden />
               {t('project.overview.openSetup')}
@@ -333,7 +343,7 @@ function HeroTile({
             where the profile is filled, and a second button to the wizard read
             as a second, different thing to do. */}
         {access.editProfile && !setupOpen && (
-          <Button asChild variant="outline">
+          <Button asChild variant="secondary">
             <Link href={`${projectPath}/intake`}>
               <ClipboardList className="size-4" aria-hidden />
               {data.profileDisplay != null

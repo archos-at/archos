@@ -2,6 +2,7 @@
 
 import { FOUND_IN } from '../intake-options'
 import type { ProjectIntakeStage } from '../intake-types'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 export const PLOT_STAGE: ProjectIntakeStage = {
   id: 'B',
@@ -11,7 +12,7 @@ export const PLOT_STAGE: ProjectIntakeStage = {
     'Widmung, Bebauungsplan-Kernset, Standortrisiken und Erschließung. Jede Kennzahl einzeln offen lassbar.',
   questions: [
     // The Grundbuch's name for the plot and its area: what the location
-    // register asks the Grundbuchauszug for (ticket 26, „Standort-
+    // register asks the Grundbuchauszug for (ticket 31, „Standort-
     // informationen aus den Unterlagen", `lib/project-intake/location-register.ts`).
     {
       id: 'B0_ez',
@@ -90,7 +91,7 @@ export const PLOT_STAGE: ProjectIntakeStage = {
       type: 'document_role',
       role: 'development_plan',
       conditions: [{ param: 'B2', op: 'equals', value: 'yes' }],
-      why: 'Der Plan ist die Quelle für Bauklasse, Bebauungsweise, Dichte und Fluchtlinien — Piloti kann sich dann darauf beziehen.',
+      why: 'Der Plan ist die Quelle für Bauklasse, Bebauungsweise, Dichte und Fluchtlinien — ' + PRODUCT_NAME + ' kann sich dann darauf beziehen.',
     },
     {
       id: 'B3_hoehe',

@@ -25,6 +25,7 @@
  * trail names a person by id, never by name.
  */
 
+import { officeMonth } from '@/lib/organizations/time-zone'
 import 'server-only'
 import { BadRequestError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -34,7 +35,8 @@ import { recordAuditEvent } from '@/lib/audit/service'
 import type { ProjectPersonRow } from '@/lib/db/schema/project-people'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { findProjectProfile } from './repository'
-import { currentMonth, dateToMonth, isOrderedPeriod, monthToDate, type Month } from './month'
+import { projectSiteAddress } from './site-address'
+import { dateToMonth, isOrderedPeriod, monthToDate, type Month } from './month'
 import { closingOf, isProjectClosed, projectClosedError } from './project-status'
 import { loadProjectTeam } from './project-team'
 import {
@@ -90,8 +92,8 @@ function startOf(period: ProjectPeriodRow): { startedOn: Month | null; isDefault
 }
 
 function addressOf(profile: Awaited<ReturnType<typeof findProjectProfile>>): string | null {
-  const value = profile?.facts?.site_address?.value
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+  // The same rule the project tiles read the Standort by, so they never disagree.
+  return profile ? projectSiteAddress({ profile }) : null
 }
 
 export async function getProjectRecord(session: AuthorizedSession, projectId: string): Promise<ProjectRecordView> {
@@ -244,7 +246,7 @@ export async function recordMemberLeft(
   try {
     const period = await findProjectPeriod(projectId, session.organizationId)
     if (!period || isProjectClosed(period)) return
-    const left = currentMonth()
+    const left = await officeMonth(session.organizationId)
     const row = await findProjectPersonByUser(projectId, session.organizationId, member.userId)
     if (row) {
       if (row.endedOn || !isOrderedPeriod(dateToMonth(row.startedOn), left)) return

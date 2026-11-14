@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { ArrowRight, Check, ChevronDown, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { SectionLabel } from '@/components/ui/section-label'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -145,8 +146,8 @@ export function SetupBar({ projectId, projectName, step, summaries, progress, on
     <header className="bg-background/95 border-border shrink-0 border-b" data-testid="intake-setup-head">
       <div className="hidden h-16 items-center gap-7 px-8 md:flex">
         <div className="w-52 min-w-0 shrink-0">
-          <p className="text-muted-foreground text-[11px] uppercase tracking-[0.06em]">{tShell('head.eyebrow')}</p>
-          {projectName && <p className="truncate text-[15px] font-semibold">{projectName}</p>}
+          <SectionLabel as="p">{tShell('head.eyebrow')}</SectionLabel>
+          {projectName && <p className="truncate text-[15px] font-medium">{projectName}</p>}
         </div>
         <StepRail step={step} summaries={summaries} onGoTo={onGoTo} />
         <Link
@@ -176,10 +177,8 @@ export function SetupBar({ projectId, projectName, step, summaries, progress, on
                 step: tShell(`steps.${step}`),
               })}
             >
-              <span className="text-muted-foreground text-[11px] uppercase tracking-[0.06em]">
-                {tShell('steps.progress', { current: index + 1, total })}
-              </span>
-              <span className="flex items-center gap-1 text-[15px] font-semibold">
+              <SectionLabel>{tShell('steps.progress', { current: index + 1, total })}</SectionLabel>
+              <span className="flex items-center gap-1 text-[15px] font-medium">
                 {tShell(`steps.${step}`)}
                 <ChevronDown className="text-muted-foreground size-3.5" aria-hidden />
               </span>
@@ -193,7 +192,7 @@ export function SetupBar({ projectId, projectName, step, summaries, progress, on
                   className="touch-target"
                 >
                   <span className="text-muted-foreground w-4 tabular-nums">{i + 1}</span>
-                  <span className={cn('flex-1', summary.id === step && 'font-semibold')}>
+                  <span className={cn('flex-1', summary.id === step && 'font-medium')}>
                     {tShell(`steps.${summary.id}`)}
                   </span>
                   {summary.note && <span className="text-muted-foreground text-xs">{summary.note}</span>}
@@ -236,7 +235,7 @@ function StepRail({
           const label = tShell(`steps.${summary.id}`)
           return (
             <li key={summary.id} className={cn('flex items-center gap-2.5', i < summaries.length - 1 && 'flex-1')}>
-              <button
+              <button data-attr="intake-go-to"
                 type="button"
                 onClick={() => onGoTo(summary.id)}
                 aria-current={active ? 'step' : undefined}

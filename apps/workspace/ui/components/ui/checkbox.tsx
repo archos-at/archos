@@ -18,7 +18,9 @@ const Checkbox = React.forwardRef<
     className={cn(
       // 16px is the right SIZE for a checkbox and a hopeless touch target, so
       // the box keeps its size and `touch-target` widens what a tap resolves to.
-      'peer border-input dark:bg-input-background data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:border-primary size-4 shrink-0 rounded-sm border outline-none disabled:cursor-not-allowed disabled:opacity-50 touch-target',
+      // The unchecked box draws the design system's field border (`--ds-line-strong`, 3.4:1 on paper, 3.2:1 on the grey):
+      // the alpha `--input` it wore measured under WCAG 1.4.11's 3:1 for a control's edge.
+      'peer border-(--ds-line-strong) dark:bg-input-background data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:border-primary size-4 shrink-0 rounded-inline border outline-none disabled:cursor-not-allowed disabled:opacity-50 touch-target',
       PRESSABLE_SMALL,
       // `dark:bg-input-dark` and `data-[state=checked]:bg-primary` have equal
       // specificity, and the dark variant is emitted last — so in dark mode a
@@ -31,6 +33,8 @@ const Checkbox = React.forwardRef<
       // „some" read as „checked, but disabled" — the one state it exists for.
       'data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground data-[state=indeterminate]:border-primary',
       'dark:data-[state=indeterminate]:bg-primary dark:data-[state=indeterminate]:text-primary-foreground',
+      // Under the pointer the empty box takes the pointer's fill, as everything with no fill of its own does.
+      'data-[state=unchecked]:hover:bg-hover',
       FOCUS_RING,
       'aria-invalid:ring-destructive/20 aria-invalid:border-destructive',
       className

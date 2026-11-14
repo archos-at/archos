@@ -9,6 +9,8 @@
  * - Replace an AuthKit authorization redirect that would fail (no PKCE
  *   verifier cookie) with our own sign-in route; see
  *   {@link rerouteIncompleteSignIn}
+ * - Keep the website's `signed_in` cookie in step with the session; see
+ *   {@link signedInCookieFor}
  *
  * The Python backend receives the raw WorkOS access token from the v1 API
  * route proxy, which reads the session with withAuth() and forwards it as
@@ -18,6 +20,7 @@
 import { authkitMiddleware } from '@workos-inc/authkit-nextjs'
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server'
 import { isAuthRequired } from '@/lib/auth/auth-required'
+import { SIGNED_IN_COOKIE_NAME, serializeSignedInCookie, signedInCookieScopeFromEnv } from '@/lib/auth/signed-in-cookie'
 
 const middleware = authkitMiddleware({
   debug: process.env.NODE_ENV === 'development',
@@ -29,8 +32,12 @@ const middleware = authkitMiddleware({
       // path-to-regexp (anchored), so '/' matches only the root.
       '/',
       // Liveness probe — must return 200 even when auth is required, so the
-      // container / Coolify / Traefik health check never redirects to login.
+      // container or proxy health check never redirects to login.
       '/api/healthz',
+      // The backend health proxy (its route is `publicApiRoute`): the deploy's
+      // smoke check calls it without a session, and so does the client's
+      // backend-health poll before sign-in.
+      '/api/health',
       '/api/auth/callback',
       // Sign-in entry point behind /?sign-in (the landing site's "Anmelden"
       // target). Like the callback it runs BEFORE a session exists — it mints
@@ -85,7 +92,11 @@ export default async function proxy(request: NextRequest, event: NextFetchEvent)
   const response = await middleware(request, event)
   if (!response) return response
   warnIfSessionIsDiscarded(request, response)
-  return rerouteIncompleteSignIn(request, response)
+  // Judged on AuthKit's own answer: the rerouted one no longer says "sign in".
+  const signedInCookie = signedInCookieFor(request, response)
+  const answer = rerouteIncompleteSignIn(request, response)
+  if (signedInCookie) answer.headers.append('set-cookie', signedInCookie)
+  return answer
 }
 
 /**
@@ -207,6 +218,26 @@ function returnPathnameFor(request: NextRequest): string | null {
   return query ? `${pathname}?${query}` : pathname
 }
 
+/**
+ * The origin people reach the app at, for an absolute Location. It has to be
+ * absolute: Next's middleware adapter parses every Location with
+ * `new NextURL(location)` and no base, so a relative one threw
+ * `TypeError: Invalid URL` and every rerouted request answered 500 (staging,
+ * 2026-11-04); the adapter turns a same-host URL back into a relative one
+ * itself. `request.url` is the internal address behind the gateway, so the
+ * origin is the configured redirect URI's, as the callback route takes it,
+ * and the request's own only when none is configured (auth off).
+ */
+function publicOrigin(request: NextRequest): string {
+  const configured = process.env.WORKOS_REDIRECT_URI ?? process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI
+  try {
+    if (configured) return new URL(configured).origin
+  } catch {
+    // An unparseable setting falls back to the request, as with none.
+  }
+  return request.nextUrl.origin
+}
+
 function rerouteIncompleteSignIn(request: NextRequest, response: Response): Response {
   if (response.status < 300 || response.status >= 400) return response
   if (!isAuthorizeRedirect(response.headers.get('location'))) return response
@@ -216,17 +247,53 @@ function rerouteIncompleteSignIn(request: NextRequest, response: Response): Resp
   const returnPathname = returnPathnameFor(request)
   const query = returnPathname ? `?returnPathname=${encodeURIComponent(returnPathname)}` : ''
 
-  // A relative Location: `request.url` is the internal address behind
-  // Traefik, exactly as the callback route's baseURL comment warns.
   const rerouted = new NextResponse(null, {
     status: request.method === 'GET' || request.method === 'HEAD' ? 307 : 303,
-    headers: { location: `${SIGN_IN_PATH}${query}` },
+    headers: { location: `${publicOrigin(request)}${SIGN_IN_PATH}${query}` },
   })
   // The response we are replacing may be clearing an expired session cookie;
   // carry that, and stay as uncacheable as AuthKit's own redirect.
   for (const cookie of response.headers.getSetCookie()) rerouted.headers.append('set-cookie', cookie)
   rerouted.headers.set('cache-control', 'no-store')
   return rerouted
+}
+
+/**
+ * Does AuthKit's response expire the session the request carried? A refreshed
+ * session that needs fewer chunks expires the spare ones while it writes the
+ * first, so only a response that writes no session value at all counts.
+ */
+function clearsSession(response: Response): boolean {
+  let cleared = false
+  for (const cookie of response.headers.getSetCookie()) {
+    const [pair] = cookie.split(';', 1)
+    const separator = pair.indexOf('=')
+    if (separator < 0 || !isSessionCookie(pair.slice(0, separator).trim())) continue
+    if (pair.slice(separator + 1).trim() !== '') return false
+    cleared = true
+  }
+  return cleared
+}
+
+/**
+ * The website shows "Open app" instead of "Login" while this browser has a
+ * session here (`@/lib/auth/signed-in-cookie` says why a separate cookie). The
+ * answer is the session AuthKit just judged: the request carried one, AuthKit
+ * neither cleared it nor sent the request to sign in. The cookie is written
+ * only when that answer differs from what the browser already holds, so an
+ * ordinary request gets no extra `Set-Cookie`.
+ */
+function signedInCookieFor(request: NextRequest, response: Response): string | null {
+  if (!isAuthRequired()) return null
+  const scope = signedInCookieScopeFromEnv()
+  if (!scope) return null
+
+  const signedIn =
+    sessionCookies(request).length > 0 &&
+    !isAuthorizeRedirect(response.headers.get('location')) &&
+    !clearsSession(response)
+  const marked = request.cookies.get(SIGNED_IN_COOKIE_NAME)?.value === '1'
+  return signedIn === marked ? null : serializeSignedInCookie(scope, signedIn)
 }
 
 export const config = {
@@ -252,6 +319,15 @@ export const config = {
      *   proxy would buffer megabyte-sized replay bodies against
      *   `proxyClientMaxBodySize`. The route is `publicApiRoute` and forwards no
      *   cookie or credential.
+     * - api/internal/signed/ (the RFC 9421 signed internal routes,
+     *   `internalApiRoute` with `auth.signature`): a caller outside the cluster
+     *   pushes a raw body there, and a proxied body is buffered and, above
+     *   `proxyClientMaxBodySize`, handed to the route cut short without an
+     *   error. Skipping the proxy hands the route the unbuffered stream, which
+     *   `lib/api/bounded-body.ts` holds to the signed length and digest. The
+     *   routes authenticate themselves before reading a byte and carry no
+     *   session, so AuthKit has nothing to do there. Only this sub-path: the
+     *   token-guarded `/api/internal/*` routes stay on the matcher.
      *
      * API auth routes are allow-listed via middlewareAuth.unauthenticatedPaths
      * so AuthKit can complete the OAuth callback without a session.
@@ -262,6 +338,6 @@ export const config = {
      * unset/misconfigured — turning a config gap into a container that never
      * goes healthy).
      */
-    '/((?!_next/static|_next/image|favicon\\.ico$|icon\\.svg$|apple-icon\\.png$|manifest\\.webmanifest$|robots\\.txt$|sw\\.js$|icons/|art/|public|api/healthz|ingest/).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico$|icon\\.svg$|apple-icon\\.png$|manifest\\.webmanifest$|robots\\.txt$|sw\\.js$|icons/|art/|public|api/healthz|ingest/|api/internal/signed/).*)',
   ],
 }

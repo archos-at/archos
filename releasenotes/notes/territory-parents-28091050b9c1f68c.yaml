@@ -1,0 +1,8 @@
+---
+# area: administration
+operators:
+  - >
+    A territory record now takes one list of parents, each with an optional
+    validity, and the change-request review shows them as one "Lies in" row
+    with the dates. Proposals that still send the two old parent lists are
+    refused with a clear error instead of being stored half.

@@ -105,12 +105,12 @@ export const ErrorBanner: FC<ErrorBannerProps> = ({
             {details && (
               <>
                 {' '}
-                <button
+                <button data-attr="chat-toggle-expanded"
                   type="button"
                   onClick={() => setIsExpanded(!isExpanded)}
                   aria-expanded={isExpanded}
                   aria-controls={detailsId}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-xs border-none bg-transparent p-0 text-xs font-medium no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-control border-none bg-transparent p-0 text-xs font-medium no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   {isExpanded ? t('error.hideDetails') : t('error.showDetails')}
                   {isExpanded ? (
@@ -140,7 +140,7 @@ export const ErrorBanner: FC<ErrorBannerProps> = ({
           {onRetry && errorMeta.retryable !== false && (
             <div className="mt-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={onRetry}
                 aria-label={t('error.retry')}
@@ -152,11 +152,11 @@ export const ErrorBanner: FC<ErrorBannerProps> = ({
           )}
         </AlertDescription>
         {onDismiss && (
-          <button
+          <button data-attr="chat-dismiss"
             type="button"
             onClick={onDismiss}
             aria-label={tc('actions.close')}
-            className="text-muted-foreground hover:text-foreground duration-quick absolute right-3 top-3 rounded-xs transition-colors ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="text-muted-foreground hover:text-foreground duration-quick absolute right-3 top-3 rounded-control transition-colors ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -201,11 +201,11 @@ const RequestReference: FC<{ requestId: string }> = ({ requestId }) => {
   return (
     <div className="mt-2 flex items-center gap-1.5" data-testid="error-request-id">
       <span className="text-subtle text-xs">{t('error.reference')}</span>
-      <button
+      <button data-attr="chat-copy"
         type="button"
         onClick={() => void handleCopy()}
         aria-label={t('error.referenceCopyAria', { id: requestId })}
-        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 rounded-xs font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 rounded-inline font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
       >
         {shortRequestId(requestId)}
         {copied ? (

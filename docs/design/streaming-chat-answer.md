@@ -12,7 +12,7 @@ storage rules are unchanged by it. Streaming is the default delivery; there is
 no runtime flag beyond the platform switch below.
 **Related:** the per-turn chat path (`agents/piloti/conversation_register.py`,
 `note_settled_replaced`), the chat socket (`apps/agent-host/src/agent_host/chat_socket.py`),
-the turn fold (`apps/workspace/ui/features/chat/lib/turn-fold.ts`) and the chat
+the turn fold (`apps/workspace/bff/turns/turn-fold.ts`) and the chat
 store. Live prose: `common/answer_prose_stream.py` and
 `agents/piloti/answer_pipeline.py` (`LiveAnswer`, `settle_streamed_citations`).
 The events themselves: [`websocket-protocol.md`](../api/websocket-protocol.md).
@@ -616,7 +616,7 @@ streaming rate after the reasoning had collapsed made the end jump twice
 2. Only when all of it is on screen is the answer `settled`, and everything
    that belongs to a finished answer follows that, not `isStreaming`: the
    caret goes, the footer fades in and becomes operable, the citation pills
-   turn real, the role tab's dot becomes a check, and the Herleitung's header
+   turn real, and the Herleitung's header
    (folded since the answer's first word) swaps its glyph and freezes its
    timer. The Herleitung lives in `ChatArea`, outside the answer, so the
    answer publishes that it is still revealing
@@ -782,8 +782,8 @@ view puts it back above. A masthead that arrives after the prose fades in
 alone; one gated out by a snapshot or the terminal fades out first and loses
 its height in one frame once invisible. The turn's self-assessment, which
 arrives with the terminal, lives in the answer details, not above the prose.
-The role tab carries a quiet dot while the answer arrives and its check from
-the settle.
+The answer wears no role tab (Notion #38, topic 9): the Herleitung header's
+check and the footer's arrival say it is complete.
 
 **A terminal that does not continue what was shown.** A settled snapshot or a
 terminal that rewrites or shortens the text replaces the body in one frame;
@@ -801,7 +801,7 @@ Stop keeps what was on screen at the press. The rule of what that is has one
 copy per language and three writers (the agent tier, the asker's browser and
 the BFF), held to the same cases by `contracts/wire/v2/stopped-cases.jsonl`:
 [chat wire v2, Cancel](chat-wire-v2.md#c-the-route-and-the-handler) and
-`features/chat/lib/stopped-answer.ts`. In short: the shown code points, a
+`bff/turns/stopped-answer.ts`. In short: the shown code points, a
 marker cut in half dropped, a streamed `[N]` dropped and a settled one kept
 with its source, and only the cards whose place was shown.
 
@@ -856,7 +856,7 @@ Accepted residuals:
 
 `RUN_ERROR` under a written answer keeps the words: frozen at what was shown,
 as for Stop, and dimmed on a transition, with the error card under them. The
-role tab gets no check and the footer stays inert, because a cut-off fragment
+footer stays inert, because a cut-off fragment
 is not an answer to copy or rate. The header reads „Fehlgeschlagen", never
 „Unterbrochen": `ChatArea` notes a failed turn as the fold marks it, because
 the store drops the view before the error card is added, and with neither on
@@ -1017,7 +1017,7 @@ as it does on a desk.
 - Fold: every fixture turn folds to the expected view; a duplicate `seq` keeps
   identity and a gap is flagged; snapshot, retraction and terminal
   replacement; a card before its marker; a spectator starting mid-turn
-  (`apps/workspace/ui/features/chat/lib/turn-fold.spec.ts`).
+  (`apps/workspace/bff/turns/turn-fold.spec.ts`).
 - Frontend: the whole-answer affordances (copy, unclaimed cards) wait for
   `isStreaming` to clear (`AgentResponse.spec.tsx`, "a streaming answer");
   `stable-overrides.spec.tsx` (a drawn diagram and an arrived card survive the

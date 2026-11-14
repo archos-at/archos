@@ -14,10 +14,18 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
+# Anchored, like every directory name below a source tree could also carry (a route,
+# a package): an unanchored `logs/` or `build/` matches at any depth and silently
+# hides a source directory of that name (the `coverage/` route did, see gotchas).
+/build/
+apps/*/build/
+packages/*/build/
 develop-eggs/
-dist/
-downloads/
+/dist/
+apps/*/dist/
+packages/*/dist/
+!packages/brand/dist/
+/downloads/
 eggs/
 .eggs/
 lib/
@@ -29,18 +37,15 @@ lib64/
 !apps/*/src/**/lib/
 !apps/workspace/**/lib/
 !apps/workspace/tests/lib/
-!apps/site/art/riso/lib/
-# `downloads/` above does the same to the site's committed riso downloads
-# (art/riso/downloads.mjs writes them; the unlisted image page serves them).
-!apps/site/public/downloads/
-parts/
-# `parts/` is buildout's, and like `lib/` above it matches at any depth: it hid
-# the mail import's `mail-imports/[importId]/parts/[partNumber]` route from the
-# first commit that wrote it. Source directories of that name are not artifacts.
-!apps/workspace/**/parts/
-!apps/*/src/**/parts/
+!packages/brand/art/riso/lib/
+!apps/cms/scripts/lib/
+# The riso exporter's non-committed files (decks, social, postcards, separations).
+packages/brand/art/riso/out/
+# `parts/` is buildout's, anchored: unanchored it hid the mail import's
+# `mail-imports/[importId]/parts/[partNumber]` route from the first commit that wrote it.
+/parts/
 sdist/
-var/
+/var/
 wheels/
 *.egg-info/
 .installed.cfg
@@ -48,10 +53,10 @@ wheels/
 MANIFEST
 
 # Virtual Environment
-.venv/
-venv/
+.venv
+venv
 ENV/
-env/
+/env/
 
 # IDE
 .vscode/
@@ -67,7 +72,7 @@ env/
 .env.*.local
 # Logs
 *.log
-logs/
+/logs/
 
 # Testing
 .pytest_cache/
@@ -93,8 +98,8 @@ htmlcov/
 *.db-*
 
 # Temporary files
-tmp/
-temp/
+/tmp/
+/temp/
 *.tmp
 .worktrees/
 
@@ -118,8 +123,10 @@ evals/*/analysis/*.csv
 /config_*.yml
 
 
-# Node dependencies (never commit)
-node_modules/
+# Node dependencies (never commit). No trailing slash: `node_modules/` matches
+# only a directory, and an agent worktree links the main checkout's install in
+# as a symlink, which then showed up as a new file and got committed.
+node_modules
 
 # Claude Code agent worktrees (transient, isolated checkouts)
 .claude/worktrees/
@@ -166,3 +173,6 @@ coverage-aiqapi.xml
 # A local copy of the OIB corpus for the evals and tests; see data/oib/README.md
 data/oib/*.pdf
 .testmondata*
+
+# Stored answers saved locally for /dev/derivation-records?id= (real conversation data, never committed)
+apps/workspace/public/dev-stored-answers/

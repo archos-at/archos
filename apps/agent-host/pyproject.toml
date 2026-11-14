@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "fastapi>=0.156.8",
+    "fastapi>=0.161.1",
     "sqlalchemy>=2.0.51",
     "aiosqlite>=0.19.0",
     "asyncpg>=0.29.0",
@@ -43,6 +43,26 @@ dependencies = [
     # imports them.
     "lxml>=6.1.0,<7",
     "httpx>=0.28",
+    # DXF drawings to their PDF rendition (ADR-0152): ezdxf reads the file and
+    # draws it, matplotlib writes the vector PDF. Both pure Python as far as this
+    # image is concerned (MIT, PSF); matplotlib was already here through the
+    # agent runtime's profiler and is named so it does not leave with it.
+    # ezdxf's own PDF backend needs PyMuPDF, which is AGPL, and is not used.
+    "ezdxf>=1.4.5,<2",
+    "matplotlib>=3.10",
+    # The brand's type ships as WOFF2 (packages/brand/fonts); fontTools needs brotli to
+    # unpack it for the PDF. Google's reference implementation, MIT.
+    "brotli>=1.1",
+    # A Katastralmappe stores no parcel as a polygon (BEV spec §3.2): the parcels and
+    # their areas are rebuilt from its boundary network with GEOS (BSD, wheels bundle it).
+    "shapely>=2.1",
+    # Inbound mail (`agent_host.mail`): the reply and quote split and the
+    # signature cut, German and English rules. MIT, pure Python, no
+    # dependencies; pinned because its rules are what the review shows.
+    "mail-parser-reply==1.36",
+    # Calendar invites in inbound mail. BSD-2-Clause, pure Python; brings
+    # python-dateutil and tzdata (Europe/Vienna without the system zone files).
+    "icalendar==7.3.0",
 ]
 
 [project.optional-dependencies]
@@ -57,6 +77,11 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# The brand's type and name, copied here by `node packages/brand/sync.mjs`; the DXF sheet
+# reads them (`agent_host.drawings.house_style`, ADR-0152).
+"agent_host.drawings" = ["brand/identity.json", "brand/fonts/*.woff2"]
 
 [project.entry-points."nat.plugins"]
 agent_host = "agent_host.register"

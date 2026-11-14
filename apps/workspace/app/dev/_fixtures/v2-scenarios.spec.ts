@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { parseWireEvent, type WireEvent } from '@/adapters/api/wire-v2'
-import { foldTurnEvents, type TurnView } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvents, type TurnView } from '@/lib/turns/turn-fold'
 import { buildTurnScript } from '../stream-socket/turn-script'
 import { STREAM_FRAMES } from './stream-frames'
 import { ERROR_PHASES, STREAM_SCENARIOS, v2Scenario, type ErrorPhase, type StreamScenario } from './v2-scenarios'

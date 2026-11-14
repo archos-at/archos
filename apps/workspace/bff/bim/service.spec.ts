@@ -94,19 +94,23 @@ vi.mock('@/lib/storage/bucket', () => ({
 }))
 
 const started: unknown[] = []
-const completed: Array<{ elements: unknown[]; indexStorageKey: string | null }> = []
-const failed: Array<{ modelId: string; reason: string }> = []
+const completed: Array<{ run: unknown; elements: unknown[]; indexStorageKey: string | null }> = []
+const failed: Array<{ modelId: string; runId: string; reason: string }> = []
+/** Whether the row still waits for this run when it comes back; false plays a newer run having taken it. */
+let rowStillHeld = true
 
-vi.mock('./repository', () => ({
+vi.mock('./extraction-repository', () => ({
   startBimModel: async (input: unknown) => {
     started.push(input)
-    return 'model-1'
+    return { modelId: 'model-1', runId: 'run-1' }
   },
-  completeBimModel: async (input: { elements: unknown[]; indexStorageKey: string | null }) => {
+  completeBimModel: async (input: { run: unknown; elements: unknown[]; indexStorageKey: string | null }) => {
     completed.push(input)
+    return rowStillHeld
   },
-  failBimModel: async (modelId: string, _org: string, reason: string) => {
-    failed.push({ modelId, reason })
+  failBimModel: async (run: { modelId: string; runId: string }, _org: string, reason: string) => {
+    failed.push({ ...run, reason })
+    return rowStillHeld
   },
 }))
 
@@ -147,6 +151,7 @@ beforeEach(() => {
   started.length = 0
   completed.length = 0
   failed.length = 0
+  rowStillHeld = true
   sourceBytes = VALID_IFC
   sourceBinary = null
   putFailureSuffix = null
@@ -202,7 +207,7 @@ describe('runBimExtraction', () => {
     const outcome = await runBimExtraction(baseInput(dispatchDigest))
 
     expect(outcome.status).toBe('failed')
-    expect(failed[0]).toMatchObject({ modelId: 'model-1' })
+    expect(failed[0]).toMatchObject({ modelId: 'model-1', runId: 'run-1' })
     expect(failed[0].reason).toContain('keine gültige IFC-Datei')
     expect(completed).toHaveLength(0)
     expect(dispatchDigest).not.toHaveBeenCalled()
@@ -221,6 +226,31 @@ describe('runBimExtraction', () => {
     expect(outcome.status).toBe('ready')
     expect(completed).toHaveLength(1)
     expect(failed).toHaveLength(0)
+  })
+
+  it('finishes as the run that started, and hands no digest on once a newer run has the row', async () => {
+    rowStillHeld = false
+    const dispatchDigest = vi.fn(async () => undefined)
+
+    const outcome = await runBimExtraction(baseInput(dispatchDigest))
+
+    expect(completed[0].run).toEqual({ modelId: 'model-1', runId: 'run-1' })
+    // Not `ready`, and not `failed` either: the job would write that onto a
+    // document the newer run is still reading.
+    expect(outcome).toEqual({ modelId: 'model-1', status: 'superseded', elementCount: 0 })
+    expect(dispatchDigest).not.toHaveBeenCalled()
+    expect(failed).toHaveLength(0)
+  })
+
+  it('does not report a failure for a model a newer run has taken', async () => {
+    sourceBytes = 'this is not an IFC file'
+    rowStillHeld = false
+
+    const outcome = await runBimExtraction(baseInput())
+
+    expect(failed).toHaveLength(1)
+    expect(outcome.status).toBe('superseded')
+    expect(outcome.error).toBeUndefined()
   })
 })
 

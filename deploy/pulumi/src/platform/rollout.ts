@@ -236,8 +236,8 @@ export const ROLLOUT = {
   },
 
   /**
-   * purger / skill-scheduler: single-replica poll loops behind no Service.
-   * `Recreate` is correct for them (never two at once), so there is no rolling
+   * purger: a single-replica poll loop behind no Service.
+   * `Recreate` is correct for it (never two at once), so there is no rolling
    * window to protect — only a clean stop between poll ticks.
    */
   lightWorker: {
@@ -248,7 +248,7 @@ export const ROLLOUT = {
   },
 
   /**
-   * Astro landing + blog (apps/site): stateless static site behind a
+   * Astro website + blog (apps/website): stateless static site behind a
    * Service + HPA, surge-only like the frontend. Node boot is fast and there
    * are no long-lived connections, so the shortest grace that still covers the
    * endpoint-drain preStop suffices.

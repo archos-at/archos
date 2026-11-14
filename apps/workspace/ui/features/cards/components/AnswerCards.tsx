@@ -124,7 +124,7 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
   if (card.type === 'formula') {
     return (
       <FadeIn distance={6}>
-        <FormulaCard title={card.title} formula={card.formula} note={card.note} />
+        <FormulaCard title={card.title} formula={card.formula} note={card.note} site_binding={card.site_binding} />
       </FadeIn>
     )
   }
@@ -506,6 +506,7 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
           content={card.content}
           kind={card.kind}
           confidence={card.confidence}
+          topic={card.topic}
           supersedes={card.supersedes}
           proposalId={card.proposal_id}
           messageId={messageId}

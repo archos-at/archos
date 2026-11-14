@@ -32,12 +32,14 @@ import Link from 'next/link'
 import { ArrowLeft, CalendarRange, ListChecks, MessageSquare, Plus } from 'lucide-react'
 
 import { ProjectSectionActions } from '@/components/shell/project-section-frame'
-import { SeriesPaletteStyle, SERIES_SLOT_COUNT } from '@/components/charts/palette'
+import { SERIES_SLOT_COUNT } from '@/components/charts/palette'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { SECTION_READING_COLUMN } from '@/components/shell/section-layout'
+import { cn } from '@/lib/utils'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { jobsCopy } from '@/i18n/namespaces/jobs'
@@ -474,7 +476,7 @@ export function TasksPanel({
                 the server still enforces on send. The title rides the wrapping span
                 because a disabled button takes no pointer events. */}
             {canChatInProject ? (
-              <Button size="sm" variant="outline" asChild title={t('create.delegateHint')}>
+              <Button size="sm" variant="secondary" asChild title={t('create.delegateHint')}>
                 <Link href={chatHref} data-testid="tasks-delegate">
                   <MessageSquare className="size-4" aria-hidden />
                   {t('create.delegate')}
@@ -482,7 +484,7 @@ export function TasksPanel({
               </Button>
             ) : (
               <span title={tChat('composer.noProjectChatPermission')}>
-                <Button size="sm" variant="outline" disabled data-testid="tasks-delegate">
+                <Button size="sm" variant="secondary" disabled data-testid="tasks-delegate">
                   <MessageSquare className="size-4" aria-hidden />
                   {t('create.delegate')}
                 </Button>
@@ -501,7 +503,7 @@ export function TasksPanel({
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* Liste and Zeitplan read the same tasks: the toggle is a preference
               that rides `?view=`, never a destination. */}
-          <div className="mx-auto w-full max-w-3xl px-4 pt-4 md:px-6">
+          <div className={cn(SECTION_READING_COLUMN, 'pt-4')}>
             <ToggleGroup
               type="single"
               value={view}
@@ -525,8 +527,7 @@ export function TasksPanel({
           </div>
 
           {isTimetableView ? (
-            <div className="usage-viz mx-auto w-full max-w-5xl p-4 md:p-6">
-              <SeriesPaletteStyle />
+            <div className="usage-viz listing-container p-4 md:px-8 md:py-6">
               <ScheduleTimetable
                 schedules={jobs}
                 loading={loading}
@@ -648,7 +649,7 @@ function StandingTasksSection({
 
   return (
     <section
-      className="mx-auto w-full max-w-3xl p-4 pt-2 md:px-6"
+      className={cn(SECTION_READING_COLUMN, 'pb-4 pt-2')}
       aria-label={t('standing.heading')}
     >
       <SectionLabel as="h2" className="mb-2">
@@ -670,7 +671,7 @@ function StandingTasksSection({
           tone="destructive"
           title={tJobs('loadError')}
           action={
-            <Button variant="outline" size="sm" onClick={onRetry}>
+            <Button variant="secondary" size="sm" onClick={onRetry} data-attr="jobs-retry">
               {tJobs('tryAgain')}
             </Button>
           }

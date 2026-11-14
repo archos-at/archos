@@ -49,12 +49,12 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 
-from knowledge_layer.qdrant import import_vectors
-from knowledge_layer.qdrant.import_vectors import Export
-from knowledge_layer.qdrant.import_vectors import InvalidExport
-from knowledge_layer.qdrant.import_vectors import ScopeReport
-from knowledge_layer.qdrant.store import QdrantStore
-from knowledge_layer.qdrant.store import make_client
+from knowledge_layer.vector_store import Export
+from knowledge_layer.vector_store import InvalidExport
+from knowledge_layer.vector_store import QdrantStore
+from knowledge_layer.vector_store import ScopeReport
+from knowledge_layer.vector_store import import_vectors
+from knowledge_layer.vector_store import make_client
 
 logger = logging.getLogger("import_vectors")
 
@@ -77,7 +77,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def _configured_identity() -> dict[str, str]:
     """The embedder this deployment is configured for: the fallback for a collection the export names none for."""
-    from knowledge_layer.llamaindex.embedding import embed_fingerprint_metadata
+    from knowledge_layer.embedding import embed_fingerprint_metadata
 
     return embed_fingerprint_metadata(
         os.environ.get("EMBED_MODEL", "openai/text-embedding-3-large"),

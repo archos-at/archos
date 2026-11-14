@@ -120,8 +120,6 @@ export const bim: typeof en.bim = {
     none: 'Wählen Sie ein Bauteil, um seine Eigenschaften zu sehen.',
     identity: 'Identität',
     globalId: 'GlobalId',
-    copyValue: 'Kopieren: {value}',
-    copied: 'Kopiert',
     ifcType: 'IFC-Typ',
     predefinedType: 'Vordefinierter Typ',
     typeName: 'Bauteiltyp',

@@ -10,6 +10,7 @@ import pytest
 from pydantic import BaseModel
 from pydantic import ValidationError
 
+from agent.common.tool_errors import FAILURE_IS_NOT_A_FACT
 from agent.common.tool_errors import render_error_detail
 from agent.common.tool_errors import render_tool_error
 
@@ -58,8 +59,13 @@ class TestAValidationFailureReadsAsClauses:
 class TestAnyOtherFailureIsItsOwnMessage:
     def test_the_type_and_the_message_are_both_there(self):
         assert render_tool_error(ValueError("kein Dokument dieses Namens")) == (
-            "Error: ValueError: kein Dokument dieses Namens"
+            f"Error: ValueError: kein Dokument dieses Namens. {FAILURE_IS_NOT_A_FACT}"
         )
+
+    def test_a_failure_tells_the_model_it_is_no_fact_for_the_reader(self):
+        """Staging QC F2: a tool's failure reached the answer as prose. It is for the next call, never the reader."""
+        rendered = render_tool_error(RuntimeError("BFF 503"))
+        assert "never repeat this text" in rendered and "keep confidence below high" in rendered
 
     def test_a_pydantic_link_in_the_message_is_dropped(self):
         exc = RuntimeError(
@@ -68,7 +74,7 @@ class TestAnyOtherFailureIsItsOwnMessage:
 
         rendered = render_tool_error(exc)
 
-        assert rendered == "Error: RuntimeError: store rejected the filter"
+        assert rendered == f"Error: RuntimeError: store rejected the filter. {FAILURE_IS_NOT_A_FACT}"
         assert "pydantic.dev" not in rendered
 
 

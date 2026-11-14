@@ -15,7 +15,10 @@
 import { INBOX_ITEM_TYPES, type InboxItemType, type InboxTargetType } from '@/lib/db/schema/inbox'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import type { PushCategory, PushUrgency } from './push-categories'
+import { IN_APP_ONLY, INBOUND_MAIL_TYPE_DEFINITIONS } from './inbound-mail-types'
 import { isMarkAnchored } from './types'
+
+export { appendedGroupAnchor } from './inbound-mail-types'
 
 /**
  * Which product gate a type lives behind.
@@ -134,8 +137,6 @@ export interface InboxPushFold {
   readonly parts: Readonly<Record<string, string>>
 }
 
-const IN_APP_ONLY: InboxEmailDefault = { send: 'never' }
-
 export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> = {
   // A request for your input. Each mention is its own question, so no collapsing,
   // and kept longest: an unanswered request is the most valuable thing here.
@@ -197,6 +198,17 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     actionable: false,
     grouping: 'collapse',
     retentionDays: 60,
+    gate: 'collaboration',
+    email: IN_APP_ONLY,
+    push: { category: 'access', urgency: 'normal' },
+  },
+  // "A project admin took ownership of what you own" (ADR-0032 decision 5).
+  // One row per resource: a second takeover counts up. Kept as long as an
+  // owner may want to ask who did it and when; the audit log keeps it longer.
+  'resource.ownership_taken': {
+    actionable: false,
+    grouping: 'collapse',
+    retentionDays: 180,
     gate: 'collaboration',
     email: IN_APP_ONLY,
     push: { category: 'access', urgency: 'normal' },
@@ -268,8 +280,8 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     An Outlook archive import ended (ADR-0085). The `job.*` shapes, and for the
     same reasons: informational, one row per import (anchored on its folder),
     operational because an office without collaboration imports mail too. A
-    failure is the one worth an email: the person may have closed the tab hours
-    ago, and the archive is gone from staging once it ends.
+    failure would be worth an email (no sender exists yet, `lib/inbox/delivery.ts`):
+    the person may have closed the tab, and the archive leaves staging once it ends.
   */
   'mail_import.completed': {
     actionable: false,
@@ -586,6 +598,7 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: { send: 'if-unread', afterMinutes: 30 },
     push: { category: 'results', urgency: 'normal' },
   },
+  ...INBOUND_MAIL_TYPE_DEFINITIONS,
 }
 
 /**

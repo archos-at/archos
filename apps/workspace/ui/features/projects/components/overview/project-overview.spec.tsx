@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import type { ProjectOverviewData } from '../../types'
 import type { ProjectUsageView } from '../settings/usage-settings'
 import { ProjectOverview } from './project-overview'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }))
 // The lifecycle card and the Steckbrief have their own specs; here only where
@@ -37,8 +38,6 @@ const DATA: ProjectOverviewData = {
   createdAt: '2026-07-01T10:00:00Z',
   profileDisplay: { summary: 'Wohnbau GK4 in Wien.' },
   profile: null,
-  applicableStandards: [],
-  briefComplete: false,
   documentCount: 12,
   totalFileSize: 48_000_000,
   recentDocuments: [
@@ -121,7 +120,7 @@ describe('ProjectOverview', () => {
     const hero = screen.getByTestId('overview-hero')
     expect(within(hero).getByText('Alpine Tower')).toBeInTheDocument()
     expect(within(hero).getByText('Wohnbau GK4 in Wien.')).toBeInTheDocument()
-    expect(within(hero).getByRole('link', { name: /Ask Piloti/ })).toHaveAttribute(
+    expect(within(hero).getByRole('link', { name: new RegExp(String.raw`Ask ${PRODUCT_NAME}`) })).toHaveAttribute(
       'href',
       '/app/projects/p1/chat?new=1'
     )
@@ -162,7 +161,7 @@ describe('ProjectOverview', () => {
         setupProgress={{ status: 'reading', counts: null }}
       />
     )
-    expect(within(hero).getByRole('link', { name: /Continue setup/ })).toHaveTextContent('Piloti is still reading')
+    expect(within(hero).getByRole('link', { name: /Continue setup/ })).toHaveTextContent(`${PRODUCT_NAME} is still reading`)
 
     rerender(<ProjectOverview data={DATA} activity={ACTIVITY} usage={null} access={ADMIN} />)
     expect(within(hero).queryByRole('link', { name: /Continue setup/ })).not.toBeInTheDocument()

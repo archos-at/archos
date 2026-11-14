@@ -24,7 +24,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { settingsCopy } from '@/i18n/namespaces/settings'
-import { SettingsPanel } from './settings/settings-panel'
+import { SettingsPanel } from '@/components/settings/settings-panel'
 
 interface ProjectReindexCardProps {
   projectId: string
@@ -58,7 +58,7 @@ export function ProjectReindexCard({ projectId }: ProjectReindexCardProps): JSX.
         description={t('project.documents.indexDescription')}
         action={
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => setConfirming(true)}
             disabled={isReindexing}

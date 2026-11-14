@@ -23,6 +23,7 @@ import { notFound } from 'next/navigation'
 import { AwaitingBanner } from '@/features/collaboration/components/AwaitingBanner'
 import { I18nProvider } from '@/i18n'
 import type { AwaitingStateResponse, PendingMentionView } from '@/lib/mentions/types'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const person = (userId: string, name: string) => ({
   userId,
@@ -110,9 +111,9 @@ const ME: AwaitingStateResponse = {
 
 const Section = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <section className="flex flex-col gap-2">
-    <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+    <SectionLabel as="h2">
       {label}
-    </h2>
+    </SectionLabel>
     {children}
   </section>
 )
@@ -147,7 +148,7 @@ export default function AwaitingBannerPreviewPage() {
       className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 text-foreground md:p-8"
     >
       <header>
-        <h1 className="text-xl font-semibold tracking-tight">Warten auf eine Antwort</h1>
+        <h1 className="text-xl font-semibold">Warten auf eine Antwort</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Der Assistent hält sich zurück — und sagt, warum.
         </p>

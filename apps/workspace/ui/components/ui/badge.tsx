@@ -8,17 +8,17 @@ import { cn } from '@/lib/utils'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 
 const badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 gap-1 [&>svg]:size-3.5 [&>svg]:pointer-events-none outline-none transition-colors motion-reduce:transition-none overflow-hidden " +
+  "inline-flex items-center justify-center rounded-full border px-2.5 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 gap-1 [&>svg]:size-3.5 [&>svg]:pointer-events-none outline-none transition-colors motion-reduce:transition-none overflow-hidden " +
     FOCUS_RING,
   {
     variants: {
       variant: {
         default: 'border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90',
         secondary:
-          'border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90',
+          'border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-selected',
         destructive:
           'border-transparent bg-destructive text-destructive-foreground [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20',
-        outline: 'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
+        outline: 'text-foreground [a&]:hover:bg-hover [a&]:hover:text-accent-foreground',
         success:
           'border-transparent bg-success-subtle text-success',
         warning:

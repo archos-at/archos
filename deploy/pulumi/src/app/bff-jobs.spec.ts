@@ -5,7 +5,8 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { load } from "js-yaml";
 import { baseStackConfig } from "../test-support/stack-config";
-import { BFF_QUEUE_DEPTH_QUERY } from "./bff-jobs";
+import { WORKFLOW } from "./bff-jobs";
+import { hatchetBacklogQuery } from "./keda-scaling";
 
 // src/app -> src -> deploy/pulumi -> deploy -> repo root
 const repoRoot = join(__dirname, "..", "..", "..", "..");
@@ -55,8 +56,6 @@ function resolve<T>(value: pulumi.Input<T>): Promise<T> {
 
 const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
 const SCALED_OBJECT = "kubernetes:keda.sh/v1alpha1:ScaledObject";
-const TRIGGER_AUTH = "kubernetes:keda.sh/v1alpha1:TriggerAuthentication";
-const NETPOL = "kubernetes:networking.k8s.io/v1:NetworkPolicy";
 
 type ComposeService = {
   extends?: { service: string };
@@ -152,19 +151,25 @@ describe("the bff-jobs pool", () => {
 
     expect(emitted.length).toBeGreaterThan(2);
     expect(emitted.filter((name) => !readByRunner.has(name))).toEqual([]);
-    // What the runner and the BFF in its pod cannot start without.
+    // What the worker and the services in its pod cannot start without.
     const names = env.map((e) => e.name);
-    expect(names).toEqual(expect.arrayContaining(["APP_DATABASE_URL", "INTERNAL_API_TOKEN"]));
+    expect(names).toEqual(expect.arrayContaining(["APP_DATABASE_URL", "HATCHET_CLIENT_TOKEN", "HATCHET_CLIENT_HOST_PORT"]));
   });
 
-  it("runs slices in a spawned BFF unless told otherwise, and refuses a mode the runner does not know", async () => {
-    const { bffJobsMode } = await import("../config");
+  it("carries what the scheduling tasks read: run retention, and Langfuse's API for the trace sweeps", () => {
+    // The names `bff/scheduling/sweeps.ts` reads, and the shared trace client's window.
+    const sweeps = read("apps", "workspace", "bff", "scheduling", "sweeps.ts") + read("apps", "workspace", "workers", "langfuse-traces.js")
+    for (const name of ["SKILL_RUNS_RETENTION_DAYS", "TRACE_RETENTION_DAYS", "LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]) {
+      expect(sweeps).toContain(name);
+    }
+    const names = env.map((e) => e.name);
+    expect(names).toContain("SKILL_RUNS_RETENTION_DAYS");
+    // Once each: the frontend's Langfuse settings are withheld and the API keys added back on their own.
+    expect(names.filter((name) => name === "LANGFUSE_HOST")).toHaveLength(names.includes("TRACE_RETENTION_DAYS") ? 1 : 0);
+  });
 
-    expect(env.find((e) => e.name === "BFF_JOBS_MODE")?.value).toBe("http");
-    expect(bffJobsMode("inprocess")).toBe("inprocess");
-    expect(() => bffJobsMode("in-process")).toThrow(/bffJobsMode/);
-    // The runner's own list of modes is the one this mirrors.
-    expect(read("apps", "workspace", "workers", "jobs", "index.js")).toMatch(/const MODES = .*\['http', 'inprocess'\]/);
+  it("sets no host mode: the pod runs the Hatchet worker in process, always (ADR-0150)", () => {
+    expect(env.find((e) => e.name === "BFF_JOBS_MODE")).toBeUndefined();
   });
 
   it("carries the Web Push key pair and contact: this pool is the one that sends (ADR-0112)", async () => {
@@ -189,28 +194,13 @@ describe("the bff-jobs pool", () => {
     expect(env.find((e) => e.name === "SHUTDOWN_DRAIN_MS")?.value).toBe("5000");
   });
 
-  it("scales on the table the queue is written to, leaving dead rows out", () => {
-    const migration = read("apps", "workspace", "migrations", "0104_bff_job_queue.sql");
-    const table = migration.match(/CREATE TABLE IF NOT EXISTS "([a-z_]+)"/)?.[1];
-
-    expect(table).toBe("bff_job_queue");
-    expect(read("apps", "workspace", "workers", "job-queue.js")).toContain(`FROM ${table}`);
-    // The retired set is shared by every tier, so `cancelled` is named here too.
-    // This queue never writes it, and the clause is true on either status.
-    expect(BFF_QUEUE_DEPTH_QUERY).toBe(
-      `SELECT COUNT(*) FROM ${table} WHERE status NOT IN ('dead', 'cancelled')`,
-    );
-    // The status this queue does retire on is one the schema allows.
-    expect(migration).toMatch(/"status" IN \('queued', 'claimed', 'dead'\)/);
-  });
-
-  it("asks KEDA for one replica per `concurrency` open jobs, within the configured bounds", async () => {
+  it("asks KEDA for one replica per `concurrency` open `bff-job` runs, within the configured bounds", async () => {
     const spec = await resolve(find(SCALED_OBJECT, "bff-jobs").inputs.spec);
 
     expect(spec.triggers).toHaveLength(1);
     expect(spec.triggers[0].type).toBe("postgresql");
     expect(spec.triggers[0].metadata).toMatchObject({
-      query: BFF_QUEUE_DEPTH_QUERY,
+      query: hatchetBacklogQuery("test", WORKFLOW),
       targetQueryValue: String(concurrency),
       activationTargetQueryValue: "0",
     });
@@ -222,43 +212,15 @@ describe("the bff-jobs pool", () => {
     });
   });
 
-  it("gives KEDA the read-only scaler's DSN, from the scaler's own Secret, built for KEDA's namespace", async () => {
-    const auth = await resolve(find(TRIGGER_AUTH, "bff-jobs-queue-auth").inputs.spec);
-    const { buildScalerSecret, SCALER_SECRET_NAME } = await import("./config");
-    const { loadConfig } = await import("../config");
-    const requests: Array<Record<string, any>> = [];
-    buildScalerSecret({
-      cfg: loadConfig(),
-      namespace: "grid",
-      provider: new k8s.Provider("test-scaler", { kubeconfig: "apiVersion: v1" }),
-      dsn: (opts: Record<string, any>) => {
-        requests.push(opts);
-        return pulumi.output(`postgresql://x/${opts.db}`);
-      },
-    } as never);
-
-    // The operator runs in `keda`; a bare `grid-pg-rw` resolves there to
-    // nothing, the scaler errors on every poll, and the pool never scales out.
-    expect(auth.secretTargetRef).toEqual([
-      { parameter: "connection", name: SCALER_SECRET_NAME, key: "KEDA_BFF_QUEUE_DB_URL" },
-    ]);
-    // Not the schema owner: the read-only login `queue-scaler-grants.ts` grants.
-    expect(requests).toContainEqual(
-      expect.objectContaining({ db: "app", clusterWide: true, as: expect.objectContaining({ user: "keda_scaler" }) }),
-    );
-    expect(requests.every((r) => r.as?.user === "keda_scaler" && r.clusterWide === true)).toBe(true);
-  });
-
-  it("lets KEDA reach Postgres even when the ingest tier is off", async () => {
-    // The ingest tier is off here: this policy is only there for the bff-jobs pool.
-    const pol = await resolve(find(NETPOL, "allow-keda-to-postgres").inputs.spec);
-
-    expect(pol.policyTypes).toEqual(["Ingress"]);
-    expect(pol.ingress[0].ports).toEqual([{ protocol: "TCP", port: 5432 }]);
+  it("counts its backlog through the TriggerAuthentication every worker tier shares", async () => {
+    const spec = await resolve(find(SCALED_OBJECT, "bff-jobs").inputs.spec);
+    expect(WORKFLOW).toBe("bff-job");
+    expect(spec.triggers[0].authenticationRef.name).toBe("hatchet-queue-auth");
+    expect(RESOURCES.find((r) => r.name === "bff-jobs-queue-auth")).toBeUndefined();
   });
 
   it("matches the Compose services: same command, nothing published", () => {
-    for (const file of ["docker-compose.yaml", "docker-compose.coolify.yaml"]) {
+    for (const file of ["docker-compose.yaml"]) {
       const services = composeServices(file);
       const svc = services["bff-jobs"];
       expect(svc, file).toBeDefined();
@@ -266,20 +228,28 @@ describe("the bff-jobs pool", () => {
       // Internal only: a published port would put the pod's BFF on the host.
       expect(svc.ports, file).toBeUndefined();
     }
-    // The dev file shares the frontend's environment by alias, so the two
-    // cannot disagree; the Coolify one inherits it. Either way it is the
-    // frontend's, in full, because a job calls the same services a route does.
+    // The file shares the frontend's environment by alias, so the two cannot
+    // disagree: it is the frontend's, in full, because a job calls the same
+    // services a route does.
     const dev = composeServices("docker-compose.yaml");
     expect(dev["bff-jobs"].environment).toEqual(dev.frontend.environment);
-    expect(composeServices("docker-compose.coolify.yaml")["bff-jobs"].extends).toEqual({ service: "frontend" });
   });
 
-  it("sets its knobs per stack: a floor of zero in dev, a pool in prod", () => {
+  it("sets its knobs per stack: a floor of one in both, a pool in prod", () => {
     const prod = read("deploy", "pulumi", "Pulumi.prod.yaml");
     const dev = read("deploy", "pulumi", "Pulumi.dev.yaml");
 
     expect(prod).toMatch(/grid-oib:bffJobsMinReplicas: "1"/);
     expect(prod).toMatch(/grid-oib:bffJobsMaxReplicas: "4"/);
-    expect(dev).toMatch(/grid-oib:bffJobsMinReplicas: "0"/);
+    expect(dev).toMatch(/grid-oib:bffJobsMinReplicas: "1"/);
+  });
+
+  it("refuses a plan with no replica to run the scheduling crons on", async () => {
+    // KEDA wakes the pool for `bff-job` runs only; a cron adds nothing to that
+    // backlog, so at zero replicas no automation fires and no sweep prunes.
+    const { assertBffJobsRunsSchedules } = await import("../config/workers");
+    expect(() => assertBffJobsRunsSchedules(true, 1)).not.toThrow();
+    expect(() => assertBffJobsRunsSchedules(true, 0)).toThrow(/bffJobsMinReplicas must be at least 1.*scheduled automations/);
+    expect(() => assertBffJobsRunsSchedules(false, 1)).toThrow(/bffJobsEnabled=false is refused.*maintenance sweeps/);
   });
 });

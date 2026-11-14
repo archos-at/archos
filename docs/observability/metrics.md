@@ -36,8 +36,9 @@ collector, so nothing is exported there and every meter is a no-op.
 
 | Metric | Attributes | From |
 |---|---|---|
-| `grid.queue.depth` | `queue`, `status` | Every claim queue: `ingest` (`common/claim_queue.py`), `research` (`agent_host/jobs/queue.py`) and `bff` (`workers/jobs/queue-metrics.js`). Read from the table by every replica, so chart it with `max` |
+| `grid.queue.depth` | `queue`, `status` | Every claim queue: `ingest` (`common/claim_queue.py`). Research and the BFF's jobs run on Hatchet (ADR-0150) and report their queues in Hatchet's own dashboard. Read from the table by every replica, so chart it with `max` |
 | `grid.queue.oldest_age_seconds` | `queue` | The same queues; `max` as well. Absent while nothing is queued |
+| `knowledge_context.unavailable` | none | The BFF, once per chat turn whose knowledge context could not be read (ADR-0173); since ADR-0175 every turn reads one, and such a turn withholds retrieval, law lookup and classification. Not counted: a failed read of an operation (`project-base-get`, `-confirm`, `classification-evaluate`), of a page (the intake's Steckbrief and its derivations, `project-profile-get`, every few seconds while open) or of a background run; each answers or carries `knowledge_unavailable` instead of an error and logs `knowledge_context_page_read=false`, never the alert's line. Any count is the `knowledge_context_available` alert's condition, a row for the Anwendung area |
 | `grid.queue.claim_latency_ms` | `queue` | One claim round trip |
 | `grid.queue.job_duration_seconds` | `queue`, `kind` | One claimed job, to its end or its give-back |
 | `grid.queue.dead_total` | `queue` | Jobs moved to dead |
@@ -48,7 +49,7 @@ collector, so nothing is exported there and every meter is a no-op.
 | `grid.boot.phase_seconds` | `role`, `phase` | How long a backend role took to become useful, by phase (`observability/boot_timing.py`, ADR-0082) |
 | `http.server.request.duration` | `http.request.method`, `http.response.status_code`, `grid.route.class` (`api`, `page`, `static`, `health`) | Every request the BFF gateway answers (`observability/http-metrics.js`) |
 | `grid.http.requests_in_flight`, `grid.http.request_seconds` | `role` (`chat`, `api`), `kind` (`request`, `stream`) | Every HTTP request the Python web roles hold (`agent_host/inflight.py`): what the api tier would scale on |
-| `nodejs.eventloop.delay.p99` | | Every Node process: the BFF, bff-jobs, the scheduler, the purger |
+| `nodejs.eventloop.delay.p99` | | Every Node process: the BFF, bff-jobs, the purger |
 | `process.memory.usage` | `process.memory.type` (`rss`, `heap_used`) | The same |
 
 ### The cluster
@@ -144,7 +145,7 @@ threshold changes in both.
 | Hintergrundjobs ([`cc8ZCJlX`](https://eu.posthog.com/project/269895/insights/cc8ZCJlX)) | A queue's oldest job waiting 30+ min for 15 min; any job moved to dead; any KEDA ScaledObject error (a trigger it cannot read); an HPA pinned at its maximum for 30 min |
 | Datenbanken ([`66kuIQ3u`](https://eu.posthog.com/project/269895/insights/66kuIQ3u)) | A Postgres exporter reporting down; a replica 60+ s behind for 15 min; PgBouncer clients waiting for 15 min; a Qdrant peer down for 15 min; the rate-limit or Langfuse Dragonfly over 90% of its memory (the cache evicts by design); the Langfuse queue evicting anything (lost traces) |
 | Anwendung ([`Z7X5CRIF`](https://eu.posthog.com/project/269895/insights/Z7X5CRIF)) | The BFF answering 5%+ with 5xx over an hour of 200+ requests; a Node event loop's p99 delay above 0.5 s for 15 min; 30+ provider 429s in an hour |
-| Telemetrie ([`CFVybMF0`](https://eu.posthog.com/project/269895/insights/CFVybMF0)) | No metric labelled `prod` from `grid-ui`, `grid-skill-scheduler` or `grid-purger` in 20 min; one of them silent for 20 min after it had sent; cluster state silent for 20 min; a node the cluster lists whose agent is silent |
+| Telemetrie ([`CFVybMF0`](https://eu.posthog.com/project/269895/insights/CFVybMF0)) | No metric labelled `prod` from `grid-ui`, `grid-bff-jobs` or `grid-purger` in 20 min; one of them silent for 20 min after it had sent; cluster state silent for 20 min; a node the cluster lists whose agent is silent |
 
 Telemetrie is the area that reads silence as a failure. The others read a
 missing metric as healthy, so without it an exporter that died would look like

@@ -16,9 +16,10 @@ import 'server-only'
  */
 
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { type ActingReader, runAsActingSession } from './acting-session'
+import { type ActingOrigin, type ActingReader, runAsActingSession } from './acting-session'
 import { fieldDescription } from './field-description'
-import { type AgentOperation, pathParams, withInputDefaults } from './operation'
+import { IDEMPOTENCY_HEADER, IDEMPOTENCY_KEY_PATTERN, oncePerKey } from './door-idempotency'
+import { type AgentOperation, annotationsOf, pathParams, withInputDefaults } from './operation'
 import { type UploadBody, decodeBase64 } from './upload-wire'
 
 /** Where a dispatched request appears to come from. Never resolved; routes only parse it. */
@@ -37,6 +38,11 @@ export interface OperationInput {
    * operation carries; everything else a route reads from the session or the body.
    */
   readonly ifMatch?: string
+  /**
+   * Sent as `Idempotency-Key` (ADR-0170): the same key and input again answer
+   * the first result and change nothing (`door-idempotency.ts`).
+   */
+  readonly idempotencyKey?: string
 }
 
 /**
@@ -99,6 +105,8 @@ export interface OperationResult {
   readonly ok: boolean
   /** Parsed JSON, the text of a text response, a {@link BinaryBody} or a {@link RedirectBody}. */
   readonly body: unknown
+  /** The door answered a repeated `idempotencyKey` with the first call's result; nothing ran again. */
+  readonly replayed?: true
 }
 
 export class OperationInputError extends Error {
@@ -290,11 +298,16 @@ export function validateOperationInput(op: AgentOperation, given: OperationInput
       `${op.name} takes no top-level ifMatch; when its body schema has an ifMatch field, send the version there`,
     )
   }
+  const idempotencyKey = typeof input.idempotencyKey === 'string' ? input.idempotencyKey : undefined
+  if (idempotencyKey !== undefined && !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
+    throw new OperationInputError(`${op.name}: idempotencyKey must be 1 to 255 visible ASCII characters`)
+  }
   return {
     ...(input.params === undefined ? {} : { params: input.params }),
     ...(input.query === undefined ? {} : { query: input.query }),
     ...(input.body === undefined ? {} : { body: input.body }),
     ...(ifMatch === undefined ? {} : { ifMatch }),
+    ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
   }
 }
 
@@ -315,6 +328,7 @@ export function formDataOf(body: UploadBody): FormData {
 function requestInit(op: AgentOperation, input: OperationInput): Pick<RequestInit, 'headers' | 'body'> {
   const headers: Record<string, string> = {}
   if (input.ifMatch) headers['if-match'] = input.ifMatch
+  if (input.idempotencyKey) headers[IDEMPOTENCY_HEADER.toLowerCase()] = input.idempotencyKey
   if (op.method === 'GET' || input.body === undefined) return { headers }
   if (op.bodyEncoding === 'multipart') {
     // No content-type: `Request` adds `multipart/form-data` with its boundary.
@@ -336,13 +350,15 @@ function requestInit(op: AgentOperation, input: OperationInput): Pick<RequestIni
  * Call `op` as `session`. Route refusals come back as a result with their
  * status and the route's error envelope, exactly as the browser sees them;
  * only input the operation cannot even address throws. `reader` says who reads
- * what the route words: an agent (English) or the person applying a proposal.
+ * what the route words: an agent (English) or the person applying a proposal;
+ * `origin` names the proposal that application applies (`actingProposalId`).
  */
 export async function callOperation(
   op: AgentOperation,
   input: OperationInput,
   session: AuthorizedSession,
   reader: ActingReader = 'person',
+  origin: ActingOrigin = {},
 ): Promise<OperationResult> {
   const checked = validateOperationInput(op, input)
   const url = new URL(resolvePath(op, checked.params), DISPATCH_ORIGIN)
@@ -354,14 +370,17 @@ export async function callOperation(
   const handler = routeModule[op.method]
   if (!handler) throw new Error(`${op.path} exports no ${op.method} handler`)
 
-  const response = await runAsActingSession(
-    session,
-    () => handler(request, { params: Promise.resolve(checked.params ?? {}) }),
-    reader,
-  )
-  const body = await readResponseBody(response)
-  // A redirect is an answer (the link), not a failure, though `Response.ok` is false for it.
-  return { status: response.status, ok: response.ok || isRedirectBody(body), body }
+  return oncePerKey(op, checked, session, annotationsOf(op).readOnlyHint, async () => {
+    const response = await runAsActingSession(
+      session,
+      () => handler(request, { params: Promise.resolve(checked.params ?? {}) }),
+      reader,
+      origin,
+    )
+    const body = await readResponseBody(response)
+    // A redirect is an answer (the link), not a failure, though `Response.ok` is false for it.
+    return { status: response.status, ok: response.ok || isRedirectBody(body), body }
+  })
 }
 
 /** @deprecated The old name; it validates and returns the original input. Use {@link validateOperationInput}. */

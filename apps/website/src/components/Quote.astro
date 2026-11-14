@@ -1,0 +1,76 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import { PHOTO_QUALITY, PHOTO_WIDTHS, SIZES } from '../lib/media';
+
+/** A photo credit: what the photo shows, who holds the rights, then links to them, side by side, each opening in a new tab. */
+export interface PhotoCredit {
+  subject?: string;
+  holder: string;
+  links?: { text: string; href: string }[];
+}
+
+interface Props {
+  quote: string;
+  name: string;
+  role?: string;
+  office?: string;
+  /** Photo (from `src/lib/media.ts`) to the right: a 4:5 portrait, portrait-width wide, or with `wide` a landscape photo in its own proportions */
+  portrait?: ImageMetadata;
+  portraitAlt?: string;
+  /** The photo keeps its own proportions and takes 7 of 12 columns: for a group photo a 4:5 crop would cut people off */
+  wide?: boolean;
+  /** Photo credit, set in `caption` under the photo */
+  credit?: PhotoCredit;
+  class?: string;
+}
+
+const { quote, name, role, office, portrait, portraitAlt = '', wide = false, credit, class: className } = Astro.props;
+const meta = [role, office].filter(Boolean).join(', ');
+---
+
+{
+  portrait ? (
+    <div data-reveal="parts" class:list={['ui-quote-wrap', wide && 'ui-quote-wrap--wide', className]}>
+      <figure class="ui-quote">
+        <blockquote>
+          <p class="ui-quote-text heading-2">{quote}</p>
+        </blockquote>
+        <figcaption class="ui-quote-cite small">
+          <span class="ui-quote-name">{name}</span>
+          {meta && ` · ${meta}`}
+        </figcaption>
+      </figure>
+      <figure class="ui-quote-portrait">
+        <Image
+          src={portrait}
+          widths={PHOTO_WIDTHS}
+          sizes={wide ? SIZES.quoteWide : SIZES.portrait}
+          quality={PHOTO_QUALITY}
+          alt={portraitAlt}
+        />
+        {credit && (
+          <figcaption class="ui-quote-credit caption">
+            {credit.subject && <span class="ui-quote-credit-holder">{credit.subject}</span>}
+            <span class="ui-quote-credit-holder">{credit.holder}</span>
+            {credit.links?.map((link) => (
+              <a href={link.href} target="_blank" rel="noopener noreferrer">{link.text}</a>
+            ))}
+          </figcaption>
+        )}
+      </figure>
+    </div>
+  ) : (
+    <div class={className}>
+      <figure class="ui-quote">
+        <blockquote>
+          <p class="ui-quote-text heading-2">{quote}</p>
+        </blockquote>
+        <figcaption class="ui-quote-cite small">
+          <span class="ui-quote-name">{name}</span>
+          {meta && ` · ${meta}`}
+        </figcaption>
+      </figure>
+    </div>
+  )
+}

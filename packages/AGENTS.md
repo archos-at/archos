@@ -1,58 +1,59 @@
 # Libraries: `packages/`
 
-Two families live here: the standalone IFC packages, outside every workspace,
-and the Python packages of the root uv workspace ([below](#the-python-packages-agent-knowledge-layer-ris-adapter-tavily-web-search)).
-`brand/` is neither: the Piloti mark (`mark.svg`) and the script that renders
-it into both apps (`build-brand-assets.mjs`, which borrows `apps/site`'s sharp).
-It has no suite here: the site's `npm run check` runs its `--check` form, so
-the site tier checks it, not the `packages` job. The frontend tier fires on it
-too, because the script writes the app's icons.
+Two families live here: the standalone IFC engine, outside every workspace,
+and the Python packages of the root uv workspace ([below](#the-python-packages-agent-knowledge-layer-public-sources-ris-adapter-tavily-web-search)).
+`brand/` is neither: the shared corporate design. `tokens.json` is the source;
+`build-tokens.mjs` renders `dist/`, and `sync.mjs` writes committed copies into
+`apps/website` and `apps/workspace`, each only its layer: a token with `"scope": "app"`
+reaches the workspace only (`--check` fails on drift and on a file a copy should not hold).
+It also writes `identity.json` into `agent/src/agent/common/` and the product's name into
+the few literal copies `name-copies.mjs` lists (ADR-0149).
+The brand rules a machine can hold run in `scripts/check_brand_rules.mjs`. Brand strings live
+in `identity.json` only, the React components in `react/`, AuthKit's stylesheet in
+`authkit/authkit.css` (pasted into WorkOS branding per environment). `mark.svg` and
+`build-brand-assets.mjs` render the icons into both apps, borrowing `apps/website`'s
+sharp; `email-signatures.mjs` writes the founders' signatures from `identity.json`; `art/riso/`
+is the riso print kit whose committed outputs are the app's vignettes. Its README holds the design rules.
 
-## The IFC packages
+## The IFC engine
 
-Two implementations of the same spatial surface over IFC: `ifc-spatial`
-(TypeScript, MPL-2.0, also an MCP server) and `ifc-spatial-py` (a spike on
-IfcOpenShell). The agent reaches them through
-`agent/knowledge/ifc_spatial_client.py` (ADR-0045).
+`ifc-spatial-py`, the spatial engine over IFC on IfcOpenShell, is the one
+engine. The agent reaches it through `agent/knowledge/ifc_spatial_client.py`
+(ADR-0045). A TypeScript twin, `ifc-spatial`, was deleted on 2026-11-04: it
+answered nothing in the product and only cross-checked this one, and two
+engines are two definitions of every operator. The reference numbers it produced
+stay in `ifc-spatial-py/tests/test_parity.py` as frozen regressions, and its
+fixtures live in `ifc-spatial-py/tests/fixtures/`.
 
 ### The gate, and why it is not in `task verify`
 
-Both suites run in CI, behind a `packages/ifc-spatial*/**` paths filter: the `packages` job
-in [`ci.yml`](../.github/workflows/ci.yml), which `CI OK` requires. It is its
-own job because both packages sit outside their neighbouring workspace —
-`ifc-spatial` has its own `bun.lock` (not the UI's bun workspace),
-`ifc-spatial-py` its own `uv.lock` (not the root uv workspace) — so neither
-tier's install can run them.
+The suite runs in CI behind a `packages/ifc-spatial-py/**` paths filter: the
+`packages` job in [`ci.yml`](../.github/workflows/ci.yml), which `CI OK`
+requires. It is its own job because the package sits outside the root uv
+workspace (its own `uv.lock`), so the backend tier's install cannot run it.
 
 ```bash
-task pkg:install    # both toolchains; `task setup` now does this too
-task pkg:test       # both suites
-task pkg:test:ts    # ifc-spatial: 194 tests + BOTH tsconfigs, ~10s
-task pkg:test:py    # ifc-spatial-py: 636 tests, 1m40s on four workers, measured 2026-10-22
+task pkg:install    # its toolchain; `task setup` does this too
+task pkg:test       # its suite (pkg:test:py), 1m40s on four workers, measured 2026-10-22
 ```
 
-`task verify` does **not** run them, and the Python suite's four minutes is the
-whole reason: it is a per-commit tax on a directory most changes never touch,
-and CI already pays it on the commits that earn it. Run `task pkg:test`
-yourself when you change `packages/` — the same discipline `task db:test:rls`
-asks for at the tenant boundary. A change here is unverified until you have
-pasted that output.
+`task verify` does **not** run it, and the four minutes are the whole reason:
+it is a per-commit tax on a directory most changes never touch, and CI already
+pays it on the commits that earn it. Run `task pkg:test` yourself when you
+change `packages/ifc-spatial-py` — the same discipline `task db:test:rls` asks
+for at the tenant boundary. A change here is unverified until you have pasted
+that output.
 
 `--all-extras`, not `--extra dev`: `pytest` is the `dev` extra, and the suite
 also collects `test_ids_export.py`, which needs `ifctester` from the `ids`
 extra. Plain `uv run pytest` installs neither.
 
-Adding another IFC-style package means adding it to `pkg:test` in `Taskfile.yml`
-and its path to the `packages` filter in `.github/filters.yml`.
-
 ### Obligations
 
 | When you | You must | What fails you |
 |---|---|---|
-| Change an operator | Keep the two implementations' answer contracts identical | The agent gets a different number depending on which engine answered, with nothing to detect it |
 | Return a measurement | Carry the provenance: GlobalIds, the operator expression, an absolute tolerance | A measurement without provenance is a number the agent cannot defend, and it is not a citable source |
 | Add a geometry dependency | Check the version floor comment in `ifc-spatial-py/pyproject.toml` first | The `shapely>=2.1` floor is there for the *test suite's* GEOS cross-checks, not for the operators. Leave it where it is |
-| Edit `ifc-spatial` | Keep the MPL-2.0 headers and `NOTICE` intact | It is separately licensed from the rest of the repo |
 
 ### Reference
 
@@ -60,7 +61,7 @@ and its path to the `packages` filter in `.github/filters.yml`.
 - `ifc-spatial-py/COVERAGE.md` and `CORPUS.md` record what the spike actually
   covers, which is less than the operator list suggests.
 
-## The Python packages: `agent`, `knowledge-layer`, `ris-adapter`, `tavily-web-search`
+## The Python packages: `agent`, `knowledge-layer`, `public-sources`, `ris-adapter`, `tavily-web-search`
 
 `agent` (the agent itself, `packages/agent/src/agent`, distribution `agent`) moved
 here from `src/` in ADR-0145 row 8. Its suite is `packages/agent/tests`, and it runs in the
@@ -70,9 +71,13 @@ core suite (`be:test`, with the coverage gate) beside `tests/`, not in `be:test:
 
 `knowledge-layer` (ingestion and retrieval, the library the agent is built on),
 `ris-adapter` (the RIS legal adapter) and `tavily-web-search` (web search), all
-agent-runtime plugins. Each is its own uv workspace member with its own `pyproject.toml`
+agent-runtime plugins, and `public-sources` (legal and geodata sources as
+configured records over protocol access types and format engines, ADR-0162;
+a library and the sandboxed fetcher, no plugin). A new country's source is a
+record under `configs/sources/`, not a package: see its
+[`README.md`](public-sources/README.md). Each is its own uv workspace member with its own `pyproject.toml`
 and tests, installed into the shared venv. They moved here from `sources/` in
-ADR-0145 row 6.
+ADR-0145 row 6 (`public-sources` was born here).
 
 ### Running these tests
 
@@ -101,10 +106,15 @@ hyphenated `packages/<distribution>/` has no dotted path to import by. A conftes
 The run is parallel (`-n logical --dist loadfile`), so a test may not write
 into the repository or share any other state with a test in another file:
 `test_qdrant_import_boundary.py` plants its offenders under `tmp_path` for that
-reason. A collection costs 62 payload indexes to make (over four seconds), so
+reason. A collection costs one payload index per indexed field (70 in November 2026, over four seconds) to make, so
 `qdrant_store` gives a test module one pair it shares, emptied after each test,
 and drops it when a test changed more than its points; a test of how a
-collection comes to be asks for `fresh_qdrant_store`. A test asserts what OUR
+collection comes to be asks for `fresh_qdrant_store`. It also costs about
+300 MiB of storage while it exists, empty (two 1 MiB null-flag files per index
+and segment), and CI keeps that storage on a tmpfs of half the runner's memory,
+so a process holds one module's pair at a time: the first test of the next
+module deletes it (`test_vector_store_test_pairs.py`). A fixture that keeps
+collections past its module fills that tmpfs at about 27 collections. A test asserts what OUR
 code sends and gets back, not what Qdrant does on its own: a check that only a
 Qdrant upgrade could fail is not one of ours. A run without
 `QDRANT_TEST_URL` skips them; `qdrant` (the release binary) on port 6333 is
@@ -121,10 +131,11 @@ changed, and they stayed green through every gate because nothing ran them.
 |---|---|---|
 | Add a Python package | Put it at `packages/<distribution>/`, list it in the three places above, then run `uv sync --group dev` | `tests/test_python_packages.py`; unlisted, it is a directory nothing installs or tests |
 | Register a function | `@register_function` with a `FunctionBaseConfig` subclass, plus a `nat.plugins` entry point in the **package's own** `pyproject.toml` | The runtime never discovers it |
+| Use `knowledge_layer.ingest`, `.search`, `.read_passage`, `.browse`, `.estate` or `.vector_store` from outside it | Import the name from the package (its `_LAZY` surface), patch the module object rather than a dotted string, and put a name outside code needs into the surface ([the rule](../docs/contributing/code-conventions.md#a-package-is-imported-by-its-surface)) | The `package-surfaces` hook (`scripts/check_package_surfaces.py`), a ratchet on `ci/package_surface_baseline.json` |
 | Make it toggleable in the UI | Add it to the `data_sources` registry in `configs/config_oib_openrouter.yml` (the entry shape is `DataSourceEntry` in `agent/common/data_source_registry.py`) | The tool works and no user can turn it on |
 | Add a third-party API | Read the key from config, never from a module-level `os.environ` at import | The plugin fails to import on a deployment that does not use it, taking unrelated tools with it |
 | Return retrieved text | Return passages a citation can resolve to and be verified against | An unverifiable "source" launders an ungrounded claim. See `agent/common/source_kinds.py` |
-| Return EVIDENCE the answer may cite | Build `GroundingHit` records and call `render_grounding_block` (`agent/common/grounding_block.py`, ADR-0061). Never write `Source:` / `Citation:` / `Relevance Score:` lines yourself | Nothing local, and the reader quietly loses the fields you meant to state. The renderer files the records under the bytes it returns, and `extract_sources_from_tool_result` reads them back; text it did not render falls to the regex parser, which recovers less than you stated |
+| Return EVIDENCE the answer may cite | Build `GroundingHit` records and call `render_grounding_block` (`agent/common/grounding_block.py`, ADR-0061). Never write `Source:` / `Citation:` / `Relevance Score:` lines yourself, and never put a body outside the renderer's `<document_content>` fence (`agent/common/passage_fence.py`): it is what keeps an instruction inside a document or a filed mail from reading as one. A trailer that prints a document's own lines (grep's lines index) goes through `fence()` too, and code that splits rendered text on `--- Result N ---` or `## Trace-Lanes` finds them with `passage_fence.unfenced`, or a body spelling them forges a hit | Nothing local, and the reader quietly loses the fields you meant to state. The renderer files the records under the bytes it returns, and `extract_sources_from_tool_result` reads them back; text it did not render falls to the regex parser, which recovers less than you stated |
 
 ### Reference
 

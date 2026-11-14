@@ -19,8 +19,22 @@ vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn().mockResolvedValu
 vi.mock('./repository', () => ({ findDocumentInOrg: vi.fn(), findRevisionCounterparts: vi.fn() }))
 vi.mock('./reconcile-status', () => ({ readRevisionLinkNames: vi.fn(), refreshCollectionFiles: vi.fn() }))
 vi.mock('./version-repository', () => ({ findPublishedVersion: vi.fn(), findPreviousVersion: vi.fn() }))
-vi.mock('@/lib/revision-notice/queue', () => ({ queueRevisionNotice: vi.fn().mockResolvedValue(true) }))
+vi.mock('@/lib/revision-notice/queue', () => ({ planRevisionNotice: vi.fn(), insertRevisionNotice: vi.fn() }))
+vi.mock('@/lib/db/tenant-context', () => ({ withTenant: (_scope: unknown, fn: () => unknown) => fn() }))
+// A transaction that keeps what its callback wrote only when the callback returns.
+const committedClaims: string[] = []
+vi.mock('@/lib/db', () => ({
+  getDb: () => ({
+    transaction: async (fn: (tx: { writes: string[] }) => Promise<unknown>) => {
+      const tx = { writes: [] as string[] }
+      const result = await fn(tx)
+      committedClaims.push(...tx.writes)
+      return result
+    },
+  }),
+}))
 vi.mock('@/lib/document-check/queue', () => ({ queueDocumentCheck: vi.fn().mockResolvedValue(true) }))
+vi.mock('@/lib/upload-batches/repository', () => ({ findBatchSettleEffects: vi.fn() }))
 vi.mock('./revision-announcement-repository', () => ({
   claimRevisionAnnouncement: vi.fn(),
   releaseRevisionAnnouncement: vi.fn(),
@@ -35,7 +49,9 @@ import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import type { DirectoryPerson } from '@/lib/sharing/types'
 import { emitInboxItems } from '@/lib/inbox/service'
 import { queueDocumentCheck } from '@/lib/document-check/queue'
-import { queueRevisionNotice } from '@/lib/revision-notice/queue'
+import { insertRevisionNotice, planRevisionNotice, type RevisionNoticeJob } from '@/lib/revision-notice/queue'
+import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
+import { findBatchSettleEffects } from '@/lib/upload-batches/repository'
 import { SCREENED_ONLY } from './document-reader'
 import { claimRevisionAnnouncement, releaseRevisionAnnouncement } from './revision-announcement-repository'
 import {
@@ -140,11 +156,23 @@ beforeEach(() => {
   vi.mocked(refreshCollectionFiles).mockResolvedValue(undefined)
   vi.mocked(findRevisionCounterparts).mockReset()
   vi.mocked(findRevisionCounterparts).mockResolvedValue([])
+  committedClaims.length = 0
   vi.mocked(claimRevisionAnnouncement).mockReset()
-  vi.mocked(claimRevisionAnnouncement).mockResolvedValue(true)
+  vi.mocked(claimRevisionAnnouncement).mockImplementation(async (_key, tx) => {
+    ;(tx as unknown as { writes: string[] }).writes.push('claim')
+    return true
+  })
+  vi.mocked(planRevisionNotice).mockReset()
+  vi.mocked(planRevisionNotice).mockResolvedValue(NOTICE_JOB)
+  vi.mocked(insertRevisionNotice).mockReset()
+  vi.mocked(insertRevisionNotice).mockResolvedValue(true)
   vi.mocked(releaseRevisionAnnouncement).mockReset()
   vi.mocked(releaseRevisionAnnouncement).mockResolvedValue(undefined)
+  vi.mocked(findBatchSettleEffects).mockReset()
+  vi.mocked(findBatchSettleEffects).mockResolvedValue(new Map())
 })
+
+const NOTICE_JOB: RevisionNoticeJob = { kind: 'revision_notice', organizationId: 'org-1', priority: BFF_JOB_PRIORITY.bulk, jobId: 'n1', payload: {} }
 
 describe('revisionRecipients', () => {
   it('is the assignees and the uploaders, once each, without the person who made the change', () => {
@@ -155,6 +183,18 @@ describe('revisionRecipients', () => {
         actorUserId: 'editor',
       }),
     ).toEqual(['anna', 'bernd', 'carla'])
+  })
+
+  it('keeps only the mark participants for `marks_only`, still without the actor', () => {
+    expect(
+      revisionRecipients({
+        assigneeIds: ['anna'],
+        uploaderIds: ['carla'],
+        participantIds: ['marker', 'anna', 'editor'],
+        actorUserId: 'editor',
+        audience: 'marks_only',
+      }),
+    ).toEqual(['marker', 'anna'])
   })
 
   it('tells everyone when no person made the change', () => {
@@ -451,6 +491,31 @@ describe('notifyNewRevision — the people working on its marks', () => {
 
     expect(emitted()[0].payload).not.toHaveProperty('openMarks')
   })
+
+  // Migration 0195: the next Fassung of an E-Mail-Verlauf is news only to the
+  // people whose open mark it leaves behind.
+  it('reaches only the mark participants for `marks_only`: not the assignees, not the uploaders', async () => {
+    assignedTo('anna')
+    vi.mocked(listDocumentAnnotations).mockResolvedValue([
+      openMark({ id: 'm1', createdBy: 'author', assigneeUserId: 'zustaendig', revisionNumber: 2, versionId: 'v2' }),
+    ])
+
+    await notifyNewRevision({ ...sameName, previousUploaderIds: ['first-uploader'], audience: 'marks_only' })
+
+    const items = emitted()
+    expect(items.map((item) => item.recipientUserId).sort()).toEqual(['author', 'zustaendig'])
+    expect(items[0].payload).toMatchObject({ variant: 'mark', openMarks: 1, marksRevision: 2 })
+    expect(listAssignmentsForResources).not.toHaveBeenCalled()
+  })
+
+  it('tells nobody for `marks_only` when no mark is open, and still claims the Fassung once', async () => {
+    assignedTo('anna')
+
+    expect(await notifyNewRevision({ ...sameName, audience: 'marks_only' })).toBe(0)
+    expect(emitInboxItems).not.toHaveBeenCalled()
+    expect(claimRevisionAnnouncement).toHaveBeenCalledTimes(1)
+    expect(releaseRevisionAnnouncement).not.toHaveBeenCalled()
+  })
 })
 
 describe('notifyNewRevision — a same-name version', () => {
@@ -562,6 +627,66 @@ describe('announceSettledVersions', () => {
     expect(queueDocumentCheck).not.toHaveBeenCalled()
   })
 
+  it('reads who hears from the batch that brought the document: `marks_only` keeps the uploaders out', async () => {
+    vi.mocked(findDocumentInOrg).mockImplementation(async (id) =>
+      id === 'doc-a' ? doc({ id: 'doc-a', uploadBatchId: 'batch-quiet' }) : doc({ id, uploadBatchId: 'batch-loud' }),
+    )
+    vi.mocked(findBatchSettleEffects).mockResolvedValue(
+      new Map([
+        ['batch-quiet', { revisionNotice: 'marks_only', runsDocumentCheck: true }],
+        ['batch-loud', { revisionNotice: 'all', runsDocumentCheck: true }],
+      ])
+    )
+    vi.mocked(findPublishedVersion).mockResolvedValue(version({}))
+    vi.mocked(findPreviousVersion).mockResolvedValue(version({ id: 'v1', versionNumber: 1, createdBy: 'first-uploader' }))
+    vi.mocked(listDocumentAnnotations).mockImplementation(async (_org, documentId) =>
+      documentId === 'doc-a' ? [openMark({ createdBy: 'marker', versionId: 'v1' })] : [],
+    )
+
+    await announceSettledVersions('org-1', ['doc-a', 'doc-c'])
+
+    expect(findBatchSettleEffects).toHaveBeenCalledWith('org-1', ['batch-quiet', 'batch-loud'])
+    const byDocument = (id: string) => emitted().filter((item) => item.resourceId === id).map((item) => item.recipientUserId).sort()
+    expect(byDocument('doc-a')).toEqual(['marker'])
+    expect(byDocument('doc-c')).toEqual(['first-uploader', 'uploader'])
+  })
+
+  it('asks for no batch when no settled document carries one', async () => {
+    vi.mocked(findPublishedVersion).mockResolvedValue(version({}))
+
+    await announceSettledVersions('org-1', ['doc-a'])
+
+    expect(findBatchSettleEffects).not.toHaveBeenCalled()
+  })
+
+  // Migration 0195 `runs_document_check`: the next Fassung of an E-Mail-Verlauf
+  // is filed by a batch that turns the check off; a mail's attachments keep it.
+  it('checks only the documents whose batch keeps the document check', async () => {
+    vi.mocked(findDocumentInOrg).mockImplementation(async (id) =>
+      doc({ id, uploadBatchId: id === 'thread' ? 'batch-thread' : 'batch-attachments' }),
+    )
+    vi.mocked(findBatchSettleEffects).mockResolvedValue(
+      new Map([
+        ['batch-thread', { revisionNotice: 'marks_only', runsDocumentCheck: false }],
+        ['batch-attachments', { revisionNotice: 'all', runsDocumentCheck: true }],
+      ])
+    )
+    vi.mocked(findPublishedVersion).mockResolvedValue(version({ versionNumber: 1 }))
+
+    await announceSettledVersions('org-1', ['thread', 'drawing'])
+
+    expect(vi.mocked(queueDocumentCheck).mock.calls.map(([input]) => input.documentId)).toEqual(['drawing'])
+  })
+
+  it('checks a document whose batch is not found, as a person\'s upload', async () => {
+    vi.mocked(findDocumentInOrg).mockResolvedValue(doc({ id: 'doc-a', uploadBatchId: 'batch-gone' }))
+    vi.mocked(findPublishedVersion).mockResolvedValue(version({ versionNumber: 1 }))
+
+    await announceSettledVersions('org-1', ['doc-a'])
+
+    expect(queueDocumentCheck).toHaveBeenCalledTimes(1)
+  })
+
   it('says nothing for a first version', async () => {
     vi.mocked(findPublishedVersion).mockResolvedValue(version({ versionNumber: 1 }))
 
@@ -671,7 +796,7 @@ describe('announceSettledVersions — a link written at ingestion', () => {
 
   it('a re-read announces nothing again, not even to a person assigned since the first settle', async () => {
     await announceSettledVersions('org-1', ['doc-b'])
-    expect(claimRevisionAnnouncement).toHaveBeenCalledWith({ organizationId: 'org-1', documentId: 'doc-b', anchorId: 'doc-a' })
+    expect(claimRevisionAnnouncement).toHaveBeenCalledWith({ organizationId: 'org-1', documentId: 'doc-b', anchorId: 'doc-a' }, expect.anything())
     vi.mocked(emitInboxItems).mockClear()
 
     // „Erneut lesen": the same document settles again. Bernd was assigned
@@ -700,7 +825,7 @@ describe('notifyNewRevision — announced once', () => {
 
     await notifyNewRevision(link)
 
-    expect(claimRevisionAnnouncement).toHaveBeenCalledWith({ organizationId: 'org-1', documentId: 'doc-b', anchorId: 'doc-a' })
+    expect(claimRevisionAnnouncement).toHaveBeenCalledWith({ organizationId: 'org-1', documentId: 'doc-b', anchorId: 'doc-a' }, expect.anything())
     expect(vi.mocked(claimRevisionAnnouncement).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(emitInboxItems).mock.invocationCallOrder[0],
     )
@@ -709,7 +834,7 @@ describe('notifyNewRevision — announced once', () => {
   it('anchors a same-name Fassung on its version', async () => {
     await notifyNewRevision({ ...link, newerId: 'doc-a', olderId: 'doc-a', versionId: 'v2' })
 
-    expect(claimRevisionAnnouncement).toHaveBeenCalledWith({ organizationId: 'org-1', documentId: 'doc-a', anchorId: 'v2' })
+    expect(claimRevisionAnnouncement).toHaveBeenCalledWith({ organizationId: 'org-1', documentId: 'doc-a', anchorId: 'v2' }, expect.anything())
   })
 
   it('tells nobody about a Fassung announced before, and reads no recipient for it', async () => {
@@ -738,40 +863,67 @@ describe('notifyNewRevision — announced once', () => {
 })
 
 describe('notifyNewRevision — Piloti notices the Fassung (ADR-0130)', () => {
-  beforeEach(() => {
-    vi.mocked(queueRevisionNotice).mockClear()
-  })
-
-  it('queues one notice of a Fassung under another name, as the person who made it, once the announcement is claimed', async () => {
+  it('stores one notice job of a Fassung under another name, as the person who made it, in the claim\'s transaction', async () => {
     await notifyNewRevision(link)
 
-    expect(queueRevisionNotice).toHaveBeenCalledWith({
+    expect(planRevisionNotice).toHaveBeenCalledWith({
       organizationId: 'org-1',
       actorUserId: 'editor',
       newerId: 'doc-b',
       olderId: 'doc-a',
     })
+    const claimTx = vi.mocked(claimRevisionAnnouncement).mock.calls[0][1]
+    expect(claimTx).toBeDefined()
+    expect(insertRevisionNotice).toHaveBeenCalledWith(NOTICE_JOB, claimTx)
+    expect(committedClaims).toEqual(['claim'])
   })
 
-  it('queues nothing for a Fassung announced before', async () => {
+  it('leaves no claim behind when the job cannot be stored, so the next settle queues the notice', async () => {
+    vi.mocked(insertRevisionNotice).mockRejectedValue(new Error('queue down'))
+
+    await expect(notifyNewRevision(link)).rejects.toThrow('queue down')
+
+    expect(committedClaims).toEqual([])
+    expect(emitInboxItems).not.toHaveBeenCalled()
+  })
+
+  it('claims nothing when the notice flag cannot be read', async () => {
+    vi.mocked(planRevisionNotice).mockRejectedValue(new Error('workos down'))
+
+    await expect(notifyNewRevision(link)).rejects.toThrow('workos down')
+
+    expect(claimRevisionAnnouncement).not.toHaveBeenCalled()
+  })
+
+  it('claims without a job where the office has not switched notices on', async () => {
+    vi.mocked(planRevisionNotice).mockResolvedValue(null)
+
+    await notifyNewRevision(link)
+
+    expect(insertRevisionNotice).not.toHaveBeenCalled()
+    expect(committedClaims).toEqual(['claim'])
+  })
+
+  it('stores no job for a Fassung announced before', async () => {
     vi.mocked(claimRevisionAnnouncement).mockResolvedValue(false)
 
     await notifyNewRevision(link)
 
-    expect(queueRevisionNotice).not.toHaveBeenCalled()
+    expect(insertRevisionNotice).not.toHaveBeenCalled()
   })
 
-  it('queues nothing for a same-name version, whose older bytes the index no longer holds', async () => {
+  it('plans no notice for a same-name version, whose older bytes the index no longer holds', async () => {
     await notifyNewRevision({ organizationId: 'org-1', actorUserId: 'editor', newerId: 'doc-a', olderId: 'doc-a', versionId: 'v2' })
 
-    expect(queueRevisionNotice).not.toHaveBeenCalled()
+    expect(planRevisionNotice).not.toHaveBeenCalled()
+    expect(insertRevisionNotice).not.toHaveBeenCalled()
   })
 
-  it('queues nothing for a held document', async () => {
+  it('plans no notice for a held document', async () => {
     vi.mocked(findDocumentInOrg).mockResolvedValue(null)
 
     await notifyNewRevision(link)
 
-    expect(queueRevisionNotice).not.toHaveBeenCalled()
+    expect(planRevisionNotice).not.toHaveBeenCalled()
   })
 })

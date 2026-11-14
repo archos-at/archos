@@ -13,11 +13,13 @@
  */
 
 import type { ChatMessage } from '../types'
-import type { TurnView } from './turn-fold'
+import type { TurnView } from '@/lib/turns/turn-fold'
 
 export type AnswerOutcome = 'ok' | 'handed_off' | 'refused' | 'aborted' | 'error'
 
 export interface AnswerCompletion {
+  /** The answer's message id: joins this event to the trace and to a server-side `answer_failed`. */
+  message_id: string | undefined
   outcome: AnswerOutcome
   /** Wall time from send to the terminal, on this page; absent when the page did not time the turn. */
   duration_ms: number | undefined
@@ -66,6 +68,7 @@ export const answerCompletionOf = (
 ): AnswerCompletion | null => {
   if (previous?.phase !== 'running' || view.phase === 'running') return null
   return {
+    message_id: view.messageId,
     outcome: outcomeOf(view),
     duration_ms: durationMs,
     citation_count: answer?.citations?.length ?? view.sources.length,

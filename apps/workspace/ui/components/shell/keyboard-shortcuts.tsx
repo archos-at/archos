@@ -64,10 +64,14 @@ export interface KeyboardShortcutsProps {
   showSkills?: boolean
   /** Whether the org-wide Archiv is reachable (ADR-0024). */
   canAccessOfficeShelf?: boolean
+  /** Whether the office's own standards have their doorway (`office-standards`, ADR-0163). */
+  canAccessOfficeStandards?: boolean
   /** Whether the collaboration surfaces are reachable (`collaboration`, ADR-0032…0035). */
   canCollaborate?: boolean
   /** Inbox reachability — gates the `g i` jump (ADR-0042, see NavFlags). */
   canAccessInbox?: boolean
+  /** The office receives project mail (`inbound-mail`, ADR-0137): documents the E-Mail-Eingang's keys. */
+  inboundMail?: boolean
 }
 
 export function KeyboardShortcuts({
@@ -77,8 +81,10 @@ export function KeyboardShortcuts({
   showModels = false,
   showSkills = false,
   canAccessOfficeShelf = false,
+  canAccessOfficeStandards = false,
   canCollaborate = false,
   canAccessInbox = false,
+  inboundMail = false,
 }: KeyboardShortcutsProps) {
   const { enabled } = useShortcutsPreference()
   const router = useRouter()
@@ -98,8 +104,10 @@ export function KeyboardShortcuts({
       showSkills,
       showModels,
       canAccessOfficeShelf,
+      canAccessOfficeStandards,
       canCollaborate,
       canAccessInbox,
+      inboundMail,
     }),
     [
       canViewOrganization,
@@ -107,8 +115,10 @@ export function KeyboardShortcuts({
       showSkills,
       showModels,
       canAccessOfficeShelf,
+      canAccessOfficeStandards,
       canCollaborate,
       canAccessInbox,
+      inboundMail,
     ],
   )
 
@@ -190,6 +200,7 @@ export function KeyboardShortcuts({
         showModels={showModels}
         showSkills={showSkills}
         canAccessOfficeShelf={canAccessOfficeShelf}
+        canAccessOfficeStandards={canAccessOfficeStandards}
       />
       {/* Only `?` opens the cheatsheet, so it only ever opens for someone at a
           keyboard; with shortcuts off it is not mounted at all. */}
@@ -202,8 +213,10 @@ export function KeyboardShortcuts({
         showModels={showModels}
         showSkills={showSkills}
         canAccessOfficeShelf={canAccessOfficeShelf}
+        canAccessOfficeStandards={canAccessOfficeStandards}
         canCollaborate={canCollaborate}
         canAccessInbox={canAccessInbox}
+        inboundMail={inboundMail}
       />
       )}
     </>

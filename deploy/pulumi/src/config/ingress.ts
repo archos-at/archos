@@ -9,8 +9,20 @@ export interface IngressConfig {
   appDomain: string;
   /** Public host for the S3 endpoint used to sign browser preview/download URLs. Derived: `s3.<baseDomain>` unless the `s3Domain` key overrides it. */
   s3Domain: string;
-  /** Public host for the landing site (apps/site). Derived: the `baseDomain` apex itself unless the `webDomain` key overrides it. */
+  /** Public host for the public website (apps/website). Derived: the `baseDomain` apex itself unless the `webDomain` key overrides it. */
   webDomain: string;
+  /**
+   * The website's origin, `https://<webDomain>`, derived: the frontend's `LANDING_URL` and the
+   * inbound mail Worker's binding of that name (the bounce text's help and privacy links). One
+   * value for both, so the domain cutover moves both.
+   */
+  webOrigin: string;
+  /**
+   * The domain this stack served before a domain move, or undefined (the default: no move
+   * in progress). Set, its apex and `app.` host answer with a 301 to `webDomain` and
+   * `appDomain` (app/former-domain.ts, docs/deployment/domain-cutover.md).
+   */
+  formerBaseDomain?: string;
   /** Email for the Let's Encrypt ACME account. */
   letsEncryptEmail: string;
   /** Use the LE staging CA (avoids rate limits while wiring DNS/TLS). */
@@ -64,6 +76,8 @@ export function loadIngress(
     appDomain,
     s3Domain,
     webDomain,
+    webOrigin: `https://${webDomain}`,
+    formerBaseDomain: cfg.get("formerBaseDomain")?.trim() || undefined,
     letsEncryptEmail: cfg.require("letsEncryptEmail"),
     // Default to the LE STAGING CA: on a first deploy the LoadBalancer IP (and
   // therefore DNS) doesn't exist yet, so HTTP-01 can't be solved and every

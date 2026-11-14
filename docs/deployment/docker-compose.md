@@ -7,7 +7,7 @@ runs as four of them (ADR-0082): the `chat` role (`chat`), the `api` role
 shared `qdrant` vector store (ADR-0115). This page describes the core ones; the observability stack
 (`dragonfly`, `clickhouse`, the three `langfuse-*` services) and the four
 background workers (`purger`,
-`skill-scheduler`, `bff-jobs`, `housekeeping`) are defined in the compose file
+`bff-jobs`, `housekeeping`) are defined in the compose file
 with their own comments and are not covered here. `housekeeping` is the
 backend's housekeeping clock (ADR-0082 step A1): the backend runs no cleanup
 loop of its own, and this calls its `/v1/maintenance/housekeeping/*` routes on
@@ -15,8 +15,9 @@ the cadences Kubernetes runs as CronJobs. One of them is the base-corpus sync
 (`base-corpus`, every ten minutes), which queues an ingest job for each uploaded OIB PDF that is
 not indexed yet (the `ingest-worker` service claims and runs it); the backend does no sync at boot. `bff-jobs` (ADR-0079) is the frontend image
 running `workers/jobs/index.js`: the BFF (or, with `BFF_JOBS_MODE=inprocess`,
-the services bundled into `dist-jobs/slice.mjs` and no server) plus the claim loop that runs the jobs
-in `bff_job_queue` (project reindex, failed-ingestion rescan, IFC extraction,
+the services bundled into `dist-jobs/slice.mjs` and no server) plus the worker that runs the BFF's
+jobs as `bff-job` runs on Hatchet (ADR-0150; the Compose `hatchet` profile, [`hatchet.md`](hatchet.md), and `bff_job_queue` kept
+until the cutover drains it) (project reindex, failed-ingestion rescan, IFC extraction,
 Office rendition through `gotenberg`, research-report filing), with no
 published port. Without it none of them runs. It shares the frontend's environment by YAML alias, so a
 variable added to `frontend` reaches it.
@@ -198,7 +199,7 @@ of the default cap of 8 volumes — with a fixed max, writes eventually fail wit
 space remains.
 
 Generating the config from env at boot means the same service definition works
-for both dev (hardcoded keys) and Coolify (generated secret) — SeaweedFS has no
+for dev (hardcoded keys) and for a generated secret — SeaweedFS has no
 `MINIO_ROOT_*`-style credential env; it reads identities from `-s3.config`.
 
 **Volume**: `seaweedfs-data:/data`
@@ -246,7 +247,7 @@ It is the only long-running-image container that holds
 out of the container that serves requests is the point: row-level security does
 not apply to a table's owner, so a bug that reached it would have a full bypass
 inside the very process the boundary is meant to constrain. `frontend`,
-`purger` and `skill-scheduler` all wait on it via
+`purger` and `bff-jobs` all wait on it via
 `depends_on: { condition: service_completed_successfully }`.
 
 Runbook: [row-level security](../database/row-level-security.md), ADR-0041.
@@ -329,7 +330,8 @@ The Next.js UI application.
 | `NEXT_PUBLIC_WORKOS_REDIRECT_URI` | `${NEXT_PUBLIC_WORKOS_REDIRECT_URI:-${WORKOS_REDIRECT_URI:-http://localhost:3000/api/auth/callback}}` |
 | `WORKOS_COOKIE_PASSWORD` | `${WORKOS_COOKIE_PASSWORD}` |
 | `FILE_UPLOAD_ACCEPTED_TYPES` | `${FILE_UPLOAD_ACCEPTED_TYPES:-.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx}` — the same list as the code default in `apps/workspace/shared/config/file-upload.ts` |
-| `GOTENBERG_URL` | `${GOTENBERG_URL-http://gotenberg:3000}`. Required for indexing Word, presentation, `.xls` and `.ods` files (ADR-0071). An empty value disables conversion: those files are then marked failed with a retryable reason, and `.xlsx`/`.xlsm` index without a preview. No colon in the expansion, so an empty value is kept rather than replaced by the default. The Coolify file uses `:-`, so there an empty value falls back to the bundled converter |
+| `GOTENBERG_URL` | `${GOTENBERG_URL-http://gotenberg:3000}`. Required for indexing Word, presentation, `.xls` and `.ods` files (ADR-0071). An empty value disables conversion: those files are then marked failed with a retryable reason, and `.xlsx`/`.xlsm` index without a preview. No colon in the expansion, so an empty value is kept rather than replaced by the default. |
+| `GEOCODER_URL` | `${GEOCODER_URL-}`: off unless set (ADR-0159). The project dialog's address search; `https://photon.komoot.io` is komoot's public Photon (ADR-0151), which needs no account and receives every keystroke. Unset or empty, the address stays a plain text field and is stored as unconfirmed |
 | `SEAWEED_ENDPOINT` | `http://seaweedfs:8333` (hardcoded in compose) |
 | `SEAWEED_ACCESS_KEY` | `seaweedadmin` (hardcoded in compose) |
 | `SEAWEED_SECRET_KEY` | `${SEAWEED_SECRET_KEY:?}` — **required**; the deploy fails fast if it is unset (see `deploy/.env.example`) |
@@ -382,7 +384,7 @@ preview or thumbnail.
 
 The image contains no Chromium, so the HTML/URL → PDF routes do not exist. It also refuses to start with any `--chromium-*` flag, so none may be added.
 
-Here the `gotenberg-internal` network already stops LibreOffice reaching anything. The two deny flags matter where no such network exists. On Coolify the converter shares a network with Postgres, SeaweedFS and the backend, and a host firewall sees none of that traffic, so the flags are what stop a crafted file from reaching those containers. Kubernetes has the same gap when `networkPolicies` is off.
+Here the `gotenberg-internal` network already stops LibreOffice reaching anything. The two deny flags matter where no such network exists. Where the converter shares a network with Postgres, SeaweedFS and the backend, a host firewall sees none of that traffic, so the flags are what stop a crafted file from reaching those containers. Kubernetes has that gap when `networkPolicies` is off.
 
 **Resource limits**:
 
@@ -394,11 +396,6 @@ Here the `gotenberg-internal` network already stops LibreOffice reaching anythin
 **Healthcheck**: `curl -fsS http://localhost:3000/health` — interval 15s, timeout 5s, start period 30s, retries 5.
 
 **Restart**: `unless-stopped`.
-
-**Coolify**: `docker-compose.coolify.yaml` runs the same image and flags but
-cannot isolate it on its own network, because a second network on the frontend
-breaks Traefik routing there. On Coolify the converter keeps egress; block it
-at the host firewall if outbound traffic matters.
 
 ### postgres
 
@@ -448,7 +445,7 @@ renamed databases refuse new sessions and end the open ones while it runs.
 
 | Property | Value |
 |----------|-------|
-| Image | `postgres:16-alpine` (Coolify: the image `postgres.Dockerfile` builds, which carries the script) |
+| Image | `postgres:16-alpine` |
 | Command | `sh /rename-legacy-names.sh` |
 | Restart | `no` |
 

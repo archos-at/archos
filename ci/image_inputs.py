@@ -26,11 +26,12 @@ registry, which is the one place that knows, so a dropped run costs nothing.
 Usage:
   image_inputs.py hashes [REV]                  JSON {image: hash} for REV (default HEAD)
   image_inputs.py inputs IMAGE                  the paths that make up IMAGE, one per line
+  image_inputs.py build-args IMAGE              KEY=VALUE build arguments IMAGE is built with
   image_inputs.py plan --base REV               pull request: build what REV..HEAD changed
   image_inputs.py plan --registry OWNER         push: build what GHCR does not have yet
 
 `plan` writes `build=<json list>` and `images=<json list>` to $GITHUB_OUTPUT.
-`build` is the matrix of images this run must build; `images` is all three,
+`build` is the matrix of images this run must build; `images` is all of them,
 with their hashes, for the job that tags them.
 """
 
@@ -64,16 +65,21 @@ class Image:
     context: str
     dockerfile: str
     target: str = ""
+    #: The registry repository, when it is not the old prefixed one. A new image is
+    #: named for its job alone (ADR-0145: the registry path already names the owner).
+    repo: str = ""
 
     @property
     def repository(self) -> str:
-        return f"grid-oib-{self.name}"
+        return self.repo or f"grid-oib-{self.name}"
 
 
 IMAGES = (
     Image("backend", context=".", dockerfile="apps/agent-host/Dockerfile", target="release"),
     Image("frontend", context="apps/workspace", dockerfile="apps/workspace/deploy/Dockerfile"),
-    Image("web", context="apps/site", dockerfile="apps/site/Dockerfile"),
+    Image("web", context="apps/website", dockerfile="apps/website/Dockerfile"),
+    # The website's CMS (ADR-0155).
+    Image("cms", context="apps/cms", dockerfile="apps/cms/Dockerfile", repo="cms"),
 )
 
 _INSTRUCTION = re.compile(r"^\s*(COPY|ADD)\s+(.*)$", re.IGNORECASE)
@@ -155,6 +161,26 @@ def inputs(image: Image, rev: str = "HEAD") -> list[str]:
     return sorted(paths)
 
 
+PROD_STACK = "deploy/pulumi/Pulumi.prod.yaml"
+_BASE_DOMAIN = re.compile(r"^\s*[\w-]+:baseDomain:\s*[\"']?([^\s\"'#]+)", re.MULTILINE)
+
+
+def build_args(image: Image, rev: str = "HEAD") -> dict[str, str]:
+    """Build arguments that are part of what the image is.
+
+    The website bakes its own address into every canonical URL, the sitemap and
+    hreflang, so it is built with the address it is served from: the prod
+    stack's `baseDomain`. The value is hashed with the inputs, so moving the
+    domain (docs/deployment/domain-cutover.md) rebuilds the image.
+    """
+    if image.name != "web":
+        return {}
+    match = _BASE_DOMAIN.search(_git("show", f"{rev}:{PROD_STACK}"))
+    if not match:
+        raise ValueError(f"{PROD_STACK} at {rev} has no baseDomain")
+    return {"PUBLIC_SITE_URL": f"https://{match.group(1)}"}
+
+
 def iso_week(today: datetime.date) -> str:
     year, week, _ = today.isocalendar()
     return f"{year}-W{week:02d}"
@@ -171,8 +197,9 @@ def input_hash(image: Image, rev: str = "HEAD", *, week: str) -> str:
     missing = [path for path in missing if not path.endswith(".dockerignore")]
     if missing:
         raise ValueError(f"{image.dockerfile} copies {missing}, which {rev} does not track")
+    args = "".join(f"{key}={value}\n" for key, value in sorted(build_args(image, rev).items()))
     digest = hashlib.sha256()
-    for part in (SCHEME, image.name, image.target, week, listing):
+    for part in (SCHEME, image.name, image.target, week, listing, args):
         digest.update(part.encode())
         digest.update(b"\0")
     return digest.hexdigest()[:40]
@@ -230,9 +257,12 @@ def plan_push(published: Published, *, week: str) -> tuple[list[dict], list[dict
 def registry_lookup(owner: str) -> Published:
     """Ask GHCR through the same script the deploy uses for its own lookups."""
 
+    repositories = {image.name: image.repository for image in IMAGES}
+
     def published(name: str, tag: str) -> bool | None:
+        env = {**os.environ, "REPOSITORY": repositories[name]}
         result = subprocess.run(
-            ["bash", str(FIND_PUBLISHED_TAG), owner, name, tag], capture_output=True, text=True, check=False
+            ["bash", str(FIND_PUBLISHED_TAG), owner, name, tag], capture_output=True, text=True, check=False, env=env
         )
         sys.stderr.write(result.stderr)
         return {0: True, 1: False}.get(result.returncode)
@@ -245,6 +275,7 @@ def main(argv: list[str]) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("hashes").add_argument("rev", nargs="?", default="HEAD")
     sub.add_parser("inputs").add_argument("image", choices=[image.name for image in IMAGES])
+    sub.add_parser("build-args").add_argument("image", choices=[image.name for image in IMAGES])
     plan = sub.add_parser("plan")
     side = plan.add_mutually_exclusive_group(required=True)
     side.add_argument("--base")
@@ -257,6 +288,10 @@ def main(argv: list[str]) -> int:
         return 0
     if args.command == "inputs":
         print("\n".join(inputs(next(image for image in IMAGES if image.name == args.image))))
+        return 0
+    if args.command == "build-args":
+        for key, value in build_args(next(image for image in IMAGES if image.name == args.image)).items():
+            print(f"{key}={value}")
         return 0
 
     if args.base:

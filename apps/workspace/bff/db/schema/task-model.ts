@@ -1,6 +1,8 @@
 /**
  * `task_definitions` and `task_runs` — the collapsed model of jobs, job_runs
- * and tasks (follow-up to PR #659).
+ * and tasks (follow-up to PR #659). Migration 0086 copied every row of those
+ * three tables in here; migration 0226 dropped them. What follows names them
+ * to say where each column came from.
  *
  * ## Why one entity and not three
  *
@@ -58,27 +60,123 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
+import type { PlanDocuments } from '@/lib/runs/plan-documents'
 import type { SkillSnapshot } from '@/lib/skills/types'
 import {
   DEFINITION_TRIGGERS,
+  DELEGATABLE_TASK_KINDS,
+  TASK_KINDS,
+  TASK_REVIEWS,
   TASK_RUN_STATUSES,
   TASK_RUN_TRIGGERS,
+  TASK_STATUSES,
   type DefinitionTrigger,
   type TaskKind,
   type TaskReview,
   type TaskRunStatus,
   type TaskRunTrigger,
+  type TaskStatus,
 } from '@/lib/tasks/task-vocabulary'
 import { projects } from './projects'
-import type { TaskFilingStatus, TaskPlan } from './tasks'
 
 /**
- * What the task was asked to do, frozen at definition time — the SAME shape
- * the old `tasks.plan` carried, so the wire projection and the filing paths
- * read one contract. Declared in `./tasks` (the table being replaced owns it
- * until 0087 drops it) and re-exported there for the callers that already
- * import it from `@/lib/db/schema`.
+ * What kind of work the task is.
+ *
+ * The first two are the job outputs a scheduled run produces; the rest are what
+ * a person delegates from a chat turn (`create_task`) or what a reviewer's
+ * „Änderungen anfordern" opens on unattended work. `kind` has no CHECK,
+ * deliberately (migration 0086, as 0075 before it), so the vocabulary lives in
+ * one place rather than in a column and a tuple that can disagree.
+ *
+ *   - `deep-research` · `chat` — a job fired on its timer; the value is the
+ *     job's output (`JOB_OUTPUTS`, `./jobs.ts`).
+ *   - `compliance_check` — a norm check over the project, run by the general
+ *     agent with its retrieval tools (`TASK_ENGINES` in `lib/tasks/delegation.ts`).
+ *   - `submission_check` — the builtin submission-check skill, whose "Done" section
+ *     is literally the work list.
+ *   - `document` — write a document and file it as a draft version.
+ *   - `revision` — revise a version a reviewer sent back, and file the result
+ *     as the next draft of the SAME document. Created by the lifecycle's
+ *     `request_changes` transition when nobody is in a conversation to hear the
+ *     `REVIEW_DECISIONS` block, or when the reviewer asked for it outright.
  */
+export { TASK_KINDS, type TaskKind }
+
+/**
+ * The kinds a person may ask for by delegating — `create_task` from chat, and
+ * the reviewer's request to have a version revised.
+ *
+ * Every kind but the two job outputs: `deep-research` and `chat` describe how a
+ * JOB delivers its result and are set from the job's output, so a
+ * caller asking for one of them would be naming a delivery channel where a
+ * piece of work belongs. Generated from the agent's `TaskKind`, the set
+ * `create_task` asks for (`shared/vocabularies.generated.ts`).
+ */
+export { DELEGATABLE_TASK_KINDS }
+export type DelegatableTaskKind = (typeof DELEGATABLE_TASK_KINDS)[number]
+
+/**
+ * The lifecycle. `queued` from creation until the worker reports; the three
+ * terminal states are the worker's own outcome vocabulary, unchanged, so the
+ * row says what the run store said before it forgot.
+ */
+export { TASK_STATUSES, type TaskStatus, TASK_REVIEWS, type TaskReview }
+
+/**
+ * Whether the result was filed into the project, as the requester.
+ *   - `queued`   — a `file_research_report` job (ADR-0079) has the report and
+ *                  has not finished; a deep-research run's PDF is rendered on a
+ *                  `bff-jobs` pod and retried there (migration 0105).
+ *   - `filed`    — a document row exists; `filedDocumentId` names it.
+ *   - `refused`  — the requester may not file here (left the organization,
+ *                  lacks the permission, or the feature is off for the org).
+ *   - `failed`   — filing was attempted and broke; `filingDetail` says how.
+ * Null when there was nothing to file (a chat task, a failed run).
+ */
+export const TASK_FILING_STATUSES = ['queued', 'filed', 'refused', 'failed'] as const
+export type TaskFilingStatus = (typeof TASK_FILING_STATUSES)[number]
+
+/**
+ * What the task was asked to do, frozen at definition time and copied onto
+ * each run, so a row explains itself after the definition changed or vanished.
+ */
+export interface TaskPlan {
+  /** The prompt exactly as it was submitted, skill body included. */
+  prompt: string
+  /** The skill it ran under, or `{}` for a plain prompt. */
+  skill: SkillSnapshot
+  /** Data sources the run was allowed to use. */
+  dataSources: string[] | null
+  /**
+   * What the commissioning turn settled with the person — the clarifier's
+   * exchange and the approved plan — set on the agent state so the planner and
+   * the writer read it as binding. Absent for a scheduled or delegated run.
+   */
+  context?: string | null
+  /** The Unterlagen the reader named on the plan card (`lib/runs/plan-documents`). */
+  documents?: PlanDocuments | null
+  /**
+   * What the task was asked FOR, in the requester's own words. Null for a job,
+   * whose `title` is the job's name and whose prompt is the whole of it.
+   */
+  goal?: string | null
+  /**
+   * The version this task is a revision of, and why it came back.
+   *
+   * On the plan rather than in three columns of its own, because it is part of
+   * the frozen statement of what was asked — the same reason the prompt and the
+   * skill snapshot live here — and because it exists for exactly one kind. A
+   * `revision` task carries it; every other kind leaves it absent, and
+   * `completeTaskForRun` files the result as the next draft of THAT document
+   * instead of as a new one.
+   */
+  subject?: {
+    documentId: string
+    versionId: string
+    /** The reviewer's words, verbatim. What the run is told to fix. */
+    comment: string
+  } | null
+}
 
 export const taskDefinitions = pgTable(
   'task_definitions',
@@ -113,13 +211,19 @@ export const taskDefinitions = pgTable(
     scheduleCron: text('schedule_cron'),
     scheduleTimezone: text('schedule_timezone').notNull().default('UTC'),
     /**
-     * When the due scan should next look at this row — the one column the
-     * scheduler's claim reads, for every trigger (`idx_task_definitions_due`,
-     * migration 0090). The cron's next occurrence on a `schedule`, the `due_at`
-     * on a pending `once`, and NULL on a `manual` one, on anything paused, and
-     * on a one-shot the scheduler has already claimed.
+     * When this row is next due, for every trigger: the time its Hatchet
+     * scheduled run fires at, and the value a fire must find to record
+     * anything (`advanceDueDefinition`). The cron's next occurrence on a
+     * `schedule`, the `due_at` on a pending `once`, and NULL on a `manual` one,
+     * on anything paused, and on a one-shot that has already fired.
      */
     nextRunAt: timestamp('next_run_at', { withTimezone: true }),
+    /**
+     * The Hatchet scheduled run that fires this definition at `next_run_at`
+     * (migration 0192, `bff/scheduling/scheduled-runs.ts`). NULL when none is
+     * known; the repair sweep gives an overdue row one.
+     */
+    scheduledRunId: text('scheduled_run_id'),
     /** When a `once` definition is wanted. NULL = immediately (a delegation). */
     dueAt: timestamp('due_at', { withTimezone: true }),
     /**
@@ -151,8 +255,8 @@ export const taskDefinitions = pgTable(
     // NOTE: the partial due-scan index `idx_task_definitions_due` on
     // (next_run_at) WHERE enabled AND next_run_at IS NOT NULL is a PARTIAL
     // index the drizzle builder cannot express; it lives in migration 0086 and
-    // was widened in 0090, the way `idx_jobs_due` lives in 0043. It backs the
-    // scheduler's claim, for recurring tasks and one-shots alike.
+    // was widened in 0090. It backs the
+    // repair sweep (`schedule-repair`), for recurring tasks and one-shots alike.
     triggerKnown: check(
       'task_definitions_trigger_known',
       sql`${table.trigger} IN ('manual', 'once', 'schedule')`

@@ -157,7 +157,7 @@ const FileReferenceChip: FC<{
           // Inline lets the name flow like the text it is, and
           // `box-decoration-break` keeps the rounded ends on the outside of a
           // name that broke across two lines rather than on all four.
-          'inline rounded-md [box-decoration-break:clone]',
+          'inline rounded-control [box-decoration-break:clone]',
           // A `button` is centred by the UA stylesheet, which is invisible
           // until a long name wraps — and then the second line of the
           // filename sat centred in a left-aligned paragraph.
@@ -178,7 +178,7 @@ const FileReferenceChip: FC<{
           // pointer, where it is answering one name rather than shouting
           // about all of them.
           'underline decoration-dotted decoration-foreground/30 underline-offset-[3px]',
-          'hover:decoration-solid hover:decoration-foreground/50 hover:bg-muted',
+          'hover:decoration-solid hover:decoration-foreground/50 hover:bg-hover',
           'focus-visible:bg-muted',
           // A name is wide enough for a fingertip already; only the vertical
           // axis needs help, and growing sideways would push the sentence's

@@ -55,12 +55,12 @@ export function ProjectFoldersCard({
           {rows.length === 0 && <li className={cn(ROW, 'text-muted-foreground')}>{t('project.noFolders')}</li>}
         </ul>
         {onAddMore && (
-          <button
+          <button data-attr="intake-add-more"
             type="button"
             onClick={onAddMore}
             className={cn(
               ROW,
-              'text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring/60 w-full rounded-b-[14px] text-left focus-visible:outline-none focus-visible:ring-2'
+              'text-muted-foreground hover:text-foreground hover:bg-hover focus-visible:ring-ring/60 w-full rounded-b-[14px] text-left focus-visible:outline-none focus-visible:ring-2'
             )}
           >
             <Plus className="size-4 shrink-0" aria-hidden />

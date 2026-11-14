@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 
 import pytest
-from knowledge_layer.llamaindex import adapter
+from knowledge_layer.ingest import adapter
 
 from .test_ingest_screen_before_tables import _TERMS
 from .test_ingest_screen_before_tables import _ingest
@@ -21,7 +21,7 @@ from .test_ingest_screen_before_tables import calls  # noqa: F401 - fixtures, sh
 from .test_ingest_screen_before_tables import store  # noqa: F401
 from .test_ingest_screen_before_tables import summary_db  # noqa: F401
 
-_LOGGER = "knowledge_layer.llamaindex.adapter"
+_LOGGER = "knowledge_layer.ingest.adapter"
 
 
 def _perf_lines(caplog) -> list[str]:

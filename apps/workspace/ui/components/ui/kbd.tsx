@@ -12,8 +12,8 @@ function Kbd({ className, ...props }: React.ComponentProps<'kbd'>): React.JSX.El
     <kbd
       data-slot="kbd"
       className={cn(
-        'inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-1.5',
-        'border border-border bg-surface-raised shadow-xs',
+        'inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-inline px-1.5',
+        'border border-border bg-surface-raised',
         'font-mono text-[11px] leading-none font-medium text-foreground whitespace-nowrap tabular-nums',
         'pointer-events-none select-none',
         '[[data-slot=tooltip-content]_&]:bg-background/20 [[data-slot=tooltip-content]_&]:text-background',

@@ -3,6 +3,7 @@ import { FollowUpsRail } from '@/features/chat/components/FollowUpsRail'
 import { offersFileNote } from '@/features/chat/lib/file-note-chip'
 import { previousRunFindings } from '@/features/runs/lib/carry-forward'
 import { cn } from '@/lib/utils'
+import { THREAD_COLUMN, THREAD_GUTTER } from '@/components/ui/thread-column'
 import { AwaitingBanner } from '@/features/collaboration/components/AwaitingBanner'
 import { EngagementNotice } from '@/features/collaboration/components/EngagementNotice'
 import { HandbackOffer } from '@/features/collaboration/components/HandbackOffer'
@@ -93,7 +94,9 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
               initial={controller.listArrivesFromSkeleton ? { opacity: 0 } : false}
               animate={{ opacity: 1, transition: controller.rowEnter }}
               className={cn(
-                'mx-auto flex w-full max-w-5xl flex-col gap-4 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))]',
+                THREAD_COLUMN,
+                THREAD_GUTTER,
+                'flex flex-col gap-4',
                 TOOLBAR_CLEAR_PADDING
               )}
               style={{ paddingBottom: 'calc(var(--composer-h, 11rem) + 1.5rem)' }}
@@ -256,7 +259,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                           // on every row and only the ring toggles: carried by the
                           // marked state alone, the transition left with the mark,
                           // and the ring vanished in one frame instead of fading.
-                          'ring-offset-background duration-quick rounded-xl ring-offset-4 transition-shadow ease-out motion-reduce:transition-none',
+                          'ring-offset-background duration-quick rounded-surface ring-offset-4 transition-shadow ease-out motion-reduce:transition-none',
                           controller.highlightedMessageId === message.id && 'ring-warning/50 ring-2'
                         )}
                         // The row OWNS the turn's entrance: a fade and a 4px rise on
@@ -335,6 +338,8 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                               userQuestion={message.content}
                               answerConfidence={agentMsg?.answerConfidence}
                               citations={agentMsg?.citations}
+                              confidenceCheck={agentMsg?.confidenceCheck}
+                              answerText={agentMsg?.content}
                               answerId={agentMsg?.id}
                               escalationReason={agentMsg?.escalationReason}
                               retrievalLedger={agentMsg?.retrievalLedger}

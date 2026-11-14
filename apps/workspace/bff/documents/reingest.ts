@@ -14,6 +14,9 @@ import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import { cancelledResolution, describeBackendIngestState, extractIngestJobId } from './reconcile-status'
 import { resolveDocumentFolderPath } from './folder-path'
 import { setDocumentReconciledStatus } from './repository'
+import type { CancelIngestOutcome, CancelIngestResult } from './cancel-wire'
+
+export type { CancelIngestOutcome, CancelIngestResult } from './cancel-wire'
 import { getAccessibleDocument } from './access'
 import { type DispatchDocumentResult, dispatchDocument } from './document-dispatch'
 import { BACKEND_FETCH_TIMEOUT_MS, type IngestPriority } from './ingest-dispatch'
@@ -37,7 +40,7 @@ export interface ReingestDocumentResult {
  *    files are READ (ADR-0071 taught Word and PowerPoint to read their
  *    pictures; nothing in the upload path would notice that). Safe because the
  *    backend replaces a version only once the new one has indexed
- *    (`_retire_previous_version`, `llamaindex/adapter.py`): the old chunks stay
+ *    (`_retire_previous_version`, `ingest/adapter.py`): the old chunks stay
  *    citable for the length of the job, and stay for good if it fails.
  *    An agent-authored row is not offered this: its index entry belongs to a
  *    published version, which only `ingestPublished` may dispatch.
@@ -191,25 +194,6 @@ export async function reingestDocument(
 }
 
 /**
- * What a cancel did, as `POST /api/documents/{id}/cancel` reports it.
- *
- *  - `cancelled` — a live job was stopped, and this call settled the row
- *    `cancelled` (see {@link cancelDocumentIngest}).
- *  - `finished` — the durable queue held no live row: the job had already run
- *    to an end, and the next listing read reconciles the row to its real
- *    outcome. Not a failure; there was simply nothing to stop.
- *  - `unavailable` — nothing this tier can stop: the durable ingest queue is
- *    off (the job runs in a process the BFF cannot reach), or the row carries
- *    no job id (work the BFF itself owns, `processing`).
- */
-export type CancelIngestOutcome = 'cancelled' | 'finished' | 'unavailable'
-
-export interface CancelIngestResult {
-  id: string
-  result: CancelIngestOutcome
-}
-
-/**
  * One `POST /v1/documents/{jobId}/cancel`, bounded.
  *
  * A transport failure or an answer this build does not understand is an
@@ -257,6 +241,12 @@ async function requestIngestCancel(jobId: string, organizationId: string): Promi
  * the file is being read. A row the write did not move (a concurrent read got
  * there first) settles nothing, exactly as reconciliation does.
  *
+ * The answer carries the status the document holds afterwards (`status`). The
+ * queue's `cancelled` alone does not say it: the write here is a compare-and-set
+ * on what this call read, and a report that settled the row in the meantime (the
+ * read ended as the stop went out) keeps its word. The row is then read again,
+ * so the caller is told what the document says and need not ask.
+ *
  * Authorization is {@link getAccessibleDocument} with `write`, the same gate
  * every other mutation of a document passes.
  */
@@ -271,7 +261,7 @@ export async function cancelDocumentIngest(
   // render and the click: reported as `finished`, which the client shows as
   // "already done", never as a stop that did not happen.
   if (!IN_FLIGHT_DOCUMENT_STATUSES.has(doc.status)) {
-    return { id: doc.id, result: 'finished' }
+    return { id: doc.id, result: 'finished', status: doc.status }
   }
 
   const jobId = extractIngestJobId(doc.metadata)
@@ -279,21 +269,24 @@ export async function cancelDocumentIngest(
     // In flight with no job id: the work runs inside the BFF (`processing` — an
     // IFC extraction or an office rendition) or predates the job id being
     // recorded. Neither has a durable queue row for this tier to stop.
-    return { id: doc.id, result: 'unavailable' }
+    return { id: doc.id, result: 'unavailable', status: doc.status }
   }
 
   const result = await requestIngestCancel(jobId, session.organizationId)
-  if (result === 'cancelled') {
-    const resolution = cancelledResolution()
-    const moved = await setDocumentReconciledStatus(doc.id, session.organizationId, resolution, {
-      status: doc.status,
-      jobId,
-    })
-    if (moved) {
-      // Settle the upload batch and audit as a listing read would: a cancelled
-      // row still has to tell its batch it came to rest. Never throws.
-      await onDocumentsSettled(session.organizationId, [{ id: doc.id, status: 'cancelled' }])
-    }
+  if (result !== 'cancelled') return { id: doc.id, result, status: doc.status }
+
+  const moved = await setDocumentReconciledStatus(doc.id, session.organizationId, cancelledResolution(), {
+    status: doc.status,
+    jobId,
+  })
+  if (moved) {
+    // Settle the upload batch and audit as a listing read would: a cancelled
+    // row still has to tell its batch it came to rest. Never throws.
+    await onDocumentsSettled(session.organizationId, [{ id: doc.id, status: 'cancelled' }])
+    return { id: doc.id, result, status: 'cancelled' }
   }
-  return { id: doc.id, result }
+  // Somebody else settled the row first. What it says now is the answer, read
+  // as this person reads it; a row deleted in the meantime answers what was seen.
+  const settled = await getAccessibleDocument(session, documentId, 'write').catch(() => doc)
+  return { id: doc.id, result, status: settled.status }
 }

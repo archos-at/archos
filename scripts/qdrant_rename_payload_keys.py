@@ -3,7 +3,7 @@
 Points written before the rename hold ``punkt_id`` / ``punkt_path`` / ``punkt_title`` / ``punkt_parent_id`` /
 ``punkt_depth``, ``richtlinie``, ``chunking: "punkt"`` and a ``project_facts`` object with German keys
 (``bundesland`` ...) and German tokens (``wien`` ...). New points carry the English ones, and reads accept both
-(``knowledge_layer.qdrant.schema.LEGACY_FIELDS``). This script ends the "both":
+(``knowledge_layer.vector_store.schema.LEGACY_FIELDS``). This script ends the "both":
 
     python scripts/qdrant_rename_payload_keys.py all                  # DRY RUN: counts, writes nothing
     python scripts/qdrant_rename_payload_keys.py all --apply          # create the indexes, rewrite, verify
@@ -27,11 +27,11 @@ import logging
 import sys
 from collections import Counter
 
-from knowledge_layer.qdrant import rebuild
-from knowledge_layer.qdrant.legacy_rewrite import legacy_remaining
-from knowledge_layer.qdrant.legacy_rewrite import rename_collection
-from knowledge_layer.qdrant.schema import Physical
-from knowledge_layer.qdrant.store import make_client
+from knowledge_layer.vector_store import Physical
+from knowledge_layer.vector_store import legacy_remaining
+from knowledge_layer.vector_store import make_client
+from knowledge_layer.vector_store import rebuild
+from knowledge_layer.vector_store import rename_collection
 
 logger = logging.getLogger("qdrant_rename_payload_keys")
 

@@ -51,7 +51,7 @@ import { refreshStaleShelves } from './shelf-projection'
 
 /** Documents one content search returns per collection, and passages it ranks in all. */
 const CONTENT_FILES_PER_COLLECTION = 20
-/** The passages one content search ranks (the backend's candidate budget, `qdrant/search.py`); as many documents at most. */
+/** The passages one content search ranks (the backend's candidate budget, `vector_store/search.py`); as many documents at most. */
 const CONTENT_CANDIDATES = 200
 /** The most documents a content search is narrowed to by id; past it, by what they are and cite. */
 const PREFILTER_MAX_IDS = 1000
@@ -178,7 +178,7 @@ async function contentHits(
   const named = collections.slice(0, BACKEND_SEARCH_MAX_COLLECTIONS)
   const started = performance.now()
   try {
-    const hits = await fetchGroupedSemanticHits(named, text, CONTENT_FILES_PER_COLLECTION, PASSAGE_CHARS, {
+    const hits = await fetchGroupedSemanticHits(reach.organizationId, named, text, CONTENT_FILES_PER_COLLECTION, PASSAGE_CHARS, {
       ...(filters ? { filters } : {}),
       purpose: 'workspace_search',
     })

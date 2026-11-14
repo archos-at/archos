@@ -37,7 +37,7 @@ change done.
 | Python under `src/`, the Python packages under `packages/`, or `apps/agent-host/` | the targeted tests (`.venv/bin/pytest <path> -q`), then the suite they belong to (`task be:test`, `task be:test:sources`, `task be:test:api`), and `task be:lint` |
 | The UI (`apps/workspace/`) | the targeted specs, then `task workspace:test`; `task workspace:types` with no new errors against the baseline; `task workspace:lint` exiting clean, with zero problems rather than "no new ones" |
 | A WebSocket or SSE message, or any schema two services share | both sides: the producer's tests and the consumer's parser tests, over the same field names. Where a fixture under `tests/fixtures/` is the contract, both suites read it ([cross-service contract fixtures](testing-and-verification.md#cross-service-contract-fixtures)) |
-| What shapes an answer: prompt, model, structured output, retrieval | the answer suite before and after (the obligation in [`AGENTS.md`](../../AGENTS.md#obligations)), or at least a live call proving the contract parses, with a note saying why the suite could not run |
+| What shapes an answer: prompt, model, structured output, retrieval | the AT golden run on dev before and after the change is deployed there, both summaries in the PR or its follow-up (the obligation in [`AGENTS.md`](../../AGENTS.md#obligations), [which run gates a change](testing-and-verification.md#which-run-gates-a-change)). Until it is deployed: a live call proving the contract parses, or the local answer suite where it can run, with the golden run named as owed |
 | Something a user can see | a capture attached to the pull request, never committed ([visual-screenshots.md](../ux/visual-screenshots.md)), and the exact user-visible copy quoted in your summary. A new component without it is not done |
 | Something that runs as a service or for a long time | the logs showing the behaviour, not an inference from reading the code |
 | Something a customer can notice | a release note in the same change (`task release:note -- <slug>`, then `task release:lint`) |
@@ -73,6 +73,13 @@ looks again.
 If a test cannot be made to fail, either the fix is not doing what you think or
 the test is aimed at the wrong thing. Both are findings; say which.
 
+A lint or a check is held to the same bar, against the real offending text:
+paste it in as a fixture and watch the check fail first. The old site's claims
+lint matches `Platzhalter` and `placeholder]`; the placeholders a privacy page
+actually shipped, `[14 Tagen]` and `[EU]`, match neither, because the regex was
+written from the word someone expected rather than from the output it had to
+catch.
+
 ## An implementation nobody calls is not done
 
 Grep for a caller of every symbol you add, and test the join rather than only
@@ -100,6 +107,19 @@ pull requests, name the joining field up front and have both sides pin it.
 Update the docs your change makes wrong in the same change:
 [documentation.md](documentation.md) says which doc goes with which kind of
 change.
+
+A move, a rename or a deleted directory is done when nothing names the old
+path: `git grep -n '<old/path>'` over the whole tree, Markdown, `Taskfile.yml`,
+`taskfiles/`, `.github/` (dependabot included), `deploy/` and `scripts/`
+included. The link and path checks see only links and one index, so a
+backticked path, a workflow filter or a Pulumi comment keeps pointing at
+nothing while every check passes.
+
+A cause written into a comment, a gotcha or a doc is measured before it is
+written, by a revert-check or a reproduction. A cause nobody measured is
+written as a hypothesis and says so. A review of the first commit of a sign-in
+fix found three claims in its comment, gotcha and doc that were not true
+(5da892028).
 
 ## Have the claim checked by someone who did not make it
 
@@ -135,6 +155,7 @@ evidence or by "not verified because …":
 - Live or LLM validation: <what was called, result | n/a because …>
 - UI evidence: <PR attachment, quoted copy | n/a because …>
 - Docs updated: <files | none needed because …>
+- What we learned: <each fact found while working, re-checked in code, and the file it went to | none, because …>
 - Independent verification: <who or what re-checked which claims>
 - Committed and pushed: <commit hashes, branch>
 ```

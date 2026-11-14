@@ -16,7 +16,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
+from knowledge_layer import register as register_module
 from knowledge_layer.browse import MAX_TOPIC_COUNTS
 from knowledge_layer.browse import MAX_TYPE_COUNTS
 from knowledge_layer.browse import ListFilesConfig
@@ -30,9 +30,12 @@ from knowledge_layer.browse import pick_passages
 from knowledge_layer.browse import render_listing
 from knowledge_layer.browse import select_files
 from knowledge_layer.browse import split_alternatives
+from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import reading_as
 
+from agent.common.brand import PRODUCT_NAME
 from agent.common.source_kinds import Shelf
 from agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
 from agent.knowledge.inventory import set_turn_documents
@@ -126,6 +129,54 @@ class TestSelectFiles:
     def test_files_still_being_read_are_named(self):
         text = render_listing(select_files(_rows()), in_flight=["Neu.pdf"])
         assert "Still processing" in text and "Neu.pdf" in text
+
+
+class TestAFiledMailIsListedInTheWordsOfItsVerlauf:
+    """``list_files`` names where a filed mail came from, never an unconfirmed sender as the domain (ADR-0137)."""
+
+    THREAD = {"latest_sent_at": "2026-05-14T14:40:00Z", "message_count": 5, "locale": "de"}
+    SIGNED = {
+        "sent_at": "2026-05-04T06:30:00Z",
+        "from_name": "Ing. Paul Gruber",
+        "from_domain": "verkehrsplanung-gruber.at",
+        "signer_domain": "verkehrsplanung-gruber.at",
+        "sender_trust": "external_verified",
+    }
+    FORGED = {
+        "sent_at": "2026-05-14T14:40:00Z",
+        "from_name": "Mag. Anna Huber",
+        "from_domain": "ma37-wien.at",
+        "sender_trust": "external_unverified",
+    }
+
+    def _listing(self, **extra) -> str:
+        return render_listing(select_files(file_rows([_doc("Datei.pdf", "Korrespondenz", **extra)])))
+
+    def test_the_verlauf_says_what_it_is_and_how_new(self):
+        text = self._listing(mail_thread=self.THREAD)
+        assert "E-Mail-Verlauf · 5 E-Mails, zuletzt 14.05.2026" in text
+
+    def test_an_attachment_names_the_signed_mail_it_came_with(self):
+        text = self._listing(mail_origin=self.SIGNED)
+        assert "kam mit der E-Mail vom 04.05.2026 08:30 von Ing. Paul Gruber (verkehrsplanung-gruber.at)" in text
+
+    def test_an_unconfirmed_sender_is_printed_as_unconfirmed(self):
+        text = self._listing(mail_origin=self.FORGED)
+        assert "von Mag. Anna Huber (ma37-wien.at, Domain nicht bestätigt)" in text
+
+    def test_a_record_that_cannot_be_printed_honestly_prints_nothing(self):
+        text = self._listing(mail_origin={**self.FORGED, "sender_trust": "trusted"})
+        assert "kam mit der E-Mail" not in text and "Domain" not in text
+
+    def test_the_verlaufs_date_is_its_newest_message_and_an_attachments_is_its_own(self):
+        thread, attachment = file_rows(
+            [
+                _doc("Verlauf.md", mail_thread=self.THREAD),
+                _doc("Berechnung.pdf", mail_origin=self.SIGNED),
+            ]
+        )
+        assert thread.document_date == "2026-05-14"
+        assert attachment.document_date is None
 
 
 def _builder() -> MagicMock:
@@ -248,8 +299,8 @@ def search_with(monkeypatch, scope):
     """Install a retriever into ``knowledge_search`` and neutralise its boot-time reach."""
 
     def install(retriever):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
@@ -326,6 +377,14 @@ def test_the_exact_mode_is_never_withheld_as_a_repeat_of_the_ranked_one():
     assert ranked == fetch_signature({"name": "knowledge_search", "args": {"query": "ba-03", "match": "meaning"}})
 
 
+@pytest.fixture
+def reads_as_an_office():
+    """A search over a project's scope reads as an office (``vector_store.ScopeRead``, ADR-0163), as a request does."""
+    with reading_as("org_test"):
+        yield
+
+
+@pytest.mark.usefixtures("reads_as_an_office")
 def test_the_store_query_finds_every_spelling_and_honours_a_file_filter(qdrant_store):
     """Against a real Qdrant: the pattern and the file filter are what the store accepts."""
     retriever = _store_retriever()
@@ -364,7 +423,7 @@ def turn_shelves(monkeypatch):
 
 def _store_retriever():
     """The production retriever over the test's Qdrant (``qdrant_store``), with no embedder: exact mode needs none."""
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
 
     retriever = LlamaIndexRetriever.__new__(LlamaIndexRetriever)
     retriever._ensure_initialized = lambda: None
@@ -373,12 +432,13 @@ def _store_retriever():
 
 def _seed(name: str, rows: list[tuple[str, str, int, dict]]) -> None:
     """Write ``(file_name, text, page, metadata)`` rows into collection ``name``, as ingestion writes chunks."""
-    from knowledge_layer_testing.qdrant import record
-    from knowledge_layer_testing.qdrant import write
+    from knowledge_layer_testing.vector_store import record
+    from knowledge_layer_testing.vector_store import write
 
     write(name, [record(text, file_name, page_label=str(page), **meta) for file_name, text, page, meta in rows])
 
 
+@pytest.mark.usefixtures("reads_as_an_office")
 class TestExactSearchReadsTheBaseCorpusLikeTheRankedSearch:
     """An excluded edition and a cover page are not evidence in either mode."""
 
@@ -431,10 +491,10 @@ class TestExactSearchReadsTheBaseCorpusLikeTheRankedSearch:
 
     async def test_the_callers_filters_reach_the_base_collection_only(self, search_with):
         store = search_with(_TextStore([]))
-        await _exact(query="BA-03", filters={"doc_type": "richtlinie"})
+        await _exact(query="BA-03", filters={"content_type": "text"})
         by_collection = {call["collection"]: call["filters"] for call in store.calls}
         assert by_collection["proj_1"] is None and by_collection["archiv_1"] is None
-        assert {"doc_type": "richtlinie"} in by_collection["oib_knowledge"]["$and"]
+        assert {"content_type": "text"} in by_collection["oib_knowledge"]["$and"]
         assert {"chunking": {"$ne": "page"}} in by_collection["oib_knowledge"]["$and"]
 
 
@@ -449,9 +509,10 @@ class _FailingStore(_TextStore):
         return await super().find_text(collection_name, pattern, filters, limit)
 
 
+@pytest.mark.usefixtures("reads_as_an_office")
 class TestAStoreOutageIsNeverANo:
     def test_the_adapter_raises_on_an_outage_and_answers_empty_for_an_empty_collection(self, qdrant_store, monkeypatch):
-        from knowledge_layer.qdrant import store as store_module
+        from knowledge_layer.vector_store import store as store_module
 
         retriever = _store_retriever()
         assert retriever._find_text_sync("no_such_collection_xyz", "x", None, 5) == []
@@ -669,7 +730,7 @@ class TestTheDokumentartProfile:
         last = select_files(rows, offset=6, limit=2)
 
         assert first.types == last.types == [("Grundriss", 5), ("Schnitt", 2)]
-        expected = "Dokumentart (assigned by Piloti): Grundriss 5 · Schnitt 2."
+        expected = f"Dokumentart (assigned by {PRODUCT_NAME}): Grundriss 5 · Schnitt 2."
         assert _profile_line(render_listing(first)) == _profile_line(render_listing(last)) == expected
 
     def test_it_sits_directly_under_the_count_line(self):
@@ -699,11 +760,11 @@ class TestTheDokumentartProfile:
 
     def test_the_untyped_count_is_named_on_the_profile_line(self):
         text = render_listing(select_files(_typed(("Grundriss",), ("Brandschutz",))))
-        assert _profile_line(text) == "Dokumentart (assigned by Piloti): Grundriss 1; without Dokumentart: 1."
+        assert _profile_line(text) == f"Dokumentart (assigned by {PRODUCT_NAME}): Grundriss 1; without Dokumentart: 1."
 
     def test_no_untyped_clause_when_every_row_has_a_type(self):
         text = render_listing(select_files(_typed(("Grundriss",), ("Grundriss",))))
-        assert _profile_line(text) == "Dokumentart (assigned by Piloti): Grundriss 2."
+        assert _profile_line(text) == f"Dokumentart (assigned by {PRODUCT_NAME}): Grundriss 2."
 
     def test_at_most_the_cap_is_named_and_the_listing_keeps_them_all(self):
         types = [tag for tag in DOCUMENT_TYPE_TAGS if tag != "Sonstiges"][:10]
@@ -717,8 +778,8 @@ class TestTheDokumentartProfile:
 
     def test_a_selection_with_no_document_type_says_so_rather_than_saying_nothing(self):
         rendered = render_listing(select_files(_typed((), ("Brandschutz",))))
-        assert "Piloti has assigned none of these files a Dokumentart" in rendered
-        assert "Dokumentart (assigned by Piloti)" not in rendered
+        assert f"{PRODUCT_NAME} has assigned none of these files a Dokumentart" in rendered
+        assert f"Dokumentart (assigned by {PRODUCT_NAME})" not in rendered
 
     def test_no_profile_line_for_an_empty_selection(self):
         assert "Dokumentart" not in render_listing(select_files([]))
@@ -818,24 +879,27 @@ class TestTopicsAndCaptureInTheListing:
         rows = _topical(("Attika", "Fluchtweg"), ("attika",), ("Holz",))
         listing = select_files(rows)
         assert listing.topics == [("Attika", 2), ("Fluchtweg", 1), ("Holz", 1)]
-        assert "Topics (recognised by Piloti): Attika 2 · Fluchtweg 1 · Holz 1." in render_listing(listing).splitlines()
+        assert (
+            f"Topics (recognised by {PRODUCT_NAME}): Attika 2 · Fluchtweg 1 · Holz 1."
+            in render_listing(listing).splitlines()
+        )
 
     def test_the_profile_names_at_most_eight_topics_and_counts_the_whole_selection(self):
         rows = _topical(*[(f"Thema{index:02}",) for index in range(10)])
         listing = select_files(rows, limit=1)
-        line = _profile(render_listing(listing), "Topics (recognised by Piloti)")
+        line = _profile(render_listing(listing), f"Topics (recognised by {PRODUCT_NAME})")
         assert len(listing.topics) == 10
         assert line.count(" · ") == MAX_TOPIC_COUNTS - 1
         assert "Thema08" not in line
 
     def test_no_profile_line_without_topics(self):
-        assert "Topics (recognised by Piloti)" not in render_listing(select_files(_rows()))
+        assert f"Topics (recognised by {PRODUCT_NAME})" not in render_listing(select_files(_rows()))
 
     def test_the_profile_sits_directly_under_the_dokumentarten_line(self):
         rows = file_rows([_doc("Plan.pdf", "Plaene", tags=["Grundriss"], topics=["Attika"])])
         lines = render_listing(select_files(rows)).splitlines()
         dokumentarten = next(index for index, line in enumerate(lines) if line.startswith("Dokumentart ("))
-        assert lines[dokumentarten + 1] == "Topics (recognised by Piloti): Attika 1."
+        assert lines[dokumentarten + 1] == f"Topics (recognised by {PRODUCT_NAME}): Attika 1."
 
 
 class TestTopicsThroughTheTool:

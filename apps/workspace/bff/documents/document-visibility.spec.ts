@@ -45,8 +45,12 @@ const SEES_EVERY_ROW: Record<string, string> = {
   // --- Sweeps over every organization or every stuck row ---------------------
   'lib/documents/repository/ingest-state.ts#listStuckProcessingDocuments':
     'Sweep: re-dispatches rows left at `processing`, which are held by definition. Returns ids to a worker, nothing to a person.',
-  'lib/documents/repository/ingest-state.ts#listTransientFailures':
-    'Sweep: re-reads documents whose read failed for a passing reason, each through `retryTransientFailure`. Ids only, to a worker.',
+  'lib/documents/repository/ingest-state.ts#listStalePendingDocuments':
+    'Sweep: reads dispatched ingests back from the backend (`reconcileStalePending`) and writes their status. The rows go to a worker, never to a person.',
+  'lib/documents/repository/ingest-state.ts#findIngestAnnouncementFacts':
+    'Analytics: the attempt count and upload batch of rows a status read just settled, for `document_ingest_finished`. Ids and numbers into an event, nothing to a person.',
+  'lib/documents/repository/ingest-state.ts#listSettleableDocumentsForIngestJobs':
+    "The settle push: the in-flight rows of jobs the worker says ended, held by definition, each reconciled in its own organization. Nothing to a person; the route answers a count.",
   'lib/documents/repository/quarantine-and-retry.ts#listFailedDocumentPageInOrg':
     'Sweep: the failed-ingestion rescan re-dispatches each id through `reingestDocument`. Ids only, to a job.',
   'lib/platform/vector-reconcile.ts#liveFilenamesByCollection':
@@ -126,6 +130,11 @@ const SEES_EVERY_ROW: Record<string, string> = {
  * and says which read that was.
  */
 const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
+  // --- The E-Mail-Eingang's candidates (ADR-0137): the next version's number of the row read ----
+  'lib/inbound-mail/review-read-repository.ts#findThreadDocuments|documentVersions':
+    'A correlated count beside the thread document the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A number, no fact.',
+  'lib/inbound-mail/review-read-repository.ts#findCandidateDocuments|documentVersions':
+    'A correlated count beside the document the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A number, no fact.',
   // --- Versions: keyed by a document the caller already read ----------------
   'lib/documents/version-repository.ts#listDocumentVersions|documentVersions':
     'The version list and the last refusers, after `getAccessibleDocument` / `findDocumentForSession` read the document.',
@@ -248,6 +257,10 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
     makes: ['internal:identity'],
     why: "Idempotency of Piloti's filing by its run reference, which a unique index answers over every row.",
   },
+  'lib/inbound-mail/review-read-repository.ts#findDocumentIdByStoredName': {
+    makes: ['internal:identity'],
+    why: 'Whether a held mail’s part would be filed under a name the project already has: identity, over every row (ADR-0137, C2 `name_taken`). The id never leaves the service.',
+  },
   'lib/documents/repository/lookup-by-ref.ts#findLiveDocumentByFilename': {
     makes: ['internal:identity'],
     why: 'The name probe of an upload; a held row of another person answers as taken (`assertMayReplaceHeld`).',
@@ -276,10 +289,6 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   'lib/documents/document-dispatch.ts#dispatchDocument': { makes: ['internal:ingest'], why: 'The one funnel every ingest passes reads its row.' },
   'lib/documents/extraction-jobs.ts#jobStillOwnsRow': { makes: ['internal:ingest'], why: 'A background job asks whether the row is still its own.' },
   'lib/documents/ingest-recovery.ts#redispatchStuckDocument': { makes: ['internal:ingest'], why: 'The sweep re-dispatches a stuck row.' },
-  'lib/documents/ingest-recovery.ts#retryTransientFailure': {
-    makes: ['internal:ingest'],
-    why: 'The transient-retry sweep re-reads the failed row it sends back; no person is asking.',
-  },
   'lib/documents/reindex.ts#runReindexSlice': {
     makes: ['internal:ingest'],
     why: 'A reindex re-dispatches every row of the project; `dispatchDocument` leaves a quarantine where it is.',

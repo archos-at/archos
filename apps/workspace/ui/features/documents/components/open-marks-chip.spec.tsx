@@ -20,6 +20,7 @@ import { fireEvent, render, screen, within } from '@/test-utils'
 import { FileCard } from './file-card'
 import { FileListView } from './file-list-view'
 import type { FileItem } from './project-file-workspace'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const doc = (overrides: Partial<FileItem> = {}): FileItem => ({
   id: 'doc-1',
@@ -81,7 +82,7 @@ describe('the open Anmerkungen on a file card', () => {
     expect(screen.getByRole('tooltip')).toHaveTextContent('4 open annotations, 2 for you')
   })
 
-  it('keeps the size and the date in the footer, the chip beside them rather than in their place', () => {
+  it('keeps the size and the date in the footer, and the chip on the sheet beside what is in progress', () => {
     render(
       <FileCard
         file={doc({ fileSize: 1_900_000, marks: { open: 4, proposed: 0, forYou: 2 } })}
@@ -91,7 +92,8 @@ describe('the open Anmerkungen on a file card', () => {
       />,
     )
     const footer = screen.getByTestId('file-card-footer')
-    expect(within(footer).getByTestId('open-marks')).toBeInTheDocument()
+    expect(within(footer).queryByTestId('open-marks')).toBeNull()
+    expect(screen.getByTestId('open-marks')).toBeInTheDocument()
     expect(footer).toHaveTextContent('1.9 MB')
     expect(footer.querySelector('time')).not.toBeNull()
   })
@@ -117,16 +119,16 @@ describe('the open Anmerkungen on a file card', () => {
     focusVisible()
     render(<FileCard file={doc({ marks: { open: 2, proposed: 12, forYou: 1 } })} isSelected={false} onSelect={vi.fn()} locale="en" />)
     const chip = screen.getByRole('button', {
-      name: '2 open annotations, 1 for you and 12 proposals from Piloti in “Grundriss_EG.pdf”',
+      name: `2 open annotations, 1 for you and 12 proposals from ${PRODUCT_NAME} in “Grundriss_EG.pdf”`,
     })
     expect(chip).toHaveTextContent('2 open · 1 for you · 12 proposals')
     fireEvent.focus(chip)
-    expect(screen.getByRole('tooltip')).toHaveTextContent('2 open annotations, 1 for you and 12 proposals from Piloti')
+    expect(screen.getByRole('tooltip')).toHaveTextContent(`2 open annotations, 1 for you and 12 proposals from ${PRODUCT_NAME}`)
   })
 
   it('names only the proposals when nothing of the office’s own is open', () => {
     render(<FileCard file={doc({ marks: { open: 0, proposed: 1, forYou: 0 } })} isSelected={false} onSelect={vi.fn()} locale="en" />)
-    expect(screen.getByRole('button', { name: '1 proposal from Piloti in “Grundriss_EG.pdf”' })).toHaveTextContent('1 proposal')
+    expect(screen.getByRole('button', { name: `1 proposal from ${PRODUCT_NAME} in “Grundriss_EG.pdf”` })).toHaveTextContent('1 proposal')
   })
 
   it('shows nothing where nothing is open', () => {

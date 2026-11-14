@@ -32,18 +32,22 @@ somehow were.
 | Role | Who uses it | RLS | May do |
 |---|---|---|---|
 | the table owner (`aiq`) | drizzle migrations | **exempt** (owner) | DDL + DML |
-| `app_rw` | BFF, purger, scheduler | **enforced** | DML on granted tables |
+| `app_rw` | BFF, bff-jobs, purger | **enforced** | DML on granted tables |
 | `app_platform` | deliberate cross-tenant work | **bypassed** | DML on granted tables |
 
 The owner is exempt deliberately: with `FORCE ROW LEVEL SECURITY` a migration
 that backfills data would silently update zero rows and report success.
 
 A fourth login exists on clusters deployed by Pulumi and is not an application
-role: `keda_scaler`, which KEDA's `postgresql` scaler counts the queue
-tables with. It has no `BYPASSRLS`; its one read of a tenant table
-(`bff_job_queue`) is an extra `FOR SELECT` policy written for that role alone
-(`deploy/pulumi/src/app/queue-scaler-grants.ts`), and its rights are SELECT on
-three queue tables.
+role: `keda_scaler`. The worker tiers scale on Hatchet's backlog (ADR-0150), so
+the login that counts it lives on the background-work cluster
+(`background-work-pg`), with SELECT on the few columns of Hatchet's queue
+tables the count reads (`backgroundWorkGrantsSql`,
+`deploy/pulumi/src/data/background-work-pg.ts`) and no tenant table at all. On
+the app cluster the `keda_scaler` role and the extra `FOR SELECT` policy it had
+on `bff_job_queue` are what the claim queues left behind, kept until the
+cutover drains them ([`docs/deployment/hatchet.md`](../deployment/hatchet.md)).
+Nothing in Pulumi grants them any more.
 
 `app_platform` is `NOLOGIN`. It is reached only by `SET LOCAL ROLE`, which
 means a cross-tenant read shows up as `current_user` in `pg_stat_activity` and
@@ -87,6 +91,29 @@ not readable-by-everyone; it is not readable at all, and you get
 
 > **One policy per table.** Two permissive policies OR together, so a second one
 > silently *widens* the first. The coverage spec asserts exactly one.
+
+### Append-only tables
+
+Refuse changes with a trigger, and refuse DELETE to the runtime role with a
+privilege, not with `current_user`. `grid_document_quarantine_decisions_guard`
+(0119) lets only `grid_app_platform` delete by testing `current_user`, and that
+works because the table has no foreign keys. A foreign-key cascade runs as the
+owner of the table it cascades into, so on a table with an FK from `projects`
+the same test sees the owner during a project purge and refuses it (checked on
+PostgreSQL 16, 2026-10-22). On such a table, `REVOKE DELETE … FROM app_rw`
+(the owner's cascades and the platform role's sweeps keep working) and let the
+trigger refuse UPDATE only.
+
+A delete guard may still ask about the PARENT. Inside the cascade from a
+deleted row, the child's `BEFORE DELETE` trigger no longer sees that row
+(PostgreSQL 16, checked 2026-10-22). `inbound_mail_decisions` (0196) uses this:
+a decision the audit trail has not taken yet is refused deletion while
+`EXISTS (SELECT 1 FROM projects WHERE id = OLD.project_id)`, so a retention
+sweep or a thread's cascade waits for the audit, and a project purge, which
+deletes the project row first, still goes through. A trigger's refusal names
+its rule with `RAISE … USING CONSTRAINT = '<name>'`; `psql` prints that name
+only under `\set VERBOSITY verbose`, which is how `scripts/rls-test-db.sh`
+asserts it.
 
 ---
 
@@ -199,7 +226,7 @@ Migrations and runtime use **different credentials**:
 
 | Variable | Role | Set on |
 |---|---|---|
-| `APP_DATABASE_URL` | `app_rw` | frontend, purger, skill-scheduler |
+| `APP_DATABASE_URL` | `app_rw` | frontend, bff-jobs, purger |
 | `APP_MIGRATION_DATABASE_URL` | the table owner (`aiq`) | the `migrate` service (compose) / the migration Job (Kubernetes) |
 
 `drizzle.config.ts` prefers the migration URL and falls back to the runtime one,
@@ -212,7 +239,7 @@ variable.
   `app_rw`'s password from `APP_DATABASE_URL` — one source of truth,
   no manual step. It runs in the one-shot `migrate` service **before**
   `drizzle-kit migrate`, because migration 0030 asserts the roles and aborts
-  without them. `frontend`, `purger` and `skill-scheduler` all wait on that
+  without them. `frontend`, `purger` and `bff-jobs` all wait on that
   service via `depends_on: service_completed_successfully`.
   `APP_RUNTIME_PASSWORD` only substitutes into the compose DSNs; the role's
   password follows the DSN, not the variable.

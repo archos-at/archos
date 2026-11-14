@@ -38,13 +38,18 @@ export interface ExecutedStep {
  * Several tools share one chip because a chip is a kind of work, not a call
  * („RIS", not „RIS, RIS, RIS").
  */
+/** The chip of a legal database read, whichever tool read it: one key, so a new tool adds no label. */
+const LEGAL_DATABASE = 'ris'
+
 const TOOL_LABEL_KEYS: Record<string, string> = {
   web_search_tool: 'webSearch',
   advanced_web_search_tool: 'webSearch',
-  ris_search_tool: 'ris',
-  ris_fetch_tool: 'ris',
-  ris_lookup_tool: 'ris',
-  ris_catalog_lookup_tool: 'ris',
+  ris_search_tool: LEGAL_DATABASE,
+  ris_fetch_tool: LEGAL_DATABASE,
+  law_lookup: LEGAL_DATABASE,
+  // The law lookup's name before the rename; stored turns carry it.
+  ris_lookup_tool: LEGAL_DATABASE,
+  ris_catalog_lookup_tool: LEGAL_DATABASE,
   knowledge_search: 'corpus',
   // The office's other projects (ADR-0094): the live line says „in anderen
   // Projekten“, and the settled Herleitung must still say the chat left its own.
@@ -52,6 +57,8 @@ const TOOL_LABEL_KEYS: Record<string, string> = {
   read_passage: 'reading',
   ifc_query: 'model',
   ifc_measure: 'measure',
+  // A DXF drawing measured as a site (ADR-0153): a measurement like the model's.
+  dxf_measure: 'measure',
   // Retired for `look` (ADR-0128); a read-side alias, because stored turns carry it.
   view_knowledge_image: 'drawing',
   surface_documents: 'documents',

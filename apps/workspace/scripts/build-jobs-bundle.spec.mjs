@@ -52,7 +52,7 @@ describe('the bff-jobs slice bundle', () => {
     expect(build.status, build.stderr).toBe(0)
   })
 
-  it('loads in plain Node and exports what the runner calls', () => {
+  it('loads in plain Node and exports what the job worker calls', () => {
     const probe = spawnSync(process.execPath, ['--input-type=module', '-e', PROBE, file], {
       cwd: UI_ROOT,
       encoding: 'utf8',
@@ -60,7 +60,7 @@ describe('the bff-jobs slice bundle', () => {
     })
     expect(probe.status, probe.stderr).toBe(0)
     const result = JSON.parse(probe.stdout.trim().split('\n').at(-1))
-    expect(result.exports).toEqual(expect.arrayContaining(['initSliceHost', 'runSlice', 'shutdownSliceHost']))
+    expect(result.exports).toEqual(expect.arrayContaining(['initSliceHost', 'startJobWorker', 'shutdownSliceHost', 'rederiveBuildingClasses']))
     // The packages a handler imports only when it runs (an IFC parser, the
     // citation formats) are not exercised by loading the bundle; import them too.
     expect(result.lazy.length).toBeGreaterThan(0)

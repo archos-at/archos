@@ -424,7 +424,7 @@ def legacy_profile_token(base_key: str, token: str) -> str:
 
     Points in Qdrant written before the payload rename keep German fact tokens until the operator
     rewrite (``docs/deployment/qdrant-payload-rename-runbook.md``); a filter or boost over the
-    English ones asks for these too (``knowledge_layer.qdrant.scope`` and ``boost``). Delete
+    English ones asks for these too (``knowledge_layer.vector_store.scope`` and ``boost``). Delete
     with the fallback.
     """
     table = LEGACY_PROFILE_TOKENS.get(normalize_profile_base_key(base_key), {})

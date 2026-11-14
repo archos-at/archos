@@ -4,17 +4,20 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const alertVariants = cva(
-  'relative w-full rounded-lg border px-4 py-3.5 text-sm grid has-[>svg]:grid-cols-[1rem_1fr] grid-cols-[0_1fr] has-[>svg]:gap-x-3 gap-y-0.5 items-start [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current',
+  'relative w-full rounded-surface border px-4 py-3.5 text-sm grid has-[>svg]:grid-cols-[1rem_1fr] grid-cols-[0_1fr] has-[>svg]:gap-x-3 gap-y-0.5 items-start [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current',
   {
     variants: {
       variant: {
         default: 'bg-card text-card-foreground',
         // Destructive is an error surface, not a quiet card with red text:
-        // the danger tint fill + AA error ink + signal hairline (the token's
-        // own alpha keeps it subtle — no slash modifier, static @utilities
-        // cannot take one). Other variants unchanged.
+        // the danger tint fill + signal hairline (the token's own alpha keeps
+        // it subtle — no slash modifier, static @utilities cannot take one),
+        // the signal red on the glyph and the words in ink. Red words on the
+        // tint measured 4.08:1 (axe, 2026-10-27), under the 4.5:1 AA asks of
+        // body text: the same cure as a warning line, glyph coloured, words
+        // in ink (`design-language.md`, „Measured contrasts“).
         destructive:
-          'border-danger bg-danger-subtle text-error [&>svg]:text-current *:data-[slot=alert-description]:text-error',
+          'border-danger bg-danger-subtle text-foreground [&>svg]:text-error *:data-[slot=alert-description]:text-foreground',
         success:
           'bg-success-subtle text-success [&>svg]:text-current',
         warning:
@@ -48,7 +51,7 @@ const AlertTitle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
     <div
       ref={ref}
       data-slot="alert-title"
-      className={cn('col-start-2 line-clamp-1 min-h-4 font-medium tracking-tight', className)}
+      className={cn('col-start-2 line-clamp-1 min-h-4 font-medium', className)}
       {...props}
     />
   )

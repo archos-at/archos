@@ -31,10 +31,22 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-import { useInboxList, type UseInboxListResult } from '../hooks/use-inbox'
+import { useInboxBadge, useInboxList, type UseInboxListResult } from '../hooks/use-inbox'
 import { InboxList } from './InboxList'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const useInboxListMock = vi.mocked(useInboxList)
+const useInboxBadgeMock = vi.mocked(useInboxBadge)
+
+/**
+ * „Für mich“, the default, is the queue (`InboxQueue`, its own spec); the
+ * flat list these specs exercise is „Alle“ and „Archiviert“. So the address
+ * names „Alle“ unless a spec is about „Für mich“ and clears it.
+ */
+beforeEach(() => {
+  page.search = 'filter=all'
+  useInboxBadgeMock.mockReturnValue({ pending: 0, connected: true, refresh: vi.fn() })
+})
 
 const refresh = vi.fn()
 const markRead = vi.fn(async () => {})
@@ -75,6 +87,7 @@ const ITEM: InboxItemView = {
   type: 'mention.requested',
   state: 'unread',
   archived: false,
+  read: false,
   actionable: true,
   resourceType: 'conversation',
   resourceId: 'c1',
@@ -99,9 +112,13 @@ describe('InboxList — filters', () => {
     useInboxListMock.mockReturnValue(result({ items: [ITEM], pending: 1 }))
   })
 
-  test('defaults to "needs me", which asks the hook for open requests only', () => {
+  test('defaults to "needs me", which reads what the badge counts: open requests and anything unread', () => {
+    page.search = ''
     render(<InboxList />)
-    expect(useInboxListMock).toHaveBeenCalledWith(true, 'requests')
+    // The queue reads its two questions; the flat list's own read idles.
+    expect(useInboxListMock).toHaveBeenCalledWith(true, 'requests', expect.anything())
+    expect(useInboxListMock).toHaveBeenCalledWith(true, 'unread', expect.anything())
+    expect(useInboxListMock).not.toHaveBeenCalledWith(true, 'pending')
     const needsMe = screen.getByRole('radio', { name: /Needs me/ })
     const all = screen.getByRole('radio', { name: 'All' })
     expect(needsMe).toHaveAttribute('data-state', 'on')
@@ -129,8 +146,8 @@ describe('InboxList — filters', () => {
     page.search = 'tab=x'
     try {
       render(<InboxList />)
-      fireEvent.click(screen.getByRole('radio', { name: 'Unread' }))
-      expect(replaceState).toHaveBeenLastCalledWith(null, '', '/app/inbox?tab=x&filter=unread')
+      fireEvent.click(screen.getByRole('radio', { name: 'All' }))
+      expect(replaceState).toHaveBeenLastCalledWith(null, '', '/app/inbox?tab=x&filter=all')
       // „Needs me“ is the default, and the address does not say it.
       fireEvent.click(screen.getByRole('radio', { name: /Needs me/ }))
       expect(replaceState).toHaveBeenLastCalledWith(null, '', '/app/inbox?tab=x')
@@ -152,29 +169,47 @@ describe('InboxList — filters', () => {
   })
 
   test('passes the disabled flag through, so a gated org issues no request', () => {
+    page.search = ''
     render(<InboxList enabled={false} />)
-    expect(useInboxListMock).toHaveBeenCalledWith(false, 'requests')
+    expect(useInboxListMock).toHaveBeenCalledWith(false, 'pending')
   })
 
-  test('„Unread“ and „Archived“ are filters of their own, each reading its own slice', () => {
+  test('„Archived“ is a filter of its own, reading its own slice; „Unread“ is no tab beside „Needs me“, which holds it', () => {
     render(<InboxList />)
-    fireEvent.click(screen.getByRole('radio', { name: 'Unread' }))
-    expect(useInboxListMock).toHaveBeenLastCalledWith(true, 'unread')
+    expect(screen.queryByRole('radio', { name: 'Unread' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('radio', { name: 'Archived' }))
     expect(useInboxListMock).toHaveBeenLastCalledWith(true, 'archived')
   })
 
+  test('an old address naming „unread“ opens on „Needs me“, where those rows now are', () => {
+    page.search = 'filter=unread'
+    try {
+      render(<InboxList />)
+      expect(useInboxListMock).toHaveBeenCalledWith(true, 'requests', expect.anything())
+    } finally {
+      page.search = ''
+    }
+  })
+
   test('the selected filter wears a filled thumb', () => {
+    page.search = ''
     render(<InboxList />)
     const needsMe = screen.getByRole('radio', { name: /Needs me/ })
     expect(needsMe.querySelector('[data-slot="toggle-pill"]')).toHaveClass('bg-foreground')
   })
 
-  test('a filter carries its count only when there is one, with no blank tail at zero', () => {
-    useInboxListMock.mockReturnValue(result({ items: [ITEM], pending: 1, counts: { requests: 2, unread: 0 } }))
+  test('„Needs me“ carries the badge’s own number, and no pill at zero', () => {
+    // The bell and the tab said different numbers (18 and 8): the tab counted
+    // requests alone. It says what the badge says now, whichever filter is open.
+    useInboxBadgeMock.mockReturnValue({ pending: 7, connected: true, refresh: vi.fn() })
+    page.search = ''
+    const { unmount } = render(<InboxList />)
+    expect(screen.getByRole('radio', { name: /Needs me/ })).toHaveTextContent('Needs me7')
+    expect(screen.getByRole('radio', { name: 'All' }).querySelector('[data-slot="count-pill"]')).toBeNull()
+    unmount()
+    useInboxBadgeMock.mockReturnValue({ pending: 0, connected: true, refresh: vi.fn() })
     render(<InboxList />)
-    expect(screen.getByRole('radio', { name: /Needs me/ })).toHaveTextContent('Needs me2')
-    expect(screen.getByRole('radio', { name: 'Unread' }).querySelector('[data-slot="count-pill"]')).toBeNull()
+    expect(screen.getByRole('radio', { name: /Needs me/ }).querySelector('[data-slot="count-pill"]')).toBeNull()
   })
 })
 
@@ -195,19 +230,43 @@ describe('InboxList — states', () => {
     expect(refresh).toHaveBeenCalled()
   })
 
+  test('a read that fails with rows on screen keeps the rows', () => {
+    // A background re-read (a live nudge, the poll) that failed once used to
+    // replace a working list with the load error.
+    page.search = 'filter=all'
+    useInboxListMock.mockReturnValue(result({ items: [ITEM], error: true }))
+    render(<InboxList />)
+    expect(screen.getByTestId('inbox-item')).toBeInTheDocument()
+    expect(screen.queryByText('Your inbox could not be loaded.')).not.toBeInTheDocument()
+    page.search = ''
+  })
+
+  test('a section is keyed by its span, so the ones under a section that left stay mounted', () => {
+    page.search = 'filter=all'
+    const old = { ...ITEM, id: 'i-old', updatedAt: '2020-01-01T08:00:00Z' }
+    const today = { ...ITEM, id: 'i-today', updatedAt: new Date().toISOString() }
+    useInboxListMock.mockReturnValue(result({ items: [today, old] }))
+    const { rerender } = render(<InboxList />)
+    const older = screen.getAllByTestId('inbox-section')[1]
+    useInboxListMock.mockReturnValue(result({ items: [old] }))
+    rerender(<InboxList />)
+    // Keyed by its place it became „the first section“ and was built again: its rows jumped instead of closing the gap.
+    expect(screen.getAllByTestId('inbox-section')).toContain(older)
+    page.search = ''
+  })
+
   test('the empty state differs by filter', () => {
     useInboxListMock.mockReturnValue(result())
+    page.search = ''
     render(<InboxList />)
 
-    expect(screen.getByText('Nothing needs you')).toBeInTheDocument()
-    expect(
-      screen.getByText('When someone mentions you, assigns you an annotation or Piloti asks you something, it appears here.'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('All caught up')).toBeInTheDocument()
+    expect(screen.getByText('Anything new shows up here as it arrives.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: 'All' }))
     expect(screen.getByText('Your inbox is empty')).toBeInTheDocument()
-    expect(screen.getByText('News from your team and from Piloti appears here.')).toBeInTheDocument()
-    expect(screen.queryByText('Nothing needs you')).not.toBeInTheDocument()
+    expect(screen.getByText(`News from your team and from ${PRODUCT_NAME} appears here.`)).toBeInTheDocument()
+    expect(screen.queryByText('All caught up')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: 'Archived' }))
     expect(screen.getByText('Nothing archived')).toBeInTheDocument()
@@ -290,7 +349,7 @@ describe('InboxList — actions', () => {
   })
 
   test('mark-all-read is disabled while nothing is unread', () => {
-    useInboxListMock.mockReturnValue(result({ items: [{ ...ITEM, state: 'read' }] }))
+    useInboxListMock.mockReturnValue(result({ items: [{ ...ITEM, state: 'read', read: true }] }))
     render(<InboxList />)
     expect(screen.getByRole('button', { name: 'Mark all as read' })).toBeDisabled()
   })
@@ -362,7 +421,7 @@ describe('InboxList — actions', () => {
   })
 
   test('opening an already-read row does not re-mark it', () => {
-    useInboxListMock.mockReturnValue(result({ items: [{ ...ITEM, state: 'read' }] }))
+    useInboxListMock.mockReturnValue(result({ items: [{ ...ITEM, state: 'read', read: true }] }))
     render(<InboxList />)
     fireEvent.click(screen.getByRole('link'))
     expect(markRead).not.toHaveBeenCalled()
@@ -370,7 +429,7 @@ describe('InboxList — actions', () => {
 })
 
 describe('InboxList — keyboard triage', () => {
-  const SECOND: InboxItemView = { ...ITEM, id: 'i2', state: 'read', actorName: 'Markus Hofer', actorUserId: 'u-markus' }
+  const SECOND: InboxItemView = { ...ITEM, id: 'i2', state: 'read', read: true, actorName: 'Markus Hofer', actorUserId: 'u-markus' }
 
   beforeEach(() => {
     toastMock.mockClear()

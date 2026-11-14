@@ -1,0 +1,180 @@
+# Edge cases of country base knowledge (design §9; ADR-0173).
+#
+# Each case is a "paper" fixture: the records an office may read, written in
+# the format a pack is proposed in (`apps/workspace/bff/base-knowledge/platform/wire.ts`),
+# the office's placement, the project's site, and what the turn's knowledge
+# context must be. `apps/workspace/bff/base-knowledge/context/edge-cases.spec.ts`
+# runs every case through the one resolver the turn uses, without a database.
+#
+# Ids and tokens only: no norm text lands here (licensed text never leaves its
+# seam, and nothing here needs a sentence of a law).
+#
+# A case names the base graphs it reads (`graphs`), adds records of its own
+# (`records`), the platform's last check per edition (`checks`), and expects:
+#   gate        the gate state, and `reason` for site_unknown
+#   municipalLaw  whether the leaf's municipal law is held
+#   retrieval   the countries whose shared-corpus chunks the turn may read
+#   uses        per work id: role, qualifier, labels (each listed field must match)
+#   absentWorks works that must carry no use at all
+#   noUses      true when the turn carries no use
+#   undetermined  the law whose edition at the date is not determined, with its reason
+
+graphs:
+  austria:
+    - { type: territory, id: EU, kind: union, name: EU }
+    - { type: territory, id: AT, kind: country, name: Österreich, parents: [{ id: EU, validFrom: '1995-01-01' }], coverageLevel: core }
+    - { type: territory, id: AT-6, kind: state, name: Steiermark, parents: [{ id: AT }] }
+    - { type: territory, id: AT-9, kind: state, name: Wien, parents: [{ id: AT }], coverageLevel: full, municipalLaw: true }
+    - { type: work, key: stmk-bg, kind: statute, title: Steiermärkisches Baugesetz, territoryIds: [AT-6] }
+    - { type: work, key: bo-wien, kind: statute, title: Bauordnung für Wien, territoryIds: [AT-9] }
+  germany:
+    - { type: territory, id: DE, kind: country, name: Deutschland, parents: [{ id: EU, validFrom: '1958-01-01' }], coverageLevel: open }
+    - { type: territory, id: DE-BY, kind: state, name: Bayern, parents: [{ id: DE }] }
+    - { type: territory, id: DE-NW, kind: state, name: Nordrhein-Westfalen, parents: [{ id: DE }] }
+    - { type: work, key: bauo-nrw, kind: statute, title: Bauordnung NRW, designation: BauO NRW, territoryIds: [DE-NW] }
+    - { type: work, key: bauo-nrw-dvo, kind: ordinance, title: Durchführungsverordnung BauO NRW, territoryIds: [DE-NW] }
+    - { type: edition, key: bauo-nrw-dvo-2019, workKey: bauo-nrw-dvo, label: '2019', inForceFrom: '2019-01-01' }
+    - { type: work, key: baybo, kind: statute, title: Bayerische Bauordnung, designation: BayBO, territoryIds: [DE-BY] }
+    - { type: work, key: hoai, kind: ordinance, title: Honorarordnung für Architekten und Ingenieure, designation: HOAI, territoryIds: [DE], connectsBy: [office_seat, client] }
+    - { type: work, key: vgv, kind: ordinance, title: Vergabeverordnung, designation: VgV, territoryIds: [DE], connectsBy: [client] }
+
+cases:
+  - id: E01
+    title: Munich project, org without DE
+    graphs: [austria, germany]
+    office: { homeCountry: AT, entitled: [AT] }
+    site: { territoryId: DE-BY, certainty: verified }
+    expect:
+      gate: not_entitled
+      retrieval: []
+      noUses: true
+
+  - id: E02
+    title: Cologne project, DE open
+    graphs: [austria, germany]
+    office: { homeCountry: AT, entitled: [AT, DE] }
+    site: { territoryId: DE-NW, certainty: verified }
+    date: '2026-12-14'
+    checks:
+      edition:bauo-nrw-dvo-2019: { checkedAt: '2026-12-10T08:00:00Z', result: current }
+    expect:
+      gate: open
+      retrieval: [DE, EU]
+      uses:
+        work:bauo-nrw: { role: binding, qualifier: uncurated, editionId: null, labels: [uncurated_source], freshness: current }
+      # The text says what the uses say: uncurated, never "reviewed".
+      textContains:
+        - "from the platform's records, some read from an uncurated official source (marked)"
+        - 'BauO NRW „Bauordnung NRW“, the consolidated text in force at its source: law of DE-NW, in force; read from an uncurated official source; nobody on the platform reviewed this route'
+      textLacks: ["from the platform's reviewed records"]
+
+  - id: E04
+    title: Org with home DE and no site asks about Abstandsflächen
+    graphs: [austria, germany]
+    office: { homeCountry: DE, entitled: [DE] }
+    site: null
+    expect:
+      gate: site_unknown
+      reason: no_site
+      retrieval: [DE]
+      noUses: true
+
+  - id: E28
+    title: Statutes past twice their freshness target
+    graphs: [austria, germany]
+    office: { homeCountry: DE, entitled: [DE] }
+    site: { territoryId: DE-NW, certainty: verified }
+    date: '2026-12-14'
+    checks:
+      # An ordinance's target is 14 days: 40 days is past twice the target.
+      edition:bauo-nrw-dvo-2019: { checkedAt: '2026-11-04T08:00:00Z', result: current }
+    expect:
+      gate: open
+      uses:
+        work:bauo-nrw-dvo: { role: information, qualifier: null, labels: [uncurated_source, check_overdue, unchecked_since], freshness: check_due }
+
+  - id: E40
+    title: Munich project of an AT office asks about HOAI; VgV for a private client
+    graphs: [austria, germany]
+    office: { homeCountry: AT, entitled: [AT, DE] }
+    site: { territoryId: DE-BY, certainty: verified }
+    expect:
+      gate: open
+      uses:
+        work:hoai: { role: information, qualifier: null, labels: [depends_on_connecting_factor] }
+        work:vgv: { role: information, qualifier: null, labels: [depends_on_connecting_factor] }
+        work:baybo: { role: binding, qualifier: uncurated }
+      # HOAI binds by the office's seat or the client, never "not in force here".
+      textContains:
+        - 'Binding by something other than the site:'
+        - 'HOAI „Honorarordnung für Architekten und Ingenieure“, the consolidated text in force at its source: binds by where the office sits or who the client is, not by the site; cite it as binding only once that is known'
+        - 'VgV „Vergabeverordnung“, the consolidated text in force at its source: binds by who the client is, not by the site'
+      textLacks: ['not in force here']
+
+  - id: E47
+    title: US project; org without an organizations row
+    graphs: [austria]
+    office: { homeCountry: null, entitled: [] }
+    site: { territoryId: US, certainty: unverified }
+    expect:
+      gate: organization_unplaced
+      retrieval: []
+      noUses: true
+
+  - id: E-core-AT
+    title: Vienna project of an AT office reads Vienna's own coverage (full, its municipal law held) over Austria's core, with no uncurated qualifier
+    graphs: [austria]
+    office: { homeCountry: AT, entitled: [AT] }
+    site: { territoryId: AT-9, certainty: verified }
+    expect:
+      gate: full
+      municipalLaw: true
+      retrieval: [AT, EU]
+      uses:
+        work:bo-wien: { role: binding, qualifier: null, labels: [] }
+      absentWorks: [work:stmk-bg]
+      textContains: ["from the platform's reviewed records"]
+      textLacks: ['uncurated']
+
+  - id: E-newer-known
+    title: Vienna's building code, whose source names a newer edition than the records hold, is in force only by the records, and the text says so
+    graphs: [austria]
+    records:
+      - { type: edition, key: bo-wien-2023, workKey: bo-wien, label: Fassung 2023, inForceFrom: '2023-01-01' }
+    office: { homeCountry: AT, entitled: [AT] }
+    site: { territoryId: AT-9, certainty: verified }
+    date: '2026-12-14'
+    checks:
+      edition:bo-wien-2023: { checkedAt: '2026-12-10T08:00:00Z', result: newer_known }
+    expect:
+      gate: full
+      uses:
+        work:bo-wien: { role: binding, editionId: edition:bo-wien-2023, freshness: newer_known }
+      textContains:
+        - 'Bauordnung für Wien, edition Fassung 2023: law of AT-9, in force by the records, this edition since 2023-01-01; a newer edition is known at its source: say so, and check which one binds'
+      textLacks: ['AT-9, in force;', "AT-9, in force\n"]
+
+  - id: E-undetermined
+    title: Two editions of the Wiener Bauordnung recorded as in force on one day bind neither, and the context names the law as undetermined
+    graphs: [austria]
+    office: { homeCountry: AT, entitled: [AT] }
+    site: { territoryId: AT-9, certainty: verified }
+    date: '2026-12-14'
+    records:
+      - { type: edition, key: bo-wien-2018, workKey: bo-wien, label: Fassung 2018, inForceFrom: '2018-01-01' }
+      - { type: edition, key: bo-wien-2024, workKey: bo-wien, label: Fassung 2024, inForceFrom: '2024-01-01' }
+    expect:
+      gate: full
+      absentWorks: [work:bo-wien]
+      undetermined: [{ workId: 'work:bo-wien', reason: ambiguous_editions }]
+
+  - id: E-none
+    title: A country with territories and no coverage record reads none, and carries no use
+    graphs: [germany]
+    office: { homeCountry: DE, entitled: [DE] }
+    site: { territoryId: DE-BY, certainty: unverified }
+    records:
+      - { type: territory, id: DE, kind: country, name: Deutschland }
+    expect:
+      gate: none
+      noUses: true

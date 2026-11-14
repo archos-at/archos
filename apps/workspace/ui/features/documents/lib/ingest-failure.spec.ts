@@ -15,8 +15,8 @@ import {
 
 /**
  * The stored messages, verbatim from the tiers that write them:
- * `packages/knowledge-layer/src/renditions.py` OFFICE_RENDITION_REQUIRED,
- * `packages/knowledge-layer/src/deferred_files.py` ORIGINAL_DOWNLOAD_FAILED,
+ * `packages/knowledge-layer/src/ingest/renditions.py` OFFICE_RENDITION_REQUIRED,
+ * `packages/knowledge-layer/src/ingest/deferred_files.py` ORIGINAL_DOWNLOAD_FAILED,
  * `packages/agent/src/agent/knowledge/ingest_status_store.py` INTERRUPTED_MESSAGE,
  * `adapter.py`'s pdf_pages_unreadable format and DOCUMENT_DELETED_DURING_INGEST, `transcription.py`
  * SCAN_NEEDS_VLM and the adapter's image variant. The Python parity test
@@ -86,6 +86,7 @@ describe('classifyIngestFailure', () => {
   it.each([
     ['INGEST_DISPATCH_FAILED_MESSAGE', 'dispatch_failed'],
     ['RENDITION_REQUIRED_MESSAGE', 'rendition_failed'],
+    ['DRAWING_UNREADABLE_MESSAGE', 'drawing_unreadable'],
   ] as const)('classifies the BFF constant %s', (name, kind) => {
     const message = bffConstant(name)
     expect(BFF_FAILURE_PHRASES).toHaveProperty([message], kind)

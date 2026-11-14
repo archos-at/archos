@@ -19,6 +19,10 @@
  * check, and from which Fassung („4 offene Anmerkungen aus Fassung 2 prüfen"):
  * each is listed and not drawn on the new sheet until someone carries it on
  * („Auf aktuelle Fassung übernehmen", `lib/annotations/carry.ts`).
+ * An upload batch can narrow that to the mark participants alone
+ * (`revision_notice = 'marks_only'`, migration 0195): the next Fassung of an
+ * E-Mail-Verlauf is news to nobody but the people with an open mark on the
+ * one before, who must still hear that it left their mark behind.
  * Assignment is not access, so the list is then cut to those who may open BOTH
  * documents: project membership and the folder each is filed in, or
  * organization membership for the Büroablage. The row names the older document
@@ -44,9 +48,11 @@
  *
  * ## Piloti notices it
  *
- * A Fassung under another name, claimed here, also queues Piloti's notice of
- * it (`lib/revision-notice`, ADR-0130): a comparison with the older one whose
- * changes are proposed as marks. Only where the office switched it on.
+ * A Fassung under another name also queues Piloti's notice of it
+ * (`lib/revision-notice`, ADR-0130): a comparison with the older one whose
+ * changes are proposed as marks. Only where the office switched it on. The
+ * job row is stored in the transaction that takes the claim, so there is never
+ * a claim without its job; the dispatch sweep starts the run.
  *
  * ## It never fails its caller
  *
@@ -56,19 +62,23 @@
 
 import 'server-only'
 import { markParticipants } from '@/lib/annotations/attention'
-import { queueRevisionNotice } from '@/lib/revision-notice/queue'
+import { insertRevisionNotice, planRevisionNotice, type RevisionNoticeJob } from '@/lib/revision-notice/queue'
 import { documentCheckMaxBatch } from '@/lib/document-check/check'
 import { queueDocumentCheck } from '@/lib/document-check/queue'
 import { listDocumentAnnotations, type AnnotationRecord } from '@/lib/annotations/repository'
 import { listAssignmentsForResources } from '@/lib/assignments/repository'
+import { getDb } from '@/lib/db'
+import { withTenant } from '@/lib/db/tenant-context'
 import type { Document } from '@/lib/db/schema/documents'
+import { DEFAULT_UPLOAD_BATCH_EFFECTS, type UploadBatchRevisionNotice } from '@/lib/db/schema/upload-batches'
+import { findBatchSettleEffects, type BatchSettleEffects } from '@/lib/upload-batches/repository'
 import { inboxGroupKey } from '@/lib/inbox/registry'
 import { recipientsHoldingGroup } from '@/lib/inbox/repository'
 import { emitInboxItems } from '@/lib/inbox/service'
 import { collectionFileRef } from './collection-file-ref'
 import { SCREENED_ONLY } from './document-reader'
 import { documentDisplayName, splitDocumentName, type NamedDocument } from './display-name'
-import { claimRevisionAnnouncement, releaseRevisionAnnouncement } from './revision-announcement-repository'
+import { claimRevisionAnnouncement, releaseRevisionAnnouncement, type RevisionAnnouncementKey } from './revision-announcement-repository'
 import type { RevisionLinkNames } from './revision-links'
 import { mayOpenDocument } from './may-open'
 import { documentNameKey } from './name-match'
@@ -100,6 +110,12 @@ export interface NewRevisionAnnouncement {
   previousUploaderIds?: readonly (string | null | undefined)[]
   /** The change summary Piloti wrote, when there is one; only its first line is sent. */
   changeSummary?: string | null
+  /**
+   * Who is told: `all` (the default) or `marks_only`, the people working on an
+   * open mark the new Fassung leaves behind and nobody else. Set from the
+   * upload batch that brought the newer document (migration 0195).
+   */
+  audience?: UploadBatchRevisionNotice
 }
 
 /**
@@ -147,7 +163,8 @@ export function revisionRowNames(follow: NamedDocument, newer: NamedDocument | n
 /**
  * The people a new Fassung is announced to, before anyone's access is asked:
  * the older document's assignees and uploaders, once each, minus the actor.
- * Pure, so the rule is testable without a database.
+ * `marks_only` drops the assignees and uploaders. Pure, so the rule is
+ * testable without a database.
  */
 export function revisionRecipients(input: {
   assigneeIds: readonly string[]
@@ -155,8 +172,11 @@ export function revisionRecipients(input: {
   /** The people working on the open marks the new Fassung leaves behind. */
   participantIds?: readonly string[]
   actorUserId: string | null
+  /** `marks_only` keeps the mark participants alone. */
+  audience?: UploadBatchRevisionNotice
 }): string[] {
-  const everyone = [...input.assigneeIds, ...input.uploaderIds, ...(input.participantIds ?? [])]
+  const followers = input.audience === 'marks_only' ? [] : [...input.assigneeIds, ...input.uploaderIds]
+  const everyone = [...followers, ...(input.participantIds ?? [])]
   return [...new Set(everyone.filter((id): id is string => Boolean(id) && id !== input.actorUserId))]
 }
 
@@ -220,18 +240,30 @@ export async function notifyNewRevision(announcement: NewRevisionAnnouncement): 
   if (newer.lifecycle !== 'active' || newer.scope === 'session' || follow.scope === 'session') return 0
 
   const claim = { organizationId, documentId: newer.id, anchorId: announcement.versionId ?? follow.id }
-  if (!(await claimRevisionAnnouncement(claim))) return 0
   // Piloti checks a Fassung under another name against the one it replaces
-  // (ADR-0130), where the office switched it on. Once per claim, detached, never failing this.
-  if (!sameDocument) {
-    void queueRevisionNotice({ organizationId, actorUserId: announcement.actorUserId, newerId: newer.id, olderId: follow.id })
-  }
+  // (ADR-0130), where the office switched it on. The job row commits with the
+  // claim: a failed enqueue leaves no claim, so the next settle tries again.
+  const notice = sameDocument
+    ? null
+    : await planRevisionNotice({ organizationId, actorUserId: announcement.actorUserId, newerId: newer.id, olderId: follow.id })
+  if (!(await claimWithNotice(claim, notice))) return 0
   try {
     return await writeRevisionItems(announcement, newer, follow, claim.anchorId)
   } catch (error) {
     await releaseRevisionAnnouncement(claim).catch(() => undefined)
     throw error
   }
+}
+
+/** Take the claim and store the notice job in one transaction. Whether this call took the claim. */
+function claimWithNotice(claim: RevisionAnnouncementKey, notice: RevisionNoticeJob | null): Promise<boolean> {
+  return withTenant({ organizationId: claim.organizationId }, () =>
+    getDb().transaction(async (tx) => {
+      if (!(await claimRevisionAnnouncement(claim, tx))) return false
+      if (notice) await insertRevisionNotice(notice, tx)
+      return true
+    }),
+  )
 }
 
 /** The items of one claimed announcement: who may open both documents, and has not been told. */
@@ -243,8 +275,9 @@ async function writeRevisionItems(
 ): Promise<number> {
   const { organizationId } = announcement
   const sameDocument = newer.id === follow.id
+  const marksOnly = announcement.audience === 'marks_only'
   const [assignments, marks] = await Promise.all([
-    listAssignmentsForResources(organizationId, 'document', [follow.id]),
+    marksOnly ? [] : listAssignmentsForResources(organizationId, 'document', [follow.id]),
     marksLeftBehind(organizationId, follow, sameDocument ? (announcement.versionId ?? newer.publishedVersionId) : null),
   ])
   const candidates = revisionRecipients({
@@ -252,6 +285,7 @@ async function writeRevisionItems(
     uploaderIds: [follow.createdBy, ...(announcement.previousUploaderIds ?? [])],
     participantIds: marks.flatMap((mark) => markParticipants(mark)),
     actorUserId: announcement.actorUserId,
+    audience: announcement.audience,
   })
   if (candidates.length === 0) return 0
 
@@ -318,7 +352,11 @@ function changeAgainstName(change: RevisionLinkNames['change'], olderName: strin
 }
 
 /** The same-name half: a published version that is not the document's first. */
-async function announceSettledVersion(organizationId: string, document: Document): Promise<void> {
+async function announceSettledVersion(
+  organizationId: string,
+  document: Document,
+  audience: UploadBatchRevisionNotice,
+): Promise<void> {
   const version = await findPublishedVersion(document.id, organizationId)
   if (!version || version.versionNumber < 2) return
   const previous = await findPreviousVersion(document.id, organizationId, version.versionNumber)
@@ -329,6 +367,7 @@ async function announceSettledVersion(organizationId: string, document: Document
     olderId: document.id,
     versionId: version.id,
     previousUploaderIds: [previous?.createdBy],
+    audience,
   })
 }
 
@@ -340,7 +379,11 @@ async function announceSettledVersion(organizationId: string, document: Document
  * Names resolve to screened documents of the SAME collection; who may open
  * which is cut by {@link notifyNewRevision}.
  */
-async function announceSettledLinks(organizationId: string, document: Document): Promise<void> {
+async function announceSettledLinks(
+  organizationId: string,
+  document: Document,
+  audience: UploadBatchRevisionNotice,
+): Promise<void> {
   const ref = collectionFileRef(document)
   const names = ref ? await readRevisionLinkNames(ref) : null
   if (!names || names.supersedes.length === 0) return
@@ -353,6 +396,7 @@ async function announceSettledLinks(organizationId: string, document: Document):
       newerId: document.id,
       olderId: older.id,
       changeSummary: changeAgainstName(names.change, older.filename),
+      audience,
     })
   }
 }
@@ -387,6 +431,13 @@ async function queueSettledDocumentCheck(organizationId: string, document: Docum
  * neither does a Fassung announced before: a re-read settles the document
  * again, and {@link notifyNewRevision} announces each Fassung once.
  *
+ * Who is told, and whether the agent checks it, is the batch's (migration 0195):
+ * a document whose batch says `revision_notice = 'marks_only'` reaches the
+ * people on its open marks alone, and one whose batch has
+ * `runs_document_check` off is not checked (the next Fassung of an
+ * E-Mail-Verlauf is no drawing to check). A document carries the batch of its
+ * newest upload, which is the upload whose Fassung settles here.
+ *
  * Bounded by {@link SETTLE_LOOKUP_LIMIT}. The collection listings are read
  * fresh once per collection, because the cached one may predate the link.
  */
@@ -398,11 +449,27 @@ export async function announceSettledVersions(organizationId: string, documentId
   }
   const collections = new Set(settled.filter((document) => collectionFileRef(document)).map((d) => d.collectionName))
   await Promise.all([...collections].map((collection) => refreshCollectionFiles(collection).catch(() => undefined)))
+  const effectsOf = await settleEffectsOf(organizationId, settled)
   // A bulk import is not checked file by file: that is not what a colleague does.
   const checkBatch = settled.length <= documentCheckMaxBatch()
   for (const document of settled) {
-    await announceSettledVersion(organizationId, document)
-    await announceSettledLinks(organizationId, document)
-    if (checkBatch) await queueSettledDocumentCheck(organizationId, document)
+    const effects = effectsOf(document)
+    await announceSettledVersion(organizationId, document, effects.revisionNotice)
+    await announceSettledLinks(organizationId, document, effects.revisionNotice)
+    if (checkBatch && effects.runsDocumentCheck) await queueSettledDocumentCheck(organizationId, document)
   }
+}
+
+/**
+ * The batch effects each document settles under, a person's upload's where it
+ * carries no batch or its batch is not found; no batch is asked when no
+ * document carries one.
+ */
+async function settleEffectsOf(
+  organizationId: string,
+  documents: readonly Document[]
+): Promise<(document: Document) => BatchSettleEffects> {
+  const batchIds = new Set(documents.flatMap((document) => (document.uploadBatchId ? [document.uploadBatchId] : [])))
+  const byBatch = batchIds.size === 0 ? new Map<string, BatchSettleEffects>() : await findBatchSettleEffects(organizationId, [...batchIds])
+  return (document) => (document.uploadBatchId && byBatch.get(document.uploadBatchId)) || DEFAULT_UPLOAD_BATCH_EFFECTS
 }

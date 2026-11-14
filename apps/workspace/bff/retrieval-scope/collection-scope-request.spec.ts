@@ -19,6 +19,10 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// The office's corpus countries are read on every request (ADR-0175); this office is entitled to Austria.
+vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({ corpusCountriesFor: vi.fn(async () => ['AT']) }))
+// The project's knowledge context reads Austria (ADR-0173): the base entry is signed with what it reads.
+vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage: vi.fn(async () => ({ retrieval: { countries: ['AT'] } })) }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 // Which people may read what a conversation recorded is `restricted-use.spec.ts`'s

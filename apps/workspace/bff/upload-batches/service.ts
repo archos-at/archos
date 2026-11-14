@@ -6,7 +6,8 @@
  *   stamp   → each upload names the batch; the document row carries its id
  *   seal    → the browser, after its last request (`POST …/[id]/seal`)
  *   settle  → reconciliation, once no document of a sealed batch is in flight
- *             (`./settle`), which tells the uploader in their inbox
+ *             (`./settle`), which tells the uploader in their inbox — unless
+ *             the batch was opened quiet (its effects, migration 0195)
  *   summary → what arrived, where, what it is, what was held back and why
  *
  * The summary is the uploader's. It names what the office's screening kept on
@@ -30,7 +31,13 @@ import {
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import type { Document } from '@/lib/db/schema/documents'
-import type { UploadBatch, UploadBatchExclusion, UploadBatchScope } from '@/lib/db/schema/upload-batches'
+import {
+  DEFAULT_UPLOAD_BATCH_EFFECTS,
+  type UploadBatch,
+  type UploadBatchEffects,
+  type UploadBatchExclusion,
+  type UploadBatchScope,
+} from '@/lib/db/schema/upload-batches'
 import { surfaceStateOf, type SurfaceState } from '@/lib/documents/surface-state'
 import { reconcileDocumentStatuses, type DocumentMetadata } from '@/lib/documents/reconcile-status'
 import { encodeDocumentListCursor, type DocumentListCursor } from '@/lib/documents/list-cursor'
@@ -65,6 +72,14 @@ export interface OpenUploadBatchInput {
   conversationId: string | null
   expectedCount: number
   excluded: UploadBatchExclusion[]
+  /**
+   * What settling the batch sets off, where it differs from a person's upload
+   * ({@link DEFAULT_UPLOAD_BATCH_EFFECTS}). Server-side callers only: the
+   * route's body (`openUploadBatchSchema`) has no such field, so neither a
+   * browser nor an agent can open a batch that keeps its Fassung from the
+   * people who follow the document.
+   */
+  effects?: Partial<UploadBatchEffects>
 }
 
 /**
@@ -90,6 +105,8 @@ export async function openUploadBatch(session: AuthorizedSession, input: OpenUpl
     conversationId: input.scope === 'session' ? input.conversationId : null,
     expectedCount: input.expectedCount,
     excluded: input.excluded,
+    ...DEFAULT_UPLOAD_BATCH_EFFECTS,
+    ...input.effects,
   })
 }
 
@@ -400,7 +417,7 @@ export async function getUploadSummary(session: AuthorizedSession, batchId: stri
   if (!batch) throw new NotFoundError('Upload not found')
   const rows = await listBatchDocuments(session.organizationId, batchId, memberReader(session.userId))
   const view = await readerView(session, batch, rows)
-  const enriched = await reconcileDocumentStatuses(view.rows, session.organizationId)
+  const enriched = await reconcileDocumentStatuses(view.rows, session.organizationId, 'read')
   const folderIds = [...new Set(enriched.map((row) => row.folderId).filter((id): id is string => !!id))]
   const folderPaths =
     batch.projectId && folderIds.length > 0

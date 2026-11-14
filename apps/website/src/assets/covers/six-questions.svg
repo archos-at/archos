@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <!-- AI in architecture firms, six questions: a structural grid of six axes; each column (solid) stands on them. -->
+  <rect class="paper cut" x="160" y="260" width="880" height="280"/>
+  <line class="axis" x1="200" y1="216" x2="200" y2="612"/>
+  <circle class="paper view" cx="200" cy="200" r="16"/>
+  <line class="axis" x1="360" y1="216" x2="360" y2="612"/>
+  <circle class="paper view" cx="360" cy="200" r="16"/>
+  <line class="axis" x1="520" y1="216" x2="520" y2="612"/>
+  <circle class="paper view" cx="520" cy="200" r="16"/>
+  <line class="axis" x1="680" y1="216" x2="680" y2="612"/>
+  <circle class="paper view" cx="680" cy="200" r="16"/>
+  <line class="axis" x1="840" y1="216" x2="840" y2="612"/>
+  <circle class="paper view" cx="840" cy="200" r="16"/>
+  <line class="axis" x1="1000" y1="216" x2="1000" y2="612"/>
+  <circle class="paper view" cx="1000" cy="200" r="16"/>
+  <line class="axis" x1="136" y1="300" x2="1064" y2="300"/>
+  <circle class="paper view" cx="120" cy="300" r="16"/>
+  <line class="axis" x1="136" y1="500" x2="1064" y2="500"/>
+  <circle class="paper view" cx="120" cy="500" r="16"/>
+  <rect class="cut hatch" x="160" y="260" width="16" height="280"/>
+  <rect class="cut hatch" x="1024" y="260" width="16" height="280"/>
+  <line class="view" x1="176" y1="276" x2="1024" y2="276"/>
+  <line class="view" x1="176" y1="524" x2="1024" y2="524"/>
+  <rect class="solid" x="188" y="288" width="24" height="24"/>
+  <rect class="solid" x="188" y="488" width="24" height="24"/>
+  <rect class="solid" x="348" y="288" width="24" height="24"/>
+  <rect class="solid" x="348" y="488" width="24" height="24"/>
+  <rect class="solid" x="508" y="288" width="24" height="24"/>
+  <rect class="solid" x="508" y="488" width="24" height="24"/>
+  <rect class="solid" x="668" y="288" width="24" height="24"/>
+  <rect class="solid" x="668" y="488" width="24" height="24"/>
+  <rect class="solid" x="828" y="288" width="24" height="24"/>
+  <rect class="solid" x="828" y="488" width="24" height="24"/>
+  <rect class="solid" x="988" y="288" width="24" height="24"/>
+  <rect class="solid" x="988" y="488" width="24" height="24"/>
+  <line class="dim" x1="180" y1="600" x2="1020" y2="600"/>
+  <line class="view" x1="193" y1="607" x2="207" y2="593"/>
+  <line class="view" x1="353" y1="607" x2="367" y2="593"/>
+  <line class="view" x1="513" y1="607" x2="527" y2="593"/>
+  <line class="view" x1="673" y1="607" x2="687" y2="593"/>
+  <line class="view" x1="833" y1="607" x2="847" y2="593"/>
+  <line class="view" x1="993" y1="607" x2="1007" y2="593"/>
+  <line class="dim" x1="180" y1="640" x2="1020" y2="640"/>
+  <line class="dim" x1="200" y1="612" x2="200" y2="648"/>
+  <line class="view" x1="193" y1="647" x2="207" y2="633"/>
+  <line class="dim" x1="1000" y1="612" x2="1000" y2="648"/>
+  <line class="view" x1="993" y1="647" x2="1007" y2="633"/>
+</svg>

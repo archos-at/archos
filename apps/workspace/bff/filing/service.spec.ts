@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Document } from '@/lib/db/schema/documents'
-import type { UploadBatch } from '@/lib/db/schema/upload-batches'
+import { DEFAULT_UPLOAD_BATCH_EFFECTS, type UploadBatch } from '@/lib/db/schema/upload-batches'
 import type { ProjectFolderRow } from '@/lib/projects/folder-service'
 import { makeDocument, makeProject } from '@/test-utils/db-fixtures'
 
@@ -26,6 +26,7 @@ vi.mock('@/lib/proposals/service', () => ({
   withdrawProposal: vi.fn(),
 }))
 vi.mock('./repository', () => ({ listFiledDocuments: vi.fn(), listProjectsFolders: vi.fn() }))
+vi.mock('@/lib/documents/shelf-live', () => ({ publishShelfChanged: vi.fn() }))
 vi.mock('./judge', () => ({ judgeFiling: vi.fn() }))
 
 import { listOfficeShelfFolders } from '@/lib/office-shelf/folder-service'
@@ -35,6 +36,7 @@ import { listProjectFolders } from '@/lib/projects/folder-service'
 import { findProjectInOrg, listProjectsInOrg } from '@/lib/projects/repository'
 import { projectsHolding } from '@/lib/projects/service'
 import { createProposal, listShelfFileProposals, withdrawProposal } from '@/lib/proposals/service'
+import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { findUploadBatch, listBatchDocuments } from '@/lib/upload-batches/repository'
 import { judgeFiling } from './judge'
 import { listFiledDocuments, listProjectsFolders } from './repository'
@@ -67,6 +69,7 @@ const batch = (overrides: Partial<UploadBatch> = {}): UploadBatch => ({
   sealedAt: new Date('2026-10-01T10:00:00Z'),
   completedAt: null,
   createdAt: new Date('2026-10-01T09:59:00Z'),
+  ...DEFAULT_UPLOAD_BATCH_EFFECTS,
   ...overrides,
 })
 
@@ -138,6 +141,20 @@ describe('reviewUploadFiling', () => {
       answerMessageId: null,
       originTraceId: 'trace-1',
     })
+  })
+
+  it('tells the shelf’s readers that suggestions arrived, on that shelf of that organization, naming nothing', async () => {
+    await reviewUploadFiling(SESSION, 'batch-1', 'name')
+    expect(publishShelfChanged).toHaveBeenCalledTimes(1)
+    expect(publishShelfChanged).toHaveBeenCalledWith(SESSION.organizationId, { kind: 'project', projectId: 'proj-1' })
+  })
+
+  it('announces nothing when nothing was proposed or withdrawn', async () => {
+    vi.mocked(judgeFiling).mockResolvedValue({ moves: [], traceId: null, error: 'llm_not_configured' })
+    await reviewUploadFiling(SESSION, 'batch-1', 'name')
+    vi.mocked(findProjectInOrg).mockResolvedValue(makeProject({ id: 'proj-1', status: 'closed' }))
+    await reviewUploadFiling(SESSION, 'batch-1', 'name')
+    expect(publishShelfChanged).not.toHaveBeenCalled()
   })
 
   it('never sends a restricted folder, nor a document filed in one, to the model', async () => {

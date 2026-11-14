@@ -16,6 +16,7 @@ import { capturePosthog } from '@/lib/analytics/posthog'
 import type { GeocodeResponse, GeocodeResult } from '@/lib/geocoding/types'
 import { forgetGeocoderAnswer } from './address-field'
 import { CreateProjectForm, folderNameOf } from './create-project-form'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** The key this dialog holds a drop under: one per dialog, fixed here so a spec can look. */
 const DROP_KEY = 'new-project:00000000-0000-4000-8000-000000000000'
@@ -262,7 +263,10 @@ describe('CreateProjectForm', () => {
       await user.click(screen.getByRole('button', { name: 'Briefly describe what it is about' }))
       await user.type(screen.getByRole('textbox', { name: 'What is it about?' }), 'Zwei Geschoße mehr')
       await user.type(screen.getByRole('combobox', { name: 'Address' }), 'Hauptstraße')
-      await user.click(await screen.findByRole('option', { name: /Hauptstraße 12, 1010 Wien/ }))
+      const option = await screen.findByRole('option', { name: /Hauptstraße 12, 1010 Wien/ })
+      // The hits are OSM data, and say so (ODbL).
+      expect(screen.getByTestId('create-project-address-attribution')).toHaveTextContent('© OpenStreetMap contributors')
+      await user.click(option)
 
       // The chosen hit names its Gemeinde and Bundesland.
       expect(screen.getByTestId('create-project-address-place')).toHaveTextContent('Wien · Wien')
@@ -450,7 +454,7 @@ describe('CreateProjectForm', () => {
 
       await user.click(screen.getByRole('radio', { name: /Closed/ }))
       expect(await screen.findByTestId('create-project-closed-note')).toHaveTextContent(
-        'The project stays open while Piloti reads its documents. It closes when you finish the review.'
+        `The project stays open while ${PRODUCT_NAME} reads its documents. It closes when you finish the review.`
       )
     })
 

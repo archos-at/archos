@@ -64,14 +64,19 @@ export function QuestionsStep({ view, canDecide, busy, canUpload, onDecide, onFi
   const progress = { done, total, label: t('progress', { done, total }) }
   const allDone = current === null
   const desk: ReactNode = onNext ? (
-    <Button type="button" variant={allDone ? 'default' : 'outline'} className={PRIMARY_ACTION_CLASS} onClick={onNext}>
+    <Button type="button" variant={allDone ? 'default' : 'secondary'} className={PRIMARY_ACTION_CLASS} onClick={onNext}>
       {allDone ? t('next') : t('rest')}
       <ArrowRight aria-hidden />
     </Button>
   ) : undefined
   const footer: RoundFooter = { progress, desk }
 
-  const note: ReactNode = reading ? (
+  const note: ReactNode = view.setupPublished === false ? (
+    <p className="flex gap-1.5" data-testid="questions-unpublished-note" role="status">
+      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      {t('unpublishedNote')}
+    </p>
+  ) : reading ? (
     <p className="flex gap-1.5" data-testid="questions-reading-note" role="status">
       <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
       {t('readingNote')}
@@ -154,7 +159,7 @@ export function QuestionsStep({ view, canDecide, busy, canUpload, onDecide, onFi
           data-testid="questions-done"
         >
           {isMobile && note && <div className="text-muted-foreground text-[13px] leading-snug">{note}</div>}
-          <h2 className="text-[22px] leading-[1.3] font-semibold tracking-tight">
+          <h2 className="text-[22px] leading-[1.3] font-medium">
             {total > 0 ? t('doneTitle') : reading ? t('waitingTitle') : t('nothingTitle')}
           </h2>
           <p className="text-muted-foreground mt-2.5 text-[15px] leading-normal md:text-sm">

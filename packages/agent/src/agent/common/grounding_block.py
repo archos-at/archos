@@ -2,7 +2,7 @@
 
 Every evidence tool answers in one grammar: a preamble, a run of
 ``--- Result N ---`` blocks, and a ``## Trace-Lanes`` object. Two packages used
-to write that grammar by hand (``knowledge_layer.search_results.format_results`` and
+to write that grammar by hand (``knowledge_layer.search.results.format_results`` and
 ``ris_adapter.lookup.render``) and a third read it back with eleven regexes on
 every live turn. Three copies of one layout, in three repositories' worth of
 review.
@@ -26,23 +26,35 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import math
 import re
 import uuid
 from collections import OrderedDict
 from collections.abc import Iterator
 from contextvars import ContextVar
 from contextvars import Token
-from dataclasses import dataclass
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
 
 from agent.common.action_rows import current_action_call
+from agent.common.licensed_recall import anchor_of
+from agent.common.licensed_text import LicenceTerms
+from agent.common.licensed_text import begin_licensed_capture
+from agent.common.licensed_text import end_licensed_capture
+from agent.common.licensed_text import licence_line
+from agent.common.licensed_text import licensed_body
+from agent.common.passage_fence import DATA_NOTE
+from agent.common.passage_fence import fence
+from agent.common.passage_fence import neutralise_tags
+from agent.common.passage_fence import unfenced
 from agent.common.provenance import AGENT_AUTHOR
 from agent.common.provenance import AgentProvenance
 from agent.common.provenance import provenance_label
+from agent.common.source_kinds import MAIL_LANE_LABEL
+from agent.common.source_kinds import MAIL_SOURCE_FORMAT
 from agent.common.source_kinds import Shelf
+from agent.common.source_records import SourceRegion
+from agent.common.source_records import SourceRevision
 from agent.common.turn_status import current_retrieval_round
 from agent.common.turn_status import emit_step
 from agent.common.wire_v2 import SourcesStep
@@ -54,55 +66,6 @@ logger = logging.getLogger(__name__)
 #: renderer adds it and every reader takes it back off, so a quote is never
 #: matched against it.
 TRUNCATION_MARKER = "... [truncated]"
-
-
-@dataclass(frozen=True)
-class SourceRegion:
-    """Where on a page a passage sits, as a box the viewer can draw (issue #433).
-
-    ``box`` is ``(x0, y0, x1, y1)`` normalised 0-1 over the page AS THE VIEWER
-    SHOWS IT: a whole rendered PDF page, or a whole uploaded image, top-left
-    origin. That is the frame the visual analysis read the picture in, so the
-    box needs no conversion, and it is why a region is only ever produced for
-    those two frames (``knowledge_layer.grounding_hits._hit_regions``). An embedded
-    raster's box is relative to the raster, whose placement on the page is not
-    stored, so it gets none rather than a box in the wrong place.
-
-    The box is the model's approximation of one depiction on the sheet (a
-    Grundriss, a Schnitt), not a measurement and not the single object a query
-    named. ``label`` is that depiction's title as read off the sheet, when it
-    had one.
-
-    A dataclass, not a model, because it rides on ``SourceEntry`` and
-    ``dataclasses.asdict`` is how the session registry is cached.
-    """
-
-    box: tuple[float, float, float, float]
-    label: str | None = None
-
-    def to_wire(self) -> dict[str, object]:
-        """The citation wire's spelling: ``{"box": [...], "label": ...}``, label omitted when unknown."""
-        payload: dict[str, object] = {"box": list(self.box)}
-        if self.label:
-            payload["label"] = self.label
-        return payload
-
-    @classmethod
-    def from_cached(cls, value: object) -> SourceRegion | None:
-        """Rebuild one from its ``asdict`` form, or ``None`` for anything malformed."""
-        if not isinstance(value, dict):
-            return None
-        box = value.get("box")
-        if not isinstance(box, (list, tuple)) or len(box) != 4:
-            return None
-        try:
-            x0, y0, x1, y1 = (float(part) for part in box)
-        except TypeError, ValueError:
-            return None
-        if not all(math.isfinite(part) for part in (x0, y0, x1, y1)):
-            return None
-        label = value.get("label")
-        return cls(box=(x0, y0, x1, y1), label=label if isinstance(label, str) and label else None)
 
 
 #: How a project's status reads on the ``Projekt:`` line, and back.
@@ -204,12 +167,34 @@ class GroundingHit(BaseModel):
     #: Last page of a passage that runs over a page break, when it is later than :attr:`page`. Rendered
     #: as the range ``Page: 4–5``; the citation key keeps the start page, which is its identity.
     page_end: int | None = None
+    #: ``mail`` for a filed E-Mail-Verlauf (``source_kinds.MAIL_SOURCE_FORMAT``): sections headed by sender, date and
+    #: whether the domain was confirmed. The ``Format: mail — E-Mail`` line makes a passage one party's message, not the
+    #: document's finding, and ``lane_for_hit`` files it in the mail lane. ``None`` for every other document: no line.
+    source_format: str | None = None
     #: Where the model reads this document again (ADR-0133): its absolute estate path,
     #: ``/project/Gutachten/Brandschutzkonzept.pdf.md``. Rendered as the ``Path:`` line, so
     #: ``read_file`` can open the page around a hit. ``None`` renders nothing: a hit of
     #: another project (not mounted), the web, RIS. Not the citation key: a path is how the
     #: model FINDS a file, the key is what it cites.
     path: str | None = None
+    #: The licence (``common/licensed_text.py``): ``licensed`` renders a ``Licence:`` line and a reference.
+    licence: LicenceTerms | None = None
+    #: The knowledge record this text was read as (ADR-0168): the edition a corpus point is marked with at
+    #: ingest (its ``knowledge_edition_id``), or the work a live source's producer found by the identifier
+    #: the work's record carries. What a citation's role, route and edition are resolved by
+    #: (``citations/roles.py``): an id, never a file name, a URL or a host. RECORD fields only, never header
+    #: lines: an id is nothing the model should read or copy. A block read back by the text parser (a
+    #: replayed turn) carries none, as with :attr:`regions`, and its citation then states no role.
+    work_id: str | None = None
+    edition_id: str | None = None
+    #: Where a person opens this text in public: its address at the source it was read from. A RECORD
+    #: field only too. A link printed beside the ``Citation:`` key was what the answer copied instead of
+    #: the key (see the legal-database producer's ``_hit``). A display field: nothing is matched by it,
+    #: and it is not the entry's ``url``, which is a registry identity.
+    public_url: str | None = None
+    #: Which Fassung the text is (:class:`SourceRevision`). Record only, like :attr:`public_url`; a
+    #: citation key may carry the same day in its own words.
+    revision: SourceRevision | None = None
 
     @property
     def authored_by(self) -> str | None:
@@ -242,7 +227,7 @@ class GroundingBlock(BaseModel):
     #: ``## Trace-Lanes`` line.
     lanes: tuple[TraceLane, ...]
     #: The basename of the tool that returned this block (``knowledge_search``,
-    #: ``read_passage``, ``ris_lookup``): the ``sources`` step names it.
+    #: ``read_passage``, ``law_lookup``): the ``sources`` step names it.
     tool: str
     #: What is rendered after the lanes and outside the grammar: ``read_passage``
     #: puts its ``## Gliederung`` index here, and the one line that replaces the
@@ -252,7 +237,7 @@ class GroundingBlock(BaseModel):
     #: these bytes itself fell back to the text parser.
     trailer: str = ""
     #: Why the hits do NOT answer the question, when a judge that read them
-    #: against it said so (``knowledge_layer.requery.judge_coverage``). Rendered
+    #: against it said so (``knowledge_layer.search.requery.judge_coverage``). Rendered
     #: as the ``Coverage: insufficient — …`` line under the preamble, so the
     #: model reads the verdict before the passages rather than inferring it
     #: from a score. The reason names how many hits were judged, and the claim
@@ -302,12 +287,15 @@ def strip_trace_lanes(text: str) -> str:
     a search with sixteen hits put ~1 000 tokens of ``{"lanes": …}`` into the
     transcript and re-sent them on every later call of the turn, and into the
     next turn's history. The passages, the keys and the trailer (``##
-    Gliederung``) stay byte-for-byte; only the one line goes. Idempotent, and
-    text with no marker is returned unchanged.
+    Gliederung``) stay byte-for-byte; only the one line goes, and never a line
+    a passage body spells inside its fence. Idempotent, and text with no marker
+    is returned unchanged.
     """
-    if TRACE_LANES_MARKER not in text:
+    lanes = next(unfenced(_TRACE_LANES_RE, text), None)
+    if lanes is None:
         return text
-    return _TRACE_LANES_RE.sub("\n\n", text, count=1).rstrip("\n") + ("\n" if text.endswith("\n") else "")
+    stripped = f"{text[: lanes.start()]}\n\n{text[lanes.end() :]}"
+    return stripped.rstrip("\n") + ("\n" if text.endswith("\n") else "")
 
 
 def render_grounding_block(block: GroundingBlock) -> str:
@@ -324,7 +312,7 @@ def render_grounding_block(block: GroundingBlock) -> str:
     lines: list[str] = block.preamble.split("\n") if block.preamble else []
     if block.coverage_gap:
         lines.append(f"{COVERAGE_GAP_LABEL} {_line(block.coverage_gap).rstrip('.')}. {COVERAGE_GAP_NOTE}")
-    lines.append("")
+    lines.extend([DATA_NOTE, ""] if block.hits else [""])
     for index, hit in enumerate(block.hits, 1):
         lines.extend(_hit_lines(index, hit))
     lines.append("## Trace-Lanes")
@@ -412,9 +400,11 @@ def _lanes_line(lanes: tuple[TraceLane, ...]) -> str:
 
 
 def _hit_lines(index: int, hit: GroundingHit) -> list[str]:
-    """One ``--- Result N ---`` block: header, blank line, body, blank line."""
+    """One ``--- Result N ---`` block: header, blank line, the fenced body (``common/passage_fence.py``), blank line."""
     body = (hit.body + TRUNCATION_MARKER) if hit.body_truncated else hit.body
-    return [f"--- Result {index} ---", *_header_lines(hit), "", body, ""]
+    anchor = anchor_of(hit.collection, hit.file_name, hit.page, len(body)) if hit.licence else None
+    body = licensed_body(body, hit.licence, anchor=anchor)
+    return [f"--- Result {index} ---", *_header_lines(hit), "", fence(body), ""]
 
 
 def _header_lines(hit: GroundingHit) -> Iterator[str]:
@@ -424,29 +414,31 @@ def _header_lines(hit: GroundingHit) -> Iterator[str]:
     no Dokumentart and no folder, rather than read a default the pipeline
     picked. ``Relevance Score:`` is last because it delimits the body.
 
-    Every string value goes through :func:`_line`, because a header field is
-    one line by definition and several of these values come from a document's
-    own text (a title read out of a PDF, a folder a user named). The numbers
-    and the :class:`~agent.common.source_kinds.Shelf` enum cannot carry a
-    newline, so they go in as they are.
+    Every string value is made one line: a header field is one line by
+    definition, and some come from a document's own text. Free text (a title, a
+    folder) goes through :func:`_line`; a key a tool takes back (``Path:``,
+    ``Citation:``, the codes, the project id) through :func:`_key`, so it
+    round-trips. Numbers and the ``Shelf`` enum cannot carry a newline.
     """
-    yield f"Source: {_line(hit.display_title)}"
+    yield f"Source: {_capped(_line(hit.display_title))}"
     if hit.project is not None:
         yield f"Projekt: {_project_line(hit.project)}"
         if hit.project.federal_state_note:
             yield f"Bundesland: {_line(hit.project.federal_state_note)}"
     if hit.path:
-        yield f"Path: {_line(hit.path)}"
+        yield f"Path: {_key(hit.path)}"
     if hit.collection:
-        yield f"Collection: {_line(hit.collection)}"
+        yield f"Collection: {_key(hit.collection)}"
     if hit.shelf is not None:
         yield f"Shelf: {hit.shelf}"
     if hit.folder_path:
         yield f"Ordner: {_line(hit.folder_path)}"
     if hit.doc_class:
-        yield f"Dokumentart: {_line(hit.doc_class)} — {_line(_doc_class_label(hit.doc_class))}"
+        yield f"Dokumentart: {_key(hit.doc_class)} — {_line(_doc_class_label(hit.doc_class))}"
     if hit.provenance is not None:
         yield f"Herkunft: {_line(provenance_label(hit.provenance))} — {AGENT_DOCUMENT_NOTE}"
+    if hit.source_format:
+        yield f"Format: {_key(hit.source_format)} — {_line(_source_format_label(hit.source_format))}"
     if hit.page is not None:
         yield f"Page: {hit.page}–{hit.page_end}" if hit.page_end and hit.page_end > hit.page else f"Page: {hit.page}"
     for region in hit.regions[:MAX_RENDERED_REGIONS]:
@@ -455,8 +447,10 @@ def _header_lines(hit: GroundingHit) -> Iterator[str]:
         yield f"Punkt: {_line(hit.clause)}"
     if hit.status_note:
         yield f"Rechtlicher Hinweis: {_line(hit.status_note)}"
-    yield f"Citation: {_line(hit.citation_key)}"
-    yield f"Content Type: {_line(hit.content_type)}"
+    if licence := licence_line(hit.licence):
+        yield f"Licence: {licence}"
+    yield f"Citation: {_key(hit.citation_key)}"
+    yield f"Content Type: {_key(hit.content_type)}"
     if hit.stored_image_index is not None:
         yield f"Image: stored (look image_index={hit.stored_image_index})"
     yield f"Relevance Score: {hit.score:.2f}"
@@ -483,21 +477,50 @@ def _region_line(region: SourceRegion) -> str:
 def _project_line(project: SourceProject) -> str:
     """``Name — abgeschlossen (project_id …)``: what the model reads, and the text reader parses back."""
     status = PROJECT_STATUS_LABELS.get(project.status, project.status)
-    return f"{_line(project.name)} — {_line(status)} (project_id {_line(project.id)})"
+    return f"{_line(project.name)} — {_line(status)} (project_id {_key(project.id)})"
 
 
-def _line(value: str) -> str:
-    """``value`` as ONE header line: every line break becomes a single space.
+#: The longest title a ``Source:`` line prints. A mail's subject is its Verlauf's
+#: title and the sender wrote it (up to 1 000 characters, ``inbound-mail/mime.ts``),
+#: outside the fence; a title is a name, and a paragraph there is somebody's prose.
+MAX_SOURCE_TITLE_CHARS = 200
+
+# The block delimiter as a header value might spell it mid-line.
+_MARKER_IN_VALUE_RE = re.compile(r"-{3,}(?=\s*Result\s+\d)", re.IGNORECASE)
+
+
+def _capped(title: str) -> str:
+    """``title``, cut to :data:`MAX_SOURCE_TITLE_CHARS` with an ellipsis when longer."""
+    return title if len(title) <= MAX_SOURCE_TITLE_CHARS else f"{title[: MAX_SOURCE_TITLE_CHARS - 1].rstrip()}…"
+
+
+def _key(value: str) -> str:
+    """``value`` as ONE header line: every line break becomes a single space, nothing else changes.
 
     A header field states what the HIT says. A value that carries a newline
     would render as further header lines, and the text reader would then read a
     ``Shelf:`` or a ``Dokumentart:`` off a title the producer took out of a
     document. The structured reader copies fields and never sees this, so the
     collapse is what keeps the two readers on one answer. A value with no line
-    break is returned unchanged, which is why the byte-identity fixtures still
-    hold.
+    break is returned unchanged: a path or a citation key a tool takes back
+    must reach it byte for byte, and the byte-identity fixtures still hold.
     """
     return value.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+
+
+def _line(value: str) -> str:
+    """Free text (a title, a folder, a label) as ONE header line (:func:`_key`), read as the name it is.
+
+    A fence tag it spells is escaped and a spelled ``--- Result N`` made one
+    dash. Never for a key a tool takes back: that would break its round trip;
+    mid-line, neither acts as grammar, since every reader anchors them.
+    """
+    return _MARKER_IN_VALUE_RE.sub("—", neutralise_tags(_key(value)))
+
+
+def _source_format_label(source_format: str) -> str:
+    """The label a format renders under: the mail lane's (``E-Mail``), or the token itself."""
+    return MAIL_LANE_LABEL if source_format == MAIL_SOURCE_FORMAT else source_format
 
 
 def _doc_class_label(doc_class: str) -> str:
@@ -539,14 +562,15 @@ _captured_blocks: ContextVar[OrderedDict[str, GroundingBlock] | None] = ContextV
 )
 
 
-def begin_grounding_capture() -> Token:
-    """Start filing this turn's rendered blocks. Pair with :func:`end_grounding_capture`."""
-    return _captured_blocks.set(OrderedDict())
+def begin_grounding_capture(*, licensed_text: bool = False) -> tuple[Token, Token]:
+    """Start filing this turn's blocks and licensed passages; ``licensed_text`` is the ``licensed-seam`` flag."""
+    return _captured_blocks.set(OrderedDict()), begin_licensed_capture(text_allowed=licensed_text)
 
 
-def end_grounding_capture(token: Token) -> None:
-    """Stop filing blocks, and drop the ones this turn filed."""
-    _captured_blocks.reset(token)
+def end_grounding_capture(token: tuple[Token, Token]) -> None:
+    """Stop filing blocks, and drop the blocks and licensed passages this turn filed."""
+    _captured_blocks.reset(token[0])
+    end_licensed_capture(token[1])
 
 
 def _fingerprint(rendered_text: str) -> str:

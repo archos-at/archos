@@ -58,6 +58,7 @@ import { revisionTag } from '@/lib/documents/revision-timeline'
 import { listChatProjects } from '@/lib/projects/service'
 import { toProjectStatus } from '@/lib/projects/project-status'
 import { buildRequestContextWireHeaders } from '@/lib/request-context'
+import { signedScopeEntries } from '@/lib/retrieval-scope/base-entry'
 import type {
   SimilarDocument,
   SimilarGroup,
@@ -139,12 +140,13 @@ interface BackendSimilarResponse {
  * A hit from a collection this call did not name is dropped rather than trusted.
  */
 async function fetchSimilarFromBackend(
+  organizationId: string,
   source: ResolvedSource,
   passage: SimilarPassagesRequest['passage'],
   collections: readonly string[]
 ): Promise<BackendSimilarResponse> {
   const scope = [...new Set([source.collection, ...collections])]
-  const headers = buildRequestContextWireHeaders({ collectionScope: scope }, process.env.INTERNAL_API_TOKEN)
+  const headers = buildRequestContextWireHeaders({ collectionScope: await signedScopeEntries(scope, organizationId), organizationId }, process.env.INTERNAL_API_TOKEN)
   let res: Response
   try {
     res = await fetch(`${getBackendUrl()}/v1/collections/similar`, {
@@ -299,7 +301,7 @@ export async function findSimilarPassages(
   const officeShelf = officeShelfCollectionName(session.organizationId)
   const collections = [...new Set([...plans.flatMap((plan) => plan.collections).slice(0, projectCap), officeShelf])]
 
-  const backend = await fetchSimilarFromBackend(source, request.passage, collections)
+  const backend = await fetchSimilarFromBackend(session.organizationId, source, request.passage, collections)
   const hits = asSearchHits(backend.documents)
 
   const projectGroups = await mapBounded(plans, PLAN_CONCURRENCY, async (plan) => {

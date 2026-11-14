@@ -74,7 +74,7 @@ RATE_LIMITED = "Error: rate limited; nothing was changed. Call again in the next
 _ROUTE_RATE_LIMITED = re.compile(r"\(HTTP 429\b")
 
 _NO_ENVELOPE = (
-    "Error: this run carries no signed request context, so Piloti cannot read or do anything in the "
+    "Error: this run carries no signed request context, so you cannot read or do anything in the "
     "workspace on a person's behalf. Do not retry."
 )
 
@@ -148,10 +148,11 @@ async def run_workspace(step: str, arguments: dict[str, Any], outcome: ActionOut
             "not retry in the same answer."
         )
     text = result.text
-    # `structured` is None for a tool-level refusal (`isError`): the call did not run.
-    outcome.failed = result.structured is None
+    # A tool-level refusal (`isError`) did not run. A capped read did, though it carries no `structured`
+    # (the server keeps the shape off an answer it cut): its action row reads ok, not error (dev QC 2026-11-12).
+    outcome.failed = result.is_error
     observed: dict[str, Any] = {"chars": len(text)}
-    if result.structured is None and _ROUTE_RATE_LIMITED.search(text):
+    if result.is_error and _ROUTE_RATE_LIMITED.search(text):
         _observe(step, {"tool": SERVER_TOOLS[step], "operation": arguments.get("name")}, {"status": 429})
         return RATE_LIMITED
     if step == "call":
@@ -171,7 +172,7 @@ def _record_read(result: Any, arguments: dict[str, Any], outcome: dict[str, Any]
 
     Only a read. A proposal is no reading (its card stands for it), and a refusal read nothing.
     """
-    if "proposed" in outcome or result.structured is None:
+    if "proposed" in outcome or result.is_error:
         return
     operation = str(arguments.get("name") or "").strip()
     if operation:

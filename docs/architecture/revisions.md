@@ -73,9 +73,9 @@ a suggestion or a decision. None of them links two documents without a person.
 | Layer | Reads | Says | Model call | Code |
 |---|---|---|---|---|
 | Name grammar | The file name: `Index C`, `idx-B`, `Rev 12`, `v3`, a date as `2026-08-14`, `14.08.2026`, `260814_…`, a bare letter after a sheet number (`A-101_C_…`) | Which names are one series, and which looks current | No | `apps/workspace/bff/documents/revision-series.ts`, `packages/knowledge-layer/src/revision_series.py` |
-| Title block | The Plankopf: document number, Index, date, scale, title, read once per drawing page during ingestion | Same `document_number` means same document. Higher Index, else later date, means later state | No extra call: it rides the drawing analysis | `packages/agent/src/agent/knowledge/title_block.py`, `packages/knowledge-layer/src/llamaindex/visual_analysis.py` |
+| Title block | The Plankopf: document number, Index, date, scale, title, read once per drawing page during ingestion | Same `document_number` means same document. Higher Index, else later date, means later state | No extra call: it rides the drawing analysis | `packages/agent/src/agent/knowledge/title_block.py`, `packages/knowledge-layer/src/ingest/visual_analysis.py` |
 | LLM judge | Name, Dokumentart, tags and one-line summary of up to eight candidates in the collection | Whether the new file is a newer Fassung of exactly one of them | One, on the summary model | `packages/agent/src/agent/knowledge/document_revisions.py` |
-| Derived on read | The rows already stored: title blocks first, then the name grammar | A suggestion for documents ingested before the Fassung step existed | No | `packages/knowledge-layer/src/llamaindex/revisions.py`, `derive_suggestions` |
+| Derived on read | The rows already stored: title blocks first, then the name grammar | A suggestion for documents ingested before the Fassung step existed | No | `packages/knowledge-layer/src/ingest/revisions.py`, `derive_suggestions` |
 | Upload decision | A tick in the upload dialog | „Als neue Fassung von X ablegen“ | No (only the change summary) | `revision_of`, below |
 
 ### Name grammar
@@ -175,7 +175,14 @@ is written when the summary model is off (then without a change line) and when n
 summary could be made (the new file's row comes later, from the listing's
 reconciliation backfill, and the link counts from then). An older file the
 collection no longer holds, or a link that would close a loop, falls back to the
-ordinary suggestion.
+ordinary suggestion. A file the screening holds (ADR-0086) is
+never read that far; the dispatch keeps the choice on the BFF row
+(`documents.metadata.filingChoice`, `lib/documents/filing-choice.ts`) and the
+reviewer's release sends it again, for the same bytes only. The choice is kept as
+the older document's id, and the release checks it again
+(`resolveReleasedRevisionOf`: active, past screening, same shelf and collection)
+and sends the older file's name as it is then; a choice that no longer resolves
+is dropped, since the release can come days later.
 
 **After reading.** `PUT /api/documents/[id]/revision` takes `{ older, linked }`.
 `setRevisionLink` loads both documents with write access and refuses a held
@@ -268,7 +275,10 @@ content of a version. It is not the link between two documents.
   Fassung 1.“).
 - **Publishing purges first.** The previous version's chunks go before the new
   bytes are sent, so a failed dispatch stops the document answering instead of
-  answering from the version somebody replaced.
+  answering from the version somebody replaced. ADR-0104 rule 2 (every read
+  Fassung stays indexed, keyed by its id) is accepted and not built: until it
+  is, search sees only the current Fassung of a name. Fassungen under
+  different file names are both indexed.
 - **Actors.** Approve, request changes, reject and publish are a person's. Piloti
   may create, update and submit.
 
@@ -312,11 +322,11 @@ The agent reads the same facts the UI does, through the knowledge layer.
 
 | Tool | What it does with Fassungen | Code |
 |---|---|---|
-| `list_files` | Marks a row that a person replaced („ersetzt durch X (bestätigt)“), then rows that share a title-block number („aktuelle / ältere Fassung laut Plankopf“), then the name reading. A confirmed link beats the sheets, which beat the name. Prints `Plankopf: Nr. …, Index …, Stand …` | `packages/knowledge-layer/src/browse_rows.py`, `confirmed_revision_marks`, `title_block_marks` |
-| `list_files(revisions_of=…)` | The whole chain of one document, newest first, with Index and date, upload date and what changed against the one before. The chain follows a confirmed link in both directions, the same title-block number and the name series, transitively | `browse_revisions.py`, `render_revisions`, `_chain_members`, `_chain_order` |
-| `list_files(revisions_of=…, compare_to=…)` | What changed between two Fassungen of the chain: the Plankopf, pages aligned by their text, values that moved in printed lines, and quantities and dimension strings from the drawing analysis. No model call; the stored change line rides along when its basis is exactly that older file | `browse_compare.py`, `resolve_compare`, `compare_revisions`; `packages/agent/src/agent/knowledge/revision_diff.py` |
+| `list_files` | Marks a row that a person replaced („ersetzt durch X (bestätigt)“), then rows that share a title-block number („aktuelle / ältere Fassung laut Plankopf“), then the name reading. A confirmed link beats the sheets, which beat the name. Prints `Plankopf: Nr. …, Index …, Stand …` | `packages/knowledge-layer/src/browse/rows.py`, `confirmed_revision_marks`, `title_block_marks` |
+| `list_files(revisions_of=…)` | The whole chain of one document, newest first, with Index and date, upload date and what changed against the one before. The chain follows a confirmed link in both directions, the same title-block number and the name series, transitively | `browse/revisions.py`, `render_revisions`, `_chain_members`, `_chain_order` |
+| `list_files(revisions_of=…, compare_to=…)` | What changed between two Fassungen of the chain: the Plankopf, pages aligned by their text, values that moved in printed lines, and quantities and dimension strings from the drawing analysis. No model call; the stored change line rides along when its basis is exactly that older file | `browse/compare.py`, `resolve_compare`, `compare_revisions`; `packages/agent/src/agent/knowledge/revision_diff.py` |
 | `knowledge_search` | Leaves confirmed older Fassungen out of the ranking on the user shelves, so an older state cannot outrank its replacement on similarity. Says „Ältere Fassungen ausgeblendet: …“. `file_name=…` bypasses the exclusion, and when the named file is an older Fassung the result carries the same line `read_passage` gives („Ältere Fassung: … ist durch … ersetzt“, the end of the chain). The base corpus is untouched | `packages/knowledge-layer/src/register.py`, `_superseded_files`, `_named_older_revision_notice`; `document_metadata_store.get_superseded_files` |
-| `read_passage` | Reading an older Fassung is allowed, because „Index B“ and „die alte Fassung“ ask for it. A one-line notice names the current one and tells the answer to say it read the older state | `packages/knowledge-layer/src/read_passage_revisions.py`, `_current_revision`, `_older_revision_notice` |
+| `read_passage` | Reading an older Fassung is allowed, because „Index B“ and „die alte Fassung“ ask for it. A one-line notice names the current one and tells the answer to say it read the older state | `packages/knowledge-layer/src/read_passage/revisions.py`, `_current_revision`, `_older_revision_notice` |
 | Inventory | A row suffix carries only the confirmed link, never a suggestion | `packages/agent/src/agent/knowledge/inventory.py` |
 
 A citation of an older Fassung says so. The citation peek shows „Ältere Fassung –
@@ -349,6 +359,33 @@ name, each labelled as what it is.
   several, or on another document): `openMarks`, `marksRevision` and the
   `variant` that picks the words (`openMarksFacts`). Each is carried on in the
   Prüfansicht ([`document-annotations.md`](document-annotations.md#a-mark-goes-on-with-a-new-fassung)).
+- **Who, for a quiet upload.** The upload batch that brought the newer
+  document can narrow that to the mark participants alone
+  (`upload_batches.revision_notice = 'marks_only'`, migration 0195):
+  `announceSettledVersions` looks up the batch each settled document carries
+  (`findMarksOnlyBatchIds`) and passes `audience: 'marks_only'`, which drops the
+  assignees and uploaders before the access cut. The next Fassung of an
+  E-Mail-Verlauf is news to nobody else, but a mark it leaves behind must not be
+  orphaned silently. With no open mark nobody is told, and the Fassung is still
+  claimed, so a later re-read does not announce it to everyone. A batch opened
+  by the browser or an agent is always `all`: only a server-side caller sets
+  the column. The `upload` transition's own announcement (`lifecycle.ts`)
+  carries no audience; for a person's upload it says nothing, because the new
+  bytes are held until screened, and the settle hook is the one that tells.
+  The agent's notice of a cross-name Fassung is not people being told and does
+  not read the column. The document check (ADR-0130) reads its own,
+  `runs_document_check`: off, no document of the batch is checked, so a
+  conversation's next Fassung buys no model call, while a mail's attachments
+  keep the check a filed drawing is worth.
+
+  | Upload batch | `upload.completed` | Filing reviews | Intake reading | `document.new_revision` | Document check |
+  |---|---|---|---|---|---|
+  | A person's upload (default) | yes | yes | yes | `all` | yes, where the office has it on |
+  | `announces_completion` off | no | | | | |
+  | `reviews_filing` off | | no | | | |
+  | `starts_intake` off | | | no | | |
+  | `revision_notice = 'marks_only'` | | | | mark participants only | |
+  | `runs_document_check` off | | | | | no |
 - **What.** The first line of the change summary, at most 200 characters, and
   only when the summary was written against the older document of THIS
   notification (its basis). A summary against the earlier upload under the

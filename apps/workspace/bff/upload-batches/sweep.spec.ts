@@ -20,7 +20,7 @@ vi.mock('@/lib/upload-screening/quarantine-audit', () => ({
   sweepOwedQuarantines: vi.fn().mockResolvedValue(0),
 }))
 
-import type { UploadBatch } from '@/lib/db/schema/upload-batches'
+import { DEFAULT_UPLOAD_BATCH_EFFECTS, type UploadBatch } from '@/lib/db/schema/upload-batches'
 import { reconcileDocumentStatuses } from '@/lib/documents/reconcile-status'
 import { pruneSpentQuarantines, sweepOwedQuarantines } from '@/lib/upload-screening/quarantine-audit'
 import { makeDocument } from '@/test-utils/db-fixtures'
@@ -44,6 +44,7 @@ const batch = (id: string, ageMs: number, sealed: boolean): UploadBatch => ({
   sealedAt: sealed ? new Date(NOW.getTime() - ageMs + 1000) : null,
   completedAt: null,
   createdAt: new Date(NOW.getTime() - ageMs),
+  ...DEFAULT_UPLOAD_BATCH_EFFECTS,
 })
 
 beforeEach(() => {
@@ -89,7 +90,7 @@ describe('sweepUploadBatches', () => {
 
     const result = await sweepUploadBatches(NOW)
 
-    expect(reconcileDocumentStatuses).toHaveBeenCalledWith([reading], 'org-1')
+    expect(reconcileDocumentStatuses).toHaveBeenCalledWith([reading], 'org-1', 'sweep')
     expect(settleUploadBatches).toHaveBeenCalledWith('org-1', ['b1'])
     expect(result).toMatchObject({ completed: 1, failed: 0 })
   })

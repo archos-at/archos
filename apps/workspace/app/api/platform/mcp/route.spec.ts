@@ -169,11 +169,21 @@ describe('who may knock', () => {
     expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
   })
 
-  it('refuses an office organization’s token with 403, whatever its audience', async () => {
+  it('admits platform staff who picked an office at sign-in, as their platform membership, not the office’s', async () => {
+    const response = await POST(rpc(PLATFORM, 'tools/list', {}, await bearer({ org: 'org_office' })))
+    expect(response.status).toBe(200)
+    // The session is resolved in the platform organization, live: the office's
+    // membership and its rights are never read.
+    expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({ userId: 'user_ops', email: null, organizationId: PLATFORM_ORG })
+    expect(resolvePinnedRequesterSession).not.toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'org_office' }))
+    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('platform-agent-mcp', PLATFORM_ORG)
+    expect(isPlatformStaff).toHaveBeenCalledWith(operator)
+  })
+
+  it('still refuses an office token whose person is not in the platform organization', async () => {
+    vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(null)
     const response = await POST(rpc(PLATFORM, 'tools/list', {}, await bearer({ org: 'org_office' })))
     expect(response.status).toBe(403)
-    expect(await response.json()).toMatchObject({ code: 'FORBIDDEN', error: expect.stringMatching(/GRID Platform organization/) })
-    expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
     expect(enforceLimit).not.toHaveBeenCalled()
   })
 
@@ -247,12 +257,12 @@ describe('what it offers', () => {
   it('lists exactly the platform domain in tools mode: no office operation, no agent read tool', async () => {
     const tools = await toolsOf(POST, `${PLATFORM}?mode=tools`, await bearer())
     // platform-audit-portal-link is `secret`: hidden until the step-up scope is enforced, as on the office door.
-    expect(tools.map((tool) => tool.name)).toEqual(['platform-overview-get', 'platform-kill-runs', 'report-missing-operation'])
+    expect(tools.map((tool) => tool.name)).toEqual(['platform-overview-get', 'platform-model-defaults-update', 'report-missing-operation'])
   })
 
   it('marks a fleet-wide write destructive, so the client asks the person', async () => {
     const tools = await toolsOf(POST, `${PLATFORM}?mode=tools`, await bearer())
-    expect(tools.find((tool) => tool.name === 'platform-kill-runs')?.annotations).toMatchObject({ destructiveHint: true })
+    expect(tools.find((tool) => tool.name === 'platform-model-defaults-update')?.annotations).toMatchObject({ destructiveHint: true })
   })
 
   it('offers only the platform domain to search', async () => {
@@ -266,7 +276,7 @@ describe('what it offers', () => {
       rpc(PLATFORM, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'spec', version: '1' } }, await bearer()),
     )
     const body = await messageOf<{ result: { instructions: string; serverInfo: { name: string } } }>(response)
-    expect(body.result.serverInfo.name).toBe('piloti-platform')
+    expect(body.result.serverInfo.name).toBe('workspace-platform')
     expect(body.result.instructions).toMatch(/platform console/)
   })
 

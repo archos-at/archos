@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils'
 export function StepHeading({ title, hint }: { title: string; hint: string }): JSX.Element {
   return (
     <div className="mb-4">
-      <h2 className="text-foreground text-lg font-semibold tracking-[-0.01em]">{title}</h2>
+      <h2 className="text-foreground text-lg font-medium">{title}</h2>
       <p className="text-muted-foreground mt-1 text-sm leading-relaxed">{hint}</p>
     </div>
   )
@@ -61,7 +61,7 @@ export function Advanced({
           // row whose content sits at its start, so the dip gathers toward the
           // chevron instead of pulling the label in from both ends.
           className={cn(
-            'text-muted-foreground hover:text-foreground flex w-full origin-left items-center gap-2 rounded-md text-sm outline-none',
+            'text-muted-foreground hover:text-foreground flex w-full origin-left items-center gap-2 rounded-control text-sm outline-none',
             PRESSABLE,
             FOCUS_RING
           )}
@@ -76,7 +76,7 @@ export function Advanced({
           />
           {label}
           {summary && !open && (
-            <span className="text-muted-foreground/80 min-w-0 truncate text-xs">· {summary}</span>
+            <span className="text-muted-foreground min-w-0 truncate text-xs">· {summary}</span>
           )}
         </button>
       </CollapsibleTrigger>

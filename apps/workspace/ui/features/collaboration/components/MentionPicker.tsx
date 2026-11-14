@@ -251,7 +251,7 @@ function HighlightedName({ name, query }: { name: string; query: string }): JSX.
   return (
     <>
       {name.slice(0, from)}
-      <mark className="bg-transparent font-semibold text-foreground">{name.slice(from, to)}</mark>
+      <mark className="bg-transparent font-medium text-foreground">{name.slice(from, to)}</mark>
       {name.slice(to)}
     </>
   )
@@ -448,7 +448,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
             // The WHOLE row is the highlight — 12px radius, full-bleed inside the
             // list padding — which is what makes selection legible at a glance.
             'items-center gap-3 rounded-lg px-2.5 py-2 transition-colors duration-snap ease-out motion-reduce:transition-none',
-            'data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground',
+            'data-[selected=true]:bg-hover data-[selected=true]:text-accent-foreground',
             blocked && 'opacity-55',
           )}
         >
@@ -509,7 +509,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
           // over it hid the conversation the mention was about. Radix measures
           // that room (`--radix-popover-content-available-height`); outside a
           // popover the 320px stands alone.
-          'bg-popover text-popover-foreground flex max-h-[min(20rem,var(--radix-popover-content-available-height,20rem))] w-full flex-col overflow-hidden rounded-xl border shadow-lg',
+          'bg-popover text-popover-foreground flex max-h-[min(20rem,var(--radix-popover-content-available-height,20rem))] w-full flex-col overflow-hidden rounded-xl shadow-lg',
           'animate-in fade-in-0 slide-in-from-bottom-1 duration-snap ease-out motion-reduce:animate-none',
           className,
         )}
@@ -580,7 +580,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
                 {groups.participants.length > 0 && (
                   <CommandGroup
                     heading={t('mentions.picker.participantsHeading')}
-                    className="p-0 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-[10.5px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
+                    className="p-0 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-[10.5px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
                   >
                     {groups.participants.map(renderRow)}
                   </CommandGroup>
@@ -589,7 +589,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
                 {groups.others.length > 0 && (
                   <CommandGroup
                     heading={othersHeading ?? t('mentions.picker.othersHeading')}
-                    className="p-0 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-[10.5px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
+                    className="p-0 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-[10.5px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
                   >
                     {groups.others.map(renderRow)}
                   </CommandGroup>
@@ -606,7 +606,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
           className="bg-muted pointer-coarse:hidden flex shrink-0 items-center gap-2 border-t px-3 py-2"
           aria-label={t('mentions.picker.keyboardHint')}
         >
-          <AtSign className="size-3 shrink-0 text-muted-foreground/70" aria-hidden />
+          <AtSign className="size-3 shrink-0 text-muted-foreground" aria-hidden />
           <KbdGroup>
             <Kbd>↑</Kbd>
             <Kbd>↓</Kbd>

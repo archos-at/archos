@@ -9,7 +9,11 @@ import { cn } from '@/lib/utils'
  * segment are solid, so they read the tone's text colour and fill with it
  * (`bg-current`). One table, so a retune of a feedback token moves both.
  */
-export type MeterTone = 'success' | 'info' | 'warning' | 'destructive' | 'muted'
+/**
+ * `ink` and `inkSoft` are the normal case's tones: what is done and what is
+ * under way, in ink. Colour is for what departs from it (`warning`, `destructive`).
+ */
+export type MeterTone = 'success' | 'info' | 'warning' | 'destructive' | 'muted' | 'ink' | 'inkSoft'
 
 export const TONE_INK: Record<MeterTone, string> = {
   success: 'text-success',
@@ -17,6 +21,9 @@ export const TONE_INK: Record<MeterTone, string> = {
   warning: 'text-warning',
   destructive: 'text-error',
   muted: 'text-muted-foreground/45',
+  // Opaque, both: the meter stacks full-width segments, and a translucent one shows the colour under it.
+  ink: 'text-muted-foreground',
+  inkSoft: 'text-[color-mix(in_oklab,var(--muted-foreground)_40%,var(--muted))]',
 }
 
 /**
@@ -30,7 +37,7 @@ export function ToneSwatch({ tone, className }: { tone: MeterTone; className?: s
     <span
       aria-hidden
       data-slot="tone-swatch"
-      className={cn('inline-block size-2.5 shrink-0 rounded-[3px] bg-current', TONE_INK[tone], className)}
+      className={cn('inline-block size-2.5 shrink-0 rounded-control bg-current', TONE_INK[tone], className)}
     />
   )
 }
@@ -96,7 +103,7 @@ export function SegmentMeter({ segments, label, className, ...props }: SegmentMe
       role="img"
       aria-label={label}
       data-slot="segment-meter"
-      className={cn('bg-muted relative isolate h-2 w-full overflow-hidden rounded-full', className)}
+      className={cn('bg-muted relative isolate h-2 w-full overflow-hidden rounded-none', className)}
       {...props}
     >
       {drawn.map((segment, index) => (

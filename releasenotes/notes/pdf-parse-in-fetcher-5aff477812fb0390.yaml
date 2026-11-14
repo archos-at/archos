@@ -1,0 +1,9 @@
+---
+# area: building-law
+operators:
+  - >
+    Public sources are now read only through the isolated fetcher, in every
+    stack and in Compose, and a public PDF is parsed there too, never in the
+    api or agent pods. The next deploy brings the fetcher up everywhere; the
+    publicSourceFetcherEnabled setting and the source-routing flag are gone,
+    and the flag can be deleted in both WorkOS environments.

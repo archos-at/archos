@@ -49,9 +49,6 @@ vi.mock('@/lib/authz/project-membership', () => ({
 vi.mock('@/lib/workos/client', () => ({
   getWorkOS: () => ({
     authorization: {
-      check: vi.fn(async ({ organizationMembershipId }: { organizationMembershipId: string }) => ({
-        authorized: PROJECT_MEMBERS.has(organizationMembershipId),
-      })),
       // A project member holds every project permission; anyone else none.
       listEffectivePermissionsByExternalId: vi.fn(async ({ organizationMembershipId }: { organizationMembershipId: string }) => ({
         autoPagination: async () =>
@@ -268,7 +265,7 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
     const skippedForAnotherReason = await oneShot('Ohne Freischaltung')
     await run(skippedForAnotherReason.id, 'skipped', 'Skills feature disabled for organization')
 
-    expect(await tasks.rearmOneShotsSkippedWhileParked(projectId, ORG)).toBe(1)
+    expect(await tasks.rearmOneShotsSkippedWhileParked(projectId, ORG)).toHaveLength(1)
     const due = await inTenant(() =>
       db.execute<{ title: string; armed: boolean }>(
         sql`SELECT title, next_run_at IS NOT NULL AS armed FROM task_definitions WHERE project_id = ${projectId}::uuid ORDER BY title`

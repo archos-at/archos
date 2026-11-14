@@ -1,0 +1,47 @@
+---
+# area: office-knowledge
+features:
+  - >
+    What the assistant keeps about you personally, such as how you like your
+    answers or what you are responsible for, now goes into a memory of your
+    own that only you can read. It no longer lands in the project's memory in
+    front of the team, even when you say it in a project chat, and it follows
+    you into every project.
+  - >
+    The assistant draws on what it keeps about you personally only in chats
+    that you alone read. In a chat you share with colleagues it leaves those
+    notes out, because others read the answers there.
+  - >
+    Your own notes have a page, "Mein Gedächtnis", in the menu under your name.
+    There you read, add, correct, pin and remove what the assistant keeps about
+    you.
+  - >
+    A chat can be switched to temporary beside the message field. The assistant
+    then keeps nothing from it, in no memory, and the chat says so for as long
+    as the switch is on.
+  - >
+    A project's memory now says that every member of the project reads its
+    notes, and a private chat says that you have not shared it with anyone.
+  - >
+    "Mein Gedächtnis" has "Alle Notizen entfernen": after a confirmation that
+    says how many notes go, everything the assistant keeps about you is removed
+    in one step.
+  - >
+    A temporary chat is marked in the chat history, and the switch beside the
+    message field shows its word on a phone too. A note the assistant proposed
+    cannot be saved from a chat that is temporary; the card says why.
+  - >
+    Every note the assistant saves while answering now appears under that
+    answer, with who can read it and "Entfernen" to take it back on the spot.
+    Notes on your own shelf are shown there to you alone.
+  - >
+    A note that corrects an earlier one, such as a changed dimension, date or
+    quantity, now replaces it. Before, the old value could stay and look
+    freshly confirmed.
+  - >
+    Memory refuses passwords, access keys, bank account numbers and
+    social-insurance numbers wherever a note comes from, and says what kind of
+    thing it found.
+  - >
+    The words for memory are the same everywhere now: "Projektgedächtnis" for
+    a project's notes, and one name for each kind of note.

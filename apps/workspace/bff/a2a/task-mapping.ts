@@ -24,6 +24,8 @@ import {
 } from '@a2a-js/sdk/errors'
 import type { AskDocument, AskState, AskView, CreateAskRequest } from '@/lib/agent-asks/ask-wire'
 import { conversationIdSchema } from '@/lib/session-documents/conversation-id'
+import { PRODUCT_NAME } from '@/lib/brand'
+import { AI_GENERATED_META } from '@/lib/agent-api/ai-generated-meta'
 
 export const TASK_STATE_OF: Readonly<Record<AskState, TaskState>> = {
   submitted: TaskState.TASK_STATE_SUBMITTED,
@@ -61,7 +63,7 @@ function documentArtifact(document: AskDocument): Artifact {
   return {
     artifactId: document.versionId,
     name: document.name,
-    description: 'A document Piloti filed while answering. Read it with the agent door (document-get, document-download).',
+    description: 'A document ' + PRODUCT_NAME + ' filed while answering. Read it with the agent door (document-get, document-download).',
     parts: [
       {
         content: {
@@ -99,9 +101,11 @@ export function artifactsOf(view: AskView): Artifact[] {
         {
           artifactId: view.answer.messageId,
           name: ANSWER_ARTIFACT_NAME,
-          description: 'Piloti’s answer.',
+          description: PRODUCT_NAME + '’s answer.',
           parts: [textPart(view.answer.text), ...evidenceParts(view.answer)],
-          metadata: undefined,
+          // Art. 50(2) AI Act: the answer is a model's text, marked as the MCP
+          // door marks it (`_meta.aiGenerated`), in the artifact's own metadata.
+          metadata: { ...AI_GENERATED_META },
           extensions: [],
         },
       ]
@@ -138,14 +142,14 @@ export function askInputOf(incoming: Message | undefined, metadata?: Record<stri
   if (incoming.role === Role.ROLE_AGENT) throw new RequestMalformedError('Send the question as role user.')
   if (incoming.taskId) {
     throw new UnsupportedOperationError(
-      'Piloti never waits for input on a task. Send a new message with the same contextId to follow up.',
+      PRODUCT_NAME + ' never waits for input on a task. Send a new message with the same contextId to follow up.',
     )
   }
   const texts: string[] = []
   for (const part of incoming.parts) {
     if (part.content?.$case !== 'text') {
       throw new ContentTypeNotSupportedError(
-        'Piloti reads text. Put files into the workspace with the agent door and name them in the question.',
+        PRODUCT_NAME + ' reads text. Put files into the workspace with the agent door and name them in the question.',
       )
     }
     texts.push(part.content.value)

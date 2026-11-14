@@ -7,7 +7,7 @@
  * (2026-10-20) reached the user and nothing else. This is the capture for that
  * case, called from `errorResponse`.
  *
- * Personless, with the same scrubber and super properties as every BFF event
+ * Filed under the acting member and office when known, with the same scrubber and super properties as every BFF event
  * (the shared client carries both), and rate limited per fingerprint like
  * `request-error.ts`, so an outage that every client retries costs a burst per
  * window rather than the free tier.
@@ -16,7 +16,9 @@ import 'server-only'
 
 import type { UpstreamError } from '@/lib/api/errors'
 
-import { getPosthogServer } from './posthog-server'
+import { getTenantContext } from '@/lib/db/tenant-context'
+
+import { getPosthogServer, serverEventIdentity } from './posthog-server'
 
 /**
  * The same budget as `request-error.ts` (5 per fingerprint per 5 minutes),
@@ -65,7 +67,13 @@ export const captureUpstreamError = (error: UpstreamError, requestId: string): b
   const context = upstreamContext(error)
   if (isRateLimited(`${error.message}|${context.code ?? ''}`, Date.now())) return false
   try {
-    posthog.captureException(error, undefined, {
+    // The acting member and office when the request got far enough to have a
+    // tenant scope; otherwise a stable per-office or system id, never a fresh UUID.
+    const scope = getTenantContext()
+    const tenant = scope?.kind === 'tenant' ? scope : null
+    const identity = serverEventIdentity(tenant?.userId, tenant?.organizationId)
+    posthog.captureException(error, identity.distinctId, {
+      ...identity.properties,
       source: 'bff-upstream-error',
       request_id: requestId,
       ...context,

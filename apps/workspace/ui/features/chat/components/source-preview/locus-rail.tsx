@@ -88,7 +88,7 @@ export const LocusRail: FC<{
                 count: loci.length,
               })}
             </span>
-            <button
+            <button data-attr="chat-step"
               type="button"
               onClick={() => step(-1)}
               disabled={activeIndex <= 0}
@@ -97,7 +97,7 @@ export const LocusRail: FC<{
             >
               <ChevronUp aria-hidden="true" className="size-3.5" />
             </button>
-            <button
+            <button data-attr="chat-step"
               type="button"
               onClick={() => step(1)}
               disabled={activeIndex === loci.length - 1}
@@ -115,7 +115,7 @@ export const LocusRail: FC<{
           const isActive = locus.key === activeKey
           return (
             <li key={locus.key} className="w-52 shrink-0 md:w-full">
-              <button
+              <button data-attr="chat-select"
                 type="button"
                 // Follow the reading position. Stepping through a document read
                 // at nine places used to walk the mark off the bottom of the
@@ -130,9 +130,9 @@ export const LocusRail: FC<{
                 onClick={() => onSelect(locus)}
                 aria-current={isActive ? 'true' : undefined}
                 className={cn(
-                  'duration-snap w-full rounded-lg border px-2.5 py-2 text-left transition-colors ease-out',
+                  'duration-snap w-full rounded-surface border px-2.5 py-2 text-left transition-colors ease-out',
                   'focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-2',
-                  isActive ? 'border-transparent' : 'border-border bg-card hover:bg-accent'
+                  isActive ? 'border-transparent' : 'border-border bg-card hover:bg-sheet-hover'
                 )}
                 // The active entry wears the SOURCE's colour, the same tint the
                 // chip that opened this dialog wore — so "where am I" is
@@ -188,6 +188,6 @@ export const LocusRail: FC<{
 }
 
 const stepperClasses =
-  'inline-flex size-5 items-center justify-center rounded-md border border-border text-muted-foreground ' +
+  'inline-flex size-5 items-center justify-center rounded-full border border-border text-muted-foreground ' +
   'transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 ' +
   'focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40'

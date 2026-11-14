@@ -1,7 +1,9 @@
 import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react'
 import { render, screen } from '@/test-utils'
 import { vi, describe, test, expect, afterEach } from 'vitest'
+import { PRODUCT_NAME } from '@/lib/brand'
 import { OrgHeader } from './org-header'
+import { BRAND_INSET_ORG, BRAND_ROW } from './brand-slot'
 import { useShellOverlays } from './shell-overlays'
 
 let pathname = '/app/projects'
@@ -50,7 +52,9 @@ const baseProps = {
 }
 
 let mobile = false
-vi.mock('@/hooks/use-is-mobile', () => ({
+// Only the hook is stood in for: the module's named queries stay real.
+vi.mock('@/hooks/use-is-mobile', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/use-is-mobile')>()),
   useIsMobile: () => mobile,
 }))
 vi.mock('./connection-band', () => ({ ConnectionBand: () => <div data-testid="connection-band" /> }))
@@ -65,10 +69,17 @@ afterEach(() => {
 describe('OrgHeader — the org scope in one slim band', () => {
   test('carries the wordmark home link, both doorways, and the avatar menu', () => {
     render(<OrgHeader {...baseProps} />)
-    expect(screen.getByText('Piloti').closest('a')).toHaveAttribute('href', '/app/projects')
+    expect(screen.getByRole('img', { name: PRODUCT_NAME }).closest('a')).toHaveAttribute('href', '/app/projects')
     expect(screen.getByLabelText('Office filing')).toHaveAttribute('href', '/app/office-shelf')
     expect(screen.getByLabelText('Inbox')).toHaveAttribute('href', '/app/inbox')
     expect(screen.getByTestId('user-menu')).toBeInTheDocument()
+  })
+
+  test('ends in one rule, as a project page\u2019s header does', () => {
+    // The bar stays put while the page scrolls under it; without a line its doorways read as the page's first row
+    // (review of 2026-11-12). The handover has none under a header: the app's deviation (packages/brand/README.md).
+    render(<OrgHeader {...baseProps} />)
+    expect(screen.getByRole('banner')).toHaveClass('border-b', 'border-border')
   })
 
   test('drops each doorway with its own gate', () => {
@@ -77,6 +88,14 @@ describe('OrgHeader — the org scope in one slim band', () => {
     expect(screen.queryByLabelText('Inbox')).not.toBeInTheDocument()
     // The avatar stays — the header is never just a wordmark.
     expect(screen.getByTestId('user-menu')).toBeInTheDocument()
+  })
+
+  test('opens the office standards only for an office with the office-standards entitlement', () => {
+    const { unmount } = render(<OrgHeader {...baseProps} />)
+    expect(screen.queryByLabelText('Office standards')).not.toBeInTheDocument()
+    unmount()
+    render(<OrgHeader {...baseProps} canAccessOfficeStandards />)
+    expect(screen.getByLabelText('Office standards')).toHaveAttribute('href', '/app/base-knowledge')
   })
 
   test('marks the doorway whose sheet is open, and only that one', () => {
@@ -91,6 +110,18 @@ describe('OrgHeader — the org scope in one slim band', () => {
     render(<OrgHeader {...baseProps} />)
     const inbox = screen.getByLabelText('Inbox')
     expect(inbox.textContent).toContain('3')
+  })
+})
+
+// Ticket #38, topic 7: the wordmark jumped going from here into a project. It
+// stands in the row `brand-slot.ts` defines, the one the rail's head uses too.
+describe('OrgHeader — the wordmark stands where the rail puts it', () => {
+  test('centred in the shared 56px brand row, 24px in from `md`', () => {
+    render(<OrgHeader {...baseProps} />)
+    const row = screen.getByRole('img', { name: PRODUCT_NAME }).closest('a')?.parentElement?.parentElement
+    for (const token of [...BRAND_ROW.split(' '), BRAND_INSET_ORG]) {
+      expect(row?.className.split(' ')).toContain(token)
+    }
   })
 })
 

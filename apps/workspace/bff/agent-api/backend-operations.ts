@@ -4,7 +4,8 @@ import 'server-only'
  *
  * `catalog/` covers what the BFF's routes do. Piloti's best READ tools live
  * only in the Python agent: knowledge search, passage reading, the file
- * browser, page images, the two BIM tools and RIS. An outside agent must get
+ * browser, page images, the IFC measure, the DXF site measure and RIS. The
+ * IFC query is the route's own operation, `bim-model-query`, not a tool here. An outside agent must get
  * them too, so each is an operation here, and the MCP server lists them beside
  * the catalog's. A call goes to the backend's `POST /v1/internal/tools/{name}`
  * (`apps/agent-host/src/agent_host/routes/internal_tools.py`).
@@ -46,6 +47,7 @@ import backendTools from '../../tests/fixtures/backend-tools.schema.json'
 import type { AgentDomain, ToolAnnotations } from './operation'
 import { type OperationResult, readResponseBody } from './dispatch'
 import { fittedHits, withOperationNames, withRankedOrderNote, type ToolNames } from './door-text'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 export type { OperationResult }
 
@@ -63,7 +65,7 @@ export type BackendAnnotations = Omit<ToolAnnotations, 'openWorldHint'> & { read
 export interface BackendOperation {
   /** `<entity>-<verb>`, kebab-case, unique across the catalog as well. */
   readonly name: string
-  readonly domain: Extract<AgentDomain, 'knowledge' | 'bim'>
+  readonly domain: Extract<AgentDomain, 'knowledge' | 'bim' | 'documents'>
   /** One line for `tools` and `search`. */
   readonly summary: string
   /** What an outside agent reads: this file's English description, not the Python function's. */
@@ -127,15 +129,15 @@ const ENTRIES = [
       'only (`base` needs no `projectId`); omitted, every shelf is read, the OIB corpus included, so pass `project` for whether something is in the ' +
       'project’s own documents; an exact or regex answer states per shelf how many documents were searched and how many matched. `context` (0 to 3, exact and regex only) adds the lines around every hit as an index. ' +
       '`document_type` (a type key such as `fire_safety_concept`) and `refers_to` (a norm, a law, a plan number or a kind of ' +
-      'document) narrow to the documents Piloti read to be that kind or to refer to that, inside the search. ' +
+      'document) narrow to the documents ' + PRODUCT_NAME + ' read to be that kind or to refer to that, inside the search. ' +
       'A search that stops at its limit says its counts are lower bounds. `group_by: "document"` (ranked search only) returns one ' +
       'entry per document, its best passage and how many passages of the ranked pool it held, for which documents deal with a topic. ' +
       'A query that names only a guideline (`OIB 2`) returns every part of it with its ' +
       'scope and outline. ' +
       'Returns the platform’s configured number of excerpts (16 unless raised, at most 50; the header counts them), each with source, citation key, document type, folder and page. ' +
       'A `Folder:` line after them is a folder whose summary matches: a pointer to look inside with files-list or `folder`, never a source. ' +
-      'A hit marked as a Piloti document is knowledge the office approved, never a source for a normative value. When you know ' +
-      'which document holds the answer, call passage-read instead; for Austrian law itself call law-lookup. Never invent a ' +
+      'A hit marked as a document ' + PRODUCT_NAME + ' wrote is knowledge the office approved, never a source for a normative value. When you know ' +
+      'which document holds the answer, call passage-read instead; for the law itself call law-lookup. Never invent a ' +
       'citation or a file name; an empty result says how to retry.',
     needsProject: true,
     projectOptionalForBase: true,
@@ -196,31 +198,6 @@ const ENTRIES = [
     needsProject: true,
   },
   {
-    name: 'ifc-query',
-    tool: 'ifc_query',
-    domain: 'bim',
-    summary: 'Query the properties, quantities and classification of a project’s building model',
-    description:
-      'Query the project’s IFC (BIM) model for exact facts the export states: element counts, rooms and their areas, storeys, ' +
-      'property values (fire rating, U-value, load-bearing), materials and classifications. Use it instead of knowledge-search when ' +
-      'the question is about this building rather than a regulation. `operation`: `overview` (start here), `health` (the ' +
-      'validation report: unassigned elements, rooms without area, missing property sets; read it before claiming coverage), ' +
-      '`types`, `properties` (the model’s own property vocabulary with values and counts; call it before filtering on a ' +
-      'property you have not seen), `elements`, `element` (one element by GlobalId), `schedule` (every room with storey, area and ' +
-      'volume, with totals), `takeoff` (one quantity summed per type, optionally by material), `profile` (project facts the model ' +
-      'implies, as proposals for a person to confirm), `compliance` (the OIB rule catalogue against the model: per requirement, ' +
-      'how many elements are met, not met or undecidable, and which property would decide it; pass `building_class` 1 to 5 and ' +
-      '`main_use`), `compliance-diff` and `compare` (against an older revision named by `compare_with`), and `aggregate` (count, ' +
-      'sum, avg, min or max, optionally grouped). `filters` is a JSON object (`ifcTypes`, `storeys`, `nameContains`, `material`, ' +
-      '`classification`, `properties` with operators eq, neq, contains, gt, gte, lt, lte, exists, missing); only elements, ' +
-      'aggregate and takeoff take it, and an unknown key is rejected. Storey names match exactly: copy them from `overview`. ' +
-      '`model_name` picks one model; without it only the project’s own is read, and an office-shelf model only when ' +
-      'named. A compliance result is never a statement that the building ' +
-      'complies: it reads published values only. A missing value is a fact about the export, not the building. Report numbers and ' +
-      'caveat lines as returned; never recompute them.',
-    needsProject: true,
-  },
-  {
     name: 'ifc-measure',
     tool: 'ifc_measure',
     domain: 'bim',
@@ -229,7 +206,7 @@ const ENTRIES = [
     description:
       'Measure the project’s IFC (BIM) model: dimensions, distances, areas, clear heights and widths, and spatial relations, each ' +
       'with how it was obtained. Use it when the file does not state the number and the geometry has to be read, or to check a ' +
-      'declared number another way; for counts and published values call ifc-query first. Call `operation: "briefing"` ' +
+      'declared number another way; for counts and published values call bim-model-query first. Call `operation: "briefing"` ' +
       'first, once per model: it names the storeys, the property vocabulary this export used, and what this file cannot answer; ' +
       'copy storey and property names from it. Then `find_elements` for GlobalIds, `element`, `relations`, `measure` (one ' +
       'element or a known set), `survey` (one measure across a whole selection, with the spread: use it whenever the question is ' +
@@ -247,24 +224,39 @@ const ENTRIES = [
     needsProject: true,
   },
   {
-    name: 'law-lookup',
-    tool: 'ris_lookup_tool',
-    domain: 'knowledge',
-    summary: 'Look up Austrian law in RIS and read the provision',
+    name: 'dxf-measure',
+    tool: 'dxf_measure',
+    domain: 'documents',
+    summary: 'Measure parcels, buildings, setbacks and layers in a project’s DXF drawing',
     description:
-      'Answer a question about Austrian law from RIS, the federal legal information system, with the actual paragraphs, quotable ' +
-      'and citable. Call it when the question turns on what an Austrian law says: the building codes and other state laws, the ' +
-      'federal acts behind them, and court decisions; OIB guidelines become binding through these laws, so their binding force ' +
-      'belongs here too. For the content of the OIB guidelines or the office’s documents, call knowledge-search. One call reads ' +
-      'the address out of the question, finds the law, downloads at most two documents and cuts out the paragraphs that answer it. ' +
-      '`question`: the legal question as the person means it, in German, the language of the law, not a list of search terms. ' +
-      '`jurisdiction`: the federal state, when the person ' +
-      'named one. `instrument`: an address when you have one (a law’s name or citation such as `§ 63 BO Wien`, a RIS document ' +
-      'number or a ris.bka.gv.at URL); name every section you need in one call, up to six. `application`: only for case law, the ' +
-      'gazettes or drafts; leave it empty for statute law. Returns numbered passages, each with its source, document type, clause, ' +
-      'a citation key to quote verbatim and the paragraph text. A miss says what was searched and one concrete retry.',
+      'Measure a project’s DXF drawing as a site, above all an Austrian cadastral extract (BEV Katastralmappe): parcel areas, ' +
+      'neighbours and shared boundary lengths, the buildings on a parcel with coverage, each building’s distance to each ' +
+      'boundary, and what remains buildable after the setbacks and limits you pass (from the zoning plan or building code; the ' +
+      'drawing holds none). For any other DXF: labels and what each layer holds. Start with `overview`. `document` is the file ' +
+      'name from files-list; name parcels as the drawing does (`123/4`, `.57`). Tax-cadastre boundaries are graphic, not ' +
+      'binding: quote each answer’s accuracy note with its number. An undecidable answer is a finding about the file. Never ' +
+      'recompute, round or convert a returned number.',
+    needsProject: true,
+  },
+  {
+    name: 'law-lookup',
+    tool: 'law_lookup',
+    domain: 'knowledge',
+    summary: 'Look up a law at its official source and read the provision',
+    description:
+      'Answer a legal question from the official legal database of the site’s country, with the actual provisions, quotable ' +
+      'and citable. Call it when the question turns on what a law says: the building codes and other statutes, the acts ' +
+      'behind them, and court decisions; a technical guideline a law makes binding belongs here for its binding force. For ' +
+      'the content of technical guidelines or the office’s documents, call knowledge-search. One call reads the address out ' +
+      'of the question, finds the law, downloads at most two documents and cuts out the provisions that answer it. ' +
+      '`question`: the legal question as the person means it, in the language of the law, not a list of search terms. ' +
+      '`jurisdiction`: the region (a state or province), when the person named one. `instrument`: an address when you have ' +
+      'one (a law’s name or a citation with its section, a document number of the source, or a URL on its site); name every ' +
+      'section you need in one call, up to six. `application`: only for case law, the gazettes or drafts; leave it empty for ' +
+      'statute law. Returns numbered passages, each with its source, document type, clause, a citation key to quote verbatim ' +
+      'and the provision’s text. A miss says what was searched and one concrete retry.',
     needsProject: false,
-    // Reaches the public RIS, not only the office's own workspace.
+    // Reaches a public legal database, not only the office's own workspace.
     openWorld: true,
   },
 ] as const satisfies readonly Entry[]
@@ -293,7 +285,6 @@ export const ENGLISH_GLOSSES: readonly (readonly [RegExp, string])[] = [
   [/the lateral Verschwenkung/g, 'the lateral swivel'],
   [/a lichte Breite/g, 'a clear width'],
   [/a lichte Höhe/g, 'a clear height'],
-  [/an Achsabstand/g, 'a centre-to-centre distance'],
   [/\(Achsabstand\)/g, '(centre to centre)'],
   [/a Fluchtweglänge/g, 'an escape-route length'],
   [/the NUTZBREITE/g, 'the USABLE WIDTH'],

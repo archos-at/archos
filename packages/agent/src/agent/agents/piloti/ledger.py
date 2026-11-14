@@ -15,15 +15,21 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from agent.citations.binding import document_key
-from agent.citations.binding import source_label
-from agent.citations.binding import source_origin_token
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import lost_citations
+from agent.citations.source_identity import document_key
+from agent.citations.source_identity import source_label
+from agent.citations.source_identity import source_origin_token
 from agent.citations.wire import read_source_to_wire
 from agent.citations.wire import source_entry_to_wire
 from agent.common import citation_events
+from agent.common.binding_claims import BindingClaim
+from agent.common.binding_claims import law_cited_from_web
+from agent.common.binding_claims import score_answer
+from agent.common.binding_claims import turn_binding_claims
+from agent.common.law_gate import law_unsettled
 from agent.common.retrieval_ledger import build_retrieval_ledger
+from agent.observability.citation_scores import emit_citation_line_scores
 from agent.tools.bim.measurement_sources import MeasurementSource
 from agent.tools.bim.measurement_sources import measurement_sources_to_wire
 
@@ -158,6 +164,16 @@ def record_turn_ledger(
     )
 
 
+def _claims_without_records(final: FinalAnswer) -> list[BindingClaim]:
+    """The answer's sentences that state law without the records (``common/binding_claims.py``), scored."""
+    if not final.answered:
+        return []
+    cited = [(source.entry, source.number) for source in final.cited]
+    claims = turn_binding_claims(final.content, cited)
+    score_answer(claims, law_cited_from_web(final.content, cited))
+    return claims
+
+
 def assemble_result(
     graph_result: dict[str, Any],
     final: FinalAnswer,
@@ -174,6 +190,7 @@ def assemble_result(
     grounding signals reach the conversation graph by the same path.
     """
     measurement_grounded = bool(graph_result.get("answer_measurement_grounded", False))
+    claims = _claims_without_records(final)
     wire = wire_sources(final.cited)
     ledger = build_retrieval_ledger(graph_result.get("retrieval_rounds"), lane_hits)
     result: dict[str, Any] = {
@@ -182,8 +199,11 @@ def assemble_result(
         "answer_citation_grounded": final.citation_grounded,
         "answer_measurement_grounded": measurement_grounded,
         "confidence_check": final.confidence_check,
+        "answer_open_points": list(final.open_points),
         "answer_lookup_found_nothing": final.lookup_found_nothing,
         "answer_quotes_verified": final.quotes_verified,
+        # A sentence that states law without the records caps like law the records do not settle.
+        "answer_law_unsettled": law_unsettled(source.entry for source in final.cited) or bool(claims),
         "escalation_requested": final.escalation_requested,
         "answer_is_handoff": final.answer_is_handoff,
         "answer_confidence_marker": final.confidence_marker,
@@ -207,6 +227,7 @@ def assemble_result(
     if final.quote_stamps:
         result["quote_stamps"] = list(final.quote_stamps)
     state = ResearchAgentState.model_validate(result)
+    emit_citation_line_scores(wire, writer="chat")
     if final.answered and (final.source_lookup_attempted or measurement_grounded):
         record_turn_ledger(
             final, turn_sources=turn_sources, wire=wire, capped_reason=state.answer_confidence_capped_reason

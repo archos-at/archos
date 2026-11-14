@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
-import { QUEUE_DEPTH_QUERY } from "./ingest-worker";
+import { HEAVY_POOL, HEAVY_WORKFLOW, WORKFLOW } from "./ingest-worker";
+import { hatchetBacklogQuery } from "./keda-scaling";
 import { baseStackConfig } from "../test-support/stack-config";
 
 // src/app -> src -> deploy/pulumi -> deploy -> repo root
@@ -24,30 +25,44 @@ pulumi.runtime.setMocks(
   false,
 );
 
-async function load() {
+/** The program's config with these knobs set (by name, as a stack file sets them). */
+async function load(knobs: Record<string, string> = {}) {
+  const set = { observabilityEnabled: "false", ...knobs };
   pulumi.runtime.setAllConfig({
     ...baseStackConfig(),
-    "grid-oib:observabilityEnabled": "false",
+    ...Object.fromEntries(Object.entries(set).map(([key, value]) => [`grid-oib:${key}`, value])),
   });
   return import("../config").then((m) => m.loadConfig());
 }
+
+/** One knob's value as a committed stack file sets it, or undefined when it leaves the default. */
+const stackKnob = (stackFile: string, key: string) =>
+  read("deploy", "pulumi", stackFile).match(new RegExp(`^\\s*grid-oib:${key}: "?([^"\\s]+)"?\\s*$`, "m"))?.[1];
 
 const pythonSources = [
   read("apps", "agent-host", "src", "agent_host", "jobs", "ingest_dispatch.py"),
   read("apps", "agent-host", "src", "agent_host", "jobs", "ingest_worker.py"),
   // The per-organisation cap is read where the in-process pool and the queue share it.
   read("packages", "agent", "src", "agent", "knowledge", "ingest_scheduler.py"),
+  // The heavy pool's size threshold and slots, read where the workflows are declared.
+  read("packages", "agent", "src", "agent", "knowledge", "ingest_workflow.py"),
   // The in-process pool's size, read by the knowledge layer's adapter.
-  read("packages", "knowledge-layer", "src", "llamaindex", "adapter.py"),
+  read("packages", "knowledge-layer", "src", "ingest", "adapter.py"),
+  // One file's page-read pool, OCR and vision together.
+  read("packages", "knowledge-layer", "src", "ingest", "page_reads.py"),
 ].join("\n");
-const configSource = read("deploy", "pulumi", "src", "app", "config.ts");
+const configSource = [
+  read("deploy", "pulumi", "src", "app", "config.ts"),
+  // The high-memory pool's own env is built beside its Deployment.
+  read("deploy", "pulumi", "src", "app", "ingest-worker.ts"),
+].join("\n");
 
 const names = (source: string, pattern: RegExp): Set<string> =>
   new Set([...source.matchAll(pattern)].map((m) => m[1]));
 
 /**
  * The ingest tier crosses two process boundaries this program cannot see into:
- * the Python worker reads its env, and KEDA queries the Python queue's table.
+ * the Python worker reads its env, and KEDA counts the worker's Hatchet workflow.
  * A name that drifts on one side plans and applies clean, and the tier then
  * either never scales or claims nothing. Both sides are read here as source.
  */
@@ -59,44 +74,71 @@ describe("the ingest-worker tier", () => {
     expect([...emitted].filter((n) => !readByPython.has(n))).toEqual([]);
   });
 
-  it("scales on the table the queue actually writes", () => {
-    const table = read("packages", "agent", "src", "agent", "knowledge", "ingest_queue.py").match(/^TABLE = "([a-z_]+)"$/m)?.[1];
-    expect(table).toBeDefined();
-    const dead = read("packages", "agent", "src", "agent", "common", "claim_queue.py").match(/^DEAD = "([a-z_]+)"$/m)?.[1];
-    expect(dead).toBeDefined();
-    const cancelled = read("packages", "agent", "src", "agent", "common", "claim_queue.py").match(
-      /^CANCELLED = "([a-z_]+)"$/m,
-    )?.[1];
-    expect(cancelled).toBeDefined();
-    // Retired rows (dead, cancelled) stay in the table as traces; they must not
-    // keep replicas up.
-    expect(QUEUE_DEPTH_QUERY).toBe(
-      `SELECT COUNT(*) FROM ${table} WHERE status NOT IN ('${dead}', '${cancelled}')`,
-    );
+  it("scales on the backlog of the workflow the worker registers", () => {
+    expect(WORKFLOW).toBe("ingest-document");
+    expect(hatchetBacklogQuery("prod", WORKFLOW)).toContain("starts_with(action_id, 'prod_ingest-document:')");
+    expect(read("deploy", "pulumi", "src", "app", "ingest-worker.ts")).toContain("workflow: WORKFLOW");
   });
 
-  it("reads the queue through the one TriggerAuthentication both Python tiers share", () => {
-    // The Secret key the scaler's DSN is in (`buildScalerSecret`): the tiers share
-    // it because both queues live in one database.
-    expect(configSource).toMatch(/JOBS_QUEUE_DSN_KEY = "KEDA_JOBS_QUEUE_DB_URL"/);
-    expect(read("deploy", "pulumi", "src", "app", "ingest-worker.ts")).toContain("JOBS_QUEUE_AUTH");
-  });
-
-  it("runs prod wide and small on the batch group, never able to overcommit a node", () => {
+  it("runs prod wide and small on the batch group, never able to overcommit a node", async () => {
     // Overcommitted limits took the 16 GB app nodes down one after another
     // (2026-10). The rule that prevents it, not just today's numbers: memory
     // request equals limit, so the scheduler places only what a node holds,
     // and every replica at its limit fits one 64 GB batch node (56 GiB: the
     // node less the kubelet reserve and Gotenberg, which shares the group).
-    const prod = read("deploy", "pulumi", "Pulumi.prod.yaml");
-    const knob = (key: string) => prod.match(new RegExp(`^\\s*grid-oib:${key}: "?([^"\\s]+)"?\\s*$`, "m"))?.[1];
+    const knob = (key: string) => stackKnob("Pulumi.prod.yaml", key);
     const gib = (value: string | undefined) => Number(value?.replace(/Gi$/, ""));
 
     expect(knob("nodeGroupBatch")).toBe("batch");
-    expect(knob("ingestWorkerMaxReplicas")).toBe("8");
+    expect(knob("ingestWorkerMaxReplicas")).toBe("7");
     expect(knob("ingestWorkerConcurrency")).toBe("2");
     expect(knob("ingestWorkerRequestsMemory")).toBe(knob("ingestWorkerLimitsMemory"));
-    expect(Number(knob("ingestWorkerMaxReplicas")) * gib(knob("ingestWorkerLimitsMemory"))).toBeLessThanOrEqual(56);
+    // The high-memory pool shares the group: both pools at their ceilings fit one node.
+    const { heavy } = (await load()).ingestWorker;
+    expect(heavy.resources.requestsMemory).toBe(heavy.resources.limitsMemory);
+    const heavyGib = heavy.maxReplicas * gib(heavy.resources.limitsMemory);
+    expect(Number(knob("ingestWorkerMaxReplicas")) * gib(knob("ingestWorkerLimitsMemory")) + heavyGib).toBeLessThanOrEqual(56);
+  });
+
+  it("keeps one standard ingest worker up on every stack, so the base corpus is never refused", async () => {
+    // The base corpus hands its jobs to Hatchet only (`enqueue_only`, no in-process fallback), and
+    // `require_registered` refuses a trigger until a worker has registered the workflow. At zero
+    // replicas none ever had on dev: every corpus job was refused, the backlog KEDA scales on stayed
+    // empty, and Austria's 49 texts failed to index (2026-11-12, "no worker has registered
+    // dev_ingest-document yet"). Corpus jobs carry no size, so they never run on the heavy pool.
+    expect(read("apps", "agent-host", "src", "agent_host", "routes", "oib.py")).toContain("enqueue=enqueue_only");
+    const stacks = readdirSync(join(repoRoot, "deploy", "pulumi")).filter((file) => /^Pulumi\.[\w-]+\.yaml$/.test(file));
+    expect(stacks).toEqual(expect.arrayContaining(["Pulumi.dev.yaml", "Pulumi.prod.yaml"]));
+    for (const stack of stacks) {
+      const value = stackKnob(stack, "ingestWorkerMinReplicas");
+      const { minReplicas } = (await load(value === undefined ? {} : { ingestWorkerMinReplicas: value })).ingestWorker;
+      expect(minReplicas, `${stack} lets the ingest tier reach zero`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("runs heavy files on a high-memory pool that scales on its own workflow's backlog", async () => {
+    const { heavy } = (await load()).ingestWorker;
+    expect(heavy).toMatchObject({ enabled: true, minReplicas: 0, maxReplicas: 1, concurrency: 1, fileBytes: 41_943_040 });
+    expect(heavy.resources.limitsMemory).toBe("12Gi");
+    expect(HEAVY_WORKFLOW).toBe("ingest-document-heavy");
+    // The standard tier's prefix never counts a heavy run, nor the other way round.
+    expect(hatchetBacklogQuery("prod", HEAVY_WORKFLOW)).toContain("'prod_ingest-document-heavy:'");
+    expect("prod_ingest-document-heavy:index".startsWith("prod_ingest-document:")).toBe(false);
+    // The worker reads the pool, its slots and the label value the Python side requires.
+    const python = read("packages", "agent", "src", "agent", "knowledge", "ingest_workflow.py");
+    expect(python).toContain(`HEAVY_WORKFLOW_NAME = "${HEAVY_WORKFLOW}"`);
+    expect(python).toContain(`HEAVY_POOL = "${HEAVY_POOL}"`);
+    expect(configSource).toContain('{ name: "INGEST_WORKER_POOL", value: "highmem" }');
+    expect(read("deploy", "pulumi", "src", "app", "ingest-worker.ts")).toContain("workflow: HEAVY_WORKFLOW");
+  });
+
+  it("sends nothing heavy while the stack has no high-memory pool", async () => {
+    const cfg = await load({ ingestWorkerHeavyEnabled: "false" });
+    const { installIngestWorkerHeavy } = await import("./ingest-worker");
+    expect(installIngestWorkerHeavy({} as never, cfg, {} as never, [])).toBeUndefined();
+    const { heavyFileBytesEnv } = await import("../config/workers");
+    expect(heavyFileBytesEnv(cfg.ingestWorker)).toBe(0);
+    expect(configSource).toContain('{ name: "INGEST_HEAVY_FILE_BYTES", value: String(heavyFileBytesEnv(cfg.ingestWorker)) }');
   });
 
   it("runs the role the entrypoint knows", () => {
@@ -110,7 +152,7 @@ describe("the ingest-worker tier", () => {
     // source, the Pulumi side from the loaded config, like the provider-budget
     // tests' `cfg.providerLimits`.
     const cfg = await load();
-    const python = read("packages", "knowledge-layer", "src", "llamaindex", "adapter.py").match(
+    const python = read("packages", "knowledge-layer", "src", "ingest", "adapter.py").match(
       /MAX_IMAGE_PIXELS = env_int\("MAX_IMAGE_PIXELS", ([\d_]+)/,
     )?.[1];
     expect(python).toBeDefined();

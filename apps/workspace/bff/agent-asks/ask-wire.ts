@@ -12,13 +12,37 @@
  */
 
 import { z } from 'zod'
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import { conversationIdSchema } from '@/lib/session-documents/conversation-id'
+import { PRODUCT_NAME } from '@/lib/brand'
+import type { SOURCE_KINDS } from '@/shared/vocabularies.generated'
+
+type SourceKind = (typeof SOURCE_KINDS)[number]
 
 export const ASK_STATES = ['submitted', 'working', 'completed', 'canceled', 'failed', 'rejected'] as const
 export type AskState = (typeof ASK_STATES)[number]
 
+/**
+ * An ask's lifecycle (ADR-0179), the A2A task's: submitted, working once its
+ * turn runs, then one final word. An ask may end before it was ever marked
+ * working (a cancel, the start's own refusal, a turn that errors at once).
+ * `canceled` is A2A's spelling.
+ */
+export const ASK_LIFECYCLE = defineLifecycle<AskState, 'start' | 'complete' | 'cancel' | 'fail' | 'reject'>({
+  id: 'agent-ask',
+  initial: 'submitted',
+  states: {
+    submitted: { on: { start: 'working', complete: 'completed', cancel: 'canceled', fail: 'failed', reject: 'rejected' } },
+    working: { on: { complete: 'completed', cancel: 'canceled', fail: 'failed', reject: 'rejected' } },
+    completed: { type: 'final' },
+    canceled: { type: 'final' },
+    failed: { type: 'final' },
+    rejected: { type: 'final' },
+  },
+})
+
 /** The states an ask never leaves. */
-export const TERMINAL_ASK_STATES: ReadonlySet<AskState> = new Set<AskState>(['completed', 'canceled', 'failed', 'rejected'])
+export const TERMINAL_ASK_STATES: ReadonlySet<AskState> = new Set<AskState>(ASK_LIFECYCLE.finalStates)
 
 export const isTerminalAskState = (state: AskState): boolean => TERMINAL_ASK_STATES.has(state)
 
@@ -49,8 +73,9 @@ export const CHAT_TURN_DEADLINE_SECONDS = 2_700
 const OUTCOME_NOTICE_GRACE_SECONDS = 120
 
 /**
- * How long an ask may stay open before it is ended `failed` when it is next read:
- * the turn's outcome notice was lost (a replica died mid-turn). The turn's own
+ * How long an ask may stay open before it is ended `failed`, by the `agent-ask-expiry`
+ * sweep or by its next read, whichever comes first: the turn's outcome notice was lost
+ * (a replica died mid-turn, or exited before it sent the notice). The turn's own
  * deadline and the notice's grace, so an ask is never ended while its turn may
  * still answer, and never outlives it; `AGENT_ASK_MAX_SECONDS` overrides it.
  */
@@ -63,17 +88,17 @@ export const createAskSchema = z
       .trim()
       .min(1)
       .max(MAX_QUESTION_CHARS)
-      .describe('The question or request for Piloti, in the words the person would use, German or English.'),
+      .describe('The question or request for ' + PRODUCT_NAME + ', in the words the person would use, German or English.'),
     projectId: z
       .string()
       .guid()
       .optional()
-      .describe('The project Piloti should answer in, from project-list. Omit for the office as a whole.'),
+      .describe('The project ' + PRODUCT_NAME + ' should answer in, from project-list. Omit for the office as a whole.'),
     conversationId: conversationIdSchema
       .optional()
       .describe(
         'Continue an earlier ask: its conversationId, from agent-ask-create or agent-ask-get. ' +
-          'Piloti then sees the earlier questions and answers. Omit to start a new conversation.',
+          PRODUCT_NAME + ' then sees the earlier questions and answers. Omit to start a new conversation.',
       ),
     waitSeconds: z
       .number()
@@ -120,13 +145,20 @@ export interface AskDocument {
  * one. `documentId` is the answer's own document identity (what its citations
  * group on), not a workspace document id. `url` opens the cited page in Piloti
  * for the asker (the UI's `?cite=` link on their conversation), or is the
- * outbound address of a web or RIS source.
+ * outbound address of a web or RIS source. `kind` says which it is, so a caller
+ * tells law read at its source from a web page without parsing an id.
  */
 export interface AskSource {
   documentId: string
   name: string
   page?: number
+  /** The clause within the document the citation names, when it names one. */
+  clause?: string
+  /** What kind of source it is: building law, the office's or the project's own document, a web page, or a measurement. */
+  kind: SourceKind
   url: string
+  /** The reference line in the citation form of the office's country (`citation-style-get`). */
+  citation: string
 }
 
 /** How far the answer rests on its sources, as the answer stored it (ADR-0125). */

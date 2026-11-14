@@ -107,7 +107,7 @@ def test_a_non_python_input_adds_every_test_that_names_it(mod):
 
 
 def test_a_file_named_only_by_its_basename_still_counts(mod):
-    changed = ["packages/knowledge-layer/src/qdrant/schemas.json"]
+    changed = ["packages/knowledge-layer/src/vector_store/schemas.json"]
 
     assert mod.decide_python(changed, TESTS, recorded=True)[1] == ["packages/knowledge-layer/tests/test_schema.py"]
 
@@ -171,7 +171,7 @@ def test_a_support_package_no_test_imports_still_forces_the_full_suite(mod):
 
 
 def test_python_in_a_support_package_is_python_testmon_sees(mod):
-    changed = ["packages/knowledge-layer/testing/knowledge_layer_testing/qdrant.py"]
+    changed = ["packages/knowledge-layer/testing/knowledge_layer_testing/vector_store.py"]
 
     assert mod.decide_python(changed, TESTS, recorded=True)[0] == "select"
 

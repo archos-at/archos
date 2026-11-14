@@ -42,6 +42,7 @@
 
 import { z } from 'zod'
 import { TASK_RUN_STATUSES } from '@/lib/tasks/task-vocabulary'
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 
 /**
  * The five phases a run walks, in order.
@@ -74,7 +75,10 @@ export const RUN_STATUSES = [
 ] as const
 export type RunStatus = (typeof RUN_STATUSES)[number]
 
-/** The states from which nothing more happens on its own. */
+/**
+ * The states a run has ended in. An ended ledger stays ended: no move in
+ * {@link RUN_LEDGER_LIFECYCLE} leads from one of these to a state outside them.
+ */
 export const TERMINAL_RUN_STATUSES = [
   'done',
   'failed',
@@ -85,6 +89,48 @@ export const TERMINAL_RUN_STATUSES = [
 export function isTerminalRunStatus(status: RunStatus): boolean {
   return (TERMINAL_RUN_STATUSES as readonly RunStatus[]).includes(status)
 }
+
+/**
+ * The ledger's status and every move a writer makes on it (ADR-0179). The
+ * moves in `./run-ledger` read it, so a status the wire asks for that is not
+ * a move here changes nothing.
+ *
+ * The first final word stands, as for an agent ask and an agent wake: a
+ * ledger that says how its run ended keeps that ending, whoever speaks next
+ * (a worker that outlived its verdict, the reconciler, a retried flush).
+ *
+ * `done` has one move out and it stays inside the ended states: a finished
+ * run whose answer was cut off and salvaged is `interrupted`, which the
+ * worker can only say after this tier has recorded the outcome as `done`
+ * when the two writes cross.
+ *
+ * `waiting` has no producer today: the worker's fold never sends it and no
+ * code here derives it. It is reached only by an append that names it, so the
+ * two moves around it are what the wire accepts and the readers
+ * (`notifyWaiting`, the run block) already handle.
+ *
+ * The Python tier mirrors this table by hand (`RUN_STATUS_MOVES` in
+ * `packages/agent/src/agent/common/run_ledger.py`); the JSON Schema fixture
+ * carries it as `x-lifecycle`, and that tier's tests compare the two.
+ */
+export const RUN_LEDGER_LIFECYCLE = defineLifecycle<
+  RunStatus,
+  'start' | 'ask' | 'resume' | 'finish' | 'fail' | 'cancel' | 'salvage'
+>({
+  id: 'run-ledger',
+  initial: 'created',
+  states: {
+    created: { on: { start: 'running', ask: 'waiting', finish: 'done', fail: 'failed', cancel: 'cancelled' } },
+    running: {
+      on: { ask: 'waiting', finish: 'done', fail: 'failed', cancel: 'cancelled', salvage: 'interrupted' },
+    },
+    waiting: { on: { resume: 'running', finish: 'done', fail: 'failed', cancel: 'cancelled' } },
+    done: { on: { salvage: 'interrupted' } },
+    failed: { type: 'final' },
+    cancelled: { type: 'final' },
+    interrupted: { type: 'final' },
+  },
+})
 
 // ---------------------------------------------------------------------------
 // Spellings from before the English names

@@ -28,6 +28,7 @@ import { ChatDropZone } from './chat-drop-zone'
 import { RightsLostPanel } from './RightsLostPanel'
 import { useChatStore } from '@/features/chat/store'
 import { NoSourcesBanner, ChatUsageNotice } from '@/features/chat'
+import { ConversationPrivacyLine } from '@/features/chat/conversation-privacy'
 import { useSessionUrl } from '@/hooks/use-session-url'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { useTranslations } from '@/i18n'
@@ -45,8 +46,6 @@ interface MainLayoutProps {
   isAuthenticated?: boolean
   /** Callback when sign in is clicked */
   onSignIn?: () => void
-  /** Active project name — thread-header breadcrumb + composer scope chip. */
-  projectName?: string | null
   /**
    * Whether the collaboration surfaces are available (ADR-0032…0035): message
    * authorship, the unread divider, the turn-in-flight banner. Threaded to
@@ -69,7 +68,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
   onSignIn,
   canCollaborate = false,
   canChatInProject = true,
-  projectName = null,
 }) => {
   // Only what the layout shows, never the conversation objects themselves:
   // a streamed answer replaces the open conversation on every delta, and the
@@ -206,24 +204,23 @@ export const MainLayout: FC<MainLayoutProps> = ({
             ...toolbarVars,
           }}
         >
-          {/* Top fade scrim — a full-width gradient behind the floating pills
-              (below them, above the messages). It dissolves message content as
-              it scrolls up under the pills instead of letting it collide as
-              sharp, readable text — critical on mobile where the message column
-              is full-width and runs right under the pills. Keeps the pills
-              "floating" (no solid band). pointer-events-none so scroll/taps
-              still reach the messages beneath. */}
+          {/* Top fade scrim: the soft lower edge of the thread header. The header
+              is opaque now (ticket #38, R1), so this is solid to the header's
+              bottom (`--chat-toolbar-clear` is its height plus an 8px breath) and
+              fades over the next 1rem, so text scrolling up dissolves into the
+              band instead of meeting a hard line. Its solid stop used to be the
+              clearance less 4rem, which on a phone's two-row header left the
+              whole pill row over the fade, with the thread readable behind it. */}
           <div
             aria-hidden="true"
-            className="from-background pointer-events-none absolute inset-x-0 top-0 z-10 h-[max(6rem,calc(var(--chat-toolbar-clear,0px)+0.5rem))] bg-gradient-to-b from-[length:max(3.25rem,calc(var(--chat-toolbar-clear,0px)-4rem))] to-transparent"
+            className="from-background pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(var(--chat-toolbar-clear,3.5rem)+0.5rem)] bg-gradient-to-b from-[length:calc(var(--chat-toolbar-clear,3.5rem)-0.5rem)] to-transparent"
           />
 
-          {/* Floating toolbar — overlays the top of the chat plane as pills
-              (no band). Sits inside the center column so it spans only the
+          {/* The thread header: an opaque band in the page's tone over the top of
+              the chat plane. Sits inside the center column so it spans only the
               chat, not the research panel (which has its own header). */}
           <ChatToolbar
             sessionTitle={currentConversationTitle}
-            projectName={projectName ?? undefined}
             onNewSession={handleNewSession}
             isNewSessionDisabled={isNavigationBlocked}
             isChatStarted={messageCount > 0}
@@ -238,14 +235,14 @@ export const MainLayout: FC<MainLayoutProps> = ({
           />
 
           {isMobile && peekedFile && previewMode !== 'modal' && previewMode !== 'expanded' && (
-            <button
+            <button data-attr="chat-expand-file"
               type="button"
               onClick={expandFile}
               // Floating over the transcript: the alpha is what `backdrop-blur`
               // blurs, and the `supports-` step is the no-blur fallback.
-              className="border-base bg-card/70 shadow-xs supports-[backdrop-filter]:bg-card/60 absolute left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--chat-toolbar-clear,calc(max(0.5rem,env(safe-area-inset-top))+3.5rem))] z-20 flex min-h-11 items-center gap-2 rounded-lg border px-3 py-1.5 text-left backdrop-blur"
+              className="bg-card/70 supports-[backdrop-filter]:bg-card/60 absolute left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--chat-toolbar-clear,calc(max(0.5rem,env(safe-area-inset-top))+3.5rem))] z-20 flex min-h-11 items-center gap-2 rounded-surface px-3 py-1.5 text-left backdrop-blur shadow-xs"
             >
-              <span className="min-w-0 flex-1 truncate text-xs font-medium tracking-[-0.01em]">
+              <span className="min-w-0 flex-1 truncate text-xs font-medium">
                 {documentDisplayName(peekedFile)}
               </span>
               <span className="text-muted-foreground shrink-0 text-xs">
@@ -278,10 +275,10 @@ export const MainLayout: FC<MainLayoutProps> = ({
               {/* Floating composer stack: overlays the bottom of the chat scroll
               area instead of docking below it, so messages scroll behind the
               translucent input. ChatArea pads its bottom to keep the last
-              message readable above it. Narrower than the message column
-              (max-w-4xl inside — see InputArea) and given its own glass
-              surface, so it reads as a distinct floating object rather than
-              a same-width continuation of the transcript above it. */}
+              message readable above it. The SAME column as the answer above it
+              (`thread-column.ts`): it used to be narrower, to read as a separate
+              object, and its edges then stood inside the answer's (ticket #38);
+              its glass surface is what sets it apart. */}
               <motion.div
                 ref={composerRef}
                 className="absolute inset-x-0 z-10 flex flex-col"
@@ -305,12 +302,17 @@ export const MainLayout: FC<MainLayoutProps> = ({
                 <InputArea
                   isAuthenticated={isAuthenticated}
                   connectionMode="websocket"
-                  projectName={projectName ?? undefined}
                   // Gates the composer's addressee statement (and the hand-off read
                   // behind it). False — the default — is byte-for-byte today's
                   // composer (spec NF-8).
                   canCollaborate={canCollaborate}
                   canChatInProject={canChatInProject}
+                />
+
+                {/* Who reads this chat and what is kept from it (ADR-0180). */}
+                <ConversationPrivacyLine
+                  conversationId={currentConversationId ?? null}
+                  canCollaborate={canCollaborate}
                 />
               </motion.div>
             </>

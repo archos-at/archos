@@ -35,6 +35,7 @@ import {
   Command,
   CornerDownLeft,
   Delete,
+  Eye,
   FolderKanban,
   Keyboard,
   ListOrdered,
@@ -43,6 +44,7 @@ import {
   MessageCircle,
   MessageSquarePlus,
   Sparkles,
+  SquareCheck,
   SquareDashed,
   WrapText,
   X,
@@ -147,6 +149,8 @@ export function isModifierKey(key: string): boolean {
 export interface ShortcutFlags extends ProjectSectionFlags {
   /** Whether the organization page is reachable for this user. */
   canViewOrganization?: boolean
+  /** The office receives project mail (`inbound-mail`, ADR-0137): the E-Mail-Eingang's keys are taught. */
+  inboundMail?: boolean
 }
 
 /** A destination reachable with `g` + one key. */
@@ -229,6 +233,7 @@ if (process.env.NODE_ENV !== 'production') {
     canViewOrganization: true,
     showKnowledge: true,
     canAccessOfficeShelf: true,
+    canAccessOfficeStandards: true,
     canCollaborate: true,
     canAccessInbox: true,
   }).map((target) => target.key)
@@ -271,8 +276,10 @@ export type ShortcutOwner =
   | 'inbox'
   /** The search page's field (`features/search/components/search-workspace-view.tsx`). */
   | 'search'
+  /** The E-Mail-Eingang (`features/inbound-mail/components/inbound-mail-workspace.tsx`), while it is open. */
+  | 'inboundMail'
 
-export type ShortcutGroupId = 'general' | 'navigation' | 'chat' | 'search' | 'review' | 'inbox'
+export type ShortcutGroupId = 'general' | 'navigation' | 'chat' | 'search' | 'review' | 'inbox' | 'inboundMail'
 
 export interface ShortcutRow {
   /** Stable id — the React key, and the test handle. */
@@ -302,7 +309,7 @@ export interface ShortcutSection {
 const shortcutLabel = (key: string) => ({ namespace: 'shortcuts' as const, key })
 
 /**
- * The cheatsheet's content for this user: five groups, flag-filtered, with the
+ * The cheatsheet's content for this user: six groups, flag-filtered, with the
  * navigation group derived from the live IA.
  */
 export function shortcutSections(flags: ShortcutFlags): ShortcutSection[] {
@@ -432,6 +439,22 @@ export function shortcutSections(flags: ShortcutFlags): ShortcutSection[] {
         { id: 'inboxOpen', label: shortcutLabel('inboxOpen'), keys: [chord('Enter')], owner: 'inbox', icon: CornerDownLeft, gate: 'canAccessInbox' },
         { id: 'inboxArchive', label: shortcutLabel('inboxArchive'), keys: [chord('E')], owner: 'inbox', icon: Archive, gate: 'canAccessInbox' },
         { id: 'inboxToggleRead', label: shortcutLabel('inboxToggleRead'), keys: [chord('U')], owner: 'inbox', icon: MailOpen, gate: 'canAccessInbox' },
+      ],
+    },
+    {
+      // The E-Mail-Eingang binds these itself while it is open; the same
+      // meanings the Prüfansicht and the Postfach already taught (J/K walk, E
+      // takes what is shown, ⌫ says no). Gated with the office's feature.
+      id: 'inboundMail',
+      i18nKey: 'inboundMail',
+      note: false,
+      rows: [
+        { id: 'inboundMailStep', label: shortcutLabel('inboundMailStep'), keys: [chord('J'), OR, chord('K')], owner: 'inboundMail', icon: ArrowDownUp, gate: 'inboundMail' },
+        { id: 'inboundMailOpen', label: shortcutLabel('inboundMailOpen'), keys: [chord('Enter')], owner: 'inboundMail', icon: CornerDownLeft, gate: 'inboundMail' },
+        { id: 'inboundMailSelect', label: shortcutLabel('inboundMailSelect'), keys: [chord('X')], owner: 'inboundMail', icon: SquareCheck, gate: 'inboundMail' },
+        { id: 'inboundMailPreview', label: shortcutLabel('inboundMailPreview'), keys: [chord('Space')], owner: 'inboundMail', icon: Eye, gate: 'inboundMail' },
+        { id: 'inboundMailFile', label: shortcutLabel('inboundMailFile'), keys: [chord('E')], owner: 'inboundMail', icon: CircleCheck, gate: 'inboundMail' },
+        { id: 'inboundMailDismiss', label: shortcutLabel('inboundMailDismiss'), keys: [chord('⌫')], owner: 'inboundMail', icon: Delete, gate: 'inboundMail' },
       ],
     },
   ]

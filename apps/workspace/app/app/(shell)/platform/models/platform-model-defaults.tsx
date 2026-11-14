@@ -542,7 +542,7 @@ export const PlatformModelDefaults: FC = () => {
                   >
                     <PopoverTrigger asChild>
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="w-full justify-between font-mono font-normal"
                         aria-label={t('models.changeFor', {

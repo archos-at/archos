@@ -43,6 +43,7 @@ const NO_ENTRIES: readonly ActionMenuEntry[] = []
 /** Overflow-only default: Open / Ask / Copy path belong on the tile, not here. */
 const DEFAULT_ACTIONS: readonly DocumentActionKind[] = [
   'download',
+  'downloadPdf',
   'rename',
   'move',
   'delete',
@@ -94,9 +95,9 @@ export interface DocumentActionsMenuProps {
   /**
    * What the default trigger sits on. `floating` (the default) lays it over a
    * thumbnail or a viewport, so it carries its own translucent ground and
-   * shadow to stay legible on whatever is behind it. `toolbar` sits in a row of
-   * ghost icon buttons (the preview header) and must look like its neighbours:
-   * the floating ground there read as one grey square among plain glyphs.
+   * shadow to stay legible on whatever is behind it. `toolbar` sits in the
+   * preview's header beside „Herunterladen“: tonal, as every press that opens a
+   * menu of actions is, while the window's own tools (enlarge, close) stay bare.
    */
   surface?: 'floating' | 'toolbar'
   align?: 'start' | 'end'
@@ -163,6 +164,7 @@ export function useDocumentActionMenu({
       ask: t('actions.ask'),
       select: t('actions.select'),
       download: t('actions.download'),
+      downloadPdf: t('actions.downloadPdf'),
       rename: t('actions.rename'),
       move: t('actions.move'),
       copyOriginPath: t('actions.copyOriginPath'),
@@ -186,6 +188,7 @@ export function useDocumentActionMenu({
     onSelect: onSelectMode,
     onPickMoveTarget: moveInSheet ? () => setMoveOpen(true) : undefined,
     onDownload: () => void documentActions.download(),
+    onDownloadPdf: () => void documentActions.downloadPdf(),
     onRename: () => setRenameOpen(true),
     onDelete: () => setDeleteOpen(true),
     // A retry just runs; re-reading an indexed file asks first, because it is
@@ -281,11 +284,12 @@ export function DocumentActionsMenu({
           trigger ?? (
             <Button
               type="button"
-              variant="ghost"
+              variant={surface === 'toolbar' ? 'secondary' : 'ghost'}
               size="icon"
               className={cn(
                 'size-8 shrink-0',
-                surface === 'floating' && 'bg-background/80 shadow-2xs backdrop-blur-sm',
+                // A frosted disc: legible on the page or a thumbnail without drawing a ring around it.
+                surface === 'floating' && 'bg-background/85 rounded-full backdrop-blur-sm',
               )}
               aria-label={t('actions.label', { name })}
               title={t('actions.menuLabel')}

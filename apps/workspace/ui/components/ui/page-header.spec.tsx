@@ -72,7 +72,7 @@ describe('PageHeader', () => {
 
   it('keeps the documented title size', () => {
     render(<PageHeader title="History" />)
-    expect(screen.getByRole('heading', { level: 1 }).className).toContain('text-xl')
+    expect(screen.getByRole('heading', { level: 1 }).className).toContain('text-page-title')
   })
 
   /**
@@ -88,7 +88,12 @@ describe('PageHeader', () => {
     // Not hidden unconditionally, which would take it from the desktop too.
     expect(subtitle.className.split(/\s+/)).not.toContain('hidden')
     const title = screen.getByRole('heading', { level: 1 })
-    expect(title.className).toContain('text-xl')
-    expect(title.className).toContain('phone:text-base')
+    expect(title.className).toContain('text-page-title')
+    expect(title.className).toContain('phone:text-section')
+  })
+
+  it('keeps the description on a phone for a page that asks to, a page the tab bar does not name', () => {
+    render(<PageHeader title="My memory" subtitle="What is kept about you." subtitleOnPhone />)
+    expect(screen.getByText('What is kept about you.').className.split(/\s+/)).not.toContain('phone:hidden')
   })
 })

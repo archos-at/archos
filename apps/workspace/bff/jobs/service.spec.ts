@@ -9,6 +9,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// A run carries its project's law (ADR-0175); its reads are `background-run.spec.ts`'s.
+vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => undefined) }))
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn().mockResolvedValue({ role: 'project-admin' }),
 }))
@@ -86,7 +88,6 @@ vi.mock('@/lib/tasks/repository', () => ({
   insertDefinition: vi.fn(),
   listDefinitionPage: vi.fn(),
   findDefinition: vi.fn(),
-  findDefinitionById: vi.fn(),
   updateDefinition: vi.fn(),
   deleteDefinition: vi.fn(),
   touchDefinitionLastRun: vi.fn(),
@@ -842,6 +843,17 @@ describe('submitAgentRun', () => {
     const submitted = vi.mocked(submitJob).mock.calls[0][0]
     expect(submitted.collection_scope).toContain('proj_x')
     expect((submitted.collection_scope ?? []).filter((name) => /_r[0-9a-f]{12}$/.test(name))).toEqual([])
+  })
+
+  it('searches the base corpus for a project whatever its site: the run knowledge context picks the countries (ADR-0173)', async () => {
+    // Dev QC 2026-11-12: an unplaced project's run and chat left the base corpus out, and the answer said a
+    // released OIB text "could not be read". The profile here places the project nowhere.
+    const actual = await vi.importActual<typeof import('@/lib/retrieval-scope/collection-scope')>('@/lib/retrieval-scope/collection-scope')
+    vi.mocked(computeCollectionScope).mockImplementation(actual.computeCollectionScope)
+
+    await submitAgentRun(spec)
+
+    expect(vi.mocked(submitJob).mock.calls[0][0].collection_scope).toContain(actual.resolveBaseCollectionName())
   })
 })
 

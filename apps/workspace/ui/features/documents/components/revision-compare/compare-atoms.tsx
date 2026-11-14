@@ -27,7 +27,7 @@ export function ChangeBadge({ number, active = false, className }: { number: num
     <span
       aria-hidden
       className={cn(
-        'flex size-5 shrink-0 items-center justify-center rounded-sm bg-[var(--compare-mark)] text-[11px] leading-none font-semibold text-[var(--compare-paper)] tabular-nums',
+        'flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--compare-mark)] text-[11px] leading-none font-semibold text-[var(--compare-paper)] tabular-nums',
         active && 'ring-2 ring-[var(--compare-mark)] ring-offset-1 ring-offset-background',
         className,
       )}
@@ -64,12 +64,12 @@ export function SheetTag({ side, label, name, style }: { side: 'left' | 'right';
       className={cn(
         // `overflow-hidden` as the last word: on a 361px sheet „Neuer" plus a
         // long name ran past the sheet's edge and was cut at „pdf".
-        'pointer-events-none absolute top-2 z-[5] flex max-w-[calc(50%-0.75rem)] min-w-0 items-center gap-1.5 overflow-hidden rounded-sm bg-[var(--compare-paper-ink)] px-1.5 py-0.5 text-xs text-[var(--compare-paper)] shadow-sm',
+        'pointer-events-none absolute top-2 z-[5] flex max-w-[calc(50%-0.75rem)] min-w-0 items-center gap-1.5 overflow-hidden rounded-control bg-[var(--compare-paper-ink)] px-1.5 py-0.5 text-xs text-[var(--compare-paper)] shadow-sm',
         side === 'left' ? 'left-2' : 'right-2',
       )}
       style={style}
     >
-      <span className="shrink-0 font-semibold">{label}</span>
+      <span className="shrink-0 font-medium">{label}</span>
       {/* Cut at the START, not the middle: a tag on a small sheet has room
           for a dozen characters, and a middle cut there left „G…ss_1OG_B.pdf"
           reading as „Gss". The end is the part that tells the two apart. */}

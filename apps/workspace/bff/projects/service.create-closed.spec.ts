@@ -29,13 +29,14 @@ vi.mock('./repository', () => ({
 
 const createResource = vi.fn()
 const assignRole = vi.fn()
+const deleteResourceByExternalId = vi.fn()
 vi.mock('@/lib/workos/client', () => ({
-  getWorkOS: () => ({ authorization: { createResource, assignRole } }),
+  getWorkOS: () => ({ authorization: { createResource, assignRole, deleteResourceByExternalId } }),
 }))
 
 const recordAuditEvent = vi.fn()
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args) }))
-vi.mock('@/lib/tasks/repository', () => ({ rearmOneShotsSkippedWhileParked: vi.fn() }))
+vi.mock('@/lib/scheduling/scheduled-runs', () => ({ rearmOneShotsSkippedWhileParked: vi.fn() }))
 vi.mock('@/lib/collaboration/cleanup', () => ({ neutralizeCollaborationForProject: vi.fn() }))
 vi.mock('@/lib/conversations/repository', () => ({
   lastProjectActivityByUser: vi.fn(),
@@ -72,6 +73,7 @@ describe('createProject', () => {
     createResource.mockResolvedValue({ id: 'res_1' })
     assignRole.mockResolvedValue(undefined)
     deleteProjectRow.mockResolvedValue(undefined)
+    deleteResourceByExternalId.mockResolvedValue(undefined)
   })
 
   it('creates an active project as before: no start, no close, one audit event', async () => {
@@ -196,5 +198,30 @@ describe('createProject', () => {
 
     expect(setProjectStatusInOrg).not.toHaveBeenCalled()
     expect(deleteProjectRow).toHaveBeenCalledWith('p1', 'org_1')
+  })
+
+  it('removes the WorkOS resource it registered, with the roles on it, not only the row', async () => {
+    assignRole.mockRejectedValue(new Error('workos down'))
+
+    await expect(createProject(session, { name: 'X' }, undefined, NOW)).rejects.toThrow('workos down')
+
+    expect(deleteResourceByExternalId).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      resourceTypeSlug: 'project',
+      externalId: 'p1',
+      cascadeDelete: true,
+    })
+    expect(deleteProjectRow).toHaveBeenCalledWith('p1', 'org_1')
+  })
+
+  it('still removes the row when the resource was never made, and rethrows the first failure', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    createResource.mockRejectedValue(new Error('workos down'))
+    deleteResourceByExternalId.mockRejectedValue(Object.assign(new Error('missing'), { status: 404 }))
+
+    await expect(createProject(session, { name: 'X' }, undefined, NOW)).rejects.toThrow('workos down')
+
+    expect(deleteProjectRow).toHaveBeenCalledWith('p1', 'org_1')
+    expect(console.error).not.toHaveBeenCalled()
   })
 })

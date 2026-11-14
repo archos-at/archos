@@ -20,7 +20,9 @@ export type EmptyStateDiscTone = 'muted' | 'destructive' | 'warning'
 export type EmptyStateDiscSize = 'md' | 'sm'
 
 const EMPTY_STATE_DISC_TONES: Record<EmptyStateDiscTone, string> = {
-  muted: 'border bg-card text-muted-foreground/70',
+  // A small sheet (white, its edge and elevation 1 from `shadow-sm`): the glyph names the state, the sheet seats it.
+  // A grey tile on the paper was a grey box called a surface (paper on a desk, principle 1).
+  muted: 'bg-sheet text-muted-foreground',
   destructive: 'border-transparent bg-danger-subtle text-error',
   warning: 'border-transparent bg-warning-subtle text-warning',
 }
@@ -45,7 +47,7 @@ export function EmptyStateDisc({
   return (
     <div
       className={cn(
-        'flex shrink-0 select-none items-center justify-center rounded-full shadow-sm',
+        'flex shrink-0 select-none items-center justify-center rounded-control shadow-sm',
         size === 'md' ? 'size-12' : 'size-9',
         EMPTY_STATE_DISC_TONES[tone],
         className
@@ -92,7 +94,7 @@ export function EmptyState({
     <div
       className={cn(
         'flex w-full min-w-0 flex-col items-center justify-center text-center',
-        variant === 'panel' ? 'rounded-lg border border-dashed bg-muted/25 px-6 py-12' : 'py-10',
+        variant === 'panel' ? 'rounded-surface border border-dashed bg-muted px-6 py-12' : 'py-10',
         // Staged entrance, CSS-only (this stays server-safe): the panel fades
         // in, the disc lands a beat later. Transform/opacity only, and the
         // parent already reserves the space, so no layout shift. `fade-in-0`
@@ -114,9 +116,10 @@ export function EmptyState({
           className="mb-4 animate-in zoom-in-95 duration-base ease-entrance motion-reduce:animate-none"
         />
       )}
-      <p className="text-balance text-sm font-semibold tracking-tight text-foreground">{title}</p>
+      {/* The headline is the section step, 16/24/600 (paper on a desk, type): at 14/500 it was the size of the body under it. */}
+      <p className="text-balance text-section text-foreground">{title}</p>
       {description && (
-        <p className="mt-1.5 max-w-sm text-pretty text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <p className="mt-1 max-w-sm text-pretty text-sm leading-5 text-muted-foreground">{description}</p>
       )}
       {action && <div className="mt-5 shrink-0">{action}</div>}
     </div>

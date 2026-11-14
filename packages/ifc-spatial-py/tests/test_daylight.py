@@ -38,7 +38,7 @@ from ifc_spatial.model import SpatialModel
 from ifc_spatial.model import UnknownElementError
 from ifc_spatial.model import WrongKindError
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLE_HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 NO_NORTH = FIXTURES / "house-with-rooms.ifc"
 FEET = FIXTURES / "units-feet.ifc"

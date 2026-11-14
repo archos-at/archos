@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-10-20
+status: superseded by ADR-0151
+date: 2026-11-03
 decision-makers:
 consulted:
 informed:

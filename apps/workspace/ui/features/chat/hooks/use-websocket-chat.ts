@@ -62,6 +62,7 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import { useAuth } from '@/adapters/auth'
 import { createTurnSocket, type OpenTurn } from '@/adapters/api/turn-socket'
 import { browserPageLifecycle, isActive, sleptThrough } from '@/adapters/api/page-lifecycle'
+import { watchRestoring } from '../connection-restoring'
 import type { ClientMessage, ShownAnswer, WireEvent } from '@/adapters/api/wire-v2'
 import { checkBackendHealthCached, invalidateHealthCache } from '@/shared/hooks/use-backend-health'
 import { useThreadSharing } from '@/shared/collaboration/thread-sharing'
@@ -78,6 +79,7 @@ import { useLayoutStore } from '@/features/layout/store'
 import { useDocumentsStore } from '@/features/documents/store'
 import { getPosthogSessionId } from '@/lib/analytics/posthog'
 import { fetchRunMessage } from '../lib/commissioned-run'
+import { afterTemporarySettled } from '../lib/temporary-conversation'
 import {
   clampFocusRegion,
   openCanvasFocus,
@@ -88,7 +90,7 @@ import {
 } from '../lib/canvas-bridge'
 import { STAGE_COUNT } from '../lib/turn-projection'
 import { runErrorCard, type RunErrorCard } from '../lib/run-error'
-import { isSteerRead, type TurnView } from '../lib/turn-fold'
+import { isSteerRead, type TurnView } from '@/lib/turns/turn-fold'
 import {
   dropViewerActions,
   newViewerActions,
@@ -569,13 +571,13 @@ const createTurnDriver = (conversationId: string, projectId: string | undefined,
     refreshAuth: hooks.refreshAuth,
     onEvent: (event) => receive(event),
     onSilent: silent,
-    onStatus: (status) => {
+    onStatus: watchRestoring(conversationId, (status) => {
       socketOpen = status === 'open'
       hooks.onConnected(socketOpen, socketOpen && socket.accepts('steer'))
       if (status === 'open') opened()
       else if (status === 'offline') hooks.onOffline()
       else if (status === 'failed' || status === 'incompatible' || status === 'outdated') gaveUp(status)
-    },
+    }),
   })
 
   const deliver = (message: ClientMessage): void => {
@@ -1335,7 +1337,7 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
         // room beside the chat. Omitted otherwise, so the server never offers the model the tool (ADR-0144).
         ...(clientTools.length ? { client_tools: clientTools } : {}),
       }
-      ensureDriver(conversationId).ask(question)
+      afterTemporarySettled(conversationId, () => ensureDriver(conversationId).ask(question))
       return true
     },
     [addErrorCard, collectSendMetadata, ensureDriver]

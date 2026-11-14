@@ -6,7 +6,7 @@
  */
 
 import { parseWireEvent } from '@/adapters/api/wire-v2'
-import { foldTurnEvents } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
 import type { CitationSource } from '@/features/chat/types'
 
@@ -505,7 +505,7 @@ export const manyCallsScene = (): TimedStep[] => {
 
 // ── The filesystem verbs (ADR-0133): ls, glob, grep and read_file ───────────
 //
-// The rows exactly as the estate backend emits them (`estate.py`,
+// The rows exactly as the estate backend emits them (`estate/backend.py`,
 // `estate_grep.py`, pinned by `test_estate_action_rows.py`): a place (`mount`)
 // and the folder inside it, never a path. Step 1 orients (a folder, a name
 // pattern, a literal search), step 2 reads what step 1 found. The numbers agree

@@ -232,7 +232,7 @@ export function FeedbackThreadsDialog({
                   </Tabs>
                 )}
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={compose}
                   className={cn(!canViewOffice && 'flex-1')}
@@ -275,7 +275,7 @@ export function FeedbackThreadsDialog({
               <>
                 <PaneHeader
                   onBack={back}
-                  heading={<h2 className="text-base leading-tight font-semibold">{t('threads.new')}</h2>}
+                  heading={<h2 className="text-base leading-tight font-medium">{t('threads.new')}</h2>}
                   description={<p className="text-muted-foreground text-xs text-pretty">{t('dialog.description')}</p>}
                 />
                 <FeedbackForm
@@ -651,7 +651,7 @@ function ThreadView({
       <PaneHeader
         onBack={onBack}
         heading={
-          <h2 className="truncate text-base leading-tight font-semibold" data-testid="feedback-thread-title">
+          <h2 className="truncate text-base leading-tight font-medium" data-testid="feedback-thread-title">
             {thread ? (
               <>
                 {t(`kinds.${thread.report.kind}.label`)}
@@ -847,7 +847,7 @@ function ThreadMessages({
         ) : mine ? (
           <div className="flex flex-col items-start gap-3 px-2 py-1">
             <p className="text-muted-foreground text-sm text-pretty">{t('threads.cannotReply')}</p>
-            <Button variant="outline" size="sm" onClick={onNewFeedback}>
+            <Button variant="secondary" size="sm" onClick={onNewFeedback}>
               {t('threads.send')}
             </Button>
           </div>

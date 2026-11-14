@@ -130,11 +130,6 @@ export const chat = {
     placeholder: 'Ask {productName} about this project …',
     sources: 'Data basis',
     sourcesAria: 'Data basis — {enabled} of {total} sources enabled. Opens the data sources panel.',
-    scopeAria: 'Search scope: {project}',
-    scopeFallback: 'This project',
-    scopeCurrent: 'Current project',
-    scopeAll: 'All projects',
-    scopeAllSoon: 'Coming soon — cross-project search is not available yet.',
     // Mobile-only cue: the source/scope labels collapse to icons on phones, so a
     // tiny one-line hint under the composer keeps the active source count legible.
     sourcesActiveMobile: '{count, plural, one {# source} other {# sources}} active',
@@ -143,6 +138,7 @@ export const chat = {
   dictation: {
     start: 'Dictate',
     startHint: 'Speak, and {productName} writes it into your message. Stops after {seconds} seconds.',
+    starting: 'Waiting for the microphone. Press again to cancel.',
     stop: 'Stop and insert',
     recording: 'Recording, {elapsed}',
     transcribing: 'Transcribing …',
@@ -155,10 +151,12 @@ export const chat = {
     errors: {
       noMicrophone: 'No microphone was found.',
       denied: 'Microphone access was not allowed.',
+      noAnswer: 'The microphone did not answer. Is the browser still waiting for your permission? Try again.',
       rateLimited: 'Too many recordings in a short time. Try again in a minute.',
       tooLarge: 'The recording is too large to transcribe.',
       notConfigured: 'Voice input is not available right now.',
       failed: 'The recording could not be transcribed. Your message is unchanged.',
+      notSaved: 'The recording could not be saved. Please dictate it again.',
     },
   },
   // Source-preset shortcut chips under the composer (empty thread).
@@ -220,7 +218,8 @@ export const chat = {
     projectWrites:
       '{productName} does more than answer — ask, and it writes file notes, memos and drafts straight into the project files.',
   },
-  // Thread role tabs (click-dummy overhaul, WS-3).
+  // Whose turn a message is, for a screen reader only: on screen the bubble
+  // and the answer card say it, so no role tab draws it (Notion #38, topic 9).
   roles: {
     input: 'Input',
     result: 'Result',
@@ -560,6 +559,18 @@ export const chat = {
       // its quantity, value, limit and outcome.
       recomputed: 'Recomputed. {checks}',
       checkSpoken: '{name}: {value}, limit {bound}, {verdict}.',
+      // As checkSpoken, where a hint stands in for the verdict; {reason} ends in a full stop.
+      checkHeldSpoken: '{name}: {value}, limit {bound}, hint: {reason}',
+      // In place of a verdict, where the edition the limits come from does not
+      // apply at the site, or nobody has reviewed which one does.
+      hold: {
+        label: 'Hint',
+        otherEdition: 'Values from {edition}; at the site, {binding} applies. So no verdict.',
+        notBinding: 'Values from {edition}; this rule set does not bind at the site. So no verdict.',
+        unsettled: 'Values from {edition}; which edition applies at the site has not been reviewed yet. So no verdict.',
+        siteUnknown: 'Values from {edition}; which edition applies at the site is not known. So no verdict.',
+        unavailable: 'Values from {edition}; which edition applies at the site could not be read just now. So no verdict.',
+      },
       component: {
         external_wall: 'External wall against outside air',
         roof_or_ceiling_to_outside_air: 'Ceiling or roof slope against outside air',
@@ -720,6 +731,8 @@ export const chat = {
       // A reading is what Piloti read off the page, never a measurement (ADR-0125).
       reading: 'Read: {reading}',
       readingNote: 'Read off the page by {productName}, not measured.',
+      // Opens what {productName} looked for and what it read there.
+      explanation: 'Explanation',
       embeddedImage: 'image {index}',
       open: 'Open {document} at p. {page}',
     },
@@ -791,6 +804,8 @@ export const chat = {
       failed: 'Nothing could be applied. Nothing was changed.',
       applyError: 'Could not be applied.',
       dismissError: 'Could not be discarded.',
+      temporaryConversation:
+        'Not kept: this chat is temporary, so {productName} keeps nothing from it. The note can be applied once “Temporary” is switched off.',
       decidedBy: {
         applied: 'Applied by {name} · {when}',
         partially_applied: 'Applied by {name} · {when}',
@@ -902,6 +917,8 @@ export const chat = {
         upload_batch: 'Upload {name}',
         proposal: 'Proposal {name}',
         member: 'Person {name}',
+        inbound_mail: 'Email {name}',
+        mail_thread: 'Mail thread {name}',
       },
       applied: 'The action was carried out.',
       dismissed: 'Discarded. The action was not carried out.',
@@ -1203,13 +1220,8 @@ export const chat = {
     savedProject: 'Saved to this project’s memory.',
     dismissed: 'Not saved.',
     error: 'Could not save the finding',
-    kind: {
-      decision: 'Decision',
-      constraint: 'Constraint',
-      open_question: 'Open question',
-      derived_fact: 'Derived fact',
-      preference: 'Preference',
-    },
+    temporaryConversation:
+      'Not saved: this chat is temporary, so {productName} keeps nothing from it. You can save once “Temporary” is switched off.',
   },
   thinking: {
     // One row per document Piloti looked at (ADR-0128); its thumbnails open the place.
@@ -1640,10 +1652,24 @@ export const chat = {
     derivationWarning: {
       failed: '{count, plural, one {#\u00A0call failed} other {#\u00A0calls failed}}',
       open: '{count, plural, one {#\u00A0open point} other {#\u00A0open points}}',
+      // What the answer check found (ADR-0139): worse than any call, since it is
+      // about the answer itself.
+      unbacked: '{count, plural, one {#\u00A0statement not backed} other {#\u00A0statements not backed}}',
+      contradicted:
+        '{count, plural, one {#\u00A0statement contradicts its source} other {#\u00A0statements contradict their source}}',
     },
     // A turn without any research: one line, nothing to expand.
     noResearch: 'Answered without research',
     noResearchNote: 'General expertise, no source cited',
+    // The answer ends by asking the reader something: not "Done". `askedBack`
+    // sits on the header's right; the two lines below are for a turn that
+    // researched nothing.
+    askedBack: 'Question for you',
+    // For screen readers: done, but the answer check found a statement the
+    // answer rests on unbacked (or contradicted by its source).
+    flagged: 'With a note',
+    askedBackHeadline: 'Asked you a question',
+    askedBackNote: 'A sourced answer still needs one detail from you',
     // A turn of exactly one call: the header is the Herleitung.
     singleCited: 'cited {markers}',
     derivationSummary: 'Trace',
@@ -1697,6 +1723,17 @@ export const chat = {
         open: 'Open',
         clause: 'Sec.\u00A0{clause}',
         page: 'p.\u00A0{page}',
+        pages: 'pp.\u00A0{pages}',
+        more: '+{count} more',
+        // An edition an act declares binding here: the act as its records name it.
+        binding: 'binding through {act}',
+        bindingSince: 'binding through {act} since {since}',
+        // The route comes from the platform's record, never yet checked against the legal source.
+        unchecked: 'per platform records, never checked against the source',
+        checkedOn: 'per platform records, last checked against the source on {date}',
+        uncurated: 'official source, not curated',
+        withRecord: '{name} ({record})',
+        date: '{year}-{month}-{day}',
         // From a call without a hit: where it looked and for what. Never "No information found".
         openNoHitIn: 'Cannot be judged: the search in {target} for “{query}” found no passage.',
         openNoHitShelf: 'Cannot be judged: the search {shelf} for “{query}” found no passage.',
@@ -1851,6 +1888,13 @@ export const chat = {
       },
       branchesTab: 'Next steps',
     },
+  },
+  // The quiet line above the composer while the page restores the chat's
+  // connection on its own and an answer or an open question waits on it. Its
+  // neighbours ("Connection lost", "Reconnected") are under
+  // `research.chatArea.connection`.
+  connection: {
+    restoring: 'Restoring the connection …',
   },
   error: {
     showDetails: 'Show details',
@@ -2020,25 +2064,72 @@ export const chat = {
   memory: {
     noted: '{productName} noted',
     notedAria: '{productName} noted {count, plural, one {# item} other {# items}}',
-    addedToMemory: 'Added to project memory',
+    // The panel's title names the memory the turn's notes went into; `mixed`
+    // when they went into more than one.
+    addedTo: {
+      project: 'Added to project memory',
+      organization: 'Added to office memory',
+      personal: 'Added to your memory',
+      mixed: 'Added to memory',
+    },
     updated: 'Memory updated',
     updatedAria:
       '{productName} updated its memory: {count, plural, one {# item} other {# items}}, {corrected} of them corrected',
-    updatedInMemory: 'Project memory updated',
+    updatedIn: {
+      project: 'Project memory updated',
+      organization: 'Office memory updated',
+      mixed: 'Memory updated',
+    },
     correctedLabel: 'Corrected',
     replaced: 'Replaces:',
-    manageHint: 'You can manage and delete these entries in the project memory.',
-    kinds: {
-      decision: 'Decision',
-      constraint: 'Constraint',
-      open_question: 'Open question',
-      derived_fact: 'Fact',
-      preference: 'Preference',
+    manageHint: 'You can manage and delete these notes in the project memory.',
+    // The hint as a door: leads to the project's memory (Settings → Memory).
+    manageLink: 'Manage in project memory',
+    // The same door for the reader's own notes („My memory“).
+    manageLinkPersonal: 'Manage in My memory',
+    // Taking a note back where it is shown (ADR-0180). It deletes the note.
+    remove: 'Remove',
+    removeAria: 'Remove note: {note}',
+    removing: 'Removing …',
+    removed: 'Removed. The note is deleted.',
+    // The note was already removed, dismissed or replaced somewhere else.
+    gone: 'No longer in memory.',
+    removeFailed: 'Could not be removed.',
+    removeRetry: 'Try again',
+    // A note that replaced an earlier one is not taken back here: the earlier one would stay retired.
+    replacedNotRemovable: 'Replaced an earlier note, so it cannot be taken back here.',
+    openMemory: 'Open memory',
+    // Who reads a note follows from where it is kept (ADR-0180): mine, project or office.
+    audience: {
+      personal: 'Only you',
+      project: 'Read by the project team',
+      // Project memory that draws on a restricted folder (ADR-0087).
+      restricted: 'Read by those who may read the folder',
+      organization: 'Read by everyone in the office',
     },
     provenance: {
       distillation: 'added after the response',
       inTurn: 'noted during the response',
     },
+  },
+  // Temporary chat (ADR-0180): nothing from it goes into any memory.
+  temporary: {
+    label: 'Temporary',
+    switchOn: 'Turn on temporary chat',
+    switchOff: 'Turn off temporary chat',
+    switchOnTitle: 'Turn on temporary chat: {productName} keeps nothing from this chat.',
+    switchOffTitle:
+      'Turn off temporary chat: from now on {productName} can keep things again. What was said so far stays out.',
+    statement: 'Temporary chat. {productName} keeps nothing from this chat.',
+    // Until the server has confirmed the switch: never „keeps nothing“ before it holds.
+    turningOn: 'Turning on temporary chat …',
+    turningOff: 'Turning off temporary chat …',
+    ownerOnly: 'Only the owner of the chat can change this.',
+    switchFailed: 'The setting was not saved. Try again.',
+  },
+  // Who reads the chat: the line under the composer.
+  privacy: {
+    onlyYou: 'Only you see this chat until you share it.',
   },
   confidence: {
     label: 'Confidence: {level}',
@@ -2068,6 +2159,9 @@ export const chat = {
       ungrounded: 'Low confidence: answer not backed by sources.',
       quoteUnverified:
         'A quote could not be verified verbatim against the source; the assessment is capped accordingly.',
+      lawUnsettled:
+        'Medium confidence: the answer rests on building law whose binding edition at this site is not yet settled by reviewed records.',
+      openPoint: 'Capped by the answer itself: an open point it names, or its own lower assessment.',
       // The measurement backs the number, not the legal statement beside it —
       // so the mixed answer stays at "low" and the tooltip says why.
       normativeClaimUncited:
@@ -2098,6 +2192,13 @@ export const chat = {
       checkedAgainst: 'checked against {source}',
       noSource: 'no source',
       quoteUnverified: 'A quotation could not be confirmed word for word in its source, so the level is capped.',
+      lawUnsettled:
+        'Which edition binds at this site is not yet settled by reviewed records, so the level is at most medium.',
+      // The check reads whether the sources back each statement. When the answer
+      // itself says something is open, or rates itself lower, the check does not
+      // raise it above that.
+      openPoint:
+        'Capped by the answer itself: an open point it names, or its own lower assessment. The check does not raise the level above it.',
       unavailable: 'Evidence check unavailable',
       unavailableTooltip:
         'The evidence check could not run for this answer, so {productName} shows no level; the answer itself is unchanged.',
@@ -2117,6 +2218,8 @@ export const chat = {
         ungrounded: 'Capped by a statement the answer rests on that nothing backs.',
         quoteUnverified:
           'A quote could not be verified verbatim against the source; the assessment is capped accordingly.',
+        lawUnsettled: 'Capped by building law whose binding edition at this site is not yet settled by reviewed records.',
+        openPoint: 'Capped by the answer itself: an open point it names, or its own lower assessment.',
         normativeClaimUncited:
           'Capped by a legal statement without a cited source. A workspace record or a measurement does not back a legal statement.',
         measurementOnly:
@@ -2174,6 +2277,8 @@ export const chat = {
     preview: 'The model sees: “{text}”',
     iban: '{count, plural, one {an IBAN} other {# IBANs}}',
     at_svnr: '{count, plural, one {a social security number} other {# social security numbers}}',
+    de_svnr: '{count, plural, one {a German social insurance number} other {# German social insurance numbers}}',
+    de_tax_id: '{count, plural, one {a tax ID} other {# tax IDs}}',
     credit_card: '{count, plural, one {a card number} other {# card numbers}}',
     term: 'the term “{term}”',
     withSample: '{item} {sample}',

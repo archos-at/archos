@@ -2,7 +2,7 @@
  * SessionsPanel Component
  *
  * The history sheet: this project's chats AND its deep-research runs, newest
- * first, grouped by day. Opened from the chat toolbar's history door, it rises
+ * first, grouped by day. Opened from „Chats“ in the toolbar or „Alle Chats“ under the rail's „Letzte Chats“, it rises
  * as a page sheet over the chat — the History page it replaced is gone, and
  * this one surface is the whole record of the project's past.
  *
@@ -85,6 +85,7 @@ import { listResearchRuns, type ResearchRun } from '@/adapters/api/research-runs
 import { useLayoutStore } from '../store'
 import { useChatStore } from '@/features/chat/store'
 import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal'
+import { SessionTemporaryMark, TEMPORARY_LABEL } from './session-temporary-mark'
 import { DeleteAllSessionsConfirmationModal } from './DeleteAllSessionsConfirmationModal'
 import { StopResearchConfirmationModal } from './StopResearchConfirmationModal'
 import { cancelJob } from '@/adapters/api/deep-research-client'
@@ -99,6 +100,8 @@ interface Session {
   hasCompletedReport?: boolean
   /** The reader may no longer read this chat (ADR-0088): a neutral title, no rename. */
   contentLocked?: boolean
+  /** Nothing from this chat is kept in memory (ADR-0180): a quiet mark, and said in the row's label. */
+  temporary?: boolean
 }
 
 /**
@@ -440,7 +443,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
               without spending a word on it. */}
           {isNavigationBlocked && (
             <p
-              className="border-border bg-muted text-muted-foreground flex min-h-11 items-start gap-2 rounded-lg border px-3 py-2 text-xs"
+              className="border-border bg-muted text-muted-foreground flex min-h-11 items-start gap-2 rounded-surface border px-3 py-2 text-xs"
               role="status"
             >
               {/* Spinner injects its own role=status; hide it so this region
@@ -453,7 +456,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
           )}
 
           <Button
-            variant="outline"
+            variant="secondary"
             className="h-9 w-full justify-start gap-2 pointer-coarse:h-11"
             onClick={handleNewSession}
             disabled={isNavigationBlocked}
@@ -572,7 +575,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   as="ul"
                   aria-busy="true"
                   data-testid="deep-research-skeleton"
-                  className="bg-card shadow-xs"
+                  className="border-border bg-card shadow-xs"
                 >
                   {Array.from({ length: 2 }).map((_, index) => (
                     <Item as="li" key={index} className="items-start py-3.5">
@@ -589,11 +592,11 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
               ) : deepResearchError ? (
                 // A failed fetch must never read as "no runs": one quiet line
                 // with the way to try again, beside the lists that still work.
-                <div className="border-border bg-card flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2.5 shadow-xs">
+                <div className="bg-card flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-surface px-4 py-2.5 shadow-xs">
                   <p className="text-muted-foreground text-xs">
                     {t('sessionsPanel.researchLoadFailed')}
                   </p>
-                  <Button variant="outline" size="sm" onClick={fetchDeepResearchRuns}>
+                  <Button variant="secondary" size="sm" onClick={fetchDeepResearchRuns}>
                     {tCommon('actions.retry')}
                   </Button>
                 </div>
@@ -607,7 +610,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                     title={t('sessionsPanel.noMatching')}
                     description={t('sessionsPanel.noMatchingDescription', { query: trimmedQuery })}
                     action={
-                      <Button variant="outline" size="sm" onClick={handleClearSearch}>
+                      <Button variant="secondary" size="sm" onClick={handleClearSearch}>
                         {t('sessionsPanel.clearSearch')}
                       </Button>
                     }
@@ -621,7 +624,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   />
                 )
               ) : (
-                <ItemList as="ul" className="bg-card shadow-xs">
+                <ItemList as="ul" className="border-0 bg-card shadow-xs">
                   {filteredRuns.map((run) => {
                     const status = run.status
                     const href = runHref(run)
@@ -659,7 +662,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                                 label: runLabel(run),
                                 status: t(runStatusKey(status)),
                               })}
-                              className="min-w-0 flex-1 rounded-sm text-sm font-medium leading-snug outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+                              className="min-w-0 flex-1 rounded-control text-sm font-medium leading-snug outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
                             >
                               <span className="block truncate" title={runLabel(run)}>
                                 {runLabel(run)}
@@ -725,8 +728,8 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                 <SectionLabel className="bg-background sticky top-0 z-10 -mx-2 px-2 pb-1.5 pt-1">
                   {dateLabel}
                 </SectionLabel>
-                <ItemList as="ul" className="bg-card shadow-xs">
-                  {/* Deleting a row removes it, so the list needs an exit —
+                <ItemList as="ul" className="border-0 bg-card shadow-xs">
+                  {/*Deleting a row removes it, so the list needs an exit —
                       which CSS cannot give it — and `layout` so the rows below
                       close the gap instead of jumping. The inbox's pattern,
                       for the same reason. */}
@@ -761,7 +764,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   title={t('sessionsPanel.noMatching')}
                   description={t('sessionsPanel.noMatchingDescription', { query: trimmedQuery })}
                   action={
-                    <Button variant="outline" size="sm" onClick={handleClearSearch}>
+                    <Button variant="secondary" size="sm" onClick={handleClearSearch}>
                       {t('sessionsPanel.clearSearch')}
                     </Button>
                   }
@@ -981,10 +984,6 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
     [handleSaveRename, handleCancelRename]
   )
 
-  const handleInputBlur = useCallback(() => {
-    handleSaveRename()
-  }, [handleSaveRename])
-
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setEditValue(e.target.value)
   }, [])
@@ -994,11 +993,12 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
   // One control, one name — the row's label carries the title AND the state its
   // icon depicts, so nothing on the row is visual-only.
   const statusKey = statusKeyFor(session, isSessionActive)
-  const rowLabel = isBusy
+  const stateLabel = isBusy
     ? t('sessionsPanel.sessionLabelBusy', { title: displayTitle })
     : statusKey
       ? t('sessionsPanel.sessionLabelWithStatus', { title: displayTitle, status: t(statusKey) })
       : t('sessionsPanel.sessionLabel', { title: displayTitle })
+  const rowLabel = session.temporary ? t(TEMPORARY_LABEL, { label: stateLabel }) : stateLabel
 
   return (
     <Item
@@ -1013,8 +1013,8 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
         // mirrors hover so the revealed actions always sit on the same surface
         // their fade-out gradient names.
         isSelected
-          ? 'bg-accent ring-border ring-1 ring-inset hover:bg-accent'
-          : 'hover:bg-muted focus-within:bg-muted'
+          ? 'bg-selected ring-border ring-1 ring-inset hover:bg-selected'
+          : 'hover:bg-hover focus-within:bg-hover'
       )}
     >
       <motion.li
@@ -1041,7 +1041,7 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
               value={editValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              onBlur={handleInputBlur}
+              onBlur={handleSaveRename}
               className="h-8 min-w-0 flex-1 px-2.5 pointer-coarse:h-11"
               aria-label={t('sessionsPanel.editTitle')}
             />
@@ -1071,7 +1071,7 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
               // Stretched over the whole row via the ::after overlay, the
               // inbox's pattern — so the row stays ONE control without nesting
               // the icon disc inside it.
-              className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-sm text-left outline-none pointer-coarse:mr-9 after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+              className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-control text-left outline-none pointer-coarse:mr-9 after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
             >
               {/* Two-line content block: title + persistent time on line 1, the
                   calm Deep Research badge on line 2. */}
@@ -1084,6 +1084,7 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
                 >
                   {displayTitle}
                 </span>
+                {session.temporary && <SessionTemporaryMark />}
                 {sessionIso && (
                   <span
                     className="text-muted-foreground shrink-0 text-xs tabular-nums"
@@ -1163,59 +1164,55 @@ const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function Session
         {/* The actions OVERLAY the row on hover/focus instead of holding a
             permanent column that taxes every title's width. Overlaying is
             reflow-free (the row never resizes) and the resting row spends its
-            full width on the title. The gradient fades the row out beneath the
-            buttons so a long title slides under them instead of colliding —
-            its colour names the surface the row is actually on: `accent` for
-            the selected row, `muted` for the hovered/focused one. */}
+            full width on the title. The action block is a solid fill in the
+            colour of the surface the row is actually on, so a long title
+            slides under it instead of colliding: the selected grey on the
+            selected row, else the sheet with the pointer's wash over it (two
+            layers: the wash alone lets the title through). No gradient. */}
         {showActions && (
-          <div
-            className={cn(
-              'absolute inset-y-0 right-2 z-10 flex items-center gap-1 pl-6 pointer-coarse:hidden animate-in fade-in-0 duration-snap ease-out motion-reduce:animate-none',
-              isSelected
-                ? '[background:linear-gradient(to_right,transparent,var(--accent)_1.5rem)]'
-                : '[background:linear-gradient(to_right,transparent,var(--muted)_1.5rem)]'
-            )}
-          >
-            {!session.contentLocked && (
+          <div className={cn('absolute inset-y-0 right-2 z-10 pointer-coarse:hidden animate-in fade-in-0 duration-snap ease-out motion-reduce:animate-none', isSelected ? 'bg-selected' : 'bg-card')}>
+            <div className={cn('flex h-full items-center gap-1 pl-6', !isSelected && 'bg-hover')}>
+              {!session.contentLocked && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={handleEditClick}
+                  disabled={isBusy || isSessionActive}
+                  aria-label={
+                    isBusy || isSessionActive
+                      ? t('sessionsPanel.renameDisabled')
+                      : t('sessionsPanel.rename')
+                  }
+                  title={
+                    isBusy || isSessionActive
+                      ? t('sessionsPanel.cannotRenameBusy')
+                      : t('sessionsPanel.rename')
+                  }
+                >
+                  <Pencil className="size-4" aria-hidden="true" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-7"
-                onClick={handleEditClick}
+                className="text-destructive hover:text-destructive size-7"
+                onClick={handleDeleteClick}
                 disabled={isBusy || isSessionActive}
                 aria-label={
                   isBusy || isSessionActive
-                    ? t('sessionsPanel.renameDisabled')
-                    : t('sessionsPanel.rename')
+                    ? t('sessionsPanel.deleteDisabled')
+                    : t('sessionsPanel.deleteSession')
                 }
                 title={
                   isBusy || isSessionActive
-                    ? t('sessionsPanel.cannotRenameBusy')
-                    : t('sessionsPanel.rename')
+                    ? t('sessionsPanel.cannotDeleteBusy')
+                    : t('sessionsPanel.deleteSession')
                 }
               >
-                <Pencil className="size-4" aria-hidden="true" />
+                <Trash2 className="size-4" aria-hidden="true" />
               </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-destructive hover:text-destructive size-7"
-              onClick={handleDeleteClick}
-              disabled={isBusy || isSessionActive}
-              aria-label={
-                isBusy || isSessionActive
-                  ? t('sessionsPanel.deleteDisabled')
-                  : t('sessionsPanel.deleteSession')
-              }
-              title={
-                isBusy || isSessionActive
-                  ? t('sessionsPanel.cannotDeleteBusy')
-                  : t('sessionsPanel.deleteSession')
-              }
-            >
-              <Trash2 className="size-4" aria-hidden="true" />
-            </Button>
+            </div>
           </div>
         )}
       </motion.li>

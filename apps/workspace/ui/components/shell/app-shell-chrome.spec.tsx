@@ -1,6 +1,10 @@
-import { render, screen } from '@/test-utils'
-import { vi, describe, test, expect, afterEach } from 'vitest'
+import type { JSX } from 'react'
+import { useEffect } from 'react'
+import { act, render, screen } from '@/test-utils'
+import { vi, describe, test, expect, afterEach, beforeEach } from 'vitest'
+import { DOCK_LAYOUT_QUERY } from '@/hooks/use-is-mobile'
 import { AppShellChrome } from './app-shell-chrome'
+import { useStartDock } from './start-dock'
 
 // The chrome DECIDES which shape stands; the shapes themselves are covered by
 // their own specs. Stubs keep the decision observable without mounting a rail.
@@ -28,9 +32,6 @@ vi.mock('./phone-tab-bar', () => ({
 }))
 vi.mock('./phone-more-sheet', () => ({
   PhoneMoreSheet: () => <div data-testid="more-sheet" />,
-}))
-vi.mock('./project-switcher-sheet', () => ({
-  ProjectSwitcherSheet: () => <div data-testid="switcher-sheet" />,
 }))
 let keyboardUp = false
 vi.mock('./use-keyboard-up', () => ({
@@ -130,14 +131,15 @@ describe('AppShellChrome — the phone tab bar', () => {
     // so nothing scrolls under it and no page reserves its height.
     const frame = container.querySelector('[data-tab-bar]')!
     expect(Array.from(frame.children).indexOf(bar)).toBeGreaterThan(0)
-    expect(screen.getByTestId('switcher-sheet')).toBeInTheDocument()
+    // „Mehr“ holds the project selector on a phone; there is no second sheet for it.
+    expect(screen.getByTestId('more-sheet')).toBeInTheDocument()
     unmount()
 
     pathname = '/app/projects'
     render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
     expect(screen.getByTestId('tab-bar')).toHaveAttribute('data-project-id', 'org')
     // No project, nothing to switch between.
-    expect(screen.queryByTestId('switcher-sheet')).toBeNull()
+    expect(screen.queryByTestId('more-sheet')).toBeNull()
   })
 
   test('stands down while the keyboard is up, and zeroes the inset a composer pads for', () => {
@@ -176,5 +178,61 @@ describe('AppShellChrome — the phone tab bar', () => {
     expect(frame).toHaveAttribute('data-tab-bar', 'shown')
     expect(frame.className).toContain('[--shell-inset-bottom:env(safe-area-inset-bottom)]')
     expect(frame.className).toContain('max-md:data-[tab-bar=shown]:[--shell-inset-bottom:0px]')
+  })
+})
+
+describe('AppShellChrome — the panel docked beside the page (ADR-0148)', () => {
+  // Room for the dock; ResizeObserver is the shell's way of following the panel's edge.
+  const realMatchMedia = window.matchMedia
+  let roomy = true
+  beforeEach(() => {
+    roomy = true
+    window.matchMedia = ((query: string) => ({
+      matches: query === DOCK_LAYOUT_QUERY ? roomy : false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} })
+  })
+  afterEach(() => {
+    window.matchMedia = realMatchMedia
+    vi.unstubAllGlobals()
+    act(() => useStartDock.getState().close())
+  })
+
+  const inset = () => document.documentElement.style.getPropertyValue('--page-inset-start')
+  let pageMounts = 0
+  function Page(): JSX.Element {
+    useEffect(() => {
+      pageMounts += 1
+    }, [])
+    return <p>page</p>
+  }
+
+  test('docks what the layout handed over, publishes where the page begins, and never remounts the page', () => {
+    pageMounts = 0
+    const { rerender } = render(<AppShellChrome {...baseProps} startDock={{ inbox: <aside>postfach</aside> }}><Page /></AppShellChrome>)
+    expect(screen.queryByText('postfach')).not.toBeInTheDocument()
+    expect(inset()).toBe('')
+    act(() => useStartDock.getState().open('inbox'))
+    rerender(<AppShellChrome {...baseProps} startDock={{ inbox: <aside>postfach</aside> }}><Page /></AppShellChrome>)
+    expect(screen.getByText('postfach')).toBeInTheDocument()
+    expect(inset()).not.toBe('')
+    act(() => useStartDock.getState().close())
+    expect(screen.queryByText('postfach')).not.toBeInTheDocument()
+    expect(inset()).toBe('')
+    expect(pageMounts).toBe(1)
+  })
+
+  test('docks nothing the layout did not hand over, and nothing where there is no room', () => {
+    act(() => useStartDock.getState().open('inbox'))
+    const { unmount } = render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
+    expect(screen.queryByText('postfach')).not.toBeInTheDocument()
+    unmount()
+    roomy = false
+    render(<AppShellChrome {...baseProps} startDock={{ inbox: <aside>postfach</aside> }}>page</AppShellChrome>)
+    expect(screen.queryByText('postfach')).not.toBeInTheDocument()
+    expect(inset()).toBe('')
   })
 })

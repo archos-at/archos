@@ -4,7 +4,7 @@ import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
-import { fallbackReplicas, queueDepthQuery } from "./keda-scaling";
+import { fallbackReplicas, hatchetBacklogQuery } from "./keda-scaling";
 
 /**
  * KEDA across every ScaledObject (ADR-0079, phase 3).
@@ -17,7 +17,8 @@ import { fallbackReplicas, queueDepthQuery } from "./keda-scaling";
  *     whatever count it had while its queue grows;
  *   - a scaler credential that is the schema owner's, held by an operator in
  *     another namespace;
- *   - a scaler that reads a table which does not exist yet on a fresh stack;
+ *   - a scaler that counts a Hatchet workflow under another name than the
+ *     workers register, so the tier never leaves its floor;
  *   - a grace period shorter than the drain, so the release-on-drain path never
  *     runs before SIGKILL;
  *   - a chart nobody pinned, validated against CRDs of another release.
@@ -62,7 +63,6 @@ const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
 const SECRET = "kubernetes:core/v1:Secret"; // pragma: allowlist secret (a Pulumi resource type)
 const NETPOL = "kubernetes:networking.k8s.io/v1:NetworkPolicy";
 const RELEASE = "kubernetes:helm.sh/v3:Release";
-const JOB = "kubernetes:batch/v1:Job";
 const CLUSTER = "kubernetes:postgresql.cnpg.io/v1:Cluster";
 
 const QUEUE_TIERS = ["ingest-worker", "agent-worker", "bff-jobs"];
@@ -98,14 +98,15 @@ describe("the program's ScaledObjects", () => {
     const { installKeda } = await import("../platform/keda");
     const { installNetworkPolicies } = await import("../platform/network-policies");
     const { installPostgres } = await import("../data/postgres");
-    const { buildScalerSecret, buildSecrets } = await import("./config");
-    const { installJobsQueueAuth } = await import("./jobs-queue-auth");
+    const { buildSecrets } = await import("./config");
+    const { installHatchetQueueAuth } = await import("./hatchet-queue-auth");
+    const { installBackgroundWorkPostgres } = await import("../data/background-work-pg");
+    const { installHatchetNetworkPolicies } = await import("../platform/hatchet-network-policies");
     const { installIngestWorker } = await import("./ingest-worker");
     const { installAgentWorker } = await import("./agent-worker");
     const { installBffJobs } = await import("./bff-jobs");
     const { installBackend } = await import("./backend");
     const { installBackendScaling } = await import("./backend-scaling");
-    const { installQueueScalerGrants } = await import("./queue-scaler-grants");
 
     cfg = loadConfig();
     scalerPassword = await resolve(cfg.postgres.scalerPassword);
@@ -128,9 +129,10 @@ describe("the program's ScaledObjects", () => {
     installKeda(provider);
     installPostgres(cfg, provider, "grid");
     const secrets = buildSecrets(wiring as never);
-    buildScalerSecret(wiring as never);
-    const grants = installQueueScalerGrants(wiring as never, cfg, []);
-    installJobsQueueAuth(wiring as never, [grants]);
+    const bgPg = installBackgroundWorkPostgres(cfg, provider, []);
+    const grants = bgPg.grants([]);
+    installHatchetQueueAuth(wiring as never, bgPg.scalerDsn, [grants]);
+    installHatchetNetworkPolicies(cfg, provider, "grid", []);
     const ingest = installIngestWorker(wiring as never, cfg, secrets, [grants]);
     const agent = installAgentWorker(wiring as never, cfg, secrets, [grants]);
     const bff = installBffJobs(wiring as never, cfg, secrets, [grants]);
@@ -202,26 +204,44 @@ describe("the program's ScaledObjects", () => {
       expect(behavior.scaleDown.policies).toEqual([{ type: "Pods", value: 1, periodSeconds: 60 }]);
     });
 
-    it("count their own table, leave dead rows out and ask for one replica per `concurrency` jobs", async () => {
-      const tables: Record<string, [string, number]> = {
-        "ingest-worker": ["ingest_job_queue", cfg.ingestWorker.concurrency],
-        "agent-worker": ["research_job_queue", cfg.agentWorker.concurrency],
-        "bff-jobs": ["bff_job_queue", cfg.bffJobs.concurrency],
+    it("count their own Hatchet workflow's backlog and ask for one replica per `concurrency` runs", async () => {
+      const workflows: Record<string, [string, number]> = {
+        "ingest-worker": ["ingest-document", cfg.ingestWorker.concurrency],
+        "agent-worker": ["research-run", cfg.agentWorker.concurrency],
+        "bff-jobs": ["bff-job", cfg.bffJobs.concurrency],
       };
-      for (const [tier, [table, concurrency]] of Object.entries(tables)) {
-        const [trigger] = (await scaled(tier)).triggers;
+      for (const [tier, [workflow, concurrency]] of Object.entries(workflows)) {
+        const triggers = (await scaled(tier)).triggers;
+        // Hatchet only: the claim-queue depth trigger is gone with the queues.
+        expect(triggers, tier).toHaveLength(1);
+        const [trigger] = triggers;
         expect(trigger.type, tier).toBe("postgresql");
-        // The type `fallback` requires, and the one that reads as jobs per replica.
         expect(trigger.metricType, tier).toBe("AverageValue");
+        expect(trigger.authenticationRef, tier).toEqual({ name: "hatchet-queue-auth" });
         expect(trigger.metadata, tier).toEqual({
-          query: queueDepthQuery(table),
+          query: hatchetBacklogQuery("test", workflow),
           targetQueryValue: String(concurrency),
           activationTargetQueryValue: "0",
         });
-        expect(trigger.metadata.query, tier).toBe(
-          `SELECT COUNT(*) FROM ${table} WHERE status NOT IN ('dead', 'cancelled')`,
-        );
+        expect(trigger.metadata.query, tier).toContain(`starts_with(action_id, 'test_${workflow}:')`);
       }
+    });
+
+    it("count queued and held runs through Hatchet's tables, and escape a quote", () => {
+      expect(hatchetBacklogQuery("Prod", "ingest-document")).toBe(
+        "SELECT (SELECT COUNT(*) FROM v1_queue_item WHERE starts_with(action_id, 'prod_ingest-document:')) + " +
+          "(SELECT COUNT(*) FROM v1_task_runtime r JOIN v1_task t ON t.id = r.task_id AND t.inserted_at = r.task_inserted_at " +
+          "WHERE starts_with(t.action_id, 'prod_ingest-document:'))",
+      );
+      expect(hatchetBacklogQuery("x", "a'b")).toContain("'x_a''b:'");
+    });
+
+    it("name the workflows the workers register", () => {
+      // The Python and TypeScript SDKs prefix `<namespace>_` and lower-case it;
+      // the action is `<workflow>:<task>`, so the prefix match counts every task.
+      expect(read("deploy", "pulumi", "src", "app", "ingest-worker.ts")).toContain('WORKFLOW = "ingest-document"');
+      expect(read("deploy", "pulumi", "src", "app", "agent-worker.ts")).toContain('WORKFLOW = "research-run"');
+      expect(read("deploy", "pulumi", "src", "app", "bff-jobs.ts")).toContain('WORKFLOW = "bff-job"');
     });
 
     it("explain what the cooldown does, which is one step", () => {
@@ -294,128 +314,57 @@ describe("the program's ScaledObjects", () => {
       pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...STACK });
     });
 
-    it("is what KEDA connects with: the scaler's login on each database, by FQDN, never the owner", () => {
-      const scalerRequests = dsnRequests.filter((r) => r.as?.user === "keda_scaler");
-
-      expect(scalerRequests.map((r) => r.db).sort()).toEqual(["app", "jobs"]);
-      expect(scalerRequests.every((r) => r.clusterWide === true)).toBe(true);
-    });
-
-    it("lives in a Secret no pod reads, so a rotation rolls nothing", async () => {
-      const scaler = await stringData("grid-keda-scaler");
-      const shared = await stringData("grid-secrets");
-
-      expect(Object.keys(scaler).sort()).toEqual(["KEDA_BFF_QUEUE_DB_URL", "KEDA_JOBS_QUEUE_DB_URL"]);
-      expect(Object.keys(shared).filter((k) => k.startsWith("KEDA_"))).toEqual([]);
-      // Every TriggerAuthentication names a Secret that holds the key it asks for.
-      const holds: Record<string, string[]> = {
-        "grid-keda-scaler": Object.keys(scaler),
-        "grid-secrets": Object.keys(shared),
-      };
-      for (const auth of RESOURCES.filter((r) => r.type === AUTH)) {
-        const { secretTargetRef } = await resolve(auth.inputs.spec as Record<string, any>);
-        for (const ref of secretTargetRef) expect(holds[ref.name], `${auth.name}: ${ref.name}`).toContain(ref.key);
-      }
-    });
   });
 
-  describe("the tables the scaler reads", () => {
-    const grants = () => find("kubernetes:core/v1:ConfigMap", "keda-scaler-grants-sql").inputs.data as Record<string, string>;
-
-    it("get SELECT on the status column for the scaler and no other right", () => {
-      const { "jobs.sql": jobs, "app.sql": app } = grants();
-
-      expect(jobs).toBe(
-        "REVOKE SELECT ON ingest_job_queue, research_job_queue FROM keda_scaler;\n" +
-          "GRANT SELECT (status) ON ingest_job_queue, research_job_queue TO keda_scaler;\n",
+  describe("the backlog the scaler reads", () => {
+    it("is read as the read-only login on background-work-pg, from a Secret no pod reads", async () => {
+      const secret = await stringData("background-work-keda-scaler");
+      expect(Object.keys(secret)).toEqual(["KEDA_BACKGROUND_WORK_DB_URL"]);
+      expect(secret.KEDA_BACKGROUND_WORK_DB_URL).toMatch(
+        /^postgresql:\/\/keda_scaler:[^@]+@background-work-pg-rw\.background-work\.svc\.cluster\.local:5432\/hatchet\?sslmode=require$/,
       );
-      expect(app).toContain("REVOKE SELECT ON bff_job_queue FROM keda_scaler;");
-      expect(app).toContain("GRANT SELECT (status) ON bff_job_queue TO keda_scaler;");
-      for (const sql of [jobs, app]) {
-        expect(sql).not.toMatch(/INSERT|UPDATE|DELETE|TRUNCATE|ALL PRIVILEGES|BYPASSRLS/i);
-        // Never table-wide: a payload (reports, requester emails, presigned URLs) must stay unreadable to the scaler.
-        expect(sql).not.toMatch(/GRANT SELECT ON/);
-      }
+      const auth = await resolve(find(AUTH, "hatchet-queue-auth").inputs.spec as Record<string, any>);
+      expect(auth.secretTargetRef).toEqual([
+        { parameter: "connection", name: "background-work-keda-scaler", key: "KEDA_BACKGROUND_WORK_DB_URL" },
+      ]);
+      const shared = await stringData("grid-secrets");
+      expect(Object.keys(shared).filter((k) => k.startsWith("KEDA_"))).toEqual([]);
     });
 
-    it("cover the column every depth query filters on, and no other", async () => {
-      const { SCALER_READABLE_COLUMNS } = await import("./queue-scaler-grants");
-      const { queueDepthQuery } = await import("./keda-scaling");
-
-      expect(SCALER_READABLE_COLUMNS).toEqual(["status"]);
-      expect(queueDepthQuery("any_queue")).toBe(
-        "SELECT COUNT(*) FROM any_queue WHERE status NOT IN ('dead', 'cancelled')",
+    it("is granted the columns the count reads and no other right, and the owner a statement timeout", async () => {
+      const { backgroundWorkGrantsSql } = await import("../data/background-work-pg");
+      const sql = backgroundWorkGrantsSql();
+      expect(sql).toBe(
+        [
+          "ALTER ROLE hatchet SET statement_timeout = '5min';",
+          "REVOKE ALL ON ALL TABLES IN SCHEMA public FROM keda_scaler;",
+          "GRANT SELECT (action_id) ON v1_queue_item TO keda_scaler;",
+          "GRANT SELECT (id, inserted_at, action_id) ON v1_task TO keda_scaler;",
+          "GRANT SELECT (task_id, task_inserted_at) ON v1_task_runtime TO keda_scaler;",
+          "",
+        ].join("\n"),
       );
+      expect(sql).not.toMatch(/\bGRANT (INSERT|UPDATE|DELETE|TRUNCATE|ALL)\b|GRANT SELECT ON/i);
+      // Every column the backlog query names is one the scaler holds.
+      const query = hatchetBacklogQuery("x", "y");
+      for (const column of ["action_id", "task_id", "task_inserted_at", "inserted_at"]) expect(query).toContain(column);
+      expect(query).not.toMatch(/\binput\b/);
     });
 
-    it("cross the organisation boundary by a policy of their own, for SELECT and for that role only", () => {
-      const { "app.sql": app } = grants();
-
-      expect(app).toContain("CREATE POLICY keda_scaler_count ON bff_job_queue FOR SELECT TO keda_scaler USING (true);");
-      // Replaced, not stacked, on a re-run, and the tenant policy is left alone.
-      expect(app).toContain("DROP POLICY IF EXISTS keda_scaler_count ON bff_job_queue;");
-      expect(app).not.toContain("grid_tenant_isolation");
-    });
-
-    it("are the tables the queues write", () => {
-      const table = (path: string[]) => read(...path).match(/^TABLE = "([a-z_]+)"$/m)?.[1];
-      expect(table(["packages", "agent", "src", "agent", "knowledge", "ingest_queue.py"])).toBe("ingest_job_queue");
-      expect(table(["apps", "agent-host", "src", "agent_host", "jobs", "queue.py"])).toBe("research_job_queue");
-      expect(read("apps", "workspace", "migrations", "0104_bff_job_queue.sql")).toContain('CREATE TABLE IF NOT EXISTS "bff_job_queue"');
-    });
-
-    it("exist before anything is granted: the grants Job creates them with the queues' own code, then grants", async () => {
-      const { ensureTablesPython } = await import("./queue-scaler-grants");
-      const spec = await resolve(find(JOB, "keda-scaler-grants").inputs.spec as Record<string, any>);
-      const pod = spec.template.spec;
-      const [init] = pod.initContainers;
-      const psql = pod.containers[0];
-      const script: string = psql.args[0];
-
-      // Python first (an init container), psql after: a GRANT on a table that is
-      // not there fails, and so does a scaler that polls one.
-      expect(init.image).toMatch(/grid-oib-backend/);
-      expect(init.command.slice(0, 2)).toEqual(["python", "-c"]);
-      expect(init.command[2]).toBe(ensureTablesPython());
-      expect(psql.image).toMatch(/^postgres:/);
-      expect(script).toMatch(/pg_roles WHERE rolname = 'keda_scaler'/);
-      expect(script.indexOf("pg_roles")).toBeLessThan(script.indexOf("/sql/jobs.sql"));
-      expect(script).toContain("-v ON_ERROR_STOP=1 -f /sql/app.sql");
-      expect(spec.template.spec.restartPolicy).toBe("OnFailure");
-
-      // Every name the snippet calls is one the Python modules define.
-      const ingest = read("packages", "agent", "src", "agent", "knowledge", "ingest_queue.py");
-      const research = read("apps", "agent-host", "src", "agent_host", "jobs", "queue.py");
-      expect(ingest).toMatch(/^def db_url\(\)/m);
-      expect(ingest).toMatch(/^def ensure_table\(/m);
-      expect(research).toMatch(/^def ensure_research_queue_table\(/m);
-      expect(research).toMatch(/^TABLE = "research_job_queue"/m);
-      expect(read("apps", "agent-host", "src", "agent_host", "jobs", "worker.py")).toContain('"NAT_JOB_STORE_DB_URL"');
-    });
-
-    it("are created for both Python queues", async () => {
-      const { ensureTablesPython, jobsDatabaseTables } = await import("./queue-scaler-grants");
-
-      expect(jobsDatabaseTables()).toEqual(["ingest_job_queue", "research_job_queue"]);
-      expect(ensureTablesPython()).toContain("ingest_queue.ensure_table(ingest_queue.db_url())");
-      expect(ensureTablesPython()).toContain("queue.ensure_research_queue_table(");
-    });
-
-    it("are in place before any ScaledObject exists, by the program's own ordering", () => {
+    it("is in place before any worker tier's ScaledObject, by the program's own ordering", () => {
       const index = read("deploy", "pulumi", "index.ts");
-
-      // The grants Job follows the cluster (the role) and the migrations (the BFF table)...
-      expect(index).toMatch(/installQueueScalerGrants\(wiring, cfg, \[postgres\.cluster, postgres\.initJob, migrations\]\)/);
-      // ...and every tier that owns a ScaledObject waits for it.
-      expect(index).toMatch(/const queueScalerDeps = \[[\s\S]*?scalerGrants/);
-      expect(index).toMatch(/installBffJobs\(wiring, cfg, secrets, \[[\s\S]*?scalerGrants/);
-      // The TriggerAuthentication that points existing scalers at the new login moves
-      // after the grants too, or they read through a login that can read nothing yet.
-      expect(index).toMatch(/installJobsQueueAuth\(wiring, \[[\s\S]*?scalerGrants/);
-      // The queue-driven ScaledObjects are built from `dependsOn` by one helper.
+      expect(index).toMatch(/const hatchetGrants = backgroundWorkPg\.grants\(\[hatchet\.release\]\)/);
+      expect(index).toMatch(/const queueScalerDeps = \[[\s\S]*?hatchetQueueAuth, hatchetGrants, hatchet\.tokenSync\]/);
+      expect(index).toMatch(/installBffJobs\(wiring, cfg, secrets, \[[\s\S]*?\.\.\.queueScalerDeps/);
       expect(read("deploy", "pulumi", "src", "app", "keda-scaling.ts")).toMatch(
         /dependsOn: \[tier\.deployment, \.\.\.tier\.dependsOn\]/,
       );
+    });
+
+    it("leaves no claim-queue grant behind on the app cluster", () => {
+      expect(RESOURCES.find((r) => r.name === "keda-scaler-grants")).toBeUndefined();
+      expect(RESOURCES.find((r) => r.name === "jobs-queue-auth")).toBeUndefined();
+      expect(RESOURCES.find((r) => r.name === "grid-keda-scaler")).toBeUndefined();
     });
   });
 
@@ -455,11 +404,12 @@ describe("the program's ScaledObjects", () => {
         }
       }
 
-      // Postgres for the queues, the backend for the occupancy route: nothing more.
-      expect(kedaPolicies.map((p) => p.name).sort()).toEqual(["allow-keda-to-chat", "allow-keda-to-postgres"]);
+      // Hatchet's Postgres for the backlog, the backend for the occupancy route: nothing more.
+      expect(kedaPolicies.map((p) => p.name).sort()).toEqual(["allow-keda-to-chat", "background-work-allow-keda-to-postgres"]);
       const byName = Object.fromEntries(kedaPolicies.map((p) => [p.name, p.spec]));
-      expect(byName["allow-keda-to-postgres"].ingress).toEqual([{ from: [operator], ports: [{ protocol: "TCP", port: 5432 }] }]);
-      expect(byName["allow-keda-to-postgres"].podSelector.matchLabels).toEqual({ "cnpg.io/cluster": "grid-pg" });
+      const pg = byName["background-work-allow-keda-to-postgres"];
+      expect(pg.ingress).toEqual([{ from: [operator], ports: [{ protocol: "TCP", port: 5432 }] }]);
+      expect(pg.podSelector.matchLabels).toEqual({ "cnpg.io/cluster": "background-work-pg" });
       expect(byName["allow-keda-to-chat"].ingress).toEqual([{ from: [operator], ports: [{ protocol: "TCP", port: 8000 }] }]);
     });
 

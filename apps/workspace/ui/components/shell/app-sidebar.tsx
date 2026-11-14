@@ -4,30 +4,33 @@
  * The GRID application sidebar — the product's primary navigation surface, and
  * since the app-shell change the ONE persistent piece of chrome in `/app`.
  *
- * Composes the shadcn Sidebar primitive (Sheet on mobile, icon-collapse on
- * desktop) rather than owning a drawer, a rail, and collapse itself. IA is
- * still the click-dummy overhaul: "Piloti" wordmark → project switcher →
- * grouped section nav → pinned Settings → user footer. Active section is a
- * raised white card on the sunken rail.
+ * Composes the shadcn Sidebar primitive (icon-collapse, the resize edge)
+ * rather than owning a rail and collapse itself. The rail is the desk beside
+ * the page, and where the reader is is the one sheet lying on it
+ * (design-language.md, „The app rail“). The project owns the top: the
+ * wordmark, the project's name as the rail's heading (the switcher), its
+ * sections. The office and the person own the foot: the organisation's
+ * doorways under its name, then who is signed in.
  *
- * PROJECT SCOPE ONLY. The rail earns its 236px by listing one project's
+ * PROJECT SCOPE ONLY. The rail earns its 272px by listing one project's
  * sections; above a project the org scope renders a slim header instead
  * (`OrgHeader`), and `AppShellChrome` decides which of the two stands. The
- * org-wide doorways (Archiv, Postfach) still appear here — as the `org` group
- * near the bottom — because they are reachable from inside a project, where
- * they open as sheets above it.
+ * org-wide doorways (Büroablage, Suche, Postfach) still appear here — as the
+ * `org` group under the project's — because they are reachable from inside a
+ * project, where they open as sheets above it.
  *
- * Mobile open state is owned by the layout store so the chat toolbar's
- * hamburger can open the same Sheet (`useLayoutStore.setMobileNavOpen`).
- * Collapse persistence lives in the primitive (`sidebar.collapsed`).
+ * Below `md` this renders no rail and no band: the page starts with its title
+ * (`ProjectSectionFrame`), and only the connection's line stands above it
+ * while the link is not fine. The project is not named at the top of a phone page. The destinations are the tab bar's
+ * (`PhoneTabBar`) and „Mehr"'s, whose first row is the project selector. Collapse persistence lives in the
+ * primitive (`sidebar.collapsed`).
  */
 
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronLeft, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 
-import { Logo } from '@/components/brand/logo'
 import { motion, springGlide } from '@/components/motion'
 import {
   Sidebar,
@@ -35,7 +38,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -48,26 +50,31 @@ import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { pruneProjectSections, useRecordProjectSection } from '@/hooks/use-last-project-section'
-import { useLayoutStore } from '@/features/layout/store'
+import { InboundMailWaitingBadge } from './inbound-mail-waiting-badge'
+import { useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
+import { useStartDockDoor, type StartDockDoor } from './start-dock'
 import { InboxBadge } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
-import { ProjectPill } from './project-pill'
+import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
-import { ConnectionPresenceIndicator } from './connection-presence-indicator'
 import {
   PROJECT_SETTINGS_SECTION,
   railGroups,
   sectionHref,
   sectionLinkHref,
+  type ProjectNavGroup,
   type ProjectSection,
 } from './project-sections'
 import { phoneBackTarget } from './phone-tabs'
+import { framesProjectPage } from './project-section-frame'
 import { useRecordRecentProject } from './recent-projects'
-import { useShellOverlays } from './shell-overlays'
 import { ShellSearchButton } from './shell-search-button'
+import { RailChatList, useRailChats } from './rail-chats'
 import { ConnectionBand } from './connection-band'
+import { ShortcutKeys } from './shortcut-keys'
+import { LEADER_KEY } from './shortcuts'
 import { sectionAnchor } from '@/lib/onboarding/product-tour'
 
 /**
@@ -84,13 +91,13 @@ import { sectionAnchor } from '@/lib/onboarding/product-tour'
  * The id is KEYED by rail width, which is load-bearing: collapsing to the icon
  * rail is a size change, not a move. Sharing an id across it would ask motion
  * to animate a 212×36 pill into a 36×36 one, and a shared-layout size change is
- * executed as a `scale`, which visibly smears a 1px border and a 10px radius.
+ * executed as a `scale`, which visibly smears the pill's radius.
  * Keyed, the pill is re-created at the new size in the same pass the rail
  * resizes in.
  *
  * Within one key every entry is the same width and height, so the animation
- * reduces to a pure vertical translate — no scale, hence no border or radius
- * distortion to correct.
+ * reduces to a pure vertical translate — no scale, hence no radius distortion
+ * to correct.
  */
 export function railActivePillId(iconRail: boolean): string {
   return `rail-active-project-${iconRail ? 'icon' : 'full'}`
@@ -125,6 +132,8 @@ export interface AppSidebarProps {
    * ADR-0024). Also gates the Archiv nav item.
    */
   canAccessOfficeShelf?: boolean
+  /** Whether the office's own standards have their doorway (`office-standards`, ADR-0163). */
+  canAccessOfficeStandards?: boolean
   /** Whether the IFC/BIM model page is enabled (`ifc-models`, ADR-0045). */
   showModels?: boolean
   /** Whether the Agent Skills page is enabled (feature-flagged, default off — ADR-0046). */
@@ -145,6 +154,14 @@ export interface AppSidebarProps {
    * what the rail looks like. A required prop turns that into a compile error.
    */
   canAccessInbox: boolean
+  /**
+   * The office receives project mail (`inbound-mail`, ADR-0137): Dateien
+   * carries the muted count of mail waiting for this reader. Optional and off
+   * by default, so a preview without it shows the rail as it was.
+   */
+  inboundMailEnabled?: boolean
+  /** The route the rail lights; the router's by default. A preview passes one, as it does to `PhoneTabBar`. */
+  pathname?: string
 }
 
 /** One rendered rail entry, after both scopes have been reduced to a shape. */
@@ -154,11 +171,19 @@ interface RailItemModel {
   icon: ProjectSection['icon']
   label: string
   active: boolean
+  /** The current place is one of this entry's rows (an open chat under „Chat“): ink and 600, the sheet on the row. */
+  within?: boolean
   badgeCount: number
+  /** The Postfach's: it may open beside the page instead of following `href`. */
+  door?: StartDockDoor
+  /** A quiet count beside the entry (mail waiting in Dateien); the Postfach's is `badgeCount`. */
+  waitingCount: number | null
+  /** The `g …` jump's second key, shown in the icon rail's tooltip. */
+  shortcutKey?: string
 }
 
 interface RailGroupModel {
-  key: string
+  key: ProjectNavGroup
   label: string
   items: RailItemModel[]
 }
@@ -189,18 +214,23 @@ function AppSidebarFrame({
   canViewOrganization = false,
   canManagePlatform = false,
   canAccessOfficeShelf = false,
+  canAccessOfficeStandards = false,
   showModels = false,
   showSkills = false,
   canAccessInbox,
+  inboundMailEnabled = false,
+  pathname: pathnameOverride,
 }: AppSidebarProps) {
-  const pathname = usePathname() ?? ''
+  const routerPathname = usePathname()
+  const pathname = pathnameOverride ?? routerPathname ?? ''
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
   const { state, isMobile } = useSidebar()
   const { pending: inboxPending } = useInboxBadge(canAccessInbox)
-
-  const projectSheetOpen = useShellOverlays((s) => s.projectSheetOpen)
-  const setProjectSheetOpen = useShellOverlays((s) => s.setProjectSheetOpen)
+  const inboxDoor = useStartDockDoor('inbox')
+  const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
+  // The project's last chats under „Chat“ (`rail-chats.tsx`); the open one is the current place, „Chat“ its ancestor.
+  const railChats = useRailChats()
 
   const base = `/app/projects/${projectId}`
 
@@ -208,8 +238,10 @@ function AppSidebarFrame({
   // redundant there — hide it and let the chat toolbar host the nav opener.
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
   const iconRail = state === 'collapsed' && !isMobile
-  const activeProject = projects.find((project) => project.id === projectId)
+  // The icon rail lists no chats, so there „Chat“ itself stays the current place.
+  const chatOpen = !iconRail && (railChats?.items.some((chat) => chat.current) ?? false)
   const back = phoneBackTarget(pathname, projectId)
+  const pageHasHeader = framesProjectPage(pathname, projectId)
 
   useRecordProjectSection(projectId)
   useRecordRecentProject(projectId)
@@ -218,80 +250,107 @@ function AppSidebarFrame({
     pruneProjectSections(projects.map((project) => project.id))
   }, [projects])
 
-  const projectGroups = railGroups({
-    showSkills,
-    showModels,
-    canAccessOfficeShelf,
-    canAccessInbox,
-  })
+  const groups: RailGroupModel[] = railGroups({ showSkills, showModels, canAccessOfficeShelf, canAccessOfficeStandards, canAccessInbox }).map(
+    (group) => ({
+      key: group.group,
+      label: group.group === 'org' && organizationName ? organizationName : t(`sectionGroups.${group.group}`),
+      items: group.items.map((item) => ({
+        key: item.key,
+        href: sectionLinkHref(item, base),
+        icon: item.icon,
+        label: sectionLabel(item, t, tCollaboration),
+        active: pathname.startsWith(sectionHref(item, base)) && !(item.key === 'chat' && chatOpen),
+        within: item.key === 'chat' && chatOpen,
+        badgeCount: item.key === 'inbox' ? inboxPending : 0,
+        door: item.key === 'inbox' ? inboxDoor : undefined,
+        waitingCount: item.key === 'files' ? inboundMail.count : null,
+        shortcutKey: item.shortcutKey,
+      })),
+    })
+  )
 
-  const groups: RailGroupModel[] = projectGroups.map((group) => ({
-    key: group.group,
-    label: t(`sectionGroups.${group.group}`),
-    items: group.items.map((item) => ({
-      key: item.key,
-      href: sectionLinkHref(item, base),
-      icon: item.icon,
-      label: sectionLabel(item, t, tCollaboration),
-      active: pathname.startsWith(sectionHref(item, base)),
-      badgeCount: item.key === 'inbox' ? inboxPending : 0,
-    })),
-  }))
-
-  // Split: project work (scrollable) vs org-level + settings (bottom-pinned).
-  // The org doorways (Archiv, Inbox) are reachable from inside a project but
-  // belong to the organization — they should sit at the bottom of the rail so
-  // the project-work list stays focused and the org scope is visually distinct.
+  // The project's own sections under its name, Übersicht (the project hub)
+  // after Dateien, in the phone tab bar's order (Chat · Dateien · Übersicht).
+  // The name is the group's heading, so the group carries no label of its own.
+  // The organisation's doorways (Büroablage, Suche, Postfach) stand at the
+  // foot under the organisation's name: a label „Organisation“ there was the
+  // same word as the user menu's organisation settings.
   const orgGroup = groups.find((g) => g.key === 'org')
-  const workGroups = groups.filter((g) => g.key !== 'org')
-
   const settingsHref = sectionHref(PROJECT_SETTINGS_SECTION, base)
+  const overview: RailItemModel = {
+    key: PROJECT_SETTINGS_SECTION.key,
+    href: settingsHref,
+    icon: PROJECT_SETTINGS_SECTION.icon,
+    label: sectionLabel(PROJECT_SETTINGS_SECTION, t, tCollaboration),
+    active: pathname.startsWith(settingsHref),
+    badgeCount: 0,
+    waitingCount: null,
+    shortcutKey: PROJECT_SETTINGS_SECTION.shortcutKey,
+  }
+  const projectItems: RailItemModel[] = groups
+    .filter((g) => g.key !== 'org')
+    .flatMap((g) => g.items)
+    .flatMap((item) => (item.key === 'files' ? [item, overview] : [item]))
 
   const activePillId = railActivePillId(iconRail)
+  const railItem = (item: RailItemModel): React.JSX.Element => (
+    <RailNavItem
+      key={item.key}
+      tourAnchor={sectionAnchor(item.key)}
+      icon={item.icon}
+      href={item.href}
+      active={item.active}
+      within={item.within}
+      label={item.label}
+      badgeCount={item.badgeCount}
+      waitingCount={item.waitingCount}
+      tooltip={iconRail}
+      shortcutKey={item.shortcutKey}
+      pillId={activePillId}
+      door={item.door}
+    />
+  )
+  // 14px in the icon rail, so a 36px tile centres at x=32 in the 64px rail:
+  // the axis of the brand mark, the project tile, the icons and the avatar.
+  // 12px expanded, so the icons, the wordmark and the labels start at 24.
+  const column = iconRail ? 'px-3.5' : 'px-3'
 
   return (
     <>
-      <MobileNavSync pathname={pathname} />
-
-      {/* The phone's top band. Hidden on chat, whose toolbar is its own top
-          band. The project's name is the door to the switcher sheet; the
-          destinations live in the tab bar at the bottom (`PhoneTabBar`), and
-          "Mehr" there opens this rail as a drawer. */}
+      {/* The top of a phone page. Hidden on chat, whose toolbar is its own.
+          Where the page has a header (`ProjectSectionFrame`: every page but
+          the bare flows) this draws nothing: the page starts with its title,
+          whose line holds the way back and the search. What is left here is
+          the screen's top inset and the connection's line, which takes room
+          only while the link is not fine. No project name stands above a
+          phone page, as a band or as a crumb: the project is the first row of
+          „Mehr" in the tab bar (`PhoneTabBar`), and nowhere else on a phone. */}
       <header
         data-scope="project"
         className={cn(
           // The app renders edge-to-edge (`viewportFit: 'cover'` in the root
-          // viewport), so a bar pinned to the top of the screen has to say where
-          // the screen actually starts. `min-h-14` rather than `h-14`, because the
-          // inset has to be able to make the bar taller instead of eating its
-          // contents.
-          'border-border bg-surface-sunken w-full shrink-0 flex-col border-b pt-[env(safe-area-inset-top)] md:hidden',
+          // viewport), so what stands at the top of the screen has to say where
+          // the screen actually starts. It is the page's own paper (Paper on a
+          // desk, „The three planes“), so it draws no fill and no rule.
+          'bg-background w-full shrink-0 flex-col pt-[env(safe-area-inset-top)] md:hidden',
           isChatRoute ? 'hidden' : 'flex'
         )}
       >
-        <div className="flex min-h-14 items-center gap-1 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
+        {/* A bare flow (the Einrichtung) has no page header: its way back and the search keep one 44px line. */}
+        {!pageHasHeader && (
+        <div data-slot="phone-bare-line" className="flex min-h-11 items-center gap-1 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
           {back && (
             <Link
               href={back.href}
               aria-label={t('backTo', { label: t(`sections.${back.sectionKey}`) })}
-              className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/60 flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+              className="text-muted-foreground hover:text-foreground active:bg-desk flex size-11 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none"
             >
               <ChevronLeft className="size-5" aria-hidden />
             </Link>
           )}
-          <ProjectPill
-            name={activeProject?.name ?? t('projectSwitcher.select')}
-            label={
-              activeProject
-                ? t('projectSwitcher.switchCurrent', { name: activeProject.name })
-                : t('projectSwitcher.select')
-            }
-            expanded={projectSheetOpen}
-            onOpen={() => setProjectSheetOpen(true)}
-            className={back ? undefined : 'ml-1'}
-          />
           <ShellSearchButton className="ml-auto" />
         </div>
+        )}
         {isMobile && <ConnectionBand />}
       </header>
 
@@ -308,148 +367,101 @@ function AppSidebarFrame({
         <SidebarHeader
           className={cn(
             // On a phone this is the top of a full-height drawer, under the
-            // status bar; the inset is 0 everywhere else, so 18px stands.
-            'shrink-0 gap-0 p-0 pt-[max(18px,env(safe-area-inset-top))]',
-            // 14px, so a 36px tile centres at x=32 in the 64px rail — the same
-            // axis as the brand mark, the presence dot and the avatar. A zero
-            // inset left the icon column flush at x=0 (centre 18) while
-            // everything else centred at 32.
-            iconRail ? 'overflow-hidden px-3.5' : 'px-3'
+            // status bar; the inset is 0 everywhere else. The brand row below
+            // carries the rest (`brand-slot.ts`): 56px, as the org header's band.
+            'shrink-0 gap-0 p-0 pt-[env(safe-area-inset-top)]',
+            column,
+            // `pb-px` with the clip: the selector's tile ends the header, and its
+            // 1px edge is a ring outside it (gotchas.md, „a sheet's edge is cut“).
+            iconRail && 'overflow-hidden pb-px'
           )}
         >
           <SidebarBrand iconRail={iconRail} />
-          {!iconRail && (
-            // The context slot. `h-9` is the ProjectSwitcher's own height,
-            // pinned here so the nav below always starts at the same edge —
-            // that 36px is the difference between "the contents changed" and
-            // "the page jumped".
-            <div className="mt-[18px] flex h-9 items-center pointer-coarse:h-11">
-              <ProjectSwitcher
-                projects={projects}
-                activeProjectId={projectId}
-                collapsed={false}
-              />
-            </div>
-          )}
+          {/* The project selector, the rail's first control in both widths:
+              which project this is, and the way to another. The icon rail
+              keeps it as a tile of its initials, or a collapsed rail could
+              not say which project its sections belong to. */}
+          <div className={cn('flex items-center', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
+            <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
+          </div>
         </SidebarHeader>
 
         <SidebarContent
           className={cn(
-            'mt-5 gap-4 flex-1',
-            // overflow-y-auto here used to replace the primitive's
-            // group-data-[collapsible=icon]:overflow-hidden, so labels kept
-            // painting past the 64px rail.
-            iconRail ? 'overflow-hidden px-3.5' : 'overflow-y-auto px-3'
+            // 12px under the selector: the rows are what it heads, and a
+            // press does not touch the sheet of the row under it. `py-px`, or a
+            // box flush with the first row cuts the current row's 1px edge to
+            // its corners (gotchas.md, „a sheet's edge is cut“).
+            // The sections stand still; only the chats below them scroll
+            // (`RailChatList`), so the box itself does not.
+            'mt-3 min-h-0 flex-1 gap-0 overflow-hidden',
+            column
           )}
         >
-          <nav aria-label={t('projectSections')}>
-            {workGroups.map((group, index) => (
-              <SidebarGroup
-                key={group.key}
-                className={cn(
-                  'p-0',
-                  iconRail && index > 0 && 'mt-3'
-                )}
-              >
-                {group.label && !iconRail ? (
-                  <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-                ) : null}
-                <SidebarGroupContent>
-                  <SidebarMenu className="gap-0.5" aria-label={group.label}>
-                    {group.items.map((item) => (
-                      <RailNavItem
-                        key={item.key}
-                        tourAnchor={sectionAnchor(item.key)}
-                        icon={item.icon}
-                        href={item.href}
-                        active={item.active}
-                        label={item.label}
-                        badgeCount={item.badgeCount}
-                        tooltip={iconRail}
-                        pillId={activePillId}
-                      />
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ))}
+          <nav aria-label={t('projectSections')} className="shrink-0 py-px">
+            <SidebarMenu className="gap-0.5">{projectItems.map(railItem)}</SidebarMenu>
           </nav>
+          {/* The project's last chats, as a list of their own under the sections (owner decision 2026-11-11,
+              as a chat app lists its recent chats): headed „Letzte Chats“, scrolling between the sections
+              and the office's doorways, which both stay put. The icon rail has no room for a title: there
+              „Chat“ is its glyph, and the chat's toolbar names its door. */}
+          {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} />}
         </SidebarContent>
-
-        {/* Bottom-pinned region: org doorways + settings, separated from the
-            scrollable project-work list so the org scope is visually distinct
-            and always at the bottom of the rail. */}
-        <div className={cn('shrink-0 flex flex-col gap-0', iconRail ? 'px-3.5' : 'px-3')}>
-          {orgGroup && (
-            <>
-              <div className="border-border/50 border-t pt-3" />
-              <nav aria-label={orgGroup.label}>
-                <SidebarGroup className="p-0">
-                  {!iconRail && <SidebarGroupLabel>{orgGroup.label}</SidebarGroupLabel>}
-                  <SidebarGroupContent>
-                    <SidebarMenu className="gap-0.5" aria-label={orgGroup.label}>
-                      {orgGroup.items.map((item) => (
-                        <RailNavItem
-                          key={item.key}
-                          tourAnchor={sectionAnchor(item.key)}
-                          icon={item.icon}
-                          href={item.href}
-                          active={item.active}
-                          label={item.label}
-                          badgeCount={item.badgeCount}
-                          tooltip={iconRail}
-                          pillId={activePillId}
-                        />
-                      ))}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              </nav>
-            </>
-          )}
-
-          <div className={cn(orgGroup ? 'mt-2.5' : 'mt-1', 'border-border/50 border-t pt-2.5')}>
-            <SidebarMenu className="gap-0.5">
-              <RailNavItem
-                tourAnchor={sectionAnchor(PROJECT_SETTINGS_SECTION.key)}
-                icon={PROJECT_SETTINGS_SECTION.icon}
-                href={settingsHref}
-                active={pathname.startsWith(settingsHref)}
-                label={sectionLabel(PROJECT_SETTINGS_SECTION, t, tCollaboration)}
-                badgeCount={0}
-                tooltip={iconRail}
-                pillId={`${activePillId}-settings`}
-              />
-            </SidebarMenu>
-          </div>
-        </div>
 
         <SidebarFooter
           className={cn(
-            // The drawer runs to the bottom of the screen, where the home
+            // The rail runs to the bottom of the screen, where the home
             // indicator sits over the user menu without the inset.
-            'shrink-0 gap-0 p-0 pb-[max(14px,env(safe-area-inset-bottom))] pt-2',
-            iconRail ? 'overflow-hidden px-3.5' : 'px-3'
+            'shrink-0 gap-0 p-0 pb-[max(12px,env(safe-area-inset-bottom))] pt-4',
+            column,
+            iconRail && 'items-center overflow-hidden'
           )}
         >
-
-          <div className={cn('pb-2.5', iconRail ? 'flex justify-center' : 'px-1.5')}>
-            <ConnectionPresenceIndicator compact={iconRail} />
-          </div>
-
-          <div
-            className={cn('border-border border-t pt-3', iconRail && 'flex w-full justify-center')}
-          >
-            <SidebarUserMenu
-              user={user}
-              organizationName={organizationName}
-              authRequired={authRequired}
-              compact={iconRail}
-              canManageOrganization={canManageOrganization}
-              canViewOrganization={canViewOrganization}
-              canManagePlatform={canManagePlatform}
-            />
-          </div>
+          {/* The office at the foot, the project at the top: two owners at
+              the band's two ends, so neither reads as the other's and the
+              band is held at both. Stacked under the project's sections the
+              two heads fought and the lower 60% of the band stood empty. */}
+          {orgGroup && (
+            // 20px over the person (owner decision 2026-11-11: at 8px the doorways hung on the name).
+            <nav aria-label={orgGroup.label} className={cn('mb-5', iconRail ? 'w-9' : 'w-full')}>
+              <SidebarGroup className="p-0">
+                {/* The organisation's name as the group's label (12/16/500
+                    muted, the app's `SectionLabel` step), on the icons' edge. */}
+                {!iconRail && (
+                  <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 font-medium" title={orgGroup.label}>
+                    <span className="truncate">{orgGroup.label}</span>
+                  </div>
+                )}
+                <SidebarGroupContent>
+                  <SidebarMenu className="gap-0.5">{orgGroup.items.map(railItem)}</SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </nav>
+          )}
+          {/* The connection says something only when it is not fine: a row
+              above the person while it reconnects or is gone, nothing (to the
+              eye) while all is well. Nothing above it moves when it appears:
+              the space it takes is the band's empty middle. */}
+          <ConnectionBand appearance="rail" compact={iconRail} />
+          <SidebarUserMenu
+            user={user}
+            organizationName={organizationName}
+            authRequired={authRequired}
+            compact={iconRail}
+            // 24px, as the project's mark: both start at 20 and centre on the
+            // icons' axis in both widths, and the name lands on 51.
+            avatarSizeClass="size-6"
+            // Inside the rail's band: the menu is as wide as the row it opens
+            // from, and in the icon rail it opens beside the rail, not across
+            // its edge.
+            menuSide={iconRail ? 'right' : 'top'}
+            menuAlign="end"
+            menuSideOffset={iconRail ? 24 : 6}
+            menuMatchTrigger={!iconRail}
+            canManageOrganization={canManageOrganization}
+            canViewOrganization={canViewOrganization}
+            canManagePlatform={canManagePlatform}
+          />
         </SidebarFooter>
         {/* The primitive's own strings are English; the rail is a tab stop now,
             so the one control a keyboard user lands on has to speak the app's
@@ -464,140 +476,82 @@ function AppSidebarFrame({
   )
 }
 
-/**
- * Two-way bind the layout store (chat toolbar hamburger) to the primitive's
- * mobile Sheet. Store changes open/close the Sheet; Sheet dismissals (scrim,
- * Escape, the primitive's close) write back so the store never lies.
- */
-function MobileNavSync({ pathname }: { pathname: string }) {
-  const storeOpen = useLayoutStore((s) => s.isMobileNavOpen)
-  const setStoreOpen = useLayoutStore((s) => s.setMobileNavOpen)
-  const { openMobile, setOpenMobile } = useSidebar()
-  const prev = React.useRef<{ storeOpen: boolean; openMobile: boolean } | null>(null)
-
-  React.useEffect(() => {
-    setStoreOpen(false)
-  }, [pathname, setStoreOpen])
-
-  React.useEffect(() => {
-    const previous = prev.current
-    if (previous === null) {
-      prev.current = { storeOpen, openMobile }
-      if (storeOpen !== openMobile) setOpenMobile(storeOpen)
-      return
-    }
-    const storeChanged = storeOpen !== previous.storeOpen
-    const mobileChanged = openMobile !== previous.openMobile
-    prev.current = { storeOpen, openMobile }
-
-    if (storeChanged && storeOpen !== openMobile) {
-      setOpenMobile(storeOpen)
-    } else if (mobileChanged && openMobile !== storeOpen) {
-      setStoreOpen(openMobile)
-    }
-  }, [storeOpen, openMobile, setOpenMobile, setStoreOpen])
-
-  return null
-}
-
-function SidebarBrand({ iconRail }: { iconRail: boolean }) {
-  const t = useTranslations(navCopy)
-  const { state, toggleSidebar, isMobile } = useSidebar()
-  const collapsed = state === 'collapsed'
-
-  return (
-    <div className={cn('flex items-center', iconRail ? 'flex-col' : 'px-1.5')}>
-      <Link
-        href="/app/projects"
-        aria-label={t('allProjects')}
-        className={cn(
-          'focus-visible:ring-ring/60 rounded-md focus-visible:outline-none focus-visible:ring-2',
-          iconRail
-            ? 'flex h-7 items-center justify-center'
-            : 'text-foreground text-[19px] font-semibold tracking-[-0.015em]'
-        )}
-      >
-        {iconRail ? <Logo kind="logo-only" size="small" /> : 'Piloti'}
-      </Link>
-      {!isMobile && (
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
-          className={cn(
-            'text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/60 flex items-center justify-center rounded-lg transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2',
-            // Icon rail: exactly a nav tile (36px square), so it lands on the same
-            // column and the same grid as the items below instead of reading as a
-            // loose glyph floating in the header's dead space. It was `h-9 w-10` —
-            // a 40px width that matched nothing else in the rail.
-            iconRail ? 'mt-2 size-9' : 'ml-auto size-7'
-          )}
-        >
-          {collapsed ? (
-            <ChevronsRight className="size-4" aria-hidden />
-          ) : (
-            <ChevronsLeft className="size-4" aria-hidden />
-          )}
-        </button>
-      )}
-    </div>
-  )
-}
-
 function RailNavItem({
   icon: Icon,
   href,
   active,
+  within = false,
   label,
   badgeCount,
+  waitingCount = null,
   tooltip,
+  shortcutKey,
   pillId,
   tourAnchor,
+  door,
 }: {
   icon: ProjectSection['icon']
   href: string
   active: boolean
+  within?: boolean
   label: string
   badgeCount: number
+  /** The muted count (mail waiting in Dateien); shown only where no ink pill is. */
+  waitingCount?: number | null
   tooltip: boolean
+  /** The `g …` jump's second key: the icon rail's tooltip names it beside the label. */
+  shortcutKey?: string
   /** Shared-layout identity for the active chip — see {@link railActivePillId}. */
   pillId: string
   /** Marks the item as a product-tour stop (`data-tour`). */
   tourAnchor: string
+  door?: StartDockDoor
 }) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
         asChild
         isActive={active}
-        tooltip={tooltip ? label : undefined}
+        // The icon rail names the section and its `g …` jump; the expanded
+        // rail, whose label is in view, names the jump alone after a longer
+        // rest, so the keys are taught where most people work.
+        tooltip={tooltip || shortcutKey ? { children: <RailTooltip label={tooltip ? label : null} shortcutKey={shortcutKey} /> } : undefined}
+        tooltipWhenExpanded={!tooltip && Boolean(shortcutKey)}
         className={cn(
           // 36px under a mouse; 44px under a finger, grown rather than given a
           // catchment, because the rows sit 2px apart.
-          'h-9 gap-[11px] rounded-[10px] px-3 text-[13px] pointer-coarse:h-11',
+          // 13px, muted at the body's 440 at rest; where the reader is, ink at
+          // 500 (owner decision 2026-11-11: 14px ink at 500 and 600 for the
+          // current row read as too large and too heavy beside the page).
+          'text-muted-foreground h-9 gap-[11px] rounded-control px-3 text-[13px] font-normal hover:text-foreground pointer-coarse:h-11',
           'group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center',
-          // The active SURFACE now lives on the pill below, so every fill the
-          // primitive would otherwise paint under it is turned off explicitly —
-          // including `data-[active=true]:bg-sidebar-accent`, which the old
-          // `bg-card` used to override and which would otherwise reappear the
-          // moment that override left. Only the INK stays here: colour and
-          // weight are a tween's business, never a spring's.
+          // The active SURFACE lives on the pill below, so every fill the
+          // primitive would otherwise paint under it is turned off explicitly.
+          // Only the INK stays here: colour and weight are a tween's business,
+          // never a spring's.
           active
-            ? 'text-foreground hover:bg-transparent hover:text-foreground data-[active=true]:bg-transparent data-[active=true]:text-foreground font-medium data-[active=true]:font-medium'
-            : 'text-muted-foreground hover:bg-accent hover:text-muted-foreground'
+            ? 'text-foreground data-[active=true]:text-foreground hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent font-medium data-[active=true]:font-medium'
+            : door?.open
+              ? // The Postfach docked open beside the page: open is the picked
+                // grey, one step down the ladder from the desk; white stays
+                // where the page is.
+                'text-foreground bg-selected hover:bg-selected'
+              : // The pointer's fill is one step down from the plane it lies
+                // on (the picked grey on the desk), the press one more.
+                cn('hover:bg-selected active:bg-pressed', within && 'text-foreground font-medium')
         )}
       >
-        <Link href={href} aria-current={active ? 'page' : undefined} data-tour={tourAnchor}>
+        <Link href={href} aria-current={active ? 'page' : undefined} aria-expanded={door?.open} data-dock-door={door?.panel} data-tour={tourAnchor} onClick={door?.onClick}>
           {active && (
             <motion.span
               layoutId={pillId}
               data-slot="rail-active-pill"
               aria-hidden
-              // Monochrome BY CONSTRUCTION: this is the exact chip the active
-              // item wore before — `border-border bg-card shadow-xs` — lifted
-              // off the button and onto its own element. Nothing new is drawn
-              // and no colour is introduced; only the ownership of those three
-              // classes changed, which is what lets them travel.
+              // Where the reader is: a sheet on the desk, white with the 12%
+              // edge and the thumb's 1px shadow (`shadow-xs`), as the open tab
+              // on Dateien's track and the open mail in its list. Without the
+              // edge it was a pale patch at 1.08:1, the weakest thing on the
+              // band (design-language.md, „The app rail“).
               //
               // `absolute inset-0` resolves against the LI, not the anchor: the
               // anchor is `overflow-hidden` (it clips long labels), and an
@@ -606,7 +560,7 @@ function RailNavItem({
               // already lets the icon-rail badge sit outside the tile. The li
               // and the anchor are the same box in both rail widths, so this
               // costs no geometry.
-              className="border-border bg-card shadow-xs absolute inset-0 rounded-[10px] border"
+              className="bg-sheet absolute inset-0 rounded-control shadow-xs"
               // `springGlide`, not `springDrawer`. This chip's travel is
               // whatever the reader's last two routes happen to be — 38px
               // between neighbours, 288px from the top of the column to Inbox
@@ -627,10 +581,7 @@ function RailNavItem({
             // through to behind the rail's own background (`sidebar-container`
             // is the nearest stacking context, and a non-positioned block's
             // background paints ABOVE negative-z children inside it).
-            className={cn(
-              'relative size-4 shrink-0',
-              active ? 'text-foreground' : 'text-muted-foreground'
-            )}
+            className={cn('relative size-4 shrink-0', !active && !within && 'text-muted-foreground')}
           />
           {/* `data-slot`, because the label is no longer the only <span> inside
               this anchor — the active pill is one too. A test (or a stylesheet)
@@ -650,10 +601,34 @@ function RailNavItem({
           </span>
           <InboxBadge
             pending={badgeCount}
-            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0"
+            tone="muted"
+            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
           />
+          {badgeCount <= 0 && (
+            <InboundMailWaitingBadge
+              count={waitingCount}
+              className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
+            />
+          )}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
+  )
+}
+
+function RailTooltip({ label, shortcutKey }: { label: string | null; shortcutKey?: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      {label}
+      {shortcutKey && (
+        <ShortcutKeys
+          segments={[
+            { kind: 'chord', caps: [LEADER_KEY.toUpperCase()] },
+            { kind: 'then' },
+            { kind: 'chord', caps: [shortcutKey.toUpperCase()] },
+          ]}
+        />
+      )}
+    </span>
   )
 }

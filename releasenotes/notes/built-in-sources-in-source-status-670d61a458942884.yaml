@@ -1,0 +1,8 @@
+---
+# area: building-law
+operators:
+  - >
+    The platform's source status now lists every public source there is: the
+    built-in ones (Austria's RIS and Switzerland's Fedlex, part of the
+    product) beside the platform's records, each marked by its origin, the
+    built-in ones with their recorded checks' result.

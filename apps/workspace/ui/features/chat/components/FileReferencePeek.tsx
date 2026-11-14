@@ -84,7 +84,7 @@ export const FileReferencePeek: FC<{
           </p>
         )}
         {writtenAs && writtenAs !== file.filename && writtenAs !== name && (
-          <p className="mt-0.5 truncate text-xs text-muted-foreground/80">
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {t('fileReference.writtenAs', { name: writtenAs })}
           </p>
         )}
@@ -123,7 +123,7 @@ export const FileReferencePeek: FC<{
           it cannot read only opens. The line above has just said which of the
           two this file is, so the button agrees with it rather than restating
           it. */}
-      <button
+      <button data-attr="chat-open"
         type="button"
         onClick={onOpen}
         className={cn(PEEK_ACTION_CLASSES, 'self-start text-primary')}

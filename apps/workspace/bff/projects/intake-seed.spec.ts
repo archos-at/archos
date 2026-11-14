@@ -25,8 +25,9 @@ vi.mock('./repository', () => ({
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { GeocodeResult } from '@/lib/geocoding/types'
 import { ProjectProfileSchema } from '@/lib/project-profile/types'
+import { siteCountry } from '@/lib/project-profile/site'
 import { makeProject } from '@/test-utils/db-fixtures'
-import { intakeRowFor, intakeSeedFacts, startProjectIntake } from './intake-seed'
+import { intakeRowFor, intakeSeed, POSTAL_CODE_REASON, seedProjectSite, startProjectIntake, TYPED_ADDRESS_REASON } from './intake-seed'
 
 const NOW = new Date('2026-10-14T09:00:00Z')
 const session = { organizationId: 'org_1', userId: 'user_pl' } as AuthorizedSession
@@ -43,11 +44,12 @@ const location: GeocodeResult = {
   kind: 'address',
 }
 
-describe('intakeSeedFacts', () => {
+describe('intakeSeed', () => {
   it('turns a chosen address into address, country and Bundesland, the address with its geocoder evidence', () => {
-    const facts = intakeSeedFacts({ location }, NOW, 'u1')
+    const { facts, assumptions } = intakeSeed({ location }, NOW, 'u1')
 
     expect(Object.keys(facts).sort()).toEqual(['country', 'federal_state', 'site_address'])
+    expect(assumptions).toEqual({})
     expect(facts.site_address).toEqual({
       value: 'Innrain 1, 6020 Innsbruck',
       confidence: 'confirmed',
@@ -63,36 +65,105 @@ describe('intakeSeedFacts', () => {
   })
 
   it('leaves the Bundesland out when the provider named none we can match', () => {
-    const facts = intakeSeedFacts({ location: { ...location, federalState: null } }, NOW, 'u1')
+    const { facts } = intakeSeed({ location: { ...location, federalState: null } }, NOW, 'u1')
     expect(Object.keys(facts).sort()).toEqual(['country', 'site_address'])
   })
 
   it('takes a Bundesland chosen by hand, without evidence', () => {
-    const facts = intakeSeedFacts({ federalState: 'salzburg' }, NOW, 'u1')
+    const { facts } = intakeSeed({ federalState: 'salzburg' }, NOW, 'u1')
     expect(Object.keys(facts).sort()).toEqual(['country', 'federal_state'])
     expect(facts.federal_state?.evidence).toBeUndefined()
   })
 
-  it('keeps a typed address as the person\'s fact, and derives nothing from it', () => {
-    const facts = intakeSeedFacts({ address: '  Am Bahnhof 4, Gänserndorf ' }, NOW, 'u1')
-    expect(Object.keys(facts)).toEqual(['site_address'])
-    expect(facts.site_address).toEqual({
+  // Defect 3 (design 2.2): `outside_austria` was written as country=at.
+  it('never writes country=at for a project marked outside Austria', () => {
+    const { facts } = intakeSeed({ federalState: 'outside_austria' }, NOW, 'u1')
+    expect(facts.country).toBeUndefined()
+    expect(facts.federal_state?.value).toBe('outside_austria')
+  })
+
+  // Defect 3 (design 2.2): a typed address no register confirmed was stored as a confirmed fact.
+  it('keeps a typed address as an unconfirmed assumption with the person as evidence, and derives nothing from it without a postal code', () => {
+    const { facts, assumptions } = intakeSeed({ address: '  Am Bahnhof 4, Gänserndorf ' }, NOW, 'u1')
+    expect(facts).toEqual({})
+    expect(assumptions.site_address).toEqual({
       value: 'Am Bahnhof 4, Gänserndorf',
-      confidence: 'confirmed',
-      source: 'onboarding',
+      status: 'unconfirmed',
+      reason: TYPED_ADDRESS_REASON,
+      source: 'onboarding_default',
       updatedAt: NOW.toISOString(),
       evidence: [{ kind: 'person', userId: 'u1', at: NOW.toISOString() }],
     })
-    expect(ProjectProfileSchema.parse({ facts })).toBeTruthy()
+    expect(ProjectProfileSchema.parse({ assumptions })).toBeTruthy()
+  })
+
+  // Review of #1545, fix 6: with address search off, an Austrian office's new
+  // project must not start without its Land. The PLZ suggests it; the person confirms.
+  it('suggests the Bundesland from an Austrian postal code and place, as an unconfirmed derivation', () => {
+    const { facts, assumptions } = intakeSeed({ address: 'Herrengasse 16, 8010 Graz' }, NOW, 'u1')
+    expect(facts).toEqual({})
+    expect(assumptions.federal_state).toEqual({
+      value: 'styria',
+      status: 'unconfirmed',
+      reason: POSTAL_CODE_REASON,
+      source: 'onboarding_default',
+      updatedAt: NOW.toISOString(),
+      evidence: [
+        {
+          kind: 'derivation',
+          rule: 'postal_code',
+          citation: 'PLZ 8010 (GeoNames, CC BY 4.0)',
+          inputs: [{ key: 'site_address', value: 'Herrengasse 16, 8010 Graz', suggested: true }],
+        },
+      ],
+    })
+    expect(ProjectProfileSchema.parse({ assumptions })).toBeTruthy()
+    expect(siteCountry({ facts, assumptions })).toBe('at')
+  })
+
+  it('suggests no Land for a Swiss address with a four-digit code', () => {
+    const { assumptions } = intakeSeed({ address: 'Bahnhofstrasse 1, 8001 Zürich' }, NOW, 'u1')
+    expect(assumptions.federal_state).toBeUndefined()
+    expect(siteCountry({ facts: {}, assumptions })).toBeNull()
+  })
+
+  it('keeps a Land chosen by hand over the one the postal code suggests', () => {
+    const { facts, assumptions } = intakeSeed(
+      { address: 'Herrengasse 16, 8010 Graz', federalState: 'vienna' },
+      NOW,
+      'u1'
+    )
+    expect(facts.federal_state?.value).toBe('vienna')
+    expect(assumptions.federal_state).toBeUndefined()
+  })
+
+  it('writes a country chosen by hand, outside Austria, and no Land from an Austrian-looking postal code', () => {
+    const { facts, assumptions } = intakeSeed(
+      { address: 'Herrengasse 16, 8010 Graz', country: 'de', federalState: 'styria' },
+      NOW,
+      'u1'
+    )
+    expect(facts.country?.value).toBe('de')
+    expect(facts.federal_state?.value).toBe('outside_austria')
+    expect(assumptions.federal_state).toBeUndefined()
+    expect(siteCountry({ facts, assumptions })).toBe('de')
+  })
+
+  it('writes Austria chosen by hand and still suggests the Land from the postal code', () => {
+    const { facts, assumptions } = intakeSeed({ address: 'Hauptplatz 1, 4020 Linz', country: 'at' }, NOW, 'u1')
+    expect(facts.country?.value).toBe('at')
+    expect(facts.federal_state).toBeUndefined()
+    expect(assumptions.federal_state?.value).toBe('upper_austria')
   })
 
   it('takes the chosen hit over a typed line', () => {
-    const facts = intakeSeedFacts({ location, address: 'something else' }, NOW, 'u1')
+    const { facts, assumptions } = intakeSeed({ location, address: 'something else' }, NOW, 'u1')
     expect(facts.site_address?.value).toBe('Innrain 1, 6020 Innsbruck')
+    expect(assumptions).toEqual({})
   })
 
   it('is empty without an address or a Bundesland', () => {
-    expect(intakeSeedFacts({}, NOW, 'u1')).toEqual({})
+    expect(intakeSeed({}, NOW, 'u1')).toEqual({ facts: {}, assumptions: {} })
   })
 })
 
@@ -144,6 +215,14 @@ describe('startProjectIntake', () => {
     expect(inProjectTransaction).not.toHaveBeenCalled()
   })
 
+  it('writes a typed address with the intake row, as an assumption', async () => {
+    await startProjectIntake(session, makeProject({ id: 'p1', profile: { facts: {}, goals: {}, unknowns: [], assumptions: {} } }), { address: 'Hauptstraße 1' }, NOW)
+
+    const [, profile] = seedProjectProfile.mock.calls[0] as [unknown, { facts: Record<string, unknown>; assumptions: Record<string, { value: unknown }> }]
+    expect(profile.facts).toEqual({})
+    expect(profile.assumptions.site_address?.value).toBe('Hauptstraße 1')
+  })
+
   it('writes only the intake row when nothing is known about the place', async () => {
     await startProjectIntake(session, makeProject({ id: 'p1' }), { description: 'x' }, NOW)
 
@@ -155,5 +234,28 @@ describe('startProjectIntake', () => {
   it('lets a failed write through, so the caller rolls the project back', async () => {
     insertProjectIntake.mockRejectedValue(new Error('constraint'))
     await expect(startProjectIntake(session, makeProject({ id: 'p1' }), {}, NOW)).rejects.toThrow('constraint')
+  })
+})
+
+describe('seedProjectSite', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('writes country and Land given by hand on a project set up by the person, with no intake row', async () => {
+    const project = makeProject({ id: 'p1', organizationId: 'org_1' })
+    await seedProjectSite(session, project, { country: 'at', federalState: 'burgenland', address: 'Hauptstraße 35, 7000 Eisenstadt' }, NOW)
+
+    expect(insertProjectIntake).not.toHaveBeenCalled()
+    expect(seedProjectProfile).toHaveBeenCalledTimes(1)
+    const profile = ProjectProfileSchema.parse(seedProjectProfile.mock.calls[0]?.[1])
+    expect(profile.facts.country?.value).toBe('at')
+    expect(profile.facts.federal_state?.value).toBe('burgenland')
+    expect(seedProjectProfile.mock.calls[0]?.[2]).toBeUndefined()
+  })
+
+  it('writes nothing when no site was given', async () => {
+    await seedProjectSite(session, makeProject({ id: 'p1' }), {}, NOW)
+    expect(seedProjectProfile).not.toHaveBeenCalled()
   })
 })

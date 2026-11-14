@@ -18,7 +18,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { PageDialog, PageDialogContent } from '@/components/ui/page-dialog'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,7 @@ import { keepTrigger, restoreFocus } from './focus-return'
 import { AgentAnswerCard } from './agent-answer-card'
 import { isAgentPeer, ReviewPageLayer } from './review-page-layer'
 import { ReviewPanel, type OpenMark } from './review-panel'
+import { useReviewList } from './review-list'
 import { ReviewAnnouncer } from './review-announcer'
 import { ReviewExportMenu } from './review-export-menu'
 import type { ProtocolFilingTarget } from '../../lib/protocol-filing'
@@ -62,6 +64,7 @@ import { hasLiveMarks, openMarksLabel, openMarksShortLabel } from '../open-marks
 import { clearReviewParams, setReviewParams } from '../../lib/open-review'
 import { covers, ReviewStageContext, STAGE_FOOT, STAGE_HEAD, type StageBounds } from './review-stage'
 import { DraftCard, ThreadCard, type CardPlacement } from './thread-card'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** A tool on the palette: the review's own, or the cursor chat, which sets nothing. */
 type PaletteTool = ReviewTool | 'chat'
@@ -149,9 +152,9 @@ function ReviewTools({
             aria-label={name}
             onClick={(event) => {
               if (tool === 'chat') return onChat()
-              review.setTool(tool)
-              // `detail` is 0 for a click the keyboard made (Enter, Space).
-              if (tool !== 'select' && event.detail === 0) onAim?.()
+              // Picked again, the tool in hand is put down. `detail` is 0 for a click the keyboard made (Enter, Space).
+              review.setTool(pressed ? 'select' : tool)
+              if (!pressed && tool !== 'select' && event.detail === 0) onAim?.()
             }}
             className={cn(
               // The tool in hand is filled in ink: what the pointer will do is never a guess.
@@ -277,7 +280,7 @@ export function Presence({
       <span aria-hidden className="flex items-center -space-x-1" data-testid="review-presence">
         {piloti && (
           <span className="ring-background rounded-full ring-2">
-            <AgentGlyph size="md" working={piloti.working} label={onBehalf ?? 'Piloti'} />
+            <AgentGlyph size="md" working={piloti.working} label={onBehalf ?? PRODUCT_NAME} />
           </span>
         )}
         {others.map((person) => (
@@ -297,7 +300,7 @@ export function Presence({
         <Tooltip>
           <TooltipTrigger asChild>
             <span data-testid="review-presence-agent" className="ring-background rounded-full ring-2">
-              <AgentGlyph size="md" working={piloti.working} label={onBehalf ?? 'Piloti'} />
+              <AgentGlyph size="md" working={piloti.working} label={onBehalf ?? PRODUCT_NAME} />
             </span>
           </TooltipTrigger>
           <TooltipContent>
@@ -317,7 +320,7 @@ export function Presence({
         return (
           <Tooltip key={person.userId}>
             <TooltipTrigger asChild>
-              <button
+              <button data-attr="review-peer"
                 type="button"
                 data-testid="review-peer"
                 aria-pressed={on}
@@ -455,14 +458,14 @@ function Elsewhere({
       data-over-card={overCard || undefined}
     >
       {here.map(({ state, at }) => (
-        <button
+        <button data-attr="review-elsewhere"
           key={state.peer.userId}
           type="button"
           data-testid="review-elsewhere"
           aria-label={t('review.elsewhereJump', { name: state.peer.name, page: at })}
           title={t('review.elsewhereJump', { name: state.peer.name, page: at })}
           onClick={() => onJump(state)}
-          className="pointer-events-auto inline-flex items-center gap-1 rounded-full py-0.5 pr-2 pl-1.5 text-[11px] leading-4 font-medium text-white shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="pointer-events-auto inline-flex items-center gap-1 rounded-full py-0.5 pr-2 pl-1.5 text-[11px] leading-4 font-medium text-background shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           style={{ backgroundColor: identityInk(state.peer.userId) }}
         >
           <Arrow className="size-3" aria-hidden />
@@ -492,7 +495,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
     const button = (
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         className="h-8 gap-1.5"
         data-testid="review-with-agent"
@@ -509,7 +512,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-flex rounded-md" data-testid="review-with-agent-busy">
+          <span tabIndex={0} className="inline-flex rounded-control" data-testid="review-with-agent-busy">
             {button}
           </span>
         </TooltipTrigger>
@@ -532,7 +535,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
     <div
       role="status"
       data-testid="review-agent-status"
-      className="border-border/70 bg-muted/40 flex h-8 max-w-[30rem] items-center gap-2 rounded-full border pr-1 pl-1"
+      className="border-border/70 bg-muted flex h-8 max-w-[30rem] items-center gap-2 rounded-full border pr-1 pl-1"
     >
       <AgentGlyph working={working} />
       {working ? (
@@ -601,9 +604,9 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
  * through it with its own pointer, and its findings arrive as proposals that
  * count only once a person takes one over.
  *
- * Everything else of the workspace is gone while it is open (a full-screen
- * `Dialog`, the overlay the design language gives an artifact looked at with
- * full attention). Escape steps back one thing at a time: the draft, the tool,
+ * The rest of the page is gone while it is open (a full-page `PageDialog`; a
+ * panel docked beside the page, the Postfach, stays usable: ADR-0148).
+ * Escape steps back one thing at a time: the draft, the tool,
  * the open thread, and only then the review itself.
  */
 export function DocumentReviewMode({
@@ -687,10 +690,10 @@ export function DocumentReviewMode({
     setFocus({ page, y, key: `jump:${state.peer.peerId}:${Date.now()}` })
   }, [])
   const openAsk = piloti.asks.find((ask) => ask.id === piloti.openId) ?? null
-  // From `lg` the list is a column beside the sheet; below it, a sheet from the
-  // bottom edge behind a header button (a phone on its side is 852px, under `lg`).
-  const listBeside = useMediaQuery('(min-width: 1024px)')
-  const [listOpen, setListOpen] = useState(false)
+  // From `lg` the list is a column beside the sheet, folded while it is empty; below it, a sheet
+  // from the bottom edge (a phone on its side is 852px, under `lg`). One header button for both.
+  const list = useReviewList(review)
+  const { beside: listBeside, sheetOpen: listOpen, setSheetOpen: setListOpen } = list
   // On a phone a card beside its mark runs off the screen: it comes up from the bottom edge instead.
   const docked = useMediaQuery(DOCKED_CARDS)
 
@@ -1067,14 +1070,14 @@ export function DocumentReviewMode({
   const checkFixed = useCheckFixed(review, { documentName, revisionLabel: revisionLabel ?? null })
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
-      <DialogContent
+    <PageDialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+      <PageDialogContent
         showCloseButton={false}
         onEscapeKeyDown={stepBack}
         // The sheet is what has focus to begin with, not the close button: a
         // ring on the X is the first thing an opened review would say.
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className="bg-background inset-0 top-0 left-0 flex h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none"
+        className="bg-background inset-0 top-[var(--page-inset-top,0px)] left-[var(--page-inset-start,0px)] flex h-[calc(100dvh-var(--page-inset-top,0px))] max-h-none w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none"
         data-testid="document-review"
       >
         <header className="flex min-h-13 shrink-0 items-center gap-3 border-b px-3 pt-[env(safe-area-inset-top)] pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] max-sm:flex-wrap max-sm:gap-x-2 max-sm:gap-y-0">
@@ -1095,7 +1098,7 @@ export function DocumentReviewMode({
               says which Fassung is under review. The line under it wraps there
               rather than lose the count. */}
           <div className="min-w-0 flex-1 max-sm:order-last max-sm:basis-full max-sm:pb-2">
-            <DialogTitle className="text-foreground flex text-sm font-semibold">
+            <DialogTitle className="text-foreground flex text-sm font-medium">
               <MiddleTruncate text={documentName} tail={12} />
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs sm:truncate">
@@ -1155,26 +1158,24 @@ export function DocumentReviewMode({
                 </Button>
               </span>
             )}
-            {!listBeside && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 pointer-coarse:h-11"
-                aria-haspopup="dialog"
-                aria-expanded={listOpen}
-                // „Anmerkungen: 3 offene Anmerkungen und 12 Vorschläge von Piloti“: the chip's sentence.
-                aria-label={t('review.listOpen', {
-                  marks: hasLiveMarks(review.counts) ? openMarksLabel(t, locale, review.counts) : t('review.nothingOpen'),
-                })}
-                data-testid="review-list-open"
-                onClick={() => setListOpen(true)}
-              >
-                <MessagesSquare className="size-3.5" aria-hidden />
-                {/* The open marks, as „offen“ counts them everywhere: Piloti's proposals are not the office's yet. */}
-                <span className="font-mono tabular-nums">{review.counts.open}</span>
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-8 gap-1.5 pointer-coarse:h-11"
+              aria-haspopup={listBeside ? undefined : 'dialog'}
+              aria-expanded={list.expanded}
+              // „Anmerkungen: 3 offene Anmerkungen und 12 Vorschläge von Piloti“: the chip's sentence.
+              aria-label={t('review.listOpen', {
+                marks: hasLiveMarks(review.counts) ? openMarksLabel(t, locale, review.counts) : t('review.nothingOpen'),
+              })}
+              data-testid="review-list-open"
+              onClick={list.toggle}
+            >
+              <MessagesSquare className="size-3.5" aria-hidden />
+              {/* The open marks, as „offen“ counts them everywhere: Piloti's proposals are not the office's yet. */}
+              <span className="font-mono tabular-nums">{review.counts.open}</span>
+            </Button>
             {listBeside && exportMenu}
             {piloti.available && review.canAnnotate && <AgentReview review={review} onWalk={walkProposals} />}
           </div>
@@ -1197,7 +1198,7 @@ export function DocumentReviewMode({
               <div className="pointer-events-none absolute inset-x-3 top-3 z-30 flex flex-col items-center gap-1.5">
                 {followedState && (
                   <span
-                    className="rounded-full px-3 py-1 text-xs font-medium text-white shadow-md"
+                    className="rounded-full px-3 py-1 text-xs font-medium text-background shadow-md"
                     style={{ backgroundColor: identityInk(followedState.userId) }}
                     role="status"
                   >
@@ -1272,7 +1273,9 @@ export function DocumentReviewMode({
               />
               <ReviewToaster foot={foot} />
             </div>
-            <ReviewPanel review={review} onOpen={openFromList} onWalkProposals={walkProposals} onCheckFixed={checkFixed} />
+            <div hidden={!list.columnOpen} className="flex shrink-0" data-testid="review-list-column">
+              <ReviewPanel review={review} onOpen={openFromList} onWalkProposals={walkProposals} onCheckFixed={checkFixed} />
+            </div>
           </div>
         </ReviewStageContext.Provider>
         {docked && (
@@ -1328,7 +1331,7 @@ export function DocumentReviewMode({
           </Sheet>
         )}
         <ReviewAnnouncer review={review} />
-      </DialogContent>
-    </Dialog>
+      </PageDialogContent>
+    </PageDialog>
   )
 }

@@ -1,29 +1,30 @@
 'use client'
 
-import type { JSX } from 'react'
+import { cn } from '@/lib/utils'
 import { Fragment, memo, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 import type { FileItem, FolderItem } from '../file-types'
-import type { CardExtras } from '../lib/file-shelf'
 import { CheckSquare, Search, SearchX, FilterX, FolderOpen, Sparkles } from 'lucide-react'
 import { RisoPrint } from '@/components/brand/riso-print'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { ItemList } from '@/components/ui/item'
 import { SectionLabel } from '@/components/ui/section-label'
-import { Skeleton } from '@/components/ui/skeleton'
+import { ProjectSectionPlace, useSectionPlaceSlot, useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
+import { navCopy } from '@/i18n/namespaces/nav'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { documentDisplayName } from '@/lib/documents/display-name'
+import { tagLabel } from '@/lib/documents/tag-vocabulary'
+import { fileMatchesQuery } from '../lib/file-query-match'
 import type { FileSearch } from '../hooks/use-file-search'
 import { useCoarsePointer } from '../hooks/use-coarse-pointer'
 import { useLevelDirection } from '../hooks/use-level-direction'
-import { motion, motionEntrance } from '@/components/motion'
+import { motion } from '@/components/motion'
 import { ActionMenu } from '@/components/ui/action-menu'
 import { useMoveInSheet } from './document-actions'
 import { FileCard, type FileCardProps } from './file-card'
 import { FilingViewBar } from './filing-bar'
 import { FileGrid, FileCardSkeleton } from './file-grid'
 import { FileListSkeleton, FileListView } from './file-list-view'
+import { FolderRow } from './folder-table-row'
 import { FolderActionsTrigger, FolderObjectMenu } from './folder-object-menu'
 import { FolderDescriptionLine } from './folder-description-dialog'
 import { listingActionEntries } from './listing-action-entries'
@@ -34,16 +35,12 @@ import { LoadMore } from '@/components/ui/load-more'
 import { withoutOlderRevisions } from '../lib/revision-chain'
 import {
   FolderBreadcrumbRow,
-  FolderBreadcrumbRowSkeleton,
   FolderCard,
-  FolderCardSkeleton,
-  FolderRow,
-  FolderRowSkeleton,
-  FOLDER_ROWS_ON_PHONE,
   type DropFilesInFolder,
 } from './folder-navigation'
 import type { FileDropAim } from '../hooks/use-document-drag'
 import { AssignmentFaces } from './assignment-faces'
+import { CONTENT_MAX, FileBrowserSkeleton, levelTransition } from './file-browser-skeleton'
 
 /** Finder-style drill-down wiring — see `folder-navigation.tsx`. */
 export interface FolderNavigation {
@@ -135,8 +132,6 @@ interface FileBrowserPaneProps {
   onFileAim?: (aim: FileDropAim | null) => void
   /** Upload control rendered inside the first-run empty state. */
   uploadControl?: ReactNode
-  /** Dashed upload card rendered as the last tile of the grid (project corpus). */
-  uploadCard?: ReactNode
   /**
    * Folder drill-down: breadcrumb path on top, folder cards/rows beside the
    * files, create/rename/delete in place. Omitted by callers that have no
@@ -169,11 +164,6 @@ interface FileBrowserPaneProps {
    */
   view?: 'cards' | 'list'
   showAssignment?: boolean
-  /**
-   * A shelf's own mark on a card: the Büroablage's gold kind chip and the line
-   * saying where it came from. Cards only — a row has no room for either.
-   */
-  cardExtras?: (file: FileItem) => CardExtras
   /** Per-file rename / delete / download — shown on the card and the list row. */
   renderActions?: (file: FileItem) => ReactNode
   /** Wrap a file card (right-click host). */
@@ -226,6 +216,8 @@ interface FileBrowserPaneProps {
    * stay as they are: a result set is read, not filed.
    */
   selection?: FileBrowserSelection
+  /** A phone: the root's „Auswählen“ and „Ordner anlegen“ are in the header's ⋯, so the root has no path row. */
+  rootToolsInMenu?: boolean
 }
 
 export interface FileBrowserSelection {
@@ -243,10 +235,11 @@ interface FileTileProps {
   locale: string
   match?: FileCardProps['match']
   showAssignment: boolean
-  cardExtras?: (file: FileItem) => CardExtras
   renderActions?: (file: FileItem) => ReactNode
   wrapFile?: (file: FileItem, node: ReactNode) => ReactNode
   draggable: boolean
+  /** Where it lies, first on its meta line: a search's results span every folder. */
+  where?: string
   /** Selection mode: the card is a toggle, `checked` says whether it is picked. */
   selecting: boolean
   checked: boolean
@@ -268,13 +261,13 @@ const FileTile = memo(function FileTile({
   locale,
   match,
   showAssignment,
-  cardExtras,
   renderActions,
   wrapFile,
   draggable,
   selecting,
   checked,
   onToggle,
+  where,
 }: FileTileProps): ReactNode {
   const onSelect = useCallback(
     () => (selecting ? onToggle(file.id) : onSelectFile(file.id)),
@@ -288,21 +281,14 @@ const FileTile = memo(function FileTile({
       locale={locale}
       match={match}
       footerLead={showAssignment ? <AssignmentFaces assignees={file.assignees} /> : undefined}
-      {...cardExtras?.(file)}
       actions={renderActions?.(file)}
       draggable={draggable}
       selection={selecting ? { checked } : undefined}
+      where={where}
     />
   )
   return wrapFile ? wrapFile(file, card) : card
 })
-
-/** The names a document's older Fassungen are stored under: what a search for them should find the document by. */
-function olderRevisionNames(file: FileItem): string[] {
-  const facts = file.revision
-  if (!facts) return []
-  return (facts.history ?? facts.supersedes).map((ref) => ref.filename)
-}
 
 export function FileBrowserPane({
   files,
@@ -310,7 +296,6 @@ export function FileBrowserPane({
   onSelectFile,
   isLoading,
   uploadControl,
-  uploadCard,
   folderNav,
   searchFiles,
   showOlderRevisions = false,
@@ -323,7 +308,6 @@ export function FileBrowserPane({
   onDropFilesInFolder,
   onFileAim,
   renderActions,
-  cardExtras,
   wrapFile,
   wrapFileRow,
   onViewChange,
@@ -338,10 +322,20 @@ export function FileBrowserPane({
   shelfEmpty,
   searchMatchesNamesOnly = false,
   selection,
+  rootToolsInMenu = false,
 }: FileBrowserPaneProps) {
   const t = useTranslations(filesCopy)
+  const nav = useTranslations(navCopy)
   const { locale } = useLocale()
   const { semantic } = search
+  const { clear: clearSearch } = search
+  const searchUp = useMemo(() => ({ label: t('browser.clearSearch'), onSelect: clearSearch }), [t, clearSearch])
+  // Whether the path row went elsewhere (its tools to the tabs row or a phone's ⋯; inside a folder its path to the
+  // header's title and crumb): the brief then rises to the tabs.
+  const tabSlot = useSectionTabActionsSlot()
+  const placeSlot = useSectionPlaceSlot()
+  const toolsGone = tabSlot || rootToolsInMenu
+  const rootRowGone = toolsGone && ((folderNav?.currentFolderId ?? null) === null || placeSlot)
   // The field answers every keystroke; the filter over the whole corpus, and
   // everything drawn from it, follows a beat behind and is dropped for a newer
   // keystroke. Typing stays immediate at five thousand documents.
@@ -360,21 +354,9 @@ export function FileBrowserPane({
   const filteredFiles = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return orderedFiles
-    // Both names, deliberately: somebody who renamed a document looks for what
-    // they called it, and somebody who uploaded it looks for the file they sent.
-    // The older Fassungen's names count too: a document is found by any name it
-    // has been stored under, and its current entry is the one that answers.
-    const matches = (searchFiles ?? files).filter(
-      (f) =>
-        documentDisplayName(f).toLowerCase().includes(q) ||
-        f.filename.toLowerCase().includes(q) ||
-        (f.summary ?? '').toLowerCase().includes(q) ||
-        (f.tags ?? []).some((tag) => tag.toLowerCase().includes(q)) ||
-        (f.topics ?? []).some((topic) => topic.toLowerCase().includes(q)) ||
-        olderRevisionNames(f).some((name) => name.toLowerCase().includes(q))
-    )
+    const matches = (searchFiles ?? files).filter((f) => fileMatchesQuery(f, q, (tag) => tagLabel(tag, t)))
     return sortFiles(withoutOlderRevisions(matches, showOlderRevisions), sort, locale)
-  }, [orderedFiles, files, searchFiles, query, sort, locale, showOlderRevisions])
+  }, [orderedFiles, files, searchFiles, query, sort, locale, showOlderRevisions, t])
 
   const currentFolderId = folderNav?.currentFolderId ?? null
   // A level the reader may only read offers no upload and no new folder
@@ -439,7 +421,7 @@ export function FileBrowserPane({
   const toggleSelected = selection?.onToggle ?? noToggle
   const moveInSheet = useMoveInSheet()
 
-  const fileCard = (file: FileItem, extra: { match?: FileCardProps['match'] } = {}) => (
+  const fileCard = (file: FileItem, extra: { match?: FileCardProps['match']; where?: string } = {}) => (
     <FileTile
       file={file}
       isSelected={selectedFileId === file.id}
@@ -447,15 +429,17 @@ export function FileBrowserPane({
       locale={locale}
       match={extra.match}
       showAssignment={showAssignment}
-      cardExtras={cardExtras}
       renderActions={renderActions}
       wrapFile={wrapFile}
       draggable={liftable}
       selecting={picking && !extra.match}
       checked={selection?.selectedIds.has(file.id) === true}
       onToggle={toggleSelected}
+      where={extra.where}
     />
   )
+  const folderNameOf = (folderId: string | null | undefined): string =>
+    (folderId && folderNav?.folders.find((folder) => folder.id === folderId)?.name) || nav('sections.files')
 
   const folderTile = (folder: FolderItem, asRow: boolean) => {
     const props = {
@@ -502,6 +486,7 @@ export function FileBrowserPane({
         onDelete={() => void folderNav.onDeleteFolder(folder.id)}
         readOnly={folder.access === 'read'}
         moveInSheet={moveInSheet}
+        asChild={asRow}
       >
         {tile}
       </FolderObjectMenu>
@@ -622,7 +607,7 @@ export function FileBrowserPane({
 
   if (isLoading) {
     return (
-      <FileBrowserSkeleton view={view} withFolders={folderNav !== undefined} uploadCard={uploadCard} />
+      <FileBrowserSkeleton view={view} withFolders={folderNav !== undefined} />
     )
   }
 
@@ -642,7 +627,7 @@ export function FileBrowserPane({
           title={filterEmptyNotice.title}
           description={filterEmptyNotice.description}
           action={
-            <Button variant="outline" size="sm" onClick={filterEmptyNotice.onClear}>
+            <Button variant="secondary" size="sm" onClick={filterEmptyNotice.onClear}>
               {t('browser.clearFilters')}
             </Button>
           }
@@ -658,7 +643,7 @@ export function FileBrowserPane({
   if (corpusEmpty && (folderNav?.folders ?? []).length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <EmptyState
+        <EmptyState variant="bare"
           art={<RisoPrint id="vignetten/planschrank/empty" />}
           title={t('browser.noDocumentsTitle')}
           description={t('browser.noDocumentsDescription')}
@@ -672,6 +657,7 @@ export function FileBrowserPane({
   const currentFolder =
     folderNav && currentFolderId ? (folderNav.folders.find((folder) => folder.id === currentFolderId) ?? null) : null
   const levelEmpty = files.length === 0 && childFolders.length === 0 && !paging?.hasMore
+  const bothKinds = Boolean(folderNav) && childFolders.length > 0 && orderedFiles.length > 0
 
   // The end of a paged level or search: the next page when the reader gets there.
   const pagingFooter = paging ? (
@@ -687,11 +673,11 @@ export function FileBrowserPane({
   ) : null
 
   return (
-    // `phone:h-auto phone:min-h-full`: the breadcrumb row pins to the top of the
-    // scroll container on a phone, and a sticky box only sticks inside its
-    // parent. At `h-full` the parent is exactly one screen tall and the row
-    // would let go after one screenful.
-    <div className="flex h-full flex-col phone:h-auto phone:min-h-full">
+    // `min-h-full`, not `h-full`: the breadcrumb row pins to the top of the
+    // scroll container, and a sticky box only sticks inside its parent. At
+    // `h-full` the parent is exactly one screen tall and the row would let go
+    // after one screenful.
+    <div className="flex min-h-full flex-col">
       {/* No banner over the results. It restated in a tinted strip what the
           listing below it already shows — how many hits, for which query —
           and it moved the whole listing down a row the moment a search ran.
@@ -704,12 +690,15 @@ export function FileBrowserPane({
           click back out, and "New folder" for the level they are in. Hidden
           while a query is active in either mode (the query is the context and
           its results span the corpus). */}
-      {folderNav && !semantic.active && !searching && (
+      {folderNav && !semantic.active && (
         <FolderBreadcrumbRow
+          searching={searching}
+          itemCount={currentFolderId === null ? undefined : folderItemCount(currentFolderId)}
+          emptyLevel={levelEmpty && !searching && !slice}
           folders={folderNav.folders}
           currentFolderId={folderNav.currentFolderId}
           onNavigate={folderNav.onNavigate}
-          onCreateFolder={folderNav.readOnly ? undefined : folderNav.onCreateFolder}
+          onCreateFolder={folderNav.readOnly || picking ? undefined : folderNav.onCreateFolder}
           onDropDocument={onDropDocumentInFolder}
           onDropFolder={onDropFolderInFolder}
           canAcceptFolder={canAcceptFolder}
@@ -717,28 +706,45 @@ export function FileBrowserPane({
           onFileAim={onFileAim}
           mayWriteAt={(folderId) => mayWriteAt(folderNav, folderId)}
           readOnly={!writableHere}
+          rootToolsElsewhere={rootToolsInMenu}
         >
-          {selection?.onStart && !picking && orderedFiles.length > 0 && writableHere && (
+          {/* Wherever the reader may file, at a level of folders only too (disabled, nothing to pick): a press that came
+              and went moved „Ordner anlegen“ under the pointer (finding 19). */}
+          {selection?.onStart && !picking && writableHere && (
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               className="gap-1.5"
               onClick={selection.onStart}
+              disabled={orderedFiles.length === 0}
+              title={orderedFiles.length === 0 ? t('selection.nothingToPick') : t('selection.start')}
               data-testid="selection-start"
             >
               <CheckSquare className="size-4" aria-hidden />
-              <span className="phone:sr-only">{t('selection.start')}</span>
+              <span className={cn(folderNav.currentFolderId !== null && 'phone:sr-only')}>{t('selection.start')}</span>
             </Button>
           )}
         </FolderBreadcrumbRow>
       )}
 
+      {/* While the field filters, the query is where the reader is: the title says it and how much it found, the crumb
+          that it searches the whole of Dateien, and the phone's ← clears it (finding 13). */}
+      {searching && placeSlot && (
+        <ProjectSectionPlace
+          title={t('browser.searchTitle', { query: query.trim() })}
+          trail={<span className="shrink-0">{nav('sections.files')}</span>}
+          up={searchUp}
+          count={paging?.hasMore ? undefined : t('browser.searchCount', { count: filteredFiles.length })}
+        />
+      )}
       {/* What Piloti knows about the level's whole subtree. Hidden while a
           query runs for the same reason the breadcrumb is: the query is the
           context then, and its results span the corpus. */}
-      {currentFolder && !semantic.active && !searching && (
-        <div className={`${CONTENT_MAX} px-4 pt-3`}>
+      {/* The folder's description, where it has one, as the first line under the tabs; „Beschreiben …“ is in the
+          folder's ⋯ one level up. An empty line with its ghost press alone at the column's end was a row of nothing. */}
+      {currentFolder?.description && !semantic.active && !searching && (
+        <div className={cn(CONTENT_MAX, 'px-4', rootRowGone ? 'pt-0' : 'pt-3')}>
           <FolderDescriptionLine
             folder={currentFolder}
             canEdit={Boolean(folderNav?.onDescribeFolder) && writableHere}
@@ -746,7 +752,10 @@ export function FileBrowserPane({
           />
         </div>
       )}
-      {brief && !semantic.active && !searching && <div className={`${CONTENT_MAX} px-4 pt-4 phone:pt-2`}>{brief}</div>}
+      {/* Under the tabs where the root's row went (tabs, ⋯). While picking the bar owns the action: no „Ordner anlegen“. */}
+      {brief && !semantic.active && !searching && (
+        <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone && !currentFolder?.description ? 'pt-2' /* its line 24px under the header's rule */ : 'pt-4')}>{brief}</div>
+      )}
       {/* Piloti's filing suggestions for the documents of this level, one line
           per target folder, when one folder would collect two or more: the
           decision that moves several files, made where they are all in view. */}
@@ -780,13 +789,7 @@ export function FileBrowserPane({
             </div>
           )
         ) : semantic.error ? (
-          // A SEARCH THAT NEVER RAN IS NOT A SEARCH THAT FOUND NOTHING.
-          // The hook fails open to an empty result set so this pane cannot
-          // crash, and it reports which of the two happened — but nothing read
-          // that flag, so a backend timeout rendered as "Keine semantischen
-          // Treffer für 'Brandschutz'". The surface told the reader their own
-          // corpus does not contain what they were looking for, and offered
-          // them a reset for it.
+          // A SEARCH THAT NEVER RAN IS NOT ONE THAT FOUND NOTHING: a timeout read as „keine Treffer“ misinformed.
           <div className="p-8">
             <EmptyState
               variant="bare"
@@ -801,7 +804,7 @@ export function FileBrowserPane({
                   <Button size="sm" onClick={search.run}>
                     {t('browser.semantic.retry')}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={search.clear}>
+                  <Button variant="secondary" size="sm" onClick={search.clear}>
                     {t('browser.semantic.reset')}
                   </Button>
                 </div>
@@ -816,7 +819,7 @@ export function FileBrowserPane({
               title={t('browser.semantic.noResults', { query: semantic.query ?? '' })}
               description={t('browser.semantic.noResultsDescription')}
               action={
-                <Button variant="outline" size="sm" onClick={search.clear}>
+                <Button variant="secondary" size="sm" onClick={search.clear}>
                   {t('browser.semantic.reset')}
                 </Button>
               }
@@ -833,6 +836,7 @@ export function FileBrowserPane({
             <FileListView
               key={semantic.query ?? ''}
               semantic
+              query={semantic.query}
               files={semantic.hits}
               selectedFileId={selectedFileId}
               onSelectFile={onSelectFile}
@@ -845,7 +849,7 @@ export function FileBrowserPane({
             <FileGrid>
               {semantic.hits.map((hit) => (
                 <Fragment key={hit.id}>
-                  {fileCard(hit, { match: { snippet: hit.snippet, page: hit.page } })}
+                  {fileCard(hit, { match: { snippet: hit.snippet, page: hit.page, query: semantic.query } })}
                 </Fragment>
               ))}
             </FileGrid>
@@ -862,7 +866,7 @@ export function FileBrowserPane({
               title={t('browser.noMatch', { query })}
               description={t(searchMatchesNamesOnly ? 'browser.noMatchNamesDescription' : 'browser.noMatchDescription')}
               action={
-                <Button variant="outline" size="sm" onClick={search.clear}>
+                <Button variant="secondary" size="sm" onClick={search.clear}>
                   {t('browser.clearSearch')}
                 </Button>
               }
@@ -886,7 +890,7 @@ export function FileBrowserPane({
           <div className={`${CONTENT_MAX} p-4`}>
             <FileGrid>
               {filteredFiles.map((file) => (
-                <Fragment key={file.id}>{fileCard(file)}</Fragment>
+                <Fragment key={file.id}>{fileCard(file, { where: folderNav ? folderNameOf(file.folderId) : undefined })}</Fragment>
               ))}
             </FileGrid>
             {pagingFooter}
@@ -898,7 +902,7 @@ export function FileBrowserPane({
         <div className={CONTENT_MAX} data-testid="folder-brief-slice">
           <div className="flex items-center gap-2 px-4 pt-4">
             <p className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{slice.label}</p>
-            <Button type="button" variant="outline" size="sm" onClick={slice.onClear} data-testid="folder-brief-slice-clear">
+            <Button type="button" variant="secondary" size="sm" onClick={slice.onClear} data-testid="folder-brief-slice-clear">
               {t('brief.sliceClear')}
             </Button>
           </div>
@@ -945,12 +949,16 @@ export function FileBrowserPane({
         <motion.div
           key={`empty-${currentFolderId ?? 'root'}`}
           {...levelTransition(navDirection, 16)}
-          className="flex flex-1 items-center justify-center p-8"
+          // On the column's left edge with the press under it (paper on a desk, „an empty state's object“), not centred
+          // in the pane at an edge of its own.
+          className={cn(CONTENT_MAX, 'px-4 pt-6')}
         >
-          <EmptyState
+          {/* `data-empty-level`: its Hochladen is the pane's one ink press, so the phone's floating one steps out
+              (`UploadFab`) and the tool row's steps back (`useSectionPrimaryYields`). A finger cannot drop on a page. */}
+          <EmptyState variant="bare" className="items-start py-0 text-left" data-empty-level=""
             icon={FolderOpen}
             title={t('browser.folderEmptyTitle')}
-            description={t('browser.folderEmptyDescription')}
+            description={t(touch ? 'browser.folderEmptyDescriptionTouch' : 'browser.folderEmptyDescription')}
             action={writableHere ? uploadControl : undefined}
           />
         </motion.div>
@@ -960,19 +968,10 @@ export function FileBrowserPane({
           {...levelTransition(navDirection, 16)}
           className={CONTENT_MAX}
         >
-            {folderNav && childFolders.length > 0 && (
-              // The folders are one connected run, not a stack of pills: the
-              // `ItemList` rounds the outer corners and draws the hairlines.
-              <div className="px-2 py-2" role="group" aria-label={t('folders.heading')}>
-                <ItemList className="bg-muted/40">
-                  {childFolders.map((folder) => (
-                    <Fragment key={folder.id}>{folderTile(folder, true)}</Fragment>
-                  ))}
-                </ItemList>
-              </div>
-            )}
-            {orderedFiles.length > 0 && (
+            {(orderedFiles.length > 0 || (folderNav && childFolders.length > 0)) && (
               <FileListView
+                // The folders are the table's first rows, under its one head and in its columns.
+                folderRows={folderNav && childFolders.length > 0 ? childFolders.map((folder) => <Fragment key={folder.id}>{folderTile(folder, true)}</Fragment>) : undefined}
                 files={orderedFiles}
                 selectedFileId={selectedFileId}
                 onSelectFile={onSelectFile}
@@ -990,56 +989,43 @@ export function FileBrowserPane({
         <motion.div
           key={`grid-${currentFolderId ?? 'root'}`}
           {...levelTransition(navDirection, 20)}
-          className={`${CONTENT_MAX} p-4`}
+          // 32px from the brief's read line to the first label, so the line reads as the level's and not as the
+          // folders' caption (finding 11); 24px under the tool row where there is no brief.
+          className={`${CONTENT_MAX} px-4 pb-4 pt-6`}
         >
-            {/* Section label — "Recently uploaded" at the corpus root, matching
-                the click-dummy. Hidden inside a folder (the breadcrumb already
-                names it) and while searching (the query is the context). */}
-
-            {/*
-              ONE ENTRANCE FOR THE LEVEL, NOT ONE PER TILE.
-
-              Every cell used to be wrapped in its own `motion.div` rising 10px
-              on a per-index delay. Two things were wrong with that, and the
-              second is the serious one.
-
-              It compounded: the level was already sliding in sideways, so a
-              navigation played N+1 animations at once, each tile drifting up
-              through a container drifting across. And the delay was unbounded
-              until it was capped, which put the last tile of a full Einreichung
-              ten seconds out.
-
-              The serious one is that motion writes `initial` into the SERVER's
-              HTML. The listing is rendered on the server now, so every card
-              shipped with `opacity: 0` and stayed invisible until the bundle
-              booted and hydration released it — the exact wait the server
-              render exists to remove, reintroduced as a blank grid over data
-              that was already in the document.
-
-              The level's own transition carries the whole grid, which is one
-              animation, is what a Finder-style drill actually looks like, and
-              renders at full opacity when nothing has navigated.
-            */}
-            <FileGrid className={FOLDER_ROWS_ON_PHONE}>
-              {folderNav &&
-                childFolders.map((folder) => (
-                  <Fragment key={folder.id}>{folderTile(folder, false)}</Fragment>
-                ))}
-              {/* The label heads the FILES: it sat above the folder tiles and
-                  promised recent uploads over a block of folders. A grid child
-                  spanning the row, so it falls between the two. */}
-              {currentFolderId === null && orderedFiles.length > 0 && (
-                <SectionLabel as="p" className="col-span-full mt-1 font-semibold tracking-[0.05em] first:mt-0">
-                  {t('browser.recentlyUploaded')}
-                </SectionLabel>
-              )}
-              {orderedFiles.map((file) => (
-                <Fragment key={file.id}>{fileCard(file)}</Fragment>
-              ))}
-              {/* A drop zone is a mouse affordance: there is no dragging a file
-                  onto a phone, and the Hochladen button is under the thumb. */}
-              {writableHere && !picking && uploadCard && <div className="contents pointer-coarse:hidden">{uploadCard}</div>}
-            </FileGrid>
+            {/* ONE ENTRANCE FOR THE LEVEL, NOT ONE PER TILE. A `motion.div` per cell compounded with the level's own
+                slide, and motion writes `initial` into the server's HTML, so every card shipped at `opacity: 0`
+                until hydration. The level's transition carries the grid: one animation, a Finder-style drill. */}
+            {/* One grammar at every level: folders first, then files, each labelled when both are there (32px apart, 12px
+                over their tiles); a subfolder mixed them and stretched „Index C“ to a thumbnail's height (finding 9). */}
+            {folderNav && childFolders.length > 0 && (
+              <section aria-label={t('folders.heading')} data-testid="folder-tiles">
+                {bothKinds && (
+                  <SectionLabel as="p" className="mb-1.5 px-0" /* 12px to the sheets, past the tiles' 6px inset */ data-testid="folders-label">
+                    {t('folders.heading')}
+                  </SectionLabel>
+                )}
+                <FileGrid className="md:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]" /* a name of one line: 196px cut half */>
+                  {childFolders.map((folder) => (
+                    <Fragment key={folder.id}>{folderTile(folder, false)}</Fragment>
+                  ))}
+                </FileGrid>
+              </section>
+            )}
+            {orderedFiles.length > 0 && (
+              <section aria-label={t('browser.recentlyUploaded')} className={cn(bothKinds && 'mt-8')}>
+                {bothKinds && (
+                  <SectionLabel as="p" className="mb-1.5 px-0">
+                    {t('browser.recentlyUploaded')}
+                  </SectionLabel>
+                )}
+                <FileGrid>
+                  {orderedFiles.map((file) => (
+                    <Fragment key={file.id}>{fileCard(file)}</Fragment>
+                  ))}
+                </FileGrid>
+              </section>
+            )}
             {pagingFooter}
         </motion.div>
       )}
@@ -1059,117 +1045,5 @@ export function FileBrowserPane({
 
 
 
-/**
- * ENTERING A FOLDER IS AN ARRIVAL, NOT A HANDOVER.
- *
- * This was an `AnimatePresence mode="wait"`, and `wait` means exactly what it
- * says: the level you are leaving plays its exit to completion, and only then
- * does the level you asked for begin to appear. Two 180ms tweens end to end,
- * with a frame in the middle where the pane holds nothing and collapses to the
- * height of its own padding — on the gesture this page is built around, and one
- * a person repeats a dozen times walking a tree.
- *
- * Nothing needed the outgoing level to be watched on its way out. Dropping the
- * presence wrapper makes the swap instant and leaves the arrival, which is the
- * half that carries the direction: the new level slides in from the side it
- * came from, in one 240ms entrance, over content that is already there.
- *
- * `initial: false` when the direction is 0 — no navigation happened, so this is
- * the first paint (which, since the page now server-renders its listing, is a
- * real listing that must not slide) or a re-render the key did not change.
- */
-const levelTransition = (direction: number, distance: number) =>
-  ({
-    initial: direction === 0 ? false : { opacity: 0, x: direction * distance },
-    animate: { opacity: 1, x: 0 },
-    transition: motionEntrance,
-  }) as const
-
-/**
- * THE FIRST FRAME, SHAPED LIKE THE SECOND ONE.
- *
- * This is the placeholder the whole pane renders while the listing is being
- * read, and it lives beside the listing rather than in a components-of-loading
- * file, because the failure it fixes is drift: the old skeleton drew a
- * full-width `h-9` bar — a search field that had moved into the page header a
- * release earlier and was never coming back — over a full-width grid, and then
- * the answer arrived as a breadcrumb row above a 1200px column of folder tiles
- * and cards. Nothing about the loading state predicted the loaded one, so every
- * load ended in a jump.
- *
- * What it mirrors, in the order the real pane renders them:
- *
- *   - the breadcrumb row, at its real height, when this surface has folders;
- *   - the content cap, so the grid does not start full-width and then narrow;
- *   - the „Zuletzt hochgeladen" eyebrow, which is always there at the root;
- *   - folder tiles BEFORE file tiles, which is the order the grid fills in;
- *   - the dashed upload tile, which is the last cell of a project's grid.
- *
- * It cannot know how many of each are coming. It draws a plausible few — the
- * point of a skeleton is the shape of the page, not a forecast of its contents.
- */
-export function FileBrowserSkeleton({
-  view = 'cards',
-  withFolders = false,
-  uploadCard,
-  /** Placeholder folder tiles. Two: enough to read as "folders come first". */
-  folders = 2,
-  files = 6,
-}: {
-  view?: 'cards' | 'list'
-  withFolders?: boolean
-  /**
-   * The REAL dashed upload tile, not a grey stand-in for it.
-   *
-   * It is the one cell of this grid whose content does not depend on the answer
-   * being fetched, and it opens a file picker: greying it out would hide a
-   * working control and make the grid one tile shorter than it is about to be.
-   */
-  uploadCard?: ReactNode
-  folders?: number
-  files?: number
-}): JSX.Element {
-  const folderCount = withFolders ? folders : 0
-  return (
-    <div className="flex h-full flex-col" data-testid="file-browser-skeleton">
-      {withFolders && <FolderBreadcrumbRowSkeleton />}
-      {view === 'list' ? (
-        <div className={CONTENT_MAX}>
-          {folderCount > 0 && (
-            <div className="px-2 py-2">
-              <ItemList className="bg-muted/40">
-                {Array.from({ length: folderCount }).map((_, index) => (
-                  <FolderRowSkeleton key={index} />
-                ))}
-              </ItemList>
-            </div>
-          )}
-          <FileListSkeleton rows={files} />
-        </div>
-      ) : (
-        <div className={`${CONTENT_MAX} p-4`}>
-          <Skeleton className="mb-3 h-3 w-36" />
-          <FileGrid className={FOLDER_ROWS_ON_PHONE}>
-            {Array.from({ length: folderCount }).map((_, index) => (
-              <FolderCardSkeleton key={`folder-${index}`} />
-            ))}
-            {Array.from({ length: files }).map((_, index) => (
-              <FileCardSkeleton key={`file-${index}`} />
-            ))}
-            {uploadCard}
-          </FileGrid>
-        </div>
-      )}
-    </div>
-  )
-}
-
-
-/**
- * The listing's width cap. With the tree band gone the browser owns the whole
- * column, and a 4K monitor would otherwise stretch cards into a wall — the
- * content centres inside the toolbars, which keep spanning the full width.
- */
-const CONTENT_MAX = 'mx-auto w-full max-w-[1200px]'
 
 const noToggle = (): void => undefined

@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import {
   Archive,
+  Library,
   BookOpenCheck,
   ClipboardList,
   Bell,
@@ -23,10 +24,11 @@ import {
  * key, segment, icon, label, and flag gating for every project section live in
  * ONE place, so the rail and the palette can never disagree again.
  *
- * One icon per destination. Rail order (top → bottom, Settings pinned
- * separately): Ask Piloti · Files · Automation* · Archiv* · Suche · Inbox*.
+ * One icon per destination. Rail order (top → bottom): Chat · Files ·
+ * Automation* · Overview (the project hub, appended by the rail), then the
+ * organisation's doorways at the foot: Archiv* · Suche · Inbox*.
  *
- * Ask Piloti is the primary job-to-be-done and leads; Files is the other work
+ * Chat is the primary job-to-be-done and leads; Files is the other work
  * surface. History has no rail entry any more — the chat toolbar's history
  * sheet is the record of the project's past. Automation is the THIRD work
  * surface and sits in the same group as the other two: Tasks (what Piloti did
@@ -35,8 +37,9 @@ import {
  * made a place people work every day read as a settings drawer — a group label
  * over a single item is a category of one, and it cost the section a rail
  * position it had earned. Archiv then Inbox are cross-project doorways; Inbox
- * is last because the badge already draws the eye. Settings stays pinned at the
- * bottom.
+ * is last because the badge already draws the eye. Overview closes the
+ * project's own list; it stood pinned at the foot, under the organisation's
+ * doorways, until 2026-11-06, where proximity made it read as theirs.
  *
  * There is deliberately no Similar projects entry either: it is reference
  * reading about the project, so it is a tile on the project's Overview and a
@@ -55,6 +58,7 @@ export type ProjectSectionKey =
   | 'files'
   | 'knowledge'
   | 'officeShelf'
+  | 'baseKnowledge'
   | 'search'
   | 'inbox'
   | 'intake'
@@ -77,6 +81,8 @@ export interface ProjectSectionFlags {
   showSkills?: boolean
   /** Org-wide Archiv (ADR-0024). */
   canAccessOfficeShelf?: boolean
+  /** The office's own standards beside it (ADR-0163): `getNavFlags().canAccessOfficeStandards`. */
+  canAccessOfficeStandards?: boolean
   /** Project knowledge page — feature-flagged, default off. */
   showKnowledge?: boolean
   /** Collaboration surfaces — `collaboration` flag / env opt-in (ADR-0032…0035). */
@@ -172,7 +178,7 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
   },
   {
     // Automation: Tasks, Zeitplan and Skills as tabs inside one section, in
-    // the `work` group beside Ask Piloti and Dateien because that is what it
+    // the `work` group beside Chat and Dateien because that is what it
     // is — the surface where a project's delegated work is read and where the
     // next week of it is set. Same `showSkills` gate as before: the three
     // surfaces ship together, and a schedule wizard whose skill picker
@@ -199,6 +205,23 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     inRail: true,
     inPalette: true,
     shortcutKey: 'a',
+    group: 'org',
+  },
+  {
+    // The office's standards (ADR-0163): office shelf documents with an entry,
+    // in a root folder of their own. Its own doorway beside the Büroablage, so a
+    // standard is not one file among many there.
+    key: 'baseKnowledge',
+    segment: null,
+    href: '/app/base-knowledge',
+    icon: Library,
+    i18nKey: 'baseKnowledge',
+    // Its own gate, not the Archiv's: the `office-standards` entitlement.
+    gate: 'canAccessOfficeStandards',
+    inRail: true,
+    inPalette: true,
+    // `g n`: Normen, the first thing an office keeps here.
+    shortcutKey: 'n',
     group: 'org',
   },
   {
@@ -253,13 +276,12 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
 ]
 
 /**
- * The pinned project hub entry, labelled Overview (spec §5, §9.2). It opens on
- * the project dashboard, with the setup sections behind it; the key and the
+ * The project hub entry, labelled Overview (spec §5, §9.2). It opens on the
+ * project dashboard, with the setup sections behind it; the key and the
  * `/settings` segment kept their old name so links and the `g s` jump still
- * land. The rail renders it separately from the
- * scrollable section nav (docked above the user footer); the palette lists it
- * inline. Kept out of {@link PROJECT_SECTIONS} so `railSections` never emits it
- * into the scrollable group.
+ * land. The rail appends it to the project's sections, after the last of them;
+ * the palette lists it inline, last. Kept out of {@link PROJECT_SECTIONS} so
+ * each surface places it itself.
  */
 export const PROJECT_SETTINGS_SECTION: ProjectSection = {
   key: 'settings',
@@ -278,7 +300,7 @@ export function sectionHref(section: ProjectSection, base: string): string {
 
 /**
  * Where a link TO a section goes. The same as {@link sectionHref} except for
- * "Frag Piloti", which always opens a fresh chat (an empty draft), never the
+ * "Chat", which always opens a fresh chat (an empty draft), never the
  * last thread the reader left open; `?new=1` is consumed once by the chat
  * client. Shared by the rail and the phone tab bar, so the two doors to the
  * same place cannot disagree about where it is.
@@ -299,8 +321,8 @@ function isVisible(section: ProjectSection, flags: ProjectSectionFlags): boolean
 
 /**
  * The rail's scrollable section nav, in order, with flag-gated sections
- * filtered out. Excludes the pinned {@link PROJECT_SETTINGS_SECTION}, which the
- * shell docks separately.
+ * filtered out. Excludes {@link PROJECT_SETTINGS_SECTION}, which the rail
+ * appends to the project's group itself.
  */
 export function railSections(flags: ProjectSectionFlags): ProjectSection[] {
   return PROJECT_SECTIONS.filter((section) => section.inRail && isVisible(section, flags))

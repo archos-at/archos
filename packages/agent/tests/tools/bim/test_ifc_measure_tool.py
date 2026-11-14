@@ -29,8 +29,10 @@ import pytest
 from agent.knowledge.bim_query import BimQueryRejectedError
 from agent.knowledge.bim_query import BimQueryUnavailableError
 from agent.knowledge.ifc_spatial_client import ModelTooLargeError
+from agent.knowledge.ifc_spatial_client import ModelUnreadableError
 from agent.knowledge.ifc_spatial_client import SpatialEngineUnavailableError
 from agent.knowledge.ifc_spatial_client import SpatialToolError
+from agent.tools.bim.failures import MAX_REASON_CHARS
 from agent.tools.bim.measure_register import ENGINE_UNAVAILABLE_TEXT
 from agent.tools.bim.measure_register import NON_MEASURING_OPERATIONS
 from agent.tools.bim.measure_register import OPERATIONS
@@ -303,7 +305,25 @@ class TestTheEnumsMatchTheEngine:
 
     @staticmethod
     def _engine():
-        return pytest.importorskip("ifc_spatial.tools", reason="the spatial engine is not installed")
+        """The engine's vocabulary as its own suite writes it (``ifc-spatial-py/tests/fixtures/vocabulary.json``).
+
+        Read from the file, not imported: this suite runs without IfcOpenShell, and
+        an ``importorskip`` here skipped every test in this class on every CI run.
+        """
+        import json
+        from types import SimpleNamespace
+
+        fixture = (
+            pathlib.Path(__file__).resolve().parents[5]
+            / "packages"
+            / "ifc-spatial-py"
+            / "tests"
+            / "fixtures"
+            / "vocabulary.json"
+        )
+        vocabulary = json.loads(fixture.read_text(encoding="utf-8"))
+        tools = [SimpleNamespace(name=name) for name in vocabulary.pop("TOOLS")]
+        return SimpleNamespace(**vocabulary, create_tools=lambda: tools)
 
     def test_the_relations_are_the_engine_s_relations(self):
         from agent.tools.bim.measure_register import RELATIONS
@@ -1198,6 +1218,8 @@ class TestAModelTooBigToMeasureIsNotAnOutage:
         # Not an outage, and it says so — waiting is the wrong action.
         assert "not an outage" in text and "waiting does not help" in text
         assert text != UNAVAILABLE_TEXT
+        # Not "a larger server": no server lifts the engine's own fixed limit.
+        assert "ask for the limit to be raised" in text
         # And the half that still works is offered by name.
         assert "ifc_query" in text
         assert "Do not estimate dimensions" in text
@@ -1224,6 +1246,214 @@ class TestAModelTooBigToMeasureIsNotAnOutage:
         )
         with pytest.raises(ModelTooLargeError):
             client._download("https://example.test/big.ifc", client.MAX_MODEL_BYTES + 1)
+
+
+class TestAnEngineRefusalKeepsItsReason:
+    """The file got past this worker's gate and the engine refused it, in words.
+
+    A 70 MB export passes the memory gate of a large worker and stops at the
+    engine's own fixed 64 MiB. Cut off, empty or not IFC stops there too. The
+    engine said why, and the reader was told the service could not be reached,
+    so they waited for an outage that never ends.
+
+    The engine stands in here, because this suite runs without IfcOpenShell. What
+    it really raises, down to the cause read here, is pinned on its side of the
+    join in `packages/ifc-spatial-py/tests/test_tools.py`.
+    """
+
+    SPILLED = "/tmp/ifc-spilled.ifc"  # noqa: S108
+
+    class _Unreadable(RuntimeError):
+        def __init__(self, path, reason):
+            self.reason = reason
+            super().__init__(f"{path}: {reason}")
+
+    class _TooLarge(_Unreadable):
+        def __init__(self, path, size, limit):
+            self.size = size
+            self.limit = limit
+            super().__init__(path, "Diese Datei ist zu groß.")
+
+    @pytest.fixture(autouse=True)
+    def _context(self, monkeypatch):
+        from agent.knowledge import ifc_spatial_client as client
+        from agent.tools.bim import measure_register
+
+        monkeypatch.setattr(measure_register, "get_organization_id_from_context", lambda: "org-1")
+        monkeypatch.setattr(measure_register, "get_project_id_from_context", lambda: "proj-1")
+        monkeypatch.setattr(client, "_engine", lambda: (None, []))
+        monkeypatch.setattr(client, "_download", lambda *_: b"")
+        monkeypatch.setattr(client, "_spill", lambda *_: self.SPILLED)
+        client.reset_cache_for_tests()
+        yield
+        client.reset_cache_for_tests()
+
+    def _refused_with(self, monkeypatch, cause) -> tuple[str, str]:
+        """The tool's answer and traced outcome when the engine's `open_model` fails from ``cause``."""
+        import sys
+        import types
+
+        from agent.knowledge import ifc_spatial_client as client
+
+        class ToolError(ValueError):
+            pass
+
+        def call(_tools, _name, _args):
+            raise ToolError(f"Modell konnte nicht geöffnet werden: {cause}") from cause
+
+        monkeypatch.setitem(
+            sys.modules,
+            "ifc_spatial.tools",
+            types.SimpleNamespace(ToolError=ToolError, call=call, create_tools=lambda _cache: []),
+        )
+        monkeypatch.setitem(
+            sys.modules,
+            "ifc_spatial.model",
+            types.SimpleNamespace(ModelTooLargeError=self._TooLarge, ModelUnreadableError=self._Unreadable),
+        )
+        source = {"resolved": True, "model": {"modelId": "m1"}, "source": {"url": "https://example.test/m.ifc"}}
+        return TestTheToolBody._measure(monkeypatch, lambda *_: client.open_model(source), operation="briefing")
+
+    def test_a_file_over_the_engines_limit_reads_as_too_large(self, monkeypatch):
+        """The reported case: 70 MB on a worker whose own gate would have allowed it."""
+        answer, outcome = self._refused_with(monkeypatch, self._TooLarge(self.SPILLED, 70 * 1024**2, 64 * 1024**2))
+
+        assert outcome == "model_too_large"
+        assert "70 MB" in answer and "64 MB" in answer
+        assert "not an outage" in answer
+        assert UNAVAILABLE_TEXT not in answer
+
+    @pytest.mark.parametrize(
+        "reason",
+        [
+            "Diese Datei ist leer (0 Bytes) — der Upload ist fehlgeschlagen.",
+            "Das ist keine IFC-SPF-Datei — sie beginnt nicht mit ISO-10303-21.",
+            # The engine's longest, in full, so a cap below it goes red here.
+            "Diese Datei ist unvollständig: der Abschluss END-ISO-10303-21; fehlt. Sie wurde "
+            "abgeschnitten — der Upload oder der Export ist abgebrochen. Eine abgeschnittene IFC-Datei "
+            "bringt den Parser zum Absturz und wird deshalb gar nicht erst geöffnet; die Datei bitte "
+            "vollständig neu hochladen.",
+        ],
+        ids=["empty", "not_ifc", "truncated"],
+    )
+    def test_a_file_the_engine_cannot_read_keeps_the_engines_reason(self, monkeypatch, reason):
+        answer, outcome = self._refused_with(monkeypatch, self._Unreadable(self.SPILLED, reason))
+
+        assert outcome == "model_unreadable"
+        assert reason in answer
+        assert "not an outage" in answer
+        assert not result_carries_measurement(answer)
+        # The reason is for the reader, and this worker's scratch path is not.
+        assert self.SPILLED not in answer
+
+    def test_a_reason_that_runs_on_does_not_reach_the_agent_whole(self, monkeypatch):
+        """The agent is told to pass the reason on, so its length is bounded where that sentence is written."""
+        answer, outcome = self._refused_with(monkeypatch, self._Unreadable(self.SPILLED, "ö" * 2_000_000))
+
+        assert outcome == "model_unreadable"
+        assert "not an outage" in answer
+        assert "ö" * MAX_REASON_CHARS in answer
+        assert "ö" * (MAX_REASON_CHARS + 1) not in answer
+        assert len(answer) < 1_500
+
+    @pytest.mark.parametrize(
+        "cause",
+        [OSError(5, "Input/output error"), MemoryError(), None],
+        ids=["read_failed", "memory", "no_cause"],
+    )
+    def test_a_failure_that_is_not_about_the_file_still_reads_as_an_outage(self, monkeypatch, cause):
+        """Here waiting is the right advice, so naming the file would be the wrong reason."""
+        answer, outcome = self._refused_with(monkeypatch, cause)
+
+        assert outcome == "service_unavailable"
+        assert answer == UNAVAILABLE_TEXT
+
+
+class TestADownloadCutShortIsNotABrokenFile:
+    """The connection dropped, and the file in the store is fine.
+
+    A real socket, because the point is how `read(n)` behaves: it hands back what
+    arrived and does not raise. The partial bytes would reach the engine, which
+    would truthfully call them cut off and ask for a new upload, and the spill
+    would keep that answer until the process restarts.
+    """
+
+    @pytest.fixture()
+    def serve(self):
+        """Serve ``body`` under a stated Content-Length, closing the connection after the body."""
+        import http.server
+        import threading
+
+        servers = []
+
+        def start(body: bytes, length: int | str, encoding: str = "", chunked: bool = False) -> str:
+            class Handler(http.server.BaseHTTPRequestHandler):
+                def do_GET(self):
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(length))
+                    if encoding:
+                        self.send_header("Content-Encoding", encoding)
+                    if chunked:
+                        self.send_header("Transfer-Encoding", "chunked")
+                    self.end_headers()
+                    self.wfile.write(body)
+
+                def log_message(self, *_args):
+                    pass
+
+            server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+            threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
+            servers.append(server)
+            return f"http://127.0.0.1:{server.server_address[1]}/model.ifc"
+
+        yield start
+        for server in servers:
+            server.shutdown()
+            server.server_close()
+
+    @pytest.mark.parametrize("arrived", [b"", b"ISO-10303-21;\n"], ids=["nothing", "the_start"])
+    def test_it_reads_as_the_outage_it_is(self, serve, arrived):
+        from agent.knowledge import ifc_spatial_client as client
+
+        with pytest.raises(BimQueryUnavailableError) as raised:
+            client._download(serve(arrived, 5845))
+
+        assert not isinstance(raised.value, ModelUnreadableError)
+        assert not isinstance(raised.value, ModelTooLargeError)
+
+    def test_a_complete_download_passes(self, serve):
+        from agent.knowledge import ifc_spatial_client as client
+
+        whole = b"ISO-10303-21;\nEND-ISO-10303-21;\n"
+
+        assert client._download(serve(whole, len(whole))) == whole
+
+    def test_a_compressed_download_is_measured_by_what_was_sent(self, serve):
+        """Content-Length counts the compressed bytes, so the check runs before they are inflated."""
+        import gzip
+
+        from agent.knowledge import ifc_spatial_client as client
+
+        whole = b"ISO-10303-21;\n" * 500 + b"END-ISO-10303-21;\n"
+        packed = gzip.compress(whole)
+
+        assert client._download(serve(packed, len(packed), "gzip")) == whole
+        with pytest.raises(BimQueryUnavailableError):
+            client._download(serve(packed[:20], len(packed), "gzip"))
+
+    def test_a_length_that_is_no_number_says_nothing_about_the_download(self, serve):
+        """`²` counts as a digit in Python, and `int` still refuses it."""
+        from agent.knowledge import ifc_spatial_client as client
+
+        whole = b"ISO-10303-21;\nEND-ISO-10303-21;\n"
+
+        assert client._download(serve(whole, "²")) == whole
+
+    def test_a_chunked_download_is_measured_by_its_chunks(self, serve):
+        """A stray length means nothing next to chunked framing: the file arrived whole."""
+        from agent.knowledge import ifc_spatial_client as client
+
+        assert client._download(serve(b"5\r\nhello\r\n0\r\n\r\n", 5845, chunked=True)) == b"hello"
 
 
 class TestUnavailableIsNotRejected:
@@ -1400,7 +1630,9 @@ class TestTheSameModelIsParsedOncePerProcess:
     #: the engine — resolving it relatively made it fire on a `pytest` run
     #: started from anywhere but the repository root instead, and a suite that
     #: skips silently proves nothing about the cache it is here to prove.
-    FIXTURE = pathlib.Path(__file__).resolve().parents[4] / "packages/ifc-spatial/test/fixtures/Ifc4_SampleHouse.ifc"
+    FIXTURE = (
+        pathlib.Path(__file__).resolve().parents[5] / "packages/ifc-spatial-py/tests/fixtures/Ifc4_SampleHouse.ifc"
+    )
 
     @pytest.fixture()
     def engine(self):
@@ -1429,7 +1661,7 @@ class TestTheSameModelIsParsedOncePerProcess:
 
         handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(fixture.parent))
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
         try:
             yield fixture, f"http://127.0.0.1:{server.server_address[1]}/{fixture.name}"
         finally:
@@ -2761,11 +2993,12 @@ class TestTheToolBody:
         [
             (BimQueryRejectedError("nope"), "rejected", "problem with the arguments"),
             (ModelTooLargeError(900 * 1024**2, 512 * 1024**2), "model_too_large", "too large"),
+            (ModelUnreadableError("Diese Datei ist leer."), "model_unreadable", "Diese Datei ist leer."),
             (BimQueryUnavailableError("down"), "service_unavailable", UNAVAILABLE_TEXT),
             (SpatialEngineUnavailableError(), "engine_unavailable", ENGINE_UNAVAILABLE_TEXT),
             (SpatialToolError("Bauteil 0xyz nicht enthalten"), "rejected", "find_elements"),
         ],
-        ids=["rejected", "too_large", "unavailable", "no_engine", "unrunnable"],
+        ids=["rejected", "too_large", "unreadable", "unavailable", "no_engine", "unrunnable"],
     )
     def test_every_engine_failure_maps_to_its_own_sentence_and_outcome(self, monkeypatch, raised, outcome, expected):
         """The failure table, one row at a time — the subclass before its base."""

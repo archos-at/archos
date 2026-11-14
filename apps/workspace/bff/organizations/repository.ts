@@ -13,6 +13,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { organizations, type Organization } from '@/lib/db/schema/organizations'
+import { HOME_COUNTRY_TIME_ZONES, type HomeCountry } from './home-country'
 
 /** The stored settings row for an organization, or null before its first write. */
 export async function findOrganization(organizationId: string): Promise<Organization | null> {
@@ -98,5 +99,32 @@ export async function upsertOrganization(values: {
       .insert(organizations)
       .values({ workosOrganizationId: values.organizationId, ...row })
       .onConflictDoUpdate({ target: organizations.workosOrganizationId, set: row }),
+  )
+}
+
+/**
+ * Create the row of a new organization with its home country and the clock
+ * that country starts with, or set both on a row without them. Called when the
+ * seat is stated: the creation route, the WorkOS metadata, or an admin naming
+ * it once (`home-country-row.ts`).
+ */
+export async function placeOrganization(organizationId: string, homeCountry: HomeCountry): Promise<void> {
+  const db = getDb()
+  await withTenant({ organizationId }, () =>
+    db
+      .insert(organizations)
+      .values({ workosOrganizationId: organizationId, homeCountry, timeZone: HOME_COUNTRY_TIME_ZONES[homeCountry] })
+      .onConflictDoUpdate({
+        target: organizations.workosOrganizationId,
+        set: { homeCountry, timeZone: HOME_COUNTRY_TIME_ZONES[homeCountry], updatedAt: new Date() },
+      }),
+  )
+}
+
+/** Write the row of an organization that has none, with no home country; nothing when it exists. */
+export async function createOrganizationRow(organizationId: string): Promise<void> {
+  const db = getDb()
+  await withTenant({ organizationId }, () =>
+    db.insert(organizations).values({ workosOrganizationId: organizationId }).onConflictDoNothing({ target: organizations.workosOrganizationId }),
   )
 }

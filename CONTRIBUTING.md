@@ -44,11 +44,11 @@ TypeScript 6's view of the code.
   PR of a stack gets its gate before the one below it merges.
 - One logical change per branch.
 - One logical change per commit. When a feature trips over **correlated
-  substrate debt** (an extension point that is not actually generic), lift
+  debt in shared code** (an extension point that is not actually generic), lift
   that defect in its own commit *in the same change* — do not bolt the
-  feature onto the broken substrate and do not file the lift as later.
+  feature onto the broken shared code and do not file the lift as later.
   YAGNI does not cover known defects on your path. The rule:
-  [AGENTS.md](AGENTS.md) (“Correlated substrate debt…”) and
+  [AGENTS.md](AGENTS.md) (“Correlated debt in shared code…”) and
   [adding a shareable resource type](docs/architecture/adding-a-shareable-resource-type.md) §5.
 
 ## Release notes
@@ -56,8 +56,10 @@ TypeScript 6's view of the code.
 Every change a customer can notice ships with a release note in the same PR —
 this is an obligation, enforced by CI's **Repo checks** job, not a
 convention. Notes are written with [reno](https://docs.openstack.org/reno/latest/)
-and published automatically to piloti.at/changelog (German and English) when the
-PR merges.
+and published automatically when the PR merges, in German and English: every
+note to the app's "What's new" for signed-in members, by week and product area;
+the public changelog on the website shows only the weekly summaries
+(ADR-0156). Each note names its area in its first line (`# area: documents`).
 
 ```bash
 task release:note -- re-index-projects   # creates releasenotes/notes/<slug>-<hash>.yaml
@@ -88,7 +90,8 @@ tasks, so there is no second copy to drift:
 - Infra: `task infra:types`.
 - Everything at once: `task verify` — this is the merge gate: repo lint plus the
   same per-tier groups CI runs (`be:verify` with its coverage gate, `workspace:verify`,
-  `infra:types`). `task verify:fast` omits only the production build.
+  `infra:types`). `task verify:fast` runs the part of it your change can break (the tiers and UI
+  specs the diff against `origin/develop` reaches), without the production builds.
 - Repo-wide hooks: `task lint:repo` (`pre-commit run --all-files`) — ruff,
   markdown-link-check and more, configured in
   [`.pre-commit-config.yaml`](.pre-commit-config.yaml).

@@ -1,13 +1,20 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, screen, within } from '@/test-utils'
+import { act, render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { UploadTray } from './upload-tray'
 
 const requestQuarantineRelease = vi.fn(async (_documentId: string) => ({ notified: 1 }))
+const reviewAccess = vi.fn(async (_documentId: string) => ({ canReview: false, canAskForReview: true }))
+const releaseQuarantinedDocument = vi.fn(async (_documentId: string) => ({ status: 'processing' }))
+const { watchDocuments } = vi.hoisted(() => ({ watchDocuments: vi.fn() }))
+vi.mock('../orchestrator', () => ({ UploadOrchestrator: { watchDocuments } }))
 vi.mock('@/adapters/api/upload-screening-client', () => ({
   requestQuarantineRelease: (documentId: string) => requestQuarantineRelease(documentId),
+  getQuarantineReviewAccess: (documentId: string) => reviewAccess(documentId),
+  releaseQuarantinedDocument: (documentId: string) => releaseQuarantinedDocument(documentId),
 }))
 import type { TrackedFile } from '../types'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const tracked = (overrides: Partial<TrackedFile> = {}): TrackedFile => ({
   id: 'f1',
@@ -81,7 +88,7 @@ describe('UploadTray', () => {
       expect(screen.getByText('Uploading 1 document')).toBeDefined()
 
       rerender(<UploadTray files={[tracked({ status: 'ingesting' })]} onRetry={vi.fn()} />)
-      expect(screen.getByText('Piloti is reading 1 document')).toBeDefined()
+      expect(screen.getByText(`${PRODUCT_NAME} is reading 1 document`)).toBeDefined()
 
       rerender(<UploadTray files={[tracked({ status: 'success' })]} onRetry={vi.fn()} />)
       expect(screen.getByText('1 document added')).toBeDefined()
@@ -342,8 +349,44 @@ describe('UploadTray', () => {
       const user = userEvent.setup()
       renderTray([held()])
 
-      await user.click(screen.getByTestId('upload-row-request-review'))
+      await user.click(await screen.findByTestId('upload-row-request-review'))
       expect(requestQuarantineRelease).toHaveBeenCalledWith('doc-h')
+    })
+
+    it('lets whoever may decide allow it from the row, after the question, and reads it again', async () => {
+      reviewAccess.mockResolvedValueOnce({ canReview: true, canAskForReview: false })
+      const user = userEvent.setup()
+      renderTray([held()])
+
+      await user.click(await screen.findByTestId('upload-row-allow'))
+      expect(releaseQuarantinedDocument).not.toHaveBeenCalled()
+      await user.click(screen.getByTestId('upload-row-allow-confirm'))
+      expect(releaseQuarantinedDocument).toHaveBeenCalledWith('doc-h')
+      expect(await screen.findByTestId('upload-row-allow-done')).toBeDefined()
+      expect(screen.queryByTestId('upload-row-request-review')).toBeNull()
+      // The row is read again: the tray follows it by document status.
+      expect(watchDocuments).toHaveBeenCalledWith(['h'])
+    })
+
+    it('asks again when the question of who may decide could not be asked, rather than offering nothing', async () => {
+      reviewAccess.mockRejectedValueOnce(new Error('offline'))
+      const user = userEvent.setup()
+      renderTray([held()])
+
+      await user.click(await screen.findByTestId('upload-row-allow-retry'))
+      expect(await screen.findByTestId('upload-row-request-review')).toBeDefined()
+    })
+
+    it('takes the allow away once someone else decided first', async () => {
+      reviewAccess.mockResolvedValueOnce({ canReview: true, canAskForReview: false })
+      const { ApiRequestError } = await import('@/adapters/api/api-error')
+      releaseQuarantinedDocument.mockRejectedValueOnce(new ApiRequestError('gone', 409))
+      const user = userEvent.setup()
+      renderTray([held()])
+
+      await user.click(await screen.findByTestId('upload-row-allow'))
+      await user.click(screen.getByTestId('upload-row-allow-confirm'))
+      await waitFor(() => expect(screen.queryByTestId('upload-row-allow')).toBeNull())
     })
 
     it('is not retried by „Retry failed", and has no retry of its own', async () => {
@@ -397,7 +440,7 @@ describe('UploadTray', () => {
         const user = userEvent.setup()
         renderTray([replacing(true)])
 
-        await user.click(screen.getByTestId('upload-row-request-review'))
+        await user.click(await screen.findByTestId('upload-row-request-review'))
         expect(requestQuarantineRelease).toHaveBeenCalledWith('doc-earlier')
       })
 

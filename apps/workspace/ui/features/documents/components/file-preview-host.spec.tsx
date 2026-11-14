@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { useFilePreviewStore } from '../stores/file-preview-store'
 import type { FileItem } from './project-file-workspace'
 
@@ -36,6 +36,7 @@ vi.mock('./file-preview-pane', async () => {
 
 import { FilePreviewBridge, FilePreviewHost, METADATA_GRACE_POLLS, useFilePeekBesideChat } from './file-preview-host'
 import { onDocumentsChanged } from '@/lib/documents/document-changes'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const FILE: FileItem = {
   id: 'doc-1',
@@ -68,6 +69,8 @@ describe('FilePreviewHost', () => {
       handoff: false,
       peekWidth: 320,
       context: {},
+      peekDetails: false,
+      peekFullScreen: null,
     })
   })
 
@@ -219,8 +222,11 @@ describe('FilePreviewHost', () => {
         </FilePreviewBridge>,
       )
 
-      expect(screen.getByRole('status')).toHaveTextContent(/Piloti cannot cite this file/i)
-      expect(screen.getByRole('button', { name: 'Details' })).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent(new RegExp(String.raw`${PRODUCT_NAME} cannot cite this file`, 'i'))
+      // The way to the failure and its retry is the peek's details, the face ⓘ opens.
+      fireEvent.click(within(screen.getByRole('status')).getByRole('button', { name: 'Details' }))
+      expect(useFilePreviewStore.getState().peekDetails).toBe(true)
+      expect(useFilePreviewStore.getState().mode).toBe('peek')
     })
 
     it('says a failed re-upload is still cited through the previous version', () => {
@@ -237,7 +243,7 @@ describe('FilePreviewHost', () => {
       const strip = screen.getByRole('status')
       expect(strip).toHaveTextContent(/still citing the previous revision/i)
       expect(strip).not.toHaveTextContent(/cannot cite/i)
-      expect(screen.getByRole('button', { name: 'Details' })).toBeInTheDocument()
+      expect(within(strip).getByRole('button', { name: 'Details' })).toBeInTheDocument()
     })
 
     it('picks up the version count from the settling poll after a re-upload', async () => {
@@ -451,6 +457,58 @@ describe('FilePreviewHost', () => {
         vi.useRealTimers()
         vi.unstubAllGlobals()
       }
+    })
+  })
+
+  describe('the peek’s toolbar', () => {
+    const renderPeek = (): void => {
+      nav.pathname = '/app/projects/p1/chat'
+      useFilePreviewStore.getState().open(FILE, 'peek', { projectId: 'p1' })
+      render(
+        <FilePreviewBridge>
+          <div>chat transcript</div>
+        </FilePreviewBridge>,
+      )
+    }
+
+    it('offers the details behind ⓘ, beside download, full screen and close, and says whether they are open', () => {
+      renderPeek()
+      const info = screen.getByTestId('file-peek-details-toggle')
+      expect(info).toHaveAccessibleName('Details')
+      expect(info).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument()
+      expect(screen.getByTestId('file-peek-full-screen')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /close preview/i })).toBeInTheDocument()
+
+      fireEvent.click(info)
+      expect(useFilePreviewStore.getState().peekDetails).toBe(true)
+      expect(info).toHaveAttribute('aria-expanded', 'true')
+
+      fireEvent.click(info)
+      expect(useFilePreviewStore.getState().peekDetails).toBe(false)
+    })
+
+    it('opens the review full screen when the pane offers it, and stays the peek behind it', () => {
+      const openReview = vi.fn()
+      renderPeek()
+      act(() => useFilePreviewStore.getState().setPeekFullScreen(openReview))
+      const fullScreen = screen.getByTestId('file-peek-full-screen')
+      expect(fullScreen).toHaveAccessibleName('Open review')
+
+      fireEvent.click(fullScreen)
+
+      expect(openReview).toHaveBeenCalledTimes(1)
+      expect(useFilePreviewStore.getState().mode).toBe('peek')
+    })
+
+    it('enlarges the pane for a document the review cannot hold', () => {
+      renderPeek()
+      const fullScreen = screen.getByTestId('file-peek-full-screen')
+      expect(fullScreen).toHaveAccessibleName('Open larger')
+
+      fireEvent.click(fullScreen)
+
+      expect(useFilePreviewStore.getState().mode).toBe('expanded')
     })
   })
 

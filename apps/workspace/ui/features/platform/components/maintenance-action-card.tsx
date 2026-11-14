@@ -198,7 +198,7 @@ export function MaintenanceActionCard<R>({
           </div>
           <CardAction className="flex flex-col items-start gap-1.5 sm:items-end">
             <Button
-              variant={danger ? 'destructive' : 'outline'}
+              variant={danger ? 'destructive' : 'secondary'}
               size="sm"
               onClick={() => setIsOpen(true)}
               disabled={isRunning || !canRun}
@@ -278,7 +278,7 @@ export function MaintenanceActionCard<R>({
                               {measure.hint}
                             </span>
                           </TableCell>
-                          <TableCell className="text-right align-top text-sm font-semibold tabular-nums">
+                          <TableCell className="text-right align-top text-sm font-medium tabular-nums">
                             {formatCount(measure.value)}
                           </TableCell>
                         </TableRow>

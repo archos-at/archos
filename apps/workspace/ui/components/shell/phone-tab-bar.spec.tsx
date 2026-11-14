@@ -3,7 +3,6 @@ import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { useLayoutStore } from '@/features/layout/store'
 import { PhoneTabBar } from './phone-tab-bar'
 import { useShellOverlays } from './shell-overlays'
 
@@ -43,7 +42,6 @@ afterEach(() => {
   pathname = '/app/projects/p1/files'
   mobile = true
   badge.mockClear()
-  useLayoutStore.setState({ isMobileNavOpen: false })
   useShellOverlays.setState({ moreSheetOpen: false })
 })
 
@@ -54,7 +52,7 @@ describe('PhoneTabBar — inside a project', () => {
     render(<PhoneTabBar projectId="p1" canAccessOfficeShelf canAccessInbox />)
     const links = within(bar()).getAllByRole('link')
     expect(links.map((link) => link.textContent)).toEqual([
-      'Ask Piloti',
+      'Chat',
       'Files',
       'Overview',
       expect.stringContaining('Inbox'),
@@ -112,7 +110,7 @@ describe('PhoneTabBar — inside a project', () => {
     render(
       <PhoneTabBar projectId="p1" canAccessOfficeShelf canAccessInbox pathname="/app/projects/p1/chat" />
     )
-    expect(within(bar()).getByRole('link', { name: 'Ask Piloti' })).toHaveAttribute(
+    expect(within(bar()).getByRole('link', { name: 'Chat' })).toHaveAttribute(
       'aria-current',
       'page'
     )

@@ -107,7 +107,7 @@ describe('search-operations', () => {
 
   it('narrows by domain and lists a whole domain for an empty query', () => {
     const result = searchOperations(ctx(person), { query: '', domain: 'documents' })
-    expect(names(result)).toEqual(['workspace-search'])
+    expect(names(result)).toEqual(['workspace-search', 'dxf-measure'])
   })
 
   it('carries the annotations a client needs to choose', () => {
@@ -225,6 +225,7 @@ describe('call-operation', () => {
       { params: { id: 'p1' }, body: { userId: 'u2', role: 'viewer' } },
       session,
       'agent',
+      { decisionSource: undefined, clientId: 'c' },
     )
     expect(result.isError).toBeUndefined()
     expect(structured(result)).toEqual({ projects: [] })
@@ -354,6 +355,7 @@ describe('call-operation', () => {
       expect.objectContaining({ ifMatch: '"3"' }),
       session,
       'agent',
+      { decisionSource: undefined, clientId: 'c' },
     )
   })
 
@@ -371,6 +373,25 @@ describe('call-operation', () => {
     expect(inputSchemaOf(write({ ifMatchHeader: true })).properties).toHaveProperty('ifMatch')
     expect(inputSchemaOf(write({})).properties).not.toHaveProperty('ifMatch')
     expect(schemaOf('project-member-add').properties).not.toHaveProperty('ifMatch')
+  })
+
+  it('requires a query only when dispatch would refuse it absent: one of optional fields alone may be left out (coverage-get)', () => {
+    const read = (query: z.ZodType): AgentOperation => ({
+      name: `read-${Math.random().toString(36).slice(2)}`,
+      domain: 'knowledge',
+      summary: 'Read something',
+      description: 'A read with a query.',
+      method: 'GET',
+      path: '/api/base-knowledge/coverage',
+      query: query as AgentOperation['query'],
+      load: async () => ({}),
+    })
+    const optional = read(z.object({ countryId: z.string().optional() }).strict())
+    expect(inputSchemaOf(optional).required ?? []).not.toContain('query')
+    expect(() => validateOperationInput(optional, {})).not.toThrow()
+    const needed = read(z.object({ countryId: z.string() }).strict())
+    expect(inputSchemaOf(needed).required).toContain('query')
+    expect(() => validateOperationInput(needed, {})).toThrow(OperationInputError)
   })
 
   it('leaves call-operation\'s input untyped, so an agent read tool\'s own arguments get through', () => {
@@ -485,19 +506,18 @@ describe('call-operation with a file in the answer', () => {
 })
 
 describe('report-missing-operation', () => {
-  it('answers recorded and sends only the length of the description', () => {
+  it('answers recorded and hands the description over for the event', () => {
     const description = 'Export the Bauakt as a ZIP for Anna Muster'
     const result = reportMissingOperation(ctx(person), { description })
     expect(structured(result)).toEqual({ status: 'recorded' })
-    expect(recordOperationMissing).toHaveBeenCalledWith(expect.anything(), description.length, 'missing_operation')
+    expect(recordOperationMissing).toHaveBeenCalledWith(expect.anything(), description, 'missing_operation')
   })
 
-  it('carries the friction category and nothing of the text', () => {
+  it('carries the friction category', () => {
     const description = 'The summary of project-list for Anna Muster says nothing about paging'
     const result = reportMissingOperation(ctx(person), { description, category: 'tool_description' })
     expect(structured(result)).toEqual({ status: 'recorded' })
-    expect(recordOperationMissing).toHaveBeenCalledWith(expect.anything(), description.length, 'tool_description')
-    expect(JSON.stringify(vi.mocked(recordOperationMissing).mock.calls)).not.toContain('Anna')
+    expect(recordOperationMissing).toHaveBeenCalledWith(expect.anything(), description, 'tool_description')
   })
 
   it('refuses a category it does not know, naming the ones it does', () => {
@@ -532,7 +552,7 @@ describe('the Python agent’s read tools', () => {
       destructive: false,
     })
     expect(structured(searchOperations(ctx(person), { query: '', domain: 'bim' })).operations.map((op) => op.name)).toEqual(
-      expect.arrayContaining(['ifc-query', 'ifc-measure']),
+      expect.arrayContaining(['ifc-measure']),
     )
   })
 

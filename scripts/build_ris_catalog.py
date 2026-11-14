@@ -24,12 +24,16 @@ Run (no project env needed):
 
     uv run --no-project --with httpx --with pydantic --with beautifulsoup4 \
         --with pyyaml python scripts/build_ris_catalog.py
+
+Behind a proxy, add ``--proxy-from-env``: the client ignores ``$HTTPS_PROXY``
+unless asked, because a proxy would take a request past the egress guard.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -40,8 +44,11 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import importlib.util  # noqa: E402
 
+import httpx  # noqa: E402
 import yaml  # noqa: E402
+from public_sources.engines import RIS_IN_FORCE_UNTIL  # noqa: E402
 from ris_adapter.client import RisClient  # noqa: E402
+from ris_adapter.client import federal_state_param  # noqa: E402
 
 
 def _standalone_module(module_name: str, module_path: Path):
@@ -66,30 +73,22 @@ def _load_norm_registry_module():
             stub = types.ModuleType(package)
             stub.__path__ = []  # package marker: no real __init__ is executed
             sys.modules[package] = stub
+    # source_kinds reads the product's name (stdlib only, beside it), so it loads first.
+    _standalone_module("agent.common.brand", common_dir / "brand.py")
     # norm_registry imports source_kinds, which is stdlib-only; loaded the same
     # way, or the builder dies on import before it verifies anything.
     _standalone_module("agent.common.source_kinds", common_dir / "source_kinds.py")
+    _standalone_module("agent.common.oib_file_names", common_dir / "oib_file_names.py")  # stdlib-only too
     # So does profile_names (stdlib only), for the federal-state tokens.
     _standalone_module("agent.profile_names", common_dir.parent / "profile_names.py")
+    # family_query (stdlib only) holds the family-query detection norm_registry re-exports.
+    _standalone_module("agent.common.family_query", common_dir / "family_query.py")
     return _standalone_module("agent.common.norm_registry", common_dir / "norm_registry.py")
 
 
 _nr = _load_norm_registry_module()
 
 NORMS_ROOT = REPO_ROOT / "configs" / "norms"
-
-# Canonical Bundesland name -> OGD-RIS Landesrecht search parameter.
-_FEDERAL_STATE_PARAMS: dict[str, str] = {
-    "Wien": "SucheInWien",
-    "Niederösterreich": "SucheInNiederoesterreich",
-    "Oberösterreich": "SucheInOberoesterreich",
-    "Steiermark": "SucheInSteiermark",
-    "Kärnten": "SucheInKaernten",
-    "Salzburg": "SucheInSalzburg",
-    "Tirol": "SucheInTirol",
-    "Vorarlberg": "SucheInVorarlberg",
-    "Burgenland": "SucheInBurgenland",
-}
 
 
 def _pick_hit(entry_id: str, verify, hits):
@@ -112,7 +111,7 @@ def _pick_hit(entry_id: str, verify, hits):
         if verify.statute_number and f"Gesetzesnummer={verify.statute_number}" not in hit.full_law_url:
             continue
         candidates.append(hit)
-    in_force = [h for h in candidates if not h.metadata.get("Außer Kraft seit")]
+    in_force = [h for h in candidates if not h.metadata.get(RIS_IN_FORCE_UNTIL)]
     selected = in_force or candidates
     if len(selected) != 1:
         raise SystemExit(
@@ -134,7 +133,11 @@ async def verify_entry(client: RisClient, entry) -> dict:
         raise ValueError(f"entry '{entry.id}' has no verify seed")
     params: dict[str, str] = {"Titel": verify.title_query}
     if entry.federal_state:
-        params[f"Bundesland.{_FEDERAL_STATE_PARAMS[entry.federal_state]}"] = "true"
+        # The table lives in the RIS source record (configs/sources/at/ris/source.yml).
+        flag = federal_state_param(entry.federal_state)
+        if not flag:
+            raise ValueError(f"entry '{entry.id}' names an unknown Bundesland {entry.federal_state!r}")
+        params[flag] = "true"
     hits = []
     page = 1
     while True:
@@ -196,11 +199,28 @@ async def _process_registry(client: RisClient, registry_path: Path, *, dry_run: 
     return verified_count
 
 
-async def _main(norms_root: Path, *, dry_run: bool) -> None:
+def _client(proxy_from_env: bool) -> RisClient:
+    """The RIS client; through ``$HTTPS_PROXY`` only when asked.
+
+    The client ignores environment proxies (``trust_env=False``): a proxy would
+    take a request past the egress guard. A developer behind one passes
+    ``--proxy-from-env``, which hands the client a transport through that proxy
+    instead of the guard. This script runs on a developer's machine, never in
+    the cluster.
+    """
+    if not proxy_from_env:
+        return RisClient()
+    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+    if not proxy:
+        raise SystemExit("ERROR: --proxy-from-env, but HTTPS_PROXY is not set")
+    return RisClient(transport=httpx.AsyncHTTPTransport(proxy=proxy))
+
+
+async def _main(norms_root: Path, *, dry_run: bool, proxy_from_env: bool = False) -> None:
     registry_files = sorted(norms_root.glob("*/registry.yml"))
     if not registry_files:
         raise SystemExit(f"ERROR: no registry files under {norms_root}/*/registry.yml")
-    client = RisClient()
+    client = _client(proxy_from_env)
     try:
         total = 0
         for registry_path in registry_files:
@@ -229,9 +249,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Verify against the live API but do not write the registry files.",
     )
+    parser.add_argument(
+        "--proxy-from-env",
+        action="store_true",
+        help="Reach RIS through $HTTPS_PROXY (the client ignores environment proxies otherwise).",
+    )
     return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
     args = _parse_args()
-    asyncio.run(_main(args.norms_dir, dry_run=args.dry_run))
+    asyncio.run(_main(args.norms_dir, dry_run=args.dry_run, proxy_from_env=args.proxy_from_env))

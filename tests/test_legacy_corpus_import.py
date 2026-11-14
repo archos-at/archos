@@ -74,13 +74,17 @@ def test_a_second_run_stores_nothing(tmp_path, store):
     assert counts == {"stored": 0, "unchanged": 2, "skipped": 0, "failed": 0}
 
 
-def test_a_file_stored_with_other_bytes_is_replaced(tmp_path, store):
+def test_a_name_the_corpus_keeps_with_other_bytes_is_left_alone(tmp_path, store):
+    """A corpus file's bytes never change (ADR-0165): a request's text of that name stays the text a reviewer read."""
     stored, _ = store
-    stored["OIB-RL2.pdf"] = b"an older revision"
-    root = _legacy(tmp_path, operator=["OIB-RL2.pdf"])
+    stored["OIB-RL2.pdf"] = b"the text a change request names"
+    root = _legacy(tmp_path, operator=["OIB-RL2.pdf"], uploads=["Bauordnung.pdf"])
 
-    assert importer.import_legacy_corpus(root)["stored"] == 1
-    assert stored["OIB-RL2.pdf"] == b"oib:OIB-RL2.pdf"
+    counts = importer.import_legacy_corpus(root)
+
+    assert counts == {"stored": 1, "unchanged": 0, "skipped": 1, "failed": 0}
+    assert stored["OIB-RL2.pdf"] == b"the text a change request names"
+    assert stored["Bauordnung.pdf"] == b"oib_uploads:Bauordnung.pdf"
 
 
 def test_a_failed_store_is_counted_and_fails_the_run_so_the_job_retries(tmp_path, store, capsys):

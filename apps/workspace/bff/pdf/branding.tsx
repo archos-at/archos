@@ -1,5 +1,5 @@
 /**
- * The chrome around an exported document: the mark, the cover, the running
+ * The chrome around an exported document: the wordmark, the cover, the running
  * header and the page footer.
  *
  * ## Why a document needs chrome at all
@@ -12,11 +12,11 @@
  * the wordmark says what produced it, the title says what it is, and
  * `N / total` says whether the stack is complete.
  *
- * ## Why the mark is redrawn instead of embedded
+ * ## Why the icon's glyph is redrawn instead of embedded
  *
  * `public/` carries no raster logo, and `components/brand/logo.tsx` is a client
  * component whose `<svg>` is styled with Tailwind and `currentColor` — neither
- * of which exists in react-pdf. So the mark is redrawn from the same path data
+ * of which exists in react-pdf. So the glyph is redrawn from the same path data
  * (`BRAND_MARK` in `lib/brand.ts`) with react-pdf's SVG primitives, which keeps it a vector (it stays crisp when
  * the document is printed at any size) and keeps the renderer free of assets it
  * would have to fetch at render time.
@@ -27,6 +27,7 @@ import { Path, StyleSheet, Svg, View } from '@react-pdf/renderer'
 
 // See printable-text.tsx — the wrapper, not the library's `Text`.
 import { Text } from './printable-text'
+import { wordmarkFontStyle } from './fonts'
 import { BRAND_MARK, PRODUCT_NAME } from '@/lib/brand'
 import { PDF_PAGE, PDF_THEME, PDF_TYPE } from './theme'
 
@@ -68,6 +69,12 @@ export interface DocumentChrome {
   disclaimer: string
   /** The line that repeats at the foot of every page. */
   footerLine: string
+  /**
+   * The Art. 50(1) AI Act disclosure, printed under the header line: an AI
+   * system wrote this, for which office. Not the overridable branding copy
+   * (`DocumentBranding.aiDisclosure`); optional only for chrome built elsewhere.
+   */
+  aiDisclosure?: string
 }
 
 export interface CoverInfo {
@@ -89,16 +96,14 @@ export interface CoverInfo {
 }
 
 const styles = StyleSheet.create({
-  // ---- the mark ------------------------------------------------------------
+  // ---- the wordmark --------------------------------------------------------
   lockup: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   wordmark: {
-    fontFamily: 'Helvetica',
-    fontWeight: 'bold',
-    // The app's wordmark is `tracking-tight`; at 8pt on paper the same optical
-    // tightness is a touch of negative letter spacing rather than none.
+    // The brand's logo tracking, -0.02em, as points at the small sizes the
+    // lockup is drawn at (the face itself is set in `BrandLockup`).
     letterSpacing: -0.2,
   },
 
@@ -177,6 +182,14 @@ const styles = StyleSheet.create({
   coverHeaderLine: {
     fontSize: PDF_TYPE.chrome,
     color: PDF_THEME.subtle,
+    marginBottom: 22,
+  },
+  // The Art. 50(1) line, under the header line and in the body's ink: it is a
+  // statement to the reader, not chrome to read past.
+  coverDisclosure: {
+    fontSize: PDF_TYPE.chrome,
+    color: PDF_THEME.ink,
+    marginTop: -14,
     marginBottom: 22,
   },
   // The prose block. Under the facts rather than over them: the facts say what
@@ -264,7 +277,11 @@ const styles = StyleSheet.create({
   },
 })
 
-/** The column mark, `size` tall (it is narrower than tall), in one colour. */
+/**
+ * The app icon's glyph, the product name's initial, `size` tall, in one
+ * colour. It never stands beside the wordmark (the design system's logo is the
+ * word alone); the cover's foot carries it on its own.
+ */
 export const BrandMark: React.FC<{ size: number; color: string }> = ({ size, color }) => (
   <Svg width={size * BRAND_MARK.aspect} height={size} viewBox={BRAND_MARK.viewBox}>
     <Path d={BRAND_MARK.path} fill={color} />
@@ -272,27 +289,19 @@ export const BrandMark: React.FC<{ size: number; color: string }> = ({ size, col
 )
 
 /**
- * Mark plus wordmark, the way the app locks them up.
- *
- * The gap is `size / 3.5` rather than a constant because this lockup is drawn
- * at three sizes in one document (cover, header, footer) and a fixed gap that
- * looks right at 26pt looks broken at 9pt.
+ * The wordmark: the product's name in capitals in the logo face. The design
+ * system's logo is the word alone, with no mark beside it. Drawn at three sizes
+ * in one document (cover, header, footer).
  */
 export const BrandLockup: React.FC<{
   size: number
   color: string
-  /** Wordmark size; defaults to the mark's height, which centres the caps on the column. */
+  /** Wordmark size; defaults to `size`. */
   fontSize?: number
 }> = ({ size, color, fontSize }) => (
   <View style={styles.lockup}>
-    <BrandMark size={size} color={color} />
-    <Text
-      style={[
-        styles.wordmark,
-        { fontSize: fontSize ?? size, color, marginLeft: size / 3.5 },
-      ]}
-    >
-      {PRODUCT_NAME}
+    <Text style={[styles.wordmark, wordmarkFontStyle(), { fontSize: fontSize ?? size, color }]}>
+      {PRODUCT_NAME.toUpperCase()}
     </Text>
   </View>
 )
@@ -324,7 +333,7 @@ export const RunningHeader: React.FC<{ title: string }> = ({ title }) => (
 export const PageFooter: React.FC<{ line?: string }> = ({ line }) => (
   <View style={styles.footer} fixed>
     <BrandLockup size={8} color={PDF_THEME.subtle} />
-    {/* Between the mark and the numeral, because that is where a reader's eye
+    {/* Between the wordmark and the numeral, because that is where a reader's eye
         is not: the two ends of a footer are the two things they look for, and
         „Entwurf, nicht freigegeben" is the thing they should meet on the way. */}
     {line ? <Text style={styles.footerText}>{line}</Text> : null}
@@ -357,6 +366,9 @@ export const CoverContent: React.FC<{ cover: CoverInfo }> = ({ cover }) => (
 
     <View style={styles.coverBody}>
       {cover.chrome ? <Text style={styles.coverHeaderLine}>{cover.chrome.headerLine}</Text> : null}
+      {cover.chrome?.aiDisclosure ? (
+        <Text style={styles.coverDisclosure}>{cover.chrome.aiDisclosure}</Text>
+      ) : null}
       {cover.notice ? (
         <View style={styles.coverNotice} wrap={false}>
           <Text style={styles.coverNoticeTitle}>{cover.notice.title}</Text>
@@ -379,7 +391,7 @@ export const CoverContent: React.FC<{ cover: CoverInfo }> = ({ cover }) => (
       ) : null}
     </View>
 
-    {/* The mark once more at the foot of the cover, with the accent rule
+    {/* The icon's glyph at the foot of the cover, with the accent rule
         running out of it — the one loud gesture on an otherwise quiet page. */}
     <View style={styles.coverFooter}>
       <BrandMark size={12} color={PDF_THEME.ink} />

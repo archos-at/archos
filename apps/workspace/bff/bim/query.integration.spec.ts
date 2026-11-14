@@ -1,4 +1,6 @@
 /**
+ * @vitest-environment node
+ *
  * The BIM query layer against a REAL Postgres, with the real migration chain
  * and the real fixture model (ADR-0041's harness — `task db:test:rls`).
  *
@@ -23,6 +25,11 @@ import { readZipEntries } from '@/test-utils/read-zip'
 import { REVIEWER_READER } from '@/lib/documents/document-reader'
 
 vi.mock('server-only', () => ({}))
+// The test database holds no published records: the model's project reads a context where every rule's edition binds.
+vi.mock('@/lib/base-knowledge/context/service', async () => {
+  const { settledContext } = await import('./rule-basis.fixtures')
+  return { contextForPage: vi.fn(async () => settledContext()) }
+})
 
 const url = process.env.TEST_DATABASE_URL
 const ORG = `org_bim_${Date.now()}`
@@ -52,6 +59,7 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   let otherBuildingId: string
   /** A model past both the count ceiling and the property-catalog scan limit. */
   let bigModelId: string
+  let PLACED_PROJECT: string
   let FIXTURE_PROJECT: string
   let index: BimModelIndex
   let runBimQuery: typeof import('./query').runBimQuery
@@ -110,12 +118,27 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     )
   }
 
+  // `documents.organization_id` is a plain column with no foreign key to
+  // `organizations` (WorkOS owns org identity), so a document row is all the
+  // fixture needs — and it is written through the platform role because a
+  // tenant-scoped insert cannot seed two tenants.
+  const seedDocument = async (organizationId: string, filename: string): Promise<string> => {
+    const rows = await withPlatformAccess('seed a BIM fixture document', () =>
+      db.execute<{ id: string }>(sql`
+        INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status)
+        VALUES (${organizationId}, 'seed', ${filename}, ${`seed/${filename}`}, 'seed', 'completed')
+        RETURNING id
+      `)
+    )
+    return Array.from(rows)[0].id
+  }
+
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = url
     const { getDb, closeDb: close } = await import('@/lib/db')
     const tenantContext = await import('@/lib/db/tenant-context')
     withPlatformAccess = tenantContext.withPlatformAccess
-    const repository = await import('./repository')
+    const extraction = await import('./extraction-repository')
     const query = await import('./query')
     runBimQuery = query.runBimQuery
     bimQuerySchema = query.bimQuerySchema
@@ -129,21 +152,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     )
 
     db = getDb()
-    // `documents.organization_id` is a plain column with no foreign key to
-    // `organizations` (WorkOS owns org identity), so a document row is all the
-    // fixture needs — and it is written through the platform role because a
-    // tenant-scoped insert cannot seed two tenants.
-    const seedDocument = async (organizationId: string, filename: string): Promise<string> => {
-      const rows = await withPlatformAccess('seed a BIM fixture document', () =>
-        db.execute<{ id: string }>(sql`
-          INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status)
-          VALUES (${organizationId}, 'seed', ${filename}, ${`seed/${filename}`}, 'seed', 'completed')
-          RETURNING id
-        `)
-      )
-      return Array.from(rows)[0].id
-    }
-
     const { elements: extracted, ...summary } = index
     // A null-valued property, which the two `search_keys` writers used to
     // disagree about: SQL emitted `[null]`, TypeScript omitted the key, and a
@@ -160,14 +168,32 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
           }
         : element
     )
+    // The OIB rules bind in Austria only (ADR-0169): the model under test stands in a project placed in Vienna.
+    const placedRows = await withPlatformAccess('seed a BIM project placed in Austria', () =>
+      db.execute<{ id: string }>(sql`
+        INSERT INTO projects (organization_id, name, created_by, collection_name, profile)
+        VALUES (${ORG}, 'BIM fixture in Vienna', 'seed', 'seed', ${JSON.stringify({
+          facts: {
+            country: { value: 'at', confidence: 'confirmed', source: 'onboarding', updatedAt: '2026-11-10T00:00:00Z' },
+            federal_state: { value: 'vienna', confidence: 'confirmed', source: 'onboarding', updatedAt: '2026-11-10T00:00:00Z' },
+          },
+          goals: {},
+          unknowns: [],
+          assumptions: {},
+        })}::jsonb)
+        RETURNING id
+      `)
+    )
+    PLACED_PROJECT = Array.from(placedRows)[0].id
     const documentId = await seedDocument(ORG, 'sample-building.ifc')
-    modelId = await repository.startBimModel({
+    const modelIdRun = await extraction.startBimModel({
       organizationId: ORG,
-      projectId: null,
+      projectId: PLACED_PROJECT,
       documentId,
     })
-    await repository.completeBimModel({
-      modelId,
+    modelId = modelIdRun.modelId
+    await extraction.completeBimModel({
+      run: modelIdRun,
       organizationId: ORG,
       summary,
       elements,
@@ -210,13 +236,14 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
         },
       ])
     const revisionDocumentId = await seedDocument(ORG, 'sample-building-v2.ifc')
-    revisionModelId = await repository.startBimModel({
+    const revisionModelIdRun = await extraction.startBimModel({
       organizationId: ORG,
-      projectId: null,
+      projectId: PLACED_PROJECT,
       documentId: revisionDocumentId,
     })
-    await repository.completeBimModel({
-      modelId: revisionModelId,
+    revisionModelId = revisionModelIdRun.modelId
+    await extraction.completeBimModel({
+      run: revisionModelIdRun,
       organizationId: ORG,
       summary,
       elements: revisionElements,
@@ -225,13 +252,14 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     })
 
     const otherBuildingDocumentId = await seedDocument(ORG, 'nebengebaeude.ifc')
-    otherBuildingId = await repository.startBimModel({
+    const otherBuildingIdRun = await extraction.startBimModel({
       organizationId: ORG,
       projectId: null,
       documentId: otherBuildingDocumentId,
     })
-    await repository.completeBimModel({
-      modelId: otherBuildingId,
+    otherBuildingId = otherBuildingIdRun.modelId
+    await extraction.completeBimModel({
+      run: otherBuildingIdRun,
       organizationId: ORG,
       summary,
       elements,
@@ -251,13 +279,14 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     FIXTURE_PROJECT = Array.from(projectRows)[0].id
 
     const otherDocumentId = await seedDocument(OTHER_ORG, 'other.ifc')
-    otherModelId = await repository.startBimModel({
+    const otherModelIdRun = await extraction.startBimModel({
       organizationId: OTHER_ORG,
       projectId: null,
       documentId: otherDocumentId,
     })
-    await repository.completeBimModel({
-      modelId: otherModelId,
+    otherModelId = otherModelIdRun.modelId
+    await extraction.completeBimModel({
+      run: otherModelIdRun,
       organizationId: OTHER_ORG,
       summary,
       elements,
@@ -277,13 +306,14 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     // took a flat `LIMIT` off the top would report `Pset_DoorCommon`, part of
     // `Pset_WallCommon`, and never see `Pset_WindowCommon` at all.
     const bigDocumentId = await seedDocument(ORG, 'big-building.ifc')
-    bigModelId = await repository.startBimModel({
+    const bigModelIdRun = await extraction.startBimModel({
       organizationId: ORG,
       projectId: null,
       documentId: bigDocumentId,
     })
-    await repository.completeBimModel({
-      modelId: bigModelId,
+    bigModelId = bigModelIdRun.modelId
+    await extraction.completeBimModel({
+      run: bigModelIdRun,
       organizationId: ORG,
       summary,
       elements: [],
@@ -1051,6 +1081,52 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     )
     expect(result.complianceChanges).toEqual([])
     expect(result.summary).toContain('Keine Anforderung')
+  })
+
+  it('judges the corrected file after a same-name re-upload, not the memoised one', async () => {
+    // `startBimModel` upserts on the document, so the re-extraction keeps the
+    // model id and only `completeBimModel` tells the two files apart.
+    const extraction = await import('./extraction-repository')
+    const { elements, ...summary } = index
+    const documentId = await seedDocument(ORG, 'wiederhochgeladen.ifc')
+    const extract = async (fireRating: string): Promise<string> => {
+      const run = await extraction.startBimModel({ organizationId: ORG, projectId: PLACED_PROJECT, documentId })
+      const id = run.modelId
+      await extraction.completeBimModel({
+        run,
+        organizationId: ORG,
+        summary,
+        elements: elements.map((element) =>
+          element.name === 'Aussenwand Nord'
+            ? {
+                ...element,
+                properties: {
+                  ...element.properties,
+                  Pset_WallCommon: { ...element.properties.Pset_WallCommon, FireRating: fireRating },
+                },
+              }
+            : element
+        ),
+        indexStorageKey: null,
+        indexStorageBucket: null,
+      })
+      return id
+    }
+    const failedWalls = async (id: string): Promise<number> => {
+      const result = await runBimQuery(bimQuerySchema.parse({ op: 'compliance', buildingClass: 5 }), {
+        modelId: id,
+        organizationId: ORG,
+      })
+      const fire = result.compliance?.find((rule) => rule.ruleId === 'oib2-fire-resistance-load-bearing')
+      return fire?.failed ?? 0
+    }
+
+    const first = await extract('REI 90')
+    const before = await failedWalls(first)
+    const second = await extract('REI 30')
+
+    expect(second).toBe(first)
+    expect(await failedWalls(second)).toBeGreaterThan(before)
   })
 
   it('refuses a compliance diff against another tenant’s revision', async () => {

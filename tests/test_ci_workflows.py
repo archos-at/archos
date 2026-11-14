@@ -68,7 +68,7 @@ CI = load("ci.yml")
 JOBS = CI["jobs"]
 PLAN = JOBS["changes"]
 STEPS = {step["id"]: step for step in PLAN["steps"] if "id" in step}
-TIERS = ["backend", "workspace", "site", "infra", "packages", "sast"]
+TIERS = ["backend", "workspace", "site", "cms", "infra", "packages", "sast", "hatchet", "skills"]
 BUILD = json.dumps([{"name": "backend"}])
 
 
@@ -107,9 +107,8 @@ def runs(job: str, *, event: str, outputs: dict) -> bool:
     return bool(evaluate(condition, github={"event_name": event}, needs=needs))
 
 
-# Jobs that check the change. A reused push skips all of them. `backend-testmon`
-# checks nothing: it records the database pull requests select from.
-CHECKS = [job for job in JOBS if job not in ("changes", "ci-ok", "publish", "image", "image-push", "backend-testmon")]
+# Jobs that check the change. A reused push skips all of them.
+CHECKS = [job for job in JOBS if job not in ("changes", "ci-ok", "publish", "image", "image-push")]
 # The full Python suite, and the selection a pull request runs instead of it.
 FULL_PY = ["backend", "backend-coverage", "backend-suites"]
 
@@ -189,7 +188,6 @@ def test_a_pull_request_result_counts_only_on_a_green_parent():
     assert outputs["reused"] == "false"
     assert [job for job in CHECKS if not runs(job, event="push", outputs=outputs) and job != "semgrep"] == [
         "backend-affected",
-        "workspace-coverage",
     ]
 
 
@@ -198,9 +196,9 @@ def test_a_miss_runs_every_check_the_filter_selects(hit):
     outputs = plan(event="push", parent_green=True, hit=hit)
     skipped = [job for job in CHECKS if not runs(job, event="push", outputs=outputs)]
 
-    # Diff-aware SAST, the coverage comment and the selected Python run have
-    # nothing to do on a push: a push runs the full suite.
-    assert skipped == ["semgrep", "backend-affected", "workspace-coverage"]
+    # Diff-aware SAST and the selected Python run have nothing to do on a
+    # push: a push runs the full suite.
+    assert skipped == ["semgrep", "backend-affected"]
 
 
 def test_a_pull_request_runs_every_check_the_filter_selects():
@@ -246,31 +244,39 @@ def test_a_push_always_runs_the_full_python_suite():
 
 
 def test_the_test_database_follows_every_develop_push_and_holds_nobody_up():
-    reused = plan(event="push", parent_green=True, hit="true")
-    job = JOBS["backend-testmon"]
+    # Not a job in CI: the staging deploy follows the CI run as a whole, so a
+    # job there that checks nothing still held every deploy for its seven
+    # minutes, and the next develop run queued behind it.
+    testmon = load("testmon.yml")
+    job = testmon["jobs"]["backend-testmon"]
 
-    develop = {"event_name": "push", "ref": "refs/heads/develop"}
-    assert evaluate(job["if"], github=develop, needs={"changes": {"outputs": reused}})
-    assert not evaluate(job["if"], github={"event_name": "pull_request", "ref": "refs/pull/1/merge"}, needs={})
-    assert "backend-testmon" not in JOBS["ci-ok"]["needs"]
-    assert "backend-testmon" not in JOBS["publish"]["needs"]
+    assert testmon["on"]["push"]["branches"] == ["develop"]
+    # A merge that changes no Python cannot change which test runs which function.
+    assert "**/*.py" in testmon["on"]["push"]["paths"] and "uv.lock" in testmon["on"]["push"]["paths"]
+    assert "backend-testmon" not in JOBS
+    assert not any("be:test:testmon" in json.dumps(other) for other in JOBS.values())
+    assert testmon["concurrency"]["group"] != CI["concurrency"]["group"]
     # Saved by a step after the tests, so a red run saves nothing.
     steps = job["steps"]
     run = next(i for i, step in enumerate(steps) if step.get("run") == "task be:test:testmon")
     save = next(i for i, step in enumerate(steps) if step.get("uses", "").startswith("actions/cache/save"))
     assert save > run and "if" not in steps[save]
+    # Under the key and path the pull request lanes restore.
+    restore = next(
+        step for step in JOBS["backend-affected"]["steps"] if step.get("name") == "Restore develop's test database"
+    )
+    assert steps[save]["with"]["path"] == restore["with"]["path"]
+    assert steps[save]["with"]["key"].startswith(restore["with"]["restore-keys"].strip())
 
 
-def test_a_ui_selection_runs_the_shards_without_the_coverage_comment():
+def test_a_ui_selection_runs_the_shards():
     selected = plan(event="pull_request", ui_mode="select")
     nothing = plan(event="pull_request", ui_mode="none")
     full = plan(event="pull_request", ui_mode="full")
 
     assert runs("workspace-test", event="pull_request", outputs=selected)
-    assert not runs("workspace-coverage", event="pull_request", outputs=selected)
     assert not runs("workspace-test", event="pull_request", outputs=nothing)
     assert runs("workspace-test", event="pull_request", outputs=full)
-    assert runs("workspace-coverage", event="pull_request", outputs=full)
     # Lint, types and tenant isolation are not selected: they always run.
     assert runs("workspace", event="pull_request", outputs=nothing)
 
@@ -304,8 +310,8 @@ def test_the_marker_is_uploaded_only_by_a_passing_pull_request_gate():
     uploads = [i for i, step in enumerate(steps) if step.get("uses", "").startswith("actions/upload-artifact")]
 
     assert JOBS["ci-ok"]["if"] == "always()"
-    # Every job gates the marker, bar the coverage comment (see CI OK).
-    assert set(JOBS["ci-ok"]["needs"]) == set(JOBS) - {"ci-ok", "workspace-coverage", "backend-testmon"}
+    # Every job gates the marker.
+    assert set(JOBS["ci-ok"]["needs"]) == set(JOBS) - {"ci-ok"}
     assert len(uploads) == 1 and uploads[0] > check
     upload = steps[uploads[0]]
     # No status function: the implicit success() keeps a failed check from uploading.
@@ -344,7 +350,7 @@ def test_the_commit_is_tagged_only_after_every_check_on_its_push_passed():
     publish = JOBS["publish"]
     can_run_on_push = {job for job in CHECKS if runs(job, event="push", outputs=plan(event="push"))}
 
-    assert can_run_on_push - {"workspace-coverage"} <= set(publish["needs"])
+    assert can_run_on_push <= set(publish["needs"])
     assert "image-push" in publish["needs"]
     condition = " ".join(publish["if"].split())
     assert "github.event_name == 'push'" in condition
@@ -355,11 +361,35 @@ def test_the_commit_is_tagged_only_after_every_check_on_its_push_passed():
     assert "publish" in JOBS["ci-ok"]["needs"]
 
 
+# --- The Hatchet engine -------------------------------------------------------------
+
+
+def test_the_engine_suites_run_on_the_engine_production_runs():
+    # The engine tests prove the SDK against one engine; a CI pin that drifts
+    # from production's proves it against another.
+    root = WORKFLOWS.parents[1]
+    production = re.search(
+        r'HATCHET_IMAGE_TAG = "([^"]+)"', (root / "deploy/pulumi/src/config/background-work.ts").read_text()
+    )
+    pins = {
+        path: re.findall(r"hatchet-lite:(v[\w.]+)", (root / path).read_text())
+        for path in ("ci/hatchet_engine.sh", "deploy/compose/docker-compose.yaml")
+    }
+
+    assert production
+    assert pins == dict.fromkeys(pins, [production[1]])
+
+
+def test_the_engine_job_runs_on_its_own_tier():
+    assert JOBS["hatchet"]["if"] == "needs.changes.outputs.hatchet == 'true'"
+    assert not runs("hatchet", event="pull_request", outputs=plan(event="pull_request") | {"hatchet": "false"})
+
+
 # --- Release notes ------------------------------------------------------------------
 
 
 def test_a_push_lints_its_release_notes_and_a_pull_request_must_add_one():
-    steps = JOBS["repo"]["steps"]
+    steps = JOBS["release-notes"]["steps"]
     lint = next(step for step in steps if step.get("name") == "Release notes (lint)")
     require = next(step for step in steps if "require_release_note.py" in step.get("run", ""))
 
@@ -376,9 +406,10 @@ def test_a_push_lints_its_release_notes_and_a_pull_request_must_add_one():
     assert "no-release-note" in require["run"]
 
 
-def test_a_pull_requests_repo_checks_fetch_only_down_to_the_merge_base():
+@pytest.mark.parametrize("job", ["repo", "release-notes"])
+def test_a_pull_requests_repo_checks_fetch_only_down_to_the_merge_base(job):
     """Full history was ~75 s of every PR's critical path (docs/audit/blast-radius-2026-10.md §7)."""
-    steps = JOBS["repo"]["steps"]
+    steps = JOBS[job]["steps"]
     checkout = steps[0]
     depth = checkout["with"]["fetch-depth"]
     assert evaluate(depth.removeprefix("${{").removesuffix("}}"), github={"event_name": "pull_request"}) == 1
@@ -396,6 +427,28 @@ def test_a_pull_requests_repo_checks_fetch_only_down_to_the_merge_base():
         if "require_release_note.py" in step.get("run", "") or "gitleaks" in step.get("run", "")
     ]
     assert readers and min(readers) > 1
+
+
+def test_repo_checks_run_as_legs_side_by_side_and_all_gate():
+    # One job ran them in series and finished last in 21 of 45 pull request runs.
+    legs = {"repo", "repo-tests", "release-notes"}
+
+    for leg in legs:
+        assert JOBS[leg]["needs"] == "changes"
+        assert JOBS[leg]["if"] == "needs.changes.outputs.reused != 'true'"
+        assert JOBS[leg]["name"].startswith("Repo checks (")
+        assert leg in JOBS["publish"]["needs"] and leg in JOBS["ci-ok"]["needs"]
+    assert "be:test:harness" in json.dumps(JOBS["repo-tests"])
+    assert "be:test:harness" not in json.dumps(JOBS["repo"]) + json.dumps(JOBS["release-notes"])
+
+
+def test_the_skill_lockfile_is_audited_only_when_something_it_hashes_changed():
+    audit = next(step for step in JOBS["release-notes"]["steps"] if step.get("run") == "task agents:audit")
+    filters = yaml.safe_load((WORKFLOWS.parent / "filters.yml").read_text(encoding="utf-8"))
+
+    assert audit["if"] == "needs.changes.outputs.skills == 'true'"
+    assert {"skills/**", "apm.yml", "apm.lock.yaml", "Taskfile.yml"} <= set(filters["skills"])
+    assert evaluate(PLAN["outputs"]["skills"], steps={"filter": {"outputs": {"skills": "true"}}}) == "true"
 
 
 def test_semgrep_finds_its_own_merge_base_from_a_shallow_clone():
@@ -485,3 +538,217 @@ def test_every_action_is_pinned_to_a_commit():
         and not (re.fullmatch(r"[^@]+@[0-9a-f]{40}", match["ref"]) and re.match(r"\s+# v\d", match["rest"]))
     ]
     assert not unpinned, f"pin these to a commit SHA with a `# vX.Y.Z` comment: {unpinned}"
+
+
+def _step_index(steps: list[dict], name: str) -> int:
+    return next(i for i, step in enumerate(steps) if step.get("name") == name)
+
+
+@pytest.mark.parametrize("job", ["deploy", "deploy-prod"])
+def test_every_deploy_is_smoke_checked_from_outside_and_names_its_rollback(job):
+    steps = DEPLOY["jobs"][job]["steps"]
+    up = _step_index(steps, "Pulumi up")
+
+    # What ran before is read before the apply changes it.
+    assert _step_index(steps, "Remember what is running") < up
+    smoke = steps[_step_index(steps, "Smoke check")]
+    assert _step_index(steps, "Smoke check") > up
+    assert "continue-on-error" not in smoke
+    assert '"$SMOKE_CHECK"' in smoke["run"]
+    # Inline, so an older checkout cannot lack it (docs/contributing/gotchas.md).
+    # The frontend's liveness route, and the backend's health behind it.
+    assert "for path in /api/healthz /api/health;" in DEPLOY["env"]["SMOKE_CHECK"]
+    rollback = steps[_step_index(steps, "How to roll this back")]
+    assert rollback["if"].startswith("${{ always()")
+    assert "gh workflow run deploy.yml" in rollback["run"]
+
+
+def test_production_always_deploys_the_prod_branchs_program():
+    # A dispatch checked out the ref it ran from, so `target=both` from develop
+    # applied develop's program to production.
+    job = DEPLOY["jobs"]["deploy-prod"]
+    checkout = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout"))
+
+    ref = checkout["with"]["ref"]
+    # A push applies the pushed commit, not prod's tip at approval time.
+    assert evaluate(ref, github={"event_name": "push", "sha": "abc"}) == "abc"
+    assert evaluate(ref, github={"event_name": "workflow_dispatch", "sha": "abc"}) == "prod"
+    assert "GITHUB_SHA" not in json.dumps(job["steps"])
+
+
+def test_a_prod_rollback_is_a_dispatch_tag_checked_before_it_reaches_a_command_line():
+    job = DEPLOY["jobs"]["deploy-prod"]
+    steps = job["steps"]
+
+    assert job["env"]["ROLLBACK_TAG"] == "${{ inputs.imageTag }}"
+    assert job["environment"]["name"] == "production"
+    verify = _step_index(steps, "Verify the pinned images exist")
+    assert "^sha-[0-9a-f]{40}$" in steps[verify]["run"]
+    assert "vector-store-floor.sh" in steps[verify]["run"]
+    validate = steps[_step_index(steps, "Validate plan (CRD schemas + policy pack)")]
+    # A per-service ref would override the rollback tag for that service.
+    assert all(key in validate["run"] for key in ("backendImage", "frontendImage", "webImage"))
+    for name in ("Validate plan (CRD schemas + policy pack)", "Pulumi up"):
+        index = _step_index(steps, name)
+        assert index > verify
+        # An unqualified key is the project's own: the stack file's imageTag.
+        assert 'pulumi config set imageTag "$ROLLBACK_TAG"' in steps[index]["run"]
+
+
+def test_a_pull_request_must_not_take_away_what_a_rollback_reads():
+    step = next(s for s in JOBS["release-notes"]["steps"] if "migration_contract.py" in s.get("run", ""))
+
+    assert evaluate(step["if"], github={"event_name": "pull_request"})
+    assert not evaluate(step["if"], github={"event_name": "push"})
+    # Read live, like no-release-note: label, then re-run the job.
+    assert "migration:contract" in step["run"] and "labels" not in step["if"]
+    labels = yaml.safe_load((WORKFLOWS.parent / "labels.yml").read_text(encoding="utf-8"))
+    assert "migration:contract" in {label["name"] for label in labels}
+
+
+def test_no_pull_request_can_skip_ci_on_its_merge_commit():
+    code = load("pr.yml")["jobs"]["skip-markers"]["steps"][0]["run"]
+
+    def verdict(title: str, body: str) -> bool:
+        import os
+
+        os.environ["TITLE"], os.environ["BODY"] = title, body
+        try:
+            exec(code, {})  # noqa: S102 - our own workflow's script
+        except SystemExit:
+            return False
+        return True
+
+    assert verdict("feat: a thing", "we skip CI flakes by fixing them")
+    for marker in ("[skip ci]", "[ci skip]", "[no ci]", "[skip actions]", "[actions skip]", "skip-checks: true"):
+        assert not verdict("fix: x", f"text {marker.upper()}")
+
+
+def test_a_ci_triggered_deploy_of_what_staging_runs_applies_nothing():
+    steps = DEPLOY["jobs"]["deploy"]["steps"]
+    skip = _step_index(steps, "Skip a commit staging already runs")
+
+    assert steps[skip]["if"] == "${{ github.event_name == 'workflow_run' }}"
+    assert skip > _step_index(steps, "Resolve per-service image refs")
+    for name in ("Validate plan (CRD schemas + policy pack)", "Pulumi up"):
+        assert "env.ALREADY_DEPLOYED != 'true'" in steps[_step_index(steps, name)]["if"]
+    # The same program, not only the same images: an operator rollback leaves
+    # this commit's images under a newer program.
+    assert '"$program" = "$DEPLOY_SHA"' in steps[skip]["run"]
+    assert 'pulumi stack tag set deployed-commit "$DEPLOY_SHA"' in steps[_step_index(steps, "Pulumi up")]["run"]
+    # A skipped apply is still checked from outside.
+    assert "if" not in steps[_step_index(steps, "Smoke check")]
+
+
+@pytest.mark.parametrize(
+    ("workflow", "variable"), [("ci.yml", "CI_RUNNER"), ("testmon.yml", "CI_RUNNER"), ("deploy.yml", "DEPLOY_RUNNER")]
+)
+def test_the_runner_is_one_repository_variable_away_from_self_hosted(workflow, variable):
+    # Moving to Actions Runner Controller is a variable, not an edit per job;
+    # deploys get their own, so they need not run inside the cluster they change.
+    for name, job in load(workflow)["jobs"].items():
+        assert job["runs-on"] == f"${{{{ vars.{variable} || 'ubuntu-latest' }}}}", name
+
+
+# --- Source maps -------------------------------------------------------------------
+
+
+def test_source_maps_are_uploaded_after_ci_by_a_workflow_nothing_waits_on():
+    # Inside `next build` the upload was ~232 s of every frontend build, and a
+    # job in ci.yml would hold the deploy, which follows the CI run as a whole.
+    workflow = load("sourcemaps.yml")
+    job = workflow["jobs"]["upload"]
+
+    assert workflow["on"]["workflow_run"]["workflows"] == ["CI"]
+    green_push = {
+        "event_name": "workflow_run",
+        "repository": "acme/grid",
+        "event": {
+            "workflow_run": {"conclusion": "success", "event": "push", "head_repository": {"full_name": "acme/grid"}}
+        },
+    }
+    assert evaluate(job["if"], github=green_push)
+    for change in ({"event": "pull_request"}, {"conclusion": "failure"}, {"head_repository": {"full_name": "fork/x"}}):
+        run = green_push["event"]["workflow_run"] | change
+        assert not evaluate(job["if"], github=green_push | {"event": {"workflow_run": run}})
+    assert "POSTHOG_CLI_API_KEY" not in json.dumps(JOBS)  # no job of CI holds the key any more
+
+
+def test_the_upload_runs_the_cli_the_build_injected_with():
+    package = json.loads((WORKFLOWS.parents[1] / "apps/workspace/package.json").read_text(encoding="utf-8"))
+    steps = load("sourcemaps.yml")["jobs"]["upload"]["steps"]
+    upload = next(s for s in steps if s.get("name") == "Upload to PostHog")
+    # A failed download of maps the run did export fails the job; only a run
+    # that exported none is skipped.
+    fetch = next(s for s in steps if s.get("name") == "Fetch the run's source maps")
+    assert "continue-on-error" not in fetch
+    assert fetch["if"] == upload["if"] == "steps.maps.outputs.exported == 'true'"
+
+    assert upload["env"]["POSTHOG_CLI_VERSION"] == package["devDependencies"]["@posthog/cli"]
+    assert "--release-name workspace-ui" in upload["run"] and '--release-version "$RELEASE_VERSION"' in upload["run"]
+
+
+def test_only_the_pushed_frontend_build_exports_its_source_maps():
+    push = next(s for s in JOBS["image-push"]["steps"] if s.get("uses") == "./.github/actions/build-image")
+    pull_request = next(s for s in JOBS["image"]["steps"] if s.get("uses") == "./.github/actions/build-image")
+
+    assert push["with"]["export-sourcemaps"] == "${{ matrix.name == 'frontend' }}"
+    assert "export-sourcemaps" not in pull_request["with"]
+
+
+def test_every_ci_job_runs_the_node_version_the_repository_pins():
+    # `node-version: "22"` took whatever 22.x the runner image had cached; an
+    # older image in the pool had one Astro refuses (run 41725318204).
+    pinned = (WORKFLOWS.parents[1] / ".node-version").read_text(encoding="utf-8").strip()
+
+    assert re.fullmatch(r"\d+\.\d+\.\d+", pinned)
+    for name, job in JOBS.items():
+        for step in job.get("steps", []):
+            if "actions/setup-node" in step.get("uses", ""):
+                assert step["with"] == {"node-version-file": ".node-version"}, name
+
+
+def test_no_job_posts_a_coverage_comment_or_instruments_the_ui_shards():
+    text = (WORKFLOWS / "ci.yml").read_text()
+    assert "pytest-coverage-comment" not in text and "vitest-coverage-report" not in text
+    shard = next(s for s in JOBS["workspace-test"]["steps"] if s.get("name", "").startswith("All specs"))
+    assert "COVERAGE=false" in shard["run"]
+
+
+def test_claude_runs_only_where_a_mention_can_start_it_and_one_ai_review_remains():
+    workflows = WORKFLOWS
+    claude = yaml.safe_load((workflows / "claude.yml").read_text())
+    # A review comment cannot be filtered by body before a run starts, so each
+    # bot inline comment left a skipped check behind.
+    assert set(claude[True]) == {"issue_comment", "issues"}
+    assert not (workflows / "claude-code-review.yml").exists()
+
+
+def test_dependabot_auto_merge_waits_for_ci_ok_and_starts_the_push_run():
+    workflow = yaml.safe_load((WORKFLOWS / "dependabot-auto-merge.yml").read_text())
+    job = workflow["jobs"]["enable"]
+    assert "dependabot[bot]" in job["if"]
+    assert workflow["permissions"] == {}
+    steps = {step.get("name"): step for step in job["steps"]}
+    enable = steps["Turn on auto-merge"]
+    lines = [line.strip() for line in enable["run"].splitlines()]
+    merge = next(i for i, line in enumerate(lines) if "gh pr merge --auto --squash" in line)
+    # Auto-merge on a pull request with no required check merges at once: the
+    # rules are read (ci/dependabot_merge.py, tested there) and a missing CI OK
+    # leaves the step before the merge.
+    guard = lines.index('if [ "$ci_ok_required" != "true" ]; then')
+    assert "python3 ci/dependabot_merge.py rules" in lines[guard - 2]
+    assert lines[guard + 2] == "exit 0" and lines[guard + 3] == "fi"
+    assert guard < merge
+    # A merge by GITHUB_TOKEN starts no push run: no images, no staging deploy.
+    assert enable["env"]["MERGE_TOKEN"] == "${{ secrets.DEPENDABOT_MERGE_TOKEN }}"
+    assert lines[merge].startswith('GH_TOKEN="$MERGE_TOKEN" gh pr merge')
+    # The organization lets no workflow approve: the approval is the token's.
+    approve = next(line for line in lines if "gh pr review --approve" in line)
+    assert approve.startswith('GH_TOKEN="$MERGE_TOKEN" gh pr review')
+    assert enable["if"] == "steps.decide.outputs.merge == 'true'"
+    # A push that makes the pull request ineligible, or metadata that could not
+    # be read, turns off auto-merge an earlier push set.
+    disable = steps["Turn off auto-merge on an update a person must read"]
+    assert disable["if"] == "always() && steps.decide.outputs.merge != 'true'"
+    assert "gh pr merge --disable-auto" in disable["run"]

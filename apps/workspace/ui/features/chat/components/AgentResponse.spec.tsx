@@ -1,4 +1,4 @@
-import { render, screen } from '@/test-utils'
+import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { AgentResponse } from './AgentResponse'
@@ -10,9 +10,11 @@ import type { AnswerCard } from '@/shared/cards/schemas'
 import { CARD_PREVIEW_FIXTURES } from '@/features/cards/preview-fixtures'
 import { useAnswerFileReferences } from '../hooks/use-answer-file-references'
 import { resetDecidedProposals } from '@/features/cards/decided-proposals'
+import { resetTurnNotes } from '../stores/turn-notes-store'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/server'
 import { proposalBase, PROPOSAL_ID, decidedByAnna } from '@/features/cards/components/proposal-test-kit'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** A presentational card that draws its title, for placement tests. */
 const calculationCard = (title: string): AnswerCard => ({ ...CARD_PREVIEW_FIXTURES.calculation!, title } as AnswerCard)
@@ -121,7 +123,7 @@ describe('AgentResponse', () => {
       render(<AgentResponse content="Answer" messageId="m1" cards={[card]} />)
 
       // On the meta row: no disclosure to open first.
-      expect(await screen.findByText('Piloti noted')).toBeInTheDocument()
+      expect(await screen.findByText(`${PRODUCT_NAME} noted`)).toBeInTheDocument()
     })
 
     test('does not list a note whose proposal was dismissed', async () => {
@@ -129,7 +131,65 @@ describe('AgentResponse', () => {
       render(<AgentResponse content="Answer" messageId="m1" cards={[card]} />)
 
       await screen.findByTestId('proposal-status')
-      expect(screen.queryByText('Piloti noted')).not.toBeInTheDocument()
+      expect(screen.queryByText(`${PRODUCT_NAME} noted`)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('the noted chip for a personal note (ADR-0180)', () => {
+    const CONVERSATION = 's-1'
+    const NOTE = 'Leitet die Einreichplanung.'
+    /** The message every reader of a shared conversation holds: the project's note is on it, a personal one never. */
+    const stages: MessageStages = {
+      memoryReflection: { items: [{ id: 'n-1', kind: 'decision', content: 'Die Bauherrschaft will ein Flachdach.' }] },
+    }
+    const asked: string[] = []
+    const serveMyNotes = (items: unknown[]) =>
+      server.use(
+        http.get('/api/user/memory', ({ request }) => {
+          asked.push(new URL(request.url).search)
+          return HttpResponse.json({ items, nextCursor: null })
+        })
+      )
+
+    beforeEach(() => {
+      asked.length = 0
+      resetTurnNotes()
+    })
+
+    test('shows the owner the note that was saved under this answer, marked as theirs alone', async () => {
+      const user = userEvent.setup()
+      serveMyNotes([
+        { id: 'p-1', kind: 'profile', content: NOTE, provenanceType: 'distillation', sourceMessageId: 'm1' },
+        { id: 'p-2', kind: 'preference', content: 'Unter einer anderen Antwort gemerkt.', provenanceType: 'agent', sourceMessageId: 'm0' },
+      ])
+      render(<AgentResponse content="Answer" messageId="m1" conversationId={CONVERSATION} stages={stages} />)
+
+      await user.click(await screen.findByRole('button', { name: `${PRODUCT_NAME} noted 2 items` }))
+
+      const mine = screen.getAllByTestId('memory-item').find((row) => row.textContent?.includes(NOTE))
+      expect(mine).toHaveTextContent('Only you')
+      expect(screen.queryByText('Unter einer anderen Antwort gemerkt.')).not.toBeInTheDocument()
+      expect(asked).toEqual([`?sourceConversationId=${CONVERSATION}&limit=200`])
+    })
+
+    test('shows a colleague reading the same message the project’s note and no personal row', async () => {
+      const user = userEvent.setup()
+      serveMyNotes([])
+      render(<AgentResponse content="Answer" messageId="m1" conversationId={CONVERSATION} stages={stages} readOnly />)
+
+      await user.click(await screen.findByRole('button', { name: `${PRODUCT_NAME} noted 1 item` }))
+
+      expect(screen.getAllByTestId('memory-item')).toHaveLength(1)
+      expect(screen.queryByText(NOTE)).not.toBeInTheDocument()
+      expect(screen.queryByText('Only you')).not.toBeInTheDocument()
+    })
+
+    test('an answer nothing was saved under shows no chip (a temporary conversation keeps nothing)', async () => {
+      serveMyNotes([])
+      render(<AgentResponse content="Answer" messageId="m1" conversationId={CONVERSATION} />)
+
+      await waitFor(() => expect(asked).toHaveLength(1))
+      expect(screen.queryByTestId('memory-chip')).not.toBeInTheDocument()
     })
   })
 
@@ -396,7 +456,7 @@ describe('AgentResponse', () => {
         />
       )
 
-      const chip = screen.getByRole('button', { name: 'Piloti noted 1 item' })
+      const chip = screen.getByRole('button', { name: `${PRODUCT_NAME} noted 1 item` })
       const trigger = screen.getByTestId('answer-details-trigger')
       expect(trigger).toHaveAttribute('aria-expanded', 'false')
       expect(chip.closest('.min-h-6')).toContainElement(trigger)
@@ -417,7 +477,7 @@ describe('AgentResponse', () => {
     test('renders no meta row when it would hold nothing at all', () => {
       render(<AgentResponse content="Answer" />)
 
-      expect(screen.queryByText('Piloti noted')).not.toBeInTheDocument()
+      expect(screen.queryByText(`${PRODUCT_NAME} noted`)).not.toBeInTheDocument()
       expect(screen.queryByText(/\d{1,2}:\d{2}/)).not.toBeInTheDocument()
       expect(screen.queryByText('Was this helpful?')).not.toBeInTheDocument()
       expect(screen.queryByTestId('answer-details-trigger')).not.toBeInTheDocument()
@@ -432,7 +492,7 @@ describe('AgentResponse', () => {
 
       expect(screen.getByRole('button', { name: 'Copy answer' })).toBeInTheDocument()
       expect(screen.queryByTestId('answer-details-trigger')).not.toBeInTheDocument()
-      expect(screen.queryByText('Piloti noted')).not.toBeInTheDocument()
+      expect(screen.queryByText(`${PRODUCT_NAME} noted`)).not.toBeInTheDocument()
       expect(screen.queryByText('Was this helpful?')).not.toBeInTheDocument()
       expect(screen.queryByText(/\d{1,2}:\d{2}/)).not.toBeInTheDocument()
     })
@@ -487,7 +547,7 @@ describe('AgentResponse', () => {
 
       // Opened: everything else the turn carries is in the document.
       expect(screen.getByText('Confidence: high')).toBeInTheDocument()
-      expect(screen.getByText('Piloti noted')).toBeInTheDocument()
+      expect(screen.getByText(`${PRODUCT_NAME} noted`)).toBeInTheDocument()
       expect(screen.getByText(/^\d{1,2}:\d{2}/)).toBeInTheDocument()
     })
 
@@ -572,13 +632,13 @@ describe('AgentResponse', () => {
       )
 
       expect(screen.queryByText('Confidence: high')).not.toBeInTheDocument()
-      expect(screen.getByText('Piloti noted')).toBeInTheDocument()
+      expect(screen.getByText(`${PRODUCT_NAME} noted`)).toBeInTheDocument()
 
       await user.click(screen.getByTestId('answer-details-trigger'))
 
       expect(screen.getByText('Confidence: high')).toBeInTheDocument()
       // Still exactly one chip: opening the details does not mount a second.
-      expect(screen.getAllByText('Piloti noted')).toHaveLength(1)
+      expect(screen.getAllByText(`${PRODUCT_NAME} noted`)).toHaveLength(1)
     })
 
     test('renders the feedback row in the open, beside the export actions', async () => {
@@ -618,7 +678,7 @@ describe('AgentResponse', () => {
       render(<AgentResponse content="Cited answer" variant="inline" citations={citations} />)
 
       const row = screen.getByRole('list', { name: /sources this answer is backed by/i })
-      expect(row.className).toContain('border-t')
+      expect(row.parentElement?.className).toContain('border-t')
     })
   })
 
@@ -718,51 +778,68 @@ describe('AgentResponse', () => {
     })
   })
 
-  // The routingDecision-driven visual distinction: a substantive Baurecht
-  // answer (shallow/deep) wears the ink "Result" role tab; a conversational /
-  // clarifying meta reply wears the quiet neutral "Note" tab. Fallback (no
+  // The routingDecision-driven distinction: a substantive Baurecht answer
+  // (shallow/deep) is named "Result"; a conversational / clarifying meta reply
+  // is a quiet "Note" on a muted surface. The name is the article's, for a
+  // screen reader: no role tab draws it (Notion #38, topic 9). Fallback (no
   // signal) must stay identical to a substantive answer.
   describe('response-kind distinction (routingDecision)', () => {
-    test('a shallow Baurecht answer wears the "Result" role tab', () => {
+    test('draws no role mark over the answer: the kind is the article name alone', () => {
+      const { container } = render(<AgentResponse content="Baurecht answer" routingDecision="shallow" />)
+
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
+      expect(screen.queryByText('Result')).toBeNull()
+      expect(container.querySelector('article > .card-eyebrow')).toBeNull()
+      expect(container.querySelector('article > .bg-primary')).toBeNull()
+    })
+
+    test('a meta reply is distinguished by its surface, not by a tab', () => {
+      const { container } = render(<AgentResponse content="Hello there" routingDecision="meta" />)
+
+      expect(screen.queryByText('Note')).toBeNull()
+      expect(container.querySelector('article > .bg-muted')).not.toBeNull()
+    })
+
+    test('a shallow Baurecht answer is named "Result"', () => {
       render(<AgentResponse content="Baurecht answer" routingDecision="shallow" />)
 
-      expect(screen.getByText('Result')).toBeInTheDocument()
-      expect(screen.queryByText('Note')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Note' })).not.toBeInTheDocument()
     })
 
-    test('a meta reply wears the distinct "Note" role tab instead of "Result"', () => {
+    test('a meta reply is named "Note" instead of "Result"', () => {
       render(<AgentResponse content="Hello there" routingDecision="meta" />)
 
-      expect(screen.getByText('Note')).toBeInTheDocument()
-      expect(screen.queryByText('Result')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Note' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Result' })).not.toBeInTheDocument()
     })
 
-    test('the two kinds render visibly different role tabs for the same content', () => {
+    test('the two kinds are named differently for the same content', () => {
       const { unmount } = render(<AgentResponse content="Same text" routingDecision="deep" />)
-      expect(screen.getByText('Result')).toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
       unmount()
 
       render(<AgentResponse content="Same text" routingDecision="meta" />)
-      expect(screen.getByText('Note')).toBeInTheDocument()
-      expect(screen.queryByText('Result')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Note' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Result' })).not.toBeInTheDocument()
     })
 
     test('fallback: absent routingDecision renders exactly as a substantive answer', () => {
       render(<AgentResponse content="Legacy answer" />)
 
-      // No discriminator → the "Result" treatment, never the meta "Note" tab.
-      expect(screen.getByText('Result')).toBeInTheDocument()
-      expect(screen.queryByText('Note')).not.toBeInTheDocument()
+      // No discriminator → the "Result" treatment, never the meta "Note".
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Note' })).not.toBeInTheDocument()
     })
 
     test('fallback: an \'error\' routing keeps the default "Result" treatment', () => {
       render(<AgentResponse content="Something went wrong" routingDecision="error" />)
 
-      expect(screen.getByText('Result')).toBeInTheDocument()
-      expect(screen.queryByText('Note')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Note' })).not.toBeInTheDocument()
     })
 
-    test('kind=direct wears the "Note" tab even on a shallow route', () => {
+    test('kind=direct is named "Note" even on a shallow route', () => {
       render(
         <AgentResponse
           content="Hello there"
@@ -771,11 +848,11 @@ describe('AgentResponse', () => {
         />
       )
 
-      expect(screen.getByText('Note')).toBeInTheDocument()
-      expect(screen.queryByText('Result')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Note' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Result' })).not.toBeInTheDocument()
     })
 
-    test('kind=walkthrough wears the "Answer" tab, not "Result"', () => {
+    test('kind=walkthrough is named "Answer", not "Result"', () => {
       render(
         <AgentResponse
           content="So legen Sie den Ordner an."
@@ -784,12 +861,12 @@ describe('AgentResponse', () => {
         />
       )
 
-      expect(screen.getByText('Answer')).toBeInTheDocument()
-      expect(screen.queryByText('Result')).not.toBeInTheDocument()
-      expect(screen.queryByText('Note')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Answer' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Result' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Note' })).not.toBeInTheDocument()
     })
 
-    test('kind=ruling keeps the "Result" tab', () => {
+    test('kind=ruling stays "Result"', () => {
       render(
         <AgentResponse
           content="REI 60 gilt."
@@ -802,11 +879,11 @@ describe('AgentResponse', () => {
         />
       )
 
-      expect(screen.getByText('Result')).toBeInTheDocument()
-      expect(screen.queryByText('Answer')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Answer' })).not.toBeInTheDocument()
     })
 
-    test('kind=handoff wears the "Note" tab, not "Result"', () => {
+    test('kind=handoff is named "Note", not "Result"', () => {
       render(
         <AgentResponse
           content="Dafür starte ich eine Tiefenrecherche."
@@ -815,13 +892,13 @@ describe('AgentResponse', () => {
         />
       )
 
-      expect(screen.getByText('Note')).toBeInTheDocument()
-      expect(screen.queryByText('Result')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Note' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Result' })).not.toBeInTheDocument()
     })
   })
 
   describe('lede typesetting', () => {
-    const LEDE = '[&>.markdown-content>p:first-child]:text-[1.0625rem]'
+    const LEDE = '[&>.markdown-content>p:first-child]:leading-[1.65]'
     const longAnswer = [
       'Für GK 4 gilt REI 90 für tragende Bauteile.',
       'A'.repeat(320),
@@ -988,19 +1065,19 @@ describe('AgentResponse', () => {
       )
     })
 
-    test('a summary holds the lede emphasis alone — the first paragraph stays body-sized', () => {
+    test('a summary holds the lede alone — the first paragraph takes no lede', () => {
       // Long enough to clear the lede threshold on its own; with a summary in
-      // the masthead the first paragraph must NOT also be enlarged.
+      // the masthead the first paragraph must NOT also be set as a lede.
       const longBody = `${'Ein ausreichend langer erster Absatz. '.repeat(20)}\n\nZweiter Absatz.`
       const { container } = render(<AgentResponse content={longBody} answerMeta={answerMeta} />)
-      expect(container.querySelector('[class*="first-child\\]:text-"]')).toBeNull()
+      expect(container.querySelector('[class*="first-child\\]:leading-"]')).toBeNull()
 
       // Without a summary the lede styling still fires as before.
       const { verdict, callout, takeaways } = answerMeta
       const { container: plain } = render(
         <AgentResponse content={longBody} answerMeta={{ v: 1, verdict, callout, takeaways }} />
       )
-      expect(plain.querySelector('[class*="first-child\\]:text-"]')).not.toBeNull()
+      expect(plain.querySelector('[class*="first-child\\]:leading-"]')).not.toBeNull()
     })
 
     test('an answer without anatomy renders exactly as before', () => {
@@ -1237,7 +1314,7 @@ describe('a stopped answer', () => {
 // L19: a turn that failed under its answer keeps the words, dimmed, and
 // offers nothing a finished answer would.
 describe('a failed answer', () => {
-  test('keeps the words, dimmed, without the check, the copy action or feedback', () => {
+  test('keeps the words, dimmed, without the copy action or feedback', () => {
     const { rerender } = render(
       <AgentResponse content="Fluchtwege müssen nach OIB-Richtlinie 2" isStreaming messageId="m-1" />
     )
@@ -1245,7 +1322,6 @@ describe('a failed answer', () => {
     const article = screen.getByTestId('answer-failed')
     expect(article).toHaveTextContent('Fluchtwege müssen nach OIB-Richtlinie 2')
     expect(article.querySelector('.bg-card')).toHaveClass('opacity-60')
-    expect(screen.getByTestId('role-tab-pending')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Copy answer' })).toBeNull()
     expect(screen.queryByText('Without source citation')).toBeNull()
   })

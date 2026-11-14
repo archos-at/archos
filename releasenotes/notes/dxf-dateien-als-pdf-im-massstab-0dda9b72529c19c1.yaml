@@ -1,0 +1,23 @@
+---
+features:
+  - >
+    You can now upload DXF files such as a Katasterauszug, and they open as a
+    PDF drawn to a standard scale, for example 1:500 on A3, with a scale bar
+    and a title block. „Als PDF herunterladen“ in the file's menu gives you
+    that PDF to print or attach, while Download still gives the original.
+  - >
+    A Katasterauszug is now read, not only shown: a page after the drawing
+    lists every parcel with its area as drawn and its neighbours, so you can
+    ask about your site in the chat and get a cited answer.
+  - >
+    In the chat you can now measure a DXF drawing: how far a house stands from
+    each boundary, how long the boundary to a neighbour is, and what remains
+    buildable after the setbacks and the coverage you name.
+  - >
+    A Katastralmappe from BEV is drawn in BEV's plot colours with its
+    Katastralgemeinde and coordinate system on the sheet. Where parcels are in
+    the Grundsteuerkataster, the sheet says their boundaries are not legally
+    binding.
+  - >
+    „Als PDF herunterladen“ also gives the PDF of a Word, Excel or PowerPoint
+    file.

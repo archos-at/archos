@@ -18,6 +18,7 @@ import { findProjectDocumentsByFilenames } from './repository'
 import { SCREENED_ONLY } from './document-reader'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { BACKEND_FETCH_TIMEOUT_MS } from './ingest-dispatch'
+import { signedScopeEntries } from '@/lib/retrieval-scope/base-entry'
 
 /**
  * A single hit from the backend's document-centric semantic search
@@ -64,9 +65,11 @@ export type SearchedDocument<T> = T & {
  * backend that refuses, cannot be reached or answers something unreadable is
  * an {@link UpstreamError}, never an empty result a caller would read as
  * "nothing found". The envelope is signed for exactly these collections, every
- * one of which the caller has already authorized.
+ * one of which the caller has already authorized, and for the caller's office,
+ * which the backend requires for any project or office collection.
  */
 export async function fetchGroupedSemanticHits(
+  organizationId: string,
   collections: readonly string[],
   query: string,
   filesPerCollection: number,
@@ -76,7 +79,8 @@ export async function fetchGroupedSemanticHits(
   const unique = [...new Set(collections)]
   if (unique.length === 0) return []
   const scopeHeaders = buildRequestContextWireHeaders(
-    { collectionScope: unique },
+    // The office the backend filters every tenant collection's points by (ADR-0116, ADR-0163).
+    { collectionScope: await signedScopeEntries(unique, organizationId), organizationId },
     process.env.INTERNAL_API_TOKEN
   )
   let res: Response

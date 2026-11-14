@@ -42,9 +42,13 @@ looking, and costs the repository nothing.
 ## Setup, once per machine
 
 ```bash
-npm install -g agent-browser
-agent-browser install          # downloads its own Chrome for Testing
+task agents:browser            # installs the pinned agent-browser, then `agent-browser doctor`
+agent-browser install          # downloads its own Chrome for Testing (not in a cloud session)
 ```
+
+**Cloud sessions install it for you**, and use the image's Chromium instead of
+downloading one. What is installed and how:
+[agent-skills.md](../contributing/agent-skills.md#cloud-sessions-what-is-installed-and-how).
 
 On Linux, `agent-browser install --with-deps` if the browser fails to launch.
 `gh` must be **2.99 or newer** — `--attach` does not exist before that.
@@ -57,6 +61,9 @@ gh --version
 
 Start the dev server, then drive it. The preview routes render real components
 from fixtures, so nothing else needs to be running.
+A page behind a session (anything under `/app`) needs the whole app and a
+signed-in user: [`task local:up`](../contributing/local-stack.md) runs it
+locally with a minted session cookie, no WorkOS account needed.
 
 ```bash
 cd apps/workspace && bun run dev        # or: npx next dev --turbopack -p 3311
@@ -94,7 +101,13 @@ agent-browser close --all
 well as `prefers-color-scheme`. `set media dark` alone flips the media query and
 leaves the class behind, and you get a half-themed screenshot that looks like a
 bug in the component. Set both, in that order, and give the repaint a moment
-before capturing.
+before capturing. An axe run is a capture too: run within about a second of
+the switch, `color-contrast` reads a half-themed page (dark text tokens on a
+dark ground, 1.09:1, on the heavy `worst-case` previews) and reports
+violations that are not there. Wait about 2.5 s after switching the theme
+before `axe.run` (measured 2026-11-03 on `/dev/inbound-mail?variant=worst-case`
+and `/dev/mail-thread?variant=worst-case`: 85 findings at 400 ms, none at
+2.5 s).
 
 **Capture `--full` for anything taller than the viewport.** Before/after pairs
 are laid out side by side, and equal-height full-page captures are what keeps
@@ -103,6 +116,44 @@ their tops aligned.
 **The Next.js dev indicator is in the shot.** The floating badge in the bottom
 corner is dev-server chrome, not your component. Turn it off in
 `next.config.ts` (`devIndicators: false`) for a capture run, or crop it.
+Next 16.4's devtools also float an orange „1 Insight“ pill (request
+insights) that `devIndicators: false` does not hide; it lives in a
+`<nextjs-portal>` element, so remove it before each shot:
+`agent-browser eval "document.querySelectorAll('nextjs-portal').forEach((e)=>e.remove())"`
+(seen 2026-10-27 in the E-Mail-Eingang captures).
+
+## Every state at once
+
+A pointer is over one thing at a time, so a capture of a page shows one hover.
+`/dev/interaction-states` lays every interactive element of the kit out by
+state (rest, pointer, pressed, keys, chosen) and marks each cell with
+`data-force`; `scripts/capture-forced-states.mjs` forces that pseudo-class on
+all of them through the browser's protocol (`CSS.forcePseudoState`), so one
+image shows the real components under a real `:hover`, `:active` and
+`:focus-visible`.
+
+```bash
+cd apps/workspace
+CHROMIUM_PATH=/opt/pw-browsers/chromium node scripts/capture-forced-states.mjs \
+  http://localhost:3311/dev/interaction-states ./states            # add --dark for the dark theme
+```
+
+It writes `page.png` and one image per family. Any preview can
+be captured this way: wrap what should be shown in a state in an element with
+`data-force="hover" | "active" | "focus"`, and narrow it to one descendant with
+`data-force-target="<selector>"` (one tab of a strip). A pointer's state is
+forced on the target and everything inside it, so a `group-hover` answers. The
+keys' state goes to ONE control, the target or the first focusable element of
+the cell that is drawn: forced on the cell, the capture showed a square frame
+round the cell and not the control's ring, and forced on everything inside,
+every glyph of a button drew its own outline (both seen 2026-11-11, and the
+first was published as the product's focus ring before it was noticed). The script uses `playwright-core` and needs
+`CHROMIUM_PATH` wherever Playwright has no browser of its own, which is every
+cloud session.
+
+A change to how any control answers the pointer is checked on that page, and a
+new kind of control gets a row there: it is where a button that answers with a
+shadow stands next to a row that answers with a fill.
 
 ## Publish
 
@@ -120,6 +171,10 @@ gh pr comment 123 --attach './after.png#Cards gallery, dark'
 
 Alt text goes after a `#`. The flag repeats, but not for the same file twice.
 PNG, JPEG, GIF, WebP, SVG, MP4, MOV and WebM all work.
+
+## Website targets
+
+`cd apps/website && bun run capture` builds the site, serves it with the production server (`runtime/server.mjs`, headers and 410s as deployed), screenshots every route at 1440, 768, 390 and 360 px (full page, every lazy image loaded, no scrollbar, so a 390 shot is 390 px of layout) into `apps/website/.capture/` (gitignored), and stops. Flags: `--widths 1440,390`, `--only /en/`, `--out DIR`, `--base URL` (use a running server, skip the build). Cloud containers: `task website:capture` runs the same command; Chromium is taken from `AGENT_BROWSER_EXECUTABLE_PATH`, defaulting to `/opt/pw-browsers/chromium`. Attach the PNGs with `before-and-after`, never commit them.
 
 ## What is gone, and what replaced it
 

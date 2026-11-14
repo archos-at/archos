@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { locales } from '@/i18n/config'
+import { memoryTopicField } from '@/lib/memory-topics/wire'
 import { DELETED_FOLDER_CONTENT_POLICIES } from '@/lib/authz/folder-access-rule'
 import {
   PROJECT_MEMORY_CONFIDENCES,
@@ -17,12 +18,14 @@ import { ACCESS_LOG_MAX_LIMIT, DOWNLOAD_LOG_KINDS } from '@/lib/download-log/kin
 import { AGENT_GROUP_IDS, MODEL_ID_PATTERN } from '@/lib/model-config/agent-groups'
 import { ORG_INSTRUCTIONS_MAX_CHARS } from '@/lib/org-instructions/constants'
 import { CHAT_EFFORT_SETTING, CHAT_EFFORTS, isChatEffort } from '@/lib/reasoning-settings/catalog'
+import { PRODUCT_NAME } from '@/lib/brand'
+import { homeCountrySchema } from './home-country'
 
 // --- web search ------------------------------------------------------------
 
 /** `PUT /api/organization/web-search`: whether Piloti may search the web for this organization (ADR-0022). */
 export const webSearchPutSchema = z.object({
-  enabled: z.boolean().describe('true lets Piloti search the web for this organization; false keeps every answer inside it.'),
+  enabled: z.boolean().describe('true lets ' + PRODUCT_NAME + ' search the web for this organization; false keeps every answer inside it.'),
 })
 
 // --- budgets ---------------------------------------------------------------
@@ -93,6 +96,7 @@ export const createOrgMemorySchema = z.object({
   content: z.string().trim().min(1).max(2000),
   confidence: z.enum(PROJECT_MEMORY_CONFIDENCES).optional(),
   pinned: z.boolean().optional(),
+  topic: memoryTopicField.optional(),
 })
 
 export const patchOrgMemorySchema = z
@@ -103,6 +107,7 @@ export const patchOrgMemorySchema = z
     confidence: z.enum(PROJECT_MEMORY_CONFIDENCES).optional(),
     verification: z.enum(PROJECT_MEMORY_VERIFICATIONS).optional(),
     pinned: z.boolean().optional(),
+    topic: memoryTopicField.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: 'Empty patch' })
 
@@ -129,6 +134,9 @@ export const zdrPutSchema = z.object({ enabled: z.boolean() })
 
 export const orgSettingsPutSchema = z.object({
   displayName: z.string().trim().max(200).nullable().optional(),
+  homeCountry: homeCountrySchema
+    .optional()
+    .describe("The office's own country (ISO-2), stated once when nobody has; never a project's jurisdiction. A different value later is refused (409)."),
   defaultLocale: z.enum(locales).nullable().optional(),
   settings: z
     .record(z.string(), z.unknown())

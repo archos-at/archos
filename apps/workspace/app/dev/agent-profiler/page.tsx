@@ -266,7 +266,7 @@ export default function AgentProfilerDevPage(): JSX.Element {
   return (
     <I18nProvider initialLocale="de" fixedLocale>
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-8">
-        <h1 className="text-xl font-semibold tracking-tight">Antwortqualität · Laufzeit</h1>
+        <h1 className="text-xl font-semibold">Antwortqualität · Laufzeit</h1>
         <Suspense>
           <ScopedAgentProfiler initial={initial} />
         </Suspense>

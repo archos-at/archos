@@ -15,10 +15,18 @@
  * (`/api/platform/mcp`, ADR-0126) is the operator console's own MCP server: it
  * accepts only a token issued for it, and neither office door accepts one
  * (`acceptedAudiences`). A token for anything else is refused everywhere.
+ *
+ * A domain move (docs/deployment/domain-cutover.md) leaves agents connected at
+ * the former host. Each door is then one resource with two identifiers, one
+ * per host (RFC 9728 section 3.3 binds the metadata's `resource` to the URL the
+ * client fetched it from): `MCP_FORMER_ORIGINS` names the former origins, the
+ * metadata and the 401 challenge name the host the request came in on, and a
+ * token for either host's identifier is accepted on both.
  */
 
 import { type OAuthMetadata, buildOAuthProtectedResourceMetadata } from '@modelcontextprotocol/server'
 import { configuredAppOrigin } from '@/lib/app-origin'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 export const MCP_PATH = '/api/mcp'
 export const A2A_PATH = '/api/a2a'
@@ -75,6 +83,49 @@ export function mcpResourceUrl(env: Env = process.env): URL | null {
   }
 }
 
+/**
+ * The origins the doors answered at before a domain move (`MCP_FORMER_ORIGINS`,
+ * comma-separated), without the canonical one. Empty outside a move. An entry
+ * that is not an http(s) URL is skipped rather than guessed at.
+ */
+export function formerOrigins(env: Env = process.env): string[] {
+  const canonical = mcpResourceUrl(env)?.origin
+  const origins = (env.MCP_FORMER_ORIGINS ?? '').split(',').flatMap((raw) => {
+    try {
+      const url = new URL(raw.trim())
+      return url.protocol === 'https:' || url.protocol === 'http:' ? [url.origin] : []
+    } catch {
+      return []
+    }
+  })
+  return [...new Set(origins)].filter((origin) => origin !== canonical)
+}
+
+/**
+ * The host a request came in on, lowercased and without a port: the `Host`
+ * header Envoy forwards unchanged. `request.url` will not do: behind the
+ * gateway it is the pod's own address. Only ever compared against the
+ * configured origins, so a forged header picks at most another of this
+ * server's own resource identifiers.
+ */
+export function requestHost(request: Request): string | null {
+  const raw = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
+  const host = raw?.split(',')[0]?.trim().toLowerCase()
+  if (!host) return null
+  try {
+    return new URL(`http://${host}`).hostname
+  } catch {
+    return null
+  }
+}
+
+/** `canonical` moved to the former origin whose host is `host`, or `canonical` itself when none is. */
+function asSeenFrom(canonical: URL, host: string | null | undefined, env: Env): URL {
+  if (!host) return canonical
+  const former = formerOrigins(env).find((origin) => new URL(origin).hostname === host)
+  return former ? new URL(canonical.pathname, former) : canonical
+}
+
 /** The A2A server's resource: the MCP resource's origin plus `/api/a2a`, or `null` when there is none. */
 export function a2aResourceUrl(env: Env = process.env): URL | null {
   const mcp = mcpResourceUrl(env)
@@ -90,10 +141,26 @@ export function platformMcpResourceUrl(env: Env = process.env): URL | null {
   return mcp ? new URL(PLATFORM_MCP_PATH, mcp.origin) : null
 }
 
-/** The resource `door` is. */
-export function doorResourceUrl(door: DoorResource, env: Env = process.env): URL | null {
+function canonicalResourceUrl(door: DoorResource, env: Env): URL | null {
   if (door === 'platform') return platformMcpResourceUrl(env)
   return door === 'a2a' ? a2aResourceUrl(env) : mcpResourceUrl(env)
+}
+
+/**
+ * The resource `door` is, as the client sees it: on a former host
+ * (`MCP_FORMER_ORIGINS`) the identifier under that host, otherwise the
+ * canonical one.
+ */
+export function doorResourceUrl(door: DoorResource, env: Env = process.env, host?: string | null): URL | null {
+  const canonical = canonicalResourceUrl(door, env)
+  return canonical ? asSeenFrom(canonical, host, env) : null
+}
+
+/** Every identifier of `door`: the canonical one, then one per former origin. */
+function doorResourceUrls(door: DoorResource, env: Env): URL[] {
+  const canonical = canonicalResourceUrl(door, env)
+  if (!canonical) return []
+  return [canonical, ...formerOrigins(env).map((origin) => new URL(canonical.pathname, origin))]
 }
 
 const underPath = (pathname: string, path: string): boolean => pathname === path || pathname.startsWith(`${path}/`)
@@ -107,13 +174,12 @@ export function doorOf(request: Request): DoorResource {
 
 /**
  * Every `aud` a token may carry on `door`: the resources of its audience group
- * (both office doors for either; the platform door alone for itself), each with
- * and without a trailing slash, since a client may spell it either way.
+ * (both office doors for either; the platform door alone for itself), under the
+ * canonical origin and every former one, each with and without a trailing
+ * slash, since a client may spell it either way.
  */
 export function acceptedAudiences(door: DoorResource = 'mcp', env: Env = process.env): string[] {
-  const resources = AUDIENCE_GROUPS[door]
-    .map((member) => doorResourceUrl(member, env))
-    .filter((url): url is URL => url !== null)
+  const resources = AUDIENCE_GROUPS[door].flatMap((member) => doorResourceUrls(member, env))
   return [
     ...new Set(
       resources.flatMap((url) => {
@@ -131,21 +197,26 @@ export function allowedOriginHostnames(env: Env = process.env): string[] {
   if (origin) hosts.add(new URL(origin).hostname)
   const resource = mcpResourceUrl(env)
   if (resource) hosts.add(resource.hostname)
+  for (const origin of formerOrigins(env)) hosts.add(new URL(origin).hostname)
   if (hosts.size === 0) return ['localhost', '127.0.0.1', '[::1]']
   return [...hosts]
 }
 
 /** The name the metadata gives each resource (`resource_name`), shown by a client while it signs in. */
 const RESOURCE_NAMES: Readonly<Record<DoorResource, string>> = {
-  mcp: 'Piloti',
-  a2a: 'Piloti',
-  platform: 'Piloti platform console',
+  mcp: PRODUCT_NAME,
+  a2a: PRODUCT_NAME,
+  platform: `${PRODUCT_NAME} platform console`,
 }
 
-/** The RFC 9728 document for `door`, or `null` while no AuthKit domain or resource URL is set. */
-export function protectedResourceMetadata(env: Env = process.env, door: DoorResource = 'mcp') {
+/**
+ * The RFC 9728 document for `door` as served on `host`, or `null` while no
+ * AuthKit domain or resource URL is set. Its `resource` is the identifier under
+ * the host the client asked, which RFC 9728 section 3.3 has the client check.
+ */
+export function protectedResourceMetadata(env: Env = process.env, door: DoorResource = 'mcp', host?: string | null) {
   const issuer = authkitIssuer(env)
-  const resource = doorResourceUrl(door, env)
+  const resource = doorResourceUrl(door, env, host)
   if (!issuer || !resource) return null
   // `buildOAuthProtectedResourceMetadata` wants the authorization server's
   // metadata and reads only its `issuer`; the endpoints are AuthKit's own.
@@ -167,9 +238,12 @@ export function protectedResourceMetadata(env: Env = process.env, door: DoorReso
   }
 }
 
-/** The metadata response the `.well-known` routes answer with: the MCP door's unless `door` says otherwise. */
-export function protectedResourceMetadataResponse(door: DoorResource = 'mcp'): Response {
-  const metadata = protectedResourceMetadata(process.env, door)
+/**
+ * The metadata response the `.well-known` routes answer with: the MCP door's
+ * unless `door` says otherwise, for the host `request` came in on.
+ */
+export function protectedResourceMetadataResponse(door: DoorResource = 'mcp', request?: Request): Response {
+  const metadata = protectedResourceMetadata(process.env, door, request ? requestHost(request) : null)
   if (!metadata) {
     return Response.json(
       { error: 'The agent door is not configured on this deployment (WORKOS_AUTHKIT_DOMAIN)' },

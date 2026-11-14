@@ -54,6 +54,7 @@
 import type { UserSession } from '@/lib/auth/types'
 import { isAuthRequired } from '@/lib/auth/auth-required'
 import { NextResponse } from 'next/server'
+import { featureDisabledProblem } from './feature-disabled'
 
 export const FEATURE_FLAGS = {
   /** Runtime AI model configuration (ADR-0014) — a premium admin feature. */
@@ -242,9 +243,9 @@ export const FEATURE_FLAGS = {
   /**
    * The platform door (ADR-0126): a platform operator's agent reaches the
    * operator console through its own MCP server at `/api/platform/mcp`. Read
-   * for the GRID Platform organization only, from the verified token's
-   * organization (`lib/agent-api/principal.ts`); no other organization can
-   * reach that door at all. An entitlement, off until an operator switches it
+   * for the GRID Platform organization only, whichever organization the token
+   * names (`lib/agent-api/principal.ts`, `platformPrincipal`): targeting it at
+   * an office does nothing. An entitlement, off until an operator switches it
    * on for the platform organization: every write there reaches every tenant.
    */
   platformAgentMcp: 'platform-agent-mcp',
@@ -286,6 +287,66 @@ export const FEATURE_FLAGS = {
    * agent. With it off, nothing is counted and the turn context is unchanged.
    */
   officeConventions: 'office-conventions',
+  /**
+   * Licensed text an office holds (its own ÖNORM or DIN copy, a paid
+   * commentary) reaches the model inside the call (the licensed seam,
+   * `packages/agent/src/agent/common/licensed_text.py`). Read per turn by the
+   * agent tier through `GET /api/internal/stages` (`features.licensedSeam`).
+   *
+   * An entitlement, off until an operator targets the organization. Off is not
+   * unguarded: a passage marked licensed is then listed with its document, page
+   * and clause and no text. On, its text is expanded only inside the model call,
+   * never in a trace, checkpoint or log, and every quote of it is capped.
+   */
+  licensedSeam: 'licensed-seam',
+  /**
+   * Mail sent to a project's address (ADR-0137, ADR-0138): the project shows
+   * its address, mail to it waits in the project's E-Mail-Eingang until a
+   * person files each part, and a person may follow a conversation. Read per
+   * organization by the webhook (`lib/inbound-mail/receive.ts`, from
+   * `enabledFlagsForOrganization`, so a failed lookup is a 503 the sending
+   * server retries, never a bounce) and from the session by every route of the
+   * E-Mail-Eingang (`isInboundMailEnabled`).
+   *
+   * An entitlement, off until an operator targets the organization, and only
+   * after the office's Datenschutzberater signed off: it holds third parties'
+   * mail for the office. With it off the webhook answers an unknown address
+   * (the sender's server bounces, naming no reason), and the address, the
+   * E-Mail-Eingang and its operations are not found. Mail already held stays
+   * held until it is filed, dismissed or expires.
+   */
+  inboundMail: 'inbound-mail',
+  /**
+   * Site resolution from official address registers hosted in the cell
+   * (ADR-0172): `site-resolve` and `project-site-set` answer, and a register
+   * hit places a project with its Gemeinde, Land and competent authority. Read
+   * from the session by the routes (`requireFeature`).
+   *
+   * A rollout: public register data that costs nothing per office and changes
+   * nobody's reads. With it off both routes answer 403 and everything else is as
+   * before: the typed address is kept unconfirmed, the geocoder stays as its
+   * deployment set it (ADR-0159).
+   */
+  siteResolution: 'site-resolution',
+  /** Source monitors (ADR-0174, `bff/base-knowledge/platform/monitor.ts`); off: the sweep reads, fetches and writes nothing. */
+  sourceMonitors: 'source-monitors',
+  /**
+   * The office's own standards, „Grundlagen des Büros" (ADR-0163): the norms,
+   * commentaries and authority directives an office records itself, their place
+   * beside the Büroablage, and what a turn is told about them. Read from the
+   * session by every office route under `/api/base-knowledge` (except the
+   * platform-knowledge reads: coverage, as-of and reports), by the navigation
+   * (`getNavFlags`), the page and the Büroablage's „Grundlage" mark; read per
+   * organization (`isOrgFeatureEnabled`) when a turn is assembled.
+   *
+   * An entitlement, off until an operator targets the organization. With it off
+   * the routes and the page are not found, the doorway, the Organisation card and
+   * the mark are gone, and a turn carries no office base knowledge. The
+   * platform's released country knowledge is untouched, and so is every record
+   * already kept: switching it on again shows them as they were. Not the retired
+   * `office-base-knowledge` slug (`feature-flags.spec.ts`).
+   */
+  officeStandards: 'office-standards',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -315,6 +376,11 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'piloti-ask': 'entitlement',
   'folder-cards': 'entitlement',
   'office-conventions': 'entitlement',
+  'licensed-seam': 'entitlement',
+  'inbound-mail': 'entitlement',
+  'site-resolution': 'rollout',
+  'source-monitors': 'entitlement',
+  'office-standards': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',
@@ -366,6 +432,24 @@ export function isProjectKnowledgePageEnabled(session: Pick<UserSession, 'featur
  */
 export function isMailImportEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
   return isFeatureEnabled(session, FEATURE_FLAGS.mailImport)
+}
+
+/**
+ * Mail to the project's address (ADR-0137): the address, the E-Mail-Eingang
+ * and its operations. The webhook reads the organization's flag without a
+ * session; a mail already held is unaffected by switching it off.
+ */
+export function isInboundMailEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
+  return isFeatureEnabled(session, FEATURE_FLAGS.inboundMail)
+}
+
+/**
+ * The office's own standards (ADR-0163): its routes, its place and the
+ * Büroablage's mark. A turn reads the organization's flag without a session
+ * (`officeStandardsEnabled` in `bff/base-knowledge/office/access.ts`).
+ */
+export function isOfficeStandardsEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
+  return isFeatureEnabled(session, FEATURE_FLAGS.officeStandards)
 }
 
 /** Whether events on Piloti's work wake a turn for this organization (ADR-0106). */
@@ -452,14 +536,11 @@ export function requireTaskAutomationEnabled(
   return requireFeature(session, FEATURE_FLAGS.taskAutomation)
 }
 
-/**
- * Route guard: stable-coded 403 when the feature is off, null when allowed.
- * Usage: `const gated = requireFeature(session, FEATURE_FLAGS.x); if (gated) return gated`
- */
+/** Route guard: the feature-disabled problem (403, `feature-disabled.ts`) when off, null when allowed. */
 export function requireFeature(
   session: Pick<UserSession, 'featureFlags'>,
   flag: KnownFeatureFlag
 ): Response | null {
   if (isFeatureEnabled(session, flag)) return null
-  return NextResponse.json({ error: 'feature-disabled', feature: flag }, { status: 403 })
+  return NextResponse.json(featureDisabledProblem(flag), { status: 403, headers: { 'Content-Type': 'application/problem+json' } })
 }

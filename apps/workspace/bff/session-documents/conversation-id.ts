@@ -19,7 +19,7 @@
  *   - `documents.conversation_id` is `text` (`lib/db/schema/documents.ts:69`),
  *
  * — and both are `text` DELIBERATELY, for exactly this reason; the migration
- * that added the column says so, and `job_runs.conversation_id` is `text` for
+ * that added the column says so, and `task_runs.conversation_id` is `text` for
  * the same reason. `uuid()` here would not tighten the boundary, it would close
  * it. Recorded so nobody re-applies it.
  *

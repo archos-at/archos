@@ -178,10 +178,13 @@ const SENSITIVE: Record<string, Sensitivity> = {
   'PUT /api/organization/upload-screening': 'control',
   'PUT /api/projects/[id]/upload-screening': 'control',
   'POST /api/documents/[id]/quarantine/release': 'control',
+  'POST /api/quarantine/decisions': 'control',
   'POST /api/holds/[id]/release': 'control',
   'PUT /api/organization/download-log/retention': 'control',
   'PUT /api/organization/deleted-folder-content': 'control',
   'PUT /api/organization/web-search': 'control',
+  // Following a mail thread turns review down for one conversation (D31).
+  'POST /api/projects/[id]/mail-threads/[threadId]/follow': 'control',
 }
 
 /**

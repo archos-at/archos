@@ -334,6 +334,11 @@ export const collaboration = {
 
   inbox: {
     title: 'Inbox',
+    /** The inbox beside the page: close it, and the way to every entry. */
+    dock: {
+      close: 'Close the inbox',
+      all: 'All entries and the archive',
+    },
     /** Nav entry + the count badge. */
     navLabel: 'Inbox',
     badgeAria:
@@ -343,7 +348,6 @@ export const collaboration = {
     /** "Needs me" is what waits on you (an open request); "Unread" what you have not opened. */
     filters: {
       needsMe: 'Needs me',
-      unread: 'Unread',
       all: 'All',
       archived: 'Archived',
       ariaLabel: 'Filter inbox',
@@ -363,10 +367,51 @@ export const collaboration = {
     loadingMore: 'Loading older items …',
     loadMoreFailed: 'Older items could not be loaded.',
     /** A row about an annotation: go there, and for a request answer or resolve it right here. */
+    /** By when, on a request with a date, where the title does not say it already. */
+    due: {
+      overdue: 'Overdue',
+      soon: 'Due soon',
+      on: 'Due {due}',
+    },
+    /** The list's sections, by the moment a row last changed. */
+    groups: {
+      today: 'Today',
+      yesterday: 'Yesterday',
+      week: 'This week',
+      older: 'Earlier',
+    },
+    /** The hint under the list, with a pointer and keyboard only: the keys that work the inbox. */
+    keys: {
+      move: 'select',
+      open: 'open',
+      archive: 'archive',
+      read: 'read/unread',
+    },
+    /** What a new revision leaves to check, as a fact on the line under the title. */
+    openMarks: '{count, plural, one {# open annotation} other {# open annotations}}',
+    /** The inbox as a queue: what waits on you, gathered by document or chat, then the news. */
+    queue: {
+      waiting: 'Waiting on you',
+      news: 'News',
+      late: '{count} overdue',
+      nothingWaiting: 'No open requests.',
+      newsRead: 'Mark as read',
+      chat: 'Chat',
+    },
+    /** Why a waiting entry is yours, briefly: its document is already named above it. */
+    reason: {
+      assigned: 'Assigned by {actor}',
+      assignedNoActor: 'Assigned to you',
+      mentioned: '{actor} mentioned you',
+      mentionedNoActor: 'You were mentioned',
+      asks: '{productName} is asking you',
+      input: '{actor} asked for your input',
+      inputNoActor: 'Your input was asked for',
+      approval: '{actor} asked for your approval',
+      approvalNoActor: 'Waiting for your approval',
+      mark: 'Annotation {number}',
+    },
     mark: {
-      open: 'Go to annotation',
-      /** A row about new marks („Anna set 15 annotations“): it opens the review at the newest. */
-      openMany: 'To the annotations',
       answerInReview: 'Answer in the review',
       reply: 'Reply',
       replyLabel: 'Your reply to annotation {related}',
@@ -398,11 +443,9 @@ export const collaboration = {
     compareRevisions: 'Compare revisions',
     compareRevisionsLabel: 'Compare the new and the older revision of “{subject}”',
     empty: {
-      needsMeTitle: 'Nothing needs you',
+      needsMeTitle: 'All caught up',
       needsMeDescription:
-        'When someone mentions you, assigns you an annotation or {productName} asks you something, it appears here.',
-      unreadTitle: 'All caught up',
-      unreadDescription: 'What is new stays here until you open it.',
+        'Anything new shows up here as it arrives.',
       allTitle: 'Your inbox is empty',
       allDescription: 'News from your team and from {productName} appears here.',
       archivedTitle: 'Nothing archived',
@@ -509,6 +552,11 @@ export const collaboration = {
         title: '{actor} assigned {subject} to you',
         body: 'You are responsible for this file.',
       },
+      /** A project admin took ownership (ADR-0032 decision 5). {subject} is the chat or file. */
+      ownershipTaken: {
+        title: '{actor} took ownership of “{subject}”',
+        body: 'As a project admin. You remain an owner; the takeover is recorded in the audit trail.',
+      },
       // ADR-0086: everything an upload brought in has been read. {subject}
       // is where it went (a project name, "Büroablage" or "Chat").
       uploadCompleted: {
@@ -540,6 +588,14 @@ export const collaboration = {
             body: '“{subject}” contains a social security number. No model has read it. Allow or delete?',
             bodyMany: 'Latest: “{subject}”, with a social security number. Review them: allow or delete.',
           },
+          de_svnr: {
+            body: '“{subject}” contains a social insurance number. No model has read it. Allow or delete?',
+            bodyMany: 'Latest: “{subject}”, with a social insurance number. Review them: allow or delete.',
+          },
+          de_tax_id: {
+            body: '“{subject}” contains a tax ID. No model has read it. Allow or delete?',
+            bodyMany: 'Latest: “{subject}”, with a tax ID. Review them: allow or delete.',
+          },
           credit_card: {
             body: '“{subject}” contains a card number. No model has read it. Allow or delete?',
             bodyMany: 'Latest: “{subject}”, with a card number. Review them: allow or delete.',
@@ -558,6 +614,8 @@ export const collaboration = {
           term: { body: 'It contains a term from the list of sensitive data. Look at it, then allow or delete it.' },
           iban: { body: 'It contains an IBAN. Look at it, then allow or delete it.' },
           at_svnr: { body: 'It contains a social security number. Look at it, then allow or delete it.' },
+          de_svnr: { body: 'It contains a social insurance number. Look at it, then allow or delete it.' },
+          de_tax_id: { body: 'It contains a tax ID. Look at it, then allow or delete it.' },
           credit_card: { body: 'It contains a card number. Look at it, then allow or delete it.' },
           transcript: { body: 'Found in the text of scanned pages a vision model read. Look at it, then allow or delete it.' },
         },
@@ -571,7 +629,7 @@ export const collaboration = {
       // An Outlook archive was imported. {subject} is the archive's file name.
       mailImportCompleted: {
         title: '“{subject}” has been imported',
-        body: '{productName} filed the emails and their attachments in the project under E-Mail-Import.',
+        body: '{productName} filed the attachments under E-Mail-Import and the emails in the project’s mail threads.',
       },
       mailImportFailed: {
         title: 'The import of “{subject}” stopped',
@@ -920,6 +978,107 @@ export const collaboration = {
             title: 'The sort of the office filing is ready to review',
           },
         },
+      },
+      inboundMailWaiting: {
+        titleOne: 'A mail to “{subject}” is waiting to be filed',
+        titleMany: '{count} mails to “{subject}” are waiting to be filed',
+        // The row counts what waits now (`lib/inbox/live-counts.ts`): none, until the row is settled.
+        titleNone: 'No mail to “{subject}” is waiting any more',
+        // Without access to the project: no name, and no number the row no longer knows.
+        titleRedacted: 'Mails were waiting to be filed in a project',
+        title: 'Mails to “{subject}” are waiting to be filed',
+        body: 'None of it is in the project until someone files it.',
+        variants: {
+          // Domain not verified, or sent automatically (a newsletter, a list).
+          unconfirmed: {
+            body: 'Some of them come from a domain that is not verified, or were sent automatically.',
+          },
+        },
+      },
+      // Day 25 of 30: what nobody files expires (restorable for seven days).
+      inboundMailExpiring: {
+        titleOne: 'A mail to “{subject}” expires in {noticeDays} days',
+        titleMany: '{count} mails to “{subject}” expire in {noticeDays} days',
+        title: 'Mails to “{subject}” expire in {noticeDays} days',
+        titleResolved: 'No mail to “{subject}” is about to expire',
+        body: 'What nobody files by then expires. A member’s mail can be restored for {restoreDays} days after, one from outside the office cannot.',
+        variants: {
+          unconfirmed: {
+            body: 'Some of them come from a domain that is not verified, or were sent automatically. What nobody files expires.',
+          },
+        },
+      },
+      // To the member whose own mail was decided. The folder only when they may see it.
+      inboundMailDecided: {
+        title: 'Your mail to “{subject}” was filed',
+        titleRelated: 'Your mail to “{subject}” was filed in “{related}”',
+        body: 'Filed by {actor}.',
+        variants: {
+          dismissed: {
+            title: 'Your mail to “{subject}” was dismissed',
+            titleRelated: 'Your mail to “{subject}” was dismissed',
+            body: 'Dismissed by {actor}. It can be restored for {restoreDays} days.',
+          },
+          // Filed as you, without anyone looking at it: your domain verified it and you may file in the project.
+          direct: {
+            title: 'Your mail to “{subject}” was filed directly',
+            titleRelated: 'Your mail to “{subject}” was filed directly in “{related}”',
+            body: 'Nobody looked at it: your domain verified it and you may file in this project.',
+          },
+        },
+      },
+      // A forger causes this row too, so the title names both answers. No subject: a stranger's words reach no row (RT-X1).
+      inboundMailHeld: {
+        title: 'Did you send a mail to the project “{subject}”? Otherwise dismiss it',
+        titleResolved: 'The mail with your address to “{subject}” is done',
+        body: 'It carries your address, but your domain did not verify it. Only you can file it. If you did not send it, dismiss it: this is how fraud begins.',
+      },
+      inboundMailHeldForWriters: {
+        title: 'Your mail to “{subject}” waits to be filed',
+        body: 'You cannot file in this project, so someone who can decides where it goes.',
+        variants: {
+          // WorkOS did not answer whether the member may file here (`sender_unchecked`): never „you cannot“.
+          unchecked: {
+            body: 'When it arrived, whether you may file in this project could not be checked, so someone who can file there decides where it goes.',
+          },
+        },
+      },
+      inboundMailRejected: {
+        title: 'Your mail to “{subject}” was dismissed',
+        body: 'Dismissed by {actor}. It can be restored for {restoreDays} days.',
+      },
+      inboundMailExpired: {
+        title: 'Your mail to “{subject}” was not filed in time',
+        body: 'Nobody filed it within its window. For {restoreDays} days it can be restored in Project mail under “Handled”: by you if you may file in the project, otherwise by someone who may.',
+      },
+      inboundMailFilingFailed: {
+        title: 'A mail to “{subject}” was not filed completely',
+        titleResolved: 'The mail to “{subject}” is done',
+        body: 'What was not filed is waiting in Project mail again. Open the mail to see why.',
+      },
+      // 80% or 100% of the bytes an address or the office may hold staged.
+      inboundMailCapReached: {
+        title: 'The project mail address of “{subject}” is nearly full',
+        titleResolved: 'The project mail address of “{subject}” has room again',
+        body: 'File or dismiss waiting mail, or create a new address.',
+        variants: {
+          full: {
+            title: 'The project mail address of “{subject}” is full',
+            body: 'New mail arrives again once waiting mail is filed or dismissed. You can also create a new address.',
+          },
+        },
+      },
+      // Following a mail thread: a reply's text was appended as you; its attachments wait.
+      inboundMailAppended: {
+        titleOne: 'A reply was appended to a mail thread in “{subject}”',
+        titleMany: '{count} replies were appended to a mail thread in “{subject}”',
+        title: 'Replies were appended to a mail thread in “{subject}”',
+        body: 'As you, because you follow the mail thread. Attachments wait in Project mail.',
+      },
+      mailThreadFollowExpiring: {
+        title: 'You follow a mail thread in “{subject}” for {followNoticeDays} more days',
+        titleResolved: 'Your follow of a mail thread in “{subject}” was renewed or ended',
+        body: 'Renew it so later replies keep being appended.',
       },
       rootSortFailed: {
         title: 'The sort of “{subject}” stopped',

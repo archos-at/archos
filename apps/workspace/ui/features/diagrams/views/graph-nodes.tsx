@@ -29,7 +29,7 @@ const Handles: FC<{ direction?: Direction }> = ({ direction = 'TB' }) => (
 
 /** A step: what happens. */
 export const StepNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
-  <div className="border-border bg-card text-foreground rounded-lg border px-3 py-2 text-center text-[13px] leading-snug whitespace-pre-line text-pretty hyphens-auto break-words shadow-xs">
+  <div className="bg-card text-foreground rounded-lg px-3 py-2 text-center text-[13px] leading-snug whitespace-pre-line text-pretty hyphens-auto break-words shadow-xs">
     {data.label}
     <Handles direction={data.direction} />
   </div>
@@ -37,7 +37,7 @@ export const StepNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
 
 /** A decision: the question a path forks on. */
 export const DecisionNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => (
-  <div className="border-[color-mix(in_oklch,var(--border-color-feedback-warning)_45%,transparent)] bg-warning-subtle text-foreground flex items-start justify-center gap-1.5 rounded-lg border px-3 py-2 text-center text-[13px] leading-snug font-medium text-pretty shadow-xs">
+  <div className="border-[color-mix(in_oklch,var(--border-color-feedback-warning)_45%,transparent)] bg-warning-subtle text-foreground flex items-start justify-center gap-1.5 rounded-lg border px-3 py-2 text-center text-[13px] leading-snug font-medium text-pretty ">
     <Split aria-hidden="true" className="text-warning mt-0.5 size-3.5 shrink-0" />
     <span className="whitespace-pre-line hyphens-auto break-words">{data.label}</span>
     <Handles direction={data.direction} />
@@ -67,8 +67,8 @@ export const MapNode: FC<NodeProps<Node<GraphNodeData>>> = ({ data }) => {
     <div
       className={cn(
         'text-foreground leading-snug text-pretty',
-        level === 0 && 'bg-muted border-border rounded-xl border px-3 py-2 text-sm font-semibold shadow-xs',
-        level === 1 && 'border-border bg-card rounded-lg border px-3 py-2 text-[13px] font-medium shadow-xs',
+        level === 0 && 'bg-muted rounded-xl px-3 py-2 text-sm font-medium shadow-xs',
+        level === 1 && 'bg-card rounded-lg px-3 py-2 text-[13px] font-medium shadow-xs',
         level >= 2 && 'text-muted-foreground px-1 py-0.5 text-[12.5px]'
       )}
     >

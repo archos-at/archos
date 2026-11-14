@@ -1,0 +1,340 @@
+"""Capture one page of a configured public source, for a citation (ADR-0170).
+
+An operator's agent onboarding a country cites pages, and the BFF stores what
+each citation is checked against (KC-6). The BFF cannot fetch: the sandboxed
+public-source fetcher admits the backend roles only (ADR-0162, its
+NetworkPolicy). So the BFF asks here, and this route makes the request through
+:func:`public_sources.capture.capture_page`, which uses the same transport every
+source reader uses: the source's hosts checked at every redirect, a public
+address, GET only. It answers the bytes' sha256 and size and the page's text
+(a PDF's pages joined by a form feed, with ``pages`` and a ``note`` when a scan
+has no text layer); the BFF stores them in the change request's capture. A refusal
+the reader names (a host off the source or no public address, ``egress_refused``;
+a body past the ceiling; a PDF behind a password, broken, too long or too slow)
+answers the problem's ``code`` beside its ``detail``.
+
+Public pages only, never a tenant's content, and nothing is kept here.
+Internal-token guarded like every other service-to-service route: reached from
+the BFF, never from a browser.
+"""
+
+import asyncio
+import logging
+from typing import Any
+
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from pydantic import Field
+
+from .internal_auth import _require_internal_token
+
+logger = logging.getLogger(__name__)
+
+
+class CaptureRequest(BaseModel):
+    source: str = Field(
+        ..., pattern=r"^[a-z]{2}-[a-z0-9-]{1,60}$", description="The configured source's id, e.g. at-ris."
+    )
+    url: str = Field(..., min_length=8, max_length=2000)
+    #: A source configured in the database (ADR-0174), whole; absent for a repository record.
+    config: dict[str, Any] | None = None
+    #: A keyed source's key, held write-only by the BFF and handed over for this one fetch.
+    credential: str | None = Field(default=None, min_length=1, max_length=4000)
+
+
+class SourceRequest(BaseModel):
+    """A source configured in the database, as the BFF hands it over (ADR-0174)."""
+
+    config: dict[str, Any]
+    credential: str | None = Field(default=None, min_length=1, max_length=4000)
+
+
+class Seen(BaseModel):
+    etag: str = ""
+    sha256: str = ""
+    version: str = ""
+    termsSha256: str = ""
+
+
+class ProbeRequest(SourceRequest):
+    previous: Seen = Field(default_factory=Seen)
+
+
+def _configured(config: dict[str, Any]):
+    from public_sources.source import SourceError
+    from public_sources.source import parse_inline_source
+
+    try:
+        return parse_inline_source(config)
+    except SourceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+async def _captured(body: CaptureRequest):
+    """The page ``body`` names, fetched as its source allows; a refusal as the response the route answers."""
+    from public_sources.capture import CaptureError
+    from public_sources.capture import capture_page
+    from public_sources.egress import EgressRefused
+    from public_sources.source import SourceError
+
+    source = _configured(body.config) if body.config is not None else body.source
+    if body.config is not None and body.config.get("id") != body.source:
+        raise HTTPException(status_code=422, detail="the configuration is not of the named source")
+    try:
+        return await capture_page(source, body.url, credential=body.credential)
+    except SourceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except EgressRefused as exc:
+        logger.info("public source capture refused: %s", exc)
+        return JSONResponse(status_code=403, content={"detail": str(exc), "code": "egress_refused"})
+    except CaptureError as exc:
+        if exc.code:
+            return JSONResponse(status_code=exc.status, content={"detail": str(exc), "code": exc.code})
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("public source capture failed for source %s", body.source)
+        raise HTTPException(status_code=502, detail="the source is not reachable right now") from exc
+
+
+async def capture_public_source_page(
+    body: CaptureRequest, _: None = Depends(_require_internal_token)
+) -> dict | JSONResponse:
+    """Return ``{url, finalUrl, contentType, sha256, bytes, text, pages, note, retrievedAt}`` for one page."""
+    page = await _captured(body)
+    if isinstance(page, JSONResponse):
+        return page
+    return {**_page_facts(page), "text": page.text}
+
+
+def _page_facts(page) -> dict:
+    """What a capture says about its bytes, without its text."""
+    return {
+        "url": page.url,
+        "finalUrl": page.final_url,
+        "contentType": page.content_type,
+        "sha256": page.sha256,
+        "bytes": page.size,
+        "pages": page.pages,
+        "note": page.note or None,
+        "retrievedAt": page.retrieved_at,
+    }
+
+
+class CorpusTextRequest(CaptureRequest):
+    """A PDF of a configured source to keep as a base-corpus file (ADR-0165, "Texts are attached in the request")."""
+
+    #: What the file is named after: its manifestation's key. The name itself carries the bytes' hash.
+    fileStem: str = Field(..., pattern=r"^[a-z0-9][a-z0-9._-]{0,99}$", description="The manifestation's key.")
+
+
+def corpus_text_name(stem: str, sha256: str) -> str:
+    """The name a text is kept under: its manifestation's key and the first twelve hex digits of its sha256.
+
+    Content-addressed, so the bytes under a name never change: other bytes are another name. The BFF names an
+    uploaded text the same way (``textFileName`` in ``text-wire.ts``).
+    """
+    return f"{stem}-{sha256[:12]}.pdf"
+
+
+def _keep_corpus_text(name: str, content: bytes, sha256: str) -> str:
+    """Store the bytes under ``name`` and queue their ingestion: ``stored``, ``unchanged`` or ``name_taken``.
+
+    Nothing is ever replaced: a name that holds other bytes (somebody put a file there by hand, or twelve hex
+    digits collided) is refused.
+    """
+    from agent import corpus_store
+    from agent import oib_sync
+    from agent.common.norm_registry import guess_doc_class
+
+    from ..jobs.ingest_dispatch import enqueue_only
+
+    row = corpus_store.get_file(name)
+    if row is not None:
+        return "unchanged" if row.sha256 == sha256 else "name_taken"
+    try:
+        oib_sync.store_and_request(name, content, guess_doc_class(name), enqueue=enqueue_only)
+    except corpus_store.CorpusFileImmutable:
+        # Somebody stored other bytes under the name between the read above and the store's lock.
+        return "name_taken"
+    return "stored"
+
+
+async def import_public_source_text(
+    body: CorpusTextRequest, _: None = Depends(_require_internal_token)
+) -> dict | JSONResponse:
+    """Fetch a public PDF and keep it as a base-corpus file: ``{fileName, stored, …the capture's facts}``.
+
+    The fetch and the parse are the capture's (:func:`public_sources.capture.capture_page`): the source's hosts at
+    every hop, and the PDF read by the fetcher, which refuses one it cannot open before anything is kept. This tier
+    never parses the bytes; it hands them to the corpus store, where they are ingested like an upload and read by
+    nobody until a release marks them with a country (ADR-0173).
+    """
+    from public_sources.pdf import is_pdf
+
+    page = await _captured(body)
+    if isinstance(page, JSONResponse):
+        return page
+    if page.pages is None or not is_pdf(page.content, page.content_type):
+        detail = "the URL answers no PDF; a text kept in the base corpus is a PDF"
+        return JSONResponse(status_code=422, content={"detail": detail, "code": "not_a_pdf"})
+    name = corpus_text_name(body.fileStem, page.sha256)
+    try:
+        outcome = await asyncio.to_thread(_keep_corpus_text, name, page.content, page.sha256)
+    except Exception as exc:
+        logger.exception("a fetched text could not be kept in the base corpus")
+        raise HTTPException(status_code=502, detail="the base corpus did not take the file") from exc
+    if outcome == "name_taken":
+        detail = f"the base corpus keeps a different file as {name}"
+        return JSONResponse(status_code=409, content={"detail": detail, "code": "name_taken"})
+    return {**_page_facts(page), "fileName": name, "stored": outcome == "stored"}
+
+
+async def check_public_source(body: SourceRequest, _: None = Depends(_require_internal_token)) -> dict:
+    """KC-7 (ADR-0174): ``{valid, problems: [{fixture, detail}], fixtures: [{name, ok, requested, awaiting}]}``.
+
+    No live call. A fixture whose response is a capture the BFF did not hand over is not run: ``awaiting`` names
+    its URLs, it is not ``ok`` and it is no problem here. Whether a source may wait for its recording is the
+    BFF's to say: a draft may, so its hosts can be fetched for the capture; a submit may not.
+    """
+    from public_sources.fixtures import run_source
+    from public_sources.source import SourceError
+    from public_sources.source import parse_inline_source
+
+    try:
+        source = parse_inline_source(body.config)
+    except SourceError as exc:
+        return {"valid": False, "problems": [{"fixture": None, "detail": str(exc)[:2000]}], "fixtures": []}
+    results = await run_source(source)
+    problems = [{"fixture": r.fixture, "detail": failure[:1000]} for r in results for failure in r.failures]
+    return {
+        "valid": all(r.ok for r in results),
+        "problems": problems,
+        "fixtures": [
+            {"name": r.fixture, "ok": r.ok, "requested": r.requested, "awaiting": r.awaiting} for r in results
+        ],
+    }
+
+
+#: The built-in sources' answer, made once per process: a repository record cannot change inside an image.
+_built_in: list[dict] | None = None
+
+
+class BuiltInRequest(BaseModel):
+    """Nothing to send: the built-in sources are this image's."""
+
+
+async def built_in_public_sources(_: BuiltInRequest, __: None = Depends(_require_internal_token)) -> dict:
+    """The repository's own sources (``configs/sources``, reviewed as code), each with its recorded fixtures' result.
+
+    A built-in source is an engine's configuration the agent's own tools read
+    (the RIS adapter's controllers and Bundesland parameters); every other
+    source is a platform record (ADR-0174). Listed read-only beside the records
+    in ``source-status``: the same check KC-7 runs on a record, no live call.
+    """
+    global _built_in
+    if _built_in is None:
+        from public_sources.fixtures import run_source
+        from public_sources.source import load_sources
+
+        _built_in = [_built_in_view(source, await run_source(source)) for source in load_sources().values()]
+    return {"sources": _built_in}
+
+
+def _built_in_view(source, results) -> dict:
+    problems = [{"fixture": r.fixture, "detail": failure[:1000]} for r in results for failure in r.failures]
+    return {
+        "sourceKey": source.id,
+        "title": source.title,
+        "territory": source.territory,
+        "protocol": source.protocol,
+        "format": source.format,
+        "hosts": list(source.hosts),
+        "dataFlow": source.data_flow,
+        "licence": source.terms.licence,
+        "monitor": {"kind": source.monitor.kind, "intervalHours": source.monitor.interval_hours},
+        "credentialHeader": source.credential.header if source.credential else None,
+        "fixtures": {
+            "valid": not problems,
+            "problems": problems,
+            "fixtures": [{"name": r.fixture, "ok": r.ok, "requested": r.requested} for r in results],
+        },
+    }
+
+
+async def probe_public_source(body: ProbeRequest, _: None = Depends(_require_internal_token)) -> dict:
+    """One monitor check (ADR-0174): what the probe saw, whether it changed, and the page's text for a capture."""
+    from public_sources.access import AccessError
+    from public_sources.egress import EgressRefused
+    from public_sources.monitor import MonitorError
+    from public_sources.monitor import Seen as SeenState
+    from public_sources.monitor import probe
+
+    source = _configured(body.config)
+    previous = SeenState(
+        etag=body.previous.etag,
+        sha256=body.previous.sha256,
+        version=body.previous.version,
+        terms_sha256=body.previous.termsSha256,
+    )
+    try:
+        result = await probe(source, previous, credential=body.credential)
+    except MonitorError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except EgressRefused as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except AccessError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)[:500]) from exc
+    except Exception as exc:
+        logger.exception("public source probe failed for source %s", source.id)
+        raise HTTPException(status_code=502, detail="the source is not reachable right now") from exc
+    return {
+        "changed": result.changed,
+        "termsChanged": result.terms_changed,
+        "termsUnwatched": result.terms_unwatched,
+        "current": {
+            "etag": result.current.etag,
+            "sha256": result.current.sha256,
+            "version": result.current.version,
+            "termsSha256": result.current.terms_sha256,
+        },
+        "url": result.url,
+        "contentType": result.content_type,
+        "bytes": result.size,
+        "text": result.text,
+        "anchors": list(result.anchors)[:500],
+    }
+
+
+def add_public_source_capture_routes(router: APIRouter) -> None:
+    """The public-source routes the BFF calls: capture, corpus text, check (KC-7), probe and the built-in list."""
+    router.post(
+        "/v1/public-sources/capture",
+        tags=["public-sources"],
+        summary="Capture a page of a configured public source (internal)",
+        # A refusal with a problem code is a JSONResponse beside the dict, which no response model describes.
+        response_model=None,
+    )(capture_public_source_page)
+    router.post(
+        "/v1/public-sources/corpus-text",
+        tags=["public-sources"],
+        summary="Fetch a public PDF of a configured source and keep it as a base-corpus file (internal)",
+        response_model=None,
+    )(import_public_source_text)
+    router.post(
+        "/v1/public-sources/check",
+        tags=["public-sources"],
+        summary="Validate a configured public source and run its recorded fixtures (internal)",
+    )(check_public_source)
+    router.post(
+        "/v1/public-sources/built-in",
+        tags=["public-sources"],
+        summary="List the repository's built-in public sources with their fixtures' result (internal)",
+    )(built_in_public_sources)
+    router.post(
+        "/v1/public-sources/probe",
+        tags=["public-sources"],
+        summary="Check a configured public source for a change since the last check (internal)",
+    )(probe_public_source)

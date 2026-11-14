@@ -1,0 +1,14 @@
+---
+# area: office-knowledge
+features:
+  - >
+    Answers now name the standards the platform lists for your country even when
+    your office holds no copy, saying the text is not available, and an
+    authority's directives reach a project only where that authority decides.
+operators:
+  - >
+    Platform knowledge now changes only through a reviewed change request in
+    Platform, Countries: reviewed claim by claim, approved by a second person,
+    published to preview, then stable, and rolled back if needed. The
+    platform-base-knowledge flag is retired (ADR-0175) and the norm catalog
+    page is gone. Migration 0205 adds the tables.

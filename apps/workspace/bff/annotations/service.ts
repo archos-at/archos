@@ -115,6 +115,7 @@ import {
 import { auditMarkDecided } from './mark-audit'
 import { keepMentions, mentionsAgent, newlyMentioned, noLongerMentioned } from './mentions'
 import { enforceMentionBounds } from '@/lib/mentions/service'
+import { ANNOTATION_LIFECYCLE } from './lifecycles'
 import type { AnnotationChange } from './room-types'
 import { auditSuppressedWake, enqueueWake, replyTrigger, wakeOutcomeOf, wakesEnabled, type EnqueuedWake } from './wake'
 import { delegationEventId, wakeTurnId } from './wake-ids'
@@ -163,6 +164,7 @@ import {
   type UpdateReplyRequest,
   type WakeOutcome,
 } from './types'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** Who acts: a person in their own session, or Piloti in the asker's. `peerId` is the person's tab, when it says. */
 export interface AnnotationActor {
@@ -457,7 +459,7 @@ function announce(
     actor: {
       peerId: actor.peerId ?? null,
       userId: session.userId,
-      name: actor.kind === 'piloti' ? 'Piloti' : (session.name ?? session.email),
+      name: actor.kind === 'piloti' ? PRODUCT_NAME : (session.name ?? session.email),
       kind: actor.kind,
     },
   })
@@ -472,7 +474,7 @@ function announce(
  */
 function markEvent(
   session: AuthorizedSession,
-  event: Extract<ServerEvent, 'annotation_created' | 'annotation_closed' | 'annotation_carried'>,
+  event: Extract<ServerEvent, 'annotation_created' | 'annotation_closed' | 'annotation_reopened' | 'annotation_carried'>,
   documentId: string,
   properties: Record<string, string | boolean>
 ): void {
@@ -688,14 +690,12 @@ export function transition(
   const closed = { closedBy: userId, closedAt: now }
   const reopened = { closedBy: null, closedAt: null }
   const acceptance = record.acceptedBy ? {} : { acceptedBy: userId, acceptedAt: now }
-  if (from === 'proposed' && to === 'open') return { status: 'open', ...reopened, ...acceptance }
-  if (from === 'proposed' && to === 'dismissed') return { status: 'dismissed', ...closed }
-  if (from === 'open' && to === 'resolved') return { status: 'resolved', ...closed }
-  if (from === 'resolved' && to === 'open') return { status: 'open', ...reopened }
-  if (from === 'dismissed' && to === 'open') {
-    return { status: 'open', ...reopened, ...(record.authorKind === 'piloti' ? acceptance : {}) }
+  if (!ANNOTATION_LIFECYCLE.canTransition(from, to)) {
+    throw new ConflictError(`An Anmerkung cannot go from ${from} to ${to}.`)
   }
-  throw new ConflictError(`An Anmerkung cannot go from ${from} to ${to}.`)
+  if (to !== 'open') return { status: to, ...closed }
+  const accepts = from === 'proposed' || (from === 'dismissed' && record.authorKind === 'piloti')
+  return { status: 'open', ...reopened, ...(accepts ? acceptance : {}) }
 }
 
 /** Run work that must never fail the write behind it: a throw or a rejection is a warning. */
@@ -958,15 +958,15 @@ function delegationOf(
   const cleared = { delegatedBy: null, delegatedAt: null } as const
   const closing = parsed.status === 'resolved' || parsed.status === 'dismissed'
   if (parsed.delegateToPiloti === undefined) return closing && existing.delegatedBy ? cleared : undefined
-  if (actor.kind === 'piloti') throw new ForbiddenError('Piloti cannot delegate a mark to itself.')
+  if (actor.kind === 'piloti') throw new ForbiddenError(PRODUCT_NAME + ' cannot delegate a mark to itself.')
   if (!parsed.delegateToPiloti) return existing.delegatedBy ? cleared : undefined
   if (!wakesEnabled(session)) {
-    throw new ForbiddenError('Delegating to Piloti is not switched on for this organization.', {
+    throw new ForbiddenError('Delegating to ' + PRODUCT_NAME + ' is not switched on for this organization.', {
       reason: 'piloti-wakes-off',
     })
   }
   if ((parsed.status ?? existing.status) !== 'open') {
-    throw new UnprocessableError('Only an open Anmerkung can be delegated to Piloti.', { field: 'delegateToPiloti' })
+    throw new UnprocessableError('Only an open Anmerkung can be delegated to ' + PRODUCT_NAME + '.', { field: 'delegateToPiloti' })
   }
   return existing.delegatedBy ? undefined : { delegatedBy: session.userId, delegatedAt: now }
 }
@@ -1079,13 +1079,10 @@ export async function updateAnnotation(
   if (actor.kind === 'person' && moves) {
     traceMove(session, { id: doc.id, projectId: doc.projectId ?? null }, annotationId, existing, parsed.status)
   }
-  if (moves && closes && parsed.status) {
-    markEvent(session, 'annotation_closed', doc.id, {
-      status: parsed.status,
-      by: actor.kind,
-      author_kind: existing.authorKind,
-      was: existing.status,
-    })
+  const reopens = parsed.status === 'open' && (existing.status === 'resolved' || existing.status === 'dismissed')
+  if (moves && parsed.status && (closes || reopens)) {
+    const event = reopens ? 'annotation_reopened' : 'annotation_closed'
+    markEvent(session, event, doc.id, { status: parsed.status, by: actor.kind, author_kind: existing.authorKind, was: existing.status })
   }
   traceMentioned(
     session,
@@ -1167,7 +1164,7 @@ async function carryAcross(
 ): Promise<{ annotation: AnnotationView }> {
   const target = await requireWritableDocument(session, replacing.id)
   if (existing.delegatedBy) {
-    throw new UnprocessableError('Take the Anmerkung back from Piloti before it goes on with the new Fassung.', {
+    throw new UnprocessableError('Take the Anmerkung back from ' + PRODUCT_NAME + ' before it goes on with the new Fassung.', {
       field: 'carryToCurrent',
       reason: 'delegated',
     })
@@ -1569,7 +1566,7 @@ async function ownReplyOf(
     })
   }
   if (await agentTookUp(session, existing, reply)) {
-    throw new ConflictError('Piloti has taken this answer up: it stays as it was. Write a new one.', {
+    throw new ConflictError(PRODUCT_NAME + ' has taken this answer up: it stays as it was. Write a new one.', {
       reason: REPLY_TAKEN_UP_REASON,
     })
   }

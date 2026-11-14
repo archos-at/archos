@@ -13,6 +13,7 @@ import { server } from '@/mocks/server'
 import { installLayoutObservers } from '@/test-utils/layout-observers'
 import { FileCard, ThumbnailWithFallback, resetThumbnailCache } from './file-card'
 import type { FileItem } from './project-file-workspace'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 function file(id: string, filename: string, contentType: string | null): FileItem {
   return {
@@ -248,47 +249,50 @@ describe('ThumbnailWithFallback', () => {
 })
 
 /**
- * The tile has to reach the bottom of its grid cell whatever it carries. A
- * document that is still being read has no AI summary yet, so it is shorter than
- * its settled neighbours; the grid stretches every cell to the row height, and
- * the card used to keep its natural height inside that cell — the size · time
- * footer floated in the middle of the tile with a band of dead surface beneath.
+ * A tile's anatomy (paper on a desk): the sheet, the name, one meta line right
+ * under it. A document still being read has no summary yet, and a tile shows
+ * none anyway; only the chat's card without a meta line keeps the summary, and
+ * holds its slot with skeleton lines while it is on its way.
  *
  * jsdom does no layout, so what is asserted is the mechanism rather than the
- * pixels: the raised content block is the growing flex child. The rendered
- * result is pinned by the `file-browser-uploading` screenshot target.
+ * pixels. The rendered result is pinned by the `/dev/files-page` capture.
  */
 describe('FileCard while the document is still being read', () => {
   const unsettled: FileItem = { ...file('c1', 'Schnitt.pdf', 'application/pdf'), status: 'processing' }
 
-  it('grows the raised content block so the footer sits on the bottom edge', () => {
+  it('sets the meta line right under the name, not at the foot of the cell', () => {
     render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" />)
 
-    // The card's button fills the tile above the footer, and inside it the
-    // raised white block is the growing child, so the footer (the button's
-    // sibling, since it holds the filing chip) sits on the bottom edge.
+    // The footer is the button's sibling, since it holds the filing chip. It no longer grows to the cell's foot: a row
+    // of tiles with one two-line name opened a 24px hole under every one-line name to hold the meta lines level.
     const card = screen.getByTestId('file-card')
-    expect(card.className).toContain('flex-1')
-    expect(card.className).toContain('flex-col')
-
-    const [contentBlock] = Array.from(card.children)
-    expect(contentBlock.className).toContain('flex-1')
-    expect(card.nextElementSibling).toBe(screen.getByTestId('file-card-footer'))
+    const footer = screen.getByTestId('file-card-footer')
+    expect(card.nextElementSibling).toBe(footer)
+    expect(footer.className.split(/\s+/)).not.toContain('flex-1')
+    expect(footer.className).not.toContain('content-end')
   })
 
-  it('holds the description slot with skeleton lines instead of leaving it blank', () => {
-    render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" />)
-
-    // Decorative — the status badge already says "Processing" in words.
-    const placeholder = screen.getByTestId('file-card-summary-skeleton')
-    expect(placeholder).toHaveAttribute('aria-hidden')
-  })
-
-  it('drops the skeleton the moment the real summary arrives', () => {
+  it('carries no description on a Dateien tile: the sheet, the name and one meta line', () => {
+    // Paper on a desk, principle 8: a two-line summary on every tile made seven documents fill a 900px screen. The
+    // summary is the list view's and the preview's; a tile with a meta line shows neither it nor its skeleton.
     const summarized: FileItem = { ...unsettled, status: 'ready', summary: 'Perspektivischer Schnitt, Bauteil A.' }
+    const { unmount } = render(<FileCard file={summarized} isSelected={false} onSelect={() => {}} locale="de" />)
+    expect(screen.queryByText('Perspektivischer Schnitt, Bauteil A.')).not.toBeInTheDocument()
+    expect(screen.getByTestId('file-card-footer')).toHaveTextContent('PDF')
+    unmount()
 
-    render(<FileCard file={summarized} isSelected={false} onSelect={() => {}} locale="de" />)
+    render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" />)
+    expect(screen.queryByTestId('file-card-summary-skeleton')).not.toBeInTheDocument()
+  })
 
+  it('keeps the summary as the second line of a card without a meta line (the chat), holding its slot while it is read', () => {
+    const { unmount } = render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" hideFooter />)
+    // Decorative — the status badge already says "Processing" in words.
+    expect(screen.getByTestId('file-card-summary-skeleton')).toHaveAttribute('aria-hidden')
+    unmount()
+
+    const summarized: FileItem = { ...unsettled, status: 'ready', summary: 'Perspektivischer Schnitt, Bauteil A.' }
+    render(<FileCard file={summarized} isSelected={false} onSelect={() => {}} locale="de" hideFooter />)
     expect(screen.queryByTestId('file-card-summary-skeleton')).not.toBeInTheDocument()
     expect(screen.getByText('Perspektivischer Schnitt, Bauteil A.')).toBeInTheDocument()
   })
@@ -302,7 +306,7 @@ describe('FileCard while the document is still being read', () => {
     // An unclassified message says the generic sentence; the stored text is
     // the tooltip, since the card is one click target and has no disclosure.
     const line = screen.getByTestId('file-card-failure')
-    expect(line).toHaveTextContent(/Piloti (couldn't read|konnte dieses Dokument nicht lesen)/)
+    expect(line).toHaveTextContent(new RegExp(`${PRODUCT_NAME} (couldn't read|konnte dieses Dokument nicht lesen)`))
     expect(line).toHaveAttribute('title', 'Verschlüsseltes PDF')
   })
 
@@ -365,7 +369,7 @@ describe('FileCard for a report Piloti wrote', () => {
   it('names its author under the file name, as a line and not a chip', () => {
     render(<FileCard file={generated} isSelected={false} onSelect={() => {}} locale="de" />)
 
-    const byline = screen.getByText('Created by Piloti')
+    const byline = screen.getByText(`Created by ${PRODUCT_NAME}`)
     expect(byline.tagName).toBe('P')
     // In the BODY, under the name — not in the footer, which is the assignment
     // slot where the faces and the word `Unvergeben` live.
@@ -378,7 +382,7 @@ describe('FileCard for a report Piloti wrote', () => {
       <FileCard file={{ ...generated, authoredBy: 'user', status: 'ready' }} isSelected={false} onSelect={() => {}} locale="de" />,
     )
 
-    expect(screen.queryByText('Created by Piloti')).not.toBeInTheDocument()
+    expect(screen.queryByText(`Created by ${PRODUCT_NAME}`)).not.toBeInTheDocument()
   })
 
   it('badges `stored` as neither citable nor failed', () => {
@@ -528,7 +532,7 @@ describe('FileCard and the version state badge', () => {
     // The byline still says who wrote it; the badge waits for a second
     // version, when there is something to distinguish.
     expect(screen.queryByTestId('document-version-badge')).not.toBeInTheDocument()
-    expect(screen.getByText('Created by Piloti')).toBeInTheDocument()
+    expect(screen.getByText(`Created by ${PRODUCT_NAME}`)).toBeInTheDocument()
   })
 
   it('says nothing when the listing never read the state', () => {

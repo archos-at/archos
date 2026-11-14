@@ -1,9 +1,10 @@
 /**
  * UserMessage Component
  *
- * User message bubble displayed in the chat area — the click-dummy "Eingabe"
- * turn: a right-aligned role tab over a bubble with the dummy's asymmetric
- * corner radius, hairline border and trace shadow.
+ * User message bubble displayed in the chat area: a right-aligned bubble with
+ * the dummy's asymmetric corner radius, hairline border and trace shadow. No
+ * role tab over it; its side and notch say it is the person's turn, and a
+ * screen reader hears "Eingabe" from a visually hidden label.
  *
  * ## Two renderings, one component
  *
@@ -54,10 +55,9 @@
 'use client'
 
 import { type FC, useState } from 'react'
-import { User, Copy, Check } from 'lucide-react'
+import { Copy, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { AnimatePresence, motion, useIconSwapTransition } from '@/components/motion'
-import { SectionLabel } from '@/components/ui/section-label'
 import { MarkdownRenderer } from '@/shared/components/MarkdownRenderer'
 import { formatTime } from '@/shared/utils/format-time'
 import { useLocale, useTranslations } from '@/i18n'
@@ -84,13 +84,13 @@ import { MessageAuthor } from './MessageAuthor'
  * primitives; this is one of the bespoke controls it cannot see).
  */
 const COPY_BUTTON_CLASS = cn(
-  'absolute right-2 top-2 rounded-md bg-muted p-1.5 text-muted-foreground',
+  'absolute right-2 top-2 rounded-control bg-muted p-1.5 text-muted-foreground',
   // The reveal fades on --motion-quick and the press is the house one; the
   // hover's colour and fill ease with it instead of snapping under the fade.
   'opacity-0 transition-[opacity,color,background-color,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out group-hover:opacity-100 active:scale-[0.98] motion-reduce:active:scale-100',
   'focus-visible:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none',
   'inline-flex items-center justify-center pointer-coarse:size-11 pointer-coarse:bg-transparent pointer-coarse:p-0',
-  'hover:bg-accent hover:text-foreground',
+  'hover:bg-selected hover:text-foreground',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
 )
 
@@ -192,19 +192,17 @@ export const UserMessage: FC<UserMessageProps> = ({
     // every mount, reloads and thread switches included.
     return (
       <div className="flex w-full flex-col items-end">
-        {/* "Eingabe" role tab — uppercase 10.5/600, inset from the bubble edge */}
-        <SectionLabel as="div" className="mr-[14px] inline-flex items-center gap-1.5 rounded-t-md bg-accent px-2.5 py-1">
-          <User className="size-2.5" aria-hidden="true" />
-          {t('roles.input')}
-        </SectionLabel>
-
         {/* Bubble — width 400, asymmetric corners, hairline border, trace shadow */}
         {/* Three corners are the token radius; the 4px top-right is the
             bubble's tail-side notch — the one deliberate value, and what makes
             an input bubble identifiable at a glance. */}
-        <div className="group relative w-[400px] max-w-full rounded-lg rounded-tr-[4px] border border-input bg-card px-[14px] py-[11px] text-sm leading-[1.55] text-default shadow-xs pointer-coarse:pr-14">
+        <div className="group relative w-[400px] max-w-full rounded-bubble rounded-tr-[4px] bg-card px-[14px] py-[11px] text-sm leading-[1.55] text-default shadow-xs pointer-coarse:pr-14">
+          {/* No visible "Eingabe" tab: the bubble's side and notch already say
+              it on screen (Notion #38, topic 9). A screen reader has neither,
+              so it still hears whose turn this is. */}
+          <span className="sr-only">{t('roles.input')}</span>
           {body}
-          <button
+          <button data-attr="chat-copy-message"
             type="button"
             onClick={() => void handleCopyMessage()}
             aria-label={copied ? t('copyMessage.copied') : t('copyMessage.copy')}
@@ -271,7 +269,7 @@ export const UserMessage: FC<UserMessageProps> = ({
           // says who is speaking, the layout says "a person is asking Piloti".
           // Three corners are the token radius; the 4px top-right is the
           // bubble's tail-side notch — the one deliberate value.
-          'group relative w-[400px] max-w-full rounded-lg border border-input',
+          'group relative w-[400px] max-w-full rounded-bubble',
           'px-[14px] py-[11px] text-sm leading-[1.55] text-default shadow-xs',
           // The notch points at the header, on whichever side the bubble sits;
           // the other party of a two-party thread speaks on the muted surface.
@@ -293,7 +291,7 @@ export const UserMessage: FC<UserMessageProps> = ({
         )}
       >
         {body}
-        <button
+        <button data-attr="chat-copy-message"
           type="button"
           onClick={() => void handleCopyMessage()}
           aria-label={copied ? t('copyMessage.copied') : t('copyMessage.copy')}

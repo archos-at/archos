@@ -5,7 +5,7 @@ import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { DISCIPLINE_TAGS, DOCUMENT_TYPE_TAGS, MAX_TAGS } from '@/lib/documents/tag-vocabulary'
+import { DISCIPLINE_TAGS, DOCUMENT_TYPE_TAGS, MAX_TAGS, tagLabel } from '@/lib/documents/tag-vocabulary'
 
 /** Every tag a user may assign, in vocabulary order (Dokumenttyp then Fachbereich). */
 const ALL_VOCABULARY_TAGS: readonly string[] = [...DOCUMENT_TYPE_TAGS, ...DISCIPLINE_TAGS]
@@ -105,22 +105,26 @@ export function DocumentTagsEditor({
     [persist, tags]
   )
 
+  /** What a person reads for a tag: a token (`correspondence`) is matched and shown by its label. */
+  const labelOf = useCallback((tag: string) => tagLabel(tag, t), [t])
+
   // Vocabulary entries still assignable, narrowed by the typed query.
   const suggestions = useMemo(() => {
     const q = input.trim().toLowerCase()
     const available = ALL_VOCABULARY_TAGS.filter((tag) => !tags.includes(tag))
-    return q ? available.filter((tag) => tag.toLowerCase().includes(q)) : available
-  }, [input, tags])
+    // The label or the stored value: „Brandschutz“ typed in an English workspace still finds „Fire safety“.
+    return q ? available.filter((tag) => labelOf(tag).toLowerCase().includes(q) || tag.toLowerCase().includes(q)) : available
+  }, [input, tags, labelOf])
 
   /** Resolve the free-typed input to a canonical vocabulary entry, if any. */
   const resolveInput = useCallback((): string | null => {
     const q = input.trim().toLowerCase()
     if (!q) return null
-    const exact = ALL_VOCABULARY_TAGS.find((tag) => tag.toLowerCase() === q)
+    const exact = ALL_VOCABULARY_TAGS.find((tag) => labelOf(tag).toLowerCase() === q || tag.toLowerCase() === q)
     if (exact && !tags.includes(exact)) return exact
     // A query narrowing to exactly one candidate is unambiguous — accept it.
     return suggestions.length === 1 ? suggestions[0] : null
-  }, [input, suggestions, tags])
+  }, [input, suggestions, tags, labelOf])
 
   const atCap = tags.length >= MAX_TAGS
   const showNoMatchHint = isEditing && input.trim() !== '' && suggestions.length === 0
@@ -132,16 +136,16 @@ export function DocumentTagsEditor({
         {tags.map((tag) => (
           <span
             key={tag}
-            className="bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium"
+            className="bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-xs font-medium"
           >
-            {tag}
+            {labelOf(tag)}
             {!readOnly && (
-              <button
+              <button data-attr="files-remove-tag"
                 type="button"
                 onClick={() => removeTag(tag)}
                 disabled={isSaving}
-                aria-label={t('preview.removeTag', { tag })}
-                className="duration-snap hover:bg-accent hover:text-foreground focus-visible:ring-ring touch-target -mr-0.5 rounded-sm p-0.5 transition-colors ease-out focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 motion-reduce:transition-none"
+                aria-label={t('preview.removeTag', { tag: labelOf(tag) })}
+                className="duration-snap hover:bg-hover hover:text-foreground focus-visible:ring-ring touch-target -mr-0.5 rounded-control p-0.5 transition-colors ease-out focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 motion-reduce:transition-none"
               >
                 <X className="size-3" aria-hidden />
               </button>
@@ -149,7 +153,7 @@ export function DocumentTagsEditor({
           </span>
         ))}
         {tags.length === 0 && readOnly && (
-          <span className="text-muted-foreground/70 text-xs">{t('preview.noTags')}</span>
+          <span className="text-muted-foreground text-xs">{t('preview.noTags')}</span>
         )}
         {!readOnly && !atCap && (
           <span className="relative inline-flex items-center">
@@ -199,7 +203,7 @@ export function DocumentTagsEditor({
               // `h-6` is 24px, a little over half the touch floor, on a control
               // that has to be hit precisely because a mis-tap lands on a tag
               // chip that removes itself.
-              className="border-input text-foreground placeholder:text-muted-foreground/70 focus-visible:ring-ring pointer-coarse:h-11 pointer-coarse:w-36 pointer-coarse:pl-8 pointer-coarse:text-base h-6 w-28 rounded-md border border-dashed bg-transparent pl-6 pr-1.5 text-xs focus-visible:border-solid focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50"
+              className="border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-ring pointer-coarse:h-11 pointer-coarse:w-36 pointer-coarse:pl-8 pointer-coarse:text-base h-6 w-28 rounded-control border border-dashed bg-transparent pl-6 pr-1.5 text-xs focus-visible:border-solid focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50"
             />
           </span>
         )}
@@ -213,7 +217,7 @@ export function DocumentTagsEditor({
           aria-label={t('preview.suggestionsLabel')}
         >
           {suggestions.map((tag) => (
-            <button
+            <button data-attr="files-add-tag"
               key={tag}
               type="button"
               // Keep the input focused so blur doesn't race the click.
@@ -225,15 +229,15 @@ export function DocumentTagsEditor({
               // interaction, and at `py-0.5` each was a 20px chip in a wrapped row
               // of them. Grown rather than overhung — they are neighbours in a
               // flex-wrap row, so catchments would land on each other.
-              className="border-border text-muted-foreground duration-snap hover:bg-muted hover:text-foreground focus-visible:ring-ring pointer-coarse:min-h-11 pointer-coarse:px-3.5 inline-flex items-center rounded-md border bg-transparent px-2 py-0.5 text-xs font-medium transition-colors ease-out focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 motion-reduce:transition-none"
+              className="border-border text-muted-foreground duration-snap hover:bg-hover hover:text-foreground focus-visible:ring-ring pointer-coarse:min-h-11 pointer-coarse:px-3.5 inline-flex items-center rounded-control border bg-transparent px-2 py-0.5 text-xs font-medium transition-colors ease-out focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 motion-reduce:transition-none"
             >
-              {tag}
+              {labelOf(tag)}
             </button>
           ))}
         </div>
       )}
       {showNoMatchHint && (
-        <p className="text-muted-foreground/70 text-xs">{t('preview.noTagMatch')}</p>
+        <p className="text-muted-foreground text-xs">{t('preview.noTagMatch')}</p>
       )}
     </div>
   )

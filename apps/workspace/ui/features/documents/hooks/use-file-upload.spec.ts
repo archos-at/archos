@@ -24,6 +24,7 @@ const { mockClient, mockDocumentsStoreState, mockOrchestratorFns } = vi.hoisted(
     setUploading: vi.fn(),
     setError: vi.fn(),
     clearError: vi.fn(),
+    setNameStopped: vi.fn(),
   }
 
   // The hook reads useDocumentsStore.getState().trackedFiles after upload to
@@ -632,6 +633,8 @@ describe('useFileUpload — durable document uploads', () => {
     expect(capturePosthog).toHaveBeenCalledTimes(1)
     expect(capturePosthog).toHaveBeenCalledWith('document_uploaded', {
       count: 3,
+      source: 'web_batch',
+      file_count: 3,
       types: 'docx,pdf',
       shelf: 'project',
     })
@@ -674,6 +677,42 @@ describe('useFileUpload — durable document uploads', () => {
     expect(xhr.requests.map((request) => (request.body as FormData).get('file'))).toEqual([plan])
     expect(mockDocumentsStoreState.setError).toHaveBeenCalledWith(expect.stringContaining('Schlussrechnung 03.pdf'))
     expect(mockDocumentsStoreState.setError).toHaveBeenCalledWith(expect.stringContaining('Rechnung'))
+  })
+
+  test('offers „Trotzdem hochladen" for the stopped files, which sends them released', async () => {
+    const { result } = renderUpload()
+    const control = new File(['x'], 'Schlussrechnung 04.pdf', { type: 'application/pdf' })
+    const plan = new File(['x'], 'Grundriss EG.pdf', { type: 'application/pdf' })
+
+    let pending!: Promise<unknown>
+    await act(async () => {
+      pending = result.current.uploadFiles([control, plan])
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    await act(async () => {
+      xhr.requests.forEach((request, i) => request.respond(200, uploadOk(`doc-${i}`)))
+      await pending
+    })
+    const offer = mockDocumentsStoreState.setNameStopped.mock.calls.at(-1)?.[0] as
+      | { count: number; uploadAnyway: () => void }
+      | null
+    expect(offer?.count).toBe(1)
+    expect(xhr.requests).toHaveLength(1)
+
+    await act(async () => {
+      offer?.uploadAnyway()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    await act(async () => {
+      xhr.last().respond(200, uploadOk('doc-anyway'))
+      await Promise.resolve()
+    })
+
+    expect(xhr.requests).toHaveLength(2)
+    expect((xhr.last().body as FormData).get('file')).toBe(control)
+    expect((xhr.last().body as FormData).get('screeningRelease')).toBe('name')
   })
 
   test('sends nothing, not even a clean file, while the office policy cannot be read', async () => {
@@ -1459,6 +1498,54 @@ describe('useFileUpload — chat attachments', () => {
 
     expect(onError).not.toHaveBeenCalled()
     expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith('mock-uuid', { status: 'canceled' })
+  })
+
+  describe('stopping a read', () => {
+    const reading = { id: 'row-1', fileName: 'a.pdf', collectionName: CHAT, fileSize: 1, status: 'ingesting', serverFileId: 'doc-1' }
+    const answer = (body: unknown) => ({ ok: true, status: 200, json: async () => body })
+    const canceledWrite = ['row-1', { status: 'canceled' }] as const
+
+    /**
+     * The stop answers `cancelled` and the status the document then holds;
+     * `meanwhile` runs while the request is out. Any other request fails the
+     * test: the answer is all the row is decided from.
+     */
+    function stubStop(documentStatus: string, meanwhile: () => void = () => {}) {
+      fetchMock.mockImplementation(async (url: string) => {
+        if (!url.endsWith('/cancel')) throw new Error(`unexpected request after the stop: ${url}`)
+        meanwhile()
+        return answer({ id: 'doc-1', result: 'cancelled', status: documentStatus })
+      })
+    }
+
+    async function stop() {
+      mockDocumentsStoreState.trackedFiles = [reading] as unknown[]
+      const { result } = renderChat()
+      await act(async () => {
+        result.current.cancelFile('row-1')
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+    }
+
+    test('a row still being read when the stop is confirmed says cancelled', async () => {
+      stubStop('cancelled')
+      await stop()
+      expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith(...canceledWrite)
+    })
+
+    test('a row that finished reading while the stop was out keeps what it says', async () => {
+      stubStop('completed', () => mockDocumentsStoreState.updateTrackedFile('row-1', { status: 'success' }))
+      await stop()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(mockDocumentsStoreState.updateTrackedFile).not.toHaveBeenCalledWith(...canceledWrite)
+      expect((mockDocumentsStoreState.trackedFiles[0] as { status: string }).status).toBe('success')
+    })
+
+    test('a row a stale report settled says cancelled once the document itself does', async () => {
+      stubStop('cancelled', () => mockDocumentsStoreState.updateTrackedFile('row-1', { status: 'success' }))
+      await stop()
+      expect(mockDocumentsStoreState.updateTrackedFile).toHaveBeenCalledWith(...canceledWrite)
+    })
   })
 
   test('deletes an attachment through the session document route, by document id', async () => {

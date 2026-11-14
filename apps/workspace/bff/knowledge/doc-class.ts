@@ -3,7 +3,7 @@
  * document classes the platform owner assigns from the base-knowledge admin UI.
  *
  * SINGLE SOURCE OF TRUTH: the canonical vocabulary lives in the Python backend
- * (`packages/agent/src/agent/knowledge/document_classification.py` — `DOCUMENT_CLASSES`,
+ * (`packages/agent/src/agent/knowledge/doc_class_vocabulary.py` — `DOCUMENT_CLASSES`,
  * `DOCUMENT_CLASS_LABELS`, `DOCUMENT_CLASS_LANES`, `DEFAULT_DOC_CLASS`), which the
  * doc-class edit endpoint validates every write against. This file is a
  * hand-kept TypeScript mirror used only to render the editor's dropdown + badge.
@@ -47,7 +47,7 @@ export type DocClass = (typeof DOC_CLASSES)[number]
  * entries equal these, which `base-knowledge.spec.tsx` pins.
  */
 export const DOC_CLASS_LABELS: Record<DocClass, string> = {
-  oib_guideline: 'OIB-Richtlinie (verbindlich)',
+  oib_guideline: 'OIB-Richtlinie',
   oib_guide: 'OIB-Leitfaden',
   oib_explanatory_note: 'OIB-Erläuterung',
   oib_definitions: 'OIB-Begriffsbestimmungen',
@@ -79,7 +79,7 @@ const DOC_CLASS_LANES: Record<DocClass, string> = {
 
 /**
  * The keys as they were stored before the English names, old to current (mirrors
- * `LEGACY_DOC_CLASSES` in `document_classification.py`; `doc-class.spec.ts` pins the
+ * `LEGACY_DOC_CLASSES` in `doc_class_vocabulary.py`; `doc-class.spec.ts` pins the
  * two). A Python pod that has not rolled yet still answers with one. Remove after one
  * release.
  */

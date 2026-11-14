@@ -28,6 +28,7 @@ Node must already be on the PATH. Install lines:
 | Where a directory is headed, and the checklist for moving one | [ADR-0145](docs/adr/0145-the-repository-is-laid-out-by-job.md): the target layout and the move order |
 | What is Piloti, and what is it not | [`VISION.md`](VISION.md) |
 | What does this word mean | [`CONTEXT.md`](CONTEXT.md) for the domain, [`docs/glossary.md`](docs/glossary.md) for the code |
+| How do I name X (a file, identifier, route, env var, table, event, flag, tool) | [`docs/contributing/naming.md`](docs/contributing/naming.md) |
 | Set up, branch, commit, get a PR merged | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | What an agent can do in the workspace, and how to add it | [`docs/architecture/agent-surface.md`](docs/architecture/agent-surface.md) |
 | Everything written down, by the question you arrived with | [`docs/README.md`](docs/README.md) |
@@ -93,6 +94,17 @@ the standard already names is a translation every agent and new colleague pays
 for. Deviate only with the reason written in an ADR. Anything an agent reads
 (tool names, descriptions, errors, cards over the wire) is English, with one
 word per concept; German is for people, through i18n, and for domain data.
+How to name a thing, and the terms under review: [`naming.md`](docs/contributing/naming.md).
+
+**Agents can act in every tool we choose.** A tool we adopt (CMS, CRM,
+tracker, analytics, an infrastructure service) must let an agent read, create,
+edit, publish and query in it through a first-class surface: the vendor's
+official MCP server, or at least a complete, documented API with scoped tokens.
+Its configuration is code an agent can change by PR, and an agent's edits have a
+draft or review step and a revision history to roll back from. A tool that only
+a person in a browser can drive is a tool our agents cannot work in. Record the
+check in the tool's ADR; the checklist is in
+[`ai-native-tooling.md`](docs/contributing/ai-native-tooling.md).
 
 **Prompting advice is dated.** Advice on prompts, tool descriptions or context
 comes from the vendor's live sources of the last three months, each cited with
@@ -113,12 +125,39 @@ guess is a bandage even when it works. When the fast fix and the correct fix
 disagree, take the correct one, or say plainly that you are deferring it and
 why.
 
+**Cost a move before you build it.** Before moving a thing onto another
+mechanism, or converting it to a pattern, read the code and write down four
+answers: what exists and how many lines would go, what replaces it and what
+that costs, what behaviour changes or is lost, and the net. Build only what
+clears the bar the user set. An inventory row that says "an engine feature could
+do this" is a lead, and a scout's "verified" is too.
+[`working-style.md`](docs/contributing/working-style.md#cost-a-move-before-you-build-it).
+
+**Dead here is not dead in production.** Before you remove a table, column,
+route or variable, check it against what production runs (`git fetch origin
+prod`, then `git grep` on `FETCH_HEAD`), not only against your branch.
+[`working-style.md`](docs/contributing/working-style.md#dead-here-is-not-dead-in-production).
+
 **Ratchet every correction.** A ratchet turns one way. Fix the output, then
 close the layer that let it through, preferring the layer that holds while
 people are tired: a database CHECK constraint asks nobody to remember anything.
 Ratcheted means a second occurrence is caught by something other than a person
 noticing. Reach for it when a reviewer corrects you, when something surprises
 you, or when you correct yourself twice for one reason.
+
+**Everything you learn is written down, in the same change.** Every fact about
+this system that you had to find out, because no doc told you, is research the
+next agent pays for again unless it lands in the repo. That covers what you read
+in code, what a failure taught you, and every finding of a subagent, scout or
+consultant you ran: their reports live in a scratch directory that dies with the
+session, so nothing they found exists until it is in a tracked file. Before it
+lands, challenge it: a fact goes in only after you re-checked it in the code,
+because a confident wrong note is worse than none. Write it where the next agent
+will already be looking (the doc for that area, the scoped `AGENTS.md`, the
+gotchas register, the ADR, the glossary), never in a new note nobody opens. A
+discrepancy between a doc and the code is fixed in the same change, the code or
+the doc, not reported. The definition of done's closing checklist names each
+fact and the file it went to.
 
 **Finish the task.** Reversible work does not get a permission checkpoint. A
 natural boundary, a layer done or a slice green or a commit pushed, is a place
@@ -169,10 +208,11 @@ ones that will fail your PR.
 |---|---|---|
 | Write a commit, or open **or rename** a PR | Conventional Commits — `feat` `fix` `docs` `refactor` `perf` `test` `ci` `build` `chore` `revert`. The **PR title** most of all: the repo squash-merges it, so the title is the commit that lands on `develop`. [`CONTRIBUTING.md`](CONTRIBUTING.md#commits-and-pr-titles) | The **Conventional PR title** job blocks the PR. A prose title is the one that keeps slipping through, because nothing local checks it |
 | Add or change something a person can do (a route, a button, a setting) | Give it an operation in `apps/workspace/bff/agent-api/catalog/` in the same change, or a reason in `NOT_AN_AGENT_CAPABILITY`. Headless first: the operation is the capability, the UI one client of it. Who sees it (an outside agent, Piloti, a native tool of Piloti's instead, the platform door, or nobody: `withheld`, with category and reason) is its entry in `apps/workspace/bff/agent-api/exposure.config.ts`, the one file that decides it. [`docs/contributing/headless-first.md`](docs/contributing/headless-first.md) | `agent-reachability.spec.ts`; the config does not compile without the entry, and `exposure.config.spec.ts` fails a missing reason or a stale `exposure.json` |
-| Name anything in code: a file, folder, identifier, type, enum token, test id, route, API or schema field | **English only, no exceptions for domain words.** `profile-review.ts`, never `steckbrief.ts`; `buildingClass`, never `gebaeudeklasse`. German lives in the i18n dictionaries and in domain data (document names, addresses, legal citations), nowhere else. A German name you meet is a rename in your change; a persisted German key (a profile key such as `standort_adresse`, a stored JSON field) is renamed with its migration and the agent's side in the same change, never by adding a second name beside it German domain term to English code name: [`docs/glossary.md`](docs/glossary.md#german-domain-term-english-code-name) | `tests/test_english_names.py` (Python) and `apps/workspace/tests/english-names.spec.ts` (UI), a per-file ratchet on identifiers with German stems (`ci/german_stems.json`); review for file names, routes and string tokens |
-| Name anything in code or infrastructure | **No product name**: no `aiq`, `grid` or `piloti` in an identifier, file, folder, environment variable, route, header, table, event or tool name. Name it for what it does; the product's name is copy, read from one place. [`code-conventions.md`](docs/contributing/code-conventions.md#no-brand-names) | The `brand-names` hook (`scripts/check_brand_names.py` against `ci/brand_names_baseline.json`) in `task lint:repo` and CI's **Repo checks** job |
-| Write a file or a function | A source file (Python, TypeScript or JavaScript) stays at or under 600 lines and a Python function at or under 60; one already over may not grow, and when it shrinks you lower its entry with `--update`. Generated files, tests, fixtures, migrations and copy are exempt. [`code-conventions.md`](docs/contributing/code-conventions.md#size-limits) | The `file-size` hook (`scripts/check_file_size.py` against `ci/size_baseline.json`) in `task lint:repo` and CI's **Repo checks** job |
-| Name a file, in code, copy or a prompt | Never call a file a plan: nothing knows a file is a drawing until its Dokumentart says so. Dokument, Datei, Fassung, Stand ([`CONTEXT.md`](CONTEXT.md), „Fassung“) | `forbidden-file-words.spec.ts` (UI copy), `packages/agent/tests/test_product_framing.py` (agent prompts), `apps/site/scripts/lint-claims.mjs` (the site); review elsewhere |
+| Name anything in code: a file, folder, identifier, type, enum token, test id, route, API or schema field | **English only, no exceptions for domain words**, and the standard's word before a plain one before any word of ours. German lives in the i18n dictionaries and in domain data. [`naming.md`](docs/contributing/naming.md) | `tests/test_english_names.py` (Python) and `apps/workspace/tests/english-names.spec.ts` (UI), a per-file ratchet on identifiers with German stems (`ci/german_stems.json`); review for file names, routes and string tokens |
+| Name anything in code or infrastructure, or write anything a person or an agent reads | **No brand in a name, and the name only as copy** (ADR-0149): name it for what it does, and read the product's name from `packages/brand/identity.json` (`PRODUCT_NAME`, `{productName}`, `{{ product_name }}`). [`naming.md`](docs/contributing/naming.md#no-brand-in-a-name) | The `brand-names` hook (`scripts/check_brand_names.py`, identifiers) and the `brand-prose` hook (`scripts/check_brand_prose.py`, retired names and a typed-out current name in text), each a ratchet on its `ci/brand_*_baseline.json`, in `task lint:repo` and CI's **Repo checks** job; `tests/test_product_name_parity.py` for the one source <!-- brand-history --> |
+| Write source code or a prompt under `apps/` or `packages/` that needs a country's legal database, standards body, host, territory or law | **A country is records, never code** (ADR-0162, ADR-0168, ADR-0169, ADR-0173, ADR-0174): read it from the knowledge context, the pack or a source record, and name the module, route, tool and identifier for what it does, never for RIS, the OIB or a Land. A prompt (a `.j2` template, Markdown under `prompts/`, a built-in `SKILL.md`) is counted whole: the model reads it every turn. What already names one may only shrink; lower its entry with `--update`. [The burn-down](docs/architecture/country-extensibility.md#country-in-code-the-burn-down) | The `country-in-code` hook (`scripts/check_country_in_code.py`, a per-file ratchet on `ci/country_in_code_baseline.json` over the tokens in `ci/country_tokens.json`) in `task lint:repo` and CI's **Repo checks** job |
+| Write a file or a function | A source file (Python, TypeScript or JavaScript) stays at or under 600 lines of code and a Python function at or under 60 (imports, comments and docstrings are not counted); one already over may not grow, and when it shrinks you lower its entry with `--update`. Generated files, tests, fixtures, migrations and copy are exempt. [`code-conventions.md`](docs/contributing/code-conventions.md#size-limits) | The `file-size` hook (`scripts/check_file_size.py` against `ci/size_baseline.json`) in `task lint:repo` and CI's **Repo checks** job |
+| Name a file, in code, copy or a prompt | Never call a file a plan: nothing knows a file is a drawing until its Dokumentart says so. Dokument, Datei, Fassung, Stand ([`CONTEXT.md`](CONTEXT.md), „Fassung“) | `forbidden-file-words.spec.ts` (UI copy), `packages/agent/tests/test_product_framing.py` (agent prompts); the website's `scripts/check_brand_rules.mjs` does not check this word (its design-system copy says Pläne for drawings), so review there and elsewhere |
 | Describe what Piloti is, in a doc, a prompt or copy | Lead with the workspace for architects; building law is one capability, never the frame ([`VISION.md`](VISION.md)) | `packages/agent/tests/test_product_framing.py` on the first-impression docs and every agent prompt; review elsewhere |
 | Add an environment variable | Add its row to [`docs/deployment/environment-variables.md`](docs/deployment/environment-variables.md) in the same change | The `env-docs` pre-commit hook (`scripts/check_env_docs.py`) for the queue-worker files; review elsewhere |
 | Change what a customer can notice | `task release:note -- <slug>` | The `release-notes` pre-commit hook (house rules), then CI's **Repo checks** job (its release-note step) |
@@ -180,19 +220,22 @@ ones that will fail your PR.
 | Add or edit anything under `skills/` | Add a skill only for agent-specific procedure; anything a contributor needs too is a document ([the rule](docs/contributing/agent-skills.md#skill-or-document)). Commit the re-locked `apm.lock.yaml` with it — `task agents:audit` rewrites it for you. The deployment is gitignored, so nothing else in your diff shows the lockfile went stale | `task lint:repo` and CI's **Repo checks** job for the lockfile; review for the rule |
 | Change behaviour a doc describes | Update the doc in the same commit | Review. Stale docs are a bug, because an agent acts on them |
 | Add a model call, a quality check, an agent step or a surface | Make it observable in Langfuse: a model call is a generation (`observed_generation` outside a workflow run), a check is a score declared in `SCORE_DEFINITIONS`, a dimension is trace metadata. Langfuse is our observability platform and this is not optional. [`docs/observability/langfuse.md`](docs/observability/langfuse.md) | `test_model_calls_are_traced.py`, `test_langfuse_scores.py`, review |
-| Change what shapes an answer: the prompt, the card or envelope contract, retrieval, ingestion, the answer pipeline, a model or effort default | Run `task be:eval:answer-suite` before and after yourself and put the report in the PR. [The answer suite](docs/contributing/testing-and-verification.md#the-answer-suite) | Review. Nothing else sees seconds, reasoning spikes or a wrong value in a real answer |
+| Change what shapes an answer: the prompt, the card or envelope contract, retrieval, ingestion, the answer pipeline, a model or effort default | Run the AT golden run on dev (`platform-knowledge-golden-run`) before and after the change is deployed there, and put both summaries in the PR or its follow-up. The local `task be:eval:answer-suite` is optional, for a change not yet deployable. [Which run gates a change](docs/contributing/testing-and-verification.md#which-run-gates-a-change) | Review. Nothing else sees seconds, cost or a wrong value in a real answer |
 | Say a change is done, finished or ready, or open a PR | Clear [`definition-of-done.md`](docs/contributing/definition-of-done.md) and put its closing checklist, every line filled with evidence or with why not, in your summary | Review. "Done" without evidence is the one way to fail it |
-| Learn something the repo could have told you | Write it down where the next agent will already be looking, before you carry on | Nothing, once. Then everyone re-earns it. [The ratchet](docs/contributing/correction-ratchet.md#human-intervention-is-a-failure-signal) |
+| Learn something the repo could have told you, yourself or through a subagent's report | Verify it in the code, then write it where the next agent will already be looking, in the same change; fix any doc-versus-code discrepancy you found rather than noting it. [Everything you learn is written down](#working-style), [the ratchet](docs/contributing/correction-ratchet.md#human-intervention-is-a-failure-signal) | The **What we learned** line of the [closing checklist](docs/contributing/definition-of-done.md#the-closing-checklist); review for whether the list is complete |
 
 `task verify` is the local gate: host-native, defined once in `Taskfile.yml`. CI
 calls the same definitions but schedules them differently, so a local pass is
-strong evidence rather than a guarantee. `task verify:fast` skips two production
-builds, `workspace:build` and `site:build`.
+strong evidence rather than a guarantee. `task verify:fast` is the gate before a
+push: it runs the tiers and the UI specs your diff against `origin/develop`
+reaches, as CI's Plan job does for a pull request, without the two production
+builds and without coverage. `-- --all` runs every tier.
 
-Three gates sit outside `task verify` and are still required: `task db:test:rls`
+Four gates sit outside `task verify` and are still required: `task db:test:rls`
 whenever you touch the tenant boundary, `task be:test:postgres` whenever you touch
-a Python claim queue's SQL (the BFF queue's is covered by `db:test:rls`), and `task pkg:test` whenever you touch `packages/`. CI runs
-all three (the Frontend, Backend and packages jobs), so a PR cannot merge without them; they stay
+a Python claim queue's SQL (the BFF queue's is covered by `db:test:rls`), `task cms:test:db` whenever you touch
+`apps/cms` (the review rules and the migrations on Postgres), and `task pkg:test` whenever you touch `packages/`. CI runs
+all four (the Frontend, Backend, CMS and packages jobs), so a PR cannot merge without them; they stay
 out of `verify` because each needs something a per-commit gate should not pay
 for — PostgreSQL server binaries, and four minutes of IfcOpenShell.
 
@@ -209,7 +252,7 @@ fine `norm_registry` lanes are a sub-label within a kind, and the lane→kind ta
 is still a mirror, held by `test_collection_scope_parity.py`. `doc_class` is
 human-set and beats every filename guess.
 
-**Correlated substrate debt belongs in the change that tripped over it.** YAGNI
+**Correlated debt in shared code belongs in the change that tripped over it.** YAGNI
 forbids unused features, not known defects on the path you are walking. If B
 needs A to be generic and A is not, lift A here as its own commits. The test:
 would you work around it, switch on your type, or leave a descriptor field

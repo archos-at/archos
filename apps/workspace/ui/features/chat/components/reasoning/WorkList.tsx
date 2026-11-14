@@ -123,7 +123,7 @@ const ResultWord: FC<{ parts: WorkParts }> = ({ parts }) => {
       className={cn(
         'tabular-nums',
         strong || parts.tone === 'running' ? 'text-foreground' : 'text-muted-foreground',
-        strong && 'font-semibold'
+        strong && 'font-medium'
       )}
     >
       {parts.tone === 'running' && (
@@ -225,14 +225,14 @@ export const WorkRowView: FC<{
     </>
   )
   const lineClass = cn(
-    '-mx-2 grid w-[calc(100%+1rem)] gap-x-2.5 rounded-lg px-2 text-left text-[13px] leading-[19px]',
+    '-mx-2 grid w-[calc(100%+1rem)] gap-x-2.5 rounded-control px-2 text-left text-[13px] leading-[19px]',
     compact
       ? 'min-h-11 grid-cols-[16px_minmax(0,1fr)] items-start py-[7px]'
       : 'min-h-10 grid-cols-[16px_minmax(0,1fr)_auto] items-center py-2 pointer-coarse:min-h-11'
   )
   const interactive = cn(
     lineClass,
-    'cursor-pointer outline-none transition-[background-color,scale] duration-snap ease-out active:scale-[0.985] motion-reduce:transition-none pointer-fine:hover:bg-muted/60',
+    'cursor-pointer outline-none transition-[background-color,scale] duration-snap ease-out active:scale-[0.985] motion-reduce:transition-none pointer-fine:hover:bg-hover',
     FOCUS_RING
   )
   const group =
@@ -249,7 +249,7 @@ export const WorkRowView: FC<{
       className="flex min-w-0 flex-col"
     >
       {linkable && linking ? (
-        <button
+        <button data-attr="work-row-link"
           type="button"
           data-testid="work-row-link"
           aria-pressed={pressed}
@@ -267,7 +267,7 @@ export const WorkRowView: FC<{
         </button>
       ) : place ? (
         <>
-          <button
+          <button data-attr="work-row-open"
             type="button"
             data-testid="work-row-open"
             aria-label={t('thinking.work.open', { target: sentence })}
@@ -300,7 +300,7 @@ export const WorkRowView: FC<{
           <div
             aria-hidden
             data-testid="work-row-look-skeleton"
-            className="bg-muted max-w-full rounded-md"
+            className="bg-muted max-w-full rounded-control"
             style={{ width: STRIP_WIDTH, height: STRIP_MAX_HEIGHT }}
           />
         </div>
@@ -347,13 +347,13 @@ export const RoundCalls: FC<{
       ))}
       {round.more.length > 0 && (
         <li className="border-base flex border-t">
-          <button
+          <button data-attr="work-round-more"
             type="button"
             data-testid="work-round-more"
             aria-expanded={showMore}
             onClick={() => setShowMore((value) => !value)}
             className={cn(
-              'group text-muted-foreground pointer-fine:hover:text-foreground pointer-fine:hover:bg-muted/60 duration-snap -mx-2 flex min-h-10 w-[calc(100%+1rem)] items-center gap-2.5 rounded-lg px-2 text-left text-[13px] outline-none transition-[color,background-color,scale] ease-out active:scale-[0.985] motion-reduce:transition-none pointer-coarse:min-h-11',
+              'group text-muted-foreground pointer-fine:hover:text-foreground pointer-fine:hover:bg-hover duration-snap -mx-2 flex min-h-10 w-[calc(100%+1rem)] items-center gap-2.5 rounded-control px-2 text-left text-[13px] outline-none transition-[color,background-color,scale] ease-out active:scale-[0.985] motion-reduce:transition-none pointer-coarse:min-h-11',
               FOCUS_RING
             )}
           >

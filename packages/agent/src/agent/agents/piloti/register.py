@@ -8,7 +8,7 @@ The tool SET no longer varies with the data-source toggles — a switched-off
 source keeps its tool and refuses the call (``common/data_sources.py``), so
 every turn of an org sends the same tool payload to the same cache shard —
 except that a turn without a project is not sent the building-model tools
-(``_tools_in_scope``), which cannot run there.
+(``turn_tools.tools_in_scope``), which cannot run there.
 """
 
 import asyncio
@@ -35,23 +35,21 @@ from agent.common import is_verbose
 from agent.common import unavailable_source_ids
 from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
-from agent.common.client_tools import KNOWN_CLIENT_TOOLS
-from agent.common.client_tools import client_tool_declared
 from agent.common.data_source_registry import get_all_sources
 from agent.common.decisions import SKIPPED_TOO_SHORT
 from agent.common.decisions import record_skipped
+from agent.common.knowledge_context import corpus_country_allowed
+from agent.common.law_gate import law_sources_withheld
 from agent.common.openrouter import PLATFORM_FIXED
 from agent.common.openrouter import pin_chat_model
 from agent.common.reasoning_settings import effort_of
 from agent.common.request_llm_context import read_request_llm_context
-from agent.common.tool_calls import tool_basename
 from agent.common.tool_validation import format_no_sources_message
 from agent.knowledge.restricted_use import current_cross_project_turn
 from agent.observability.langfuse_trace_attributes import add_trace_tag
 from agent.observability.langfuse_trace_attributes import record_trace_metadata
 from agent.observability.turn_phases import observed_phase
 from agent.project_context import get_organization_id_from_context
-from agent.project_context import get_project_id_from_context
 from agent.skills import SkillResolver
 from agent.skills import SkillRuntime
 from agent.skills.events import emit_skills_offered
@@ -86,6 +84,7 @@ from .reference_fit import FIT_THRESHOLD
 from .reference_fit import MIN_LINES as MIN_FIT_LINES
 from .reference_fit import ReferenceFit
 from .reference_fit import fit_references
+from .turn_tools import tools_in_scope
 
 logger = logging.getLogger(__name__)
 
@@ -210,8 +209,8 @@ class ResearchAgentConfig(FunctionBaseConfig, name="research_agent"):
         default=False,
         description=(
             "Whether provider JSON mode (`response_format: json_object`) for the answer envelope is "
-            "ALSO bound on tool-bound research iterations, not only on the tool-free forced-synthesis "
-            "call (default OFF). Some OpenRouter-routed providers accept the parameter and then stop "
+            "bound on tool-bound research iterations, forced synthesis included, which follows the "
+            "rounds (default OFF). Some OpenRouter-routed providers accept the parameter and then stop "
             "emitting tool calls — a silent degradation the per-call fallback cannot see — so turning "
             "this on is a per-deployment decision made against a provider known to honor both."
         ),
@@ -226,7 +225,7 @@ class _Deployment:
     agent: ChatAgent
     provider: LLMProvider
     tools: list[Any]
-    #: The read-only estate backend the filesystem tools read through (``knowledge_layer.estate``); built once.
+    #: The read-only estate backend the filesystem tools read through (``knowledge_layer.estate.backend``); built once.
     estate: Any = None
     #: tool names → (is_valid, unavailable): the availability check is a scan
     #: with an INFO line per tool, and the tool set is fixed per deployment.
@@ -309,7 +308,7 @@ def _turn_facts(state: ResearchAgentState, runtime: SkillRuntime | None) -> Turn
     from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
     from agent.cards.catalog import card_index_entries
     from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
-    from agent.common.applicability import facts_from_project_context
+    from agent.common.project_facts import facts_from_project_context
     from agent.common.source_kinds import Shelf
     from agent.knowledge.inventory import get_norm_families
 
@@ -444,35 +443,6 @@ def _warm_question(facts: TurnFacts | None) -> None:
     task.add_done_callback(_WARMING.discard)
 
 
-#: Tools that read the PROJECT's building model. Outside a project they can
-#: only answer "no project" (``tools/bim/failures.NO_PROJECT_TEXT``), and
-#: their two schemas are ~8 200 of the ~17 000 tool tokens every call of the
-#: turn re-sends (measured 2026-09-23 on the live request; deferral did not
-#: reduce what was billed).
-_PROJECT_MODEL_TOOLS = frozenset({"ifc_query", "ifc_measure"})
-
-
-def _tools_in_scope(tools: list[Any]) -> list[Any]:
-    """The turn's tools less those that cannot run in its scope.
-
-    The tool payload still does not vary with the data-source toggles (the
-    cache shard stays one per org); it varies with two facts the turn cannot
-    change — whether there is a project, and whether the asking page can run a
-    frontend tool (``common/client_tools``, ADR-0144) — so an org has at most
-    four shards, not one per combination.
-    """
-    in_project = bool(get_project_id_from_context())
-
-    def runs_here(tool: Any) -> bool:
-        # The BASE name: a grouped or MCP tool arrives as ``bim__ifc_query``.
-        name = tool_basename(getattr(tool, "name", "") or "")
-        if name in KNOWN_CLIENT_TOOLS:
-            return client_tool_declared(name)
-        return in_project or name not in _PROJECT_MODEL_TOOLS
-
-    return [tool for tool in tools if runs_here(tool)]
-
-
 def _apply_decisions(decisions: TurnDecisions, state: ResearchAgentState, runtime: SkillRuntime | None) -> None:
     """The two prompt-side effects: the chosen skill's body, and the likely card shapes.
 
@@ -548,8 +518,8 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     # same tool payload and lands on one prompt-cache shard instead of one per
     # toggle combination. No `data_sources is not None` guard, for the same
     # reason as before: an org's toggle applies to a request that asked for
-    # "all tools".
-    disabled_sources = unavailable_source_ids(state.data_sources)
+    # "all tools". The law lookup reads the turn's own released source (ADR-0174, 2026-11-11 amendment).
+    disabled_sources = unavailable_source_ids(state.data_sources) | law_sources_withheld(reads_turn_sources=True)
     _warn_if_nothing_is_reachable(disabled_sources)
     is_valid, unavailable_tools = _tool_availability(deployment, deployment.tools)
     if not is_valid:
@@ -570,9 +540,7 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     # The provider reads (four cache-first BFF lookups) run beside them too:
     # nothing here depends on another, so the turn pays the slowest of the
     # three, not their sum.
-    # The question's embedding is warmed beside them (see _warm_question), so
-    # the round-0 search it prefetches does not pay that round trip after.
-    # The facts only feed the decision, so a config without it builds none.
+    # The question's embedding is warmed beside them (_warm_question); the facts only feed the decision.
     facts = _turn_facts(state, runtime) if config.turn_decisions else None
     _warm_question(facts)
     draft_tools, decisions, llm_provider, fit = await asyncio.gather(
@@ -590,7 +558,7 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     if runtime is not None:
         emit_skills_offered(runtime)
         record_trace_metadata(skills_offered=len(runtime.skills), skills_pinned=list(runtime.pinned) or None)
-    turn_tools = _tools_in_scope(list(deployment.tools) + draft_tools)
+    turn_tools = tools_in_scope(list(deployment.tools) + draft_tools)
     turn = TurnConfig(
         llm_provider=llm_provider,
         tools=turn_tools,
@@ -623,6 +591,7 @@ def _turn_prefetch(
             focus_shelf=state.focus_shelf,
             previous_message=facts.previous_message,
             reference_projects=facts.reference_projects,
+            austrian_law=corpus_country_allowed("AT"),
         )
     )
     record_reference_decision(decisions, facts.reference_projects, calls)

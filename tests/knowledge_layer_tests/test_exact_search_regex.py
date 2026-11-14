@@ -11,16 +11,17 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.browse import MAX_MATCH_CHUNKS
 from knowledge_layer.browse import MAX_SNIPPET_LINES
 from knowledge_layer.browse import group_matches
 from knowledge_layer.browse import match_snippets
 from knowledge_layer.browse import user_pattern
-from knowledge_layer.qdrant import retrieval
-from knowledge_layer.qdrant.retrieval import PatternTooCostly
-from knowledge_layer.qdrant.retrieval import user_literal_tokens
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.vector_store import PatternTooCostly
+from knowledge_layer.vector_store import retrieval
+from knowledge_layer.vector_store import user_literal_tokens
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.inventory import set_turn_documents
@@ -95,7 +96,9 @@ class _Store:
         original = retrieval.get_store
         retrieval.get_store = lambda *a, **k: fake
         try:
-            hits = retrieval.find_text(collection_name, pattern, filters, limit, user_regex=user_regex)
+            hits = retrieval.find_text(
+                collection_name, pattern, filters, limit, user_regex=user_regex, office_id="org_test"
+            )
         finally:
             retrieval.get_store = original
         by_id = {chunk.chunk_id: chunk for chunk in self.points}
@@ -111,8 +114,8 @@ class _Store:
 @pytest.fixture
 def search_with(monkeypatch, scope):
     def install(retriever):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
@@ -287,7 +290,7 @@ class TestFolderPushdown:
         assert store.calls == []
 
     def test_tenancy_stays_anded_on_the_pushed_down_folder(self):
-        from knowledge_layer.qdrant.scope import scope_filter
+        from knowledge_layer.vector_store import scope_filter
 
         flt = scope_filter(["proj_1"], {"folder_ancestors": "plaene"})
         keys = [getattr(condition, "key", None) for condition in flt.must]
@@ -295,8 +298,8 @@ class TestFolderPushdown:
         assert len(flt.must) == 2
 
     def test_the_facet_runs_under_the_scope_filter_too(self):
-        from knowledge_layer.qdrant.schema import physical_for_scope
-        from knowledge_layer.qdrant.store import QdrantStore
+        from knowledge_layer.vector_store import QdrantStore
+        from knowledge_layer.vector_store import physical_for_scope
 
         client = MagicMock()
         client.facet.return_value = SimpleNamespace(hits=[SimpleNamespace(value="a.pdf", count=7)])
@@ -322,7 +325,7 @@ class TestCostlyPatterns:
         fake = SimpleNamespace(scroll=lambda *a, **k: iter([record]), text_index_sound=lambda scope: False)
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
         with pytest.raises(PatternTooCostly):
-            retrieval.find_text("proj_1", r"(a|aa)+$", None, 5, user_regex=True)
+            retrieval.find_text("proj_1", r"(a|aa)+$", None, 5, user_regex=True, office_id="org_test")
 
     def test_a_pattern_cheap_per_chunk_but_costly_over_many_is_stopped_at_the_scan_deadline(self, monkeypatch):
         """The review's pattern: it names a common word, so the gate passes, and it never matches.
@@ -340,7 +343,7 @@ class TestCostlyPatterns:
 
         started = time.monotonic()
         with pytest.raises(PatternTooCostly) as stopped:
-            retrieval.find_text("proj_1", r"\bbrandschutz\b(.*a){3}Z", None, 5, user_regex=True)
+            retrieval.find_text("proj_1", r"\bbrandschutz\b(.*a){3}Z", None, 5, user_regex=True, office_id="org_test")
         assert time.monotonic() - started < 1.5
         assert stopped.value.scan is True
 
@@ -350,7 +353,7 @@ class TestCostlyPatterns:
         fake = SimpleNamespace(scroll=lambda *a, **k: iter(records), text_index_sound=lambda scope: False)
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
         with pytest.raises(PatternTooCostly) as stopped:
-            retrieval.find_text("proj_1", r"T90", None, 5, user_regex=True)
+            retrieval.find_text("proj_1", r"T90", None, 5, user_regex=True, office_id="org_test")
         assert stopped.value.scan is True
 
     async def test_a_scan_that_ran_out_of_time_is_said_to_be_no_result(self, search_with, monkeypatch):
@@ -370,7 +373,7 @@ class TestCostlyPatterns:
         record = SimpleNamespace(id="1", payload={"text": "Tür T30-2", "chunk_id": "1"})
         fake = SimpleNamespace(scroll=lambda *a, **k: iter([record]), text_index_sound=lambda scope: False)
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
-        assert len(retrieval.find_text("proj_1", r"T30-\d", None, 5, user_regex=True)) == 1
+        assert len(retrieval.find_text("proj_1", r"T30-\d", None, 5, user_regex=True, office_id="org_test")) == 1
 
     def test_the_scan_is_narrowed_by_the_words_when_the_index_is_sound(self, monkeypatch):
         seen = []
@@ -378,9 +381,11 @@ class TestCostlyPatterns:
             scroll=lambda scope, flt, *extra: seen.extend(extra) or iter([]), text_index_sound=lambda scope: True
         )
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
-        retrieval.find_text("proj_1", r"\bFluchtweg \d+", None, 5, user_regex=True)
-        assert len(seen) == 1
+        retrieval.find_text("proj_1", r"\bFluchtweg \d+", None, 5, user_regex=True, office_id="org_test")
+        # The words' narrowing, then the office the read is made as (``scope.office_condition``).
+        assert len(seen) == 2
         assert seen[0].should[0].match.text == "fluchtweg"
+        assert seen[1].should[1].match.value == "org_test"
 
 
 class TestCappedCounts:
@@ -461,7 +466,7 @@ def _regex_examples(description: str) -> list[str]:
 
 class TestRegexExamplesPassTheirOwnAnchorRule:
     async def test_every_example_in_the_description_is_accepted_without_a_folder(self, search_with):
-        from knowledge_layer.browse import _has_literal_word
+        from knowledge_layer.browse.tool import _has_literal_word
         from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 
         examples = _regex_examples(_KNOWLEDGE_SEARCH_DESCRIPTION)
@@ -559,11 +564,11 @@ class TestPageEndReachesTheHit:
         [({"page_end": "5"}, 4, 5), ({"page_end": "4"}, 4, None), ({}, 4, None), ({"page_end": "x"}, 4, None)],
     )
     def test_only_a_later_numeric_end_is_stated(self, metadata, page, expected):
-        from knowledge_layer.grounding_hits import _page_end
+        from knowledge_layer.search.grounding_hits import _page_end
 
         assert _page_end(SimpleNamespace(metadata=metadata), page) == expected
 
     def test_a_chunk_without_a_page_states_no_end(self):
-        from knowledge_layer.grounding_hits import _page_end
+        from knowledge_layer.search.grounding_hits import _page_end
 
         assert _page_end(SimpleNamespace(metadata={"page_end": "5"}), None) is None

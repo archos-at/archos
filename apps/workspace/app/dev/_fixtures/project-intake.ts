@@ -17,6 +17,7 @@ import type {
   Suggestion,
   SuggestionGroup,
 } from '@/lib/project-intake/types'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 export const FIXTURE_PROJECT_ID = '00000000-0000-4000-8000-0000000000a1'
 
@@ -109,7 +110,7 @@ export const SUGGESTION_TYPE = suggestion('building_type@bldg1', 'Art des Bauwer
   evidence: [fromDocument(BUILDING_DESCRIPTION, 1, 'Gegenstand des Verfahrens ist ein Wohngebäude in geschlossener Bauweise.')],
 })
 
-export const SUGGESTION_POSITION = suggestion('building_position@bldg1', 'Gebäudestellung', 'attached', 'attached', {
+export const SUGGESTION_POSITION = suggestion('building_position@bldg1', 'Gebäudestellung', 'attached', 'angebaut', {
   evidence: [fromDocument(BUILDING_DESCRIPTION, 2, 'Das Haus ist beidseitig an die Nachbargebäude angebaut.')],
 })
 
@@ -183,7 +184,7 @@ export const OPEN_PHASE: Need = {
     { token: 'einreichplanung', label: 'Einreichplanung' },
     { token: 'ausfuehrungsplanung', label: 'Ausführungsplanung' },
   ],
-  why: 'Steuert die Erwartung an die Antwortgüte: in frühen Phasen bietet Piloti Schätzwerte an.',
+  why: 'Steuert die Erwartung an die Antwortgüte: in frühen Phasen bietet ' + PRODUCT_NAME + ' Schätzwerte an.',
   foundIn: ['Plankopf', 'Baubeschreibung'],
   decisive: false,
   state: 'open',
@@ -237,8 +238,8 @@ export const QUESTION_USE: Need = {
   label: 'Gebäudestellung',
   type: 'single_select',
   options: [
-    { token: 'freestanding', label: 'freestanding' },
-    { token: 'attached', label: 'attached' },
+    { token: 'freestanding', label: 'freistehend' },
+    { token: 'attached', label: 'angebaut' },
     { token: 'terraced', label: 'Reihenhaus' },
   ],
   why: 'Die Stellung zu den Nachbargebäuden trennt die Gebäudeklassen 1 und 2.',
@@ -373,6 +374,24 @@ export const INTAKE_COMPLETED: IntakeView = {
   canComplete: false,
 }
 
+/** The address confirmed by the address register in the cell (ADR-0172) instead of the geocoder: `?site=register`. */
+const REGISTER_EVIDENCE: ProfileEvidence = {
+  kind: 'register',
+  addressId: 'at-bev:6744151',
+  label: FIXTURE_LOCATION.label,
+  referenceDate: '2025-10-01',
+  resolvedAt: AT,
+}
+
+export const INTAKE_REGISTER: IntakeView = {
+  ...INTAKE_READY,
+  groups: INTAKE_READY.groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => (item.key === 'site_address' ? { ...item, evidence: [REGISTER_EVIDENCE] } : item)),
+  })),
+  readingProgress: { ...INTAKE_READY.readingProgress, site: { ...INTAKE_READY.readingProgress.site, source: 'register' } },
+}
+
 export const INTAKE_FIXTURES = {
   waiting: INTAKE_WAITING,
   reading: INTAKE_READING,
@@ -406,7 +425,7 @@ const filingProposal = (id: string, patch: Pick<FilingProposal, 'payload'>): Fil
 })
 
 /**
- * Piloti's two open filing suggestions for the project, one per target folder:
+ * The agent's two open filing suggestions for the project, one per target folder:
  * two files into a folder that exists, and one into a folder it would create.
  * What `GET /api/proposals?projectId=…&kind=file_operation` answers, so the
  * setup page's „Ablage“ section and its specs read the real shape.

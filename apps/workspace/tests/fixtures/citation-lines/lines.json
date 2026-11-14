@@ -1,0 +1,108 @@
+{
+  "$comment": "The citation-line gate (country-as-data plan row 6): the citations in citations.json, and the line and the quoted line each country's style record gives them in one language. The first case is the product's lines as they were written before the form became a record, captured from that code byte for byte; a change to it is a change to how that country cites. shared/citation-lines.fixture.spec.ts reads each style from its pack and checks every surface.",
+  "now": "2026-07-28T12:00:00Z",
+  "cases": [
+    {
+      "pack": "../../configs/knowledge-packs/at-citation-styles.json",
+      "language": "de",
+      "lines": {
+        "guideline-page": {
+          "line": "OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023, S. 18 (Österreichisches Institut für Bautechnik, Wien).",
+          "quote": "[1] OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023, S. 18 (Österreichisches Institut für Bautechnik, Wien)."
+        },
+        "guideline-clause": {
+          "line": "OIB-Richtlinie 2 – Brandschutz, Pkt. 5.1.1, S. 26 (Österreichisches Institut für Bautechnik, Wien), abgerufen am 28.07.2026: https://www.oib.or.at/oib-rl-2-2023.pdf.",
+          "quote": "„Die Fluchtweglänge darf höchstens 40 m betragen.“ — OIB-Richtlinie 2 – Brandschutz, S. 26"
+        },
+        "statute": {
+          "line": "Bauordnung für Wien, § 63 Abs 1, in: Rechtsinformationssystem des Bundes (RIS), abgerufen am 28.07.2026: https://www.ris.bka.gv.at/x.",
+          "quote": "„Die Bauklasse I ...“ — Bauordnung für Wien"
+        },
+        "standard": {
+          "line": "ÖNORM B 1600:2023-03-01, Pkt. 5.3.2, S. 12.",
+          "quote": "[4] ÖNORM B 1600:2023-03-01, Pkt. 5.3.2, S. 12."
+        },
+        "web": {
+          "line": "Inkrafttreten der OIB-Richtlinien 2023, example.org, abgerufen am 28.07.2026: https://example.org/inkrafttreten.",
+          "quote": "[5] Inkrafttreten der OIB-Richtlinien 2023, example.org, abgerufen am 28.07.2026: https://example.org/inkrafttreten."
+        },
+        "project-table": {
+          "line": "Baubeschreibung, Tabelle 3, S. 2 [Baubeschreibung_2024.pdf].",
+          "quote": "„Geschoßhöhe 3,10 m“ — Baubeschreibung, S. 2"
+        },
+        "recorded-text": {
+          "line": "OIB-Richtlinie 6, Ausgabe März 2015, Pkt. 3.1, S. 9 (Österreichisches Institut für Bautechnik, Wien).",
+          "quote": "„Der Heizwärmebedarf ist nachzuweisen.“ — OIB-Richtlinie 6, Ausgabe März 2015, S. 9"
+        }
+      }
+    },
+    {
+      "pack": "tests/fixtures/citation-lines/xa-citation-styles.json",
+      "language": "en",
+      "lines": {
+        "guideline-page": {
+          "line": "OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023 (Xanadu Law Gazette)",
+          "quote": "[1] OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023 (Xanadu Law Gazette)"
+        },
+        "guideline-clause": {
+          "line": "OIB-Richtlinie 2 – Brandschutz, s. 5.1.1 (Xanadu Law Gazette). Retrieved 2026-07-28 from https://www.oib.or.at/oib-rl-2-2023.pdf",
+          "quote": "\"Die Fluchtweglänge darf höchstens 40 m betragen.\" (OIB-Richtlinie 2 – Brandschutz, p. 26)"
+        },
+        "statute": {
+          "line": "Bauordnung für Wien, § 63 Abs 1 (Xanadu Law Gazette). Retrieved 2026-07-28 from https://www.ris.bka.gv.at/x",
+          "quote": "\"Die Bauklasse I ...\" (Bauordnung für Wien)"
+        },
+        "standard": {
+          "line": "ÖNORM B 1600:2023-03-01, s. 5.3.2, p. 12. Xanadu Standards Board, Xanadu City",
+          "quote": "[4] ÖNORM B 1600:2023-03-01, s. 5.3.2, p. 12. Xanadu Standards Board, Xanadu City"
+        },
+        "web": {
+          "line": "Inkrafttreten der OIB-Richtlinien 2023 (example.org). Retrieved 2026-07-28 from https://example.org/inkrafttreten",
+          "quote": "[5] Inkrafttreten der OIB-Richtlinien 2023 (example.org). Retrieved 2026-07-28 from https://example.org/inkrafttreten"
+        },
+        "project-table": {
+          "line": "Baubeschreibung, Tabelle 3, p. 2 (file Baubeschreibung_2024.pdf)",
+          "quote": "\"Geschoßhöhe 3,10 m\" (Baubeschreibung, p. 2)"
+        },
+        "recorded-text": {
+          "line": "OIB-Richtlinie 6, Ausgabe März 2015, s. 3.1, p. 9. Österreichisches Institut für Bautechnik",
+          "quote": "\"Der Heizwärmebedarf ist nachzuweisen.\" (OIB-Richtlinie 6, Ausgabe März 2015, p. 9)"
+        }
+      }
+    },
+    {
+      "pack": "tests/fixtures/citation-lines/xa-citation-styles.json",
+      "language": "fr",
+      "lines": {
+        "guideline-page": {
+          "line": "OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023, Xanadu Law Gazette",
+          "quote": "[1] OIB-Richtlinie 2 – Brandschutz, Ausgabe Mai 2023, Xanadu Law Gazette"
+        },
+        "guideline-clause": {
+          "line": "OIB-Richtlinie 2 – Brandschutz, ch. 5.1.1, Xanadu Law Gazette, consulté le 28/07/2026 : https://www.oib.or.at/oib-rl-2-2023.pdf",
+          "quote": "« Die Fluchtweglänge darf höchstens 40 m betragen. » — OIB-Richtlinie 2 – Brandschutz, p. 26"
+        },
+        "statute": {
+          "line": "Bauordnung für Wien, § 63 Abs 1, Xanadu Law Gazette, consulté le 28/07/2026 : https://www.ris.bka.gv.at/x",
+          "quote": "« Die Bauklasse I ... » — Bauordnung für Wien"
+        },
+        "standard": {
+          "line": "ÖNORM B 1600:2023-03-01, ch. 5.3.2, p. 12 (Xanadu Standards Board)",
+          "quote": "[4] ÖNORM B 1600:2023-03-01, ch. 5.3.2, p. 12 (Xanadu Standards Board)"
+        },
+        "web": {
+          "line": "Inkrafttreten der OIB-Richtlinien 2023, example.org, consulté le 28/07/2026 : https://example.org/inkrafttreten",
+          "quote": "[5] Inkrafttreten der OIB-Richtlinien 2023, example.org, consulté le 28/07/2026 : https://example.org/inkrafttreten"
+        },
+        "project-table": {
+          "line": "Baubeschreibung, Tabelle 3, p. 2",
+          "quote": "« Geschoßhöhe 3,10 m » — Baubeschreibung, p. 2"
+        },
+        "recorded-text": {
+          "line": "OIB-Richtlinie 6, Ausgabe März 2015, ch. 3.1, p. 9 (Österreichisches Institut für Bautechnik)",
+          "quote": "« Der Heizwärmebedarf ist nachzuweisen. » — OIB-Richtlinie 6, Ausgabe März 2015, p. 9"
+        }
+      }
+    }
+  ]
+}

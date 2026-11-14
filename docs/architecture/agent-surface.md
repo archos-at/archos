@@ -76,6 +76,16 @@ leak its person into the next one.
 **Only `lib/agent-api/dispatch.ts` enters it**, and only with a session built by
 `resolvePinnedRequesterSession`. Never call `runAsActingSession` anywhere else.
 
+The binding also says how the call reached the route. `actingReaderIsAgent()`
+is true for a call whose answer a model reads, and `actingProposalId()` names
+the agent's proposal whose acceptance the call applies (set by the proposal
+applier through `callOperation`'s `origin`). A route that records how a person
+decided reads them: an E-Mail-Eingang decision's `via` is `agent_proposal`,
+`agent` or `app` from these, never from the body an agent writes
+(`decisionActor`, `lib/inbound-mail/service.ts`), and a card may then carry no
+acknowledgement or release (ADR-0137). `sender` comes only from the sender's
+own filing job, never from a call (ADR-0137's amendment).
+
 ### How long a revocation takes
 
 A token outlives the membership it was issued for, so how soon a removal bites
@@ -92,7 +102,7 @@ is how old the answers about the person may be:
 
 | Client | A read | A write |
 |---|---|---|
-| External agent | Runs | The client asks its user, driven by the tool annotations. On a 2026-07-28 request from a client that declares form elicitation, the door asks the person itself before a destructive write, and before deciding a proposal (`proposal-apply`, `proposal-dismiss`: `personDecides`), whatever the proposal changes (below) |
+| External agent | Runs | The client asks its user, driven by the tool annotations. On a 2026-07-28 request from a client that declares form elicitation, the door asks the person itself before a destructive write, and before deciding a proposal (`proposal-apply`, `proposal-dismiss`: `personDecides`), whatever the proposal changes (below). An operation marked `requiresPersonConfirmation` runs only on that yes, and is refused with a link for every client that cannot give it (below) |
 | Piloti in-product, in a conversation that is the person's alone | Runs if what it names lies in a project the person may chat in, after what it may carry is recorded on the conversation (below) | Becomes an `operation` proposal. The person accepts it (it runs as them) or dismisses it (ADR-0105) |
 | Piloti in-product, in a shared conversation | Runs only a document's content or a project's facts (`AUDIENCE_READS`), of the conversation's own project or one every reader may open, never of a restricted folder, recorded first; every other read is refused with a sentence the model relays | As above, refused when it names a project outside the audience's reach |
 
@@ -121,6 +131,18 @@ changed" (`structuredContent.decision: 'declined'`). Either answer is an audit
 event `agent.operation.decided`, actor the person, `decisionSource:
 elicitation`, and a tool-call trace with `decision_source: elicitation`.
 
+The route holds the same line a second time where the decision is one only a
+person makes (ADR-0165): it calls `requirePersonDecision`
+(`lib/agent-api/person-decision.ts`), which reads the yes the call carries in
+its acting session. The door passes on how it got the person's answer, and the
+route counts only `elicitation` and `app` (a client that declared MCP Apps),
+never `app-unverified`; a person's own request reads as `app`, and so does a
+proposal the person accepted. Any other agent call is refused 403
+`PERSON_DECISION_REQUIRED`, so a missed `personDecides` flag or a new door cannot
+run it on a model's word. The platform's approve, publish, rollback, entitlement
+and home-country operations use it, and record the decision source with the
+decision.
+
 The call travels between the two rounds in `requestState`, signed with the
 SDK's `createRequestStateCodec` under a key derived from
 `INTERNAL_API_TOKEN` (HMAC over `grid:mcp-request-state:v1`), bound to the
@@ -137,6 +159,38 @@ only what would have run without the question: visibility, the read gate, the
 sensitive-operation rule and the route's own `authz` all apply to the second
 round as to any call. Why a client's answer counts as the person's yes:
 [ADR-0122, amendment "the person confirms in their own chat"](../adr/0122-everything-a-person-can-do-an-agent-can-do.md#amendment-the-person-confirms-in-their-own-chat).
+
+#### A decision only the person makes
+
+Some decisions the product promises only a person makes: a mail from outside is
+filed into a project by a person, never by a model that read it. An operation
+that carries such a decision is marked `requiresPersonConfirmation` in its
+catalog entry, and for an outside agent it runs only on the person's yes:
+
+| The request | A marked call |
+|---|---|
+| 2026-07-28, form elicitation declared, a signing key | Put to the person as above, destructive or not; runs on their yes |
+| Anything else: a 2025-era request, no form elicitation (a URL-only client included), no signing key, a second round that dropped the capability | Refused, never run (`refusalWithoutThePerson` in `confirmation.ts`) |
+
+The refusal is a tool error the agent relays: "*operation* runs only on the
+person's own yes, and this client cannot ask them for it … Give the person this
+link", with `structuredContent` `{ decision: 'person_required', operation,
+changed: false, url }`. `url` is the deployment's pinned origin plus
+`requiresPersonConfirmation.decideAt(input)`, the app page where the person
+decides it themselves (the mail's page for one mail); without a pinned origin
+it is null, as every door link is ([Links into the app](#links-into-the-app)).
+The call is recorded as `decision: person_required`, status 403, in PostHog and
+on the Langfuse trace, apart from the `refused` of a call the caller may not
+make. A malformed call is not refused here: today's validator answers it, so
+the agent fixes its input before the person is sent anywhere. The in-product agent is unaffected: its write is a
+proposal, and accepting the card is the yes.
+
+The mark sets `destructiveHint`, so a client that asks its user from the
+annotations asks for it too. Mark writes only: the agent runs a read without a
+card, so a marked read would reach no person on the agent's side
+(`confirmation.spec.ts` checks the catalog). Only the MCP door runs catalog
+writes for an outside agent; the A2A door calls the ask routes alone. Why:
+[ADR-0122, amendment "a decision only the person makes"](../adr/0122-everything-a-person-can-do-an-agent-can-do.md#amendment-a-decision-only-the-person-makes).
 
 Not built: picking a project by elicitation. Nothing in the catalog takes a
 project by name, the agent reads ids from `project-list` (`nameContains`), and
@@ -372,6 +426,8 @@ exposure config (`withheld: { category, reason }`, [below](#the-exposure-config)
 | `product-config` | How Piloti itself works: settings, standing instructions, models and versions, zero data retention, LLM keys and provider mode, budgets and usage, upload screening, retention policies, curated skills on or off |
 | `model-compute` | Model work the caller can do itself, whose result is no office artifact (titles, citation formatting, skill review) |
 | `ui-state` | This person's own screen or device (push devices and preferences, the preference bag, read and unread marks) |
+| `evidence` | Bytes kept as proof, which no model reads (a held or filed mail's original `.eml`, ADR-0137) |
+| `tenant-content` | A console operation that reads what offices wrote, or changes their own state, across offices: conversations, feedback, ratings, lessons, spend per person, the kill switch, the vector reconcile. Staff use it in the console; no agent does (ADR-0160) |
 
 A withheld operation reads as an unknown name everywhere: `tools/list`,
 `search-operations` (and no hint that it exists), `describe-operation`,
@@ -402,11 +458,39 @@ The operator console (`platform` domain, `/api/platform/…`) is GRID's, not an
 office's, and is on no office door, for platform staff neither. It has a second
 MCP server of its own, `POST /api/platform/mcp` (ADR-0126), for platform staff.
 
+The platform door offers the console's own operations, and of those only the
+platform-public ones. MCP servers that run inside the cluster for the team
+(Langfuse's, and those that follow) are on neither door: platform staff reach
+them through the platform MCP gateway at `platform-mcp.<baseDomain>/<server>/mcp`,
+agentgateway behind Envoy (ADR-0154,
+[`../deployment/platform-mcp-gateway.md`](../deployment/platform-mcp-gateway.md)).
+
+**Tenant content is on no door** (ADR-0160). The operator's agent (Claude
+onboarding a country) runs at a vendor that is no processor of what offices
+wrote. So every console operation is classified in
+`bff/agent-api/exposure/platform.ts`: `PLATFORM_PUBLIC` (models, prices, the
+base corpus, platform skills, limits by organization id, organization names) is
+on the platform door; `tenantContent(reason)` (cross-office conversations and
+their search, product feedback, ratings and their comments, lessons, flagged
+turns, project names, spend per named person, and the writes that change
+offices' own state: the kill switch and the vector reconcile) is `withheld`, category
+`tenant-content`, on no door for anyone. Every caller of the platform door is an
+outside agent, so this one rule is the whole split, read server-side by
+`isExposedTo`. Staff read tenant content in the console in the browser, where the
+route's `platform:*` permission decides, as before. The gateway holds the same
+line per server: `tools` in `mcpServers` is `"all"` or an allowlist that
+agentgateway enforces (`mcpAuthorization`), and Langfuse's route offers its
+configuration tools only, because traces carry every office's turns, and
+reads only for prompts and evaluators, because a write there would move them.
+`exposure/platform.spec.ts` holds the door: no tenant-content operation is
+listed, found, described or called there, and a pinned list and a path pattern
+keep the ones known to read tenant content classified as such.
+
 | | Office doors (`/api/mcp`, `/api/a2a`) | Platform door (`/api/platform/mcp`) |
 |---|---|---|
-| Offers | every domain but `platform`, the agent read tools | the `platform` domain only (`platform: true` in the exposure config) |
+| Offers | every domain but `platform`, the agent read tools | the `platform` domain's platform-public operations only (`platform: true` in the exposure config); tenant content on no door |
 | Token audience | either office door's resource | its own resource only; neither side accepts the other's |
-| Organization | any, with `agent-mcp` on | the GRID Platform organization only, with `platform-agent-mcp` on |
+| Organization | any, with `agent-mcp` on | the GRID Platform organization's live membership, whichever organization the sign-in picked, with `platform-agent-mcp` on there |
 | Person | a live member | a live member who is platform staff (`isPlatformStaff`) |
 | Piloti's credential | `/api/mcp` only | refused (403) |
 | Writes | run for the person; Piloti proposes | run for the operator; the route's `platform:*` permission decides |
@@ -421,21 +505,49 @@ policy reads it: the principal's audience is `platform` there (`audienceOf`),
 so `canSee`, search, describe and call offer what the config marks `platform`
 and nothing else; an office operation named on the platform door is unknown,
 and the reverse. The server names itself
-`piloti-platform` and gives the console's own instructions
+`workspace-platform` and gives the console's own instructions
 (`PLATFORM_MCP_INSTRUCTIONS`).
 
 Fleet-wide writes carry `destructive: true` so the client asks the operator
 before each: default models, reasoning efforts, retrieval settings, the price
-list (also `idempotent: false`), the norm registry, a forced re-ingest, the kill
-switch, the vector reconcile and the deletes. None gained a `sensitivity`;
+list (also `idempotent: false`), the norm registry, a forced re-ingest and the
+deletes. The kill switch and the vector reconcile are destructive too, and are on
+no door at all (tenant content, above). None gained a `sensitivity`;
 `platform-audit-portal-link` keeps its `secret` and stays hidden while the
-step-up scope is not enforced. The OpenAPI document still describes the
-console's operations to platform staff.
+step-up scope is not enforced. The OpenAPI document describes the console's
+platform-public operations to platform staff (`documentedOperations` asks
+`isExposedTo('platform', …)`), never the tenant-content ones.
 
 Connecting: the server's URL is `https://<app-host>/api/platform/mcp`, and the
 client must sign in **in the GRID Platform organization**. The client steps are
 the office door's (below), with that URL; a short guide for operators is
 [`../deployment/platform-agent-door-runbook.md`](../deployment/platform-agent-door-runbook.md).
+
+### Onboarding a country through the door
+
+The platform door is agent-grade for one job: an operator's agent bringing a
+country's knowledge in as a reviewed data release (ADR-0165, ADR-0170). What
+makes it so, and where it lives:
+
+| Guarantee | Where |
+|---|---|
+| A guide the agent reads first, a resource on the platform door only, for a caller who sees its operations | `door/platform/onboarding-guide.md`, `door/platform-guide.ts` |
+| Each record type's JSON Schema, the batch limit, the kit's checks | `platform-knowledge-schema-get` |
+| `idempotencyKey` on **every** door write, both doors: the first answer again (a 2xx, 400, 404 or 422; a refusal of the moment is not kept), 422 for the key with other input, 503 (nothing run) when the cache cannot be read; per replica without `REDIS_URL` | `door-idempotency.ts`, around the route call in `dispatch.ts` |
+| Every refusal as an RFC 9457 problem in `structuredContent.problem`, the door's own refusals included | `door-problem.ts` |
+| Per-record results and `dryRun`; problems with an RFC 6901 `pointer`, a `code` and a `hint`; the same proposal again is `unchanged` | `platform-knowledge-records-propose`, `bff/base-knowledge/platform/validate.ts` |
+| The kit on a whole request, and submit only when green | `platform-knowledge-validate` |
+| Citations from captures of the request, KC-6 on every quote for every proposer and record type (three words or fifteen characters, found in the capture, naming what the record claims); a pasted source checked only by someone other than its author | `platform-knowledge-citation-capture`, `bff/base-knowledge/platform/onboarding.ts`, `validate.ts`, the 0208 and 0209 triggers |
+| An edition's text attached inside the draft, from a URL (fetched and read by the public-source fetcher, so no bytes travel in the tool call) or an upload; the kit refuses a manifestation naming a file the base corpus does not hold (KC-1 at `/corpusFile`), so no request is published before its text is there; a file name is one record's (`NAME_TAKEN`), carries the hash of its bytes and is never replaced, and the text is read (`text-get`) and approved only while the corpus keeps the bytes the revision names (`TEXT_CHANGED`, KC-1 on approve) | `platform-knowledge-text-import`, `platform-knowledge-text-upload`, `platform-knowledge-text-get`, `platform-knowledge-text-list`; `bff/base-knowledge/platform/texts.ts`, `text-checks.ts` |
+| The person's yes for a source check (`personDecidesWhen`), approve, publish, rollback, entitlement, home country, and a platform skill's publish, edit or delete; `decideAt` for a client that cannot ask | `personDecides` + `requiresPersonConfirmation` in `catalog/platform-knowledge.ts`, `catalog/platform-skills.ts`; `requirePersonDecision` at each route |
+| Four eyes with one deferral (ADR-0176): an author approves alone only with `override: {reason}`, `platform:knowledge:approve_alone` and the person's own yes, never on an agent's word; the request is marked `approval: single`, stays in the overview's `queue` until another person's review confirms or disputes it, and a disputed one is not published further (rollback stays the person's decision) | `decidePlatformChangeRequest` in `bff/base-knowledge/platform/service.ts`; the 0214 triggers; `approve-alone.integration.spec.ts` |
+| A country's sources as records (ADR-0174): KC-7 on the api tier, testing hosts usable by their own request for 24 hours, `source-test`, `source-status`, a write-only key on the person's yes, monitors that open change requests (`origin: monitor`) and never publish | `catalog/platform-sources.ts`; `bff/base-knowledge/platform/sources.ts`, `source-service.ts`, `source-checks.ts`, `monitor.ts` |
+
+A `fetched` capture is made by the api tier (`POST /v1/public-sources/capture`)
+because the public-source fetcher admits only the backend roles. The measure is
+`onboarding-door.integration.spec.ts`: a scripted client with no model takes AT-9
+through all of it. The operator's runbook is
+[`../operations/country-onboarding.md`](../operations/country-onboarding.md).
 
 ## The exposure config
 
@@ -451,14 +563,14 @@ is no operation, or an operation without an entry, does not compile (the object
 | Field | Audience | Values |
 |---|---|---|
 | `external` | an outside agent on an office door (`/api/mcp`, `/api/a2a`), and the OpenAPI document | `true` / `false` |
-| `piloti` | in-product Piloti on its workspace door | `true`; `false`; `'native:<tool>'`: Piloti does it with that native tool, so the door hides the operation from it |
+| `agent` | the in-product agent on its workspace door | `true`; `false`; `'native:<tool>'`: the agent does it with that native tool, so the door hides the operation from it |
 | `platform` | platform staff on the platform door (ADR-0126) | `true` for the `platform` domain, absent elsewhere |
 | `app` | an MCP Apps view in an outside agent's host (ADR-0142) | `true` on an app-only tool (`catalog/app-views.ts`) only, with `external` and `piloti` false: a card's button, listed with `_meta.ui.visibility: ["app"]` |
-| `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state` |
+| `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state`, `evidence`, `tenant-content` (a console operation that reads what offices wrote, ADR-0160) |
 | `reason` | the reviewer | why the entry is not simply offered to both office audiences |
 
 The constants at the top name the common rows: `OFFERED` (both office
-audiences), `PLATFORM`, `SENSITIVE` (outside agents behind the guards, never
+audiences), `PLATFORM_PUBLIC` and `tenantContent` (in `exposure/platform.ts`), `SENSITIVE` (outside agents behind the guards, never
 Piloti), `DECISION` (a proposal's own decision, never Piloti) and `ASK` (the
 recursion lock). A `native:<tool>` is the name the model binds: a function of
 `shallow_research_agent.tools` in `configs/config_oib_openrouter.yml`, or a
@@ -479,7 +591,7 @@ ceiling.
 **Changing an entry.**
 
 1. Edit the entry, with a `reason` unless it becomes `OFFERED`.
-2. `UPDATE_FIXTURES=1 bunx vitest run src/lib/agent-api/exposure.config.spec.ts src/app/api/mcp/workspace-eval.fixture.spec.ts`
+2. `UPDATE_FIXTURES=1 bunx vitest run bff/agent-api/exposure.config.spec.ts app/api/mcp/workspace-eval.fixture.spec.ts`
    rewrites `tests/fixtures/exposure.json` (the docs' and Python's copy) and the
    workspace eval's catalog (what Piloti sees).
 3. `.venv/bin/pytest packages/agent/tests/tools/test_exposure_config.py` checks that
@@ -489,17 +601,17 @@ ceiling.
    ([testing-and-verification.md](../contributing/testing-and-verification.md#the-workspace-set));
    its `uses` rows check the job got done with the native tool.
 
-**What it holds today** (346 entries: 339 operations, 7 read tools):
+**What it holds today** (371 entries: 364 operations, 7 read tools; regenerate from `apps/workspace/tests/fixtures/exposure.json`):
 
 | Column | Count |
 |---|---|
-| `external: true` | 242 |
-| `piloti: true` | 206 |
-| `piloti: 'native:…'` | 16 |
-| `piloti: false` | 124 (49 withheld, 55 platform, 12 sensitive, 3 asks, 3 decisions, 2 skill reads) |
-| `platform: true` | 55 |
-| `withheld` | 49 (29 `product-config`, 13 `ui-state`, 4 `external-service`, 3 `model-compute`) |
-| `app: true` | 2 (the proposal card's buttons; 337 entries with them) |
+| `external: true` | 261 |
+| `agent: true` | 217 |
+| `agent: 'native:…'` | 16 |
+| `agent: false` | 138 (75 withheld, 35 platform, 14 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
+| `platform: true` | 35 (of the 55 console operations; the other 20 are `tenant-content`) |
+| `withheld` | 75 (29 `product-config`, 20 `tenant-content`, 17 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
+| `app: true` | 2 (the proposal card's buttons, the fixture's `appTools`; not counted in the entries above) |
 
 | Piloti uses | Instead of |
 |---|---|
@@ -507,8 +619,9 @@ ceiling.
 | `knowledge_search` | `knowledge-search` |
 | `create_task` | `task-create`, `task-run-commission` |
 | `canvas__mark`, `canvas__update`, `canvas__delete`, `canvas__reply` | `annotation-create`, `annotation-update`, `annotation-delete`, `annotation-reply-create` |
-| `ifc_query`, `ifc_measure` | `bim-model-query`, `ifc-query`, `ifc-measure` |
-| `read_passage`, `list_files`, `look`, `ris_lookup_tool` | `passage-read`, `files-list`, `document-look`, `law-lookup` |
+| `ifc_query`, `ifc_measure` | `bim-model-query`, `ifc-measure` |
+| `dxf_measure` | `dxf-measure` |
+| `read_passage`, `list_files`, `look`, `law_lookup` | `passage-read`, `files-list`, `document-look`, `law-lookup` |
 
 Both paths stay open for the file operations Piloti also has `propose_file_change`
 for (move, rename, folders, assignments: the native tool refuses a chat in no
@@ -556,7 +669,7 @@ own and the page that runs it is the asker's. Regenerate with
 | 3. Workflows and skills | "Brief me on a project"; the office's own skills, found and read by the agent | MCP prompts, `lib/agent-api/door/`; `skill-search` and `skill-get` ([below](#the-offices-skills)) |
 
 The Python-only reads (`knowledge_search`, `read_passage`, `list_files`,
-`look`, `ifc_query`, `ifc_measure`, `ris_lookup`) reach the
+`look`, `ifc_measure`, `dxf_measure`, `law_lookup`) reach the
 server in phase 2 through an internal backend endpoint, so an external agent
 searches with the retrieval Piloti uses.
 
@@ -603,7 +716,7 @@ the organization's enabled skills and the platform offers it switched on, never
 the pipeline's machinery. A skill is one SKILL.md body with no files of its
 own, so there is no file index and no third read for a referenced file. Any
 member may read; the routes are gated on the skills feature. Piloti is not
-offered either (`piloti: false`): it gets the same catalogue at turn start and
+offered either (`agent: false`): it gets the same catalogue at turn start and
 reads a body with its own `read_file` (ADR-0135).
 
 ### Output schemas and icons
@@ -752,8 +865,8 @@ Do this in the same change that adds or changes the route. The exemplar is
 `catalog/projects.ts`; copy its shape.
 
 1. **Find the domain file** in `catalog/` (`projects`, `documents`, `folders`,
-   `review`, `conversations`, `collaboration`, `tasks`, `skills`, `knowledge`,
-   `bim`, `organization`, `platform`). A new domain is a new file (its array
+   `mail`, `review`, `conversations`, `collaboration`, `tasks`, `skills`,
+   `knowledge`, `bim`, `organization`, `platform`). A new domain is a new file (its array
    `as const satisfies readonly AgentOperation[]`, so its names are a type), an
    entry in `AGENT_DOMAINS` (`operation.ts`), a spread in `catalog/index.ts` and a
    line in its `OperationName`.
@@ -793,7 +906,17 @@ Do this in the same change that adds or changes the route. The exemplar is
 7. **Say who sees it**: its entry in `exposure.config.ts`, `OFFERED` for office
    work, else the columns and a `reason` ([above](#the-exposure-config)). The
    catalog does not compile without it.
-8. **Run the gate**: `cd apps/workspace && bunx vitest run src/lib/agent-api/`. If
+8. **Name what it touches.** If the agent may propose this write and its input
+   names an entity the card should show, or the proposal should be refused for,
+   that entity must be a target type: `OPERATION_TARGET_TYPES`
+   (`lib/proposals/types.ts`), the path-segment or input-key tables in
+   `operation-targets.ts`, and `findTargetPlace`
+   (`operation-targets-repository.ts`). An entity left out is not on the card
+   and `requireTargetsReadable` does not check it; only the route's own check
+   applies. Separately, an operation whose answer holds projects, documents,
+   task runs or conversations declares `links:`
+   ([Links into the app](#links-into-the-app)).
+9. **Run the gate**: `cd apps/workspace && bunx vitest run src/lib/agent-api/`. If
    your route was in the baseline, the "baseline only shrinks" test lists it;
    `UPDATE_FIXTURES=1` rewrites it and `tests/fixtures/exposure.json`; commit the diff.
 
@@ -804,7 +927,13 @@ Do this in the same change that adds or changes the route. The exemplar is
 create, update, delete, rename, move, add, remove, search, export, start, cancel,
 approve, reject, publish, submit, restore, archive, allow and release (a legal hold,
 a hand-off; a held upload is allowed, never released, because "release" collides
-with approval). Pick one of them before inventing another. One operation per route
+with approval). Project mail (ADR-0137) adds `file` (put a held mail's part into
+the project, „ablegen“; never "accept" or "approve", which are Freigabe's),
+`dismiss` (say no to a held mail, restorable seven days; never "reject", which
+is Freigabe's), `rotate` (replace an address, the old one stops at once),
+`follow` / `unfollow` (a standing decision; never "subscribe", which suggests
+notifications only) and `detach` (move a filed message out of its Verlauf;
+never "delete": nothing is unfiled). Pick one of them before inventing another. One operation per route
 method; never two on the same.
 
 The entity is the glossary's word: a `task` is a task definition (standing or
@@ -840,6 +969,13 @@ where its ids come from and what to call next. Name the permission it needs when
 that decides whether the call works. `summary` is one line, for search and for
 `tools` mode.
 
+A description names only operations the door offers to the same audience
+(ADR-0131, rule 8). The agent and an outside agent see different sets, so a
+description offered to the agent must not name an external-only operation, and the
+other way round. `description-references.spec.ts` checks both audiences against
+a baseline that only shrinks. Put the pointer in an operation the audience that
+can follow it is offered, or leave it to search.
+
 ### Schemas
 
 `body`, `query` and `params` are zod and are exported to JSON Schema by
@@ -872,9 +1008,17 @@ proposal stores the same original input.
 | `readOnly: true` | A POST that only searches or computes. Read the route's service first: a row, a file, a grant or a credential is a write. Add the operation to `read-only-writes.spec.ts` with one line saying why it writes nothing | `method === 'GET'` |
 | `destructive: true` | A person confirms it in a dialog: delete, revoke, allow, purge | `method === 'DELETE'` |
 | `idempotent: true` | Calling twice leaves the same state (a PUT-like PATCH) | GET, PUT, DELETE |
+| `requiresPersonConfirmation: { decideAt }` | The call carries a decision the product promises only a person makes, so an outside agent's client that cannot ask the person is refused ([A decision only the person makes](#a-decision-only-the-person-makes)). `decideAt(input)` names the app page where the person decides it. Writes only; say it in the description too | absent |
 
 A hard delete with no restore is still catalogued, `destructive: true`, and says
 in the description that it cannot be undone. The client asks the person.
+
+A GET is `readOnly` by default, and the agent runs a read-only operation without a
+person's card (`callDecision` in `policy.ts`). So a GET route creates, mints or
+stores nothing, not even on first read: a route that would make an address, a
+token or a row when it is read gets a separate idempotent write for the
+creation, and the GET answers "none yet". `read-only-writes.spec.ts` checks
+only non-GET operations, so review is the gate for a GET.
 
 ### Bytes in and out
 
@@ -891,6 +1035,24 @@ a time-limited link. A route that redirects (3xx with `Location`) is handed on a
 `document-download`, `document-preview-get`, `document-thumbnail-get` and `bim-model-source-get`
 answer JSON holding such a URL, so they are plain reads, and never run for Piloti in a shared
 conversation (`LINK_BEARING_OPERATIONS`, never in `AUDIENCE_READS`).
+
+**An office's licensed copy** (a base-knowledge copy marked `licensed`, ADR-0159) is held apart for an
+agent, never for the person (`bff/base-knowledge/door-guard.ts`, keyed on `actingReaderIsAgent`). A
+copy the person cannot open is a 404 first, so no refusal says it exists. Its file, download, preview,
+thumbnail, version content and version diff are refused (`LICENSED_COPY_NOT_SENT`). Any base-knowledge
+copy whose text is held (`textHeldFor`: no person confirmed it, whatever its class, or licensed and
+unattested) gives an agent no text and no bytes on any of these routes (`BASE_COPY_HELD`, one code), and
+no search snippet. `document-text-get` gives of a confirmed, attested licensed copy at most three times its
+`quoteMaxChars` per person, edition and calendar day (UTC)
+(`LICENSED_QUOTE_CAP_REACHED` past that; design E19). The counter is added to atomically in the shared
+cache (`incrementCounter`: INCRBY, with an expiry set once), so two calls in flight cannot both spend the
+rest, and it is keyed by the edition, so a second upload of the copy does not reset it. `workspace-search`
+and `passage-similar-search` keep a licensed copy's hit and page and replace its snippet with a note, so
+repeated queries cannot collect the norm a snippet at a time. A licence that cannot be read is refused
+(`LICENSED_COPY_UNKNOWN`) or, for a snippet, withheld. The door has no session id, so the person and the
+day are its session. The person's own text pane and viewer read the copy whole.
+`bff/base-knowledge/door-routes.spec.ts` holds every one of these routes through `callOperation(..., 'agent')`. The backend read tools the door forwards (`knowledge-search`, `passage-read`, `document-look`) run without a turn capture, so a licensed passage reaches an outside agent listed only (document, page, clause, a note) and a licensed page goes to no model and sends no image; `apps/agent-host/tests/test_internal_tools_licensed.py` drives the door route with the real renderers to hold it. A held mail attachment kept past its erasure for a legal hold (`erasureDeferredAt`) is read by a person
+only: `inbound-mail-part-content-get` refuses it to an agent (`legal_hold`).
 
 A JSON or text answer is streamed with a cap too, `MAX_TEXT_BYTES` (5 MiB): past it nothing more
 is read and the agent is told to narrow the call. The backend operations' answers are read by the
@@ -916,13 +1078,21 @@ The schemas are `uploadBodySchemaWith({ ...fields })` and `rawBodySchema` in
 size). The route's own parsing stays the gate, so name the real form fields in `fields` and add a
 `agent-upload.spec.ts` beside the route that proves the dispatcher's form passes its parser. An
 Outlook archive is three operations: `mail-import-start`, `mail-import-part-upload` (once per
-part), `mail-import-complete`.
+part), `mail-import-complete`. They are offered to outside agents only: the agent has no archive to
+send, and a part is far past what a proposal may carry (`MAX_PROPOSED_INPUT_CHARS`).
+They live in the `mail` domain (`catalog/mail.ts`) with project mail's operations, moved there
+from `folders` unrenamed.
+
+Bytes going out follow the same rule as bytes coming in: an operation answers a held
+attachment's bytes (`inbound-mail-part-content-get`) only after a clean scan, and never to
+The agent. The originals of mail, held or filed, are bytes kept as proof and are on no door
+(`withheld`, category `evidence`, ADR-0122).
 
 ### Links into the app
 
 An agent that found a project, a document, a task run or a conversation can hand the person a
 link to it, the way PostHog's MCP puts `_posthogUrl` on its rows. An operation whose answer holds
-such objects declares `links: 'project' | 'document' | 'task-run' | 'conversation'` in its catalog
+such objects declares `links: 'project' | 'document' | 'task-run' | 'conversation' | 'inbound-mail'` in its catalog
 entry, and `fromOperationResult` adds `url`, the absolute page a person opens, through
 `withLinks` (`lib/agent-api/links.ts`). That module is the one table from kind to page: a project
 is `/app/projects/<id>`, a document and a conversation are the sharing registry's own deep links
@@ -942,6 +1112,26 @@ these routes, so ADR-0131's "fix the route" does not apply. A per-operation decl
 than guessing from the shape, because `{ id }` is a project in one answer and a document in the
 next. The backend operations (`files-list`, `knowledge-search`) carry no links yet.
 
+### The AI mark on a generated answer
+
+Article 50(2) AI Act asks that text a model generates be marked in a machine-readable way. An
+operation whose answer carries such text says how much of it with `generatedContent`
+(`lib/agent-api/ai-generated-meta.ts`): `generatedAt('answer')` for `agent-ask-create` and
+`agent-ask-get`, `generatedAt('summary')` for `project-summary-generate`, and
+`generatedRows('messages', …)` for `conversation-message-list`, whose assistant messages a model
+wrote and whose people's messages it did not. `fromOperationResult` then adds
+`_meta: { aiGenerated: true, digitalSourceType }`, IPTC `trainedAlgorithmicMedia` when a model
+wrote all the text the answer carries and `compositeWithTrainedAlgorithmicMedia` when it carries
+a person's too. Every ask path goes through that seam: the single call, the progress stream and
+the tasks extension's inline result. An ask still `working`, an empty summary and a page of a
+person's messages carry no mark, and a stored document read back is not marked here: it carries
+its own marking (`@/lib/ai-provenance`). The A2A door marks the answer artifact the same way, in
+the artifact's `metadata` (`bff/a2a/task-mapping.ts`).
+
+The key carries no vendor prefix: MCP reserves prefixes for itself and allows a plain key, a
+prefix of ours would put the product's name into a wire name (ADR-0149), and no standard key for
+this exists yet. `digitalSourceType` beside it is the standard's own word.
+
 ### Sensitive operations
 
 `sensitivity: 'access'` marks an operation that widens who may do what (sharing
@@ -957,7 +1147,7 @@ reads `read-only-writes.spec.ts` lists with why they return no secret, and:
 
 - **Piloti in-product never sees one** and `proposeOperation` refuses to file one
   (403): accepting a card the agent worded is not the confirmation such a change
-  needs (its entry says `piloti: false`, and `exposure.config.spec.ts` holds
+  needs (its entry says `agent: false`, and `exposure.config.spec.ts` holds
   that). Nor does it see the person's own decisions: `proposal-apply`,
   `proposal-dismiss` and `agent-change-undo`, which the applier also refuses at
   the click (`PROPOSAL_DECISION_OPERATIONS` in `operation-applier.ts`, its own
@@ -987,13 +1177,13 @@ The catalogued ones, and their class, are the `SENSITIVE` map of
 `agent-reachability.spec.ts`, which fails when an operation carries a sensitivity
 the map does not give it, or none where it does. Since the amendment most of them
 are withheld or on the platform door; the ones still on the office door are the
-`access` class, `document-quarantine-allow` and `hold-release`:
+`access` class, `document-quarantine-allow`, `quarantine-decide` and `hold-release`:
 
 | Class | Operations |
 |---|---|
 | `access` | `project-folder-access-set`, `sharing-visibility-set`, `sharing-grant-add`, `sharing-grant-update`, `sharing-grant-revoke`, `organization-role-create`, `organization-role-update`, `organization-role-delete`, `project-member-add`, `project-member-remove` |
 | `secret` | `organization-llm-credential-list`, `organization-llm-credential-create`, `organization-llm-credential-revoke`, `organization-llm-credential-verify`, `organization-llm-provider-mode-set`, `organization-audit-portal-link-create`, `platform-audit-portal-link` |
-| `control` | `organization-zdr-set`, `organization-upload-screening-set`, `project-upload-screening-set`, `document-quarantine-allow`, `hold-release`, `organization-download-log-retention-set`, `organization-deleted-folder-content-set`, `organization-web-search-set` |
+| `control` | `organization-zdr-set`, `organization-upload-screening-set`, `project-upload-screening-set`, `document-quarantine-allow`, `quarantine-decide`, `hold-release`, `organization-download-log-retention-set`, `organization-deleted-folder-content-set`, `organization-web-search-set` |
 
 A new operation that widens access, touches a credential or turns a control down
 gets its line in `SENSITIVE` in the same change. Its description says that the
@@ -1015,6 +1205,13 @@ not offer is not an exemption: it is an operation, `withheld`
 channel, the proxies), browser sign-in plumbing (the AuthKit callback and
 redirect) and typing indicators. "Nobody would ask an agent to do that" is not a
 reason; an operation costs a few lines.
+
+A route exported through `internalApiRoute` (a service's token-guarded door: the
+purger, the ingest worker's settle push) or `publicApiRoute` (health, signed images, the
+protected-resource metadata) is not a person's act, and the walker skips it
+(`personFacingRouteMethods`): it needs neither an operation nor an exemption,
+and an exemption for it fails as matching no route. A service's webhook stays
+on `internalApiRoute`; on `apiRoute` the walker would demand an operation.
 
 ## The ratchet
 
@@ -1134,7 +1331,13 @@ door and the A2A door alike: the answer's directive fences, `[[card:N]]`
 markers and `:project[key]` bindings go through the same projection as the copy
 button (`stripDirectives`), a binding printing the project's value, and the
 verifier's German labels become English ones. The stored message keeps the
-dialect; the chat renders it.
+dialect; the chat renders it. `conversation-message-list` gives every
+assistant message's `content` through the same projection when an agent reads
+it (`conversations/messages-for-agent.ts`, on `actingReaderIsAgent()`), so an
+answer read back from its thread is the text `agent-ask-get` gave; before that
+a door-asked answer reached the agent with a literal `[[card:1]]` naming a
+card the list does not even carry without `include=metadata`. The browser
+reads the same route as a person and keeps the dialect.
 
 **The wait, on the 2026-07-28 era** (`ask-calls.ts`). The ask is the one door
 call whose wait is ours; `task-run-start`, the uploads and `document-reingest`
@@ -1173,7 +1376,7 @@ waits up to 40 seconds.
 **The recursion lock.** In-product Piloti only proposes writes, and
 `lib/proposals/operation-applier.ts` neither files nor applies an ask, so no
 turn asks Piloti again. Piloti does not see the three operations either
-(`piloti: false` in the exposure config), so it cannot name one or run `agent-ask-get`.
+(`agent: false` in the exposure config), so it cannot name one or run `agent-ask-get`.
 
 **The A2A door.** `POST /api/a2a` serves the same asks to agents that speak A2A
 (1.0, and 0.3 without an `A2A-Version` header), through the official SDK

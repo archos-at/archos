@@ -32,7 +32,17 @@ class TestTargetsOpenRouter:
     def test_openrouter_hosts(self, url):
         assert targets_openrouter(url)
 
-    @pytest.mark.parametrize("url", ["https://api.openai.com/v1", "", None, "https://evil.test/openrouter.ai"])
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://api.openai.com/v1",
+            "",
+            None,
+            "https://evil.test/openrouter.ai",
+            "https://openrouter.ai.example.net/api/v1",
+            "https://notopenrouter.ai/api/v1",
+        ],
+    )
     def test_other_hosts(self, url):
         assert not targets_openrouter(url)
 
@@ -64,6 +74,41 @@ class TestThePin:
     def test_no_zdr_is_a_plain_copy(self):
         body = {"model": "m"}
         assert NO_RETENTION_LIMITS.apply(body) == body
+
+
+class TestPageReads:
+    """A ZDR page read is EU-only so its prompt cache can hit; every other call keeps the EU-first order."""
+
+    def test_only_the_eu_slugs_no_fallback_no_order(self, monkeypatch):
+        monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
+        body = ZERO_DATA_RETENTION.for_page_reads().apply({"model": "m"})
+        assert body["provider"] == {
+            "zdr": True,
+            "data_collection": "deny",
+            "only": list(openrouter.preferred_providers()),
+            "allow_fallbacks": False,
+        }
+        assert ZERO_DATA_RETENTION.is_applied_to(body)
+
+    def test_chat_and_every_other_call_are_unchanged(self, monkeypatch):
+        monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
+        provider = ZERO_DATA_RETENTION.apply({"model": "m"})["provider"]
+        assert provider["order"][0] == "azure/eu" and provider["allow_fallbacks"] is True
+        assert "only" not in provider
+
+    def test_an_empty_preferred_list_falls_back_to_todays_routing(self, monkeypatch):
+        monkeypatch.setenv(openrouter.PREFERRED_PROVIDERS_ENV, "")
+        assert ZERO_DATA_RETENTION.for_page_reads().apply({}) == ZERO_DATA_RETENTION.apply({})
+
+    def test_without_zdr_nothing_is_routed(self):
+        assert NO_RETENTION_LIMITS.for_page_reads().apply({"model": "m"}) == {"model": "m"}
+
+    def test_the_transport_pins_a_page_read_eu_only(self, monkeypatch):
+        monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
+        request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions", json={"model": "m"})
+        pinned = openrouter._pinned_request(request, ZERO_DATA_RETENTION.for_page_reads())
+        provider = json.loads(pinned.content)["provider"]
+        assert provider["only"][0] == "azure/eu" and "order" not in provider
 
 
 class TestTheOrganizationsPolicy:

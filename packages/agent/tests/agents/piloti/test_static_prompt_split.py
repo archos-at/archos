@@ -48,7 +48,10 @@ FIXTURE = Path(__file__).parent / "fixtures" / "chat_prompt_rendered.txt"
 #: and `document_inventory` are pinned to placeholders on purpose: this test is
 #: about the TEMPLATE, and injecting the real envelope schema would make it fail
 #: whenever `cards/models.py` changes, which is somebody else's contract.
+#: `product_name` is pinned for the same reason: the name is copy from
+#: `packages/brand/identity.json`, and a rename is not a template change.
 PINNED = dict(
+    product_name="<<PRODUCT NAME>>",
     answer_envelope_schema="<<ENVELOPE SCHEMA>>",
     document_inventory="<<DOCUMENT INVENTORY>>",
     current_datetime="2026-01-02",
@@ -57,7 +60,8 @@ PINNED = dict(
     org_instructions="<<ORG INSTRUCTIONS>>",
     focus_file_name="Einreichplan.pdf",
     focus_shelf_label="<<SHELF>>",
-    oib_applicability="<<OIB APPLICABILITY>>",
+    building_law="<building_law>\n<<CHAIN TEXT>>\n</building_law>",
+    jurisdiction_note="<<JURISDICTION NOTE>>",
     parcel_note="<<PARCEL NOTE>>",
     platform_lessons="<<PLATFORM LESSONS>>",
     project_context="name: Testprojekt\nPROPOSAL_DECISIONS v1\ndocuments_missing:\n- Bebauungsplan",
@@ -353,6 +357,12 @@ class TestServedTextThatDoesNotRender:
 
         assert resolve_static_block() == bundled_static_block()
 
+    def test_a_version_holding_the_retired_building_law_block_serves_the_bundled_file(self, monkeypatch):
+        """ADR-0175: a version published before the cut-over gives every turn Austria's chain; it is not served."""
+        self._serve(monkeypatch, "<role>x</role>\n<building_law>\nAustrian building law is a chain\n</building_law>")
+
+        assert resolve_static_block() == bundled_static_block()
+
     def test_json_braces_in_the_served_text_serve_the_bundled_file(self, monkeypatch):
         self._serve(monkeypatch, 'Beispiel: {{"a": 1}}')
 
@@ -445,3 +455,17 @@ def test_project_record_names_the_three_file_blocks_and_says_look_before_missing
     assert "`glob`" in record and "`grep`" in record
     without = render_prompt_template(system_prompt_template(), **{**PINNED, "project_context": "name: X"})
     assert "documents_missing:" not in without
+
+
+def test_the_static_prompt_names_no_country_s_law():
+    """ADR-0175: the chain text in the turn context is the only building law a turn reads.
+
+    The static prompt carries the method (``<legal_method>``), never a ``<building_law>`` block: that
+    block held Austria's chain for every turn, a German or an unplaced project included (S8, defect 6).
+    """
+    static = (PROMPTS_DIR / STATIC_PROMPT_FILE).read_text(encoding="utf-8")
+
+    assert "<building_law>" not in static and "building_law>" not in static
+    assert "<legal_method>" in static
+    for austrian in ("ÖNORM", "Bauordnung", "Land declared", "Flächenwidmungsplan", "MA 37"):
+        assert austrian not in static, austrian

@@ -12,7 +12,6 @@ from __future__ import annotations
 import math
 import os
 import random
-import socket
 import uuid
 
 import pytest
@@ -23,12 +22,11 @@ from httpx import AsyncClient
 
 from agent.knowledge.factory import clear_active_retriever
 from agent.knowledge.factory import set_active_retriever
+from agent.project_context import ORGANIZATION_ID_HEADER
 from agent_host.routes.document_search import add_document_search_routes
 from agent_host.routes.project_facts import add_project_facts_routes
 
 DIM = 8
-#: The real resolver, taken before the conftest stubs every name to a private IP for the SSRF guard.
-_GETADDRINFO = socket.getaddrinfo
 
 
 def _unit(seed: str) -> list[float]:
@@ -57,16 +55,15 @@ def stack(monkeypatch):
         if os.environ.get("CI"):
             pytest.fail("QDRANT_TEST_URL is unset on CI: the Qdrant service container is missing")
         pytest.skip("QDRANT_TEST_URL not set")
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
-    from knowledge_layer.qdrant import schema
-    from knowledge_layer.qdrant import store as store_module
+    from knowledge_layer.search import LlamaIndexRetriever
+    from knowledge_layer.vector_store import schema
+    from knowledge_layer.vector_store import store as store_module
 
     suffix = uuid.uuid4().hex[:8]
     monkeypatch.setitem(schema.ALIASES, schema.Physical.CORPUS, f"route_corpus_{suffix}")
     monkeypatch.setitem(schema.ALIASES, schema.Physical.OFFICE, f"route_office_{suffix}")
     monkeypatch.setenv("QDRANT_URL", url)
     monkeypatch.delenv("REQUIRE_AUTH", raising=False)
-    monkeypatch.setattr(socket, "getaddrinfo", _GETADDRINFO)
     store_module.reset_store()
     retriever = LlamaIndexRetriever({"embed_model": "test-model", "embed_base_url": "https://test"})
     retriever._initialized = True
@@ -89,7 +86,7 @@ def stack(monkeypatch):
 
 
 def _put(store, scope: str, *files: tuple[str, float]) -> None:
-    from knowledge_layer.qdrant.payload import ChunkRecord
+    from knowledge_layer.vector_store import ChunkRecord
 
     store.upsert(
         scope,
@@ -101,7 +98,10 @@ def _put(store, scope: str, *files: tuple[str, float]) -> None:
 
 
 def _client(app) -> AsyncClient:
-    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    """The route's client, as the office ``org_test`` in anonymous mode (``document_search.request_office``)."""
+    return AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test", headers={ORGANIZATION_ID_HEADER: "org_test"}
+    )
 
 
 async def test_documents_interleave_across_projects_in_the_real_answer(stack):

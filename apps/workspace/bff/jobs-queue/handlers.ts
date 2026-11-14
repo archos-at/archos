@@ -2,12 +2,12 @@
  * What each kind of job does when a worker hands it a slice (ADR-0079).
  *
  * A handler reads the job's saved state, does one bounded step of the work and
- * returns the state to save. It never claims, heartbeats or finishes: the runner
- * owns the queue, this owns the work. That split is why a job survives a
+ * returns the state to save. It never takes, saves or finishes the row: the
+ * `bff-job` run owns that (`./task-run.ts`), this owns the work. That split is why a job survives a
  * restart: nothing a handler holds in memory matters, only what it returned.
  *
  * A walk (`reindex_project`, `reingest_failed`, `restore_folder_bin`) runs as
- * the person who asked, in the job's organization. The runner has no session,
+ * the person who asked, in the job's organization. A run has no session,
  * so the session is built here, and built from what the identity provider says
  * NOW: the payload names who asked, but a job can wait in the queue and a walk
  * spans many slices, and a person who lost their role or left the organization
@@ -41,6 +41,11 @@ import { runInboxPush } from '@/lib/push/inbox-push-job'
 import { runDueRemindersSlice } from '@/lib/annotations/due-reminders'
 import { runDocumentCheckSlice } from '@/lib/document-check/job'
 import { runRevisionNotice } from '@/lib/revision-notice/job'
+import { runInboundMailFiling } from '@/lib/inbound-mail/file-job'
+import { runInboundMailFollow } from '@/lib/inbound-mail/follow-job'
+import { runInboundMailReceive } from '@/lib/inbound-mail/receive-job'
+import { runInboundMailSenderFile } from '@/lib/inbound-mail/sender-file-job'
+import { runInboundMailSuggest } from '@/lib/inbound-mail/suggest-job'
 import { runSearchFacetsSyncSlice } from '@/lib/search/shelf-projection'
 import { isLastAttempt } from './attempts'
 import {
@@ -61,6 +66,11 @@ import {
   restoreFolderBinPayloadSchema,
   revisionNoticePayloadSchema,
   documentCheckPayloadSchema,
+  inboundMailFilePayloadSchema,
+  inboundMailFollowPayloadSchema,
+  inboundMailSenderFilePayloadSchema,
+  inboundMailReceivePayloadSchema,
+  inboundMailSuggestPayloadSchema,
   rootSortPayloadSchema,
   searchFacetsSyncPayloadSchema,
   type BffJobKind,
@@ -68,15 +78,25 @@ import {
   type JobRequester,
   type JobSliceResult,
 } from './types'
+import {
+  platformTextDeindexPayloadSchema,
+  platformTextIndexPayloadSchema,
+  runPlatformTextDeindex,
+  runPlatformTextIndex,
+} from '@/lib/base-knowledge/platform/indexing'
 
 /**
  * One bounded step of a job: the state it was saved with in, the state to save out.
- * `attempts` is the claims spent so far, this one included.
+ * `attempts` is the claims spent so far, this one included. `signal` aborts when
+ * Hatchet gives the attempt up (its timeout, a cancel): a handler that can stop
+ * early passes it on to what it waits for, because nothing else can stop it.
  */
 export type JobHandler = (job: {
+  jobId?: string
   organizationId: string
   payload: unknown
   attempts: number
+  signal?: AbortSignal
 }) => Promise<JobSliceResult<object>>
 
 /**
@@ -115,9 +135,9 @@ function systemHandler<TPayload extends object>(
   schema: ZodType<TPayload>,
   step: (organizationId: string, payload: TPayload, attempt: JobAttempt) => Promise<void>
 ): JobHandler {
-  return async ({ organizationId, payload, attempts }) => {
+  return async ({ jobId, organizationId, payload, attempts }) => {
     const parsed = schema.parse(payload)
-    await step(organizationId, parsed, { last: isLastAttempt(attempts) })
+    await step(organizationId, parsed, { last: isLastAttempt(attempts), jobId })
     return { done: true, payload: parsed }
   }
 }
@@ -200,5 +220,25 @@ export const JOB_HANDLERS: Record<BffJobKind, JobHandler> = {
   revision_notice: systemHandler(revisionNoticePayloadSchema, runRevisionNotice),
   // Sliced: start the turn, then wait for its answer; the person is resolved in each slice.
   document_check: systemSliceHandler(documentCheckPayloadSchema, runDocumentCheckSlice),
+  // As the system: it reads, scans, labels and holds; it never files (`review-first.spec.ts`). Sliced only to
+  // wait out a dependency that does not answer without spending an attempt (`inbound-mail/receive-faults.ts`).
+  inbound_mail_receive: systemSliceHandler(inboundMailReceivePayloadSchema, runInboundMailReceive),
+  // As the system, metadata only (D21): it fails open, and it imports no filing code (`review-first.spec.ts`).
+  inbound_mail_suggest: systemHandler(inboundMailSuggestPayloadSchema, runInboundMailSuggest),
+  // As the person who decided: what a person decided, filed through their own
+  // upload path; never anything a decision row does not name (`file-job.ts`).
+  inbound_mail_file: handler(inboundMailFilePayloadSchema, runInboundMailFiling),
+  // As the follower, resolved by the job itself (`follow-job.ts`): the follower
+  // is whoever's follow holds NOW, and one who left ends the follow
+  // (`access_lost`) instead of ending the job quietly.
+  inbound_mail_follow: systemSliceHandler(inboundMailFollowPayloadSchema, (organizationId, payload) =>
+    runInboundMailFollow(organizationId, payload),
+  ),
+  // As the sender of a verified writer's mail, resolved by the job itself from the
+  // mail's frozen verdict (`sender-file-job.ts`): a sender who left files nothing.
+  inbound_mail_sender_file: systemSliceHandler(inboundMailSenderFilePayloadSchema, runInboundMailSenderFile),
   search_facets_sync: systemSliceHandler(searchFacetsSyncPayloadSchema, runSearchFacetsSyncSlice),
+  platform_text_index: systemHandler(platformTextIndexPayloadSchema, runPlatformTextIndex),
+  // A rolled-back text's chunks, marked so no office reads them (ADR-0173).
+  platform_text_deindex: systemHandler(platformTextDeindexPayloadSchema, runPlatformTextDeindex),
 }

@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PROPOSAL_WIRE_SCHEMAS, proposalsJsonSchema } from './proposal-schema'
-import { FILE_OPERATIONS, MAX_FILE_OPERATION_ITEMS } from './types'
+import { FILE_OPERATIONS, MAX_FILE_OPERATION_ITEMS, memoryPayloadSchema } from './types'
 
 const FIXTURE = join(process.cwd(), 'tests/fixtures/proposals.schema.json')
 
@@ -45,6 +45,21 @@ describe('proposed changes JSON Schema', () => {
         'payload',
       ])
     }
+  })
+
+  it('carries an optional topic on a memory note, in the contract the agent reads and in the parser', () => {
+    const memory = (proposalsJsonSchema().$defs as Record<string, Node>).MemoryPayload
+    expect(memory.properties?.topic).toBeDefined()
+    expect(memory.required).not.toContain('topic')
+
+    const note = { scope: 'project', kind: 'decision', content: 'Brandschutzkonzept liegt vor.', confidence: 'high' }
+    expect(memoryPayloadSchema.parse({ ...note, topic: 'Brandschutz' }).topic).toBe('Brandschutz')
+    expect(memoryPayloadSchema.parse(note).topic).toBeUndefined()
+  })
+
+  it('refuses a topic the wire bound does not take, so the applier never sees one', () => {
+    const note = { scope: 'project', kind: 'decision', content: 'Brandschutzkonzept liegt vor.', confidence: 'high' }
+    expect(memoryPayloadSchema.safeParse({ ...note, topic: 'x'.repeat(201) }).success).toBe(false)
   })
 
   it('bounds the payload as the card did: four verbs, at most twenty items', () => {

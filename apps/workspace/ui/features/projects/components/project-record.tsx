@@ -91,7 +91,7 @@ export function ProjectRecord({ projectId, projectRecord, span = 'wide' }: Proje
             </ul>
           )}
           {hidden > 0 && (
-            <button type="button" className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline" onClick={() => setOpen(true)}>
+            <button data-attr="project-open" type="button" className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline" onClick={() => setOpen(true)}>
               {t('projectRecord.more', { count: hidden })}
             </button>
           )}
@@ -118,7 +118,7 @@ export function ProjectRecord({ projectId, projectRecord, span = 'wide' }: Proje
           </section>
           <DialogFooter className="items-center sm:justify-between">
             <p className="text-muted-foreground text-xs">{t('projectRecord.privacy')}</p>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="secondary" onClick={() => setOpen(false)}>
               {t('projectRecord.done')}
             </Button>
           </DialogFooter>

@@ -66,7 +66,6 @@
  */
 
 import { useEffect, useState, type FC } from 'react'
-import { FileText } from 'lucide-react'
 import { AnimatePresence, motion, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
 import { Card } from '@/components/ui/card'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -114,7 +113,7 @@ interface DocumentDraftCardProps {
  * is the design language's Fitts floor for a control that behaves like a link.
  */
 const ACTION = cn(
-  'inline-flex min-h-11 items-center rounded-sm font-medium text-primary',
+  'inline-flex min-h-11 items-center rounded-control font-medium text-primary',
   'transition-colors duration-quick ease-out motion-reduce:transition-none',
   'hover:text-primary/80 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-2',
   // `aria-disabled`, never `disabled`: Chrome blurs a focused button the
@@ -369,7 +368,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = ({
 
   return (
     <Card data-testid="document-draft-card" className={cn(CARD_SHELL, 'gap-2 p-5')}>
-      <SectionLabel icon={FileText}>{t('cards.documentDraft.eyebrow')}</SectionLabel>
+      <SectionLabel>{t('cards.documentDraft.eyebrow')}</SectionLabel>
 
       <div className="flex min-w-0 flex-col">
         {/* Both lines wrap to two and open on a tap: the working directory's

@@ -1,6 +1,8 @@
 import asyncio
+import functools
 import logging
 import os
+import re
 from typing import Any
 
 from pydantic import Field
@@ -38,9 +40,14 @@ class _NoOutcome:
 try:  # the Grid agent draws one row per call (ADR-0132); the standalone dist has no agent package
     from agent.common.action_outcome import ActionOutcome
     from agent.common.action_rows import ActionRow
+    from agent.common.licensed_text import refused_outbound_query
 except ImportError:
     ActionOutcome = _NoOutcome  # type: ignore[assignment,misc]
     ActionRow = _NoRow  # type: ignore[assignment,misc]
+
+    def refused_outbound_query(query: str) -> str | None:  # standalone: no turn, so no licensed text to refuse
+        return None
+
 
 # Track if we've already warned about missing API key to avoid duplicate warnings
 _missing_key_warned = False
@@ -76,6 +83,97 @@ class TavilyWebSearchToolConfig(FunctionBaseConfig, name="tavily_web_search"):
             "This is a hard filter: matching domains are removed from the results."
         ),
     )
+
+
+def _screened(results: list) -> tuple[list, str, bool]:
+    """The hits the agent may read as sources, the lines above them, and whether any hit was withheld.
+
+    ``agent.common.web_sources`` decides. Without the agent package (a standalone distribution) nothing is
+    screened and nothing is said.
+    """
+    try:
+        from agent.common.web_sources import preamble
+        from agent.common.web_sources import screen
+    except ImportError:
+        return results, "", False
+    from agent.common.web_sources import score_withheld
+
+    kept, withheld = screen(doc for doc in results if isinstance(doc, dict))
+    score_withheld(len(withheld))
+    return kept, preamble(withheld), bool(withheld)
+
+
+#: The tags of a result record. A page's own text that spells one would forge a record (a second
+#: ``<Document href>``, a source the search never returned), so it is made inert before it is printed.
+_RECORD_TAG_RE = re.compile(r"<(/?(?:Document|title|source_note|Answer)\b)", re.IGNORECASE)
+
+
+def _inert(text: str) -> str:
+    """``text`` with every result-record tag in it defused: a page cannot write a record of its own."""
+    return _RECORD_TAG_RE.sub(r"&lt;\1", text)
+
+
+def _address(url: str) -> str:
+    """The address a record states: without a signed query (``agent.common.url_safety``), safe inside ``href``."""
+    try:
+        from agent.common.url_safety import strip_signed_query
+    except ImportError:
+        return url.replace('"', "%22")
+    return strip_signed_query(url).replace('"', "%22")
+
+
+def _record(doc: dict, content: str) -> str:
+    """One hit as the record the citation reader parses: its address and title, a note when it is a copy, its text.
+
+    The record header is the search's own statement; only it names a source. The text is the page's, and a
+    link inside it is not a source (``agent.citations.web_results``).
+    """
+    note = doc.get("source_note")
+    note_block = f"<source_note>\n{_inert(str(note))}\n</source_note>\n" if note else ""
+    return (
+        f'<Document href="{_address(str(doc.get("url") or ""))}">\n'
+        f"<title>\n{_inert(str(doc.get('title')))}\n</title>\n"
+        f"{note_block}{_inert(content)}\n</Document>"
+    )
+
+
+def _client_kwargs(tool_config: TavilyWebSearchToolConfig) -> dict:
+    """The Tavily client's arguments; the product's own site is always excluded (and screened, ``_screened``)."""
+    kwargs: dict = {
+        "max_results": tool_config.max_results,
+        "search_depth": "advanced" if tool_config.advanced_search else "basic",
+        "include_answer": tool_config.include_answer,
+    }
+    if tool_config.api_base_url:
+        kwargs["api_base_url"] = tool_config.api_base_url
+    if tool_config.include_domains:
+        kwargs["include_domains"] = tool_config.include_domains
+    if excluded := [*tool_config.exclude_domains, *_product_domains()]:
+        kwargs["exclude_domains"] = excluded
+    return kwargs
+
+
+def _product_domains() -> list[str]:
+    """The product's own domains, which no search hands on as a source for law (``agent.common.brand``)."""
+    try:
+        from agent.common.brand import PRODUCT_DOMAINS
+    except ImportError:
+        return []
+    return list(PRODUCT_DOMAINS)
+
+
+def _refusing_licensed_text(search):
+    """``search``, refusing a query that repeats licensed text the turn read before the provider sees it.
+
+    The office's licensed text goes to no search provider (``agent.common.licensed_text``). Outside a turn that
+    read licensed text, nothing is refused and the search is unchanged.
+    """
+
+    @functools.wraps(search)
+    async def searched(question: str) -> str:
+        return refused_outbound_query(question) or await search(question)
+
+    return searched
 
 
 @register_function(config_type=TavilyWebSearchToolConfig)
@@ -119,18 +217,7 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
     # and TavilySearch.ainvoke takes the query per call, so a single reused
     # client is byte-identical in behavior. Latency: avoids a fresh TCP+TLS
     # handshake to api.tavily.com on every web search (connection keep-alive).
-    tavily_kwargs = {
-        "max_results": tool_config.max_results,
-        "search_depth": "advanced" if tool_config.advanced_search else "basic",
-        "include_answer": tool_config.include_answer,
-    }
-
-    if tool_config.api_base_url:
-        tavily_kwargs["api_base_url"] = tool_config.api_base_url
-    if tool_config.include_domains:
-        tavily_kwargs["include_domains"] = tool_config.include_domains
-    if tool_config.exclude_domains:
-        tavily_kwargs["exclude_domains"] = tool_config.exclude_domains
+    tavily_kwargs = _client_kwargs(tool_config)
     tavily_search = TavilySearch(**tavily_kwargs)
 
     # Platform-tunable result count (Platform → Retrieval), resolved per call.
@@ -185,7 +272,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
         for attempt in range(tool_config.max_retries):
             try:
                 search_docs = await client.ainvoke({"query": question})
-                # Handle cases where response is not a dict (e.g., error string from API)
                 if isinstance(search_docs, str):
                     raise ValueError(f"Search returned an error: {search_docs}")
 
@@ -202,6 +288,7 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                 results = search_docs.get("results", [])
                 if not isinstance(results, list):
                     raise ValueError(f"Tavily API returned unexpected results format: {type(results)}")
+                results, header, withheld = _screened(results)
 
                 outcome.hits = len(results)
                 try:
@@ -217,17 +304,12 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
                         if url:
                             capture_lane_hit(url, title=doc.get("title") or None)
 
-                answer_text = ""
-                if search_docs.get("answer"):
-                    answer_text = f"<Answer>\n{search_docs['answer']}\n</Answer>\n\n---\n\n"
+                answer_text = header  # no provider summary when it was written from a withheld hit too
+                if search_docs.get("answer") and not withheld:
+                    answer_text += f"<Answer>\n{_inert(str(search_docs['answer']))}\n</Answer>\n\n---\n\n"
 
                 web_search_results = "\n\n---\n\n".join(
-                    [
-                        f'<Document href="{doc.get("url", "")}">\n'
-                        f"<title>\n{doc.get('title')}\n</title>\n"
-                        f"{_truncate_content(doc.get('content') or '')}\n</Document>"
-                        for doc in results
-                    ]
+                    _record(doc, _truncate_content(doc.get("content") or "")) for doc in results
                 )
                 combined = answer_text + web_search_results
                 return combined if combined else "Search returned no results"
@@ -256,6 +338,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
         return "Error: Web search failed - no attempts were made"
 
     yield FunctionInfo.from_fn(
-        _tavily_web_search,
+        _refusing_licensed_text(_tavily_web_search),
         description=_tavily_web_search.__doc__,
     )

@@ -93,6 +93,22 @@ Every generation's cost is metered into the `llm_usage_events` ledger and
 bounded by per-org/member/project budgets — see
 [`usage-budgets.md`](usage-budgets.md) (ADR-0015).
 
+## Where a call is processed (ADR-0167)
+
+Every model call is routed and recorded by `common/residency.py`, called from both seams: the httpx
+transport in `common/openrouter.py` (embeddings, vision, reranking, summaries, titles, decisions, the
+distiller, dictation) and the chat-request contract in `common/llm_factory.py` (every chat model).
+The data-flow register places each host (`endpoints` in `configs/subprocessors/openrouter.yaml`:
+`eu.openrouter.ai` in `EU`, `openrouter.ai` in `US`), and every generation carries
+`processing_location`, `subprocessor` and `processing_location_compliant` as observation metadata.
+
+With `RESIDENCY_CELL` unset (the default) nothing is rewritten or refused. With a cell
+(`configs/residency/cells.yaml`) the transport rewrites `openrouter.ai` to `eu.openrouter.ai`, refuses
+any host outside the zone before sending, and zero data retention cannot be switched off. The chat
+models cannot be rewritten per call (their client is built at boot), so a cell sets
+`OPENROUTER_BASE_URL=https://eu.openrouter.ai/api/v1`, which every `llms` entry of
+`configs/config_oib_openrouter.yml` reads; the boot check refuses a cell without it.
+
 ## Caveats
 
 - Prompts are tuned against the reference model; very different models may need
@@ -111,6 +127,42 @@ bounded by per-org/member/project budgets — see
   price; the OpenAI models, which cache on their own, were at 51 %. Read the
   share per model from `llm_usage_hourly` (`cached_tokens / prompt_tokens`);
   the „Costs and budgets (prod)" alert fires when Claude's drops to near zero.
+- **Where the chat cache misses (measured 2026-11-04, production, 10 days of
+  `openai/gpt-6.1-terra`).** A chat turn makes 3.65 calls on average; the first
+  sends about 37 k prompt tokens and each later round adds about 8.3 k. If the
+  first call of every turn is cold and every later round re-reads all but its
+  new tokens, the miss share is (37 k + 2.65 × 8.3 k) / 197 k ≈ 30 %, which
+  is the 70 % cache share the ledger shows. That share fits a conversation
+  whose cache carries little or nothing across turns, but it does not say which
+  calls hit. Two more signals point the same way: hours with five or more turns
+  by one person reached a 72 % share where a carried prefix would give about
+  86 %, though 87 of 101 follow-up turns came within 30 minutes of the previous
+  one (median 129 s); and driven through the code that builds the requests, a
+  follow-up repeats 31 % of what the previous turn last sent
+  (the agent's `test_cross_turn_prefix.py`), because the turn context
+  is not stored and the history window moves every turn. OpenAI bills a cache
+  write at 1.25x input from GPT-5.6 on, so a cold first call costs more than an
+  uncached one used to. The per-answer carry is measured from the first agent
+  call of each answer (`chat_cross_turn_cache_carry` in PostHog).
+- **What closed the cross-turn miss (2026-11-10, slice Q1, not yet measured in
+  production).** No cache entry was ever written at the end of the bytes every
+  turn shares, because a provider writes only at a breakpoint and the only one
+  was the automatic marker at each request's tail. The chat system prompt now
+  carries a block breakpoint (`common/prompt_caching.py`), which is why
+  `research_llm` runs on Chat Completions: the Responses API drops per-block
+  `cache_control`. The project and office context sits right after it with a
+  breakpoint of its own, and history is pruned and trimmed in steps (ADR-0177);
+  `test_cross_turn_prefix.py` measures the request builders, and the ledger's
+  `cache_write_tokens` says what each call wrote.
+- **What zero data retention leaves open on price (2026-11-04,
+  `/api/v1/endpoints/zdr`).** Only Azure serves `openai/gpt-6.1-terra` and
+  `openai/gpt-6-luna` with zero data retention; `azure/eu` lists 20 % above
+  the global `azure` endpoint (terra $1.20 vs $1.00 per M input), and the EU
+  Claude endpoints 10 % above global. `openai/flex` (half price) and OpenAI's
+  own endpoint are not ZDR, so `service_tier: "flex"` cannot serve a ZDR call.
+  OpenRouter's Batch API (2026-09-22, about half price) keeps inputs and
+  results for 30 days, which ZDR rules out too. The cheaper routes are therefore
+  data-residency decisions, not request flags.
 - **LLM request timeouts — fixed 2026-07-16 (`590ba1a`).** Every `llms.*`
   block in `configs/config_oib_openrouter.yml` now sets `request_timeout`
   (60–180 s depending on role) and `max_retries: 2`, so an unresponsive
@@ -156,7 +208,7 @@ bounded by per-org/member/project budgets — see
   OpenRouter's `supported_parameters` has no token for it. The measurements
   are in the ADR; a new tool search starts from them rather than re-deriving
   them. Since ADR-0052 Piloti binds its full tool set on every turn, greetings
-  included; scope (`register._tools_in_scope`) is what keeps the BIM schemas
+  included; scope (`turn_tools.tools_in_scope`) is what keeps the BIM schemas
   off a turn without a project.
 - `reasoning_effort` is a **native** `ChatOpenAI` field
   (`langchain_openai`'s `BaseChatOpenAI.reasoning_effort`), not something

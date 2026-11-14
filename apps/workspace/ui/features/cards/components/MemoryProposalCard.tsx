@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
+import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/features/chat/store'
 import { useCardDecision } from '../hooks/use-card-decision'
@@ -33,6 +34,8 @@ interface MemoryProposalCardProps {
   decisionsMustPersist?: boolean
   /** The earlier note this one corrects, quoted; accepting the proposal retires it. */
   supersedes?: string | null
+  /** The subject the note is filed under on its shelf; the fallback below sends it with the note. */
+  topic?: string | null
   /** The stored proposal this card is a receipt of (ADR-0105). Absent: the fallback below. */
   proposalId?: string | null
 }
@@ -78,13 +81,19 @@ function BrowserWrittenMemoryCard({
   content,
   kind,
   confidence = 'medium',
+  topic,
   messageId,
   cardKey,
   decisionsMustPersist,
 }: Omit<MemoryProposalCardProps, 'proposalId' | 'supersedes'>) {
   const t = useTranslations(chatCopy)
+  const kindLabels = useMemoryKindLabels()
   // Same source as ProjectProfilePatchCard's projectId: the active chat store.
   const projectId = useChatStore((s) => s.projectId)
+  // A temporary chat keeps nothing (ADR-0180 rule 2). The routes this card
+  // writes through are the memory panels' own and are not told the
+  // conversation, so the card itself holds the rule for its own chat.
+  const temporary = useChatStore((s) => s.currentConversation?.temporary === true)
   const { decision, decide, canDecide } = useCardDecision(messageId, cardKey, {
     mustPersist: decisionsMustPersist,
   })
@@ -98,6 +107,10 @@ function BrowserWrittenMemoryCard({
     // Ignored while a save is in flight, rather than refused by `disabled`:
     // see the buttons below.
     if (isSubmitting) return
+    if (temporary) {
+      setError(t('memoryProposal.temporaryConversation'))
+      return
+    }
     setError(null)
     setSavingTo(savedDecision === 'savedProject' ? 'project' : 'org')
     setIsSubmitting(true)
@@ -105,7 +118,7 @@ function BrowserWrittenMemoryCard({
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, content, confidence }),
+        body: JSON.stringify({ kind, content, confidence, ...(topic ? { topic } : {}) }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -151,9 +164,9 @@ function BrowserWrittenMemoryCard({
   return (
     <ProposalShell tone="pending">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <p className="text-sm font-medium text-foreground">{title}</p>
         <Chip variant="muted" size="sm">
-          {t(`memoryProposal.kind.${kind}`)}
+          {kindLabels.kind(kind)}
         </Chip>
       </div>
 
@@ -199,7 +212,7 @@ function BrowserWrittenMemoryCard({
             {projectId && (
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={handleSaveProject}
                 aria-disabled={isSubmitting || undefined}
@@ -215,7 +228,7 @@ function BrowserWrittenMemoryCard({
             )}
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={handleDismiss}
               aria-disabled={isSubmitting || undefined}

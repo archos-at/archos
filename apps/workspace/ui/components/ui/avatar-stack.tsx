@@ -61,9 +61,17 @@ export type AvatarStackSize = keyof typeof AVATAR_STACK_SIZES
 /** Faces drawn before the rest collapse into a `+N` bubble. */
 const DEFAULT_MAX = 4
 
+/**
+ * `identity` (default): initials on the colour the person's id maps to, where telling people apart at a glance is the
+ * point (presence, a chat's participants). `neutral`: ink initials on the desk grey, where a hue would claim a meaning
+ * it does not have (Dateien, paper on a desk, principle 7: colour is a verdict).
+ */
+export type AvatarTone = 'identity' | 'neutral'
+
 export interface PersonAvatarProps {
   person: AvatarStackPerson
   size?: AvatarStackSize
+  tone?: AvatarTone
   className?: string
 }
 
@@ -73,7 +81,7 @@ export interface PersonAvatarProps {
  * own because roster rows and list items need a single disc, and it must be the
  * same disc the stack draws.
  */
-export function PersonAvatar({ person, size = 'md', className }: PersonAvatarProps): JSX.Element {
+export function PersonAvatar({ person, size = 'md', tone = 'identity', className }: PersonAvatarProps): JSX.Element {
   return (
     <Avatar
       className={cn(AVATAR_STACK_SIZES[size], className)}
@@ -85,11 +93,11 @@ export function PersonAvatar({ person, size = 'md', className }: PersonAvatarPro
     >
       {person.profilePictureUrl && <AvatarImage src={person.profilePictureUrl} alt="" />}
       <AvatarFallback
-        className="font-semibold"
+        className={cn('font-medium', tone === 'neutral' && 'bg-desk text-foreground')}
         // Inline because the hue is derived at runtime — Tailwind can only emit
         // classes it saw at build time. Both values are `color-mix()` against
         // theme tokens, so dark mode is covered without a second palette.
-        style={avatarColorStyle(person.userId)}
+        style={tone === 'identity' ? avatarColorStyle(person.userId) : undefined}
       >
         {personInitials(person.name)}
       </AvatarFallback>
@@ -103,6 +111,8 @@ export interface AvatarStackProps {
   /** Faces before the `+N` bubble. Defaults to 4; at least 1. */
   max?: number
   size?: AvatarStackSize
+  /** See {@link AvatarTone}. */
+  tone?: AvatarTone
   /**
    * Wrap each face — the seam for per-person tooltips. Receives the person, the
    * rendered disc, and the person's index in `people` (so a caller can reach the
@@ -121,6 +131,7 @@ export function AvatarStack({
   people,
   max = DEFAULT_MAX,
   size = 'md',
+  tone = 'identity',
   renderPerson,
   className,
 }: AvatarStackProps): JSX.Element | null {
@@ -139,6 +150,7 @@ export function AvatarStack({
           <PersonAvatar
             person={person}
             size={size}
+            tone={tone}
             // A ring in the surface colour is what separates the overlapping
             // discs; a border would darken every seam.
             className="ring-2 ring-card"

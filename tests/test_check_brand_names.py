@@ -1,6 +1,6 @@
 """The brand-name ratchet refuses a new brand in a name, and makes the baseline follow every cleanup.
 
-`scripts/check_brand_names.py` keeps `aiq`, `grid` and `piloti` out of new code
+`scripts/check_brand_names.py` keeps `aiq`, `archos`, `grid` and `piloti` out of new code
 and infrastructure identifiers, with `ci/brand_names_baseline.json` recording
 the hits when the check arrived. These run it on a scratch repository, so the
 real tree's baseline is not what they depend on.
@@ -54,6 +54,8 @@ def _add(repo: Path, path: str, text: str) -> None:
         ("aiq_agent", ["aiq"]),
         ("AIQAPIWorker", ["AIQAPI"]),
         ("piloti-ask", ["piloti"]),
+        ("ARCHOS_MAX_JOBS", ["ARCHOS"]),
+        ("archosWakes", ["archos"]),
     ],
 )
 def test_a_brand_word_in_a_name_is_a_hit(checker, token, hits):
@@ -62,8 +64,8 @@ def test_a_brand_word_in_a_name_is_a_hit(checker, token, hits):
 
 @pytest.mark.parametrize(
     "token",
-    ["Piloti", "Grid", "grid", "grid-cols-2", "inline-grid", "gridTemplateColumns", "FileGrid", "document_grid",
-     "subgrid", "app.piloti.at"],
+    ["Piloti", "Grid", "ARCHOS", "Archos", "grid", "grid-cols-2", "inline-grid", "gridTemplateColumns", "FileGrid",
+     "document_grid", "subgrid", "app.piloti.at", "inbox.archos.tech"],
 )  # fmt: skip
 def test_prose_css_the_layout_noun_and_host_names_are_not(checker, token):
     assert checker.brand_words(token) == []
@@ -72,6 +74,13 @@ def test_prose_css_the_layout_noun_and_host_names_are_not(checker, token):
 def test_urls_and_the_repository_name_are_not_counted(checker):
     text = "see https://github.com/GRID-check/grid-oib-agent/issues and grid-check/grid-oib-agent, not GRID_ROLE"
     assert checker.count_text(text) == 1
+
+
+def test_the_archos_repository_and_org_are_not_counted_but_an_image_name_under_them_is(checker):
+    text = "github.com/archos-at/archos ghcr.io/archos-at/archos:latest archos-at/archos"
+    assert checker.count_text(text) == 0
+    assert checker.count_text("ghcr.io/archos-at/grid-oib-backend:latest") == 1
+    assert checker.count_text("ARCHOS_MAX_JOBS") == 1
 
 
 def test_a_new_hit_fails_and_the_baseline_only_moves_down(checker, repo, capsys):
@@ -109,7 +118,16 @@ def test_history_and_copy_are_not_checked(checker, repo):
 def test_the_tier_names_pending_the_deploy_rename_are_not_counted(checker):
     assert checker.count_text("http://aiq-agent:8000 and aiq-api") == 0
     assert checker.count_text("from aiq_agent.common.cards import Card") == 1
-    assert checker.count_text("from agent.agents.piloti import run") == 1
+    assert checker.count_text("from aiq_agent.agents.piloti import run") == 2
+
+
+def test_an_import_of_the_chat_package_is_not_a_new_name_but_the_path_elsewhere_is(checker):
+    """The package directory is the kept identifier; an import of it only repeats that one name."""
+    assert checker.count_text("from agent.agents.piloti import run") == 0
+    assert checker.count_text("from agent.agents.piloti.prompt import TurnPrompt as PilotiPrompt") == 1
+    assert checker.count_text('module = "agent.agents.piloti.agent"') == 1
+    # Only the package itself: a longer name that starts the same is a name of its own.
+    assert checker.count_text("from agent.agents.piloti_v2 import run") == 1
 
 
 def test_a_file_split_inside_a_package_directory_is_not_a_new_hit(checker, repo):

@@ -26,12 +26,25 @@ import { findingsBlocks } from './findings'
 import { referencesFromStored, splitProse, type ReferenceEntry } from './citations'
 import { markdownToBlocks } from './markdown'
 
+/** The caps an exported answer explains, each with its dictionary key: the one list the reader, the PDF and the type share. */
+const CAPPED_REASON_COPY = {
+  ungrounded: 'ungrounded',
+  quote_unverified: 'quoteUnverified',
+  law_unsettled: 'lawUnsettled',
+  open_point: 'openPoint',
+} as const
+export const EXPORTED_CAPPED_REASONS = Object.keys(CAPPED_REASON_COPY) as [
+  ExportedCappedReason,
+  ...ExportedCappedReason[],
+]
+export type ExportedCappedReason = keyof typeof CAPPED_REASON_COPY
+
 /** The answer's confidence self-assessment (ADR-0037), as stored on the message. */
 export interface AnswerConfidence {
   level: 'low' | 'medium' | 'high'
   /** The model's own one-clause justification, quoted verbatim. */
   reason?: string
-  cappedReason?: 'ungrounded' | 'quote_unverified'
+  cappedReason?: ExportedCappedReason
 }
 
 export interface AnswerDocumentInput {
@@ -71,6 +84,14 @@ export interface AnswerDocumentInput {
    * asked for, read on screen and chose to export is not unreviewed. Marking
    * every export would make the marking mean nothing, which costs exactly the
    * documents that need it.
+   *
+   * This is the PRINTED notice only. The machine-readable marking (the
+   * `.docx` custom properties, `trainedAlgorithmicMedia`) is on every export
+   * of an answer regardless: Art. 50(2) AI Act asks the provider to mark
+   * generated text whether or not a person read it, and its only exceptions
+   * (the Commission's Art. 50 guidelines, 2026-11-05, points 90-91) are
+   * standard editing and non-substantial alteration, neither of which an
+   * answer is. See `service.ts`.
    */
   agentAuthored?: boolean
   /** Printed instead of a mermaid fence's source — see `diagramBlocks`. */
@@ -131,7 +152,7 @@ const confidenceBlocks = (confidence: AnswerConfidence, t: Translator): DocBlock
   const level = t(`confidenceLevels.${confidence.level}`)
   const blocks: DocBlock[] = [labelled(t('confidence'), level)]
   if (confidence.cappedReason) {
-    const key = confidence.cappedReason === 'ungrounded' ? 'ungrounded' : 'quoteUnverified'
+    const key = CAPPED_REASON_COPY[confidence.cappedReason]
     blocks.push({
       kind: 'paragraph',
       runs: [{ text: t(`confidenceCapped.${key}`) }],

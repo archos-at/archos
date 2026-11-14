@@ -140,4 +140,17 @@ describe('purgeIngestedChunks — reversible unless said otherwise', () => {
 
     expect(bodyOf()).toEqual({ file_ids: ['EG_Grundriss_Index_B.pdf'], permanent: true })
   })
+
+  it('does not confirm a purge the backend answered 200 but listed as failed', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const failed = JSON.stringify({ successful: [], not_found: [], failed: [{ file_id: 'x', error: 'boom' }], total_deleted: 0 })
+    vi.stubGlobal('fetch', fetchSpy.mockResolvedValue(new Response(failed, { status: 200 })))
+    await expect(purgeIngestedChunks('http://backend:8000', ref, 1000)).resolves.toBe(false)
+  })
+
+  it('counts a file with nothing indexed as purged: nothing is left', async () => {
+    const none = JSON.stringify({ successful: [], not_found: ['EG_Grundriss_Index_B.pdf'], failed: [], total_deleted: 0 })
+    vi.stubGlobal('fetch', fetchSpy.mockResolvedValue(new Response(none, { status: 200 })))
+    await expect(purgeIngestedChunks('http://backend:8000', ref, 1000)).resolves.toBe(true)
+  })
 })

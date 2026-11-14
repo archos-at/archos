@@ -67,9 +67,12 @@ channel with the Markdown that replaced it (`RETIRED_CARD_REPLACEMENTS`,
 walks an enforcement ladder per call — OpenRouter structured
 outputs (`json_schema`, strict, derived from the same Pydantic models by
 `render_envelope_response_format`), then `json_object`, then a plain request —
-on the tool-free forced-synthesis call, and on tool-bound iterations only
-behind the `envelope_json_mode_with_tools` config flag, because some routed
-providers accept the parameter and silently stop emitting tool calls.
+only behind the `envelope_json_mode_with_tools` config flag, because some
+routed providers accept the parameter and silently stop emitting tool calls.
+Forced synthesis follows the rounds: it keeps the turn's tools, asks for no
+call (`tool_choice: "none"`) and sends the format only where they did, so its
+cached prefix holds (`envelope_call.ainvoke_synthesis`); a provider that calls
+a tool anyway gets the tool-free call down the ladder.
 The families are not decoration: each answers
 "where does a number on this card come from?" differently, and that answer is
 what decides whether the model may emit the card at all, on which surface, and
@@ -122,6 +125,13 @@ call to make first. It exists because "zeig mir das Modell" was being answered
 with a prose bullet list of file names for the user to retype — the tiles open
 the viewer on click instead.
 
+All six survive the short-answer floor (`FLOOR_EXEMPT_CARD_TYPES` in
+`cards/envelope.py`), on their own or as leaves of a `surface`. That floor clears
+a card under 400 characters of prose, which suits a trailer, but here the card
+is the answer and the prose under a "zeig mir" is short by nature. Clearing one
+left "im Modell markiert" with nothing on screen, or "Wählen Sie das Modell aus"
+with no tiles to choose from.
+
 | `type` | Shows | Key fields |
 |---|---|---|
 | `ifc_viewer` | the project's IFC model in 3D with findings highlighted on the real geometry (ADR-0045) | `title`, `model_file`, `highlights[]` (`global_ids` **XOR** `match`, plus `label`, `status`), `storey`, `note` |
@@ -143,7 +153,7 @@ catalog omits them entirely).
 | `task_created` | work Piloti has taken on, as a task row somebody can come back to — title, goal, due date and a link to the run's thread. Informational: the task is already queued when it renders, so there is no Accept | the `create_task` tool |
 | `file_operation_proposal` **(interactive)** | a workspace change the agent PROPOSED and did not make — a move, a rename, a new folder, an assignment. One card type for four verbs, discriminated by `operation`, carrying a capped LIST so an „organise the Einreichung" turn is one decision and not four. With `proposal_id` it shows a proposal stored on the server ([`proposed-changes.md`](proposed-changes.md), ADR-0105): accepting asks the server to apply it in the accepting person's session, and every reader sees the same decision. The result is reported per row — a batch where the third fails says two landed and one did not, with the reason. Without one (an answer older than server proposals, or one the agent could not store) the card is read-only: nothing runs in the browser any more, a decision recorded on the message is replayed, and an undecided card says „Konnte nicht als Vorschlag angelegt werden“ | `propose_file_change` under `packages/agent/src/agent/tools/files/` (a Dokumentart proposal waits for a project-scoped doc_class route) |
 | `canvas_activity` **(interactive)** | what Piloti did on ONE document: the marks it proposed (each drawn on a small page at its normalized place, numbered like the canvas's pins, dashed while a proposal), the marks it set, changed or deleted because the person asked, and the threads it answered in. Each proposed mark is answered on its own, „Übernehmen" / „Verwerfen", through the annotations client (`PATCH …/annotations/{id}`, status `open` / `dismissed`), and stored per mark under `itemDecisionKey`. A change reads „#4 erledigt" with Piloti's note, and „Rückgängig" PATCHes the inverse with the status Piloti left as `expectedStatus`, stored per row. The card reads the document's marks once it is on screen and lets the canvas win, so a mark a colleague answered there reads as answered here. „Im Dokument zeigen" opens the Prüfansicht at that mark over the chat (`features/documents/lib/open-review.ts`) | the canvas tools under `packages/agent/src/agent/tools/canvas/` |
-| `look` | where Piloti looked on ONE document in this turn (ADR-0128): an item per look the answer relies on (page, region as `[x, y, w, h]`, `where` in words, the `question` and the first `reading`) and a `reference` item per box or pointer it showed the room. An ADDRESS (document id, Fassung as `revision_id`, page, region, `image_index`), never pixels: a `data:` string is refused anywhere on it, by the model and by the generated schema. Which looks become items is decided once the answer is final: the looked-at documents the answer cites, or all of them when it cites none, and every gesture (`tools/look/cards.py`). Drawn per item as the page clip with the place marked (`PageRegionThumbnail`, from the document's own routes, so only a reader who may open the document sees it), the place in words, the question and the reading marked as read, not measured; pressing an item opens the viewer at the page with the box glowing (`PagePlaceButton`). Not exported: printed, it is coordinates without the picture | `look`, through `place_look_cards` in `finalize_answer`; `canvas__highlight` and `canvas__point` add the `reference` items |
+| `look` | where Piloti looked on ONE document in this turn (ADR-0128): an item per look the answer relies on (page, region as `[x, y, w, h]`, `where` in words, the `question` and the first `reading`) and a `reference` item per box or pointer it showed the room. An ADDRESS (document id, Fassung as `revision_id`, page, region, `image_index`), never pixels: a `data:` string is refused anywhere on it, by the model and by the generated schema. Which looks become items is decided once the answer is final: the looked-at documents the answer cites, or all of them when it cites none, and every gesture (`tools/look/cards.py`). Drawn per item as the page clip with the place marked (`PageRegionThumbnail`, from the document's own routes, so only a reader who may open the document sees it), the place in words; the question and the reading, marked as read, not measured, are folded under the places behind „Erläuterung“ and open on a press (Notion #38, topic 10); pressing an item opens the viewer at the page with the box glowing (`PagePlaceButton`). Not exported: printed, it is coordinates without the picture | `look`, through `place_look_cards` in `finalize_answer`; `canvas__highlight` and `canvas__point` add the `reference` items |
 | `revision_compare` | the same page of two Fassungen side by side, the changes boxed on each (ADR-0128, V10): `older_id`, `newer_id`, optional `older_name` / `newer_name` (the file names `document-revision-compare` returns; the sides are labelled with them, and with the role words when absent), `page`, `changes` (`region` as `[x, y, w, h]` and a `label`) and the `summary` sentences. An ADDRESS, never pixels (a `data:` string is refused). The boxes were found on the newer page and are drawn at the same place on the older. Each side is the whole page drawn from its own document's routes (`PageRegionThumbnail`, so only a reader who may open both sees them); pressing a side opens the viewer at the page with every box (`PagePlaceButton` with `marks`). Not exported | `workspace__call` of `document-revision-compare`, once the result is in (`tools/workspace/cards.py`); one card per pair and page |
 
 **(interactive)** marks a card whose answer is a commitment and is therefore
@@ -177,6 +187,29 @@ allow-listed citation or identifier), the note and an input's `source` may
 also name documents (plan code, Index, Rev., Pos., a date) but hold no
 measurement, sign or symbol, and neither holds a verdict word (`_figure_in` in
 `cards/models.py`); pydantic refuses them, the TS schema does not check.
+
+**A verdict only where its edition binds.** The tables are one edition of each
+Richtlinie, and a site may bind another (Wien binds RL 6 in its 2025 edition). So
+the server stamps every formula card, while it validates, with which editions bind
+at the turn's site: `site_binding` (`coverage`, the turn's gate as the reason the card gives:
+`settled` for `core` and `full`, `unsettled` for `none` and `open`, `site_unknown` for
+`site_unknown`, `organization_unplaced` and `not_entitled`, `unavailable` for a context
+that could not be read; `editions`, each binding work's designation and edition label
+from `knowledgeContext.uses`, no label where its binding uses name two, and
+`scope_unsettled` where an edition's own scope is still open; `truncated` past
+`MAX_SITE_EDITIONS`, so a work the stamp does not name reads as unknown, not as not
+binding). The before-validator `FormulaCard._site_binding_is_the_servers`
+in `cards/formula_card.py` replaces whatever the model wrote, on every path
+(envelope, `emit_card`, a surface's leaf, the batch generator); outside a turn the
+stamp is absent. The field is in `SERVER_SET_CARD_FIELDS`, so no shape the model
+reads names it. The answer export skips it too (`SKIPPED_FIELDS` in
+`bff/answer-export/cards.ts`): the check's own text already says verdict or hint, and why. The browser compares each check's `reference` (document and
+edition) with the stamp (`editionHold` in `formulas.ts`) and shows a check as a
+hint, the value against the bound with the reason and no ✓ or ✗, unless that
+edition binds, its scope is settled and so is the coverage. `formulas.pack.spec.ts`
+holds every check's work and edition label to the Austria pack. No stamp is a hint too (fail closed). The
+stamp names designations, not rules: which work a rule's bound is written in stays
+in `formulas.ts`, so no country is written into the agent's code.
 
 A changed input is written to the card's A2UI surface data model at
 `/inputs/<leaf id>` (`features/a2ui/reader-inputs.ts`): never to the message,
@@ -301,10 +334,12 @@ or dropped and recorded (`status:card:invalid:N`). The reason is the round:
 `emit_card` is a tool call, a tool call ends a message, and every card-bearing
 answer paid one more full-context call to write the prose after it — and a
 third on a wrong shape. Nothing on the wire changed. The taught envelope
-schema carries the doctrine, the index and the full shape of the one content
-card whose shape is easy to get wrong and that answers earn most
-(`ENVELOPE_SHAPE_TYPES`: `calculation`), COMPOSE and the placement rule,
-cached with the prefix; every other shape stays on demand.
+schema carries the doctrine, the index, COMPOSE and the placement rule, cached
+with the prefix. No full shape rides there any more (`ENVELOPE_SHAPE_TYPES` is
+empty since 2026-11-10: `calculation` and `formula` were 23 % of the system
+prompt): the turn's decision attaches the shape of each card it expects to
+the turn's note (`card_shapes_block`), and a shape guessed from the index
+line goes to the repair model.
 
 **The answer's own Markdown comes first, on every surface.** The doctrine
 (`render_card_doctrine`) opens with MARKDOWN FIRST: tables, lists, flowchart
@@ -566,9 +601,10 @@ What bounds it now is the prompt: **it says what a direct reply may put on a
 card.** A subject-matter question that merely landed in a short reply earns the
 structure its content calls for; small talk, a formatting or memory request, a shelf
 listing and an off-topic decline get none. On chat the doctrine, the L1 index
-and the shapes of `ENVELOPE_SHAPE_TYPES` ride in the envelope contract
-(`render_envelope_cards_contract`, `cards/envelope.py`) on every turn —
-enough to name the right card AND to build it, with a card the validator
+ride in the envelope contract (`render_envelope_cards_contract`,
+`cards/envelope.py`) on every turn, and the shapes of the cards the turn's
+decision expects ride in its note — enough to name the right card AND to
+build it, with a card the validator
 refuses handed to the small repair model (`cards/repair.py`) rather than back
 to the answering agent. Deep research still reads the doctrine in
 `emit_card`'s description, and gets the shape on the retry. Skills, too, are offered on
@@ -779,13 +815,13 @@ and one figure. They exist as classes in `src/app/globals.css`, declared in
 
 | Step | Class | Spec |
 |---|---|---|
-| Eyebrow | `card-eyebrow` (via `SectionLabel`) | 10.5 / 500 / uppercase / +0.05em |
+| Eyebrow | `card-eyebrow` (via `SectionLabel`) | 10.5 / 500 / sentence case, no tracking |
 | Meta | `card-meta` | 11 / 500 / tabular-nums |
-| Caption | `card-caption` | 12 / 400 |
-| Body | `card-body` | 13.5 / 400 / 1.55 |
-| Title | `card-title` | 14 / 600 |
-| Headline | `card-headline` | 17 / 600 — `summary`'s title only, the one §A2 exemption |
-| Figure | `card-figure-15/20/24/30` | 600 / tabular-nums — **one per card, and it must be the card's answer** |
+| Caption | `card-caption` | 12 / 440 |
+| Body | `card-body` | 16 (`--text-answer`, the answer's one text size) / 440 / 1.55 |
+| Title | `card-title` | 16 (`--text-answer`) / 500 |
+| Headline | `card-headline` | 17 / 500 — `summary`'s title only, the one §A2 exemption |
+| Figure | `card-figure-16/20/24/30` | 500 / tabular-nums — **one per card, and it must be the card's answer** |
 
 Reach for a step; never write a `text-*` size in a card. The audit behind the
 charter counted thirteen distinct sizes in `features/cards/`, ten of them
@@ -953,7 +989,13 @@ without re-plumbing generation or transport.
    carry an interaction, geometry to scale, a computed number, a live model
    binding or tabs; anything else is a table, a list, a fence or a directive
    block in the prose.
-9. For an **envelope** field (native answer anatomy, never a tool call): add
+9. **Every field a card carries reaches the answer export** (`bff/answer-export/cards.ts`):
+   give a new field and every new enum member a word in `answerExport.fields` /
+   `answerExport.values` (en and de), or skip it in `SKIPPED_FIELDS` with the reason.
+   `label-coverage.spec.ts` fails otherwise, and a directory-scoped run over
+   `ui/features/cards` never reaches it: run the whole workspace suite. #1658 missed
+   this and left develop red.
+10. For an **envelope** field (native answer anatomy, never a tool call): add
    a model, a registry entry and a gate in `common/answer_envelope.py` (the
    taught schema renders itself from the models), an earned-when line in the
    prompt's `<answer_envelope>` section, a sanitizer clause in

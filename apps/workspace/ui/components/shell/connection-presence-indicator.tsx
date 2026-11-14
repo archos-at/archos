@@ -3,14 +3,14 @@
 /**
  * ConnectionPresenceIndicator
  *
- * A quiet, native-app-style status readout for the app shell: a small colored
- * dot (plus an optional label) that communicates live connection health so the
+ * A quiet status readout for the app shell: live connection health, so the
  * product never feels dead or ambiguous.
  *
- *   connected    -> subtle success dot, no motion (the resting, unremarkable state)
- *   reconnecting -> amber dot with a soft ping pulse (suppressed under
- *                   prefers-reduced-motion)
- *   offline      -> danger dot, no motion
+ *   connected    -> a still success dot. The shell does not show this state:
+ *                   it mounts the indicator through `ConnectionBand`, which
+ *                   hides it while connected (a fine status says nothing)
+ *   reconnecting -> the ochre RefreshCw glyph and „Verbindung unterbrochen"
+ *   offline      -> the red WifiOff glyph and „Keine Verbindung"
  *
  * Accessibility: the wrapper is a `role="status"` / `aria-live="polite"` region
  * so assistive tech announces state changes calmly, not on every render. The
@@ -21,12 +21,25 @@
 
 import { useTranslations } from '@/i18n'
 import { presenceCopy } from '@/i18n/namespaces/presence'
+import { RefreshCw, WifiOff, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   useConnectionPresence,
   type ConnectionPresence,
 } from '@/shared/hooks/use-connection-presence'
+
+/** The glyph per state that is not fine. */
+const STATE_ICON: Record<ConnectionPresence, LucideIcon | null> = {
+  connected: null,
+  reconnecting: RefreshCw,
+  offline: WifiOff,
+}
+const ICON_COLOR: Record<ConnectionPresence, string> = {
+  connected: 'text-muted-foreground',
+  reconnecting: 'text-warning',
+  offline: 'text-error',
+}
 
 /** Solid dot fill per state (feedback tokens from styles/tokens.css). */
 const DOT_COLOR: Record<ConnectionPresence, string> = {
@@ -44,18 +57,27 @@ export interface ConnectionPresenceIndicatorProps {
    * and stories; production callers omit it so the hook drives the state.
    */
   presence?: ConnectionPresence
+  /**
+   * Stand the dot in a 16px slot with the rail's 11px gap, so a rail row lines
+   * up with the section icons and labels above it.
+   */
+  iconSlot?: boolean
 }
 
 export function ConnectionPresenceIndicator({
   compact = false,
   className,
   presence: presenceOverride,
+  iconSlot = false,
 }: ConnectionPresenceIndicatorProps) {
   const t = useTranslations(presenceCopy)
-  const detected = useConnectionPresence()
+  // A caller that passes the state already runs the ping (`ConnectionBand`);
+  // a second one here doubled the health requests of every shell.
+  const detected = useConnectionPresence({ enablePing: presenceOverride === undefined })
   const presence = presenceOverride ?? detected
 
   const label = t(`status.${presence}`)
+  const StateIcon = STATE_ICON[presence]
   const tooltip = t(`tooltip.${presence}`)
 
   return (
@@ -67,33 +89,26 @@ export function ConnectionPresenceIndicator({
           aria-label={label}
           data-presence={presence}
           className={cn(
-            'inline-flex min-h-4 items-center gap-2 rounded-sm text-xs text-muted-foreground select-none',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            'inline-flex min-h-4 rounded-control text-xs text-muted-foreground select-none',
+            // In a rail row the words may take two lines rather than lose
+            // their end: the glyph then stands by the first line, in a slot
+            // as tall as it.
+            iconSlot ? 'max-w-full items-start gap-[11px]' : 'items-center gap-2',
             className,
           )}
         >
-          <span className="relative flex size-2 shrink-0" aria-hidden>
-            {presence === 'reconnecting' && (
-              // Intentional `animate-ping`, not the ambient shimmer loop: a
-              // reconnect is an EVENT that must catch the eye once and then
-              // resolve (to the still dot or to offline), never a background
-              // state to breathe at `--motion-ambient`. Removed entirely under
-              // reduced-motion.
-              <span
-                className={cn(
-                  'absolute inline-flex size-full rounded-full opacity-60',
-                  'animate-ping bg-warning motion-reduce:hidden motion-reduce:animate-none',
-                )}
-              />
-            )}
-            <span
-              className={cn(
-                'relative inline-flex size-2 rounded-full',
-                DOT_COLOR[presence],
-              )}
-            />
-          </span>
-          {!compact && <span className="min-w-0 truncate">{label}</span>}
+          {StateIcon ? (
+            // A state that is not fine is a glyph in its colour beside its
+            // words, in every width: a dot alone was colour carrying the
+            // meaning by itself (Principles, 2), and a dot here and a glyph
+            // in the icon rail drew one state two ways.
+            <StateIcon className={cn('shrink-0', iconSlot || compact ? 'size-4' : 'size-3.5', ICON_COLOR[presence])} aria-hidden />
+          ) : (
+            <span className={cn('relative flex shrink-0 items-center justify-center', iconSlot ? 'size-4' : 'size-2')} aria-hidden>
+              <span className={cn('relative inline-flex size-2 rounded-full', DOT_COLOR[presence])} />
+            </span>
+          )}
+          {!compact && <span className={cn('min-w-0', !iconSlot && 'truncate')}>{label}</span>}
         </div>
       </TooltipTrigger>
       <TooltipContent className="motion-reduce:animate-none">{tooltip}</TooltipContent>

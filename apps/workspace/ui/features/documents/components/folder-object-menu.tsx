@@ -20,6 +20,8 @@ export function FolderActionsTrigger(): ReactNode {
 }
 
 export interface FolderObjectMenuProps {
+  /** The child is the right-click target itself (a table row, which a wrapping `<div>` would break). */
+  asChild?: boolean
   folder: PathFolder
   folders: readonly PathFolder[]
   canAcceptMove?: (targetFolderId: string | null) => boolean
@@ -52,6 +54,7 @@ export function FolderObjectMenu({
   onDelete,
   readOnly = false,
   moveInSheet = false,
+  asChild = false,
   children,
 }: FolderObjectMenuProps): ReactNode {
   const t = useTranslations(filesCopy)
@@ -115,7 +118,7 @@ export function FolderObjectMenu({
           type="button"
           aria-label={t('folders.actionsFor', { name: folder.name })}
           title={t('folders.actions')}
-          className="hover:bg-accent focus-visible:ring-ring flex size-7 shrink-0 items-center justify-center rounded-sm transition-opacity duration-snap ease-out focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11 pointer-coarse:opacity-100 motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100"
+          className="hover:bg-hover focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-full transition-opacity duration-snap ease-out focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11 pointer-coarse:opacity-100 motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100"
           data-testid={`folder-actions-${folder.id}`}
         >
           <MoreHorizontal className="size-3.5" aria-hidden />
@@ -126,7 +129,7 @@ export function FolderObjectMenu({
 
   return (
     <TriggerContext.Provider value={trigger}>
-      <ActionMenu mode="context" entries={entries}>
+      <ActionMenu mode="context" entries={entries} asChild={asChild}>
         {children}
       </ActionMenu>
       {moveInSheet && onMove && (

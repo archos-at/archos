@@ -9,7 +9,7 @@
  */
 
 import { useState, type ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { act, fireEvent, render, screen, waitFor, within } from '@/test-utils'
@@ -22,6 +22,9 @@ import type { RoomTransport } from '../../hooks/use-document-room'
 import { DocumentReviewMode, TOOLS_INTRO_KEY } from './document-review'
 import { REVIEW_TOASTER } from './review-toaster'
 import { useChatStore } from '@/features/chat/store'
+import { useStartDock } from '@/components/shell/start-dock'
+import { DOCK_LAYOUT_QUERY } from '@/hooks/use-is-mobile'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 // The real chat store, signed in as `user_me`: the review reads who is looking
 // from it, and `use-canvas-ask` subscribes to it.
@@ -200,6 +203,22 @@ describe('the tools', () => {
     render(<Host initialTool="point" />)
     await waitFor(() => expect(screen.getByTestId('review-tool-point')).toHaveAttribute('aria-pressed', 'true'))
     expect(screen.getByTestId('review-tool-hint')).toHaveTextContent('Click the place · Esc cancels')
+  })
+
+  it.each(['region', 'point'] as const)('puts the %s tool down when it is picked again: the palette is back on „Auswählen“', async (tool) => {
+    serve([])
+    render(<Host />)
+    await screen.findByTestId('review-empty')
+    const button = screen.getByTestId(`review-tool-${tool}`)
+
+    await userEvent.click(button)
+    expect(button).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('review-tool-select')).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.click(button)
+    expect(button).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('review-tool-select')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByTestId('review-tool-hint')).toBeNull()
   })
 
   it('keeps the cursor chat apart from the comment tool: its own glyph, and no pointer to open at from its button', async () => {
@@ -642,6 +661,15 @@ describe('pins and cards to a screen reader', () => {
     expect(screen.getByTestId('review-filter-open')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId('review-filter-closed')).toHaveAttribute('aria-pressed', 'false')
   })
+
+  it('shows a filter its count only above zero, never a 0 in the slashed mono face (ticket #38)', async () => {
+    serve([view({ id: 'ann_1' })])
+    render(<Host />)
+    await screen.findByTestId('review-row')
+    expect(screen.getByTestId('review-filter-open')).toHaveTextContent(/^Open1$/)
+    expect(screen.getByTestId('review-filter-closed')).toHaveTextContent(/^Done$/)
+    expect(screen.getByTestId('review-filter-open').querySelector('.font-mono')).toBeNull()
+  })
 })
 
 describe('the tools spelled out, on a narrow stage', () => {
@@ -657,6 +685,60 @@ describe('the tools spelled out, on a narrow stage', () => {
     // Folded, the glyph still says its name and key where a pointer finds it: the icons' tooltip.
     await userEvent.hover(point)
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/Comment\s*C/)
+  })
+})
+
+describe('the list beside the sheet', () => {
+  /** The review as Host mounts it, with a hand on its list read: a mark arriving is the list read again. */
+  const reread: { current: (() => void) | null } = { current: null }
+  function ListHost() {
+    const [transport] = useState(room)
+    const review = useDocumentReview('doc_1', { enabled: true, transport })
+    reread.current = review.retry
+    return <DocumentReviewMode open onOpenChange={() => {}} review={review} documentName="Grundriss.pdf" canPickAssignee={false} />
+  }
+  const column = () => screen.getByTestId('review-list-column')
+  const toggle = () => screen.getByTestId('review-list-open')
+
+  it('stays folded while the document has no marks, and stands up when the first one arrives', async () => {
+    serve([])
+    render(<ListHost />)
+    await screen.findByTestId('review-empty')
+    expect(column()).not.toBeVisible()
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle()).not.toHaveAttribute('aria-haspopup')
+
+    serve([view({ id: 'a1' })])
+    act(() => reread.current?.())
+
+    await waitFor(() => expect(column()).toBeVisible())
+    expect(within(column()).getByTestId('review-row')).toBeInTheDocument()
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('stands beside the sheet at once on a document that has marks, done ones too', async () => {
+    serve([view({ id: 'a1', status: 'resolved' })])
+    render(<ListHost />)
+    await waitFor(() => expect(column()).toBeVisible())
+  })
+
+  it('opens and folds on the reader’s word, and keeps to it when marks come and go', async () => {
+    serve([])
+    render(<ListHost />)
+    await screen.findByTestId('review-empty')
+
+    await userEvent.click(toggle())
+    expect(column()).toBeVisible()
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+
+    await userEvent.click(toggle())
+    expect(column()).not.toBeVisible()
+
+    // Folded by the reader: a mark arriving does not unfold it over their head.
+    serve([view({ id: 'a1' })])
+    act(() => reread.current?.())
+    await waitFor(() => expect(toggle()).toHaveTextContent(/^1$/))
+    expect(column()).not.toBeVisible()
   })
 })
 
@@ -685,7 +767,7 @@ describe('the list on a phone', () => {
     await screen.findAllByTestId('review-row')
     const button = screen.getByTestId('review-list-open')
     expect(button).toHaveTextContent(/^2$/)
-    expect(button).toHaveAccessibleName('Annotations: 2 open annotations and 1 proposal from Piloti')
+    expect(button).toHaveAccessibleName(`Annotations: 2 open annotations and 1 proposal from ${PRODUCT_NAME}`)
   })
 
   it('says when nothing is open', async () => {
@@ -748,5 +830,44 @@ describe('opening the review reads the news about new marks', () => {
     )
     render(<Host />)
     await waitFor(() => expect(reads).toContainEqual({ resourceType: 'document', resourceId: 'doc_1', marksSet: true }))
+  })
+})
+
+describe('beside a panel docked at the page’s start edge (ADR-0148)', () => {
+  // Room for the dock (`DOCK_LAYOUT_QUERY`); every other query as the environment answers it.
+  const realMatchMedia = window.matchMedia
+  beforeEach(() => {
+    window.matchMedia = ((query: string) => ({
+      matches: query === DOCK_LAYOUT_QUERY ? true : realMatchMedia(query).matches,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia
+    serve([])
+  })
+  afterEach(() => {
+    window.matchMedia = realMatchMedia
+    useStartDock.getState().close()
+  })
+
+  it('alone, is the full-screen modal it always was: a scrim over everything', async () => {
+    render(<Host />)
+    expect(await screen.findByTestId('document-review')).toBeInTheDocument()
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).not.toBeNull()
+  })
+
+  it('beside the Postfach, covers the page and leaves the panel usable: no scrim, and touching the panel does not close it', async () => {
+    useStartDock.getState().open('inbox')
+    const onOpenChange = vi.fn()
+    const panel = document.createElement('button')
+    document.body.appendChild(panel)
+    onTestFinished(() => panel.remove())
+    render(<Host onOpenChange={onOpenChange} />)
+    const review = await screen.findByTestId('document-review')
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull()
+    expect(review.className).toContain('left-[var(--page-inset-start,0px)]')
+    fireEvent.pointerDown(panel)
+    fireEvent.focus(panel)
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
 })

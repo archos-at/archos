@@ -268,8 +268,8 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
     """
     Register agent-agnostic async job routes.
 
-    Uses the agent runtime's JobStore for job metadata. Research runs on the database-claimed
-    queue (ADR-0021). The /v1/data_sources endpoint is always registered.
+    Uses the agent runtime's JobStore for job metadata. Research runs on Hatchet
+    (ADR-0150). The /v1/data_sources endpoint is always registered.
     """
     from .builder_state import set_active_builder
 
@@ -279,7 +279,7 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
 
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
-    from ..jobs import queue
+    from ..jobs import orchestrator_runs
     from ..jobs.access import ensure_job_access_table
     from ..jobs.event_store import EventStore
     from . import job_handlers
@@ -294,9 +294,9 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
     logger.info("Registered /v1/data_sources and /v1/jobs/async/agents routes")
 
     db_url = getattr(worker, "_db_url", None) or os.environ.get("NAT_JOB_STORE_DB_URL", "sqlite:///./data/jobs.db")
-    # The job store the routes read and write. Research runs on the database-claimed
-    # queue (ADR-0021), so there is no scheduler: JobStore only stores the address
-    # it is given, and every call here goes to the database.
+    # The job store the routes read and write. Research runs on Hatchet (ADR-0150),
+    # so there is no Dask scheduler: JobStore only stores the address it is given,
+    # and every call here goes to the database.
     job_store = JobStore(scheduler_address="", db_url=db_url)
     # submit_agent_job resolves the database from the environment only; publish the
     # worker-provided value so an agent-runtime-config-only deployment (no env vars) doesn't
@@ -311,7 +311,7 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
     default_expiry_seconds = getattr(front_end_config, "expiry_seconds", 86400) if front_end_config else 86400
     logger.info("Registering async job routes: db=%s, expiry=%ds", redact_db_url(db_url), default_expiry_seconds)
     await asyncio.get_running_loop().run_in_executor(None, ensure_job_access_table, db_url)
-    await asyncio.get_running_loop().run_in_executor(None, queue.ensure_research_queue_table, db_url)
+    await asyncio.get_running_loop().run_in_executor(None, orchestrator_runs.ensure_table, db_url)
     handlers = job_handlers.JobRouteHandlers(builder, job_store, db_url, default_expiry_seconds)
     _add_routes(app, handlers, _JOB_ROUTES)
     logger.info("Registered async job routes at /v1/jobs/async")
@@ -364,8 +364,10 @@ def _add_housekeeping_routes(app: FastAPI, job_store, db_url: str, expiry_second
     async def housekeeping_base_corpus(request: Request) -> dict:
         from agent import oib_sync
 
+        from ..jobs.corpus_payloads import mark_corpus_chunks
+
         _require_internal_token(request)
-        result = await asyncio.to_thread(oib_sync.sync, enqueue=enqueue_only)
+        result = await asyncio.to_thread(oib_sync.sync, enqueue=enqueue_only, mark_chunks=mark_corpus_chunks)
         return {
             "enqueued": result.enqueued,
             "ingested_recorded": result.ingested_recorded,

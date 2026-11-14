@@ -209,10 +209,10 @@ describe('ChatToolbar', () => {
       expect(onNewSession).toHaveBeenCalledTimes(1)
     })
 
-    test('a chat that has not started names its history door, so the glyph is not a mystery', () => {
-      render(<ChatToolbar isChatStarted={false} />)
+    test('beside a title the door’s word stands under its glyph, so the title keeps its room', () => {
+      render(<ChatToolbar sessionTitle="Brandschutz Stiegenhaus" />)
 
-      expect(within(screen.getByRole('button', { name: 'Chat history' })).getByText('Chat history')).toHaveClass('sm:hidden')
+      expect(screen.getByTestId('chat-history-door')).toHaveClass('max-sm:flex-col', 'max-sm:text-meta')
     })
   })
 
@@ -234,47 +234,31 @@ describe('ChatToolbar', () => {
     })
   })
 
-  describe('phone context row', () => {
+  describe('phone top', () => {
     beforeEach(() => {
-      useShellOverlays.setState({ paletteOpen: false, projectSheetOpen: false })
+      useShellOverlays.setState({ paletteOpen: false })
       mockIsMobile = false
     })
 
-    test('names the project and opens the switcher sheet — the chat route has no phone header', async () => {
-      const user = userEvent.setup()
-      render(<ChatToolbar sessionTitle="My Session" projectName="Wohnbau Favoriten" />)
+    // The founder (2026-11-10): „on mobile lets remove it entirely“. No project name and no lone search
+    // glyph stand over the pills: the project is the first row of „Mehr“, and the search is listed there.
+    test('carries no project name and no search over the pills: the toolbar starts with its pills', () => {
+      mockIsMobile = true
+      render(<ChatToolbar sessionTitle="My Session" />)
 
-      const row = screen.getByTestId('chat-project-context')
-      const pill = within(row).getByTestId('project-pill')
-      expect(pill).toHaveTextContent('Wohnbau Favoriten')
-      await user.click(pill)
-
-      expect(useShellOverlays.getState().projectSheetOpen).toBe(true)
-    })
-
-    test('carries the search that opens the command palette', async () => {
-      const user = userEvent.setup()
-      render(<ChatToolbar sessionTitle="My Session" projectName="Wohnbau Favoriten" />)
-
-      await user.click(within(screen.getByTestId('chat-project-context')).getByTestId('shell-search'))
-
-      expect(useShellOverlays.getState().paletteOpen).toBe(true)
-    })
-
-    test('is there on a chat that has not started, where the reader most needs a way out', () => {
-      render(<ChatToolbar projectName="Wohnbau Favoriten" isChatStarted={false} />)
-
-      expect(screen.getByTestId('project-pill')).toBeInTheDocument()
-      expect(screen.getByTestId('shell-search')).toBeInTheDocument()
+      const line = screen.getByTestId('chat-connection-line')
+      expect(line.querySelectorAll('button, a, p')).toHaveLength(0)
+      expect(screen.queryByTestId('shell-search')).toBeNull()
+      expect(screen.queryByTestId('project-crumb')).toBeNull()
     })
 
     test('the connection line is mounted on the phone shell only', () => {
-      const { unmount } = render(<ChatToolbar projectName="Wohnbau Favoriten" />)
+      const { unmount } = render(<ChatToolbar />)
       expect(document.querySelector('[data-slot="connection-band"]')).toBeNull()
       unmount()
 
       mockIsMobile = true
-      render(<ChatToolbar projectName="Wohnbau Favoriten" />)
+      render(<ChatToolbar />)
       expect(document.querySelector('[data-slot="connection-band"]')).not.toBeNull()
     })
 
@@ -283,7 +267,7 @@ describe('ChatToolbar', () => {
       const rect = vi
         .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
         .mockReturnValue({ height: 163 } as DOMRect)
-      render(<ChatToolbar projectName="Wohnbau Favoriten" onHeightChange={onHeightChange} />)
+      render(<ChatToolbar onHeightChange={onHeightChange} />)
       rect.mockRestore()
 
       expect(onHeightChange).toHaveBeenCalledWith(163)
@@ -295,13 +279,12 @@ describe('ChatToolbar', () => {
       render(
         <ChatToolbar
           sessionTitle="My Session"
-          projectName="Wohnbau Favoriten"
           isChatStarted={false}
         />
       )
 
       // The quiet navigation affordances stay available on the empty start screen.
-      expect(screen.getByRole('button', { name: 'Chat history' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Chats' })).toBeInTheDocument()
 
       // The actions + thread identity are withheld until a chat starts.
       expect(screen.queryByTestId('thread-menu')).not.toBeInTheDocument()
@@ -316,7 +299,6 @@ describe('ChatToolbar', () => {
       render(
         <ChatToolbar
           sessionTitle="My Session"
-          projectName="Wohnbau Favoriten"
           isChatStarted
         />
       )
@@ -351,13 +333,37 @@ describe('ChatToolbar', () => {
   // The data-sources toggle was removed from the toolbar: the composer's
   // Datengrundlage chip already owns opening that panel, so the navbar no
   // longer duplicates it.
+  // None of the pilot offices found the chat history (2026-11-10): its door was a lone glyph whose name lived
+  // in aria-label and title alone. Its word is visible at every width, in every state of the chat.
+  describe('the history door is never a glyph alone', () => {
+    const HIDING = /(^|:)(hidden|sr-only|invisible)$/
+
+    test.each([
+      ['an empty chat', { isChatStarted: false }],
+      ['a chat with a title', { isChatStarted: true, sessionTitle: 'Fluchtweglängen OG2' }],
+      ['a chat whose title is not in yet', { isChatStarted: true }],
+    ])('%s: the door says „Chats“ in words, and no breakpoint hides them', (_, props) => {
+      render(<ChatToolbar {...props} />)
+
+      const door = screen.getByTestId('chat-history-door')
+      const label = door.querySelector('[data-slot="history-door-label"]')
+      expect(label?.textContent).toBe('Chats')
+      // Its accessible name is the word it shows (label in name), not an aria-label beside a glyph.
+      expect(door).not.toHaveAttribute('aria-label')
+      expect(door).toHaveAccessibleName('Chats')
+      for (const node of [door, label]) {
+        expect([...(node?.classList ?? [])].filter((c) => HIDING.test(c)), node?.outerHTML.slice(0, 80)).toEqual([])
+      }
+    })
+  })
+
   describe('sessions toggle', () => {
     test('toggles the sessions panel', async () => {
       const user = userEvent.setup()
 
       render(<ChatToolbar />)
 
-      await user.click(screen.getByRole('button', { name: 'Chat history' }))
+      await user.click(screen.getByRole('button', { name: 'Chats' }))
 
       expect(mockToggleSessionsPanel).toHaveBeenCalledOnce()
     })
@@ -371,7 +377,7 @@ describe('ChatToolbar', () => {
       render(<ChatToolbar sessionTitle="Fluchtwegbreiten Treppenhaus 2" />)
 
       expect(screen.queryByRole('button', { name: 'Open navigation' })).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Chat history' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Chats' })).toBeInTheDocument()
     })
 
     test('the title takes the leftover width and may use two lines', () => {
@@ -382,6 +388,31 @@ describe('ChatToolbar', () => {
       // No percentage cap on the pill that holds it.
       expect(title.closest('div[class*="max-sm:flex-1"]')).not.toBeNull()
       expect(title.closest('div[class*="max-w-[64%]"]')).toBeNull()
+    })
+
+    // Ticket #38, R1: in a narrow window the title ran under „Neuer Chat“, both
+    // unreadable, and the thread read through the header behind the pills.
+    test('from `sm` the title yields to New chat: it shrinks and clamps, the actions keep their width', () => {
+      render(<ChatToolbar sessionTitle="Wiener Garagengesetz — Stellplatzverpflichtung" />)
+
+      const title = screen.getByText('Wiener Garagengesetz — Stellplatzverpflichtung')
+      expect(title.className).toContain('sm:line-clamp-1')
+      // `flex-none` cannot shrink: the title kept its whole width and overflowed.
+      for (const box of [title.closest('button'), title.closest('nav')]) {
+        expect(box?.className).toContain('min-w-0')
+        expect(box?.className).toContain('sm:flex-initial')
+        expect(box?.className).not.toContain('sm:flex-none')
+      }
+      const newChat = screen.getByRole('button', { name: 'Create new session' })
+      expect(newChat.parentElement?.className).toContain('shrink-0')
+    })
+
+    test('the header is an opaque band in the page surface, and takes its own clicks', () => {
+      render(<ChatToolbar sessionTitle="My Session" />)
+
+      const header = screen.getByRole('banner')
+      expect(header.className).toContain('bg-background')
+      expect(header.className).not.toContain('pointer-events-none')
     })
 
     test('a running research is on the phone too, at the end of the title row, not behind `hidden sm:flex`', () => {
@@ -437,8 +468,20 @@ describe('ChatToolbar', () => {
       expect(screen.getByText('My Session')).toBeInTheDocument()
     })
 
+    test('the title is the size of the New chat label beside it, from `sm` on', () => {
+      // The title read as a heading next to a button, one step larger than the
+      // only other words in the row. Beside each other they are one row.
+      render(<ChatToolbar sessionTitle="My Session" />)
+
+      const newChatLabel = screen.getByText('New chat')
+      const title = screen.getByRole('button', { name: /rename session/i })
+      expect(newChatLabel.className).toContain('text-xs')
+      expect(title.className).toContain('sm:text-xs')
+      expect(title.className).toContain('sm:leading-4')
+    })
+
     test('does not repeat the project name in the breadcrumb — the context row above it carries it', () => {
-      render(<ChatToolbar sessionTitle="My Session" projectName="Wohnbau Favoriten" />)
+      render(<ChatToolbar sessionTitle="My Session" />)
 
       const breadcrumb = screen.getByRole('navigation')
       expect(within(breadcrumb).queryByText('Wohnbau Favoriten')).not.toBeInTheDocument()

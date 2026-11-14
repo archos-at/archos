@@ -79,7 +79,7 @@ export function ViewerRailSection({ label, action, children }: ViewerRailSection
           reference this design follows labels the same thing "Models" and
           "Layers", quietly.
         */}
-        <h3 className="text-muted-foreground text-xs font-semibold tracking-wide">{label}</h3>
+        <h3 className="text-muted-foreground text-xs font-medium">{label}</h3>
         {action}
       </ViewerSectionHeader>
       <div className="px-1.5 pb-2">{children}</div>
@@ -157,7 +157,7 @@ export function ViewerRailItem({
         // the muted wash. Colour carries provenance here — blue means
         // Rechtsquelle — so a coloured "selected" row would be making a claim
         // about where the model came from.
-        selected ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        selected ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:bg-hover hover:text-foreground',
         disabled && 'pointer-events-none opacity-50'
       )}
     >

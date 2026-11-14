@@ -43,7 +43,12 @@ const ToggleGroup = React.forwardRef<
   React.ElementRef<typeof ToggleGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> &
     VariantProps<typeof toggleVariants> & {
-      /** Joined segment cluster (view switcher). */
+      /**
+       * Joined segment cluster (view switcher, a filter): a track of the one grey with the chosen segment on a
+       * white thumb, Apple's segmented control. There is no trackless form: without its track the unchosen
+       * segments read as plain words beside a filled one, and nothing said they were the other half of a choice
+       * (design-language.md, „A choice sits on its track“).
+       */
       segmented?: boolean
     }
 >(
@@ -107,7 +112,10 @@ const ToggleGroup = React.forwardRef<
               // and a 15px bar under a 32px control is louder than the thing
               // it describes; the row still scrolls by drag, wheel and
               // keyboard, and focusing a segment scrolls it into view.
-              'w-fit max-w-full gap-0 overflow-x-auto rounded-lg border border-border bg-card p-0.5 shadow-2xs scrollbar-hide'
+              //
+              // A track, not a box: the one grey with no border, and the
+              // chosen segment a white thumb on it (the pill below).
+              'w-fit max-w-full gap-0 overflow-x-auto scrollbar-hide rounded-control bg-desk p-0.5'
             : 'flex-wrap gap-1.5',
           className
         )}
@@ -130,7 +138,8 @@ ToggleGroup.displayName = ToggleGroupPrimitive.Root.displayName
  * element. Non-segmented groups never render it and are untouched.
  */
 const SEGMENTED_PILL_BG: Record<string, string> = {
-  default: 'bg-accent',
+  // The thumb: white with the press's edge and its 1px shadow at rest, and only ever on a track.
+  default: 'bg-sheet shadow-thumb',
   outline: 'bg-card',
   inverted: 'bg-foreground',
 }
@@ -152,6 +161,9 @@ const ToggleGroupItem = React.forwardRef<
       ref={ref}
       value={value}
       data-slot="toggle-group-item"
+      // On a track the keyboard's ring is drawn inside the segment (`data-focus-inset`, `globals.css`): the track
+      // scrolls sideways, so it clips, and a ring 2px outside the segment showed as four corner marks.
+      data-focus-inset={context.segmented ? '' : undefined}
       className={cn(
         toggleVariants({
           variant: context.variant ?? variant,
@@ -163,8 +175,12 @@ const ToggleGroupItem = React.forwardRef<
         // like the tabs trigger. Only ink stays here. `relative isolate` +
         // pill `-z-10` keeps the text above the pill with no wrapper element,
         // so no consumer needs a relative wrapper of its own.
+        // On the track an unchosen segment takes ink and the pointer's fill,
+        // one step down from the track, as a row does; the chosen one keeps
+        // its thumb and takes nothing. Ink alone was the faintest answer in
+        // the app, next to nothing on a glyph (V5, 2026-11-12).
         context.segmented &&
-          'relative isolate data-[state=on]:bg-transparent data-[state=on]:shadow-none',
+          'relative isolate hover:bg-transparent data-[state=off]:hover:bg-hover data-[state=on]:bg-transparent data-[state=on]:shadow-none focus-visible:ring-inset focus-visible:ring-offset-0',
         // Never squeezed: a row of segments that runs out of room scrolls
         // (the segmented tray is `overflow-x-auto`) or wraps (the plain
         // group), and a segment that shrank instead cut its own label and
@@ -185,7 +201,7 @@ const ToggleGroupItem = React.forwardRef<
           // collision visible in devtools instead of only in the animation.
           data-pill-id={context.pillId}
           className={cn(
-            'absolute inset-0 -z-10 rounded-[inherit] shadow-2xs',
+            'absolute inset-0 -z-10 rounded-[inherit]',
             SEGMENTED_PILL_BG[resolvedVariant] ?? SEGMENTED_PILL_BG.default
           )}
           // Unbounded travel across the segment cluster is why this is

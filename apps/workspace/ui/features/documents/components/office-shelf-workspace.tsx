@@ -1,16 +1,20 @@
 'use client'
 
-import { useCallback, useMemo, type ReactNode } from 'react'
-import { Archive } from 'lucide-react'
-import { sourceTint } from '@/lib/ui/source-tint'
+import { useMemo, type JSX, type ReactNode } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { CountPill } from '@/components/ui/count-pill'
+import { PageHeader } from '@/components/ui/page-header'
+import { SECTION_HEADER_CLASS } from '@/components/shell/project-section-frame'
+import { SECTION_CONTENT_WIDTH } from '@/components/shell/section-layout'
+import { SectionPlaceScope, SectionPlaceUp, useSectionPlace } from '@/components/shell/section-place'
+import { SectionToolRow, SectionToolRowScope } from '@/components/shell/section-tool-row'
 import { useTranslations } from '@/i18n'
+import { cn } from '@/lib/utils'
 import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { createDocumentNameProbeClient } from '@/lib/documents/name-probe-client'
-import { inferDocumentKind } from '../document-kind'
-import type { FileItem } from '../file-types'
 import { useOfficeShelfDocuments } from '../hooks/use-office-shelf-documents'
-import { OFFICE_SHELF_ENDPOINTS, type CardExtras, type FileShelf } from '../lib/file-shelf'
+import { usePhoneLayout } from '../hooks/use-phone-layout'
+import { OFFICE_SHELF_ENDPOINTS, type FileShelf } from '../lib/file-shelf'
 import { FileWorkspace } from './file-workspace'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
@@ -20,25 +24,23 @@ interface OfficeShelfWorkspaceProps {
   /** Whether an `.ifc` here can reach the model workspace (`ifc-models`). */
   showModels?: boolean
   /**
-   * Controls appended at the end of the identity row, after the upload button.
-   * The Archiv sheet slots its close control here so the workspace's own
-   * header stays the sheet's ONE header instead of gaining a twin above it.
+   * Controls beside the header, after the upload button. The Archiv sheet slots
+   * its close control here so the workspace's own header stays the sheet's ONE
+   * header instead of gaining a twin above it.
    */
   trailingActions?: ReactNode
+  /** The office's name, the crumb over the title as a project's name is over its Dateien. */
+  organizationName?: string | null
 }
-
-/**
- * Gold Büroablage identity mark (spec §4, `--source-office`): icon + label
- * together so color is never the only carrier (a11y).
- */
-const OFFICE_TINT = sourceTint('office')
 
 /**
  * The office Archiv: {@link FileWorkspace} over the organization's shelf.
  *
- * It is a project's Dateien with the project taken out. What it adds is the
- * office's own identity — the gold mark, name and count, the sheet's close
- * control — and the permission model: a member without `org:office_shelf:manage` gets
+ * It is a project's Dateien with the project taken out, and it looks it: the
+ * project section's header (crumb, title, tool row, the open folder as its
+ * title), the same cards and rows.
+ * What it adds is the count beside the title, the sheet's close control, and the
+ * permission model: a member without `org:office_shelf:manage` gets
  * the read-only view (list, folders, search, filters, preview, download).
  * There is no assignment (collaboration is project-scoped) and no „Frage zur
  * Datei" (there is no project chat to ask in).
@@ -47,38 +49,13 @@ export function OfficeShelfWorkspace({
   canManage,
   showModels = false,
   trailingActions,
+  organizationName = null,
 }: OfficeShelfWorkspaceProps) {
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
+  const phone = usePhoneLayout()
   // „Suche“ in place of the listing (`?mode=search`), scoped to the shelf and the open folder.
   const search = useShelfSearchMode()
-
-  /** The gold kind chip, and where the document came from when it says. */
-  const cardExtras = useCallback(
-    (file: FileItem): CardExtras => {
-      const kind = inferDocumentKind(file)
-      const provenance = (file.tags ?? []).slice(0, 3).join(' · ')
-      const line = t('library.provenance', { source: provenance })
-      return {
-        source: 'office',
-        sourceLabel: t(`library.kind.${kind}` as 'library.kind.document'),
-        ...(provenance !== ''
-          ? {
-              footerLead: (
-                <span
-                  className="text-muted-foreground/80 min-w-0 flex-1 truncate"
-                  data-testid="office-shelf-provenance"
-                  title={line}
-                >
-                  {line}
-                </span>
-              ),
-            }
-          : {}),
-      }
-    },
-    [t]
-  )
 
   const shelf: FileShelf = {
     source: 'office',
@@ -99,7 +76,6 @@ export function OfficeShelfWorkspace({
     probeNames: probe.officeShelf,
     probeRevisions: probe.officeShelfRevisions,
     preview: { kind: 'dialog' },
-    cardExtras,
     messages: {
       dropToUpload: t('workspace.dropToUpload'),
       ingestionComplete: (name) => t('toast.ingestionComplete', { name }),
@@ -124,52 +100,86 @@ export function OfficeShelfWorkspace({
   }
 
   return (
-    <FileWorkspace
-      shelf={shelf}
-      onOpenSearch={search.open}
-      renderHeader={(controls, { count }) => (
-        // Identity row — the gold Büroablage mark, the name of the store, and
-        // how much is in it. The count sits with the title: it is a property of
-        // the Archiv, and the one number a reader wants before they filter.
-        <div className="flex min-h-[4rem] flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3.5">
-          {/* Phone: the identity and the sheet's close share the first line (the
-              close is the thumb's way out, so it stays at the top right), and
-              the controls take the line under them at the full width, where
-              the search can be a field instead of a sliver. From `sm` the
-              three sit in one row, as they always did. */}
-          <div className="flex min-w-0 items-center gap-3 max-sm:flex-1 max-sm:basis-0">
-            <span
-              className="shadow-2xs flex size-9 shrink-0 items-center justify-center rounded-xl"
-              style={OFFICE_TINT}
-              aria-hidden
-            >
-              <Archive className="size-[18px]" />
+    // Dateien's header, the same three parts in the same order: where you are (the crumb, inside a folder), what it is
+    // (the title, the folder's name inside one, with the way up at its start), what you can do (the tool row). The
+    // Büroablage had its own: a standing subtitle, a path row with „Zurück zu …“ under the tools, and no title for
+    // the folder (review of 2026-11-11, „passt noch nicht mit der Seite Dateien zusammen“).
+    <SectionPlaceScope root={t('title')}>
+      <SectionToolRowScope enabled={!phone}>
+        <FileWorkspace
+          shelf={shelf}
+          onOpenSearch={search.open}
+          renderHeader={(controls, { count }) => (
+            <OfficeShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} organizationName={organizationName} />
+          )}
+        />
+      </SectionToolRowScope>
+    </SectionPlaceScope>
+  )
+}
+
+/**
+ * The Büroablage's header: the open folder (from {@link useSectionPlace}) or the store with its count, the sheet's
+ * close at the end of the title's line (top right on a phone too, where the thumb looks for the way out), and the tool
+ * row under it. The count stays with the store's title: the one number a reader wants before they filter.
+ */
+function OfficeShelfHeader({
+  controls,
+  count,
+  phone,
+  trailingActions,
+  organizationName,
+}: {
+  controls: ReactNode
+  count: number | null
+  phone: boolean
+  trailingActions?: ReactNode
+  organizationName: string | null
+}): JSX.Element {
+  const t = useTranslations(officeShelfCopy)
+  const place = useSectionPlace()
+  return (
+    <div className={cn(SECTION_HEADER_CLASS, SECTION_CONTENT_WIDTH)} data-testid="office-shelf-header">
+      <PageHeader
+        title={
+          place ? (
+            place.title
+          ) : (
+            <span className="inline-flex min-w-0 items-center gap-2">
+              {t('title')}
+              {count !== null && count > 0 && <CountPill data-testid="office-shelf-document-count" count={count} />}
             </span>
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-2">
-                <h2 className="text-foreground truncate text-sm font-semibold tracking-tight">{t('title')}</h2>
-                <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center">
-                  {count !== null && count > 0 && (
-                    <CountPill data-testid="office-shelf-document-count" count={count} />
-                  )}
-                </span>
-              </div>
-              <p className="text-muted-foreground truncate text-xs">{t('subtitle')}</p>
-            </div>
-          </div>
-          {/* `max-w-full` is what keeps this inside the card: the controls group
-              is `shrink-0`, so its flex basis is its whole single-line width
-              (627px with the search and the upload button), and only a max
-              width can cap a basis the item refuses to shrink below. */}
-          <div
-            className="flex min-w-0 max-w-full items-center justify-end gap-2 max-sm:order-3 max-sm:w-full sm:ml-auto [&>*]:max-w-full"
-            data-testid="office-shelf-controls"
-          >
-            {controls}
-          </div>
-          {trailingActions && <div className="flex shrink-0 items-center max-sm:order-2">{trailingActions}</div>}
+          )
+        }
+        titleClassName="line-clamp-2"
+        titleTooltip={place?.title}
+        titleAside={place?.count && <span className="text-muted-foreground text-[13px] leading-5 tabular-nums phone:hidden">{place.count}</span>}
+        // As a project's Dateien: the office over the store („Atelier Nord“), the way there inside a folder („Atelier
+        // Nord › Büroablage › Planung“), so the title keeps its line from the top level into a folder. A phone has
+        // only the folder's short trail.
+        crumb={
+          phone ? (
+            place?.phoneTrail
+          ) : organizationName ? (
+            <>
+              <span className="max-w-[16rem] shrink-0 truncate" title={organizationName}>{organizationName}</span>
+              {place && <ChevronRight className="size-3 shrink-0" aria-hidden />}
+              {place?.trail}
+            </>
+          ) : (
+            place?.trail
+          )
+        }
+        crumbClassName={phone ? 'text-[13px] leading-5' : undefined}
+        titleStart={place ? <SectionPlaceUp up={place.up} /> : undefined}
+        action={trailingActions}
+        actionInline
+      />
+      <SectionToolRow className="mt-4">
+        <div className="flex min-w-0 flex-1" data-testid="office-shelf-controls">
+          {controls}
         </div>
-      )}
-    />
+      </SectionToolRow>
+    </div>
   )
 }

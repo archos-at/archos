@@ -45,7 +45,7 @@ export function DrawingStructuredDetails({ structured }: { structured: DrawingSt
 
   return (
     <div className="mt-1.5">
-      <button
+      <button data-attr="files-open"
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
@@ -184,7 +184,7 @@ function DocumentRows({ document }: { document: DrawingStructured['document'] })
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-1.5">
-      <dt className="text-muted-foreground/80 shrink-0">{label}</dt>
+      <dt className="text-muted-foreground shrink-0">{label}</dt>
       <dd className="text-foreground/90 min-w-0">{children}</dd>
     </div>
   )

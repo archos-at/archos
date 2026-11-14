@@ -77,7 +77,6 @@ import {
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { CitationDefectChart } from '@/components/charts/citation-defect-chart'
-import { SeriesPaletteStyle } from '@/components/charts/palette'
 import { usePlatformCan } from '@/features/platform/platform-access'
 import { useLocale, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
@@ -237,8 +236,9 @@ interface SnapshotDto {
  * candidate copied beats duplicating, or bypassing, those checks.
  */
 const ACTION_ANCHOR: Partial<Record<MissingSourceAction, string>> = {
-  upload_to_base_knowledge: '/app/platform/knowledge',
-  add_to_norm_catalog: '/app/platform/norms',
+  // A missing text or norm is a record of its country, added through a change request there.
+  upload_to_base_knowledge: '/app/platform/countries',
+  add_to_norm_catalog: '/app/platform/countries',
 }
 
 /** The timing tab of Platform → Answer quality, preselecting one conversation. */
@@ -334,7 +334,6 @@ function RankedBars({
   const max = Math.max(...rows.map((row) => row.value), 1)
   return (
     <ul className="usage-viz flex flex-col gap-3">
-      <SeriesPaletteStyle />
       {rows.map((row) => (
         <li key={row.key} className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between gap-3 text-sm">
@@ -399,7 +398,7 @@ function FindingRow({
       <li className="group/finding">
         <CollapsibleTrigger
           className={cn(
-            'duration-snap hover:bg-muted/40 flex w-full items-start gap-3 px-6 py-3 text-left transition-colors motion-reduce:transition-none',
+            'duration-snap hover:bg-hover flex w-full items-start gap-3 px-6 py-3 text-left transition-colors motion-reduce:transition-none',
             'outline-none',
             FOCUS_RING_INSET
           )}
@@ -529,7 +528,7 @@ function MissingSourcesCard({
   locale: string
 }): JSX.Element {
   const t = useTranslations(platformCopy)
-  const canManage = usePlatformCan(PLATFORM_PERMISSIONS.settingsManage)
+  const can = { corpus: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite), norms: usePlatformCan(PLATFORM_PERMISSIONS.settingsManage) } // per page opened
   const { count } = useNumberFormats(locale)
 
   return (
@@ -617,10 +616,10 @@ function MissingSourcesCard({
                     <UtcTime iso={candidate.lastSeenAt} locale={locale} />
                   </TableCell>
                   <TableCell className="pr-0 text-right">
-                    {anchor && canManage ? (
+                    {anchor && can[candidate.action === 'add_to_norm_catalog' ? 'norms' : 'corpus'] ? (
                       <Button
                         asChild
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => {
                           // The identifier on the clipboard fills the target
@@ -639,7 +638,7 @@ function MissingSourcesCard({
                       </Button>
                     ) : anchor ? (
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         disabled
                         aria-label={actionLabel}
@@ -663,7 +662,7 @@ function MissingSourcesCard({
           {total > sources.length
             ? `${t('citations.shownOfTotal', { shown: count(sources.length), total: count(total) })} `
             : null}
-          {canManage ? t('citations.missingCaveat') : t('citations.missingReadOnly')}
+          {can.corpus || can.norms ? t('citations.missingCaveat') : t('citations.missingReadOnly')}
         </p>
       </CardContent>
     </Card>
@@ -730,7 +729,7 @@ function OrganizationsCard({
                       <button
                         type="button"
                         className={cn(
-                          'hover:text-foreground inline-flex items-center gap-1 rounded-sm uppercase tracking-wider outline-none',
+                          'hover:text-foreground inline-flex items-center gap-1 rounded-sm outline-none',
                           FOCUS_RING_INSET,
                           active && 'text-foreground'
                         )}
@@ -1055,7 +1054,7 @@ export function CitationHealth({ scope }: { scope: QualityScope }): JSX.Element 
 
   const toolbar = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <Button variant="outline" size="sm" onClick={() => load(scopeQuery)} disabled={loading}>
+      <Button variant="secondary" size="sm" onClick={() => load(scopeQuery)} disabled={loading}>
         <RefreshCw
           className={cn('size-3.5', loading && 'animate-spin motion-reduce:animate-none')}
           aria-hidden
@@ -1064,7 +1063,7 @@ export function CitationHealth({ scope }: { scope: QualityScope }): JSX.Element 
       </Button>
       {/* A plain link, not a fetch: the route sets Content-Disposition, so the
           browser downloads without buffering the bundle in JS. */}
-      <Button asChild variant="outline" size="sm">
+      <Button asChild variant="secondary" size="sm">
         <a href={`/api/platform/citation-health/export?${scopeQuery}`} download>
           <Download className="size-3.5" aria-hidden />
           {t('citations.export')}

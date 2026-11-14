@@ -6,11 +6,23 @@
 version: '3'
 
 vars:
+  # The tests of the repository's own machinery, which `be:test:harness` runs in
+  # CI's Repo checks on every run. One list, read by that task, by
+  # be:test:shard (which leaves them out, so a push does not run them twice) and
+  # by scripts/check_ci_filter_reads.py.
+  HARNESS_TESTS: >-
+    tests/test_ci_workflows.py tests/test_reuse_green_run.py tests/test_last_green.py
+    tests/test_image_inputs.py tests/test_pinned_images.py tests/test_plan_summary.py
+    tests/test_release_notes.py tests/test_pr_closing_keywords.py tests/test_bun_version_pin.py
+    tests/test_pr_selection.py tests/test_ci_filter_coverage.py packages/agent/tests/test_product_framing.py
+    tests/test_repo_layout.py tests/test_ci_filter_reads.py tests/test_lead_time.py
+    tests/test_check_brand_prose.py tests/test_migration_contract.py tests/test_dependabot_merge.py
+    tests/test_verify_plan.py tests/test_test_servers_stop_fast.py tests/test_check_country_in_code.py
   # The Python packages under packages/ (ADR-0145 row 6): the uv workspace
   # members there, in the order of pyproject.toml's testpaths. ifc-spatial-py is
   # not one; it keeps its own lock and its own task (pkg:test).
   # tests/test_python_packages.py holds the three lists to one another.
-  PY_PACKAGES: packages/knowledge-layer packages/ris-adapter packages/tavily-web-search
+  PY_PACKAGES: packages/knowledge-layer packages/public-sources packages/ris-adapter packages/tavily-web-search
   # The pull request selection (be:test:testmon, be:test:affected): one testmon
   # database per suite, and the arguments each suite runs with.
   TESTMON_ENV: TESTMON_DATAFILE=.testmondata-
@@ -18,7 +30,7 @@ vars:
     map:
       core: tests/ packages/agent/tests/ evals/
       api: apps/agent-host/tests/
-      sources: packages/knowledge-layer packages/ris-adapter packages/tavily-web-search --dist loadfile
+      sources: packages/knowledge-layer packages/public-sources packages/ris-adapter packages/tavily-web-search --dist loadfile
 
 tasks:
   # ── backend (src/, the Python packages, apps/agent-host) ───────────────────
@@ -51,20 +63,18 @@ tasks:
     cmds:
       # CI's Repo checks job runs these on every pull request, so the backend
       # filter need not fire for `ci/`, `releasenotes/` or a workflow alone
-      # (.github/filters.yml). They stay in the core suite too. The product-framing
+      # (.github/filters.yml). CI's core shards leave them out (be:test:shard), since
+      # Repo checks runs them on every run that runs the shards; `be:test` keeps
+      # them, so a local run still has everything. The product-framing
       # test is here because it reads the first-impression docs, and a docs-only
       # change runs no filtered tier. The layout test is here because a new
       # top-level directory can come from any tier's change.
-      - >-
-        {{.PY}} -X faulthandler -m pytest -q -p no:cacheprovider
-        tests/test_ci_workflows.py tests/test_reuse_green_run.py tests/test_last_green.py
-        tests/test_image_inputs.py tests/test_pinned_images.py tests/test_plan_summary.py
-        tests/test_release_notes.py tests/test_pr_closing_keywords.py tests/test_bun_version_pin.py
-        tests/test_pr_selection.py tests/test_ci_filter_coverage.py packages/agent/tests/test_product_framing.py
-        tests/test_repo_layout.py tests/test_ci_filter_reads.py
+      # On workers: 16s serial against 9s on four (2026-11-10), and in a UI
+      # change's verify:fast this run is what the others wait for.
+      - '{{.PY}} -X faulthandler -m pytest -q -p no:cacheprovider {{.XDIST}} {{.HARNESS_TESTS}}'
 
   be:test:sources:
-    desc: The Python packages' suites (packages/knowledge-layer, ris-adapter, tavily-web-search)
+    desc: The Python packages' suites (packages/knowledge-layer, public-sources, ris-adapter, tavily-web-search)
     cmds:
       # One run over every package. No package carries a `tests/__init__.py`, so
       # no two conftests claim the module name `tests.conftest`. A new package
@@ -186,6 +196,15 @@ tasks:
       # or localhost:6333). Only uniquely named parity_* collections are touched.
       - '{{.PY}} -m oib_retrieval.qdrant_parity.runner {{.CLI_ARGS}}'
 
+  be:eval:licensed:
+    desc: 'Licensed-seam eval — answers from norm-like licensed tables, public / seam / off / unattested, with leak checks (NEEDS OPENROUTER_API_KEY; no backend)'
+    cmds:
+      # The question the seam has to answer twice: do answers still read the
+      # office's licensed copy well, and does none of it reach a trace or a
+      # checkpoint. Exit 1 = a run other than public leaked past the quote cap;
+      # exit 3 = a run errored (a failed model call), so no broken run reads as clean.
+      - '{{.PY}} scripts/licensed_eval.py {{.CLI_ARGS}}'
+
   be:eval:decisions:
     desc: 'Decision-model eval — does Jev pick the right OIB family, corpus and evidence need on the loop-eval questions (NEEDS OPENROUTER_API_KEY; no backend)'
     cmds:
@@ -245,6 +264,19 @@ tasks:
       #   task be:eval:intake -- --report /tmp/intake_eval/before/report.json
       # docs/contributing/testing-and-verification.md, "The intake eval".
       - '{{.PY}} -m scripts.intake_eval.run {{.CLI_ARGS}}'
+
+  be:eval:memory-shelves:
+    desc: 'Memory-shelves eval — which shelf (personal, project, organization) the reflection pass and the remember tool file a note on, with the leak rate of personal matters onto shared shelves (NEEDS OPENROUTER_API_KEY; no backend)'
+    cmds:
+      # ADR-0180's harm, measured: a note about a person on a shelf other
+      # people read. The real reflection pass and the real `remember` tool on
+      # tests/fixtures/memory_shelves/cases.yaml, 3 runs each, only the BFF
+      # write faked; about 420 short calls. Run before and after a change to
+      # either prompt, the tool's schema or the personal-data filter. Exit 1 =
+      # a leak or a kept secret was written; 3 = a run errored.
+      #   task be:eval:memory-shelves -- --runs 1 --only per-01 adv-sec-02
+      #   task be:eval:memory-shelves -- --report /tmp/memory_shelves_eval/<time>/results.json
+      - '{{.PY}} -m scripts.memory_shelves_eval.run {{.CLI_ARGS}}'
 
   be:eval:turn-census:
     desc: 'Turn census — run a chat question through the real agent and count every model call, token and second it cost; writes to /tmp/turn_census unless --out, takes --override KEY VALUE (NEEDS OPENROUTER_API_KEY and the corpus ingested locally)'
@@ -321,6 +353,7 @@ tasks:
         --splits {{.TOTAL}} --group {{.INDEX}} --splitting-algorithm least_duration
         --durations-path tests/.test_durations
         --cov=packages/agent/src/agent --cov-report=
+        {{range (splitList " " .HARNESS_TESTS)}} --ignore={{.}}{{end}}
 
   be:test:coverage:
     desc: Combine the core shards' coverage data and apply the gate CI enforces
@@ -330,11 +363,20 @@ tasks:
       - '{{.PY}} -m coverage report --fail-under=65'
 
   be:test:durations:
-    desc: Re-record the core suite's per-test times that be:test:shard splits by
+    desc: Re-record the core suite's per-test times that be:test:shard splits by (NEEDS QDRANT_TEST_URL)
+    preconditions:
+      # Without a server the end-to-end ingest tests skip, and pytest-split
+      # stores a skipped test at the few milliseconds its skip took: the file
+      # would then weigh a third of CI's suite at nothing (2026-11-11).
+      - sh: '[ -n "$QDRANT_TEST_URL" ]'
+        msg: 'Set QDRANT_TEST_URL to a running Qdrant (docker run --rm -p 6333:6333 --tmpfs /qdrant/storage qdrant/qdrant:v1.19.2), or the recorded times are not what CI runs.'
     cmds:
       # Re-run when the shards' times in CI drift apart. Rounded to keep the
       # file's churn down; the split needs proportions, not precision.
-      - '{{.PY}} -X faulthandler -m pytest tests/ packages/agent/tests/ evals/ -q {{.XDIST}} --store-durations --durations-path tests/.test_durations'
+      # --clean-durations keeps only the tests of this run: without it the
+      # file only grows (1,086 of 20,206 entries were tests that no longer
+      # existed on 2026-11-11).
+      - '{{.PY}} -X faulthandler -m pytest tests/ packages/agent/tests/ evals/ -q {{.XDIST}} --store-durations --clean-durations --durations-path tests/.test_durations'
       - >-
         {{.PY}} -c "import json, pathlib; p = pathlib.Path('tests/.test_durations');
         d = json.loads(p.read_text()); p.write_text(json.dumps({k: round(v, 3) for k, v in sorted(d.items())}, indent=0) + chr(10))"
@@ -353,18 +395,45 @@ tasks:
       # The Python packages are part of the tier, and CI's backend-test job runs them too.
       - task: be:test:sources
 
+  be:verify:fast:
+    desc: The backend tier without coverage instrumentation, as verify:fast runs it
+    cmds:
+      # The 65% gate stays in be:verify and in CI (be:test:coverage). The
+      # instrumentation is 30 seconds of the core suite (168s against 138s,
+      # 2026-11-10) for a gate the suite clears at 93%.
+      - task: be:lint
+      - task: be:test
+      - task: be:test:api
+      - task: be:test:sources
+
+  be:verify:affected:
+    desc: 'The backend tier on the tests a change reaches, from this checkout''s testmon databases (verify:fast runs it; EXTRA="test files")'
+    cmds:
+      # ci/verify_plan.py picks this over be:verify:fast when the databases
+      # `task be:test:testmon` writes exist and ci/pr_selection.py says testmon
+      # can see the change. testmon compares each file with what it recorded,
+      # so an old database only widens the selection. SHARD is emptied: the UI
+      # selection beside it sets one, and this run is not split.
+      - task: be:lint
+      - for: [core, api, sources]
+        task: be:test:affected
+        vars: { SUITE: '{{.ITEM}}', SHARD: '', EXTRA: '' }
+      - cmd: '"{{.PY}}" -X faulthandler -m pytest {{.EXTRA}} -q {{.XDIST}}'
+        if: '[ -n "{{.EXTRA}}" ]'
+
   be:test:postgres:
     desc: >-
-      The claim-queue suites' Postgres branch (production's SQL), and the
-      rename of the AI-Q databases, against a throwaway cluster. Needs
-      PostgreSQL server binaries.
+      The claim-queue suites' Postgres branch (production's SQL), the research
+      cutover's row locks against the old claim, the rename of
+      the AI-Q databases, and the metadata store's mail records, against a
+      throwaway cluster. Needs PostgreSQL server binaries.
     cmds:
       # Serial, not -n logical: every test drops and recreates the same tables
       # in the one scratch database.
       - >-
         bash scripts/rls-test-db.sh --exec "{{.PY}}" -X faulthandler -m pytest -q
         packages/agent/tests/common/test_claim_queue.py
-        tests/knowledge_layer_tests/test_ingest_queue.py
-        apps/agent-host/tests/test_research_queue_fair.py
         packages/agent/tests/knowledge/folder_cards
         tests/test_postgres_rename_legacy_names.py
+        packages/agent/tests/knowledge/test_mail_facts.py
+        apps/agent-host/tests/test_research_cutover.py

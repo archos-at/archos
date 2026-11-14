@@ -89,7 +89,7 @@ export function SkillDetail({
                 <span
                   aria-hidden
                   className={cn(
-                    'text-muted-foreground font-mono text-sm font-semibold',
+                    'text-muted-foreground font-mono text-sm font-medium',
                     !skill.enabled && 'opacity-45',
                   )}
                 >
@@ -130,7 +130,7 @@ export function SkillDetail({
             </section>
 
             <section aria-label={t('drawer.instructionHeading')}>
-              <h2 className="text-foreground text-sm font-semibold tracking-[-0.01em]">
+              <h2 className="text-foreground text-sm font-medium">
                 {t('drawer.instructionHeading')}
               </h2>
               <pre className="bg-muted text-foreground mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg p-3 font-mono text-xs leading-relaxed">
@@ -148,7 +148,7 @@ export function SkillDetail({
                 />
                 {isOrg && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => onEdit(skill)}>
+                    <Button size="sm" variant="secondary" onClick={() => onEdit(skill)}>
                       <Pencil className="size-3.5" aria-hidden />
                       {t('toolbox.actions.edit')}
                     </Button>

@@ -41,7 +41,7 @@ its name. `md5` is of the exact bytes measured.
 
 | # | file (as run) | source | bytes | md5 | schema | exporter (own header) |
 |---|---|---|---|---|---|---|
-| 01 | `01-sample-house.ifc` | in-repo fixture `packages/ifc-spatial/test/fixtures/Ifc4_SampleHouse.ifc`; byte-identical to `Ifc4_SampleHouse.ifc` in [youshengCode/IfcSampleFiles](https://github.com/youshengCode/IfcSampleFiles) | 2 273 870 | `372136c4…` | IFC4 | Xbim 4.0.0.0 |
+| 01 | `01-sample-house.ifc` | in-repo fixture `packages/ifc-spatial-py/tests/fixtures/Ifc4_SampleHouse.ifc`; byte-identical to `Ifc4_SampleHouse.ifc` in [youshengCode/IfcSampleFiles](https://github.com/youshengCode/IfcSampleFiles) | 2 273 870 | `372136c4…` | IFC4 | Xbim 4.0.0.0 |
 | 02 | `02-fzk-haus.ifc` | [ibpsa/project1-wp-2-2-bim](https://github.com/ibpsa/project1-wp-2-2-bim) `IFC_Files/MISC/AC20-FZK-Haus.ifc` (KIT/FZK reference house) | 2 526 544 | `f9b15b16…` | IFC4 | GRAPHISOFT ARCHICAD-64 20.0.0 GER |
 | 03 | `03-institute.ifc` | same repo, `Use Cases/KIT institute - Ifc4/AC20-Institute-Var-2.ifczip` | 10 934 237 | `ee5824b0…` | IFC4 | GRAPHISOFT ARCHICAD-64 20.0.0 GER |
 | 04 | `04-duplex.ifc` | [youshengCode/IfcSampleFiles](https://github.com/youshengCode/IfcSampleFiles) `Ifc2x3_Duplex_Architecture.ifc` (the GSA Duplex Apartment) | 2 380 763 | `e9e6df73…` | IFC2X3 | Autodesk Revit Architecture 2011 → Solibri IFC Optimizer |
@@ -410,9 +410,16 @@ exception classes, and the fifth is not catchable at all.
 `ModelUnreadableError` carrying a German `reason` for every path. The truncation
 check is the load-bearing one: a complete SPF file ends with
 `END-ISO-10303-21;`, an interrupted upload essentially never does, and the last
-4 KB are read before the parser ever sees the bytes. This is a guard, **not** a
-validator — a file can still be malformed in ways only the parser discovers, and
-the real answer remains the design doc's worker process.
+4 KB are read before the parser ever sees the bytes. A file can still be malformed
+in ways only the parser discovers, so `crash_probe` then parses it in a child, and
+a child the parser killed is a refusal. That costs one more parse on a first open
+(0.2 to 0.6 s on the public models up to 11 MB); the real answer remains the design
+doc's worker process. Measured on macOS: the footer does not prove the rest is whole,
+some mid-entity cuts with the original end put back segfault too (16 of 72 tried), and
+deep nesting overflows a thread's stack (exit -10). The child parses on half the smallest
+stack the host can open on, read from `RLIMIT_STACK` and the thread stack size, so a file
+that fits there also fits in the host. On the usual 8 MiB limit nesting past about 13 800
+levels is refused, and the public models nest three levels at most.
 
 *Regression:* `test_a_truncated_file_is_refused_before_the_parser_crashes` and
 five siblings, plus
@@ -657,6 +664,7 @@ Stated so the next person does not read this document as broader than it is.
   calibration over ~150 hand-verified questions. This run measures whether the
   operators survive real files and whether their numbers match the files' own
   declarations. It does not measure whether an agent asks the right one.
-- **The segfault guard is a guard.** It catches truncation, which is the realistic
-  corruption. It cannot catch a file that is complete and internally malformed, and
-  no in-process check can. The worker process remains the answer.
+- **The segfault guard is a guard.** The byte check catches truncation, which is the
+  realistic corruption, and the trial parse in a child caught every crash we could
+  provoke while a file opens; that is a test run, not a proof. A crash later, in the
+  geometry pass, still takes the process. The worker process remains the answer.

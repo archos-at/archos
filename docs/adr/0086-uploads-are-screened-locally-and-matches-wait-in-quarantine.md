@@ -157,26 +157,40 @@ German, and explains each verdict.
   `document.release_requested` inbox row naming the file. The queue links each
   project and Büroablage file to where it is filed, so a reviewer looks before
   deciding, and since 2026-10-13 decides there too (see the amendment below).
-- **What is not screened.** Files with no local text (images, scanned pages,
-  plans without a text layer) pass on the name gate alone, and the upload
-  summary says the content was not checked. The product owner chose this over
-  quarantining every scan or adding local OCR.
+- **What is not screened before a model reads it.** Files with no local text
+  (images, scanned pages, plans without a text layer) pass the local gates on
+  the name alone, and the upload summary says the content was not checked. The
+  product owner chose this over quarantining every scan or adding local OCR.
+  Such a file does reach a model: the vision model transcribes a scanned page
+  and captions an image. A scanned page's transcript is screened after that
+  call, before it is summarised or embedded, and a match holds the file with a
+  verdict that says the vision model read those pages: see „A transcript is
+  screened" in the 2026-10-17 amendment. A photo or other image is name-checked
+  only.
 
 ### Consequences
 
-* Good, because no matched file reaches an external model on any ingest path, and the next
-  caller of `dispatchIngest` is screened by construction.
+* Good, because no file whose locally read text or name matches reaches an external model on
+  any ingest path, and the next caller of `dispatchIngest` is screened by construction. A file
+  with no local text is the exception: the vision model reads a scanned page before its
+  transcript is screened, and captions an image that only its name was checked for.
 * Good, because every verdict names its rule, so an office can tune the list rather than
   distrust it.
 * Good, because the gates are deterministic, cheap, and need no model in the image.
 * Bad, because rules see words and number shapes, not meaning: a fee agreement titled
   „Vereinbarung.pdf" with no configured term in it passes. This is a filter the office
   steers, not a classifier, and the UI must not claim more.
-* Bad, because scans and images are only name-checked; an office that needs more needs local
-  OCR, which is a separate decision (image size, ingest time).
+* Bad, because scans and images are only name-checked before the vision model reads them; a
+  scan's transcript is screened after that call, an image's caption not at all. An office that
+  needs the content checked before any model call needs local OCR, which is a separate decision
+  (image size, ingest time).
 * Bad, because the name check in the browser is the only one that keeps bytes off our servers;
   the server-side repeat can only refuse to store, after the bytes arrived.
 * Bad, because a quarantined file occupies storage quota until someone acts on it.
+* Bad, because the reviewers' inbox notice is sent once, by the read that moved
+  the row, and is not retried when its write fails; the audit entry is retried
+  by the sweep (`lib/upload-batches/settle.ts`). A held file nobody was told
+  about waits in Organisation → Quarantäne until someone opens that queue.
 
 ### Confirmation
 
@@ -506,8 +520,8 @@ window in which a file nobody had screened was everybody's.
   A round opened before the file was held (a re-upload over a document in review)
   keeps its rows; they name a file their reviewers already knew and open nothing
   while it is held.
-* **A quarantined row leaves quarantine through a release and nothing else.** A
-  re-screen is a new verdict after a release, never a reset to `pending`.
+* **A quarantined row leaves quarantine through a release, or to be read again while it stays held** (the second exit added 2026-11-11 with migration 0225: the row returns to `uploaded` with its outcome still `quarantined` and its hashes unchanged, so the gate holds it until the new reading passes).
+  Neither exit is a reset to `pending`.
 * **A file the gate never judged can be released too.** A held file at rest
   (`isHeldAtRest`: not in flight, no passing verdict for its bytes), such as an IFC
   over the size limit, one that would not parse, a reading that failed, or a legacy
@@ -758,6 +772,56 @@ file into a folder the uploader may not write is refused for the folder. Mail im
 (`admitFileBeforeReading`: type, then size) before it fetches an attachment, and
 the full admission when it files one. `upload-admission.spec.ts` drives all
 three shelves through every gate and every refusal.
+
+## Amendment (2026-10-27): mail sent to a project is name-checked, and a match is a flag
+
+*Product owner, from the project-mail work (ADR-0137, D10, RT-X14).*
+
+### Context
+
+A mail sent to a project's address is held until a person files it
+(ADR-0137). Its attachments' names are a stranger's, and refusing a matching
+file on receipt would lose it: the sender has no screen to release it from, and
+the person deciding never sees what arrived.
+
+### Decision
+
+- **On receipt, a match is a flag, not a drop.** The receive job runs the
+  Namensprüfung with the project's policy (`gatePolicy`) on each attachment's
+  name and on the mail's base subject (`lib/inbound-mail/screening.ts`). A match
+  sets the part's `risk_flags` `name_stop` and its `name_stop_terms`; the part
+  is shown unselected with „Namensprüfung: „…““ and „Trotzdem ablegen“.
+- **Filing it is the person's override.** The decision carries
+  `screeningRelease: 'name'` for that part, refused in a request about more
+  than one mail and on an agent's card; the filing job uploads it with the
+  release, audited as `document.screening_overridden` like an upload's.
+- **The names a person types are screened when they decide.** A new
+  E-Mail-Verlauf's name and a new folder path are checked in
+  `lib/inbound-mail/decision.ts`; a match answers 409 `name_stop` with the term,
+  and the person files it anyway with `screeningRelease: 'name'` on the
+  thread's creation. A detach into a new Verlauf is screened the same way.
+- **A name never reaches a model or a rendition once stopped.** Piloti's
+  suggestion reads only names that passed the check, and a Verlauf section
+  never prints a stopped attachment's name (it counts it).
+- **The content gate is unchanged after filing.** A filed attachment and every
+  Verlauf Fassung pass the Inhaltsprüfung as any upload does. The mail's own
+  text is checked before filing too: a finding there is decided by the person
+  (mask, own Verlauf, or file in full and hold the Verlauf), ADR-0137.
+
+### Consequences
+
+- Good, because a stranger's file with a stopped name is neither lost nor filed
+  unseen; the decision and its override are the person's, in the trail.
+- Bad, because a mail can carry a matching name to the reviewer's screen. The
+  reviewer is someone who may add documents to the project anyway, and the
+  bytes are not readable by any model before filing.
+
+### Confirmation
+
+`lib/inbound-mail/screening.spec.ts` (the flag), `decision.spec.ts` (the 409 on
+a Verlauf name and folder path, the release refused in bulk and on a card),
+`review-first.e2e.spec.ts`, and the migration's CHECK
+`inbound_mail_parts_name_stop_terms` (terms only with the flag).
 
 ## More Information
 

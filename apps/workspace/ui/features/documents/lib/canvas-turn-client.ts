@@ -33,6 +33,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
+import { watchConnectionWait } from '@/adapters/api/connection-wait'
 import {
   createTurnSocket,
   type OpenTurn,
@@ -41,10 +42,11 @@ import {
   type TurnSocketStatus,
 } from '@/adapters/api/turn-socket'
 import type { ClientMessage, WireEvent } from '@/adapters/api/wire-v2'
-import { foldTurnEvent, initialTurnView, isSteerRead, stopTurnView, type TurnView } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvent, initialTurnView, isSteerRead, stopTurnView, type TurnView } from '@/lib/turns/turn-fold'
 import { clampFocusRegion, type CanvasFocusRegion } from '@/features/chat/lib/canvas-bridge'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import type { ChatEffort } from '@/lib/reasoning-settings/catalog'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** How long a question may go unacknowledged before the socket is reopened (the chat's figure). */
 export const CANVAS_ACK_TIMEOUT_MS = 15_000
@@ -105,7 +107,7 @@ export function canvasDegradations(
 
 export class CanvasTurnError extends Error {
   constructor(readonly code: 'busy' | 'closed') {
-    super(code === 'busy' ? 'Piloti is still answering the previous question' : 'The canvas client is closed')
+    super(code === 'busy' ? PRODUCT_NAME + ' is still answering the previous question' : 'The canvas client is closed')
     this.name = 'CanvasTurnError'
   }
 }
@@ -128,6 +130,13 @@ export interface CanvasTurnClientOptions {
   onConversation?: () => void
   /** A question went out without parts its server does not read; called once per question, after it is sent. */
   onDegraded?: (turnId: string, dropped: CanvasDegradation[]) => void
+  /**
+   * The socket has been unconnected for more than a moment (true), or the
+   * wait is over (false): the chat's "connection is being restored" fact,
+   * after the same wait (`connection-wait.ts`). It says nothing of whether a
+   * question is waiting; a caller shows it only under an ask that is thinking.
+   */
+  onRestoring?: (restoring: boolean) => void
   /** Refresh the auth cookie before each socket attempt. */
   refreshAuth?: () => Promise<void>
   /** The socket factory; a fake in specs. */
@@ -259,7 +268,7 @@ export function createCanvasTurnClient(options: CanvasTurnClientOptions): Canvas
     pending.timer = null
     pending.misses += 1
     if (pending.misses >= ACK_MISSES_BEFORE_GIVING_UP) {
-      fail(pending.message.message_id, 'agent.no_response', 'Piloti did not answer')
+      fail(pending.message.message_id, 'agent.no_response', PRODUCT_NAME + ' did not answer')
       return
     }
     // An open socket that did not answer is reopened, and the question goes
@@ -337,7 +346,7 @@ export function createCanvasTurnClient(options: CanvasTurnClientOptions): Canvas
     socketOpen = status === 'open'
     if (status === 'open' && pending) sendPending()
     if (status === 'failed' || status === 'incompatible' || status === 'outdated') {
-      if (running) fail(running, `connection.${status}`, 'The connection to Piloti gave up')
+      if (running) fail(running, `connection.${status}`, 'The connection to ' + PRODUCT_NAME + ' gave up')
     }
   }
 
@@ -348,7 +357,7 @@ export function createCanvasTurnClient(options: CanvasTurnClientOptions): Canvas
       openTurns,
       refreshAuth: options.refreshAuth,
       onEvent: receive,
-      onStatus,
+      onStatus: watchConnectionWait((restoring) => options.onRestoring?.(restoring), onStatus),
       onSilent: (turnIds) => {
         // One silent socket is reopened by the socket itself; the second in a row ends the turn.
         for (const turnId of turnIds) {
@@ -356,7 +365,7 @@ export function createCanvasTurnClient(options: CanvasTurnClientOptions): Canvas
           silentDrops.set(turnId, drops)
           if (drops < SILENT_DROPS_BEFORE_GIVING_UP) continue
           silentDrops.delete(turnId)
-          fail(turnId, 'agent.response_interrupted', 'Piloti went silent')
+          fail(turnId, 'agent.response_interrupted', PRODUCT_NAME + ' went silent')
         }
       },
     })

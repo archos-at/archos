@@ -18,7 +18,6 @@ import {
   citedLoci,
   isCited,
   oibDocumentKey,
-  type CitationLocus,
   type CitedDocument,
 } from './citations'
 import { documentEdition, documentShortName } from './document-names'
@@ -52,23 +51,95 @@ const SHELF_KEYS: Record<string, string> = {
   session: 'session',
 }
 
-/** „Pkt. 3.1.1“ or „S. 7“: the address of one passage. */
-export const locusLabel = (t: Translator, locus: CitationLocus): string | undefined => {
-  const clause = locus.clause?.trim()
-  if (clause) return /^pkt/i.test(clause) ? clause : t('thinking.node.basis.clause', { clause })
-  return typeof locus.page === 'number'
-    ? t('thinking.node.basis.page', { page: locus.page })
-    : undefined
+/**
+ * A clause a reader can write down: a numbered point („3.2.1“, „A.1“), a
+ * paragraph with its Absatz, Ziffer and litera („§ 43 Abs. 2 Z 9“), or a
+ * named one followed by its number or letter („Tabelle 3“, „Anhang A“,
+ * „Anlage 1“, „Art. 15a“, „Ziffer 3“). Anything else the chunker put in
+ * `clause` (a heading trail „Anforderungen … › U-Wert Bauteil (2)“, a heading
+ * that only starts like one, „Punktförmige Wärmebrücken“, „Tabellenverzeichnis“,
+ * a cover number, a bare year, the Vorbemerkungen „0“) is no address: the card
+ * leaves it to the hover. A numbered heading („3.2.1 Allgemeines“) is
+ * addressed by its number.
+ */
+const TOKEN = String.raw`(?:\d+[a-z]?(?:\.\d+[a-z]?)*\.?|[a-z](?:\.\d+)*)`
+const NAMED = String.raw`(?:(?:Art|Tab|Abb|Anh|Abs|Pkt|lit|Z)\.\s*|(?:Artikel|Tabelle|Tab|Abbildung|Anhang|Anlage|Absatz|Punkt|Ziffer|Z|Kapitel|Abschnitt)\s+)${TOKEN}`
+const PARAGRAPH = String.raw`§{1,2}\s*\d+[a-z]?(?:\s+(?:Abs\.|Absatz)\s*\d+[a-z]?)?(?:\s+(?:Z\.?|Ziffer)\s*\d+)?(?:\s+lit\.\s*[a-z])?`
+const POINT = String.raw`(?:[a-z]\.)?\d+(?:\.\d+)*[a-z]?\.?`
+const ADDRESS = new RegExp(`^(?:${PARAGRAPH}|${NAMED}|${POINT})$`, 'i')
+const NUMBERED_HEADING = /^(\d+(?:\.\d+)+)\.?\s+\p{L}/u
+const NO_ADDRESS = /^(?:\d{4}|0|(?:Pkt\.|Punkt)\s*0)$/i
+
+/** The address a clause names, as written, or undefined when it names none (see `ADDRESS`). */
+export const addressOf = (clause: string | undefined): string | undefined => {
+  const text = clause?.trim().replace(/\s+/g, ' ')
+  if (!text) return undefined
+  const heading = NUMBERED_HEADING.exec(text)
+  const candidate = heading ? heading[1]! : text
+  if (NO_ADDRESS.test(candidate) || !ADDRESS.test(candidate)) return undefined
+  return candidate
 }
 
+/** „Pkt. 3.2.1“ for a bare numbered point, every other address as written. */
+const addressLabel = (t: Translator, address: string): string =>
+  new RegExp(`^${POINT}$`, 'i').test(address) ? t('thinking.node.basis.clause', { clause: address.replace(/\.$/, '') }) : address
+
+/** „7–8, 10“: pages sorted, a run of consecutive pages said as a range. */
+export const pageRanges = (pages: readonly number[]): string => {
+  const sorted = [...new Set(pages)].sort((a, b) => a - b)
+  const runs: string[] = []
+  for (let i = 0; i < sorted.length; ) {
+    let j = i
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j]! + 1) j += 1
+    runs.push(j === i ? String(sorted[i]) : `${sorted[i]}\u2013${sorted[j]}`)
+    i = j + 1
+  }
+  return runs.join(', ')
+}
+
+/** The most addresses a card names before it says how many more there are. */
+const MAX_ADDRESSES = 2
+
 /**
- * Where in the document the answer stands: the cited passages, else the
- * passages read, at most two, deduplicated. A count of hits is no place.
+ * Where in the document the answer stands, short enough to read at a glance:
+ * the addresses a reader would write down and the pages to open, „Tabelle 2 ·
+ * S. 7–8“. The cited passages, else the passages read. Which page carries which
+ * `[N]`, and the heading around it, is `documentLocationDetail`'s, for the hover.
  */
 export const documentLocation = (t: Translator, doc: CitedDocument): string | undefined => {
   const loci = isCited(doc) ? citedLoci(doc) : doc.loci
-  const labels = [...new Set(loci.flatMap((locus) => locusLabel(t, locus) ?? []))]
-  return labels.length > 0 ? labels.slice(0, 2).join(', ') : undefined
+  const addresses = [...new Set(loci.flatMap((locus) => {
+    const address = addressOf(locus.clause)
+    return address ? [addressLabel(t, address)] : []
+  }))]
+  const pages = loci.flatMap((locus) => (typeof locus.page === 'number' ? [locus.page] : []))
+  const named = addresses.slice(0, MAX_ADDRESSES)
+  if (addresses.length > MAX_ADDRESSES) named.push(t('thinking.node.basis.more', { count: addresses.length - MAX_ADDRESSES }))
+  const distinct = new Set(pages)
+  const pageLabel =
+    distinct.size === 0 ? '' : distinct.size === 1 ? t('thinking.node.basis.page', { page: pages[0]! }) : t('thinking.node.basis.pages', { pages: pageRanges(pages) })
+  const parts = [named.join(', '), pageLabel]
+  const label = parts.filter(Boolean).join(' · ')
+  return label || undefined
+}
+
+/**
+ * Every passage the card stands for, one per line, for the hover: its `[N]`,
+ * its page and the clause as the document gives it, heading trail included
+ * („[3] S. 8 · Anforderungen an wärmeübertragende Bauteile › U-Wert Bauteil“).
+ */
+export const documentLocationDetail = (t: Translator, doc: CitedDocument): string | undefined => {
+  const loci = isCited(doc) ? citedLoci(doc) : doc.loci
+  const lines = loci.flatMap((locus) => {
+    const parts = [
+      typeof locus.number === 'number' ? `[${locus.number}]` : '',
+      typeof locus.page === 'number' ? t('thinking.node.basis.page', { page: locus.page }) : '',
+      locus.clause?.trim() && locus.clause.trim() !== '0' ? locus.clause.trim() : '',
+    ].filter(Boolean)
+    return parts.length > 0 ? [parts.join(' · ')] : []
+  })
+  const unique = [...new Set(lines)]
+  return unique.length > 0 ? unique.join('\n') : undefined
 }
 
 /**
@@ -93,8 +164,62 @@ export const cardName = (doc: CitedDocument): string => {
     .join(', ')
 }
 
+/**
+ * The act that declares a cited edition binding where the project is, as its
+ * records name it: the provision („StBTV 2020“), with the act's designation in
+ * front when the provision does not already say it („WBTV, LGBl. 26/2026“).
+ * Undefined unless the records state a binding role through an act: law in its
+ * own territory has no route, and a text read for reference has no role.
+ */
+export const adoptingAct = (doc: Pick<CitedDocument, 'line'>): string | undefined => {
+  const line = doc.line
+  if (line?.role !== 'binding' || !line.route) return undefined
+  const designation = line.route.designation?.trim()
+  const provision = line.route.provision?.trim()
+  if (!provision) return designation || undefined
+  if (!designation || provision.includes(designation)) return provision
+  return `${designation}, ${provision}`
+}
+
+
+/** The labels a role carries when the platform's check of its edition is due or was never made (ADR-0173). */
+const CHECK_DUE = new Set(['check_overdue', 'unchecked_since'])
+
+/** `YYYY-MM-DD` as the dictionary writes a day; undefined for anything else. */
+const dayOf = (t: Translator, value: string | null | undefined): string | undefined => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? '')
+  return match ? t('thinking.node.basis.date', { year: match[1], month: match[2], day: match[3] }) : undefined
+}
+
+/**
+ * What the records say about how far the route has been checked: never against its source, last on a day
+ * that is now past due, or read from an official source nobody curated. Nothing when the check is current.
+ */
+const checkState = (t: Translator, doc: CitedDocument): string[] => {
+  const B = 'thinking.node.basis.'
+  const labels = doc.line?.role_labels ?? []
+  const states: string[] = []
+  if (labels.includes('uncurated_source')) states.push(t(`${B}uncurated`))
+  if (labels.some((label) => CHECK_DUE.has(label))) {
+    const last = dayOf(t, doc.line?.last_checked_at)
+    states.push(last ? t(`${B}checkedOn`, { date: last }) : t(`${B}unchecked`))
+  }
+  return states
+}
+
+/**
+ * One line of „Grundlagen“: the edition, the act it is binding through and since when, then the passage.
+ * This is the chain a reader checks the answer by: which act makes this edition apply at the site. It is
+ * the platform's record of that chain, so when that record is not checked, or its check is past due, the
+ * line says which, rather than stating the route as settled law.
+ */
 const basisLine = (t: Translator, doc: CitedDocument): BasisLine => {
-  const text = [cardName(doc), documentLocation(t, doc)].filter(Boolean).join(', ')
+  const act = adoptingAct(doc)
+  const since = act ? dayOf(t, doc.line?.role_since) : undefined
+  const B = 'thinking.node.basis.'
+  const record = act && [since ? t(`${B}bindingSince`, { act, since }) : t(`${B}binding`, { act }), ...checkState(t, doc)]
+  const name = record ? t(`${B}withRecord`, { name: cardName(doc), record: record.join(', ') }) : cardName(doc)
+  const text = [name, documentLocation(t, doc)].filter(Boolean).join(', ')
   return { numbers: citationNumbers(doc), text }
 }
 

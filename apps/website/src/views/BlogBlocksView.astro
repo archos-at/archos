@@ -1,0 +1,73 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import AnnotatedImage from '../components/blocks/AnnotatedImage.astro';
+import Chart from '../components/blocks/Chart.astro';
+import Compare from '../components/blocks/Compare.astro';
+import KeyFigures from '../components/blocks/KeyFigures.astro';
+import KeyTakeaways from '../components/blocks/KeyTakeaways.astro';
+import LegalSource from '../components/blocks/LegalSource.astro';
+import QaExcerpt from '../components/blocks/QaExcerpt.astro';
+import type { BlockImage } from '../components/blocks/contracts';
+import copy from '../i18n/pages/blog-blocks';
+import type { Locale } from '../i18n/paths';
+import { withName } from '../lib/identity';
+// Two plan states of one example module, drawn for this page (README, media table).
+import revisionC from '../assets/media/example-module-plan-rev-c.svg?url';
+import revisionD from '../assets/media/example-module-plan-rev-d.svg?url';
+
+// Markup only: every post block once, laid out like a post, in the post's own column. Text and
+// example data come from src/i18n/pages/blog-blocks.ts, in both locales. Unlisted (paths.ts).
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const c = withName(copy[locale]);
+const plan = (src: string, alt: string): BlockImage => ({ src, alt, width: 1600, height: 1000 });
+---
+
+<BaseLayout locale={locale} title={c.meta.title} description={c.meta.description}>
+  <article class="ui-container post">
+    <header class="post-head">
+      <p class="post-meta small">{c.kicker}</p>
+      <h1 class="heading-1 post-title">{c.heading}</h1>
+      <p class="lead post-lead">{c.lead}</p>
+    </header>
+
+    <div class="post-body">
+      <p>{c.takeaways.note}</p>
+      <KeyTakeaways locale={locale} items={c.takeaways.items} />
+
+      <h2>{c.figures.name}</h2>
+      <p>{c.figures.note}</p>
+      <KeyFigures locale={locale} {...c.figures.block} />
+
+      <h2>{c.compare.name}</h2>
+      <p>{c.compare.note}</p>
+      <Compare
+        locale={locale}
+        before={plan(revisionC, c.compare.beforeAlt)}
+        after={plan(revisionD, c.compare.afterAlt)}
+        beforeLabel={c.compare.beforeLabel}
+        afterLabel={c.compare.afterLabel}
+        caption={c.compare.caption}
+      />
+
+      <h2>{c.annotated.name}</h2>
+      <p>{c.annotated.note}</p>
+      <AnnotatedImage locale={locale} image={plan(revisionD, c.annotated.alt)} markers={c.annotated.markers} caption={c.annotated.caption} />
+
+      <h2>{c.charts.name}</h2>
+      <p>{c.charts.note}</p>
+      {c.charts.blocks.map((chart) => <Chart locale={locale} {...chart} />)}
+
+      <h2>{c.legal.name}</h2>
+      <p>{c.legal.note}</p>
+      {c.legal.blocks.map((source) => <LegalSource locale={locale} {...source} />)}
+
+      <h2>{c.qa.name}</h2>
+      <p>{c.qa.note}</p>
+      <QaExcerpt locale={locale} {...c.qa.block} />
+    </div>
+  </article>
+</BaseLayout>

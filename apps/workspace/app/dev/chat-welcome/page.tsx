@@ -29,6 +29,9 @@
  * composer's own narrower, blurred surface). `useComposerMetrics(false)` here:
  * a populated thread never lifts the composer off the floor.
  *
+ * `?chrome=1` adds the chat route's chrome round the column: the real `ChatToolbar` with its labelled door to
+ * the project's chats (the phone's word under the glyph), and on a phone the tab bar, lit for Chat.
+ *
  * `authRequired: false` makes useAuth return the default user without contacting
  * WorkOS; `connectionMode="sse"` keeps the composer off the websocket. Not
  * linked anywhere; 404s outside development.
@@ -39,6 +42,8 @@ import { notFound } from 'next/navigation'
 import { AppConfigProvider, type AppConfig } from '@/shared/context'
 import { getFileUploadConfigFromEnv } from '@/shared/config/file-upload'
 import { ChatArea, InputArea } from '@/features/layout/components'
+import { ChatToolbar } from '@/features/layout/components/ChatToolbar'
+import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { useComposerMetrics } from '@/features/layout/hooks/use-composer-metrics'
 import { ComposerScrim } from '@/features/layout/components/ComposerScrim'
 import { selectThreadPhase } from '@/features/layout/lib/thread-phase'
@@ -117,6 +122,8 @@ export default function ChatWelcomePreviewPage() {
   // default's name because the server render ran before the query string
   // was available.
   const [variant, setVariant] = useState<string | null | undefined>(undefined)
+  const [chrome, setChrome] = useState(false)
+  useEffect(() => setChrome(new URLSearchParams(window.location.search).get('chrome') === '1'), [])
   useEffect(() => {
     setVariant(new URLSearchParams(window.location.search).get('variant'))
   }, [])
@@ -173,6 +180,7 @@ export default function ChatWelcomePreviewPage() {
     <AppConfigProvider config={config}>
       <main className="bg-background flex h-dvh flex-col">
         <div className="relative flex min-h-0 flex-1 flex-col" style={columnVars}>
+          {chrome && <ChatToolbar isChatStarted={!isThreadEmpty} sessionTitle={isThreadEmpty ? '' : 'Stellplatznachweis Tiefgarage'} />}
           {ready && <ChatArea isAuthenticated />}
           <ComposerScrim />
           <motion.div
@@ -190,15 +198,11 @@ export default function ChatWelcomePreviewPage() {
                 default state is now silent, and an empty row is exactly the
                 evidence this capture is for. */}
             {ready && (
-              <InputArea
-                isAuthenticated
-                connectionMode="sse"
-                projectName="Stadthaus Wien 1090"
-                canCollaborate
-              />
+              <InputArea isAuthenticated connectionMode="sse" canCollaborate />
             )}
           </motion.div>
         </div>
+        {chrome && <PhoneTabBar projectId="dev" canAccessOfficeShelf canAccessInbox pathname="/app/projects/dev/chat" />}
       </main>
     </AppConfigProvider>
   )

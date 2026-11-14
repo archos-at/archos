@@ -16,7 +16,6 @@ import json
 import math
 import os
 import random
-import socket
 import uuid
 
 import pytest
@@ -30,8 +29,6 @@ from agent.knowledge.factory import set_active_retriever
 from agent_host.routes.similar_passages import add_similar_passages_routes
 
 DIM = 8
-#: The real resolver, taken before the conftest stubs every name to a private IP for the SSRF guard.
-_GETADDRINFO = socket.getaddrinfo
 SECRET = "s3cr3t"
 
 
@@ -71,9 +68,16 @@ class _Embedder:
         return SELECTION
 
 
+#: The office every request here is signed for.
+OFFICE = "org_similar"
+
+
 def _scope_headers(scope: list[str], secret: str | None = SECRET) -> dict[str, str]:
-    """The signed ``X-Grid-Request-Context`` envelope the BFF forwards (``buildRequestContextWireHeaders``)."""
-    payload = json.dumps({"collectionScope": scope})
+    """The signed ``X-Grid-Request-Context`` envelope the BFF forwards (``buildRequestContextWireHeaders``).
+
+    It names the organization: the search reads as that office (``document_search.request_office``).
+    """
+    payload = json.dumps({"collectionScope": scope, "organizationId": OFFICE})
     headers = {"x-grid-request-context": base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")}
     if secret:
         headers["x-grid-request-context-sig"] = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
@@ -87,9 +91,9 @@ def stack(monkeypatch):
         if os.environ.get("CI"):
             pytest.fail("QDRANT_TEST_URL is unset on CI: the Qdrant service container is missing")
         pytest.skip("QDRANT_TEST_URL not set")
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
-    from knowledge_layer.qdrant import schema
-    from knowledge_layer.qdrant import store as store_module
+    from knowledge_layer.search import LlamaIndexRetriever
+    from knowledge_layer.vector_store import schema
+    from knowledge_layer.vector_store import store as store_module
 
     suffix = uuid.uuid4().hex[:8]
     monkeypatch.setitem(schema.ALIASES, schema.Physical.CORPUS, f"similar_corpus_{suffix}")
@@ -97,7 +101,6 @@ def stack(monkeypatch):
     monkeypatch.setenv("QDRANT_URL", url)
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
-    monkeypatch.setattr(socket, "getaddrinfo", _GETADDRINFO)
     store_module.reset_store()
     retriever = LlamaIndexRetriever({"embed_model": "test-model", "embed_base_url": "https://test"})
     retriever._initialized = True
@@ -120,7 +123,7 @@ def stack(monkeypatch):
 
 def _put(store, scope: str, file_name: str, *passages: tuple[float, int], text: str = "", **metadata) -> list[str]:
     """Passages of one file, each at a cosine to SOURCE and on a page; returns their chunk ids."""
-    from knowledge_layer.qdrant.payload import ChunkRecord
+    from knowledge_layer.vector_store import ChunkRecord
 
     ids = [str(uuid.uuid4()) for _ in passages]
     store.upsert(

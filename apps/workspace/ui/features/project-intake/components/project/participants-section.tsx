@@ -119,7 +119,7 @@ export function ParticipantsSection({ projectId, client, peopleRecord, roster, l
         ) : (
           <StepCardRow className="flex-wrap justify-between">
             <p className="text-sm">{t('people.loadFailed')}</p>
-            <Button type="button" size="sm" variant="outline" className={ADD_CLASS} onClick={() => void reload()}>
+            <Button type="button" size="sm" variant="secondary" className={ADD_CLASS} onClick={() => void reload()}>
               {t('people.retry')}
             </Button>
           </StepCardRow>
@@ -245,7 +245,7 @@ export function ParticipantsSection({ projectId, client, peopleRecord, roster, l
           {canAddColleague && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               className={ADD_CLASS}
               onClick={() => setTask({ kind: 'colleague' })}
@@ -257,7 +257,7 @@ export function ParticipantsSection({ projectId, client, peopleRecord, roster, l
             </Button>
           )}
           {peopleRecord.canEdit && (
-            <Button type="button" variant="outline" size="sm" className={ADD_CLASS} onClick={() => setTask({ kind: 'external' })}>
+            <Button type="button" variant="secondary" size="sm" className={ADD_CLASS} onClick={() => setTask({ kind: 'external' })}>
               <Plus aria-hidden />
               {t('people.addExternal')}
             </Button>

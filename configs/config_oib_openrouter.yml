@@ -51,7 +51,7 @@ general:
     db_url: ${NAT_JOB_STORE_DB_URL:-sqlite+aiosqlite:///./jobs.db}
     expiry_seconds: 86400
     cors:
-      # Env-overridable so a deployed instance (e.g. a Coolify preview) can allow
+      # Env-overridable so a deployed instance (e.g. a preview deployment) can allow
       # its own https origin. Default keeps local dev working. Set
       # CORS_ALLOW_ORIGIN_REGEX to a regex matching your frontend origin(s).
       allow_origin_regex: '${CORS_ALLOW_ORIGIN_REGEX:-http://localhost(:\d+)?|http://127.0.0.1(:\d+)?}'
@@ -127,7 +127,7 @@ llms:
   research_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -153,13 +153,19 @@ llms:
     # weigh it knowing that a truncated answer at 27 s is worse than a complete
     # one at 35 s.
     reasoning_effort: medium
-    # The Responses API. Nothing in this file needs it any more (the deferred
-    # tool loading it was switched on for is gone, ADR-0048), and the default
-    # (chat_completion) is what every other role runs on. It stays until the
-    # answer suite has measured Chat Completions for this role, because the
-    # transport of every research call is not a change to make as a side
-    # effect.
-    api_type: responses
+    # Chat Completions, like every other role in this file. The Responses API
+    # was switched on for deferred tool loading (gone, ADR-0048) and nothing
+    # needs it since. What decided the move: the chat prompt carries one cache
+    # breakpoint at the end of its static system block
+    # (`common/prompt_caching.py`), and the Responses API does not expose a
+    # per-block `cache_control` (OpenRouter prompt caching guide, on or after
+    # 2026-10-07); langchain's converter drops the key (measured 2026-11-10,
+    # `test_prompt_caching.py::TestTheMarkerIsOnTheWire`). On Responses the
+    # breakpoint never reaches the provider and every turn's first call
+    # re-writes the 23-31k-token static prefix at 1.25x. The answer suite has
+    # not yet measured this transport for this role (no credit on the suite's
+    # key, 2026-11-10); the token report's arm `terra-cc` is that run.
+    api_type: chat_completion
     # ── PROMPT CACHING: nothing to configure here, and that is the point ──
     # This role re-sends ~35 KB of identical prefix (system prompt + tool
     # schemas) on each of a turn's 3-6 calls. Two facts decide what that costs,
@@ -168,11 +174,12 @@ llms:
     # 1. USAGE ACCOUNTING IS ALWAYS ON. OpenRouter returns `cost`,
     #    `cache_discount` and `prompt_tokens_details.cached_tokens` on every
     #    response; its `usage: {include: true}` request option "[is] deprecated
-    #    and [has] no effect". Do not add one. What a `responses` role loses is
-    #    the *carrier*, not the flag — langchain-openai builds no `llm_output`
-    #    on that path and keeps only the normalized `usage_metadata` (counts +
-    #    cache bucket). `cost_tracking.install_responses_cost_carrier` puts the
-    #    provider's `cost` and `is_byok` back, so this role is charged in credits.
+    #    and [has] no effect". Do not add one. What a streamed call loses is
+    #    the *carrier*, not the flag: this role's answering call streams, and
+    #    langchain-openai keeps only the token counts of the final chunk.
+    #    `provider_usage.install_chat_stream_cost_carrier` (and, for a
+    #    `responses` role, `cost_tracking.install_responses_cost_carrier`) puts
+    #    the provider's `cost` and `is_byok` back, so the call is charged.
     # 2. THE CACHE KEY IS DERIVED, NOT CONFIGURED. Caching itself is automatic
     #    for the OpenAI family (≥1024 prompt tokens, no `cache_control`
     #    breakpoint). Claude caches only when asked, so the same module adds a
@@ -191,7 +198,7 @@ llms:
   clarifier_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -204,7 +211,7 @@ llms:
   deep_orchestrator_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -221,7 +228,7 @@ llms:
   deep_planner_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -234,7 +241,7 @@ llms:
   deep_researcher_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -247,7 +254,7 @@ llms:
   deep_router_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -263,7 +270,7 @@ llms:
   ris_planner_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -276,7 +283,7 @@ llms:
   card_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -298,7 +305,7 @@ llms:
   follow_ups_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -311,7 +318,7 @@ llms:
   summary_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -346,7 +353,7 @@ llms:
   rerank_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 0
     seed: 1
@@ -418,9 +425,10 @@ functions:
         tools:
           # All four, deliberately: `get_source_id_for_tool` must resolve the
           # name a tool result arrives under, or nothing it returned is captured
-          # as a citable source. `ris_lookup_tool` is the chat surface's one RIS
-          # tool; the other three are deep research's (and its own internals).
-          - ris_lookup_tool
+          # as a citable source. `law_lookup` is the chat surface's law tool and
+          # stays under this source (and its switch) until a country-neutral
+          # picker exists (#1644); the other three are deep research's.
+          - law_lookup
           - ris_search_tool
           - ris_fetch_tool
           - ris_catalog_lookup_tool
@@ -478,15 +486,22 @@ functions:
     max_chars: 40000
     ingest_into_knowledge: true
 
-  # The chat surface's single RIS tool: question in, citable passages out.
-  # Its bounds are its own (candidates 3, fetches 2, passages 6) and live in
-  # `packages/ris-adapter/src/lookup/`, one module per stage — they are not
-  # tunable here, because each is a claim about what one charged call may cost.
-  # `planner_llm` serves BOTH internal LLM calls: planning a live search and
-  # picking the answering §§ out of a law's headings. Neither happens when the
-  # catalog answers and the caller named a §.
-  ris_lookup_tool:
-    _type: ris_lookup
+  # The chat surface's law lookup: question in, citable passages out. The
+  # country-neutral lookup (`agent.knowledge.law_lookup`, ADR-0174 amendment
+  # 2026-11-11) reads the source the turn's knowledge context carries for its
+  # country; `source` is the repository record it falls back to while no
+  # released record reaches the turn. `tool_name` is the name its errors,
+  # sources step and `retrieve.law_lookup` span state; a turn stored before the
+  # rename says `ris_lookup`, which the citation parser and the evals still read.
+  # Its bounds are its own (candidates 3, fetches 2, passages 6), one module per
+  # stage; they are not tunable here, because each is a claim about what one
+  # charged call may cost. `planner_llm` serves BOTH internal model calls:
+  # planning a live search and picking the answering provisions out of a law's
+  # headings. Neither happens when the catalog answers and the caller named one.
+  law_lookup:
+    _type: law_lookup
+    source: at-ris
+    tool_name: law_lookup
     planner_llm: ris_planner_llm
     ingest_into_knowledge: true
 
@@ -547,6 +562,18 @@ functions:
       - aenderungen_oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023.pdf
       - aenderungen_oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023_rev.1.pdf
       - oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023.pdf
+      # The diffs oib.or.at publishes beside the 2019 and 2025 Richtlinien (agent/common/oib_file_names.py)
+      - oib-rl-1-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2.1-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2.2-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2.3-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-3-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-4-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-5-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-6-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-6-aenderungen-gegenueber-version-2011.pdf
+      - aenderungen_oib-rl_6_september_2025.pdf
     generate_summary: true
     summary_model: summary_llm
     summary_db: ${SUMMARY_DB:-sqlite+aiosqlite:///./summaries.db}
@@ -632,7 +659,7 @@ functions:
     _type: read_passage
     knowledge_search: knowledge_search
 
-  # The file browser (packages/knowledge-layer/src/browse.py): `ls` over the
+  # The file browser (packages/knowledge-layer/src/browse/tool.py): `ls` over the
   # reader's own shelves — every file, by folder, name, Dokumentart and upload
   # date, paged. The prompt inventory stops at a few dozen names; this does
   # not. Deterministic, no LLM, and it reads only the scope `knowledge_search`
@@ -767,6 +794,14 @@ functions:
     _type: ifc_measure
     default_limit: 50
 
+  # A DXF drawing measured as a site (ADR-0153), above all a Katasterauszug:
+  # parcel areas, neighbours and shared boundaries, the buildings on a parcel
+  # and their distance to each boundary, what remains after setbacks, labels and
+  # layers. Read from the drawing's own geometry, the model the PDF rendition
+  # draws (ADR-0152). Not project-only: a DXF attached to a chat is measured too.
+  dxf_measure:
+    _type: dxf_measure
+
   # The FUNCTION NAME here is deliberately still `shallow_research_agent` while
   # the `_type` is `research_agent`. NAT puts the function name — not the type —
   # on the wire as `Function Start: <name>`, and the frontend persists that
@@ -795,14 +830,14 @@ functions:
       - list_files
       - look
       - show_in_viewer
-      # ONE RIS tool on the chat surface. Search → pick → fetch → find the
+      # ONE law tool on the chat surface. Search → pick → fetch → find the
       # paragraph was three charged calls and a 40 000-character blob that
       # carried no Citation key, so nothing downstream could treat it as
-      # evidence; `ris_lookup` runs that path inside itself and returns passages
-      # in the knowledge layer's own grounding grammar. The other three stay
-      # registered and stay bound to deep research below, which has its own
-      # budget shape.
-      - ris_lookup_tool
+      # evidence; `law_lookup` runs that path inside itself and returns passages
+      # in the knowledge layer's own grounding grammar. The three older RIS
+      # tools stay registered and stay bound to deep research below, which has
+      # its own budget shape.
+      - law_lookup
       - remember
       # No `emit_card`: every chat card travels in the answer envelope's
       # `cards` field (cards/envelope.py), at no extra call. Bound, the tool
@@ -820,6 +855,7 @@ functions:
       - workspace
       - ifc_query
       - ifc_measure
+      - dxf_measure
       - ask_user
     verbose: true
     # A CEILING ON ROUNDS, NOT A QUOTA ON CALLS — and the number is the floor of
@@ -1001,6 +1037,7 @@ functions:
       - surface_documents
       - ifc_query
       - ifc_measure
+      - dxf_measure
     verbose: true
     # Durable checkpointing for async deep-research jobs (T3-8), mirroring
     # workflow.checkpoint_db below: re-invoking the same job_id resumes from

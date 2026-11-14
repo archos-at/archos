@@ -10,14 +10,14 @@
  * (`annotation.assigned_to_you`, folded per mark: the overdue reminder upgrades
  * the earlier one, never a second row). Each reminder for each date is said
  * once (`reminder` on the row, `remindedFor`): a second run on the same day, a
- * retried slice and a restarted scheduler tell nobody twice, and a date moved
+ * retried slice and a restarted worker tell nobody twice, and a date moved
  * since is reminded of anew.
  *
  * ## How it runs
  *
- * The scheduler's daily clock (`scheduler/index.js`, `sweepAnnotationDue`)
- * posts `POST /api/internal/annotations/due-reminders`. That route
- * ({@link enqueueDueReminders}) finds the organizations with marks due (one
+ * The `frist-reminder` Hatchet task runs at 06:45 in Vienna
+ * (`bff/scheduling/sweeps.ts`, `sweepFristReminder`) and calls
+ * {@link enqueueDueReminders}, which finds the organizations with marks due (one
  * aggregate under the platform scope) and enqueues one `annotation_due_reminders`
  * job per organization on the BFF job queue (ADR-0079), in its own lane, so one
  * office's thousand marks never hold up the next office's handful. The job's id
@@ -95,9 +95,9 @@ export interface DueReminderSweep {
 }
 
 /**
- * The daily sweep's half (`POST /api/internal/annotations/due-reminders`): one
- * job per organization with a mark due on the office's day or the next.
- * Discovery runs under the route's platform scope; each job is enqueued in its
+ * The daily sweep's half (the `frist-reminder` task): one job per organization
+ * with a mark due on the office's day or the next. Discovery runs under the
+ * task's platform scope; each job is enqueued in its
  * own organization's lane (`withTenant`, which the queue's WITH CHECK asks).
  */
 export async function enqueueDueReminders(now: Date = new Date()): Promise<DueReminderSweep> {
@@ -130,7 +130,7 @@ export async function enqueueDueReminders(now: Date = new Date()): Promise<DueRe
       }
     }
   }
-  // The others are queued; failing the sweep makes the scheduler retry, and what is queued counts as `already`.
+  // The others are queued; failing the sweep makes the task retry, and what is queued counts as `already`.
   if (failed.length > 0) {
     throw new Error(`due reminders for ${day}: ${failed.length} of ${organizations.length} organization(s) could not be queued`)
   }

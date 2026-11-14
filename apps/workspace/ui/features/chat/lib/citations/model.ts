@@ -32,6 +32,10 @@
 
 import { mergePageRegions, type PageRegion } from '@/features/knowledge/lib/page-region'
 import type { CitationProject, CitationSource } from '../../types'
+import type { CitationLineWire } from '@/shared/citation-line'
+import { recordedName } from '@/shared/citation-style'
+import { hostnameOf, isHttpUrl, normalizeUrl } from './text'
+export { isHttpUrl } // `bff/agent-asks/answer-evidence.ts` imports it from here
 import {
   KIND_TO_SIGNAL,
   accentForLane,
@@ -183,6 +187,12 @@ export interface CitedDocument {
    * undefined upstream so it renders as no badge.
    */
   bindingStatus?: string
+  /**
+   * What the document's citation line states, from the knowledge records
+   * (`@/shared/citation-line`): edition, role, route, dates, the text read and
+   * its public address. One per document: every locus of an edition shares it.
+   */
+  line?: CitationLineWire
   /** The other project a cross-project lookup found it in (ADR-0094); the chip names it. */
   project?: CitationProject
   /** Backend origin token, when one was stamped. */
@@ -290,10 +300,6 @@ const oibCorpusKey = (nameOrLabel: string | undefined | null): string | null => 
 /** Base law, or a document that has not said — never another shelf. */
 const isBaseOrUnknownShelf = (shelf: Shelf | undefined): boolean =>
   shelf === undefined || shelf === 'base'
-
-
-/** URL reduced to a comparison form (scheme/host lowercased, trailing slash dropped). */
-export const normalizeUrl = (url: string): string => url.trim().toLowerCase().replace(/\/+$/, '')
 
 /**
  * Filename reduced to a comparison form: trimmed, lowercased, separators
@@ -491,21 +497,9 @@ export const locusKey = (page: number | undefined, citationKey?: string): string
 // Presentation — derived once, here
 // ---------------------------------------------------------------------------
 
-const ORIGIN_TOKEN_RE = /^\s*\[(KB|Web|RIS)\]\s*/i
-
 /** Strip a leading `[KB]`/`[RIS]`/`[Web]` token from display text. */
-export const stripOriginToken = (text: string): string => text.replace(ORIGIN_TOKEN_RE, '').trim()
-
-export const isHttpUrl = (url: string | undefined | null): boolean =>
-  !!url && /^https?:\/\//i.test(url)
-
-export const hostnameOf = (url: string): string | null => {
-  try {
-    return new URL(url).hostname.replace(/^www\./i, '')
-  } catch {
-    return null
-  }
-}
+export const stripOriginToken = (text: string): string =>
+  text.replace(/^\s*\[(KB|Web|RIS)\]\s*/i, '').trim()
 
 /**
  * Coarse kind for a source, canonical wire value first.
@@ -768,6 +762,7 @@ export class CitationAccumulator {
     laneLabel?: string | null
     bindingNote?: string | null
     bindingStatus?: string | null
+    line?: CitationLineWire
     project?: CitationProject
     origin?: string | null
     tool?: string | null
@@ -841,6 +836,7 @@ export class CitationAccumulator {
     doc.tool = doc.tool ?? (observation.tool?.trim() || undefined)
     doc.bindingNote = doc.bindingNote ?? (observation.bindingNote?.trim() || undefined)
     doc.bindingStatus = doc.bindingStatus ?? (observation.bindingStatus?.trim() || undefined)
+    doc.line = doc.line ?? observation.line
     doc.project = doc.project ?? observation.project
     doc.snippet = doc.snippet ?? (observation.snippet?.trim() || undefined)
     doc.laneLabel = doc.laneLabel ?? (observation.laneLabel?.trim() || undefined)
@@ -865,6 +861,13 @@ export class CitationAccumulator {
         label: observation.identity.label,
       }) || incomingTitle
     if (title && (!doc.title || looksLikeFilename(doc.title))) doc.title = title
+    // A text of an edition the records name, with no title of its own, is called what they call it, never by
+    // its file name; law read live keeps its own title.
+    // Judged on an observation that carries a title: one that omits it says nothing about the document's own name,
+    // so a live law's title, or a name the records already gave, stays.
+    if (observation.title != null) {
+      doc.title = recordedName({ title: observation.title, fileName: doc.fileName, line: observation.line ?? doc.line }) ?? doc.title
+    }
 
     if (observation.locus) this.mergeLocus(doc, observation.locus)
 

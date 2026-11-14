@@ -1,19 +1,25 @@
 name: Release notes
 
-# Publishes the reno notes to the marketing site.
+# Publishes the reno notes to their two readers (ADR-0156):
 #
-# On every merge to `develop` that touched `releasenotes/`, this regenerates
-# `apps/site/src/data/changelog.json` (translating the new English sentences
-# into German once, and caching the result in `releasenotes/translations/de.json`)
-# and commits it back. That commit is what puts the note in front of a reader:
-# it triggers CI, which rebuilds the web image, which the staging deploy rolls
-# out. Nothing here talks to the cluster.
+#   * the app's "What's new" (apps/workspace), every customer note, for
+#     signed-in members: apps/workspace/bff/release-notes/release-notes.generated.json;
+#   * the website's /changelog/ (apps/website), the weekly summaries only:
+#     apps/website/src/data/changelog.json.
 #
-# Why the artifact is generated here and not at image-build time: reno derives
-# the release a note belongs to from git history, and the web Docker build has
-# neither the history nor a Python toolchain. Generating once on merge keeps the
-# image build hermetic — and keeps the German translation from being re-paid for
-# on every build.
+# On every merge to `develop` that touched `releasenotes/`, this regenerates both
+# (translating the new English sentences into German once, and caching the
+# result in `releasenotes/translations/de.json`) and commits them back. That
+# commit is what puts a note in front of a reader: it triggers CI, which rebuilds
+# the app and web images, which the staging deploy rolls out. Nothing here talks
+# to the cluster. A finished week without a summary is a warning on the run: the
+# public page leaves it out until someone writes one.
+#
+# Why the artifacts are generated here and not at image-build time: reno derives
+# the release a note belongs to from git history, and the Docker builds have
+# neither the history nor this Python toolchain. Generating once on merge keeps
+# the image builds hermetic, and keeps the German translation from being re-paid
+# for on every build.
 #
 # One-time setup:
 #   * Repository secret `OPENROUTER_API_KEY` — the translator. Without it the
@@ -32,7 +38,7 @@ name: Release notes
 # The commit is made with `[skip actions]`-free, ordinary content: it must
 # trigger the downstream image build, or the note never reaches the website. It
 # cannot loop, because the path filter below only fires on `releasenotes/**` and
-# this job only ever writes under `apps/site/src/data/` and
+# the scripts, and this job only ever writes the two artifacts and
 # `releasenotes/translations/`.
 
 on:
@@ -42,7 +48,7 @@ on:
       - releasenotes/notes/**
       - releasenotes/config.yaml
       - releasenotes/summaries.yaml
-      - scripts/release_notes.py
+      - scripts/release_notes*.py
       - .github/workflows/release-notes.yml
   # Validate the pipeline on demand — regeneration and translation resolution
   # run, but nothing is committed: publishing is gated to pushes on `develop`
@@ -59,7 +65,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish changelog to the website
+    name: Publish release notes to the app and the website
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -70,11 +76,11 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
 
-      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
 
-      - name: Regenerate the changelog
+      - name: Regenerate both artifacts
         # Step-level, not job-level: the translator key reaches only the two
         # steps that translate, never the third-party setup actions.
         env:
@@ -100,10 +106,14 @@ jobs:
           REQUIRE: ${{ secrets.OPENROUTER_API_KEY != '' && '--require-translations' || '' }}
         run: |
           set -euo pipefail
-          files=(apps/site/src/data/changelog.json releasenotes/translations/)
+          files=(
+            apps/website/src/data/changelog.json
+            apps/workspace/bff/release-notes/release-notes.generated.json
+            releasenotes/translations/
+          )
           for attempt in 1 2 3 4; do
             git fetch -q origin develop
-            # The changelog is a function of the notes at the tip. When develop
+            # The artifacts are a function of the notes at the tip. When develop
             # has moved on (another merge, or the previous run's own changelog
             # commit), regenerate on top of it. Rebasing a generated file onto
             # another version of itself conflicts, and that conflict is how a
@@ -113,14 +123,14 @@ jobs:
               uv run --no-project --with reno==4.1.0 python scripts/release_notes.py publish $REQUIRE
             fi
             if git diff --quiet -- "${files[@]}"; then
-              echo "Changelog already up to date — nothing to publish."
+              echo "Both artifacts already up to date — nothing to publish."
               exit 0
             fi
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add "${files[@]}"
             git commit -q \
-              -m "docs(changelog): publish release notes to the website" \
+              -m "docs(changelog): publish release notes to the app and the website" \
               -m "Generated by scripts/release_notes.py from releasenotes/notes/."
             git push origin HEAD:develop && exit 0
             echo "push failed (attempt $attempt), regenerating on the new tip"

@@ -205,23 +205,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/components/shell/app-sidebar.tsx",
-    "to": "ui/features/layout/store.ts",
-    "unresolvedTo": "@/features/layout/store",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "components-import-features"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/components/shell/command-palette.tsx",
     "to": "ui/features/layout/store.ts",
     "unresolvedTo": "@/features/layout/store",
@@ -413,23 +396,6 @@
     "from": "ui/components/shell/phone-tab-bar.tsx",
     "to": "ui/features/product-feedback/components/index.ts",
     "unresolvedTo": "@/features/product-feedback/components",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "components-import-features"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/components/shell/project-switcher.tsx",
-    "to": "ui/features/layout/store.ts",
-    "unresolvedTo": "@/features/layout/store",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",
@@ -2554,24 +2520,6 @@
   {
     "type": "dependency",
     "from": "ui/features/collaboration/components/SpectatedTurn.tsx",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/collaboration/components/SpectatedTurn.tsx",
     "to": "ui/features/chat/lib/wire-citation.ts",
     "unresolvedTo": "@/features/chat/lib/wire-citation",
     "dependencyTypes": [
@@ -2631,41 +2579,6 @@
       "aliased-tsconfig-paths",
       "local",
       "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/collaboration/hooks/use-spectated-turn.ts",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/collaboration/lib/spectator-frames.ts",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
       "import"
     ],
     "rule": {
@@ -3050,24 +2963,6 @@
   {
     "type": "dependency",
     "from": "ui/features/documents/hooks/use-canvas-ask.ts",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/documents/hooks/use-canvas-ask.ts",
     "to": "ui/features/chat/stores/messages-store.ts",
     "unresolvedTo": "@/features/chat/stores/messages-store",
     "dependencyTypes": [
@@ -3155,23 +3050,6 @@
     "from": "ui/features/documents/lib/canvas-turn-client.ts",
     "to": "ui/features/chat/lib/canvas-bridge.ts",
     "unresolvedTo": "@/features/chat/lib/canvas-bridge",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/documents/lib/canvas-turn-client.ts",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",
@@ -3380,24 +3258,6 @@
     "from": "ui/features/layout/components/chat-area/chat-area-helpers.ts",
     "to": "ui/features/chat/components/ChatThinking.tsx",
     "unresolvedTo": "@/features/chat/components/ChatThinking",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/layout/components/chat-area/chat-area-helpers.ts",
-    "to": "ui/features/chat/lib/turn-fold.ts",
-    "unresolvedTo": "@/features/chat/lib/turn-fold",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",
@@ -4677,40 +4537,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/platform/components/knowledge-upload-panel.tsx",
-    "to": "ui/features/documents/components/file-drop-overlay.tsx",
-    "unresolvedTo": "@/features/documents/components/file-drop-overlay",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/features/platform/components/knowledge-upload-panel.tsx",
-    "to": "ui/features/documents/hooks/use-file-drag-drop.ts",
-    "unresolvedTo": "@/features/documents/hooks/use-file-drag-drop",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/features/product-feedback/components/feedback-threads.tsx",
     "to": "ui/features/chat/components/UserMessage.tsx",
     "unresolvedTo": "@/features/chat/components/UserMessage",
@@ -5604,23 +5430,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/projects/components/project-memory-panel.tsx",
-    "to": "ui/features/documents/components/folder-access-mark.tsx",
-    "unresolvedTo": "@/features/documents/components/folder-access-mark",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/features/projects/components/settings/documents-settings.tsx",
     "to": "ui/features/uploads/components/upload-history.tsx",
     "unresolvedTo": "@/features/uploads/components/upload-history",
@@ -6236,23 +6045,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/uploads/components/uploaded-file-row.tsx",
-    "to": "ui/features/documents/components/request-review-button.tsx",
-    "unresolvedTo": "@/features/documents/components/request-review-button",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/features/uploads/lib/upload-summary.ts",
     "to": "ui/features/documents/lib/document-question.ts",
     "unresolvedTo": "@/features/documents/lib/document-question",
@@ -6410,23 +6202,6 @@
     "from": "bff/conversations/conversation-wire.ts",
     "to": "ui/features/cards/card-decision.ts",
     "unresolvedTo": "@/features/cards/card-decision",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "lib-imports-ui"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "bff/conversations/stopped-cut.ts",
-    "to": "ui/features/chat/lib/stopped-answer.ts",
-    "unresolvedTo": "@/features/chat/lib/stopped-answer",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",

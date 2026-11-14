@@ -35,10 +35,22 @@ def miss_message(question: str, address: Address, trace: LookupTrace) -> str:
         + (f" in RIS application {trace.application}." if trace.application else "."),
         federal_state_sentence(address),
     ]
+    lines.extend(_as_of_lines(trace))
     lines.extend(_candidate_lines(trace))
     lines.extend(_headings_lines(trace))
     lines.append(_retry_line(address, trace))
     return "\n".join(lines)
+
+
+def _as_of_lines(trace: LookupTrace) -> list[str]:
+    """On a past day, say that no version of that day was found, and that today's text was not substituted."""
+    if not trace.as_of:
+        return []
+    return [
+        f"Asked for the version in force on {trace.as_of}: no RIS version document of that day was found "
+        f"({trace.versions_dropped} hit(s) were versions of other days). Today's text is not given in its place; "
+        "say the version of that day is not held, or call base-knowledge-edition-as-of for the edition."
+    ]
 
 
 def _candidate_lines(trace: LookupTrace) -> list[str]:

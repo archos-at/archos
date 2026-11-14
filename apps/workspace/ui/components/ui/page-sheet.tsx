@@ -78,7 +78,7 @@ export const PAGE_SHEET_OVERLAY_CLASS = 'bg-overlay fixed inset-0 z-50 backdrop-
  * meant for the page behind.
  */
 export const PAGE_SHEET_PANEL_CLASS =
-  'bg-background fixed inset-x-0 bottom-0 top-[max(0.75rem,env(safe-area-inset-top))] z-50 flex flex-col overflow-hidden rounded-t-2xl border border-b-0 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] shadow-xl outline-none md:inset-x-5 md:top-5 md:mx-auto [--shell-inset-bottom:env(safe-area-inset-bottom)]'
+  'bg-background fixed inset-x-0 bottom-0 top-[max(0.75rem,env(safe-area-inset-top))] z-50 flex flex-col overflow-hidden rounded-surface pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] shadow-xl outline-none md:inset-x-5 md:top-5 md:mx-auto [--shell-inset-bottom:env(safe-area-inset-bottom)]'
 
 /**
  * How wide the panel may grow from `md` up. One width: a page sheet is a whole
@@ -114,6 +114,14 @@ interface PageSheetProps {
    */
   initialFocusRef?: React.RefObject<HTMLElement | null>
   /**
+   * Where the entrance starts, when the panel is already on screen: its loading
+   * skeleton rose in its place (`PageSheetSkeleton`), so the sheet takes over
+   * where that stands (`y` px below rest, the scrim at `scrim` opacity) and
+   * finishes the rise, instead of rising a second time from the foot. At rest
+   * (`y: 0`, `scrim: 1`) nothing moves. The exit plays either way.
+   */
+  enterFrom?: { y: number; scrim: number }
+  /**
    * Fires once the exit animation has fully played. `RoutePageSheet` navigates
    * HERE rather than on close, so the slide-out is seen instead of being cut
    * off by the route unmounting beneath it.
@@ -133,6 +141,7 @@ export function PageSheet({
   headerActions,
   headerless = false,
   initialFocusRef,
+  enterFrom,
   onExitComplete,
   bodyClassName,
   children,
@@ -175,7 +184,7 @@ export function PageSheet({
             <DialogPrimitive.Overlay asChild forceMount>
               <motion.div
                 className={PAGE_SHEET_OVERLAY_CLASS}
-                initial={{ opacity: 0 }}
+                initial={{ opacity: enterFrom?.scrim ?? 0 }}
                 animate={{ opacity: 1, transition: motionEntrance }}
                 exit={{ opacity: 0, transition: motionSheetExit }}
               />
@@ -196,7 +205,7 @@ export function PageSheet({
             >
               <motion.div
                 className={cn(PAGE_SHEET_PANEL_CLASS, PANEL_WIDTH)}
-                initial={{ y: '100%' }}
+                initial={{ y: enterFrom?.y ?? '100%' }}
                 animate={{ y: 0, transition: motionSheetEnter }}
                 exit={{ y: '100%', transition: motionSheetExit }}
                 drag="y"
@@ -235,7 +244,7 @@ export function PageSheet({
                     <div className="flex min-w-0 flex-col gap-0.5">
                       <DialogPrimitive.Title
                         data-slot="page-sheet-title"
-                        className="text-foreground truncate text-lg font-semibold tracking-[-0.01em]"
+                        className="text-foreground truncate text-lg font-medium"
                       >
                         {title}
                       </DialogPrimitive.Title>
@@ -302,11 +311,11 @@ function PageSheetGrabber({
           if (pulledRef.current) event.preventDefault()
         }}
         className={cn(
-          'flex h-4 w-14 cursor-grab items-center justify-center rounded-full outline-none active:cursor-grabbing pointer-coarse:h-11 pointer-coarse:w-24',
+          'flex h-4 w-14 cursor-grab items-center justify-center rounded-control outline-none active:cursor-grabbing pointer-coarse:h-11 pointer-coarse:w-24',
           FOCUS_RING
         )}
       >
-        <span className="bg-muted-foreground/25 h-1 w-9 rounded-full" aria-hidden />
+        <span className="bg-muted-foreground/25 h-1 w-9 rounded-none" aria-hidden />
         <span className="sr-only">{label}</span>
       </DialogPrimitive.Close>
     </div>
@@ -332,7 +341,7 @@ export function PageSheetClose({ label }: { label: string }): JSX.Element {
     <DialogPrimitive.Close
       data-slot="page-sheet-close"
       className={cn(
-        'text-muted-foreground hover:bg-accent hover:text-foreground flex size-9 shrink-0 items-center justify-center rounded-lg outline-none transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:size-11',
+        'text-muted-foreground hover:bg-hover hover:text-foreground flex size-9 shrink-0 items-center justify-center rounded-control outline-none transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:size-11',
         FOCUS_RING,
       )}
     >

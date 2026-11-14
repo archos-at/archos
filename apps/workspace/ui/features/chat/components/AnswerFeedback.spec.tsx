@@ -341,37 +341,51 @@ describe('AnswerFeedback', () => {
   })
 
   describe('PostHog', () => {
-    test('records the verdict and the reason chip, once per change, and never the words', async () => {
+    test('holds a down-vote for its reason and sends it once, with the reason, the trace and no words', async () => {
       const user = userEvent.setup()
+      mockFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+        init?.method === 'POST' ? okJson({ traceId: 'trace_1' }) : okJson({ feedback: [] }),
+      )
       render(<AnswerFeedback messageId="msg_1" conversationId="conv_1" />)
 
       await user.click(downThumb())
-      await waitFor(() =>
-        expect(capturePosthog).toHaveBeenCalledWith('answer_feedback_submitted', {
-          verdict: 'down',
-          reason: null,
-          // Joins the vote to its turn and to the Langfuse score for it.
-          message_id: 'msg_1',
-          conversation_id: 'conv_1',
-        }),
-      )
+      await waitFor(() => expect(postCalls()).toHaveLength(1))
+      expect(capturePosthog).not.toHaveBeenCalled()
 
       await user.click(screen.getByRole('radio', { name: 'Wrong source' }))
       await waitFor(() =>
         expect(capturePosthog).toHaveBeenCalledWith('answer_feedback_submitted', {
           verdict: 'down',
           reason: 'wrong_source',
+          has_comment: false,
+          comment_length: 0,
           message_id: 'msg_1',
           conversation_id: 'conv_1',
+          trace_id: 'trace_1',
+          langfuse_trace_id: 'trace_1',
         }),
       )
 
-      // The note saves the same vote again: no third event, and the words stay home.
+      // The note saves the same vote again: no second event, and the words stay home.
       await user.type(screen.getByLabelText('Anything else?'), 'Brüstungshöhe nicht gefunden.')
       await user.click(screen.getByRole('button', { name: 'Send note' }))
       await waitFor(() => expect(postCalls()).toHaveLength(3))
-      expect(capturePosthog).toHaveBeenCalledTimes(2)
+      expect(capturePosthog).toHaveBeenCalledTimes(1)
       expect(JSON.stringify(vi.mocked(capturePosthog).mock.calls)).not.toContain('Brüstungshöhe')
+    })
+
+    test('sends a down-vote without a reason when the voter leaves the page', async () => {
+      const user = userEvent.setup()
+      render(<AnswerFeedback messageId="msg_1" conversationId="conv_1" />)
+      await user.click(downThumb())
+      await waitFor(() => expect(postCalls()).toHaveLength(1))
+      expect(capturePosthog).not.toHaveBeenCalled()
+
+      window.dispatchEvent(new Event('pagehide'))
+      expect(capturePosthog).toHaveBeenCalledWith(
+        'answer_feedback_submitted',
+        expect.objectContaining({ verdict: 'down', reason: null }),
+      )
     })
 
     test('records nothing for a retraction or a rejected vote', async () => {

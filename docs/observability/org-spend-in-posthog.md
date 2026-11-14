@@ -17,13 +17,14 @@ who spent what. Nothing else in PostHog can stand in for it:
 | `openrouter_*` warehouse tables | The platform's own bill per model and key. No tenant in it. Good for reconciling, which the dashboard does |
 | `budget_threshold_crossed`, `budget_blocked` | Moments, not amounts. They say a limit was reached, not how much was spent |
 
-So the BFF sends the ledger itself. `lib/analytics/usage-export.ts`, asked by
-the job scheduler every ten minutes (`POST /api/internal/analytics/usage-export`,
-`sweepUsageExport` in `scheduler/index.js`), sends two personless events:
+So the BFF sends the ledger itself. `lib/analytics/usage-export.ts`, run by
+the `usage-export` Hatchet task every ten minutes (`sweepUsageExport` in
+`apps/workspace/bff/scheduling/sweeps.ts`), sends three personless events:
 
 | Event | One per | What it carries |
 |---|---|---|
 | `llm_usage_hourly` | organization × closed UTC hour × model × activity × purpose × person × project × key | `amount` in the organization's own unit (credits, or tokens on its own key), the number its Budgets page shows; `calls`, the token counts, `credits`, `cost_usd` (what OpenRouter charged), `price_usd` (what the tenant is charged) |
+| `llm_usage_by_outcome` | organization × closed UTC hour × outcome (`message_id`, `job_id`, `conversation_id`) × model × activity × purpose, for ledger rows that name an outcome | `outcome` (`answer`, `ingest`, `job`, `conversation`), the ids, `calls`, the token counts, `cost_usd`, `price_usd`. What one answer or one document cost: join it to `answer_completed` on `message_id`, and to `document_ingest_started` on `job_id`, which names the document whose `document_ingest_finished` carries pages, `file_bytes` and the status. Its own cursor, so its 90-day history arrived with its first runs |
 | `organization_budget_snapshot` | organization × UTC hour, for every organization that spent in the last 35 days or set a limit | Its effective limits (the seeded allowance included), today's and this month's spend against them, `day_pct`/`month_pct`, `blocked`, how many member and project limits it set, its name, and this month's calls, tokens, credits, cost and price |
 
 The full property lists are in [`posthog-events.md`](posthog-events.md).
@@ -68,9 +69,15 @@ DELETE FROM analytics_export_cursors WHERE stream = 'posthog_usage_hourly';
 ### Staging and production
 
 Both stacks send to the one PostHog project, and both run `APP_ENV=production`.
-Every server event carries `app_host` (`app.piloti.at`, `app.dev.piloti.at`),
-from the pinned redirect URI (`serverSuperProperties`). Filter on it; every
-chart below does. Before this change server events carried no deployment at all.
+Every server event carries `app_host`, the stack's app host, from the pinned
+redirect URI (`serverSuperProperties`). It is `app.<baseDomain>` of the stack's
+Pulumi file: `app.piloti.at` for production (`Pulumi.prod.yaml`) and
+`app.dev.archos.tech` for staging (`Pulumi.dev.yaml`). Staging moved on
+2026-11-05, so its earlier events carry `app.dev.piloti.at`; production's value
+changes the same way when it moves
+([`domain-cutover.md`](../deployment/domain-cutover.md)), and the SQL defaults
+below change with it. Filter on it; every chart below does. Before this change
+server events carried no deployment at all.
 
 ## What is in PostHog
 
@@ -95,7 +102,8 @@ Project 269895. Everything carries the tag `spend`.
   and this month against the limits, the 30-day trend, the model mix and its
   table, the members, and what the spend was for.
 
-Both take the SQL variables `piloti_deployment` (default `app.piloti.at`) and,
+Both take the SQL variables `piloti_deployment` (default: production's app host,
+`app.piloti.at` today) and,
 on the second, `piloti_organization`, a list filled from the organizations that
 spent in the last 90 days.
 
@@ -107,6 +115,37 @@ them first (`metric-list`), and once approved runs them as the canonical answer.
 **Inside Piloti** the same per-organization view is Platform → Übersicht → an
 organization's name (`/app/platform/organizations/[id]`, `platform:usage:view`),
 drawn with the office's own Budgets components.
+
+## Unit costs
+
+Total spend says how much; a unit cost says what it bought. Dashboard
+**Spend — unit economics** (`/dashboard/1085793`) holds them, production only.
+Each metric is defined so that a model change does not make it lie.
+
+| Metric | Definition | Why this one |
+|---|---|---|
+| Cost per answer, p50 / p90 / p99 | The ledger's cost of one `message_id`, every call of the turn and its post-answer stages | A mean hides the tail: on 2026-10-21 to 11-04 the 10 % of turns over 100 k tokens of context were 29 % of chat spend |
+| Cost per successful answer | All answer spend ÷ answers that ended `ok` | Charges failed and aborted answers to the ones that worked (FinOps Foundation, "cost per successful outcome") |
+| Spend on failed answers | Cost of answers that ended `error` or `aborted` ÷ answer spend | The waste side of chat |
+| Cost per page, per MB, per document | An ingest job's cost ÷ its document's `page_count`, `file_bytes` or 1, by file type and outcome | What one more upload costs; MB only for attempts after `file_bytes` was added |
+| Failed share | Failed documents and pages ÷ all that settled | A failed ingest was read and paid for |
+| Price index | Actual generative cost ÷ the same tokens at one fixed price sheet (terra list: $1.00 / M uncached input, $0.05 cached, $5.00 output) | Separates more work (the reference dollars) from dearer work (the ratio). 1.0 is terra list; 2.0 in the week of 2026-10-26 was Opus with no cache |
+| What one dollar buys | Pages per ingest dollar, answers per answer dollar | The inverse of the above, the number to say out loud |
+| Cost per active office and member | Monthly cost ÷ offices and members that spent, next to what they were charged | Margin: in October and November 2026 the price equalled the cost |
+| Cache share and cost per call | Per purpose and model | Where a cache fix or a model choice would move the bill |
+
+**Views** behind them:
+
+| View | One row per | Notes |
+|---|---|---|
+| `piloti_llm_cost_per_answer` | answer (`message_id`) | From `llm_usage_by_outcome`, joined to `answer_completed` for the outcome and effort. `answer_completed` is sent by the browser and misses answers nobody watched (123 of about 420 turns on 2026-10-21 to 11-04), so the dashboard shows the unreported share |
+| `piloti_llm_cost_per_ingest` | ingest job | `llm_usage_by_outcome` → `document_ingest_started` (job → document, attempt) → `document_ingest_finished` of that attempt |
+| `piloti_llm_price_index_daily` | deployment × day × activity | Embedding, rerank and decision calls are left out: not priced per generative token |
+| `piloti_ingest_unit_cost_daily` | deployment × day | Approximate (cost and settle can fall on different days), for the history before the outcome stream; days before 2026-10-20 have no `app_host` and are left out |
+
+**Langfuse is not a cost source for these.** It priced the Opus turns of
+2026-10-21 to 10-27 at about zero, its PostHog export carries no cached tokens,
+and it has no organization. The ledger is what OpenRouter charged.
 
 ## Asking it through the PostHog MCP
 

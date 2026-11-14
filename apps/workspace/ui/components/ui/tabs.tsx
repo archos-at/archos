@@ -70,7 +70,10 @@ const TabsList = React.forwardRef<
       // Under a finger the strip is sized by its triggers (which carry the
       // 44px floor) rather than by a fixed height that a caller's `h-*` could
       // silently undercut — see the Button size comment for why `pointer-coarse`.
-      'bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-1 pointer-coarse:h-auto',
+      // An inactive label is ink at 70%, not `text-muted-foreground`: muted on
+      // the strip's `bg-muted` measured 4.44:1 at 12px (axe, 2026-10-22), under
+      // the 4.5:1 WCAG AA asks.
+      'bg-desk text-foreground/70 inline-flex h-9 w-fit items-center justify-center rounded-control p-1 pointer-coarse:h-auto',
       className
     )}
     {...props}
@@ -90,6 +93,9 @@ const TabsTrigger = React.forwardRef<
       ref={ref}
       value={value}
       data-slot="tabs-trigger"
+      // The ring inside the tab, as every segment of a track draws it: a strip that scrolls clips one drawn outside.
+      data-focus-inset=""
+      data-attr={value === undefined ? undefined : `tab-${value}`}
       className={cn(
         // The active SURFACE lives on the shared-layout pill below, so the
         // trigger paints none of its own — no `data-[state=active]:bg-card`,
@@ -99,8 +105,9 @@ const TabsTrigger = React.forwardRef<
         // `relative isolate` + pill `-z-10`: the pill paints above the list's
         // own background but below the trigger's text and icons, with no
         // wrapper element to disturb the trigger's flex layout.
-        'data-[state=active]:text-foreground outline-none relative isolate inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-md px-3.5 py-1 text-sm font-medium whitespace-nowrap transition-[color,scale] [transition-duration:var(--motion-quick),var(--motion-snap)] ease-out motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-50 pointer-coarse:min-h-11 active:scale-[0.98] motion-reduce:active:scale-100 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=\'size-\'])]:size-4',
+        'data-[state=active]:text-foreground data-[state=inactive]:hover:bg-hover data-[state=inactive]:hover:text-foreground outline-none relative isolate inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-control px-3.5 py-1 text-sm font-medium whitespace-nowrap transition-[color,background-color,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-50 pointer-coarse:min-h-11 active:scale-[0.98] motion-reduce:active:scale-100 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=\'size-\'])]:size-4',
         FOCUS_RING,
+        'focus-visible:ring-inset focus-visible:ring-offset-0',
         className
       )}
       {...props}
@@ -114,12 +121,12 @@ const TabsTrigger = React.forwardRef<
           // this, two strips sharing an identity is invisible to devtools and
           // to a test, and only shows as a pill flying across the screen.
           data-pill-id={pillId}
-          // The exact chip the active trigger wore before — `bg-card shadow-xs`
-          // — lifted onto its own element so it can travel. Unbounded travel
+          // The track's thumb (`bg-sheet shadow-thumb`, as a segmented control's
+          // and the page tabs'), on its own element so it can travel. Unbounded travel
           // (adjacent tabs or across the strip) is why this is `springGlide`
           // and not an overshooting spring; reduced motion is handled by the
           // global `<MotionConfig reducedMotion="user">` in providers.tsx.
-          className="bg-card shadow-xs absolute inset-0 -z-10 rounded-[inherit]"
+          className="bg-sheet shadow-thumb absolute inset-0 -z-10 rounded-[inherit]"
           transition={springGlide}
         />
       )}

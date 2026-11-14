@@ -223,6 +223,11 @@ export const collaboration: typeof en.collaboration = {
 
   inbox: {
     title: 'Postfach',
+    // Das Postfach neben der Seite: schließen, und der Weg zu allen Einträgen.
+    dock: {
+      close: 'Postfach schließen',
+      all: 'Alle Einträge, auch archivierte',
+    },
     navLabel: 'Postfach',
     badgeAria:
       '{count, plural, one {# Eintrag braucht} other {# Einträge brauchen}} Ihre Aufmerksamkeit',
@@ -232,7 +237,6 @@ export const collaboration: typeof en.collaboration = {
     // was Sie noch nicht geöffnet haben. Zwei Fragen, zwei Filter.
     filters: {
       needsMe: 'Für mich',
-      unread: 'Ungelesen',
       all: 'Alle',
       archived: 'Archiviert',
       ariaLabel: 'Postfach filtern',
@@ -253,10 +257,52 @@ export const collaboration: typeof en.collaboration = {
     loadMoreFailed: 'Ältere Einträge konnten nicht geladen werden.',
     // Die Zeile zu einer Anmerkung: dorthin, und für eine Anfrage gleich hier
     // antworten oder erledigen, wie im Verlauf der Anmerkung.
+    // Bis wann, auf der Zeile einer Anfrage mit Frist, wo der Titel es nicht schon sagt.
+    due: {
+      overdue: 'Überfällig',
+      soon: 'Bald fällig',
+      on: 'Frist {due}',
+    },
+    // Die Abschnitte der Liste, nach dem Zeitpunkt der letzten Änderung.
+    groups: {
+      today: 'Heute',
+      yesterday: 'Gestern',
+      week: 'Diese Woche',
+      older: 'Früher',
+    },
+    // Der Hinweis unter der Liste, nur mit Maus und Tastatur: die Tasten, mit denen sich das Postfach abarbeiten lässt.
+    keys: {
+      move: 'auswählen',
+      open: 'öffnen',
+      archive: 'archivieren',
+      read: 'gelesen/ungelesen',
+    },
+    // Was eine neue Fassung zu prüfen lässt, als Angabe in der Zeile unter dem Titel.
+    openMarks: '{count, plural, one {# offene Anmerkung} other {# offene Anmerkungen}}',
+    // Das Postfach als Warteschlange: was auf Sie wartet, nach Dokument oder Chat gesammelt, dann die Neuigkeiten.
+    queue: {
+      waiting: 'Wartet auf Sie',
+      news: 'Neuigkeiten',
+      late: '{count} überfällig',
+      // Unter der Überschrift „Wartet auf Sie“, wenn nichts wartet: sagt nicht noch einmal „wartet auf Sie“.
+      nothingWaiting: 'Keine offenen Anfragen.',
+      newsRead: 'Als gelesen markieren',
+      chat: 'Chat',
+    },
+    // Warum ein wartender Eintrag Ihrer ist, kurz: das Dokument steht schon darüber.
+    reason: {
+      assigned: 'Von {actor} zugewiesen',
+      assignedNoActor: 'Ihnen zugewiesen',
+      mentioned: '{actor} hat Sie erwähnt',
+      mentionedNoActor: 'Sie wurden erwähnt',
+      asks: '{productName} fragt Sie',
+      input: '{actor} bittet um Ihre Einschätzung',
+      inputNoActor: 'Um Ihre Einschätzung gebeten',
+      approval: '{actor} bittet um Ihre Freigabe',
+      approvalNoActor: 'Wartet auf Ihre Freigabe',
+      mark: 'Anmerkung {number}',
+    },
     mark: {
-      open: 'Zur Anmerkung',
-      // Eine Zeile über neue Anmerkungen („Anna hat 15 Anmerkungen gesetzt“): sie öffnet die Prüfansicht bei der neuesten.
-      openMany: 'Zu den Anmerkungen',
       // Eine Rückfrage von Piloti, solange Ereignisse Piloti nicht wecken: Erst die Prüfansicht fragt Piloti mit der Antwort.
       answerInReview: 'In der Prüfansicht beantworten',
       reply: 'Antworten',
@@ -280,11 +326,9 @@ export const collaboration: typeof en.collaboration = {
     compareRevisions: 'Fassungen vergleichen',
     compareRevisionsLabel: 'Neue und ältere Fassung von „{subject}“ vergleichen',
     empty: {
-      needsMeTitle: 'Nichts zu tun',
+      needsMeTitle: 'Alles erledigt',
       needsMeDescription:
-        'Wenn jemand Sie erwähnt, Ihnen eine Anmerkung zuweist oder {productName} Sie etwas fragt, erscheint es hier.',
-      unreadTitle: 'Alles gelesen',
-      unreadDescription: 'Was neu ist, steht hier, bis Sie es öffnen.',
+        'Neues erscheint hier, sobald es da ist.',
       allTitle: 'Ihr Postfach ist leer',
       allDescription: 'Neuigkeiten aus Ihrem Team und von {productName} erscheinen hier.',
       archivedTitle: 'Nichts archiviert',
@@ -348,6 +392,12 @@ export const collaboration: typeof en.collaboration = {
         title: '{actor} hat Ihnen {subject} zugewiesen',
         body: 'Sie sind für diese Datei zuständig.',
       },
+      // Ein Projekt-Administrator hat die Eigentümerschaft übernommen (ADR-0032,
+      // Entscheidung 5). {subject} ist der Chat oder die Datei.
+      ownershipTaken: {
+        title: '{actor} hat die Eigentümerschaft von „{subject}“ übernommen',
+        body: 'Als Projekt-Administrator. Sie bleiben Eigentümer; die Übernahme steht im Audit-Protokoll.',
+      },
       // Ein Lauf ist zu Ende. {subject} ist der Name der Aufgabe.
       // Kein {actor}: die Arbeit hat Piloti getan, nicht eine Person.
       // ADR-0086: alles, was ein Upload gebracht hat, ist gelesen. {subject}
@@ -383,6 +433,14 @@ export const collaboration: typeof en.collaboration = {
             body: '„{subject}“ enthält eine Sozialversicherungsnummer. Kein Modell hat sie gelesen. Zulassen oder löschen?',
             bodyMany: 'Zuletzt „{subject}“, mit einer Sozialversicherungsnummer. Prüfen Sie sie: zulassen oder löschen.',
           },
+          de_svnr: {
+            body: '„{subject}“ enthält eine Sozialversicherungsnummer. Kein Modell hat sie gelesen. Zulassen oder löschen?',
+            bodyMany: 'Zuletzt „{subject}“, mit einer Sozialversicherungsnummer. Prüfen Sie sie: zulassen oder löschen.',
+          },
+          de_tax_id: {
+            body: '„{subject}“ enthält eine Steuer-ID. Kein Modell hat sie gelesen. Zulassen oder löschen?',
+            bodyMany: 'Zuletzt „{subject}“, mit einer Steuer-ID. Prüfen Sie sie: zulassen oder löschen.',
+          },
           credit_card: {
             body: '„{subject}“ enthält eine Kreditkartennummer. Kein Modell hat sie gelesen. Zulassen oder löschen?',
             bodyMany: 'Zuletzt „{subject}“, mit einer Kreditkartennummer. Prüfen Sie sie: zulassen oder löschen.',
@@ -403,6 +461,8 @@ export const collaboration: typeof en.collaboration = {
           term: { body: 'Sie enthält einen Begriff aus der Liste sensibler Daten. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           iban: { body: 'Sie enthält eine IBAN. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           at_svnr: { body: 'Sie enthält eine Sozialversicherungsnummer. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
+          de_svnr: { body: 'Sie enthält eine Sozialversicherungsnummer. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
+          de_tax_id: { body: 'Sie enthält eine Steuer-ID. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           credit_card: { body: 'Sie enthält eine Kreditkartennummer. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           transcript: { body: 'Gefunden im Text gescannter Seiten, die ein Bildmodell gelesen hat. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
         },
@@ -416,7 +476,7 @@ export const collaboration: typeof en.collaboration = {
       // Ein Outlook-Archiv ist importiert. {subject} ist der Dateiname des Archivs.
       mailImportCompleted: {
         title: '„{subject}“ ist importiert',
-        body: '{productName} hat die E-Mails und ihre Anhänge im Projekt unter E-Mail-Import abgelegt.',
+        body: '{productName} hat die Anhänge unter E-Mail-Import und die E-Mails in den E-Mail-Verläufen des Projekts abgelegt.',
       },
       mailImportFailed: {
         title: 'Der Import von „{subject}“ wurde abgebrochen',
@@ -771,6 +831,108 @@ export const collaboration: typeof en.collaboration = {
             title: 'Die Sortierung der Büroablage ist bereit zur Durchsicht',
           },
         },
+      },
+      inboundMailWaiting: {
+        titleOne: 'Eine E-Mail an „{subject}“ wartet auf Ablage',
+        titleMany: '{count} E-Mails an „{subject}“ warten auf Ablage',
+        // Die Zeile zählt, was jetzt wartet (`lib/inbox/live-counts.ts`): keine, bis sie erledigt ist.
+        titleNone: 'Keine E-Mail an „{subject}“ wartet mehr auf Ablage',
+        // Ohne Zugriff auf das Projekt: kein Name und keine Zahl, die die Zeile nicht mehr kennt.
+        titleRedacted: 'E-Mails warteten in einem Projekt auf Ablage',
+        title: 'E-Mails an „{subject}“ warten auf Ablage',
+        body: 'Nichts davon ist im Projekt, bis jemand es ablegt.',
+        variants: {
+          // Domain nicht bestätigt, oder automatisch versandt (Newsletter, Liste).
+          unconfirmed: {
+            body: 'Darunter E-Mails, deren Domain nicht bestätigt ist oder die automatisch versandt wurden.',
+          },
+        },
+      },
+      // Tag 25 von 30: was niemand ablegt, läuft ab (wiederherstellbar sieben Tage).
+      inboundMailExpiring: {
+        titleOne: 'Eine E-Mail an „{subject}“ läuft in {noticeDays} Tagen ab',
+        titleMany: '{count} E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
+        title: 'E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
+        titleResolved: 'Keine E-Mail an „{subject}“ läuft mehr ab',
+        body: 'Was bis dahin niemand ablegt, läuft ab. Die E-Mail eines Mitglieds lässt sich danach noch {restoreDays} Tage wiederherstellen, eine von außerhalb des Büros nicht.',
+        variants: {
+          unconfirmed: {
+            body: 'Darunter E-Mails, deren Domain nicht bestätigt ist oder die automatisch versandt wurden. Was niemand ablegt, läuft ab.',
+          },
+        },
+      },
+      // An das Mitglied, dessen eigene E-Mail entschieden wurde. Der Ordner nur, wenn es ihn sehen darf.
+      inboundMailDecided: {
+        title: 'Ihre E-Mail an „{subject}“ wurde abgelegt',
+        titleRelated: 'Ihre E-Mail an „{subject}“ wurde in „{related}“ abgelegt',
+        body: 'Abgelegt von {actor}.',
+        variants: {
+          dismissed: {
+            title: 'Ihre E-Mail an „{subject}“ wurde verworfen',
+            titleRelated: 'Ihre E-Mail an „{subject}“ wurde verworfen',
+            body: 'Verworfen von {actor}. Sie kann {restoreDays} Tage lang wiederhergestellt werden.',
+          },
+          // In Ihrem Namen abgelegt, ohne dass jemand sie angesehen hat: Ihre Domain hat sie bestätigt, und Sie dürfen im Projekt ablegen.
+          direct: {
+            title: 'Ihre E-Mail an „{subject}“ wurde direkt abgelegt',
+            titleRelated: 'Ihre E-Mail an „{subject}“ wurde direkt in „{related}“ abgelegt',
+            body: 'Niemand hat sie angesehen: Ihre Domain hat sie bestätigt, und Sie dürfen in diesem Projekt ablegen.',
+          },
+        },
+      },
+      // Die E-Mail trägt die Adresse des Mitglieds, seine Domain hat sie nicht bestätigt: nur es selbst kann sie ablegen.
+      // Auch ein Fälscher löst diese Zeile aus, deshalb nennt der Titel beide Antworten. Kein Betreff: fremde Worte erreichen keine Zeile (RT-X1).
+      inboundMailHeld: {
+        title: 'Haben Sie eine E-Mail an das Projekt „{subject}“ gesendet? Sonst verwerfen',
+        titleResolved: 'Die E-Mail mit Ihrer Adresse an „{subject}“ ist erledigt',
+        body: 'Sie trägt Ihre Adresse, aber Ihre Domain hat sie nicht bestätigt. Nur Sie können sie ablegen. Haben Sie sie nicht gesendet, verwerfen Sie sie: So beginnen Betrugsversuche.',
+      },
+      inboundMailHeldForWriters: {
+        title: 'Ihre E-Mail an „{subject}“ wartet auf Ablage',
+        body: 'Sie dürfen in diesem Projekt nicht ablegen, deshalb entscheidet jemand, der es darf.',
+        variants: {
+          // WorkOS hat nicht beantwortet, ob das Mitglied hier ablegen darf (`sender_unchecked`): nie „Sie dürfen nicht“.
+          unchecked: {
+            body: 'Beim Eingang war nicht zu prüfen, ob Sie in diesem Projekt ablegen dürfen, deshalb entscheidet jemand, der es darf.',
+          },
+        },
+      },
+      inboundMailRejected: {
+        title: 'Ihre E-Mail an „{subject}“ wurde verworfen',
+        body: 'Verworfen von {actor}. Sie kann {restoreDays} Tage lang wiederhergestellt werden.',
+      },
+      inboundMailExpired: {
+        title: 'Ihre E-Mail an „{subject}“ wurde nicht rechtzeitig abgelegt',
+        body: 'Niemand hat sie innerhalb ihrer Frist abgelegt. {restoreDays} Tage lang lässt sie sich im E-Mail-Eingang unter „Bearbeitet“ wiederherstellen: von Ihnen, wenn Sie im Projekt ablegen dürfen, sonst von jemandem, der es darf.',
+      },
+      inboundMailFilingFailed: {
+        title: 'Eine E-Mail an „{subject}“ wurde nicht vollständig abgelegt',
+        titleResolved: 'Die E-Mail an „{subject}“ ist erledigt',
+        body: 'Was nicht abgelegt wurde, wartet wieder im E-Mail-Eingang. Öffnen Sie die E-Mail, um den Grund zu sehen.',
+      },
+      // 80 % oder 100 % der Bytes, die eine Adresse oder das Büro zwischenspeichern darf.
+      inboundMailCapReached: {
+        title: 'Die E-Mail-Adresse des Projekts „{subject}“ ist fast voll',
+        titleResolved: 'Die E-Mail-Adresse des Projekts „{subject}“ hat wieder Platz',
+        body: 'Legen Sie wartende E-Mails ab oder verwerfen Sie sie, oder erzeugen Sie eine neue Adresse.',
+        variants: {
+          full: {
+            title: 'Die E-Mail-Adresse des Projekts „{subject}“ ist voll',
+            body: 'Neue E-Mails kommen erst wieder an, wenn wartende abgelegt oder verworfen sind. Sie können auch eine neue Adresse erzeugen.',
+          },
+        },
+      },
+      // Verlauf folgen: der Text einer Antwort wurde in Ihrem Namen angefügt, die Anhänge warten.
+      inboundMailAppended: {
+        titleOne: 'Eine Antwort wurde einem E-Mail-Verlauf in „{subject}“ angefügt',
+        titleMany: '{count} Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
+        title: 'Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
+        body: 'In Ihrem Namen, weil Sie dem E-Mail-Verlauf folgen. Anhänge warten im E-Mail-Eingang.',
+      },
+      mailThreadFollowExpiring: {
+        title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ noch {followNoticeDays} Tage',
+        titleResolved: 'Ihr Folgen eines E-Mail-Verlaufs in „{subject}“ ist verlängert oder beendet',
+        body: 'Verlängern Sie, damit spätere Antworten weiter angefügt werden.',
       },
       rootSortFailed: {
         title: 'Die Sortierung von „{subject}“ wurde abgebrochen',

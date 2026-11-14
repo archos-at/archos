@@ -1,15 +1,12 @@
-import { INLINE_PREVIEW_CONTENT_TYPES, isOfficeRenditionSource } from '@/lib/documents/preview-types'
+import { INLINE_PREVIEW_CONTENT_TYPES, isRenditionSource } from '@/lib/documents/preview-types'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { isTextPageType } from './file-text-page'
 
 
-import type { FileItem } from './project-file-workspace'
 import { MessageSquarePlus } from 'lucide-react'
 import { firstFinding, quarantineVerdictOf, type QuarantineFinding } from '@/lib/upload-screening/quarantine'
 
-import type { RevisionLinks } from '@/lib/documents/revision-links'
-import { documentTypeOf } from '@/lib/documents/tag-vocabulary'
 
 import { useLocale, useTranslations } from '@/i18n'
 
@@ -24,15 +21,14 @@ import { useSeenOnce } from '@/hooks/use-seen-once'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { PHONE_ON_ITS_SIDE_QUERY, PHONE_QUERY } from '@/hooks/use-is-mobile'
 
-import { useDocumentActions, useMoveInSheet, type DocumentScope } from './document-actions'
-import { fileTypeIcon, isCitable, isCitableStatus, isNeverIndexed, isSettlingStatus } from './document-status'
+import { useDocumentActions, useMoveInSheet } from './document-actions'
+import { isCitable, isCitableStatus, isNeverIndexed, isSettlingStatus } from './document-status'
 
 import type { VisualDetail } from './page-readings'
 import { useFileFacts } from '../hooks/use-file-facts'
 
 import { showsRevisionsSection } from '@/lib/documents/revision-timeline'
 
-import type { DocumentLifecyclePermission, DocumentVersionState } from '@/lib/documents/lifecycle-types'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { backLandsOn } from '@/lib/navigation/history-step'
@@ -51,80 +47,13 @@ import { ToolbarTextButton } from '@/components/ui/floating-toolbar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCurrentProject } from '@/features/projects/lib/current-project'
 
-import { type PeekView } from './file-preview-peek'
+import { usePeekState } from './file-preview-peek-state'
+import { useMailThreadRail } from './mail-thread/use-mail-thread-rail'
 import { type ReaderAnnotate } from './file-preview-reader'
+import { PRODUCT_NAME } from '@/lib/brand'
 
-export interface FilePreviewPaneProps {
-  file: FileItem
-  /** Present for project documents; omitted for the org-wide Archiv (unused here). */
-  projectId?: string
-  /** Project display name for the indexed-metadata panel's Project row. */
-  projectName?: string
-  /**
-   * Whether the viewer may mutate the document (edit tags, re-ingest). Defaults
-   * to true (all project callers). The Archiv passes the caller's manage
-   * capability so members without `org:office_shelf:manage` get a read-only pane.
-   */
-  canManage?: boolean
-  onClose?: () => void
-  /** Notify the parent to flip local state after a successful re-ingestion. */
-  onReingested?: (fileId: string, status: string) => void
-  /**
-   * Notify the parent of the saved tags after a successful PATCH, so the
-   * workspace's file state (and thus `initialTags` on reselect) stays fresh —
-   * otherwise switching away and back reverts to the pre-edit tags.
-   */
-  onTagsUpdated?: (fileId: string, tags: string[], topics?: string[]) => void
-  /** Open another document of this shelf here, from the Fassungen section. */
-  onOpenDocument?: (fileId: string) => void
-  /** A link was confirmed or taken back: the Fassung facts of one of the two documents, so the listing moves both cards. */
-  onRevisionChanged?: (fileId: string, revision: RevisionLinks | null) => void
-  /**
-   * Whether the "Indexed by GRID" metadata panel (AI summary, key-value props,
-   * editable tags) renders (FB-8). On by default, the chat peek included,
-   * where it is the Details tab. Status/type/size rows always render.
-   */
-  showMetadataPanel?: boolean
-  /**
-   * Whether an `.ifc` preview offers the model workspace (`ifc-models`).
-   *
-   * Defaults to true: a link that does not
-   * render is a feature nobody can find, and the workspace refuses on its own
-   * if the flag is really off.
-   */
-  showModels?: boolean
-  /** Which corpus the document belongs to — decides the file operations' route. */
-  scope?: DocumentScope
-  /** The document was renamed from the header menu. */
-  onRenamed?: (fileId: string, displayName: string | null) => void
-  /** The document was deleted from the header menu; the pane closes itself. */
-  onDeleted?: (fileId: string) => void
-  canCollaborate?: boolean
-  /**
-   * What this reader may do to the document's versions, resolved on the server
-   * (`lib/documents/lifecycle-permissions.ts`). Absent means the surface did not
-   * read them — the Archiv sheet, the chat peek — and the rail then shows no
-   * Freigabe section at all rather than guessing a set.
-   */
-  lifecyclePermissions?: readonly DocumentLifecyclePermission[]
-  /** The reader, so their own acts in the version list read as „Sie". */
-  viewerUserId?: string | null
-  /** A Freigabe decision landed — the listing behind the pane moves its badge. */
-  onLifecycleChanged?: (
-    fileId: string,
-    summary: { versionState: DocumentVersionState; versionCount: number },
-  ) => void
-  /**
-   * The review read the marks, or the reader changed them: the listing's tally
-   * for this document, as the server counts it (`tallyLiveMarks`), `null` when
-   * none is live. Dateien's chip is read with the listing and would otherwise
-   * say „5 offen“ after the reader closed all five here.
-   */
-  onMarksChanged?: (fileId: string, marks: MarkTally | null) => void
-  /** Modal on Files; peek/expanded once this file is the chat subject. */
-  presentation?: 'modal' | 'peek' | 'expanded'
-  onAssigneesChanged?: (assignees: FileItem['assignees']) => void
-}
+import type { FilePreviewPaneProps } from './file-preview-pane-props'
+export type { FilePreviewPaneProps } from './file-preview-pane-props'
 
 /** The one list (`lib/documents/preview-types.ts`); this pane no longer keeps a copy. */
 const PREVIEW_TYPES: readonly string[] = INLINE_PREVIEW_CONTENT_TYPES
@@ -237,15 +166,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   useEffect(() => {
     setDetailsOpen(false)
   }, [file.id])
-  /**
-   * Which face of the peek is up: the document, or everything the Files dialog
-   * knows about it. Back to the document whenever a different file arrives —
-   * a citation opening the next file should show that file, not its metadata.
-   */
-  const [peekView, setPeekView] = useState<PeekView>('document')
-  useEffect(() => {
-    setPeekView('document')
-  }, [file.id])
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   /**
    * The same-origin signed path for the same bytes, when the optimizer can
@@ -322,7 +242,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
    * makes from them (ADR-0070). They ask the same preview route, so they are
    * `canPreview` too; what differs is what comes back and what a refusal means.
    */
-  const isOfficeRendition = isOfficeRenditionSource(file)
+  const isOfficeRendition = isRenditionSource(file)
   const canPreview = PREVIEW_TYPES.includes(file.contentType ?? '') || isOfficeRendition
   /**
    * Text, Markdown and CSV are previewable too, by a different route: the pane
@@ -356,7 +276,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   useEffect(() => {
     setShownFinding(firstFinding(heldVerdict))
   }, [file.id, heldVerdict])
-  const Icon = fileTypeIcon(file.contentType, file.filename)
   const fileFacts = useFileFacts(file)
   const responsibleNames = (file.assignees ?? [])
     .map((person) => person.name || person.email || '')
@@ -365,9 +284,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   // The document has visual chunks (drawings/images/charts) whose per-page VLM
   // descriptions can be browsed in the "detailed information" section.
   const hasVisualContent = (file.contentTypes ?? []).some((c) => VISUAL_CONTENT_TYPES.includes(c))
-  // The ingestion-detected document type (first document-type tag), shown as
-  // the indexed panel's Type row. Only real metadata — nothing is inferred here.
-  const detectedType = documentTypeOf(file.tags)
   /**
    * Whether the rail's ownership block has anything in it. In the chat peek an
    * ordinary upload has no Piloti byline, no Discuss button (the reader is
@@ -384,6 +300,11 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
    * before it lands, and the first answer arrived last and won: the pane showed
    * document A under document B's name. Every answer is checked against the
    * request that asked for it; a retired one changes nothing.
+   *
+   * What is shown belongs to one file too. Every load starts by dropping the
+   * URLs of the last one: kept, a next file whose request failed (a 404, a 500)
+   * drew the previous file's picture under its own name, and the failure's
+   * caption and retry, which only show without a URL, never appeared.
    */
   const previewRequest = useRef<AbortController | null>(null)
   const loadPreview = useCallback(() => {
@@ -393,12 +314,13 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     const { signal } = request
     setPreviewFailed(false)
     setPreviewGone(false)
+    setPreviewUrl(null)
+    setPreviewImageUrl(null)
 
     if (isTextual) {
       // Same three outcomes as the URL path, and deliberately the same states,
       // so the retry button and the "stop asking about it" way out work on a
       // `.md` exactly as they do on a PDF.
-      setPreviewUrl(null)
       setPreviewText(null)
       setIsLoading(true)
       let gone = false
@@ -432,10 +354,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     }
 
     setPreviewText(null)
-    if (!canPreview) {
-      setPreviewUrl(null)
-      return
-    }
+    if (!canPreview) return
 
     setIsLoading(true)
     setRenditionType(null)
@@ -474,10 +393,8 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
         if (isOfficeRendition && data?.url && data.contentType !== 'application/pdf') {
           noRendition = true
         }
-        if (noRendition) {
-          setPreviewUrl(null)
-          setPreviewImageUrl(null)
-        } else if (data?.url) {
+        if (noRendition) return
+        if (data?.url) {
           if (isOfficeRendition) setRenditionType(data.contentType)
           setPreviewUrl(data.url)
           // Absent for PDFs and for image formats the optimizer cannot process;
@@ -491,8 +408,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
       })
       .catch(() => {
         if (signal.aborted) return
-        setPreviewUrl(null)
-        setPreviewImageUrl(null)
         setPreviewFailed(true)
       })
       .finally(() => {
@@ -694,6 +609,10 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     },
     [showReview, urlOpen, addressed, searchParams, file.id, replaceParams]
   )
+  /** Which face of the peek is up (the document, or its details: the host's ⓘ), and its full screen: the review. */
+  const { peekView, setPeekView } = usePeekState(peeking, file.id, reviewEnabled ? openReview : null)
+  /** A thread document's rail: its tabs, and the mail a `?mailEntry=` link opens. */
+  const mailRail = useMailThreadRail({ projectId, file, peeking, reader, setPeekView, setDetailsOpen })
   /**
    * What the approve confirm names before the signature: the open marks and
    * Piloti's untaken proposals, told apart, and the review to see them in. Until the review has read them, or when it
@@ -754,7 +673,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   const { locale } = useLocale()
   // Who is here, read off the room by membership: a pointer moving does not re-render this pane.
   const company = useRoomCompany(review.room)
-  const presenceNames = [...company.people.map((person) => person.name), ...(company.piloti ? ['Piloti'] : [])]
+  const presenceNames = [...company.people.map((person) => person.name), ...(company.piloti ? [PRODUCT_NAME] : [])]
   const presenceSentence =
     presenceNames.length > 0
       ? t('annotations.peopleHere', {
@@ -872,7 +791,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
       turnFrame.current = null
       setShownPage(page)
     })
-  }, [])
+  }, [setPeekView])
   /**
    * Where Piloti's viewer action asked this document to be (ADR-0144): the
    * page turns the way a reading turns it, and the passage or the boxes are
@@ -930,7 +849,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     : undefined
 
   return {
-    Icon,
     actions,
     addressed,
     annotateLead,
@@ -947,7 +865,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     detailsFailed,
     detailsLoading,
     detailsOpen,
-    detectedType,
     discussHint,
     file,
     fileFacts,
@@ -1080,6 +997,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     wellHostsViewer,
     wellRef,
     wellSeen,
+    ...mailRail,
   }
 }
 

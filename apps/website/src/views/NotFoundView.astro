@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Button from '../components/Button.astro';
+import StatusBlock from '../components/StatusBlock.astro';
+import copy from '../i18n/pages/not-found';
+import { localePath, type Locale } from '../i18n/paths';
+import { withName } from '../lib/identity';
+
+// Markup only. Text comes from src/i18n/pages/not-found.ts, in both locales.
+interface Props {
+  locale: Locale;
+  /** An old address removed on purpose (status 410): says so instead of "does not exist" */
+  gone?: boolean;
+}
+
+const { locale, gone = false } = Astro.props;
+const c = withName(copy[locale]);
+const lead = gone ? c.gone : c.hero;
+---
+
+<BaseLayout locale={locale} title={c.title} description={c.description} noindex alternatePath={localePath('home', locale === 'de' ? 'en' : 'de')}>
+  <StatusBlock code={lead.code} title={lead.title} text={lead.text} drawing={gone ? 'gone' : 'missing'}>
+    <Button href={localePath('home', locale)} variant="primary" size="lg" cta="not_found" ctaLabel="home">{c.home}</Button>
+    <Button href={localePath('blog', locale)} variant="secondary" size="lg" cta="not_found" ctaLabel="blog">{c.blog}</Button>
+    <Button href={localePath('contact', locale)} variant="text" size="lg" cta="not_found" ctaLabel="contact">{c.contact}</Button>
+  </StatusBlock>
+</BaseLayout>

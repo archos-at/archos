@@ -2,12 +2,14 @@ import type { en } from '../en'
 
 /** files namespace — populated during component i18n. */
 export const files: typeof en.files = {
+  /** A Büroablage file that is one of the office's standards (ADR-0163). */
+  baseKnowledge: { label: 'Grundlage', open: 'Als Grundlage des Büros öffnen: Ausgabe, Lizenz, letzte Prüfung' },
   uploadZone: {
     clickToUpload: 'Zum Hochladen klicken',
     orDragAndDrop: ' oder per Drag-and-drop ablegen',
     maxSize: 'Bis zu {size} pro Datei',
     accepts: 'Zulässig: {types}',
-    dragOrBrowse: 'Dateien hierher ziehen oder auswählen',
+    dropAnywhere: 'Oder Dateien irgendwo auf die Seite ziehen.',
     maxSizeShort: 'max. {size} pro Datei',
   },
   // Die Upload-Leiste. Die Formulierungen folgen der Regel der Oberfläche:
@@ -26,14 +28,14 @@ export const files: typeof en.files = {
       processingOther: '{productName} liest {count} Dokumente',
       doneOne: '1 Dokument hinzugefügt',
       doneOther: '{count} Dokumente hinzugefügt',
-      mixed: '{ready} hinzugefügt · {failed} fehlgeschlagen',
+      mixed: '{ready} hinzugefügt\u00A0· {failed} fehlgeschlagen',
       failedOne: '1 Dokument konnte nicht hinzugefügt werden',
       failedOther: '{count} Dokumente konnten nicht hinzugefügt werden',
       // Von der Inhaltsprüfung zurückgehalten (ADR-0086): kein Fehler, nichts zu
       // wiederholen. Nie „freigeben“, das Wort gehört der Freigabe einer Fassung.
       heldOne: '1 Dokument zurückgehalten',
       heldOther: '{count} Dokumente zurückgehalten',
-      mixedHeld: '{ready} hinzugefügt · {held} zurückgehalten',
+      mixedHeld: '{ready} hinzugefügt\u00A0· {held} zurückgehalten',
       canceled: 'Upload abgebrochen',
     },
     detail: {
@@ -97,7 +99,7 @@ export const files: typeof en.files = {
     unknown: 'Unbekannt',
     // Nur die eigenen Uploads des Büros: Innerhalb eines Büros wird der Reihe
     // nach gelesen, zwischen Büros fair abgewechselt (ADR-0076).
-    queuedAhead: '{count, plural, one {Wartet · # Datei davor} other {Wartet · # Dateien davor}}',
+    queuedAhead: '{count, plural, one {Wartet\u00A0· # Datei davor} other {Wartet\u00A0· # Dateien davor}}',
   },
   toast: {
     // Sobald die asynchrone Verarbeitung abgeschlossen ist und das Dokument
@@ -113,6 +115,31 @@ export const files: typeof en.files = {
     image: 'Bild',
     unavailable: 'Vorschau nicht verfügbar',
   },
+  // Die Dokumentart, wo sie als englisches Token gespeichert ist
+  // (`LABELLED_TAGS` in lib/documents/tag-vocabulary.ts). Die älteren
+  // Dokumentarten sind noch als deutsches Wort gespeichert und brauchen keinen
+  // Eintrag.
+  documentTag: {
+    correspondence: 'Korrespondenz',
+    developmentPlan: 'Bebauungsplan',
+    zoningPlan: 'Flächenwidmungsplan',
+    floorPlan: 'Grundriss',
+    section: 'Schnitt',
+    elevation: 'Ansicht',
+    detail: 'Detail',
+    expertReport: 'Gutachten',
+    officialDecision: 'Bescheid',
+    standard: 'Norm/Richtlinie',
+    contract: 'Vertrag',
+    photo: 'Foto',
+    other: 'Sonstiges',
+    structuralSafety: 'Standsicherheit',
+    fireSafety: 'Brandschutz',
+    hygieneHealthEnvironment: 'Hygiene/Gesundheit/Umweltschutz',
+    safetyInUse: 'Nutzungssicherheit/Barrierefreiheit',
+    soundProtection: 'Schallschutz',
+    energyEconomy: 'Energieeinsparung/Wärmeschutz',
+  },
   preview: {
     closePreview: 'Vorschau schließen',
     expandPreview: 'Große Vorschau öffnen',
@@ -122,6 +149,8 @@ export const files: typeof en.files = {
     goneAction: 'Nicht mehr danach fragen',
     goneCleared: 'Frage bezieht sich nicht mehr auf diese Datei.',
     goneUndo: 'Rückgängig',
+    heldNoPreview:
+      "Die Vorschau ist nicht verfügbar, solange die Datei zurückgehalten wird. Die Gründe und „Prüfung anfragen“ stehen im Bereich Details.",
     tryAgain: 'Erneut versuchen',
     // An office file is shown through a PDF the BFF makes from it (ADR-0070).
     renditionPending: 'PDF-Vorschau wird erstellt…',
@@ -327,6 +356,7 @@ export const files: typeof en.files = {
       markdown: 'Markdown',
       plainText: 'Textdatei',
       ifc: 'IFC-Modell',
+      dxf: 'CAD-Datei (DXF)',
       email: 'E-Mail',
       image: 'Bild ({format})',
       extension: '{ext}-Datei',
@@ -346,10 +376,8 @@ export const files: typeof en.files = {
     retryIngestionError:
       'Das erneute Lesen konnte nicht gestartet werden. Bitte versuchen Sie es noch einmal.',
     dialogLabel: 'Dateivorschau: {name}',
-    // The two faces of the file beside the chat: the document, and what is known about it.
+    // What is known about the file beside the chat, behind the ⓘ in its toolbar.
     peekViews: {
-      label: 'Ansicht der Datei',
-      document: 'Dokument',
       details: 'Details',
     },
     // The length, in the facts line under the name in the chat peek.
@@ -369,6 +397,8 @@ export const files: typeof en.files = {
   ingestFailure: {
     rendition_failed:
       'Die PDF-Vorschau dieser Datei ließ sich nicht erzeugen. Erneut lesen oder die Datei als PDF hochladen.',
+    drawing_unreadable:
+      'Diese DXF-Datei ließ sich nicht lesen oder enthält keine Zeichnung. Exportieren Sie sie im CAD-Programm erneut als DXF und laden Sie sie noch einmal hoch.',
     download_failed:
       'Die hochgeladene Datei war im Speicher nicht erreichbar. Erneut lesen oder die Datei noch einmal hochladen.',
     interrupted: 'Das Lesen wurde durch einen Neustart des Dienstes unterbrochen. Erneut lesen, um es abzuschließen.',
@@ -403,6 +433,7 @@ export const files: typeof en.files = {
     reasonTerm: '„{term}“ im Text',
     reasonIban: 'IBAN {sample}',
     reasonSvnr: 'Sozialversicherungsnummer {sample}',
+    reasonTaxId: 'Steuer-ID {sample}',
     reasonCard: 'Kreditkartennummer {sample}',
     reasonPages: '{count, plural, one {Seite {pages}} other {Seiten {pages}}}',
     // Tabellenblätter und Textdateien haben keine Seiten: der Treffer hat dann
@@ -419,6 +450,10 @@ export const files: typeof en.files = {
       'Die Zahl hat den Aufbau einer IBAN und ist rechnerisch gültig, also keine zufällige Ziffernfolge. Ihr Büro hat Kontonummern als sensibel eingestuft.',
     basisSvnr:
       'Die Zahl hat den Aufbau einer österreichischen Sozialversicherungsnummer und ist rechnerisch gültig. Ihr Büro hat sie als sensibel eingestuft.',
+    basisDeSvnr:
+      'Die Zahl hat den Aufbau einer deutschen Rentenversicherungsnummer und ist rechnerisch gültig. Ihr Büro hat sie als sensibel eingestuft.',
+    basisTaxId:
+      'Die Zahl hat den Aufbau einer deutschen Steuer-Identifikationsnummer, ist rechnerisch gültig und steht auf einer Seite, die eine Steuer-ID nennt. Ihr Büro hat sie als sensibel eingestuft.',
     basisCard:
       'Die Zahl hat den Aufbau einer Kartennummer und ist rechnerisch gültig. Ihr Büro hat Kartennummern als sensibel eingestuft.',
     basisOther: 'Die Inhaltsprüfung hat eine Regel angewandt, die hier nicht näher beschrieben ist.',
@@ -439,8 +474,12 @@ export const files: typeof en.files = {
   },
   browser: {
     folderEmptyTitle: 'Dieser Ordner ist leer',
-    folderEmptyDescription:
-      'Laden Sie hier Dokumente hoch oder wählen Sie einen anderen Ordner in der Seitenleiste.',
+    folderEmptyDescription: 'Laden Sie hier Dokumente hoch oder ziehen Sie sie irgendwo auf die Seite.',
+    /** A finger cannot drop on a page. */
+    folderEmptyDescriptionTouch: 'Laden Sie hier Dokumente hoch.',
+    /** The title while the field filters the files: the query is where the reader is. */
+    searchTitle: 'Suche: „{query}“',
+    searchCount: '{count, plural, one {# Treffer} other {# Treffer}}',
     noDocumentsTitle: 'Noch keine Dokumente',
     noDocumentsDescription:
       'Laden Sie die Unterlagen Ihres Projekts hoch: Zeichnungen, Bescheide, Gutachten, Berichte. {productName} liest sie und zitiert daraus, statt aus allgemeinen Hinweisen zu antworten.',
@@ -454,7 +493,8 @@ export const files: typeof en.files = {
     clearSearch: 'Suche löschen',
     clearFilters: 'Filter zurücksetzen',
     resetSearch: 'Suche zurücksetzen',
-    recentlyUploaded: 'Zuletzt hochgeladen',
+    // The label heads all of the root's files: „Zuletzt hochgeladen“ promised a subset.
+    recentlyUploaded: 'Dateien',
     /** Leere Suche, wenn die Suche nur im Namen sucht (der Ordner wird seitenweise geladen, ADR-0102). */
     noMatchNamesDescription:
       'Gesucht wird im Dateinamen. Drücken Sie Enter, um auch im Inhalt zu suchen – oder löschen Sie die Suche, um alle Dateien zu sehen.',
@@ -500,13 +540,14 @@ export const files: typeof en.files = {
     // das ist eine Karte. Drei Ebenen tief ist der übergeordnete Ordner ein
     // abgeschnittenes Wort mitten in einer scrollenden Zeile.
     backTo: 'Zurück zu {name}',
-    newFolder: 'Neuer Ordner',
-    newInside: 'Neuer Ordner darin',
+    newFolder: 'Ordner anlegen',
+    newInside: 'Ordner darin anlegen',
     open: 'Öffnen',
     move: 'In Ordner verschieben',
     items: '{count, plural, one {# Element} other {# Elemente}}',
     openFolder: 'Ordner „{name}“ öffnen',
     breadcrumb: 'Ordnerpfad',
+    hiddenLevels: '{count, plural, one {# weitere Ebene} other {# weitere Ebenen}}',
     movedFolder: '„{name}“ nach „{parent}“ verschoben.',
     moveFolderError: 'Der Ordner konnte nicht verschoben werden. Bitte erneut versuchen.',
     /** Ordnerzugriff (ADR-0088, ADR-0097): einen Ordner auf Personen einschränken. */
@@ -608,19 +649,32 @@ export const files: typeof en.files = {
   /** The Papierkorb of a project (ADR-0088). */
   bin: {
     title: 'Papierkorb',
-    subtitle:
-      'Gelöschte Ordner mit ihren Unterordnern und Dokumenten. Bis zur endgültigen Löschung lassen sie sich mit ihren Zugriffsrechten wiederherstellen.',
-    back: 'Zurück zu den Dateien',
     empty: 'Der Papierkorb ist leer.',
     emptyHint: 'Gelöschte Ordner erscheinen hier und lassen sich wiederherstellen.',
-    deletedBy: 'Gelöscht von {name} am {date}',
-    deletedOn: 'Gelöscht am {date}',
-    contents:
-      '{documents, plural, one {# Dokument} other {# Dokumente}} · {folders, plural, one {# Ordner} other {# Ordner}}',
-    purgeOn: 'Wird am {date} endgültig gelöscht',
-    purging: 'Wird gerade endgültig gelöscht',
-    failed: 'Die endgültige Löschung ist angehalten. Ein Admin kümmert sich darum.',
+    deletedBy: 'gelöscht von {name} am {date}',
+    deletedOn: 'gelöscht am {date}',
+    // What a folder holds, each figure only when it is not zero („0 Ordner“ was a clause that said nothing).
+    contentsDocuments: '{count, plural, one {# Dokument} other {# Dokumente}}',
+    contentsFolders: '{count, plural, one {# Ordner} other {# Ordner}}',
+    // One meta line („14 Dokumente · gelöscht von … am … · bleibt bis …“), so every clause is lower case and the row
+    // capitalises the line's first letter; what stays, not the press's words again;
+    // the date bound to its word.
+    purgeOn: 'bleibt bis {date}',
+    purging: 'wird gerade endgültig gelöscht',
+    failed: 'endgültige Löschung angehalten, ein Admin kümmert sich darum',
     restore: 'Wiederherstellen',
+    // Where the press would be, so the row says why it is not there.
+    restoreBlocked: {
+      folder_read_only: 'Nicht wiederherstellbar: Sie dürfen diesen Ordner nur lesen.',
+      project_closed: 'Nicht wiederherstellbar: Das Projekt ist abgeschlossen.',
+      no_write: 'Nicht wiederherstellbar: Sie dürfen in diesem Projekt nicht ablegen.',
+    },
+    // Dasselbe als Satzteil der zweiten Zeile auf dem Telefon („bleibt bis … · nur lesbar“); der ganze Satz steht im Titel.
+    restoreBlockedShort: {
+      folder_read_only: 'nur lesbar',
+      project_closed: 'Projekt abgeschlossen',
+      no_write: 'ohne Recht abzulegen',
+    },
     restored: '„{name}“ ist wiederhergestellt. Die Dokumente werden neu eingelesen.',
     restoredToRoot:
       '„{name}“ ist wiederhergestellt, und zwar direkt im Projekt: Sein übergeordneter Ordner ist gelöscht.',
@@ -637,7 +691,7 @@ export const files: typeof en.files = {
     cancel: 'Abbrechen',
     loadError: 'Der Papierkorb konnte nicht geladen werden.',
     retry: 'Erneut versuchen',
-    document: 'Dokument · kommt beim Wiederherstellen in seinen Ordner zurück',
+    document: 'Dokument',
     loadMore: 'Weitere laden',
   },
   workspace: {
@@ -687,8 +741,9 @@ export const files: typeof en.files = {
   // Detailansicht des Explorers – Spaltenüberschriften der sortierbaren Liste.
   selection: {
     start: 'Auswählen',
+    nothingToPick: 'Hier liegt keine Datei zum Auswählen',
     done: 'Fertig',
-    all: 'Alle',
+    all: 'Alle auswählen',
     move: 'Verschieben',
     column: 'Auswahl',
     count: '{count} ausgewählt',
@@ -747,6 +802,7 @@ export const files: typeof en.files = {
     label: 'Dateiaktionen für „{name}“',
     menuLabel: 'Dateiaktionen',
     download: 'Herunterladen',
+    downloadPdf: 'Als PDF herunterladen',
     open: 'Öffnen',
     ask: 'Danach fragen',
     select: 'Auswählen',
@@ -904,13 +960,22 @@ export const files: typeof en.files = {
     foldersError: 'Die Ordner für diesen Upload konnten nicht angelegt werden. Es wurde nichts hochgeladen.',
     applyError: 'Dieser Ordner konnte nicht vollständig hochgeladen werden. Prüfen Sie die Liste und versuchen Sie es erneut.',
   },
+  inboundMail: {
+    open: 'E-Mail-Eingang',
+    waitingAria: '{count, plural, one {# E-Mail wartet auf Ablage} other {# E-Mails warten auf Ablage}}',
+    sendByMail: 'Per E-Mail senden …',
+    sendByMailHint: 'E-Mails an die E-Mail-Adresse des Projekts weiterleiten',
+    waitingLine: '{count, plural, one {# E-Mail wartet auf Ablage} other {# E-Mails warten auf Ablage}}',
+    waitingLineMore: 'Mehr als {count} E-Mails warten auf Ablage',
+    view: 'Ansehen',
+  },
   mailImport: {
     action: 'Outlook-Archiv importieren',
     title: 'Outlook-Archiv importieren',
     description:
-      'Wählen Sie eine .pst- oder .ost-Datei. Jede E-Mail wird ein Ordner unter „E-Mail-Import“ mit ihren Anhängen und einer Notiz mit Text und Kopfzeilen.',
+      'Wählen Sie eine .pst- oder .ost-Datei. Die Anhänge jeder E-Mail kommen in einen Ordner unter „E-Mail-Import“, ihr Text in die E-Mail-Verläufe des Projekts. Was das Projekt schon hat, wird nicht doppelt abgelegt.',
     privacy:
-      'Ein Outlook-Archiv enthält die Korrespondenz aller, die diesem Postfach geschrieben haben. Importieren Sie, was das Projekt braucht, nicht ein ganzes Postfach.',
+      'Ein Outlook-Archiv enthält die Korrespondenz aller, die diesem E-Mail-Konto geschrieben haben. Importieren Sie, was das Projekt braucht, nicht ein ganzes E-Mail-Konto.',
     choose: 'Outlook-Archiv auswählen…',
     maxSize: 'Bis {size}.',
     // Nur für Touch: ein Archiv dieser Größe sendet man vom Schreibtisch, mit stabiler Leitung.
@@ -960,6 +1025,9 @@ export const files: typeof en.files = {
     progress: '{done} von {total} Einträgen',
     filed: '{mails, plural, one {# E-Mail} other {# E-Mails}}, {files, plural, one {# Anhang} other {# Anhänge}}',
     skipped: '{count, plural, one {# übersprungen} other {# übersprungen}}',
+    // Die E-Mail-Verläufe, die der Import angelegt oder ergänzt hat (die Texte der E-Mails liegen dort).
+    threads: '{created, plural, one {# neuer E-Mail-Verlauf} other {# neue E-Mail-Verläufe}}, {appended, plural, one {# ergänzt} other {# ergänzt}}',
+    alreadyInProject: '{count, plural, one {# E-Mail schon im Projekt} other {# E-Mails schon im Projekt}}',
     skippedItem: '{file} in {mail}: {reason}',
     skippedMail: '{mail}: {reason}',
     status: {
@@ -1011,7 +1079,14 @@ export const files: typeof en.files = {
     uploadStorageFull: 'Der Speicher Ihres Büros ist voll. Es wurde nichts hochgeladen.',
     // Von der Namensprüfung nicht hochgeladen (ADR-0086): auf einem Weg ohne
     // Upload-Dialog, etwa im Chat, oder als Nachprüfung des Servers.
-    screenedOut: '{count} Datei(en) nicht hochgeladen, weil Ihr Büro sie als sensibel einstuft: {files}',
+    screenedOut:
+      '{count, plural, one {Eine Datei wurde nicht hochgeladen} other {# Dateien wurden nicht hochgeladen}}, weil ihr Name einen Begriff enthält, den Ihr Büro als sensibel eingestuft hat: {files}',
+    // Ein Name allein ist ein schwaches Zeichen („Lüftungssteuerung“ enthält
+    // „Steuer“): wer die Datei abgelegt hat, schickt sie trotzdem; der Inhalt
+    // wird danach geprüft, die Freigabe protokolliert.
+    uploadAnyway: '{count, plural, one {Trotzdem hochladen} other {Alle # trotzdem hochladen}}',
+    uploadAnywayHint:
+      'Der Name allein entscheidet nicht: Den Inhalt prüft {productName} nach dem Hochladen trotzdem. Ihre Freigabe wird protokolliert.',
     screenedOutFile: '„{name}“ ({reason})',
     // Die Liste des Büros ist nicht lesbar: ohne sie wird nichts gesendet,
     // auch nicht mit Pilotis Vorschlag (ADR-0086).
@@ -1059,10 +1134,13 @@ export const files: typeof en.files = {
    */
   // Der Ordnerbrief: was Piloti über einen Ordner und alles darunter weiß.
   brief: {
-    scopeFolder: 'in „{name}“ und seinen Unterordnern',
+    scopeFolder: 'in diesem Ordner',
+    scopeFolderTree: 'in diesem Ordner und seinen Unterordnern',
     scopeProject: 'in diesem Projekt',
     scopeOffice: 'in der Büroablage',
     headlineAll: '{count, plural, one {Das Dokument ist gelesen} other {Alle # Dokumente gelesen}}',
+    /** Alles Lesbare gelesen, daneben Dokumente, die nie in die Wissensbasis kommen: „alle“ sagt, wessen. */
+    headlineAllOfKnowledge: '{count, plural, one {Das eine Dokument der Wissensbasis ist gelesen} other {Alle # Dokumente der Wissensbasis gelesen}}',
     headlineSome: '{readable} von {count, plural, one {# Dokument} other {# Dokumenten}} gelesen',
     headlineNone: '{count, plural, one {Das Dokument ist noch nicht gelesen} other {Noch keines der # Dokumente gelesen}}',
     headlineNothingToRead: '{count, plural, one {# Dokument, nicht in der Wissensbasis} other {# Dokumente, keines in der Wissensbasis}}',
@@ -1076,7 +1154,7 @@ export const files: typeof en.files = {
     allRead: 'Alles gelesen',
     unplacedShort: '{count} ohne Dokumentart',
     /** Neben der Legende: Dokumente, die Piloti nie liest. Nicht in der Summe der Überschrift („von N“). */
-    unindexedAside: 'dazu {count} nicht in der Wissensbasis',
+    unindexedAside: '{count} weitere nicht in der Wissensbasis',
     /** Laufende Beschriftung der beiden Chip-Familien unter „Worum es hier geht“. */
     typesLabel: 'Dokumentart',
     disciplinesLabel: 'Fachbereich',
@@ -1087,7 +1165,10 @@ export const files: typeof en.files = {
     showState: 'Dokumente „{state}“ in allen Unterordnern zeigen',
     showTag: 'Alle Dokumente „{tag}“ in diesem Ordner und seinen Unterordnern zeigen',
     pages: '{count, plural, one {{formatted} Seite gelesen} other {{formatted} Seiten gelesen}}',
+    // On the brief's own line after „… gelesen“: the count alone, or „gelesen“ twice in one line.
+    pagesCount: '{count, plural, one {{formatted} Seite} other {{formatted} Seiten}}',
     aboutTitle: 'Worum es hier geht',
+    aboutMore: '+{count}',
     noTypes: '{productName} hat hier noch keine Dokumentart erkannt.',
     /** „Worum es hier geht“, solange nur die Zahlen des Ordners geladen sind (ADR-0102). */
     aboutDeferred: 'Dokumentarten, Fachbereiche und Themen',
@@ -1099,6 +1180,7 @@ export const files: typeof en.files = {
     needsTitle: 'Hier sind Sie gefragt',
     failedLine: '{count, plural, one {{productName} konnte # Dokument nicht lesen.} other {{productName} konnte # Dokumente nicht lesen.}}',
     readAgainAll: '{count, plural, one {Erneut lesen} other {Alle # erneut lesen}}',
+    readAgainBoth: 'Beide erneut lesen',
     readAgainProgress: '{done} von {count} gestartet…',
     readAgainDone: '{count, plural, one {# Dokument wird neu gelesen} other {# Dokumente werden neu gelesen}}',
     readAgainPartial: '{count, plural, one {# Dokument ließ sich nicht neu starten} other {# Dokumente ließen sich nicht neu starten}}',
@@ -1448,7 +1530,8 @@ export const files: typeof en.files = {
   assignment: {
     unassigned: 'Unvergeben',
     assign: 'Zuweisen',
-    edit: 'Bearbeiten',
+    // Beside the person who is responsible: „Bearbeiten“ read as editing the file.
+    edit: 'Ändern',
     assignToMe: 'Mir zuweisen',
     filterAll: 'Alle',
     filterMine: 'Meine',
@@ -1462,10 +1545,10 @@ export const files: typeof en.files = {
     // und Posteingang. Vorher hieß derselbe Knopf „Piloti dazu fragen“ und war
     // ausgerechnet bei Entwürfen ausgegraut — genau den Dokumenten, über die man
     // sprechen will. Piloti kann jetzt auch eine unveröffentlichte Fassung lesen.
-    // „Besprechen“ allein sagte nicht, MIT WEM: neben „Kollegin fragen“ las es
+    // „Besprechen“ allein sagte nicht, MIT WEM: neben „Kolleg:in fragen“ las es
     // sich wie eine Besprechung im Team. Der Name steht deshalb im Knopf.
     discuss: 'Mit {productName} besprechen',
-    askColleague: 'Kollegin fragen',
+    askColleague: 'Kolleg:in fragen',
     copyLink: 'Link kopieren',
     linkCopied: 'Link kopiert',
     alsoAssign: 'Auch zuweisen',
@@ -1531,7 +1614,7 @@ export const files: typeof en.files = {
     listedOpenIn: '{marks} in „{name}“',
     // Was der Chip selbst sagt, kurz genug für eine Karte; der Tooltip trägt den ganzen Satz.
     listedOpenShort: '{count} offen',
-    listedOpenShortForYou: '{count} offen · {mine} für Sie',
+    listedOpenShortForYou: '{count} offen\u00A0· {mine} für Sie',
     // Pilotis Vorschläge, die niemand übernommen hat: getrennt von „offen“, wie in Offene Punkte und im Protokoll.
     listedProposedShort: '{count, plural, one {# Vorschlag} other {# Vorschläge}}',
   },
@@ -1539,11 +1622,9 @@ export const files: typeof en.files = {
   openPoints: {
     open: 'Offene Punkte',
     title: 'Offene Punkte',
-    subtitle: 'Was in den Dokumenten dieses Projekts offen ist, über alle Dokumente: die Liste für den Jour fixe.',
-    back: 'Zurück zu den Dateien',
     filters: {
-      assignee: 'Zuständig',
-      due: 'Frist',
+      label: 'Filter',
+      // Kein Filter gewählt: jeder offene Punkt. Ein Chip, damit der Zustand „alle“ sichtbar ist und ein Druck dorthin zurückführt.
       all: 'Alle',
       // Dasselbe Prädikat wie „Für Sie“ in der Prüfansicht und in Dateien (`isForReader`), also dieselben Worte.
       me: 'Für Sie',

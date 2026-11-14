@@ -14,6 +14,7 @@ import dagre from '@dagrejs/dagre'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { SectionLabel } from '@/components/ui/section-label'
 import type {
   DiagramModel,
   FlowModel,
@@ -124,7 +125,7 @@ function FlowOutline({ model }: { model: FlowModel }) {
           <li key={id} className="flex flex-col gap-1">
             <div
               className={cn(
-                'text-foreground rounded-lg border px-3 py-2 text-[13px] leading-snug whitespace-pre-line text-pretty hyphens-auto shadow-xs',
+                'text-foreground rounded-lg border px-3 py-2 text-[13px] leading-snug whitespace-pre-line text-pretty hyphens-auto',
                 node.shape === 'decision'
                   ? 'bg-warning-subtle border-[color-mix(in_oklch,var(--border-color-feedback-warning)_45%,transparent)] font-medium'
                   : node.shape === 'end'
@@ -234,7 +235,7 @@ const flatten = (node: MapTreeNode, level: number, into: { node: MapTreeNode; le
 function MapOutline({ model }: { model: MapModel }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-foreground text-sm font-semibold">{model.root.label}</p>
+      <p className="text-foreground text-sm font-medium">{model.root.label}</p>
       <ul className="border-border flex flex-col gap-2.5 border-l pl-3">
         {model.root.children.map((part) => (
           <li key={part.id} className="flex flex-col gap-1">
@@ -309,7 +310,7 @@ export function HandoffDiagram({ model }: { model: HandoffModel }) {
           {model.parties.map((party) => (
             <div
               key={party.id}
-              className="border-border bg-card text-foreground rounded-lg border px-2 py-1.5 text-center text-[13px] font-medium shadow-xs"
+              className="bg-card text-foreground rounded-lg px-2 py-1.5 text-center text-[13px] font-medium shadow-xs"
             >
               {party.label}
             </div>
@@ -440,9 +441,9 @@ export function ScheduleDiagram({ model }: { model: ScheduleModel }) {
       {model.sections.map((section) => (
         <div key={section.label} className="flex flex-col gap-1">
           {section.label ? (
-            <p className="text-muted-foreground border-border border-t pt-1.5 text-[11px] font-semibold tracking-wide uppercase pointer-coarse:text-xs">
+            <SectionLabel as="p" className="border-border border-t pt-1.5 pointer-coarse:text-xs">
               {section.label}
-            </p>
+            </SectionLabel>
           ) : null}
           {section.tasks.map((task, index) => (
             <div

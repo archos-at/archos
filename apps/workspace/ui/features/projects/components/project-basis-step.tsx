@@ -20,6 +20,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { PRODUCT_NAME } from '@/lib/brand'
 import { DOCUMENT_ROLE_DEFINITIONS, recommendedRoles } from '@/lib/project-profile/document-roles'
 import type { DocumentRole } from '@/lib/project-profile/document-roles'
 import type { BuildingInstance } from '@/lib/project-profile/intake-building-keys'
@@ -119,17 +120,17 @@ export function ProjectBasisStep({
       {recommended.length > 0 && (
         <section className="space-y-3">
           <div>
-            <h3 className="text-sm font-semibold">Für dieses Projekt besonders wichtig</h3>
+            <h3 className="text-sm font-medium">Für dieses Projekt besonders wichtig</h3>
             <p className="text-muted-foreground mt-0.5 text-sm">
               {recommended.length === 1
                 ? 'Diese Unterlage ergibt sich aus Ihren Angaben.'
                 : `Diese ${recommended.length} Unterlagen ergeben sich aus Ihren Angaben.`}{' '}
-              Ohne sie beantwortet Piloti Fragen dazu nur unter Vorbehalt.
+              Ohne sie beantwortet {PRODUCT_NAME} Fragen dazu nur unter Vorbehalt.
             </p>
           </div>
           <ul className="space-y-3">
             {recommended.map((slot) => (
-              <li key={slot.key} className="bg-card rounded-xl border px-4 py-3.5">
+              <li key={slot.key} className="bg-card rounded-surface border px-4 py-3.5">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{slot.label}</span>
                   <Badge variant="info">dringend empfohlen</Badge>
@@ -149,12 +150,12 @@ export function ProjectBasisStep({
       {optional.length > 0 && (
         <section className="space-y-2">
           <div>
-            <h3 className="text-sm font-semibold">Weitere Unterlagen</h3>
+            <h3 className="text-sm font-medium">Weitere Unterlagen</h3>
             <p className="text-muted-foreground mt-0.5 text-sm">
               Optional, und jederzeit später ergänzbar.
             </p>
           </div>
-          <ul className="bg-card divide-y rounded-xl border">
+          <ul className="bg-card divide-y rounded-surface border">
             {optional.map((slot) => (
               <CollapsedSlot
                 key={slot.key}
@@ -184,12 +185,12 @@ function CollapsedSlot({
 
   return (
     <li>
-      <button
+      <button data-attr="project-open"
         type="button"
         onClick={() => setOpen((previous) => !previous)}
         aria-expanded={open}
         aria-controls={panelId}
-        className="hover:bg-muted/40 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-quick ease-out motion-reduce:transition-none"
+        className="hover:bg-hover flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-quick ease-out motion-reduce:transition-none"
       >
         <span className="min-w-0 flex-1 truncate text-sm">{slot.label}</span>
         {open ? (

@@ -12,9 +12,10 @@ import type {
 import type { DraftMention } from '@/lib/mentions/mention-text'
 import type { ShownAnswer, WireEvent } from '@/adapters/api/wire-v2'
 import { deferChatStorageWrites } from './chat-storage'
+import { withErrorMessage } from './connection-errors'
 import type { CardDecision, CardInteractions } from '@/features/cards/card-decision'
 import { errorConcernsTheThread, getErrorMeta } from '../lib/error-registry'
-import { foldTurnEvents, initialTurnView, stopTurnView, type TurnView } from '../lib/turn-fold'
+import { foldTurnEvents, initialTurnView, stopTurnView, type TurnView } from '@/lib/turns/turn-fold'
 import { projectTurn } from '../lib/turn-projection'
 import { answerCompletionOf, type AnswerCompletion } from '../lib/answer-analytics'
 import { capturePosthog } from '@/lib/analytics/posthog'
@@ -501,7 +502,7 @@ export const createMessagesSlice: StateCreator<
       }
       if (prompt) effects.push(() => void get()._appendMessage(prompt))
       const answerId = view.messageId
-      if (answerId) for (const stages of stageWrites) effects.push(() => void get()._persistStageOutput(answerId, stages))
+      if (answerId) for (const stages of stageWrites) effects.push(() => void get()._persistStageOutput(conversation.id, answerId, stages))
     }
     const current = state.currentConversation ? conversations.get(state.currentConversation.id) ?? null : null
     const update = () =>
@@ -900,7 +901,7 @@ export const createMessagesSlice: StateCreator<
 
       const updatedConversation: Conversation = {
         ...currentConversation,
-        messages: [...currentConversation.messages, errorMessage],
+        messages: withErrorMessage(currentConversation.messages, errorMessage),
         updatedAt: new Date(),
       }
 

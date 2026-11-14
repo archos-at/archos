@@ -11,11 +11,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from knowledge_layer.hit_metadata import _file_name_matches
-from knowledge_layer.hit_metadata import apply_agent_filters
-from knowledge_layer.ranked_search import AGENT_FILTER_OVERFETCH
 from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
-from knowledge_layer.search_results import empty_search_message
+from knowledge_layer.search import AGENT_FILTER_OVERFETCH
+from knowledge_layer.search import apply_agent_filters
+from knowledge_layer.search import empty_search_message
+from knowledge_layer.search.hit_metadata import _file_name_matches
 
 from agent.knowledge.document_classification import DOCUMENT_CLASSES
 
@@ -119,7 +119,8 @@ def test_empty_search_message_steers_and_forbids_invented_citations() -> None:
     assert "fehlend.pdf" in text
     assert "inventory" in text
     assert "do not invent" in text.lower()
-    assert "surface_documents" in text
+    # QC: the hint named a tool the agent door does not offer; it names none, and says how to open a document.
+    assert "surface_documents" not in text and "open a document by the name" in text
 
 
 def test_knowledge_search_description_is_a_contract_for_the_evidence_tool() -> None:

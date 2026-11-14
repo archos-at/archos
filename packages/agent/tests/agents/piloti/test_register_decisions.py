@@ -77,9 +77,9 @@ class TestTheFacts:
         # Every resolved skill is an option of the choice, the long IFC one included.
         assert facts.skills == [("fire-safety", "Brandabschnitt, Fluchtweg."), (IFC, "Am Modell messen.")]
         assert facts.project_facts == {"building_class": "4"}
-        # The card types are the content cards beyond the shapes the envelope teaches.
+        # Every content card is offered, the two whose shapes left the static prompt included.
         names = {t for t, _ in facts.card_types}
-        assert "fire_access_plan" in names and "calculation" not in names
+        assert {"fire_access_plan", "calculation", "formula"} <= names
         # `surface`'s shape is the compose rule the envelope contract carries.
         assert "surface" not in names
 
@@ -103,6 +103,14 @@ class TestTheEffects:
         assert state.card_shapes_block and "fire_access_plan" in state.card_shapes_block
         assert "stair_diagram" not in state.card_shapes_block
 
+    def test_a_calculation_or_formula_the_turn_earns_brings_its_whole_shape(self):
+        """They left the static prompt (``cards/envelope.ENVELOPE_SHAPE_TYPES``); the turn that picks one reads it."""
+        state = ResearchAgentState(messages=[])
+        _apply_decisions(TurnDecisions(decided=True, cards=(("formula", 0.9), ("calculation", 0.8))), state, None)
+        block = state.card_shapes_block or ""
+        assert '- "formula"' in block and '- "calculation"' in block
+        assert "stair_type" in block
+
     def test_the_chosen_skills_preferred_shapes_beyond_the_contracts_ride_the_turn(self):
         state = ResearchAgentState(messages=[])
         decided = TurnDecisions(decided=True, skill="fire-safety", skill_p=0.8, skill_fit=0.9)
@@ -111,8 +119,8 @@ class TestTheEffects:
         assert runtime.pinned == ("fire-safety",)
         block = state.card_shapes_block or ""
         assert "fire_access_plan" in block and "egress_diagram" in block
-        # `calculation` is the shape the envelope already teaches.
-        assert '"calculation"' not in block
+        # The skill's `calculation` rides the turn too: the static prompt no longer teaches it.
+        assert '"calculation"' in block
 
     def test_a_skill_preferring_a_surface_does_not_attach_its_compose_rule_twice(self):
         state = ResearchAgentState(messages=[])
@@ -255,7 +263,14 @@ class TestTheTurn:
 
     async def test_a_two_word_family_question_is_warmed_for_its_undecided_prefetch(self):
         """„OIB 2" skips the decision, and the undecided path still searches it:
-        the search must find its embedding warm, not pay for it after."""
+        the search must find its embedding warm, not pay for it after. Austria's corpus is read only
+        because the turn's knowledge context allows it (ADR-0175)."""
+        from agent.common.knowledge_context import KnowledgeContext
+        from agent.common.knowledge_context import set_turn_knowledge_context
+
+        set_turn_knowledge_context(
+            KnowledgeContext(gate="core", site_country="AT", retrieval_countries=frozenset({"AT"}))
+        )
         with patch("agent.knowledge.factory.warm_search_query", new_callable=AsyncMock) as warm:
             turn, _state, decide = await _run_turn(
                 ResearchAgentConfig(llm="research_llm", tools=["knowledge_search"], skills_enabled=False),
@@ -263,6 +278,7 @@ class TestTheTurn:
                 [HumanMessage(content="OIB 2")],
             )
         decide.assert_not_awaited()
+        set_turn_knowledge_context(None)
         assert turn.prefetch == ({"name": "knowledge_search", "args": {"query": "OIB 2"}},)
         warm.assert_awaited_once_with("OIB 2")
 
@@ -346,6 +362,39 @@ class TestTheTurn:
         assert agent.run.await_args.kwargs["turn"].prefetch == ()
 
 
+class TestTheMeasuringToolsNeedAModel:
+    """In a project known to hold no IFC (or no DXF) the tool that measures one is not sent."""
+
+    NAMES = ("knowledge_search", "ifc_query", "ifc_measure", "dxf_measure", "bim__ifc_query")
+
+    def _scoped(self, monkeypatch, kinds):
+        from types import SimpleNamespace
+
+        from agent.agents.piloti import turn_tools
+
+        monkeypatch.setattr(turn_tools, "get_project_id_from_context", lambda: "p-1")
+        turn_tools.set_project_models(kinds)
+        try:
+            return [t.name for t in turn_tools.tools_in_scope([SimpleNamespace(name=n) for n in self.NAMES])]
+        finally:
+            turn_tools.set_project_models(None)
+
+    def test_a_project_without_a_model_is_sent_none_of_them(self, monkeypatch):
+        assert self._scoped(monkeypatch, frozenset()) == ["knowledge_search"]
+
+    def test_each_kind_brings_its_own_tools(self, monkeypatch):
+        assert self._scoped(monkeypatch, frozenset({"ifc"})) == [
+            "knowledge_search",
+            "ifc_query",
+            "ifc_measure",
+            "bim__ifc_query",
+        ]
+        assert self._scoped(monkeypatch, frozenset({"dxf"})) == ["knowledge_search", "dxf_measure"]
+
+    def test_unknown_keeps_every_tool_in_a_project(self, monkeypatch):
+        assert self._scoped(monkeypatch, None) == list(self.NAMES)
+
+
 class TestTheBuildingModelToolsNeedAProject:
     """Outside a project `ifc_query`/`ifc_measure` can only say "no project"; they are not sent."""
 
@@ -356,25 +405,25 @@ class TestTheBuildingModelToolsNeedAProject:
         return [SimpleNamespace(name=n) for n in ("knowledge_search", "ifc_query", "ifc_measure", "read_passage")]
 
     def test_a_turn_without_a_project_is_not_sent_them(self, monkeypatch):
-        from agent.agents.piloti import register
+        from agent.agents.piloti import turn_tools as register
 
         monkeypatch.setattr(register, "get_project_id_from_context", lambda: None)
-        assert [t.name for t in register._tools_in_scope(self._tools())] == ["knowledge_search", "read_passage"]
+        assert [t.name for t in register.tools_in_scope(self._tools())] == ["knowledge_search", "read_passage"]
 
     def test_a_grouped_deployment_is_not_sent_them_either(self, monkeypatch):
         from types import SimpleNamespace
 
-        from agent.agents.piloti import register
+        from agent.agents.piloti import turn_tools as register
 
         monkeypatch.setattr(register, "get_project_id_from_context", lambda: None)
         tools = [SimpleNamespace(name=n) for n in ("knowledge_search", "bim__ifc_query", "bim__ifc_measure")]
-        assert [t.name for t in register._tools_in_scope(tools)] == ["knowledge_search"]
+        assert [t.name for t in register.tools_in_scope(tools)] == ["knowledge_search"]
 
     def test_a_project_turn_keeps_them(self, monkeypatch):
-        from agent.agents.piloti import register
+        from agent.agents.piloti import turn_tools as register
 
         monkeypatch.setattr(register, "get_project_id_from_context", lambda: "proj-1")
-        assert [t.name for t in register._tools_in_scope(self._tools())] == [
+        assert [t.name for t in register.tools_in_scope(self._tools())] == [
             "knowledge_search",
             "ifc_query",
             "ifc_measure",
@@ -392,20 +441,20 @@ class TestTheViewerToolIsSentOnlyToAPageThatCanRunIt:
         return [SimpleNamespace(name=n) for n in ("knowledge_search", "show_in_viewer")]
 
     def test_a_turn_that_declared_nothing_is_not_sent_it(self, monkeypatch):
-        from agent.agents.piloti import register
+        from agent.agents.piloti import turn_tools as register
         from agent.common.client_tools import set_turn_client_tools
 
         monkeypatch.setattr(register, "get_project_id_from_context", lambda: "proj-1")
         set_turn_client_tools(None)
-        assert [t.name for t in register._tools_in_scope(self._tools())] == ["knowledge_search"]
+        assert [t.name for t in register.tools_in_scope(self._tools())] == ["knowledge_search"]
 
     def test_a_turn_whose_page_declared_it_is(self, monkeypatch):
-        from agent.agents.piloti import register
+        from agent.agents.piloti import turn_tools as register
         from agent.common.client_tools import set_turn_client_tools
 
         monkeypatch.setattr(register, "get_project_id_from_context", lambda: None)
         set_turn_client_tools(["show_in_viewer"])
-        assert [t.name for t in register._tools_in_scope(self._tools())] == ["knowledge_search", "show_in_viewer"]
+        assert [t.name for t in register.tools_in_scope(self._tools())] == ["knowledge_search", "show_in_viewer"]
         set_turn_client_tools(None)
 
 

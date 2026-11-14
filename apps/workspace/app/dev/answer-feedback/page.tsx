@@ -45,6 +45,7 @@ import { QualityScopeBar, useQualityScopeOptions } from '@/features/platform/com
 import { I18nProvider } from '@/i18n'
 import { NO_RATINGS_FILTERS, readRatingsFilters, type RatingsFilters } from '@/lib/feedback/filters'
 import { presetRange, readQualityScope, scopeBounds, type QualityScope } from '@/lib/quality/scope'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const ago = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString()
 
@@ -489,7 +490,7 @@ function AnswerFeedbackPreview() {
       >
         <section className="flex flex-col gap-4">
           <header>
-            <h1 className="text-xl font-semibold tracking-tight">Antwortqualität</h1>
+            <h1 className="text-xl font-semibold">Antwortqualität</h1>
             <p className="text-muted-foreground mt-1 text-sm">
               Plattform → Antwortqualität → Bewertungen, aus Fixtures.
             </p>
@@ -513,18 +514,18 @@ function AnswerFeedbackPreview() {
         </section>
 
         <section data-testid="answer-feedback-states" className="space-y-3">
-          <h2 className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+          <SectionLabel as="h2">
             Die Fußnote unter der Antwort — jeder Zustand
-          </h2>
+          </SectionLabel>
           <div className="grid gap-3 md:grid-cols-2">
             {FOOTNOTE_STATES.map((state) => (
               <div
                 key={state.id}
                 className={`bg-card flex flex-col gap-2 rounded-lg border p-4 ${state.wide ? 'md:col-span-2' : ''}`}
               >
-                <p className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+                <SectionLabel as="p">
                   {state.label}
-                </p>
+                </SectionLabel>
                 <div className="bg-background rounded-lg border px-4 py-3">
                   <p className="text-foreground text-sm leading-relaxed">{state.answer}</p>
                   <div className="mt-2.5">
@@ -544,9 +545,9 @@ function AnswerFeedbackPreview() {
                 state that actually broke the footer's layout — was never on it.
                 The real thing, in the real card, is one route away. */}
             <div className="bg-card flex flex-col gap-2 rounded-lg border p-4">
-              <p className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+              <SectionLabel as="p">
                 Kompakt — in der Meta-Zeile der Antwort
-              </p>
+              </SectionLabel>
               <p className="text-muted-foreground text-xs leading-relaxed">
                 Die Fußnote in der echten Antwort-Fußzeile, in Ruhe und offen:{' '}
                 <code className="bg-muted rounded px-1 py-0.5 font-mono text-[11px]">

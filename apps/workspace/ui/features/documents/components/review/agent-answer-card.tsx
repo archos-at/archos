@@ -20,6 +20,7 @@ import { CANVAS_ASK_INTENTS, stepsOf, type CanvasAsk, type CanvasAskIntent } fro
 import type { DocumentReview } from '../../hooks/use-document-review'
 import { Composer } from './composer'
 import { ReviewCard, type CardPlacement } from './thread-card'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** The line a failed question says: by what broke, never the wire code itself. */
 export function failureKey(ask: Pick<CanvasAsk, 'error' | 'view'>): 'busy' | 'failedSession' | 'failedConnection' | 'failed' {
@@ -100,7 +101,7 @@ export function AgentAnswerCard({
       <div className={cn('flex items-center gap-2 border-b px-3 py-2', placement === 'docked' && 'pr-12')}>
         <AgentGlyph working={working} />
         <span id={headerId} className="flex min-w-0 items-center gap-2">
-          <span className="text-foreground text-xs font-semibold">Piloti</span>
+          <span className="text-foreground text-xs font-medium">{PRODUCT_NAME}</span>
           {ask.region && (
             <span className="text-muted-foreground text-[11px]">{t('review.piloti.regionLabel', { page: ask.region.page })}</span>
           )}
@@ -146,8 +147,8 @@ export function AgentAnswerCard({
           />
           <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('review.piloti.quickLabel')}>
             {CANVAS_ASK_INTENTS.map((intent) => (
-              <Chip key={intent} asChild interactive variant="outline" size="md">
-                <button
+              <Chip key={intent} asChild interactive variant="secondary" size="md">
+                <button data-attr="files-send"
                   type="button"
                   data-testid={`agent-quick-${intent}`}
                   disabled={piloti.busy}
@@ -175,7 +176,7 @@ export function AgentAnswerCard({
               <ul className="space-y-1" aria-label={t('review.piloti.steerNotes')} data-testid="agent-card-notes">
                 {notes.map(([steerId, note]) => (
                   <li key={steerId} className="text-muted-foreground text-xs leading-5 break-words">
-                    <Chip size="sm" variant="outline" className="mr-1.5 align-middle">
+                    <Chip size="sm" variant="secondary" className="mr-1.5 align-middle">
                       {note.round === undefined
                         ? t('review.piloti.steerWaiting')
                         : t('review.piloti.steerApplied', { round: note.round })}
@@ -215,7 +216,7 @@ export function AgentAnswerCard({
                 placeholder={t('review.piloti.steerPlaceholder')}
                 submitLabel={t('review.piloti.steerSend')}
                 onSubmit={async (note) => {
-                  if (!piloti.steer(note, ask.region)) throw new Error('Piloti takes no note right now')
+                  if (!piloti.steer(note, ask.region)) throw new Error(`${PRODUCT_NAME} takes no note right now`)
                 }}
               />
             )}

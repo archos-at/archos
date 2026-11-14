@@ -27,6 +27,8 @@ export type CollectionShelf = 'office_shelf' | 'project' | 'session' | 'base'
 export interface ScopedCollection {
   collection: string
   shelf?: CollectionShelf
+  /** On the base corpus only, the countries whose chunks this request may read (ADR-0173). */
+  countries?: string[]
 }
 
 /**
@@ -72,12 +74,19 @@ export interface ScopeContext {
   restrictedCollections?: readonly string[]
 }
 
+/** The base knowledge corpus's collection name, from the deployment's configuration. */
+export function resolveBaseCollectionName(): string {
+  return process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
+}
+
 export function computeCollectionScope(
   _session: UserSession | null,
   context: ScopeContext,
 ): string[] {
   const scope: string[] = []
-  const base = context.baseCollection || process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
+  const base = context.baseCollection || resolveBaseCollectionName()
+  // In every scope, whatever the project's site: which countries of it a read sees is the base entry's
+  // signed list, narrowed by the turn's or the run's knowledge context (ADR-0173).
   scope.push(base)
 
   // Org-wide Archiv: shared across every project in the org, so it rides in the

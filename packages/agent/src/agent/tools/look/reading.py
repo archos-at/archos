@@ -38,6 +38,7 @@ from agent.common.credential_resolution import ResolvedCredential
 from agent.common.image_redaction import redact_inline_images
 from agent.common.json_utils import extract_json
 from agent.common.openrouter import limited_async_http_client
+from agent.common.openrouter import vision_reasoning_body
 from agent.observability.direct_trace import observed_generation
 from agent.project_context import get_organization_id_from_context
 
@@ -131,7 +132,7 @@ def _vision_settings(organization_id: str | None) -> ResolvedCredential:
     The override read is fail-open: a BFF that cannot answer leaves the
     deployment's model. Blocking, so callers run it off the event loop.
     """
-    from knowledge_layer.llamaindex.adapter import resolve_vlm_credential
+    from knowledge_layer.ingest import resolve_vlm_credential
 
     cred = resolve_vlm_credential(organization_id)
     if not organization_id:
@@ -197,7 +198,13 @@ async def read_region(jpeg: bytes, question: str, *, region: bool = False) -> Re
 
     messages = build_messages(question, jpeg)
     body = cred.request_body(
-        {"model": cred.model, "temperature": 0, "max_tokens": MAX_COMPLETION_TOKENS, "messages": messages}
+        {
+            "model": cred.model,
+            "temperature": 0,
+            "max_tokens": MAX_COMPLETION_TOKENS,
+            "messages": messages,
+            **vision_reasoning_body(cred.base_url),
+        }
     )
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {cred.api_key}"}
     try:

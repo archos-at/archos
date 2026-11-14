@@ -1,6 +1,6 @@
 # Keyboard shortcuts
 
-Piloti can be driven from the keyboard: open the command palette, jump between
+ARCHOS can be driven from the keyboard: open the command palette, jump between
 sections, and work the composer without reaching for the mouse. Press **?**
 anywhere in the app to see the full set — the cheatsheet is generated from the
 same registry the app binds, so it is never out of date with what actually works.
@@ -43,7 +43,7 @@ navigation rail, so what you see in the rail is what you can jump to:
 |---|---|
 | **G** then **P** | All projects |
 | **G** then **O** | Organization |
-| **G** then **C** | Ask Piloti (chat) |
+| **G** then **C** | Ask ARCHOS (chat) |
 | **G** then **W** | Skills |
 | **G** then **F** | Files |
 | **G** then **K** | Knowledge |
@@ -71,7 +71,7 @@ unless you asked for it.
 | **Enter** or **⌘Enter** | Send the message |
 | **Shift+Enter** | New line |
 | **@** | Mention a colleague (where collaboration is enabled) |
-| **1**–**9** | Pick a numbered option when Piloti asks you to choose |
+| **1**–**9** | Pick a numbered option when ARCHOS asks you to choose |
 
 While the mention picker is open it owns the navigation keys: ↑/↓ move the
 selection, Tab or Enter inserts the name, and Escape dismisses the picker without
@@ -88,6 +88,20 @@ without the mouse:
 | **Enter** | Open the item (and mark it read) |
 | **E** | Archive the item (Undo stays on offer for a few seconds); under *Archived*, restore it |
 | **U** | Mark the item read, or unread again |
+
+## In the E-Mail-Eingang
+
+While a project's E-Mail-Eingang is open (and you are not typing in a field).
+Listed in the cheatsheet only for offices with project mail:
+
+| Shortcut | What it does |
+|---|---|
+| **J** / **K** | Next or previous mail |
+| **Enter** | Open the mail |
+| **X** | Select the mail for a bulk action (never a mail that poses as someone) |
+| **Space** | Preview the attachment |
+| **E** | File as shown („Wie gezeigt ablegen“) |
+| **⌫** | Dismiss the mail |
 
 ## The command palette
 

@@ -182,7 +182,7 @@ export async function refreshOfficeConventions(organizationId: string): Promise<
     listAcceptedMoves(organizationId, projectIds),
   ])
   const folders = openFolders(folderRows)
-  const enriched = await reconcileDocumentStatuses(rows, organizationId)
+  const enriched = await reconcileDocumentStatuses(rows, organizationId, 'read')
   const documents = enriched
     .filter(hasPassedScreening)
     .map((row) => conventionDocumentOf(row, folders))

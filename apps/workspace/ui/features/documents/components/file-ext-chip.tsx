@@ -12,9 +12,9 @@ import { extChipTint, fileExtensionLabel } from '../document-kind'
  * out of the tile. `fallback` is drawn when the name carries no extension.
  *
  * `xs` is the row size: the upload tray's rows and the Files list's name
- * column, which used to hand-roll this tile twice. Its 8.5px type is
- * load-bearing: it holds a four-letter extension ("DOCX") inside a 24px
- * square, and the ramp's next step overflows it.
+ * column, which used to hand-roll this tile twice. 28px and 10px, the type's
+ * floor for a code read at a glance (at 24px and 8.5px „PDF“ read as a smudge);
+ * a four-letter extension ("DOCX") steps down to 8.5px to stay inside it.
  */
 export function FileExtChip({
   filename,
@@ -32,10 +32,10 @@ export function FileExtChip({
     <span
       data-testid="file-ext-chip"
       className={cn(
-        'flex shrink-0 items-center justify-center font-bold uppercase leading-none tracking-tight',
-        size === 'md' && 'size-9 rounded-lg text-xs',
-        size === 'sm' && 'size-8 rounded-md text-[10px]',
-        size === 'xs' && 'size-6 rounded-sm text-[8.5px]',
+        'flex shrink-0 items-center justify-center font-medium uppercase leading-none',
+        size === 'md' && 'size-9 rounded-control text-xs',
+        size === 'sm' && 'size-8 rounded-control text-[10px]',
+        size === 'xs' && cn('size-7 rounded-full', ext.length > 3 ? 'text-[8.5px]' : 'text-[10px]'),
         ext.length > 4 && size !== 'xs' && 'text-[9px]',
         className,
       )}

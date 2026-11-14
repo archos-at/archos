@@ -14,7 +14,9 @@
  * that say whether a call reads, writes or destroys.
  */
 
+import type { GeneratedContent } from './ai-generated-meta'
 import type { z } from 'zod'
+import type { OperationInput } from './dispatch'
 
 export type BodyEncoding = 'json' | 'multipart' | 'raw'
 
@@ -34,6 +36,7 @@ export const AGENT_DOMAINS = [
   'projects',
   'documents',
   'folders',
+  'mail',
   'review',
   'conversations',
   'collaboration',
@@ -103,6 +106,13 @@ export interface AgentOperation {
    * is (`confirmation.ts`), since a proposal it applies may itself delete.
    */
   readonly personDecides?: true
+  /**
+   * The person decides this call only when its input says so: a review verdict
+   * that vouches for a source (`sourceChecked`, ADR-0170), while a plain verdict
+   * is the agent's to give. Read on the raw input; the route holds the same
+   * rule with `requirePersonDecision`.
+   */
+  readonly personDecidesWhen?: (input: OperationInput) => boolean
   /** Calling it twice with the same input leaves the same state. Defaults to GET, PUT and DELETE. */
   readonly idempotent?: boolean
   /**
@@ -132,6 +142,18 @@ export interface AgentOperation {
    */
   readonly sensitivity?: Sensitivity
   /**
+   * The call runs only on the person's own yes: a decision a model must not
+   * make for them however the call reached the door (ADR-0122, amendment "a
+   * decision only the person makes"). An outside agent's call is put to the
+   * person in their own chat when the client can ask them (`confirmation.ts`),
+   * and is refused, never run, when it cannot: the refusal hands the agent
+   * `decideAt`, the page where the person makes the decision themselves.
+   * The in-product agent only ever proposes a write, so the person's acceptance of
+   * the card is the yes. For writes only (`confirmation.spec.ts` holds the
+   * catalog to it); the client is told to confirm it (`destructiveHint`).
+   */
+  readonly requiresPersonConfirmation?: PersonConfirmation
+  /**
    * A read whose answer can carry content of every project the person may
    * read, not only the one a call names (ADR-0122, "Shared conversations").
    * `always`: whatever the call names (similar passages search every project
@@ -160,10 +182,20 @@ export interface AgentOperation {
    * row one level in (`links.ts`), where the deployment pins its origin.
    */
   readonly links?: LinkKind
+  /**
+   * How much of the answer a model wrote for this call (`generatedAt('answer')`
+   * for an ask, `generatedRows` for a list of messages). When it says some,
+   * the tool result carries `_meta.aiGenerated: true` and the IPTC
+   * `digitalSourceType` (`ai-generated-meta.ts`): Art. 50(2) AI Act asks for
+   * generated text to be marked machine-readably, and a client that files or
+   * forwards the answer reads the mark there. A stored document read back is
+   * not this: it carries its own marking.
+   */
+  readonly generatedContent?: GeneratedContent
 }
 
 /** What a door answer may link to: the objects with a page of their own in the app. */
-export type LinkKind = 'project' | 'document' | 'task-run' | 'conversation'
+export type LinkKind = 'project' | 'document' | 'task-run' | 'conversation' | 'inbound-mail'
 
 export type SpansProjects = 'always' | 'unlessScoped'
 
@@ -172,6 +204,16 @@ export interface OperationExample {
   readonly params?: Record<string, string>
   readonly query?: Record<string, unknown>
   readonly body?: unknown
+}
+
+/** How an operation that runs only on the person's yes sends them to decide it themselves. */
+export interface PersonConfirmation {
+  /**
+   * The app page where the person makes this call's decision, for the call's
+   * validated input: `/app/projects/<id>/files/mail/<mailId>` for one mail.
+   * A path; the door prefixes the deployment's pinned origin.
+   */
+  readonly decideAt: (input: OperationInput) => `/app/${string}`
 }
 
 export const SENSITIVITIES = ['access', 'secret', 'control'] as const
@@ -198,8 +240,12 @@ export function annotationsOf(op: AgentOperation): ToolAnnotations {
     title: op.summary,
     readOnlyHint,
     // A sensitive operation is always one the client confirms with the person, a read of
-    // the organization's keys included; any other read never is.
-    destructiveHint: op.sensitivity !== undefined || (!readOnlyHint && (op.destructive ?? op.method === 'DELETE')),
+    // the organization's keys included, and so is one that runs only on the person's yes;
+    // any other read never is.
+    destructiveHint:
+      op.sensitivity !== undefined ||
+      op.requiresPersonConfirmation !== undefined ||
+      (!readOnlyHint && (op.destructive ?? op.method === 'DELETE')),
     idempotentHint: readOnlyHint || (op.idempotent ?? (op.method === 'PUT' || op.method === 'DELETE')),
     openWorldHint: false,
   }

@@ -8,6 +8,9 @@ informed: everyone working in this repo
 
 # The repository is laid out by job: apps, packages, contracts, evals, and no brand names
 
+> **Partly superseded by [ADR-0149](0149-the-product-name-is-copy-and-identifiers-carry-no-brand.md)** (2026-10-29):
+> rule 5 now also bars the current name from identifiers, the name is copy read from `packages/brand/identity.json`, and ADR-0149 holds the neutral-name map and the history rule.
+
 ## Context and Problem Statement
 
 A new colleague or agent should understand this repository from `ls`. Today the
@@ -391,7 +394,7 @@ through the list and says in its description which lines did not apply:
   - Compose `build.context` and `command:` lines, in both Compose files.
   - Pulumi container commands.
   - The Coolify configuration, which lives outside the repo; the PR says
-    whether it changes.
+    whether it changes (Coolify was retired on 2026-11-11, ADR-0150).
 - Taskfile variables, `taskfiles/*.yml`, and the scripts that hardcode paths
   (`scripts/setup.sh`, `scripts/dev.sh`, `scripts/start_e2e.sh`,
   `scripts/check_env_docs.py`).

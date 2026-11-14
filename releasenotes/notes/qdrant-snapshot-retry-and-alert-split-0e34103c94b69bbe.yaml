@@ -1,0 +1,9 @@
+---
+# area: administration
+operators:
+  - >
+    A retried run of the nightly search-index backup no longer takes every backup again, which had filled
+    production's object storage to 95 percent. Production's object storage grows to 200 GiB on the next deploy.
+  - >
+    Infrastructure warnings (full object storage, a scheduled job that keeps failing) are now a separate alert
+    from product incidents. Combined, the alert could not run and switched itself off.

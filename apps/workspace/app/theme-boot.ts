@@ -23,12 +23,12 @@
 export const LAYOUT_STORE_KEY = 'layout'
 
 /**
- * The browser-chrome colour per theme: `--background` in `styles/tokens.css`
- * (`#f6f6f4` warm paper, `#191816` warm charcoal). Restated as hex because a
+ * The browser-chrome colour per theme: `--background` in `styles/tokens.css`, which is the paper of „Paper on a
+ * desk“ (`--paper`: `#fafaf9`, the brand's surface, and `#0f0e0d` warm near-black). Restated as hex because a
  * `<meta name="theme-color">` is read by the browser UI, not by our CSS, so it
  * cannot resolve a custom property. Retune both together.
  */
-export const THEME_COLOR = { light: '#f6f6f4', dark: '#191816' } as const
+export const THEME_COLOR = { light: '#fafaf9', dark: '#0f0e0d' } as const
 
 /**
  * Plain ES5 on purpose: it is shipped as a string and runs before any

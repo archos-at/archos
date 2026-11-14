@@ -64,7 +64,7 @@ export const PagePlaceButton: FC<PagePlaceButtonProps> = ({
         onClick={() => setOpen(true)}
         className={cn(
           'group/place flex min-w-0 flex-col gap-1.5 rounded-md p-1 text-left transition-colors duration-quick ease-out',
-          'hover:bg-muted/60 disabled:cursor-default disabled:hover:bg-transparent',
+          'hover:bg-hover disabled:cursor-default disabled:hover:bg-transparent',
           FOCUS_RING,
           'outline-none',
           className

@@ -295,7 +295,7 @@ export function DocumentReviewControls({
       key={gesture}
       type="button"
       size="sm"
-      variant={PRIMARY_ACTION[gesture] ? 'default' : 'outline'}
+      variant={PRIMARY_ACTION[gesture] ? 'default' : 'secondary'}
       className="h-8 flex-1"
       disabled={pending !== null}
       aria-busy={pending === gesture}
@@ -339,7 +339,7 @@ export function DocumentReviewControls({
            sentence what. The button stays shut with its reasons inline — a
            disabled button whose unlock the reader can see, never a refusal
            after the click and never an open round nobody was told about. */
-        <div className="space-y-2 rounded-lg border p-2.5" data-testid="document-review-submit">
+        <div className="space-y-2 rounded-surface border p-2.5" data-testid="document-review-submit">
           {needsReviewerChoice ? (
             <div className="space-y-1">
               <label
@@ -446,7 +446,7 @@ export function DocumentReviewControls({
                   <Button
                     type="button"
                     size="icon"
-                    variant="outline"
+                    variant="secondary"
                     className="size-8 shrink-0"
                     aria-label={t('lifecycle.actions.more')}
                     title={t('lifecycle.actions.more')}
@@ -468,7 +468,7 @@ export function DocumentReviewControls({
            like the refusal box, so the stand stays in sight while it is
            released. */
         <div
-          className="space-y-2 rounded-lg border p-2.5"
+          className="space-y-2 rounded-surface border p-2.5"
           data-testid="document-review-approve-confirm"
         >
           <p className="text-xs font-medium" data-testid="document-review-approve-as-of">
@@ -559,7 +559,7 @@ export function DocumentReviewControls({
         /* The reason, typed where the decision is taken. A dialog would put the
            version out of sight at the moment the reviewer is describing what is
            wrong with it. */
-        <div className="space-y-2 rounded-lg border p-2.5" data-testid="document-review-comment">
+        <div className="space-y-2 rounded-surface border p-2.5" data-testid="document-review-comment">
           <label
             htmlFor="document-review-comment-input"
             className="text-muted-foreground block text-xs"

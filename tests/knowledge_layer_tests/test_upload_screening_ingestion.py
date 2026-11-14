@@ -17,14 +17,15 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import page_triage
-from knowledge_layer.llamaindex import transcription
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-from knowledge_layer.llamaindex.screening import QUARANTINED_PREFIX
+from knowledge_layer.ingest import QUARANTINED_PREFIX
+from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import page_triage
+from knowledge_layer.ingest import pdf_text
+from knowledge_layer.ingest import transcription
 from knowledge_layer_testing.pdf_fixtures import build_pdf
-from knowledge_layer_testing.qdrant import FakeEmbedder
-from knowledge_layer_testing.qdrant import capture_indexed_documents
+from knowledge_layer_testing.vector_store import FakeEmbedder
+from knowledge_layer_testing.vector_store import capture_indexed_documents
 
 from agent.common.credential_resolution import ResolvedCredential
 from agent.knowledge.schema import FileStatus
@@ -48,7 +49,7 @@ def summary_db(tmp_path):
 @pytest.fixture
 def calls(tmp_path, monkeypatch, summary_db, qdrant_store):
     """Every external call site, recording; plus the ingestor that would make them."""
-    from knowledge_layer.llamaindex import processing
+    from knowledge_layer.ingest import processing
 
     record: dict[str, list] = {"ocr": [], "image_caption": [], "vlm": []}
     cred = ResolvedCredential(api_key="vlm-key", base_url="https://vlm.test/v1", model="test-vlm", source="env")
@@ -254,14 +255,43 @@ class TestTheGateIsConditional:
 
 
 class TestOutcomes:
-    def test_an_image_is_unchecked_and_still_ingested(self, tmp_path, calls):
+    def test_an_image_is_screened_by_what_the_model_read_and_still_ingested(self, tmp_path, calls):
         path = tmp_path / "foto.png"
         path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 64)
 
         detail = _ingest(calls, path, "foto.png", _TERMS)
 
-        assert detail.screening == "unchecked"
+        # Nothing of an image is readable before the model call, so a clean reading is partial.
+        assert detail.status == FileStatus.SUCCESS
+        assert detail.screening == "partial"
         assert calls["image_caption"] == ["foto.png"]
+
+    def test_an_image_whose_reading_matches_is_quarantined_before_any_summary_or_embedding(
+        self, tmp_path, calls, monkeypatch
+    ):
+        from llama_index.core import Document
+
+        payslip = [Document(text="Gehaltsabrechnung Oktober", metadata={"content_type": "image"})]
+        monkeypatch.setattr(
+            adapter, "_build_image_documents", lambda *a, **k: calls["image_caption"].append(1) or payslip
+        )
+        path = tmp_path / "scan.jpg"
+        path.write_bytes(b"\xff\xd8\xff" + b"\0" * 64)
+
+        detail = _ingest(calls, path, "scan.jpg", _TERMS)
+
+        assert detail.status == FileStatus.FAILED
+        assert detail.screening == "quarantined"
+        assert detail.error_message.startswith(QUARANTINED_PREFIX)
+        # The vision model saw it, and the verdict says so; nothing after it ran.
+        assert detail.quarantine.after_transcription is True
+        assert _external_calls(calls) | {"image_caption": 0} == {
+            "ocr": 0,
+            "image_caption": 0,
+            "vlm": 0,
+            "summary_and_tags": 0,
+            "embeddings": 0,
+        }
 
     def test_pages_sent_to_a_model_unscreened_make_it_partial(self, tmp_path, calls, monkeypatch):
         scan = page_triage.PdfTriage({1: page_triage.PageKind.TEXT, 2: page_triage.PageKind.SCAN})
@@ -347,7 +377,7 @@ def _text_pass_loses_page(monkeypatch, lost: int) -> None:
             raise ValueError("unreadable page")
         return read(page, page_num, previous, pdf_path)
 
-    monkeypatch.setattr(adapter, "_read_pdf_page", _read)
+    monkeypatch.setattr(pdf_text, "_read_pdf_page", _read)
 
 
 class TestTablesAndCapsAreScreened:
@@ -379,7 +409,7 @@ class TestTablesAndCapsAreScreened:
 
     def test_a_term_only_in_spreadsheet_rows_past_the_cap_is_partial(self, tmp_path, calls, monkeypatch):
         openpyxl = pytest.importorskip("openpyxl")
-        from knowledge_layer.llamaindex import office_extractors
+        from knowledge_layer.ingest import office_extractors
 
         monkeypatch.setattr(office_extractors, "MAX_TABLE_ROWS", 3)
         workbook = openpyxl.Workbook()
@@ -399,7 +429,7 @@ class TestTablesAndCapsAreScreened:
 
     def test_a_term_only_in_columns_past_the_cap_is_partial(self, tmp_path, calls, monkeypatch):
         openpyxl = pytest.importorskip("openpyxl")
-        from knowledge_layer.llamaindex import office_extractors
+        from knowledge_layer.ingest import office_extractors
 
         monkeypatch.setattr(office_extractors, "MAX_TABLE_COLS", 2)
         workbook = openpyxl.Workbook()
@@ -415,7 +445,7 @@ class TestTablesAndCapsAreScreened:
         assert detail.screening == "partial"
 
     def test_a_term_only_in_the_cut_tail_of_a_long_csv_cell_is_partial(self, tmp_path, calls, monkeypatch):
-        from knowledge_layer.llamaindex import text_formats
+        from knowledge_layer.ingest import text_formats
 
         monkeypatch.setattr(text_formats, "_MAX_CELL_CHARS", 20)
         path = tmp_path / "liste.csv"
@@ -449,7 +479,7 @@ class TestTablesAndCapsAreScreened:
 @pytest.fixture
 def thumbnails(monkeypatch, calls):
     """Every thumbnail the job draws, by source path, in order with the screen."""
-    from knowledge_layer.llamaindex import screening
+    from knowledge_layer.ingest import screening
 
     events: list[str] = []
     screen = screening.screen_pages
@@ -492,14 +522,14 @@ class TestNoThumbnailBeforeTheVerdict:
 
         assert thumbnails == [f"thumbnail:{path}"]
 
-    def test_an_image_passes_on_its_name_and_gets_its_thumbnail(self, tmp_path, calls, thumbnails):
+    def test_an_image_gets_its_thumbnail_after_its_reading_is_screened(self, tmp_path, calls, thumbnails):
         path = tmp_path / "foto.png"
         path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 64)
 
         detail = _ingest(calls, path, "foto.png", _TERMS, **_THUMB)
 
-        assert detail.screening == "unchecked"
-        assert thumbnails == [f"thumbnail:{path}"]
+        assert detail.screening == "partial"
+        assert thumbnails == ["screen", f"thumbnail:{path}"]
 
     def test_a_quarantined_spreadsheet_never_downloads_its_preview(self, tmp_path, calls, thumbnails):
         openpyxl = pytest.importorskip("openpyxl")
@@ -549,7 +579,7 @@ def permits(monkeypatch, calls):
     The tag decision types every document a Bescheid, and the job names a BFF row, so the hook
     would read any file that reaches it.
     """
-    from knowledge_layer.llamaindex import document_presence
+    from knowledge_layer.ingest import document_presence
 
     seen: dict[str, list] = {"extracted": [], "dropped": []}
     monkeypatch.setattr(

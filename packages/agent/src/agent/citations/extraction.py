@@ -19,6 +19,7 @@ from agent.citations.registry import MAX_REGIONS_PER_SOURCE
 from agent.citations.text_parsers import parser_for
 from agent.common.grounding_block import GroundingHit
 from agent.common.grounding_block import get_grounding_block
+from agent.common.licensed_text import quotable
 from agent.common.source_kinds import TOOL_RESULT_SOURCE_TYPE
 
 logger = logging.getLogger(__name__)
@@ -44,10 +45,10 @@ def extract_sources_from_tool_result(
        formats like knowledge layer citation keys). Its answer is final,
        including an empty one: a knowledge, RIS or read_passage text with no
        ``Citation:`` line states no source, and the URLs it happens to contain
-       belong to a passage body or to an error message.
-    2. For a tool with no registered parser (web search and anything new), fall
-       back to the generic URL extractor, which finds all URLs in any tool
-       output regardless of format.
+       belong to a passage body or to an error message. A web search's sources
+       are its result records (``web_results.py``), never an address in a page.
+    2. For a tool with no registered parser, fall back to the generic URL
+       extractor, which finds all URLs in any tool output regardless of format.
     3. If neither produces entries, register the tool result itself as a
        non-URL citation source.
 
@@ -56,8 +57,8 @@ def extract_sources_from_tool_result(
     job runner's callback. Those fall through to the text parsers below, which
     is what the parsers are still there for.
 
-    This means new sources (Bing, Perplexity, etc.) work automatically
-    without any parser registration — as long as their output contains URLs.
+    A new source tool works without a parser when its output contains URLs, and
+    registers every one: a tool that returns a page's text needs its own parser.
 
     The non-URL fallback is permissive on purpose: callers (Piloti and
     deep researchers) are responsible for deciding which tool calls are
@@ -189,6 +190,15 @@ def _entry_from_hit(hit: GroundingHit, tool_name: str) -> SourceEntry:
     return _entry_from_hit_fields(hit, tool_name)
 
 
+def _keep_licensed_text(hit: GroundingHit) -> None:
+    """File an attested licensed passage whole on the turn's registry, so a quote of it verifies past its excerpt."""
+    from agent.citations.session import get_session_registry
+
+    registry = get_session_registry()
+    if registry is not None and hit.licence is not None and hit.licence.licensed and hit.licence.ai_processing:
+        registry.keep_licensed_text(hit.citation_key.strip(), hit.body.strip())
+
+
 def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
     """One captured grounding hit as a registry entry, by field copy.
 
@@ -198,10 +208,12 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
     convention: ``""`` and ``None`` mean the same thing to every reader
     downstream, and the entry states ``None``.
 
-    ``url`` stays unset: a hit states no URL, and a RIS passage is cited by its
+    ``url`` stays unset: a passage read at a legal database is cited by its
     key, not by its link. Giving it one would move it onto the registry's URL
-    identity and out of the document dedup.
+    identity and out of the document dedup. The address the producer states
+    travels as ``public_url``, which is no identity.
     """
+    _keep_licensed_text(hit)
     return SourceEntry(
         citation_key=hit.citation_key.strip(),
         title=hit.display_title.strip() or None,
@@ -211,10 +223,12 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
         shelf=str(hit.shelf) if hit.shelf is not None else None,
         doc_class=(hit.doc_class or "").strip() or None,
         authored_by=hit.authored_by,
+        source_format=(hit.source_format or "").strip() or None,
         # The body as EVIDENCE: no truncation marker (the renderer adds it) and
         # no surrounding blank lines, so ``verify_quoted_spans`` matches an
         # answer's quote against the passage and nothing else.
-        chunk_text=hit.body.strip() or None,
+        # A licensed body persists with the answer's sources only as far as a quote may reach.
+        chunk_text=quotable(hit.body.strip(), hit.licence),
         clause=(hit.clause or "").strip() or None,
         score=hit.score,
         regions=list(hit.regions[:MAX_REGIONS_PER_SOURCE]),
@@ -223,6 +237,11 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
         project_name=hit.project.name if hit.project else None,
         project_status=hit.project.status if hit.project else None,
         project_federal_state_note=hit.project.federal_state_note if hit.project else None,
+        work_id=(hit.work_id or "").strip() or None,
+        edition_id=(hit.edition_id or "").strip() or None,
+        public_url=(hit.public_url or "").strip() or None,
+        revision_index=hit.revision.index if hit.revision else None,
+        revision_date=hit.revision.date if hit.revision else None,
     )
 
 

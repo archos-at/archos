@@ -24,7 +24,7 @@ vi.mock('@/lib/authz/projects', () => ({
 vi.mock('@/lib/authz/organizations', () => ({ canManageBudgets: () => budgetAdmin }))
 
 import { NotFoundError } from '@/lib/api/errors'
-import { resolveProjectSettingsAccess } from './settings-access'
+import { canWriteProjectMemory, resolveProjectSettingsAccess } from './settings-access'
 
 const session = { organizationId: 'org-1', userId: 'u1' } as AuthorizedSession
 
@@ -33,6 +33,19 @@ beforeEach(() => {
   budgetAdmin = false
   managesEvenWhenClosed = false
   outage = null
+})
+
+describe('canWriteProjectMemory', () => {
+  test('is the right the memory item routes enforce, the legacy umbrella included, and nothing a viewer holds', async () => {
+    held = new Set(['project:view'])
+    await expect(canWriteProjectMemory(session, 'p1')).resolves.toBe(false)
+    held = new Set(['project:view', 'project:memory:write'])
+    await expect(canWriteProjectMemory(session, 'p1')).resolves.toBe(true)
+    held = new Set(['project:view', 'project:edit'])
+    await expect(canWriteProjectMemory(session, 'p1')).resolves.toBe(true)
+    held = new Set(['project:view', 'project:documents:write'])
+    await expect(canWriteProjectMemory(session, 'p1')).resolves.toBe(false)
+  })
 })
 
 describe('resolveProjectSettingsAccess', () => {

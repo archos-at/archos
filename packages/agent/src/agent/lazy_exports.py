@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from typing import Any
 
 
-def lazy_exports(package: str, exports: Mapping[str, str]) -> Callable[[str], Any]:
+def lazy_exports(package: str, exports: Mapping[str, str], *, cache: bool = True) -> Callable[[str], Any]:
     """A module ``__getattr__`` that imports ``exports[name]`` the first time ``name`` is read.
 
     A source starting with ``.`` is relative to ``package``. A source equal to
@@ -28,6 +28,12 @@ def lazy_exports(package: str, exports: Mapping[str, str]) -> Callable[[str], An
     read_passage`` made it. The value is then stored on
     the package, so the hook runs once per name, and a test that patches the
     name replaces what every later read sees.
+
+    ``cache=False`` stores nothing: every read goes to the defining module, so
+    it sees what a test patched THERE. A package whose tests patch its
+    submodules (``knowledge_layer.search``) needs that, or the first read
+    inside a patch would keep the mock on the package for every later test, and
+    a read after it would miss the next patch.
     """
 
     def __getattr__(name: str) -> Any:
@@ -38,7 +44,8 @@ def lazy_exports(package: str, exports: Mapping[str, str]) -> Callable[[str], An
         # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
         module = importlib.import_module(source, package)
         value = module if source == name else getattr(module, name)
-        setattr(sys.modules[package], name, value)
+        if cache:
+            setattr(sys.modules[package], name, value)
         return value
 
     return __getattr__

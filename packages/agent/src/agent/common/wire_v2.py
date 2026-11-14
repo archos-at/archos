@@ -64,21 +64,17 @@ import json
 from typing import Annotated
 from typing import Any
 from typing import Literal
-from typing import get_args
-from typing import get_origin
 
 from pydantic import BaseModel
 from pydantic import BeforeValidator
-from pydantic import ConfigDict
 from pydantic import Field
-from pydantic import SerializationInfo
-from pydantic import SerializerFunctionWrapHandler
 from pydantic import TypeAdapter
 from pydantic import WithJsonSchema
-from pydantic import model_serializer
 from pydantic import model_validator
 
 from agent.common.source_kinds import LEGACY_SHELF_VALUES
+from agent.common.wire_model import OpenWireModel as _OpenModel
+from agent.common.wire_model import WireModel as _Model
 
 #: The only wire version. There is no ``v: 1`` reader anywhere (ADR-0068).
 WIRE_VERSION: Literal[2] = 2
@@ -88,44 +84,6 @@ WIRE_VERSION: Literal[2] = 2
 CLOSE_CLIENT_OUTDATED = 4426
 
 Scalar = str | int | float | bool
-
-
-def _is_const(annotation: Any) -> bool:
-    return get_origin(annotation) is Literal and len(get_args(annotation)) == 1
-
-
-class _Model(BaseModel):
-    """Closed models: a field the contract does not name is a producer bug.
-
-    A frame omits every field at its default (:func:`to_frame` dumps with
-    ``exclude_defaults``) except the ``const`` ones, which are the discriminators
-    (``v``, ``type``, ``name``, ``kind``) and must always be on the wire. The
-    reader's schema restores the defaults, so the frame stays minimal and still
-    parses to the same value.
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    @model_serializer(mode="wrap")
-    def _keep_consts(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict[str, Any]:
-        data = handler(self)
-        if info.exclude_defaults:
-            consts = {
-                name: getattr(self, name) for name, f in type(self).model_fields.items() if _is_const(f.annotation)
-            }
-            data = {**consts, **data}
-        return data
-
-
-class _OpenModel(BaseModel):
-    """A payload whose full contract lives elsewhere (cards, sources, ledger).
-
-    The wire names the fields it routes on and passes the rest through; the
-    owning contract validates the whole (``answerCardSchema``, the citation wire,
-    ``sanitizeAnswerMeta``).
-    """
-
-    model_config = ConfigDict(extra="allow", frozen=True)
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +203,7 @@ class ToolStep(_StepBase):
     mount: Literal["drafts", "skills", "project", "office", "chat", "law", "estate"] | None = Field(
         default=None,
         description=(
-            "Which part of Piloti's filesystem a file tool reached (ADR-0133): a mount, or `estate` for a call "
+            "Which part of the agent's filesystem a file tool reached (ADR-0133): a mount, or `estate` for a call "
             "over every mount the person may see. Absent on every other tool, and on a file tool of a turn "
             "stored before the field existed, which only ever reached the drafts."
         ),
@@ -416,12 +374,31 @@ class ConfidenceFinding(_Model):
     source: str = Field(max_length=200)
 
 
+class ConfidenceUnavailable(_Model):
+    """Why the answer check gave no level (``claim_judge.Unavailable``), and what its call looked like."""
+
+    cause: Literal["no_judge", "timeout", "error", "unparseable", "no_reply"]
+    #: ``error``: the exception's class name.
+    error_type: str | None = Field(default=None, max_length=100)
+    finish_reason: str | None = Field(default=None, max_length=40)
+    #: The reply stopped at the check's output budget.
+    truncated: bool = False
+    elapsed_ms: int | None = Field(default=None, ge=0)
+    evidence_chars: int | None = Field(default=None, ge=0)
+    answer_chars: int | None = Field(default=None, ge=0)
+
+
 class ConfidenceCheck(_Model):
     """What the answer check found (ADR-0139): ``judged``, a level and what holds it down; or ``unavailable``."""
 
     status: Literal["judged", "unavailable"]
     level: Literal["low", "medium", "high"] | None = None
     findings: list[ConfidenceFinding] = Field(default_factory=list)
+    #: ``unavailable`` only: why. Read by operators and the eval, never shown as a level. Read leniently
+    #: (``x-unknown-as-null``): a cause a later release adds is null in a bundle that does not know it.
+    unavailable_reason: ConfidenceUnavailable | None = Field(
+        default=None, json_schema_extra={"x-unknown-as-null": True}
+    )
 
 
 class TurnResult(_Model):
@@ -440,10 +417,10 @@ class TurnResult(_Model):
     answer_meta: dict[str, Any] | None = None
     answer_confidence: Literal["low", "medium", "high"] | None = None
     answer_confidence_reason: str | None = Field(default=None, max_length=300)
-    answer_confidence_capped_reason: (
-        Literal["ungrounded", "quote_unverified", "normative_claim_uncited", "measurement_only", "citation_fallback"]
-        | None
-    ) = None
+    #: Read leniently by the client (``x-unknown-as-null``): a reason an older bundle does not know is null there.
+    answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled", "open_point"] | None = (
+        Field(default=None, json_schema_extra={"x-unknown-as-null": True})
+    )
     routing_decision: Literal["meta", "shallow", "deep", "error"] | None = None
     escalation_reason: str | None = None
     citations_removed: CitationsRemoved | None = None
@@ -585,7 +562,7 @@ class SubagentStartedBody(_Model):
 class SubagentFinishedBody(_Model):
     """The subagent invocation completed (AG-UI 1.0 ``SUBAGENT_FINISHED``; an absent ``outcome`` is success).
 
-    AG-UI's ``outcome: suspended`` is not modelled: no Piloti subagent pauses
+    AG-UI's ``outcome: suspended`` is not modelled: no subagent of the agent pauses
     yet. It arrives with pausing a run to ask the person (ADR-0140).
     """
 
@@ -879,7 +856,7 @@ class SteerAppliedBody(_CustomBody):
 
 
 class ViewerActionBody(_CustomBody):
-    """Piloti proposes to move the asker's document viewer (ADR-0144). Only the asker's live page runs it."""
+    """The agent proposes to move the asker's document viewer (ADR-0144). Only the asker's live page runs it."""
 
     name: Literal["viewer_action"] = "viewer_action"
     value: ViewerActionValue
@@ -1124,14 +1101,8 @@ _EVENT_OF_BODY: dict[type[BaseModel], type[Envelope]] = {
 
 def stamp(body: EventBody, *, conversation_id: str, turn_id: str, seq: int, ts: int) -> Envelope:
     """The event the socket sends for ``body``: the body under this turn's envelope."""
-    event_type = _EVENT_OF_BODY[type(body)]
-    return event_type(
-        conversation_id=conversation_id,
-        turn_id=turn_id,
-        seq=seq,
-        ts=ts,
-        **{name: getattr(body, name) for name in type(body).model_fields},
-    )
+    fields = {name: getattr(body, name) for name in type(body).model_fields}
+    return _EVENT_OF_BODY[type(body)](conversation_id=conversation_id, turn_id=turn_id, seq=seq, ts=ts, **fields)
 
 
 def to_frame(event: Envelope | Hello) -> dict[str, Any]:
@@ -1197,7 +1168,7 @@ class TurnTrigger(_Model):
     was enqueued for and ``annotation_id`` the Anmerkung it happened on.
     ``agent_consult`` is a question another agent asked on the person's behalf
     (ADR-0124): ``event_id`` is the ask's id, and there is no Anmerkung.
-    ``new_document`` is a document that just finished indexing, which Piloti
+    ``new_document`` is a document that just finished indexing, which the agent
     checks against the project's other documents unasked (ADR-0130):
     ``event_id`` is the check's id, and there is no Anmerkung.
     """
@@ -1259,7 +1230,7 @@ class UserMessage(_ClientBase):
     reply_in_thread: bool | None = Field(
         default=None,
         description=(
-            "Post the answer as Piloti's reply in the thread of focus_region.annotation_id, readable by everyone "
+            "Post the answer as the agent's reply in the thread of focus_region.annotation_id, readable by everyone "
             "who can read the document. Ignored without an annotation_id. Sent only to a server whose hello "
             "accepts 'user_message.reply_in_thread'."
         ),
@@ -1359,7 +1330,7 @@ class Steer(_ClientBase):
     steer_id: str = Field(min_length=1, max_length=128, description="Idempotency key and ack correlation.")
     text: str = Field(min_length=1, max_length=MAX_STEER_CHARS)
     focus_region: FocusRegion | None = Field(
-        default=None, description="A box drawn on the canvas while Piloti works: what the note is about."
+        default=None, description="A box drawn on the canvas while the agent works: what the note is about."
     )
 
 
@@ -1416,7 +1387,7 @@ def wire_json_schema() -> dict[str, Any]:
     _consts_required(defs)
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "title": "Piloti chat wire v2",
+        "title": "Chat wire v2",
         "description": (
             "Generated from packages/agent/src/agent/common/wire_v2.py by scripts/generate_wire_schema.py. "
             "Do not edit by hand; packages/agent/tests/common/test_wire_v2.py fails when it is stale."

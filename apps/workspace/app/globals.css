@@ -8,8 +8,26 @@
 @import 'tailwindcss/utilities.css' layer(utilities);
 
 /* GRID design tokens — shadcn vars + legacy semantic vars (see tokens.css). */
+/* The corporate design's tokens (--ds-*, from packages/brand via sync.mjs); tokens.css maps onto them. */
+@import '../shared/brand/tokens.vars.css';
 @import '../ui/styles/tokens.css';
+@import '../ui/styles/data-palette.css';
+/* The status screens' line drawing (not found, no access, an error): ui/components/brand/status-drawing.tsx. */
+@import '../ui/styles/status-drawing.css' layer(components);
 @import 'tw-animate-css';
+
+/* The wordmark's face (packages/brand: the logo is the one element set in
+   Switzer Semibold). A browser fetches an @font-face file only when text in
+   that family is drawn, so the file costs nothing on a screen without the
+   wordmark. The family is reached through `--font-logo` (ui/styles/tokens.css)
+   and `Logo` (ui/components/brand/logo.tsx), never typed elsewhere. */
+@font-face {
+  font-family: 'Switzer';
+  src: url('../shared/brand/fonts/Switzer-Semibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* KaTeX math typesetting (rehype-katex output in MarkdownRenderer). Kept
    UNLAYERED on purpose so its rules win over Tailwind preflight (layer(base)) —
@@ -97,6 +115,9 @@ body {
 
 body {
   font-family: var(--font-sans);
+  /* The light end, raised (`--font-weight-normal` in tokens.css): unstyled
+     text inherits it, so running text is never thinner than `font-normal`. */
+  font-weight: var(--font-weight-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -182,7 +203,13 @@ body {
      drew a thick ink edge along its top on a phone. Tab from there lands on a
      control, which shows the outline.
    - A cmdk search field, which sits inside its own bordered row: the outline
-     drew a second box inside it. */
+     drew a second box inside it.
+   - A row of a bordered list (`data-focus-inset`, the inbox's rows under j/k)
+     keeps the outline, inside its own edge: drawn outside, the list's rounded,
+     clipped frame cut it to two black bars along the dividers.
+   A text field switches it off itself (`FIELD_FOCUS_RING`, an important
+   utility): its focus is its border turning ink, and a click into a field is a
+   focus-visible too, so the outline was drawn on every click (Notion #38). */
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
@@ -191,6 +218,10 @@ body {
 :is([role='dialog'], [role='alertdialog']):focus-visible,
 [cmdk-input]:focus-visible {
   outline: none;
+}
+
+[data-focus-inset]:focus-visible {
+  outline-offset: -2px;
 }
 
 /* Bottom edge of a scrollable list, made legibly intentional.
@@ -291,6 +322,60 @@ body {
   }
   to {
     box-shadow: 0 -1px 0 0 transparent;
+  }
+}
+
+/* A bar pinned (sticky) over the foot of the content it sits in (the E-Mail-Eingang's decision bar): a faint
+   shadow upward instead of a line, and only while content is left beneath it; at the end of the scroll, and in a
+   pane that does not scroll (an inactive timeline), it draws none. Guarded like `scroll-edge-bottom`. A bar below
+   a list rather than over it (a selection bar) is a band of the one grey and needs neither. */
+@keyframes pinned-foot-reveal {
+  from {
+    box-shadow: 0 -8px 16px -12px color-mix(in oklch, var(--foreground) 18%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@utility shadow-pinned-foot {
+  @supports (animation-timeline: scroll(nearest block)) {
+    animation: pinned-foot-reveal linear both;
+    animation-timeline: scroll(nearest block);
+    animation-range: calc(100% - 24px) 100%;
+  }
+}
+
+/* The design system's 1280px content container, for every listing of a project's section (Dateien and its
+   tabs). It keeps the section's left edge, which beside the app rail is the rail's edge, and centres once its
+   section is at least 1440px wide: the page cannot ask whether a rail is shown, but a 1440px section has none
+   beside it at a laptop's width and is a wide screen otherwise, where 192px of paper on one side read as a
+   page that had slid. The section frame names the container (`@container/section`). */
+@utility listing-container {
+  width: 100%;
+  max-width: 1280px;
+  @container section (min-width: 90rem) {
+    margin-inline: auto;
+  }
+}
+
+/* A list that scrolls between two parts that stand still (the rail's „Letzte Chats“): its last 24px fade out while
+   more lies below, and stand whole once the end is reached. A list too short to scroll has an inactive timeline, so
+   the animation has no effect and nothing fades. Guarded like `scroll-edge-bottom`. */
+@keyframes scroll-fade-bottom-end {
+  0%,
+  96% {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
+  }
+  100% {
+    mask-image: none;
+  }
+}
+
+@utility scroll-fade-bottom {
+  @supports (animation-timeline: scroll(self block)) {
+    animation: scroll-fade-bottom-end linear both;
+    animation-timeline: scroll(self block);
   }
 }
 
@@ -625,13 +710,14 @@ body {
   outline-color: var(--border-color-brand);
 }
 
-@utility tracking-display {
-  letter-spacing: -0.04em;
+/* The same hairline drawn inset all round a row: the selected row of a list
+   whose detail is open beside it (`Item`'s current state). Inset, because
+   `ItemList` clips its first and last row; an inset ring, not `ring`, so the
+   keyboard's focus ring still composes over it. */
+@utility inset-ring-strong {
+  --tw-inset-ring-color: var(--border-color-brand);
 }
 
-@utility tracking-label {
-  letter-spacing: 0.24em;
-}
 
 @utility scale-press {
   transform: scale(0.98);
@@ -672,12 +758,16 @@ body {
      CalloutCard, whose eyebrow carries the tone's ink instead.
      Deliberately sets NO line-height: `SectionLabel` has ~39 call sites across
      the product that inherit theirs today, and a step here would move all of
-     them. */
+     them.
+     Sentence case, no tracking: the wordmark is the only element in capitals
+     (brand design system), and the wide tracking existed only to make capitals
+     readable — on sentence-case text it reads as a rendering fault. */
   .card-eyebrow {
-    font-size: 10.5px;
+    /* 12px, the ramp's caption step: at 10.5px a section label was the smallest type on screen and
+       read as fine print, not as the name of what follows it (design-language.md, „Type ramp“). */
+    font-size: 12px;
+    line-height: 16px; /* the label step of the type scale, 12/16/500 (paper on a desk) */
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
 
   /* Meta — ordinals, chips, units, ± bands, counts. */
@@ -692,21 +782,24 @@ body {
   .card-caption {
     font-size: 12px;
     line-height: 1.625;
-    font-weight: 400;
+    font-weight: var(--font-weight-normal);
   }
 
-  /* Body — every row of every list. The default. */
+  /* Body — every row of every list. The default. The answer's one text size
+     (`--text-answer`, tokens.css): a card's row reads at the size of the prose
+     around it, because a smaller row said nothing about rank (Notion #38). */
   .card-body {
-    font-size: 13.5px;
+    font-size: var(--text-answer);
     line-height: 1.55;
-    font-weight: 400;
+    font-weight: var(--font-weight-normal);
   }
 
-  /* Title — the card title, and nothing else. */
+  /* Title — the card title, and nothing else. The body's size: the title's
+     rank is its weight (500, content weight) and its ink, not a 0.5px step. */
   .card-title {
-    font-size: 14px;
+    font-size: var(--text-answer);
     line-height: 1.35;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   /* Headline — 17px, and the ONE size above Title that is not a figure:
@@ -716,45 +809,42 @@ body {
   .card-headline {
     font-size: 17px;
     line-height: 1.3;
-    font-weight: 600;
-    letter-spacing: -0.04em;
+    font-weight: 500;
   }
 
-  /* Figure — the one thing the card exists to say, and the only element a card
-     may carry above 14px. Four sizes because the charter spends four: 15px
-     inside a dense list (a takeaway, a tally, an outcome row), 20px for a value
-     standing on its own, 24px for a computed result, 30px for a verdict.
+  /* Figure — the one thing the card exists to say, and with the headline the
+     only element a card may set larger than its body. Four sizes because the charter spends four: 16px
+     inside a dense list (a takeaway, a tally, an outcome row: the body's size,
+     set apart by weight and tabular figures), 20px for a value standing on its
+     own, 24px for a computed result, 30px for a verdict.
      Named by their size so `grep card-figure-` finds every figure in the set
      and a fifth size cannot appear without appearing here first. */
-  .card-figure-15,
+  .card-figure-16,
   .card-figure-20,
   .card-figure-24,
   .card-figure-30 {
-    font-weight: 600;
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
   }
 
-  .card-figure-15 {
-    font-size: 15px;
+  .card-figure-16 {
+    font-size: var(--text-answer);
     line-height: 1.35;
   }
 
   .card-figure-20 {
     font-size: 20px;
     line-height: 1.25;
-    letter-spacing: -0.01em;
   }
 
   .card-figure-24 {
     font-size: 24px;
     line-height: 1.2;
-    letter-spacing: -0.02em;
   }
 
   .card-figure-30 {
     font-size: 30px;
     line-height: 1.15;
-    letter-spacing: -0.02em;
   }
 }
 
@@ -1067,7 +1157,7 @@ body {
    the passage strengths above). Every hit carries a light wash; the one on
    screen a stronger one and an outline, so "3 of 12" has a place to point. */
 :root {
-  --paper-ink: oklch(0.244 0.006 271.2);
+  --paper-ink: oklch(0.165 0.003 67.6);
 }
 
 .pdf-search-hit {
@@ -1184,110 +1274,38 @@ body {
   z-index: 100;
 }
 
-/* Global scrollbar styles — thin, trackless, alpha thumb (macOS-like) */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--background-color-accent-gray) transparent;
+/* Global scrollbar styles — thin, trackless, alpha thumb (macOS-like).
+   In `@layer base`, so a utility can override them. Unlayered, `* { scrollbar-width:
+   thin }` beat `scrollbar-hide` (a utility, so layered) on every element: the
+   transcript kept a 10px scrollbar the composer below it does not have, and the
+   answer stood 5px left of the input it should share a column with (#38). */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--background-color-accent-gray) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--background-color-accent-gray);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--background-color-accent-gray-hover);
+  }
 }
 
-*::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-  background: transparent;
-}
-
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-*::-webkit-scrollbar-thumb {
-  background-color: var(--background-color-accent-gray);
-  border-radius: 9999px;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background-color: var(--background-color-accent-gray-hover);
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Chart color tokens — organization spend visualization (Agent D, dataviz).
-   ONE appended block; nothing above this line was touched.
-
-   These are the categorical slots the org "Usage & budgets" card paints its
-   per-model marks with, plus the two meter states. They live here rather than
-   in a component <style> tag so the light/dark pair is declared once, beside
-   the rest of the design tokens, and so the values are greppable.
-
-   The slot ORDER is the colorblind-safety mechanism, not a preference: it is
-   the documented order of the dataviz reference palette, and it is the order
-   the validator was run against. Never reorder, never cycle — a 9th model
-   folds into `--spend-other`.
-
-     node scripts/validate_palette.js "<the eight light hexes>" \
-       --mode light --surface "#ffffff"          → ALL CHECKS PASS
-     node scripts/validate_palette.js "<the eight dark hexes>"  \
-       --mode dark  --surface "#22211d"          → ALL CHECKS PASS
-
-   Surfaces are this app's real card surfaces (`--card`), not the validator's
-   generic defaults — contrast is only meaningful against the surface the chart
-   actually renders on. The dark column is SELECTED for the dark surface (same
-   eight hues, re-stepped and re-validated), never an automatic flip of light.
-   The dark surface hex tracks `--card` in tokens.css: when the dark ramp was
-   re-tuned it moved #232220 → #22211d, which lifts every dark series by roughly
-   +0.06:1 (lowest is green at 3.26:1), so the dark column still passes as-is.
-
-   Light mode carries a contrast WARN: aqua (2.82:1), yellow (2.17:1) and
-   magenta (2.69:1) sit below 3:1 on white. That is not dismissable — the card
-   discharges it by shipping the always-visible per-model table, so no value is
-   reachable only by matching a color.
-
-   The two meter states are STATUS colors, deliberately outside the categorical
-   slots so a meter can never impersonate a series. `--spend-meter-over` is the
-   critical step (4.80:1 on white, 3.31:1 on the dark card) and always ships
-   beside the over-limit icon + sentence. */
-.spend-viz {
-  --spend-series-1: #2a78d6; /* blue */
-  --spend-series-2: #eb6834; /* orange */
-  --spend-series-3: #1baf7a; /* aqua */
-  --spend-series-4: #eda100; /* yellow */
-  --spend-series-5: #e87ba4; /* magenta */
-  --spend-series-6: #008300; /* green */
-  --spend-series-7: #4a3aa7; /* violet */
-  --spend-series-8: #e34948; /* red */
-  --spend-other: #767672; /* the folded tail — neutral on purpose */
-  --spend-meter: #2a78d6; /* under the limit */
-  --spend-meter-over: #d03b3b; /* at or over the limit */
-}
-
-.dark .spend-viz {
-  --spend-series-1: #3987e5;
-  --spend-series-2: #d95926;
-  --spend-series-3: #199e70;
-  --spend-series-4: #c98500;
-  --spend-series-5: #d55181;
-  --spend-series-6: #008300;
-  --spend-series-7: #9085e9;
-  --spend-series-8: #e66767;
-  --spend-other: #8f8e89;
-  --spend-meter: #3987e5;
-  --spend-meter-over: #d03b3b;
-}
-
-/* Storage (ADR-0042) asks the same question as the spend meter — am I about to
-   be cut off — so it uses the same STATUS pair and the same values, in both
-   themes. Kept as its own scope rather than borrowing `.spend-viz`: the
-   series slots there are for money by model and mean nothing here, and a card
-   that opts into a palette it only half-uses invites someone to colour storage
-   by category later. If one pair changes, change both. */
-.storage-viz {
-  --storage-meter: #2a78d6; /* under the quota */
-  --storage-meter-over: #d03b3b; /* at or over the quota */
-}
-
-.dark .storage-viz {
-  --storage-meter: #3987e5;
-  --storage-meter-over: #d03b3b;
-}
+/* The chart and meter palette (spend, usage, storage) lives in ui/styles/data-palette.css. */
 
 /* Two sources behind one claim is written `[2][3]`, so two citation pills can
    land side by side. Their tint blocks would touch and read as one wide chip
@@ -1494,7 +1512,7 @@ body {
     font-size: 0.75rem;
   }
   table[data-stack] > tbody > tr > td:first-child {
-    font-weight: 600;
+    font-weight: 500;
     padding-bottom: 0.25rem;
   }
   table[data-stack] > tbody > tr > td:first-child::before {
@@ -1544,7 +1562,7 @@ table[data-stack="always"] > tbody > tr > td::before {
   font-weight: 500;
 }
 table[data-stack="always"] > tbody > tr > td:first-child {
-  font-weight: 600;
+  font-weight: 500;
 }
 table[data-stack="always"] > tbody > tr > td:first-child::before {
   display: none;

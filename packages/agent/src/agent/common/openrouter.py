@@ -51,11 +51,14 @@ recoverable. See https://openrouter.ai/docs/guides/features/zdr.
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
+import dataclasses
 import json
 import logging
 import os
 import re
+import time
 from collections.abc import Callable
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -66,7 +69,11 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from agent.common import credit_retry
 from agent.common import provider_limiter
+from agent.common import residency
+from agent.common.licensed_text import licensed_scope_active
+from agent.common.licensed_text import refuse_unattested_model_read
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +122,27 @@ def targets_openrouter(url: object) -> bool:
     if not url:
         return False
     text = str(url)
-    host = urlsplit(text).hostname if "://" in text else None
-    return OPENROUTER_HOST in (host or text)
+    host = (urlsplit(text).hostname if "://" in text else text.split("/", 1)[0]) or ""
+    # The host itself or a subdomain of it (eu.openrouter.ai), never a host that merely contains the name:
+    # a BYOK base URL such as openrouter.ai.example.net is not OpenRouter, and licensed text never goes there.
+    return host == OPENROUTER_HOST or host.endswith(f".{OPENROUTER_HOST}")
+
+
+#: Reading a page is transcription, not deliberation: a reasoning model left at its default spent
+#: 19% of ``ingest_vision`` output and 45k of 67k ``look_reading`` output tokens thinking (signals
+#: W5, 2026-11-02). A code default, not an admin group: page reading has no thinking-level dial.
+VISION_REASONING = {"effort": "low"}
+
+
+def vision_reasoning_body(base_url: object) -> dict[str, Any]:
+    """``{"reasoning": {...}}`` for a vision call to OpenRouter, else ``{}`` (other endpoints reject the field)."""
+    return {"reasoning": dict(VISION_REASONING)} if targets_openrouter(base_url) else {}
+
+
+def vision_extra_body(client: object) -> dict[str, Any]:
+    """``{"extra_body": {"reasoning": ...}}`` for an OpenAI SDK ``create`` on ``client``, else ``{}``."""
+    reasoning = vision_reasoning_body(getattr(client, "base_url", None))
+    return {"extra_body": reasoning} if reasoning else {}
 
 
 @dataclass(frozen=True)
@@ -124,14 +150,37 @@ class DataPolicy:
     """What a model provider may keep of a request."""
 
     zdr: bool = False
+    #: EU-only routing (``provider.only``, no fallback) instead of the EU-first ``order``.
+    #: Set by :meth:`for_page_reads`; see there.
+    eu_only: bool = False
+
+    def for_page_reads(self) -> DataPolicy:
+        """This policy for a page read (a drawing, an image, a scan): EU-only, so its prompt cache can hit.
+
+        A ZDR page read goes to the preferred EU endpoints and nowhere else:
+        ``provider.only`` with ``allow_fallbacks: false``, and no ``order``.
+        OpenRouter does not use sticky routing for a request with a manual
+        ``order``, so the EU-first order kept every page read off its prompt
+        cache's shard; ``only`` filters the endpoints and leaves the sticky
+        routing on. Decided 2026-11-03, on ``azure/eu`` serving both vision
+        models with cached-read pricing. When no EU endpoint can take the call,
+        OpenRouter refuses it, and the refusal is transient
+        (``ingest_failures``): the page read waits and retries, it never falls
+        back outside the EU. An empty preferred list (the env var set to
+        nothing) leaves the policy as it is. The ZDR routing itself
+        (:data:`ZDR_PROVIDER_ROUTING`) is unchanged, so :meth:`is_applied_to`
+        holds. Every other call keeps the EU-first ``order`` with fallbacks.
+        """
+        return dataclasses.replace(self, eu_only=True) if self.zdr else self
 
     def apply(self, body: Mapping[str, Any] | None) -> dict[str, Any]:
         """Return a NEW request body carrying this policy's provider routing.
 
         Adds the EU-first ``order`` (:func:`preferred_providers`) unless the body
-        already names one. Non-destructive: other ``provider`` keys and every
-        other field survive. A fresh dict, so a shared build-time body is never
-        mutated. Without ZDR it is a plain copy.
+        already names one, or for :meth:`for_page_reads` the EU-only ``only``.
+        Non-destructive: other ``provider`` keys and every other field survive.
+        A fresh dict, so a shared build-time body is never mutated. Without ZDR
+        it is a plain copy.
         """
         merged: dict[str, Any] = dict(body) if isinstance(body, Mapping) else {}
         if not self.zdr:
@@ -140,7 +189,10 @@ class DataPolicy:
         provider = dict(existing) if isinstance(existing, Mapping) else {}
         provider.update(ZDR_PROVIDER_ROUTING)
         order = preferred_providers()
-        if order and "order" not in provider:
+        if self.eu_only and order and not {"order", "only"} & provider.keys():
+            provider["only"] = list(order)
+            provider["allow_fallbacks"] = False
+        elif order and "order" not in provider:
             provider["order"] = list(order)
             provider.setdefault("allow_fallbacks", True)
         merged["provider"] = provider
@@ -169,11 +221,16 @@ def data_policy_for(organization_id: str | None) -> DataPolicy:
     pins it: see the module docstring.
     """
     if not organization_id:
-        return NO_RETENTION_LIMITS
+        return ZERO_DATA_RETENTION if residency.active_cell() is not None else NO_RETENTION_LIMITS
     try:
+        from agent.common.model_overrides import resolve_org_processing_policy
         from agent.common.model_overrides import resolve_org_zdr_only
 
+        if residency.active_cell() is not None:  # an organization this cell may not serve gets no policy at all
+            residency.check_organization(resolve_org_processing_policy(organization_id) or residency.UNREADABLE_POLICY)
         return ZERO_DATA_RETENTION if resolve_org_zdr_only(organization_id) else NO_RETENTION_LIMITS
+    except residency.ResidencyViolation:
+        raise
     except Exception:  # noqa: BLE001 - fails closed, and says so
         logger.error("ZDR policy lookup failed for org %s; pinning ZDR routing", organization_id, exc_info=True)
         return ZERO_DATA_RETENTION
@@ -236,7 +293,16 @@ def pin_chat_model(llm: object, policy: DataPolicy) -> object:
 
 
 def _pinned_request(request: httpx.Request, policy: DataPolicy) -> httpx.Request:
-    """``request`` with ``policy`` merged into its JSON body."""
+    """``request`` with ``policy`` merged into its JSON body.
+
+    Inside a licensed document's scope (``licensed_text.licensed_document_scope``) the policy is zero retention
+    whatever the caller passed, and a request it may not send (an unattested copy, a BYOK endpoint) is refused.
+    """
+    request = _routed_request(request)
+    on_openrouter = targets_openrouter(str(request.url))
+    refuse_unattested_model_read(str(request.url.host), openrouter=on_openrouter)
+    if licensed_scope_active():
+        policy = ZERO_DATA_RETENTION
     if not policy.zdr or request.method != "POST" or not targets_openrouter(str(request.url)):
         return request
     try:
@@ -255,6 +321,19 @@ def _pinned_request(request: httpx.Request, policy: DataPolicy) -> httpx.Request
         content=json.dumps(policy.apply(body)).encode("utf-8"),
         extensions=request.extensions,
     )
+
+
+def _routed_request(request: httpx.Request) -> httpx.Request:
+    """``request`` sent into the deployment's residency zone, or refused outside it (``common/residency``)."""
+    target, _route = residency.enforce(str(request.url))
+    if target == str(request.url):
+        return request
+    headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
+    try:  # a JSON body is read already; a multipart upload (dictation) still streams, and must not be read here
+        body: dict[str, Any] = {"content": request.content}
+    except httpx.RequestNotRead:
+        body = {"stream": request.stream}
+    return httpx.Request(request.method, target, headers=headers, extensions=request.extensions, **body)
 
 
 _MODEL_FIELD = re.compile(rb'"model"\s*:\s*"([^"]{1,120})"')
@@ -381,23 +460,33 @@ class _PinningTransport(httpx.BaseTransport):
         self._inner = inner or httpx.HTTPTransport()
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
+        residency.check_current_organization()
         request = _pinned_request(request, self._policy)
         if not _takes_slot(request):
             return self._inner.handle_request(request)
         model = _request_model(request)
-        try:
-            lease = provider_limiter.acquire(
-                cls=self._cls, model=model, max_wait_seconds=_slot_wait(request, self._cls)
-            )
-        except provider_limiter.ProviderWaitTimeout as error:
-            raise _pool_timeout(request, error) from error
-        try:
-            response = self._inner.handle_request(request)
-            if response.status_code == 429:
-                provider_limiter.throttle(model, _scope_of_response(response.read))
-        except BaseException:
-            lease.release()
-            raise
+        for attempt in range(credit_retry.MAX_RETRIES + 1):
+            try:
+                lease = provider_limiter.acquire(
+                    cls=self._cls, model=model, max_wait_seconds=_slot_wait(request, self._cls)
+                )
+            except provider_limiter.ProviderWaitTimeout as error:
+                raise _pool_timeout(request, error) from error
+            try:
+                response = self._inner.handle_request(request)
+                if response.status_code == 429:
+                    provider_limiter.throttle(model, _scope_of_response(response.read))
+                elif response.status_code == 402 and attempt < credit_retry.MAX_RETRIES:
+                    if credit_retry.is_transient_credit_402(402, response.read()):
+                        response.close()
+                        lease.release()
+                        logger.warning("Provider 402 (in-flight credits); retry %s", attempt + 1)
+                        time.sleep(credit_retry.delay_seconds(attempt))
+                        continue
+            except BaseException:
+                lease.release()
+                raise
+            break
         if response.is_closed:  # a body already read in full leaves nothing to wait for
             lease.release()
         else:
@@ -417,23 +506,33 @@ class _AsyncPinningTransport(httpx.AsyncBaseTransport):
         self._inner = inner or httpx.AsyncHTTPTransport()
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        await residency.acheck_current_organization()
         request = _pinned_request(request, self._policy)
         if not _takes_slot(request):
             return await self._inner.handle_async_request(request)
         model = _request_model(request)
-        try:
-            lease = await provider_limiter.aacquire(
-                cls=self._cls, model=model, max_wait_seconds=_slot_wait(request, self._cls)
-            )
-        except provider_limiter.ProviderWaitTimeout as error:
-            raise _pool_timeout(request, error) from error
-        try:
-            response = await self._inner.handle_async_request(request)
-            if response.status_code == 429:
-                await provider_limiter.athrottle(model, await _ascope_of_response(response))
-        except BaseException:
-            await lease.arelease()
-            raise
+        for attempt in range(credit_retry.MAX_RETRIES + 1):
+            try:
+                lease = await provider_limiter.aacquire(
+                    cls=self._cls, model=model, max_wait_seconds=_slot_wait(request, self._cls)
+                )
+            except provider_limiter.ProviderWaitTimeout as error:
+                raise _pool_timeout(request, error) from error
+            try:
+                response = await self._inner.handle_async_request(request)
+                if response.status_code == 429:
+                    await provider_limiter.athrottle(model, await _ascope_of_response(response))
+                elif response.status_code == 402 and attempt < credit_retry.MAX_RETRIES:
+                    if credit_retry.is_transient_credit_402(402, await response.aread()):
+                        await response.aclose()
+                        await lease.arelease()
+                        logger.warning("Provider 402 (in-flight credits); retry %s", attempt + 1)
+                        await asyncio.sleep(credit_retry.delay_seconds(attempt))
+                        continue
+            except BaseException:
+                await lease.arelease()
+                raise
+            break
         if response.is_closed:
             await lease.arelease()
         else:

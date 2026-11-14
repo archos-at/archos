@@ -90,7 +90,7 @@ const Row = memo(function Row({
 }): JSX.Element {
   return (
     <li>
-      <button
+      <button data-attr="review-row"
         type="button"
         data-testid="review-row"
         aria-current={selected || undefined}
@@ -124,7 +124,7 @@ function Pages({
       {pages.map((page) => (
         <section key={page} aria-label={t('review.page', { page })}>
           {headed && (
-            <h3 className="text-muted-foreground px-2.5 pt-3 pb-1 text-[11px] font-semibold tracking-[0.05em] uppercase">
+            <h3 className="text-muted-foreground px-2.5 pt-3 pb-1 text-[11px] font-medium">
               {t('review.page', { page })}
             </h3>
           )}
@@ -175,7 +175,7 @@ function EarlierBar({ review, onCheckFixed }: { review: DocumentReview; onCheckF
   const marks = review.annotations.filter((annotation) => !annotation.onCurrentRevision && annotation.carryTarget)
   if (marks.length === 0) return null
   return (
-    <div className="bg-muted/40 mx-0.5 mb-2 space-y-1 rounded-xl px-2.5 py-2" data-testid="review-earlier-bar">
+    <div className="bg-muted mx-0.5 mb-2 space-y-1 rounded-surface px-2.5 py-2" data-testid="review-earlier-bar">
       <div className="flex items-center gap-2">
         <History className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
         <span className="text-foreground min-w-0 flex-1 text-xs font-medium">{t('review.earlierOpen', { count: marks.length })}</span>
@@ -237,12 +237,12 @@ function CarriedFrom({
     <section
       data-testid="review-carried-group"
       aria-label={t('review.carriedGroup', { name: group.from.filename })}
-      className="mx-0.5 mb-2 rounded-xl border"
+      className="mx-0.5 mb-2 rounded-surface border"
     >
       <div className="space-y-1 px-2.5 pt-2 pb-1">
         <div className="flex items-center gap-2">
           <History className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
-          <h3 className="text-foreground min-w-0 flex-1 truncate text-xs font-semibold">
+          <h3 className="text-foreground min-w-0 flex-1 truncate text-xs font-medium">
             {t('review.carriedGroup', { name: group.from.filename })}
           </h3>
           {carryable.length > 1 && (
@@ -279,14 +279,14 @@ function CarriedFrom({
           <p className="text-muted-foreground text-[11px] leading-4">
             {t('review.carriedLoadError', { name: group.from.filename })}
           </p>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={review.retryCarried}>
+          <Button type="button" variant="secondary" size="sm" className="h-7 text-xs" onClick={review.retryCarried}>
             {t('annotations.retry')}
           </Button>
         </div>
       )}
       <ul className="space-y-0.5 px-0.5 pb-1">
         {group.annotations.map((annotation) => (
-          <li key={annotation.id} className="flex gap-3 rounded-lg px-2.5 py-2" data-testid="review-carried-row">
+          <li key={annotation.id} className="flex gap-3 rounded-control px-2.5 py-2" data-testid="review-carried-row">
             <span className="pt-0.5">
               <CommentPin as="span" number={annotation.number} color={markInk(annotation)} />
             </span>
@@ -315,7 +315,7 @@ function CarriedFrom({
                 <span className="mt-1.5 flex flex-wrap gap-1.5">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     className="h-7 text-xs"
                     disabled={busy}
@@ -381,7 +381,7 @@ const FILTERS: ReviewFilter[] = ['open', 'closed']
  * tab lists Piloti's untaken proposals too, and counts them apart, as
  * Dateien's chip does („2 offen · 12 Vorschläge"): `open` is the office's own
  * open marks, `proposed` the proposals. With „Für Sie" on its `open` is the
- * number the chip says „für Sie".
+ * number the chip says „für Sie". A tab at 0 shows no count; a count is set in the tab's own sans.
  */
 export function tabCounts(
   annotations: readonly Pick<AnnotationView, 'status' | 'assigneeUserId'>[],
@@ -441,23 +441,23 @@ export function ReviewPanel({
     >
       <div className="flex items-center gap-2 px-4 pt-4 pb-3">
         {/* Two buttons that say which is on, not a tab list: there is no tab panel, and Tab reaches each. */}
-        <div role="group" aria-label={t('review.filter')} className="bg-muted inline-flex rounded-lg p-0.5">
+        <div role="group" aria-label={t('review.filter')} className="bg-muted inline-flex rounded-control p-0.5">
           {FILTERS.map((option) => {
             const count = counts[option]
             return (
-              <button
+              <button data-attr="files-filter"
                 key={option}
                 type="button"
                 aria-pressed={filter === option}
                 data-testid={`review-filter-${option}`}
                 onClick={() => setFilter(option)}
                 className={cn(
-                  'inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors duration-quick ease-out pointer-coarse:h-10',
+                  'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors duration-quick ease-out pointer-coarse:h-10',
                   filter === option ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {t(`review.filters.${option}`)}
-                <span className="text-muted-foreground font-mono tabular-nums">{count}</span>
+                {count > 0 && <span className="text-muted-foreground tabular-nums">{count}</span>}
                 {option === 'open' && counts.proposed > 0 && (
                   <span className="text-muted-foreground" data-testid="review-filter-open-proposed">
                     · {t('annotations.listedProposedShort', { count: counts.proposed })}
@@ -467,7 +467,7 @@ export function ReviewPanel({
             )
           })}
         </div>
-        <button
+        <button data-attr="review-filter-mine"
           type="button"
           aria-pressed={mine}
           data-testid="review-filter-mine"
@@ -489,7 +489,7 @@ export function ReviewPanel({
         ) : load === 'error' ? (
           <div className="space-y-2 px-2 py-6 text-center">
             <p className="text-muted-foreground text-sm">{t('annotations.loadError')}</p>
-            <Button type="button" variant="outline" size="sm" onClick={review.retry}>
+            <Button type="button" variant="secondary" size="sm" onClick={review.retry}>
               {t('annotations.retry')}
             </Button>
           </div>
@@ -544,14 +544,14 @@ function ListedMarks({
       {proposals.length > 0 && (
         <section
           data-testid="review-proposals"
-          className="border-foreground/25 mx-0.5 mb-2 rounded-xl border border-dashed"
+          className="border-foreground/25 mx-0.5 mb-2 rounded-surface border border-dashed"
         >
           <div className="flex items-center gap-2 px-2.5 py-2">
-            <button
+            <button data-attr="files-proposals-open"
               type="button"
               aria-expanded={proposalsOpen}
               onClick={() => setProposalsOpen((open) => !open)}
-              className="text-foreground flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-semibold"
+              className="text-foreground flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-medium"
             >
               <Sparkles className="size-3.5" aria-hidden />
               {t('review.proposalsGroup', { count: proposals.length })}

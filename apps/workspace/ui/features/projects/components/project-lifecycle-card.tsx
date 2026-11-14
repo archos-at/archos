@@ -68,7 +68,7 @@ export function ProjectLifecycleCard({
     <RaisedCard aria-label={t('lifecycle.card.heading')} data-testid="project-lifecycle-card">
       <RaisedCardBody className="space-y-4 p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-foreground text-sm font-semibold">{t('lifecycle.card.heading')}</h2>
+          <h2 className="text-foreground text-sm font-medium">{t('lifecycle.card.heading')}</h2>
           <ProjectStatusChip status={status} outcome={lifecycle.closedOutcome} size="sm" />
         </div>
 
@@ -94,7 +94,7 @@ export function ProjectLifecycleCard({
 
         <div className="flex flex-wrap gap-2">
           {status === 'active' && (
-            <Button variant="outline" onClick={controls.pause} disabled={controls.pending}>
+            <Button variant="secondary" onClick={controls.pause} disabled={controls.pending}>
               <PauseCircle className="size-4" aria-hidden />
               {t('lifecycle.card.pause')}
             </Button>
@@ -106,13 +106,13 @@ export function ProjectLifecycleCard({
             </Button>
           )}
           {status !== 'closed' && (
-            <Button variant="outline" onClick={controls.requestClose} disabled={controls.pending}>
+            <Button variant="secondary" onClick={controls.requestClose} disabled={controls.pending}>
               <Lock className="size-4" aria-hidden />
               {t('lifecycle.card.close')}
             </Button>
           )}
           {status === 'closed' && (
-            <Button variant="outline" onClick={controls.requestReopen} disabled={controls.pending}>
+            <Button variant="secondary" onClick={controls.requestReopen} disabled={controls.pending}>
               <LockOpen className="size-4" aria-hidden />
               {t('lifecycle.card.reopen')}
             </Button>

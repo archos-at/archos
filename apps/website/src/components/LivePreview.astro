@@ -1,0 +1,29 @@
+---
+/**
+ * The banner of a draft in the CMS's live preview (ADR-0155), and the script that
+ * keeps it current: it tells the admin panel that frames this page that it is
+ * ready, and reloads when the panel says the document was saved (Payload's
+ * `payload-live-preview` and `payload-document-event` messages, read from
+ * @payloadcms/ui 3.93.0's LivePreview window). Messages from any other origin
+ * are ignored.
+ */
+interface Props {
+  /** The CMS's origin, the only one this page listens to. */
+  cmsOrigin: string;
+  label: string;
+}
+const { cmsOrigin, label } = Astro.props;
+---
+
+<p class="ui-container ui-callout ui-callout--important live-preview" role="status" data-live-preview={cmsOrigin}>{label}</p>
+
+<script>
+  const banner = document.querySelector<HTMLElement>('[data-live-preview]');
+  const origin = banner?.dataset.livePreview;
+  if (origin && window.parent !== window) {
+    window.parent.postMessage({ type: 'payload-live-preview', ready: true }, origin);
+    window.addEventListener('message', (event) => {
+      if (event.origin === origin && event.data && event.data.type === 'payload-document-event') window.location.reload();
+    });
+  }
+</script>

@@ -3,13 +3,16 @@ import 'server-only'
 import { getUserSession } from '@/lib/auth/session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getNavFlags, type NavFlags } from '@/lib/authz/nav'
-import { isIfcModelsEnabled, isSkillsEnabled } from '@/lib/authz/feature-flags'
+import { isIfcModelsEnabled, isInboundMailEnabled, isSkillsEnabled } from '@/lib/authz/feature-flags'
 import { listProjects } from '@/lib/projects/service'
 import { getOrganizationDisplayName, switchableOrganizations } from '@/lib/organizations/service'
+import { ensureOrganizationRow } from '@/lib/organizations/home-country-row'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
 import { isAuthRequired } from '@/lib/auth/auth-required'
 import { resolveTourEligibility } from '@/lib/onboarding/tour-eligibility'
 import { NO_TOURS, type TourEligibility } from '@/lib/onboarding/product-tour'
+import { resolveWhatsNewNotice } from '@/lib/release-notes/summary-notice'
+import type { WhatsNewNoticeState } from '@/lib/release-notes/release-notes-wire'
 import type { ProjectSwitcherProject } from '@/components/shell/project-switcher'
 import type { SidebarUser } from '@/components/shell/sidebar-user-menu'
 
@@ -38,9 +41,18 @@ export interface ShellChrome {
   showSkills: boolean
   /** IFC/BIM model surfaces (`ifc-models`, ADR-0045). */
   showModels: boolean
+  /**
+   * The office receives project mail (`inbound-mail`, ADR-0137): Dateien in
+   * the rail and the tab bar may carry the count of mail waiting. Whether this
+   * reader may decide a given project's mail is that project's answer (a 404
+   * shows no number).
+   */
+  inboundMail: boolean
   authRequired: boolean
   /** Which product tours start by themselves for this reader (a joiner's first visit). */
   tours: TourEligibility
+  /** The newest weekly summary the reader has not seen, for the "Neu diese Woche" notice (ADR-0156). */
+  whatsNew: WhatsNewNoticeState | null
 }
 
 const EMPTY_NAV_FLAGS: NavFlags = {
@@ -48,6 +60,7 @@ const EMPTY_NAV_FLAGS: NavFlags = {
   canViewOrganization: false,
   canManagePlatform: false,
   canAccessOfficeShelf: false,
+  canAccessOfficeStandards: false,
   canCollaborate: false,
   canAccessInbox: false,
 }
@@ -62,8 +75,10 @@ function emptyChrome(): ShellChrome {
     navFlags: EMPTY_NAV_FLAGS,
     showSkills: false,
     showModels: false,
+    inboundMail: false,
     authRequired: isAuthRequired(),
     tours: NO_TOURS,
+    whatsNew: null,
   }
 }
 
@@ -123,10 +138,18 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
 
   let organizationName: string | null = null
   try {
+    // Every organization has its row (ADR-0158); a dashboard-made one gets it here, once.
+    if (session.organizationId) void ensureOrganizationRow(session.organizationId)
     organizationName = await getOrganizationDisplayName(session.organizationId)
   } catch {
     organizationName = null
   }
+
+  // No organization, no tour and no notice: the break-glass platform owner (ADR-0016) reaches
+  // this frame with zero memberships and has nothing to be shown.
+  const tours = session.organizationId ? await resolveTourEligibility(session as AuthorizedSession) : NO_TOURS
+  // The notice reads the tours: someone a tour is about to greet is not shown it (ADR-0156).
+  const whatsNew = session.organizationId ? await resolveWhatsNewNotice(session as AuthorizedSession, tours) : null
 
   return {
     projects,
@@ -136,11 +159,9 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
     navFlags,
     showSkills: isSkillsEnabled(session),
     showModels: isIfcModelsEnabled(session),
+    inboundMail: isInboundMailEnabled(session),
     authRequired,
-    // No organization, no tour: the break-glass platform owner (ADR-0016)
-    // reaches this frame with zero memberships and has nothing to be shown.
-    tours: session.organizationId
-      ? await resolveTourEligibility(session as AuthorizedSession)
-      : NO_TOURS,
+    tours,
+    whatsNew,
   }
 }

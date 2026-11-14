@@ -11,7 +11,17 @@
  * Every key is in the `chat` namespace.
  */
 
-import type { CaveatKey, CheckId, Component, InputLabel, LineKey, Measure, StairType, TermKey } from './formulas'
+import type {
+  CaveatKey,
+  CheckId,
+  Component,
+  HoldReason,
+  InputLabel,
+  LineKey,
+  Measure,
+  StairType,
+  TermKey,
+} from './formulas'
 
 export const INPUT_KEYS = {
   riser: 'cards.formula.input.riser',
@@ -104,6 +114,15 @@ export const STAIR_TYPE_KEYS = {
   secondary: 'cards.formula.stairType.secondary',
 } as const satisfies Record<StairType, string>
 
+/** Why a check is a hint and not a verdict: `{edition}` its values come from, `{binding}` the site's. */
+export const HOLD_KEYS = {
+  siteUnknown: 'cards.formula.hold.siteUnknown',
+  unsettled: 'cards.formula.hold.unsettled',
+  unavailable: 'cards.formula.hold.unavailable',
+  notBinding: 'cards.formula.hold.notBinding',
+  otherEdition: 'cards.formula.hold.otherEdition',
+} as const satisfies Record<HoldReason, string>
+
 /** The symbol a „{quantity} = 0 ist nicht möglich." names, for the inputs that cannot be 0. */
 export const ZERO_QUANTITY_KEYS = {
   conductivity: 'cards.formula.zeroQuantity.conductivity',
@@ -117,6 +136,7 @@ export const FORMULA_KEY_MAPS = {
   TERM_METRES_KEYS,
   LINE_KEYS,
   CHECK_KEYS,
+  HOLD_KEYS,
   CAVEAT_KEYS,
   COMPONENT_KEYS,
   MEASURE_KEYS,

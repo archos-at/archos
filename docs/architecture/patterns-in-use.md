@@ -65,6 +65,7 @@ fail on a difference.
 | `apps/workspace/bff/skills/platform-skills.ts` | `packages/agent/src/agent/skills/builtin/*/SKILL.md` | yes, the `sync-platform-skills` pre-commit hook |
 | `contracts/cards/schemas.json` | the card models (`packages/agent/src/agent/cards/models.py` and its card modules), via `scripts/generate_card_schema.py` | yes, the `card-schemas` pre-commit hook |
 | `apps/workspace/shared/cards/generated.ts` | `contracts/cards/schemas.json`, via `apps/workspace/scripts/generate-card-schemas.mjs` | yes, the same hook |
+| `docs/architecture/lifecycles.generated.md` | the declarations in `apps/workspace/bff/lifecycles/registry.ts` | yes, `apps/workspace/bff/lifecycles/registry.spec.ts` (rewrite with `UPDATE_FIXTURES=1`) |
 
 The card schema is a two-stage pipeline from Pydantic models to Zod. Neither
 generator has a `--check` flag, so the hook simply runs both: pre-commit fails
@@ -103,7 +104,7 @@ content, whose value is the same whichever tenant or turn asks, or a
 process-lifetime handle holding no tenant or turn data:
 
 - the query-embedding LRU with its in-flight dedupe, keyed by (model, text), on
-  the retriever in `packages/knowledge-layer/src/llamaindex/query_embeddings.py`;
+  the retriever in `packages/knowledge-layer/src/search/query_embeddings.py`;
 - `knowledge/factory._SEARCH_RETRIEVER`, the retriever handle recorded when the
   knowledge tool is built;
 - `agents/piloti/register._WARMING`, strong references to running warm-ups, so
@@ -163,6 +164,26 @@ commit was reviewed, so text published from a branch that never merges stays
 unreviewed; publish with `--apply` from `develop`. ADR-0060. **Enforced by:** `tests/test_prompts_push.py`; no drift
 workflow runs it on a schedule.
 
+## An act that must reach the audit trail: write the row, send it from the row
+
+The trail is WorkOS-native, with no app-side audit table, and
+`recordAuditEvent` never throws, so a lost call loses the line. An act whose
+line must not be lost (an automated decision, `system:upload_screening`) writes
+an outbox row in the same transaction as the act (`document_quarantine_decisions`,
+migration 0119), sends it from the request that moved it, and lets the upload
+sweep send what is still owed after a minute (`QUARANTINE_AUDIT_GRACE_MS`),
+marking `audited_at`; rows go once audited or after seven days. The event is
+built from the row alone, with the WorkOS idempotency key derived from the row
+id (`document.quarantined:<id>`, `quarantineEventKey`), so a row sent twice is
+one event. Automated actors are entries of `SYSTEM_ACTORS`
+(`lib/audit/service.ts`), never a user id. A document name goes into an event
+only where every member of its project may read the folder (`filedInOf`,
+ADR-0087). Registering the action in `lib/audit/schemas.mjs` is what makes it
+compile. [ADR-0086](../adr/0086-uploads-are-screened-locally-and-matches-wait-in-quarantine.md),
+[`workos-provisioning.md`](../deployment/workos-provisioning.md).
+**Enforced by:** `schemas.spec.ts` for the registry and `quarantine-audit.spec.ts`
+for this outbox; nothing makes a second automated decision use one.
+
 ## Headless first: one MCP surface
 
 Every capability a person has is an operation in
@@ -174,11 +195,31 @@ person's act (transport, sign-in plumbing) is exempt with a reason. ADR-0122,
 **Enforced by:** `apps/workspace/bff/agent-api/agent-reachability.spec.ts`; the
 routes that predate it sit in a shrink-only baseline.
 
+## A lifecycle is declared once, as a statechart table
+
+A record that moves through a fixed set of states declares them and every legal
+move with `defineLifecycle` (`apps/workspace/shared/lifecycle/define-lifecycle.ts`):
+the config a statechart takes (`initial`, `states[state].on[event] = target`,
+`type: 'final'`), with no runtime behind it. The state stays in the row; a move
+stays the repository's compare-and-set, whose `WHERE` reads its list from the
+declaration (`sourcesOf(event)`, `liveStates`, `finalStates`) and not from a
+literal. Who may make a move and what it stamps stay in the service. Work that
+takes time runs on Hatchet (ADR-0150), and its queued, running and retrying are
+the engine's, not states of the record. ADR-0179; the declared ones are drawn in
+[`lifecycles.generated.md`](lifecycles.generated.md), the ones still implicit
+are listed in [`../audit/implicit-state-machines-2026-11.md`](../audit/implicit-state-machines-2026-11.md).
+**Enforced by:** `apps/workspace/shared/lifecycle/define-lifecycle.spec.ts`
+(the helper against XState's interpreter) and
+`apps/workspace/bff/lifecycles/registry.spec.ts` (every declaration under
+`bff/` is registered, agrees with XState and is drawn in the reference as
+declared). Nothing forces a new status column to come with a declaration;
+review is the gate.
+
 ## Bulk work is a server run, never a browser loop
 
 A move, a sort, an import or a reindex over many items, or longer than one
-request, is a row the person comes back to, worked by a `bff_job_queue` job in
-bounded slices (root sort is the first). The browser starts it, reads it and
+request, is a row the person comes back to, worked by a BFF job (a `bff-job`
+run on Hatchet, ADR-0150) in bounded slices (root sort is the first). The browser starts it, reads it and
 asks for the next step; it never loops over items or keeps a pool of item
 requests. The decision and its debt are ADR-0121.
 
@@ -188,6 +229,54 @@ reason. A count may not grow and a new file may not appear.
 **Enforced by:** that ratchet, for pools only. A sequential browser loop is not
 counted, so review is the gate for it.
 
+### Adding a BFF job kind
+
+1. Add the kind to `BFF_JOB_KINDS` (`lib/jobs-queue/types.ts`) and say in that
+   file's header who it runs as. The column's CHECK takes any
+   `^[a-z][a-z0-9_]{0,63}$`, so no migration.
+2. Write its zod payload. A kind that runs as a person carries
+   `requester: requesterSchema`.
+3. Write the slice or step. A slice returns `JobSliceResult` (`done`,
+   `payload`, optional `notBefore`, which gives the claim back without
+   spending an attempt).
+4. Add its `JOB_HANDLERS` entry (`lib/jobs-queue/handlers.ts`; a kind without
+   one does not compile). `handler()` runs a slice as the requester, resolved
+   again every slice, and ends quietly when they left; `systemHandler` is one
+   step that throws to retry; `systemSliceHandler` is a sliced walk with no
+   session. A custom handler needs a reason in its comment: the mail import and
+   the root sort record a departed requester on a row the person sees, and the
+   wake may answer "not yet".
+5. Enqueue with `enqueueJob` (`lib/jobs-queue/enqueue.ts`: `notBefore`,
+   `jobId`, a same-transaction executor), or `insertJobIfAbsent`
+   (`repository.ts`) when one job per key is the contract.
+6. A system step or walk gets `{ last }` (`JobAttempt`): leave the truth behind
+   on the last claim.
+7. If the kind can strand rows when its job dies, give it a part in
+   `app/api/internal/maintenance/reconcile-background-work`.
+8. Spec the handler beside `handlers.intake.spec.ts`, and run
+   `queue.integration.spec.ts` if you touch the claim.
+
+### A job nobody asked for (ADR-0129, ADR-0130)
+
+The newest unasked background features (`lib/revision-notice/`,
+`lib/document-check/`, `lib/office-conventions/`, `lib/filing/root-sort-*`)
+share a shape; copy the closest one, since none has every part.
+
+- `queue.ts` (`import 'server-only'`): the gate (the organization's flag through
+  `isOrgFeatureEnabled`, as no session is at hand), then `insertJobIfAbsent`
+  with a deterministic job id, so a second enqueue while one waits is no second
+  job. It never throws into the event it rides on, and queues at `bulk`.
+- `job.ts`: a numbered header says what is asked again on every run (the
+  person, the flag, the budget through `unaskedSpendAllowed`, then the work),
+  because the job waited and rights are those of today.
+- `repository.ts` holds the SQL and `*-wire.ts` the zod shapes the route and the
+  operation share.
+- The migration header has the sections `What was missing`, `The row` and
+  `RLS` (0181), and invariants are named CHECKs (`root_sort_runs_lists_bounded`,
+  `office_conventions_computed_together`).
+
+**Enforced by:** review, and `rls-coverage.spec.ts` for the migration's RLS.
+
 ## Already recorded elsewhere
 
 | Pattern | Where |
@@ -195,7 +284,7 @@ counted, so review is the gate for it.
 | Route → service → repository layering | ADR-0017 |
 | Row-level security as the tenancy backstop | ADR-0041, [`../database/row-level-security.md`](../database/row-level-security.md) |
 | Layered admission control (edge rate limit, job and turn concurrency, euro budget) | ADR-0040, ADR-0015 |
-| DB-claimed workers instead of an assigning scheduler | ADR-0021 |
+| Background work on self-hosted Hatchet (replacing the DB-claimed workers), fair per organization | ADR-0150, ADR-0021 |
 | Materialised path for folders | ADR-0049 |
 | Write-through usage rollups | ADR-0019 |
 | Cards as the rich-UI layer, decisions persisted on the message | ADR-0012, ADR-0030 |

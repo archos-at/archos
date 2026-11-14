@@ -227,11 +227,12 @@ describe("the program constructs in the split topology", () => {
     expect(value("BACKEND_CHAT_URL")).toBe("http://chat:8000");
   });
 
-  it("creates the scheduler, because it is the run reconciler's clock", () => {
-    // Runs exist without Agent Skills (an escalated chat question is a run with
-    // no definition), and the scheduler is what closes the ones whose ending
-    // never reached the BFF. Left out, those runs would read "running" forever.
-    expect(named("kubernetes:apps/v1:Deployment")).toContain("skill-scheduler");
+  it("creates no scheduler: firing schedules and the sweeps are bff-jobs' Hatchet tasks (ADR-0150)", () => {
+    // The run reconciler, which closes runs whose ending never reached the BFF,
+    // is the `runs-reconcile` task of the bff-jobs worker now.
+    const deployments = named("kubernetes:apps/v1:Deployment");
+    expect(deployments).not.toContain("skill-scheduler");
+    expect(deployments).toContain("bff-jobs");
   });
 
   it("exports the image refs it deployed, which the staging downgrade guard reads back", () => {
@@ -244,6 +245,7 @@ describe("the program constructs in the split topology", () => {
       backend: `ghcr.io/archos-at/grid-oib-backend:${tag}`,
       frontend: `ghcr.io/archos-at/grid-oib-frontend:${tag}`,
       web: `ghcr.io/archos-at/grid-oib-web:${tag}`,
+      cms: `ghcr.io/archos-at/cms:${tag}`,
     });
   });
 
@@ -257,16 +259,34 @@ describe("the program constructs in the split topology", () => {
     );
   });
 
-  it("leaves the geocoder off by default, and the frontend without its URL (ADR-0120)", () => {
-    // Prepared, not switched on: a stack opts in with `geocoderEnabled`. A
-    // default flip would start a 1 GB download on every stack at the next `up`.
+  it("gives no workload a geocoder by default: address search is off until a stack opts in (ADR-0159)", () => {
+    // No geocoder workload of our own any more: no StatefulSet, no policy.
     expect(named("kubernetes:apps/v1:StatefulSet")).not.toContain("geocoder");
     expect(named("kubernetes:networking.k8s.io/v1:NetworkPolicy")).not.toContain("geocoder-frontend-only");
-    const frontend = RESOURCES.find((r) => r.type === "kubernetes:apps/v1:Deployment" && r.name === "frontend");
-    const env = frontend?.inputs.spec?.template?.spec.containers[0].env ?? [];
-    expect(env.length).toBeGreaterThan(0);
-    expect(env.map((e) => e.name)).not.toContain("GEOCODER_URL");
-    expect(STACK.geocoderUrl).toBeDefined();
+    const envOf = (name: string) =>
+      RESOURCES.find((r) => r.type === "kubernetes:apps/v1:Deployment" && r.name === name)?.inputs.spec?.template?.spec
+        .containers[0].env ?? [];
+    expect(envOf("frontend").map((e) => e.name)).not.toContain("GEOCODER_URL");
+    // A request-path feature: the jobs pool never geocodes (`BFF_JOBS_WITHHELD`).
+    const jobs = envOf("bff-jobs");
+    expect(jobs.length).toBeGreaterThan(0);
+    expect(jobs.map((e) => e.name)).not.toContain("GEOCODER_URL");
+    expect(STACK.geocoderUrl).toBe("(none: geocoderUrl is empty)");
+  });
+
+  it("leaves the malware scanner off by default, and the frontend without its URL (ADR-0157)", () => {
+    // Prepared, not switched on: a stack opts in with `malwareScanEnabled`.
+    // Off, `npm run preview` shows no change, and the BFF fails every scan
+    // closed (`not-configured`).
+    expect(named("kubernetes:apps/v1:Deployment")).not.toContain("clamav");
+    expect(named("kubernetes:core/v1:ConfigMap")).not.toContain("clamav-config");
+    expect(named("kubernetes:networking.k8s.io/v1:NetworkPolicy")).not.toContain("clamav-bff-only");
+    for (const name of ["frontend", "bff-jobs"]) {
+      const deployment = RESOURCES.find((r) => r.type === "kubernetes:apps/v1:Deployment" && r.name === name);
+      const env = deployment?.inputs.spec?.template?.spec.containers[0].env ?? [];
+      expect(env.length, name).toBeGreaterThan(0);
+      expect(env.map((e) => e.name), name).not.toContain("MALWARE_SCAN_URL");
+    }
   });
 
   /** A workload's pod template, read with the fields the sizing cases need. */
@@ -362,6 +382,32 @@ describe("the program constructs in the split topology", () => {
     // on delete (`whenDeleted: Retain`), never a resource of this program. A
     // claim resource here would be one a later `up` could delete.
     expect(named("kubernetes:core/v1:PersistentVolumeClaim")).toEqual([]);
+  });
+
+  it("leaves project mail off while inboundMailDomain is unset", () => {
+    // Off means nothing at Cloudflare and no domain on the frontend, which is
+    // what hides the address in the UI. The key map is still wired (empty),
+    // so the signed route answers 503 rather than reading an unset variable.
+    expect(RESOURCES.filter((r) => r.type.startsWith("cloudflare:"))).toEqual([]);
+    const frontend = RESOURCES.find(
+      (r) => r.type === "kubernetes:apps/v1:Deployment" && r.name === "frontend",
+    );
+    const spec = frontend?.inputs.spec as {
+      template: { spec: { containers: Array<{ env: Array<{ name: string }> }> } };
+    };
+    const names = spec.template.spec.containers[0].env.map((e) => e.name);
+    expect(names).not.toContain("INBOUND_MAIL_DOMAIN");
+    expect(names).toContain("INBOUND_MAIL_SIGNING_KEYS");
+  });
+
+  it("serves the signed internal routes on a route of their own, mail or not", () => {
+    // The family exists before any caller does (PR-C's routes), so its edge
+    // ceiling and its exemption from the app buckets do too.
+    expect(
+      RESOURCES.filter((r) => r.inputs.kind === "HTTPRoute").map(
+        (r) => (r.inputs.metadata as { name: string }).name,
+      ),
+    ).toContain("app-signed");
   });
 
   it("keeps the S3 endpoint on the name the app tier already uses", () => {

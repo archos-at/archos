@@ -27,6 +27,9 @@ the source identity is seeded straight into the spill table.
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -40,7 +43,7 @@ import pytest
 # suite reaches these paths through a `skip`, that did not fail, it silently
 # stopped testing the race it exists for. A test that disappears when you run
 # it from a different directory is worse than one that is missing.
-FIXTURES = Path(__file__).resolve().parents[4] / "packages" / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parents[4] / "packages" / "ifc-spatial-py" / "tests" / "fixtures"
 #: Four different buildings, because the failure is about a table sized for two.
 MODELS = {
     "a": FIXTURES / "Ifc4_SampleHouse.ifc",
@@ -223,6 +226,49 @@ def test_the_second_question_about_one_building_does_not_queue_behind_another_pa
     finally:
         release.set()
         blocker.join(60)
+
+
+_OPEN_A_LOOP_THEN_A_BUILDING = """
+import sys
+from agent.knowledge import ifc_spatial_client as engine
+from agent.knowledge.bim_query import BimQueryUnavailableError
+
+def source(key):
+    return {"resolved": True, "model": {"modelId": key}, "source": {"etag": key}}
+
+engine._engine()
+engine._PATH_BY_SOURCE.update({"etag:looped": sys.argv[1], "etag:building": sys.argv[2]})
+try:
+    engine.open_model(source("looped"))
+except BimQueryUnavailableError as refused:
+    print(refused)
+print(engine._OPEN_LOCK.locked())
+print(bool(engine.open_model(source("building"))))
+"""
+
+
+@pytest.mark.usefixtures("engine")
+def test_a_length_unit_that_never_ends_leaves_the_open_lock_free(tmp_path) -> None:
+    """In a child, because a regression spins holding `_OPEN_LOCK` and no wait ends that spin."""
+    looped = tmp_path / "looped.ifc"
+    foot = "IFCRATIOMEASURE(0.3048),#8)"
+    assert foot in MODELS["d"].read_text()
+    looped.write_text(MODELS["d"].read_text().replace(foot, "IFCRATIOMEASURE(0.3048),#10)"))
+
+    done = subprocess.run(
+        [sys.executable, "-c", _OPEN_A_LOOP_THEN_A_BUILDING, str(looped), str(MODELS["d"])],
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=60,
+        env={**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)},
+    )
+
+    assert done.returncode == 0, done.stderr[-500:]
+    reason, locked, opened = done.stdout.strip().splitlines()
+    assert "Längeneinheit" in reason
+    assert locked == "False"
+    assert opened == "True"
 
 
 class TestTheDownloaderCannotSpeakAnythingButHttp:

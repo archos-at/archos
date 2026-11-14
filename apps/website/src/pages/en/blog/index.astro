@@ -1,0 +1,11 @@
+---
+import BlogView from '../../../views/BlogView.astro';
+import { BLOG_CACHE_CONTROL, getBlogPosts } from '../../../lib/posts';
+
+// Rendered on request (ADR-0155), from the CMS or the fixtures.
+export const prerender = false;
+const posts = await getBlogPosts('en');
+Astro.response.headers.set('Cache-Control', BLOG_CACHE_CONTROL);
+---
+
+<BlogView locale="en" posts={posts} />

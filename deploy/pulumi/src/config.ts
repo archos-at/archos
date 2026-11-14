@@ -12,6 +12,9 @@ import { type ImagesConfig, loadImages } from "./config/images";
 import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./config/langfuse";
 import { type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
+import { type BackgroundWorkConfig, loadBackgroundWork } from "./config/background-work";
+import { type CmsConfig, loadCms } from "./config/cms";
+import { refuseInClusterAppArchive } from "./config/barman-backups";
 import { type PosthogConfig, loadPosthog } from "./config/posthog";
 import {
   type ChromaMigrationConfig,
@@ -21,12 +24,15 @@ import {
   loadQdrant,
   refuseRetiredVectorKeys,
 } from "./config/qdrant";
+import { type McpGatewayConfig, loadMcpGateway } from "./config/mcp-gateway";
 import { bool, nodeGroup, num } from "./config/readers";
 import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
+import { malwareScanConfig } from "./config/malware-scan";
+import { publicSourceFetcherConfig } from "./config/public-source-fetcher";
+import { type InboundMailConfig, inboundMailConfig } from "./config/inbound-mail";
 import {
   type BffJobsConfig,
-  type GeocoderConfig,
   type GotenbergConfig,
   type IngestWorkerConfig,
   type KedaConfig,
@@ -42,7 +48,7 @@ import {
   loadAppServices,
 } from "./config/app-services";
 import { type IngressConfig, loadIngress } from "./config/ingress";
-export { GOTENBERG_SLOTS_PER_REPLICA, bffJobsMode, gotenbergCapacity, renditionCeiling } from "./rendition-sizing";
+export { GOTENBERG_SLOTS_PER_REPLICA, gotenbergCapacity, renditionCeiling } from "./rendition-sizing";
 
 /**
  * Typed configuration for the Grid OIB Kubernetes deployment.
@@ -103,6 +109,9 @@ export interface DeployConfig {
    */
   dns: DnsConfig;
 
+  /** Project mail (ADR-0138): see {@link InboundMailConfig}. */
+  inboundMail: InboundMailConfig;
+
   /**
    * Edge rate limiting — ADR-0040 layer L1. Enforced by Envoy Gateway's global
    * rate limit service against a dedicated counter store, so no application
@@ -115,6 +124,9 @@ export interface DeployConfig {
   rateLimit: RateLimitConfig;
 
   postgres: PostgresConfig;
+
+  /** Hatchet and its own Postgres, `background-work-pg` (ADR-0150, `config/background-work.ts`). */
+  backgroundWork: BackgroundWorkConfig;
 
   dragonfly: DragonflyConfig;
 
@@ -172,11 +184,36 @@ export interface DeployConfig {
   gotenberg: GotenbergConfig;
 
   /**
-   * The self-hosted address search (ADR-0120, `data/geocoder.ts`): Photon over
-   * the Austrian OSM extract. The frontend gets `GEOCODER_URL` exactly
-   * when this is on; off, the project dialog's address stays a plain text field.
+   * The Photon geocoder behind the project dialog's address search, passed to
+   * the frontend as `GEOCODER_URL` (ADR-0151): komoot's public instance unless a
+   * stack names another. Empty switches address search off, and the dialog's
+   * address stays a plain text field.
    */
-  geocoder: GeocoderConfig;
+  geocoderUrl: string;
+
+  /**
+   * The malware scanner (ADR-0157, `app/clamav.ts`): clamd with freshclam,
+   * scanning what strangers send before anyone may file or download it. The
+   * frontend and the bff-jobs pool get `MALWARE_SCAN_URL` exactly when
+   * this is on; off, every scan fails closed with `not-configured`, and nothing
+   * that needs a clean scan is ever filed.
+   */
+  malwareScan: {
+    /**
+     * OFF by default: prepared, switched on per stack (`malwareScanEnabled`).
+     * The pod asks for 2 GiB and fetches signatures from database.clamav.net.
+     */
+    enabled: boolean;
+    /** `clamav/clamav` with its signatures baked in, pinned by digest (refused otherwise). */
+    image: string;
+  };
+
+  /**
+   * The sandboxed fetcher of public legal and geodata sources (ADR-0162,
+   * `app/public-source-fetcher.ts`): RIS and later sources, fetched from a pod
+   * that reaches public hosts and nothing in the cluster.
+   */
+  publicSourceFetcher: { replicas: number };
 
   /**
    * The one-shot Job that moves the retired Chroma store into Qdrant
@@ -212,7 +249,7 @@ export interface DeployConfig {
 
   frontend: FrontendConfig;
 
-  /** Landing site (apps/site) — a static-first Astro service; tiny resources. */
+  /** The public website (apps/website) — a static-first Astro service; tiny resources. */
   web: WebConfig;
 
   /**
@@ -252,8 +289,8 @@ export interface DeployConfig {
   /**
    * What the shared OpenRouter key is asked to carry (ADR-0076, ADR-0081), as
    * the backend image's environment. The four numbers are one budget:
-   * {@link vlmPeakCalls} is held to `vlmFleetConcurrency` where the ingest tier
-   * is sized (`assertVlmPeakFitsCeiling`), and `vlmFleetConcurrency` is held to
+   * the ingest tier's documents and each file's page-read pool are held to
+   * `vlmFleetConcurrency`, which caps the calls (`assertVlmPeakFitsCeiling`), and `vlmFleetConcurrency` is held to
    * both ceilings a vision call passes: the key-wide `limitCeiling` and the
    * vision model's own `modelLimitCeiling` (a call takes a slot in each pool).
    */
@@ -362,6 +399,10 @@ export interface DeployConfig {
    */
   langfuse: LangfuseConfig;
 
+  /** The website's CMS, Payload in namespace `cms` (ADR-0155, `config/cms.ts`). */
+  cms: CmsConfig;
+  /** The platform MCP gateway (ADR-0154, `config/mcp-gateway.ts`). */
+  mcpGateway: McpGatewayConfig;
 }
 
 export function loadConfig(): DeployConfig {
@@ -401,6 +442,7 @@ export function loadConfig(): DeployConfig {
   rejectPlaceholder("letsEncryptEmail", ["example.com"]);
   rejectPlaceholder("langfuseDomain", ["example.com"]);
   rejectPlaceholder("qdrantDashboardDomain", ["example.com"]);
+  rejectPlaceholder("cmsDomain", ["example.com"]);
 
   // The BFF clamps a nonsense threshold back to 80 rather than switching the
   // warning off, which is the right runtime behaviour and a terrible deploy-time
@@ -428,6 +470,7 @@ export function loadConfig(): DeployConfig {
   const seaweedfs = loadSeaweedfs(cfg);
 
   const postgres = loadPostgres(cfg);
+  refuseInClusterAppArchive(cfg, postgres.backups, { stack: pulumi.getStack(), seaweedPublicHost: s3Domain });
 
   const dragonflyStores = loadDragonfly(cfg);
 
@@ -469,6 +512,10 @@ export function loadConfig(): DeployConfig {
   const langfuse = loadLangfuse(cfg, baseDomain, missingOidcDeps, observabilityFlag);
 
   const qdrantDashboard = loadQdrantDashboard(cfg, baseDomain, missingOidcDeps);
+  const cms = loadCms(cfg, baseDomain, missingOidcDeps);
+  const mcpGateway = loadMcpGateway(
+    cfg, baseDomain, appServices.auth.workosAuthkitDomain, langfuse.enabled || cms.enabled, cfg.requireSecret("pgAppPassword"),
+  );
 
   // ── Public DNS (Cloudflare) ────────────────────────────────────────────────
   //
@@ -483,9 +530,20 @@ export function loadConfig(): DeployConfig {
     s3Domain,
     langfuseDomain: langfuse.enabled ? langfuse.domain : undefined,
     qdrantDashboardDomain: qdrantDashboard.enabled ? qdrantDashboard.domain : undefined,
+    cmsDomain: cms.enabled ? cms.domain : undefined,
+    mcpGatewayDomain: mcpGateway.enabled ? mcpGateway.domain : undefined,
   });
 
   const posthog = loadPosthog(cfg, observabilityFlag);
+
+  // ── Project mail (Cloudflare Email Routing, ADR-0138) ──────────────────────
+  const malwareScan = malwareScanConfig(cfg);
+  const inboundMail = inboundMailConfig(cfg, {
+    dns,
+    // The token itself, not DNS's: an inbox zone of its own needs it while DNS is off.
+    cloudflareApiToken: cfg.getSecret("cloudflareApiToken"),
+    malwareScanEnabled: malwareScan.enabled,
+  });
 
   const observability = loadObservability(
     cfg,
@@ -495,6 +553,7 @@ export function loadConfig(): DeployConfig {
       langfuseEnabled: langfuse.enabled,
       posthogLogsEnabled: posthog.logsEnabled,
       posthogMetricsEnabled: posthog.metricsEnabled,
+      posthogTracesEnabled: posthog.tracesEnabled,
     },
   );
 
@@ -510,9 +569,13 @@ export function loadConfig(): DeployConfig {
 
     ingress: loadIngress(cfg, { appDomain, s3Domain, webDomain }, loadBalancerIp),
 
+    inboundMail,
+
     dns,
 
     postgres,
+
+    backgroundWork: loadBackgroundWork(cfg),
 
     ...dragonflyStores,
 
@@ -526,7 +589,12 @@ export function loadConfig(): DeployConfig {
       batch: nodeGroup(cfg, "nodeGroupBatch"),
     },
 
+    malwareScan,
+    publicSourceFetcher: publicSourceFetcherConfig(cfg),
+
     ...loadWorkers(cfg),
+
+    geocoderUrl: loadGeocoderUrl(cfg),
 
     chromaMigration: loadChromaMigration(cfg),
 
@@ -557,5 +625,24 @@ export function loadConfig(): DeployConfig {
     observability,
 
     langfuse,
+
+    cms,
+    mcpGateway,
   };
+}
+
+/**
+ * komoot's public Photon (ADR-0151): no account, no key, Austria asked for by the adapter's `bbox`.
+ * Not the default any more (ADR-0159): every keystroke of an address search goes to it, and it is a
+ * processor no register lists. A stack opts in by setting `geocoderUrl` to it.
+ */
+export const PUBLIC_GEOCODER_URL = "https://photon.komoot.io";
+
+/** `geocoderUrl`: an http(s) URL, or empty (the default) for no address search. A typo is refused, not served as "off". */
+function loadGeocoderUrl(cfg: pulumi.Config): string {
+  const url = (cfg.get("geocoderUrl") ?? "").trim();
+  if (url !== "" && !/^https?:\/\/[^\s/]+/.test(url)) {
+    throw new Error(`${pulumi.getProject()}:geocoderUrl must be an http(s) URL or empty (got "${url}").`);
+  }
+  return url;
 }

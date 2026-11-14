@@ -65,7 +65,7 @@ relative to `packages/knowledge-layer/src/` unless they are absolute.
 
 | Mechanism | Where | Why it exists |
 |---|---|---|
-| `$contains` exact-term channel, priced by a `collection.get` per term | `llamaindex/hybrid.py`, `adapter.py:6291` | Chroma has no lexical index |
+| `$contains` exact-term channel, priced by a `collection.get` per term | `search/hybrid.py`, `adapter.py:6291` | Chroma has no lexical index |
 | Postgres `chunk_text` mirror for German FTS, with hits fetched back from Chroma by id | `packages/agent/src/agent/knowledge/chunk_text_store.py` | Same |
 | Cosine recovered from `exp(-d)` | `adapter.py:998, 6393` | LlamaIndex's Chroma score scale |
 | RRF *across collections*, rank padding | `register.py:616-850` | N collections give N incomparable score bands |
@@ -185,13 +185,19 @@ full-text index.
 | `evidence` | bool | Replaces `chunking != page` and the YAML change-log list |
 | `page`, `page_end`, `section_order` | integer | Locators; `section_order` is `is_principal` for ordered reads |
 | `reading_order` | integer | The page a chunk starts on, 0 when it has none; derived at write time, what a structural fetch orders by (§6) |
-| `chunk_ordinal` | integer | The chunk's place in its file, 0 for the first the chunker cut; written at ingest and by the import (in the export's order). Point ids are random node ids, so it is what orders the chunks of one page (§6) |
+| `chunk_ordinal` | integer | The chunk's place in its file, 0 for the first the chunker cut; written at ingest and by the import (in the export's order). Point ids are hashes (`chunk_identity.chunk_id`), so it is what orders the chunks of one page (§6) |
 | `richtlinie`, `clause_id`, `clause_path`, `clause_depth` | keyword / integer | Corpus structure (corpus only) |
 | `country`, `edition` | keyword | Corpus profile and OIB edition |
 | `file_name`, `title` | keyword, `text` | Display, plus the title-contains filter |
 | `text` | `text` index (`word` tokenizer, lowercased, `ascii_folding`, `phrase_matching`; no stemmer, so a phrase is the literal words) | Chunk body. Feeds phrase and exact queries. `word` keeps digits: `multilingual` drops them, and "5.1.1" or "43" matched nothing (§12) |
 | `paragraph_refs[]` | keyword | Every `§ n` the text cites (`§ 3`, `§ 12.1`, `§ 3a`), derived at write time. No tokenizer keeps the `§`, so "§ 3" as a phrase is the token `3` and matches "Abs. 3" |
 | `stand` | datetime, `is_principal` on documents | Document date, for recency |
+| `licence_class` | keyword | How the source may be used: `public_open`, `public_restricted`, `licensed` (office base knowledge). Set by `PUT /v1/collections/{c}/knowledge-mark` and by an ingest job that names it (`writes.licence_mark`) |
+| `knowledge_edition_id` | keyword | The knowledge edition the source belongs to; written like `licence_class`. Every ranked read (`hybrid_search`, `grouped_search`) prefers the editions that bind at the turn's site by it: each channel is rescored by `$score * (1 + EDITION_PREFERENCE)` for a passage of one (`boost.ranking_formula`, 0.05), a preference and never a filter, so another edition's passage stays a candidate |
+| `country_id` | keyword | The country whose pack a base-corpus point belongs to (ADR-0173); `scope.corpus_country_condition` reads only the request's countries |
+| `released` | bool | Whether a base-corpus point's text is released: a release writes true, a rollback and an ingest no release names false, and `corpus_country_condition` reads no point marked false. A point from before the flag has none and is read by its country alone |
+| `ai_processing_attested` | not indexed (bool) | Whether the office stated its licence covers processing by the hosted AI services; written like `licence_class`. The licensed seam (ADR-0159) lists a licensed point without its text until it is true |
+| `quote_max_chars` | not indexed (int) | The longest quote of a licensed point's text a model may see; written like `licence_class`. A job value that is no positive int is left out |
 
 Payload indexes are created *before* the first upsert (Qdrant builds the
 filterable HNSW links at index time). **Strict mode** is on with
@@ -246,9 +252,50 @@ def compile_scope(envelope: SignedScope, *, purpose: Purpose) -> models.Filter
   ADR-0087 wanted from separate collections.
 - **Superseded Fassungen are excluded unless `purpose` asks for history.**
 
+**As built (2026-11): `office_id` is filtered on every tenant-scope search.**
+The envelope still carries collection names (§12), so the filter is still built
+from the scope list (`vector_store/scope.py`, `scope_filter`). Every search
+read (`search.hybrid_search`, `search.grouped_search`, `similar.find_similar`,
+`retrieval.search`, `retrieval.search_grouped`, `retrieval.find_text`,
+`retrieval.candidate_counts`) takes a keyword-only `office_id` with no default
+and builds a `ScopeRead(scopes, office_id)`. The structural reads that return
+text by filter (`reads.fetch` and `reads.fetch_from`, which read_passage uses;
+the folder cards; the visual details) ask
+`vector_store.reading_office.office_read(scope)` themselves, so they refuse an
+office scope too. The ingest's own file listing (`_indexed_files`, names and
+pages, no text) does not, since it lists a collection for the BFF's status read; constructing one over a tenant scope
+(`schema.TENANT_PREFIXES`: the office shelf, `proj_`, `s_`) with no office raises
+`ValueError`. `scope.office_condition` is ANDed into the filter: a point passes
+when its scope is none of the read's tenant scopes, or its `office_id` is the
+office, or it carries no `office_id`. The first clause keeps the corpus readable
+(its points may carry the platform organization's `office_id`); the last is the
+known legacy gap: points imported from Chroma before enrichment
+(`import_vectors.scope_enrichment` sets `office_id` for office-shelf scopes
+only) and points written by an ingest job that named no organization carry
+none, and for them the scope list stays the only boundary until a backfill
+stamps them. The office comes from `knowledge_layer.search.office_for`: an
+office a caller named for the context (`reading_as`, which the plain FastAPI
+routes `/v1/collections/search`, `/v1/collections/{c}/search` and
+`/v1/collections/similar` set from the signed envelope's `organizationId`,
+`document_search.request_office`), else the request context's organization
+(chat turns, background runs, the internal tool door), else the organization an
+office-shelf scope name holds. The structural fetch (`reads.py`), the
+folder-card search and the visual details carry the office condition too
+(`vector_store.office_read`). The plain `agent_host` routes that reach them
+(visual details, revision pages, project experience) read inside
+`reading_as(internal_office(request))`: the signed envelope's organization, or
+with the internal token the `x-grid-organization-id` the BFF sends. The summary
+reconciliation, the platform's own sweep over every office's collections, reads
+under `reading_for_maintenance` and names none. Writes, deletes, facets and the
+ingest's file listing still use `scope_filter` alone, and the BM25 IDF corpus is
+still counted over the scopes without the office.
+`packages/knowledge-layer/tests/test_vector_store_office_filter.py` holds the
+positive control: each leak test also runs with the condition dropped and must
+then leak.
+
 The ratchet, in descending order of strength:
 
-1. Only `knowledge_layer/qdrant/` imports `qdrant_client`. An import-linter
+1. Only `knowledge_layer/vector_store/` imports `qdrant_client`. An import-linter
    contract fails the build for any other importer.
 2. The read API pods hold the **read-only API key**. Only ingest workers hold
    the write key.
@@ -308,7 +355,7 @@ that one job.
 
 **`read_passage` and the family overview.** `scroll(filter: file_name = F and
 the Punkt, page or outline clause, order_by: reading_order)`. No embedding and
-no ranking. Built: `BaseRetriever.fetch`, `qdrant/reads.py`.
+no ranking. Built: `BaseRetriever.fetch`, `vector_store/reads.py`.
 
 The order exists for the cut only. The reader sorts what it gets by page, then
 Punkt number, then section, line and part, so no single integer can carry its
@@ -325,7 +372,7 @@ next write; the import from Chroma rewrites the payloads of the points it carrie
 A reader of a whole document (the Fassung compare, `collection_pages.read_pages`)
 needs the order within a page too, and no server-side order gives it: a
 `SentenceSplitter` chunk of a PDF page carries no position, and point ids are
-the chunker's random node ids. `reads.in_document_order` sorts by page, then by
+hashes (`uuid5` of collection, document, version, ordinal and text), which order nothing. `reads.in_document_order` sorts by page, then by
 the section structure `read_passage` sorts by (`base.section_position`:
 section, first line, part), then by `chunk_ordinal`, then chunk id. A point
 written before `chunk_ordinal` existed sorts after the numbered ones of its
@@ -431,7 +478,7 @@ did not hold on Qdrant 1.19.2, and the build differs from it there.
 
 **Facts on points.** Every chunk of a project's collections carries
 `project_facts.{federal_state, building_class, construction_method, uses, work_type}`
-and `project_status`, indexed (`qdrant/schema.py`; points written before the English key rename still hold the German names, which every read accepts until the rewrite in [`qdrant-payload-rename-runbook.md`](../deployment/qdrant-payload-rename-runbook.md); a collection created
+and `project_status`, indexed (`vector_store/schema.py`; points written before the English key rename still hold the German names, which every read accepts until the rewrite in [`qdrant-payload-rename-runbook.md`](../deployment/qdrant-payload-rename-runbook.md); a collection created
 before them gains the indexes in place, `ensure_indexes`). What is copied is
 what the BFF's similarity reads (`similarityFacts`: confirmed facts, else the
 agent's suggestion). One endpoint writes it, `PUT
@@ -537,7 +584,7 @@ executes it. Two things need product decisions this design does not take:
 
 ## 8. Client layer
 
-`qdrant-client` (async, gRPC) is used directly inside `knowledge_layer/qdrant/`.
+`qdrant-client` (async, gRPC) is used directly inside `knowledge_layer/vector_store/`.
 LlamaIndex stays for loaders, parsing and chunking only:
 
 - `llama-index-vector-stores-qdrant` 0.10.4 issues dense and sparse as two
@@ -658,7 +705,7 @@ in the product (ADR-0115):
   writes `piloti-vectors/1`: a manifest (count, dimension, the collection's
   metadata with its embedder fingerprint, an order-independent digest of the
   ids) and gzipped JSON-lines batches of id, float32 vector, text and metadata.
-- **The importer**, `qdrant/import_vectors.py` and `scripts/import_vectors.py`,
+- **The importer**, `vector_store/import_vectors.py` and `scripts/import_vectors.py`,
   reads that format into Qdrant through `QdrantStore.upsert(insert_only=True)`,
   so a re-run inserts only what is missing and a point ingestion already wrote
   keeps its ids (§12). It refuses a collection whose fingerprint differs from
@@ -688,14 +735,14 @@ change took Chroma out. What was built:
 
 | Part | Where |
 |---|---|
-| Ingestion writes Qdrant directly: a `SentenceSplitter` per job (the job's chunk size and overlap, no process-wide `Settings`), the ingestor's own embedder over each chunk's EMBED rendering, then `write_chunks`, which enriches every point (office, project, BFF document, folder, project facts, `indexed_at`) and adds the facts the metadata store holds. A failed write fails the file. Point ids stay `point_id(chunk_id)`, the chunker's node ids, so migrated points and fresh ingests agree and citations survive the move | `llamaindex/adapter.py` — `_embedded_records`, `_ingest_job`; `qdrant/writes.py` |
-| Re-ingest keeps retire-after-insert: the previous version's chunk ids are read from Qdrant (a `file_name` filter over its spellings, through `store.with_retry`; a read that still fails fails the file before anything is written) before the write and deleted by id after it; a failed or deleted-while-indexing attempt deletes exactly the ids it sent (fresh node ids, so never the previous version's) | `adapter.py` — `_find_previous_versions`, `_retire_previous_version`, `_retire_held_predecessor`, `_discard_partial_version` |
+| Ingestion writes Qdrant directly: a `SentenceSplitter` per job (the job's chunk size and overlap, no process-wide `Settings`), the ingestor's own embedder over each chunk's EMBED rendering, then `write_chunks`, which enriches every point (office, project, BFF document, folder, project facts, `indexed_at`) and adds the facts the metadata store holds. A failed write fails the file. Point ids stay `point_id(chunk_id)`, the chunker's node ids, so migrated points and fresh ingests agree and citations survive the move | `ingest/adapter.py` — `_embedded_records`, `_ingest_job`; `vector_store/writes.py` |
+| Re-ingest keeps retire-after-insert: the previous version's chunk ids are read from Qdrant (a `file_name` filter over its spellings, through `store.with_retry`; a read that still fails fails the file before anything is written) before the write and deleted by id after it; a failed attempt deletes the ids it sent minus those the kept version holds, and a deleted-while-indexing attempt every id it sent. Ids are deterministic (`chunk_identity.chunk_id`), so a retry overwrites, and retirement leaves out the ids the new write holds | `adapter.py` — `_find_previous_versions`, `_retire_previous_version`, `_retire_held_predecessor`, `_discard_partial_version` |
 | Every delete is one store's: `delete_file` reads the ids under every accepted spelling and deletes those, `delete_collection` deletes by scope; nothing is deleted or recorded as deleted when Qdrant refuses. Deletes go in bounded requests | `adapter.py`; `store.delete_chunks` (`DELETE_BATCH`) |
 | Registry reads from Qdrant: a file listing is one payload-limited scroll (no text); a collection's chunks and files are an exact count and a facet; `list_collections` is one facet per physical collection; a text sample is a structural fetch; visual details and `collection_pages.read_pages` scroll by filter. `get_collection` never answers "missing": a collection is a scope, and an empty one has no chunks (ADR-0116) | `adapter.py` — `_indexed_files`, `_collection_info`, `list_collections`; `collection_pages.py` |
 | A collection's `updated_at` (what the reaper of conversation uploads reads) is the newest `indexed_at` on its points, an ordered scroll | `schema.INDEXED_AT_FIELD`, `store.newest` |
 | A fact copy follows the rows a register or unregister changes the meaning of: the rows whose `superseded_by` names the file are copied again, so a Fassung that became current is not hidden by `superseded != true` | `factory.register_summary`, `unregister_summary`; `DocumentMetadataStore.files_linked_to` |
 | Deleted: Chroma's client and collections, `VECTOR_BACKEND`, `qdrant/mirror.py` and `ordered_delete`, the Postgres `chunk_text` mirror, the `$contains` channel and its pricing, `exp(-d)` score recovery, `embed_fingerprint_mismatch` (the identity lives in Qdrant's collection metadata only), the Chroma backfill (`backfill_qdrant.py`, `backfill_chunk_text.py`), and `chromadb` plus `llama-index-vector-stores-chroma` from the dependencies | — |
-| One test fixture for every store test: unique aliases per test, the process-wide store pointed at them, both deleted after; skips locally without `QDRANT_TEST_URL`, fails on CI | `packages/knowledge-layer/testing/knowledge_layer_testing/qdrant.py` |
+| One test fixture for every store test: unique aliases per test, the process-wide store pointed at them, both deleted after; skips locally without `QDRANT_TEST_URL`, fails on CI | `packages/knowledge-layer/testing/knowledge_layer_testing/vector_store.py` |
 | The import boundary forbids `chromadb` everywhere but the migration tool | `test_qdrant_import_boundary.py` |
 | The gate harness runs Qdrant alone: the corpus written through `write_chunks`, read through the production retriever, every number printed beside the Chroma path's from the gate run (fixed, `baseline.py`); exact mode held to a full regex scan, which is what Chroma's `$regex` was | `task be:eval:qdrant-parity`, `qdrant_parity/` |
 
@@ -712,31 +759,31 @@ itself.
 
 | Part | Where |
 |---|---|
-| The store: two collections behind aliases, dense + German BM25, TurboQuant, strict mode, payload indexes created before data | `packages/knowledge-layer/src/qdrant/schema.py`, `store.py` |
-| Every read filter from one function, refusing an empty scope | `qdrant/scope.py` |
-| Hybrid search in one Query API call (dense, BM25 with per-scope IDF, exact-term phrase channels, RRF k=60) and the true cosine per hit | `qdrant/search.py` — `hybrid_search` |
-| Retrieval, exact search (`find_text`) and the health check reading Qdrant under `VECTOR_BACKEND=qdrant`; the chunk contract unchanged | `llamaindex/retriever.py` — `_qdrant_chunks`, `_find_text_sync`, `health_check` |
+| The store: two collections behind aliases, dense + German BM25, TurboQuant, strict mode, payload indexes created before data | `packages/knowledge-layer/src/vector_store/schema.py`, `store.py` |
+| Every read filter from one function, refusing an empty scope | `vector_store/scope.py` |
+| Hybrid search in one Query API call (dense, BM25 with per-scope IDF, exact-term phrase channels, RRF k=60) and the true cosine per hit | `vector_store/search.py` — `hybrid_search` |
+| Retrieval, exact search (`find_text`) and the health check reading Qdrant under `VECTOR_BACKEND=qdrant`; the chunk contract unchanged | `search/retriever.py` — `_qdrant_chunks`, `_find_text_sync`, `health_check` |
 | Every Chroma write mirrored (insert, retire, discard, delete file, delete collection), vectors copied, never re-embedded. Removed in slice 3 | `qdrant/mirror.py` (deleted) |
 | Person-set facts (tags, topics, Dokumentart, Fassung, folder) mirrored onto points when they change | `agent/knowledge/factory.py` — `_mirror_facts` |
-| The move off Chroma: an exporter in its own environment writing the neutral format `piloti-vectors/1`, and an importer with `--prune`, `--verify`, `--verify-only`, `--dry-run` (it replaced the backfill that read Chroma directly) | `deploy/migration/chroma_export.py`; `qdrant/import_vectors.py`, `scripts/import_vectors.py` |
+| The move off Chroma: an exporter in its own environment writing the neutral format `piloti-vectors/1`, and an importer with `--prune`, `--verify`, `--verify-only`, `--dry-run` (it replaced the backfill that read Chroma directly) | `deploy/migration/chroma_export.py`; `vector_store/import_vectors.py`, `scripts/import_vectors.py` |
 | Cross-project search: a page of up to 40 projects in ONE grouped query, ordered by the fused ranking; the only path, a failure an upstream error | `POST /v1/collections/search`; BFF `cross-project/service.ts` — `searchPage` |
 | Infrastructure: 3-peer StatefulSet, Raft bootstrap, API and read-only keys, snapshots to SeaweedFS with retention, NetworkPolicies, the policy-pack allowance for `Parallel`; Compose service behind `--profile qdrant` | `deploy/pulumi/src/data/qdrant.ts`, `deploy/compose/docker-compose.yaml` |
 | Trace metadata: `vector_backend` on every `retrieve.knowledge_search` span (dropped in slice 3, one store) | `register.py` |
-| `knowledge_search` pre-filters under `qdrant`: `doc_class = X` (the stored class over the chunk's guess, as `_hit_doc_class` resolves), `superseded != true` on user shelves unless `file_name=` names a file, `folder` as one match on `folder_ancestors` (case-folded paths, `/`-bounded). No 3× over-fetch and no `file_name $in/$nin` lists for them. The Postgres post-filters stay as a backstop, and the Postgres superseded list still drops hits a lagging mirror let through. The span carries `prefiltered: [fields]` | `qdrant/prefilter.py`; `register.py` — `search` |
-| Payload indexes added to an existing collection on first read or write (`ensure_payload_indexes`), so a new indexed field needs no rebuild | `qdrant/schema.py`, `store.py` — `exists`, `ensure` |
-| Structural reads by filter: `read_passage` (Punkt, page, outline, the whole-document fallback) and the family overview scroll by filter, ordered by `reading_order`, with no embedding and no ranking; Chroma keeps the embedded probe. `family_read` (`fetch` or `retrieve`) on the `retrieve.knowledge_search` span | `BaseRetriever.fetch`, `qdrant/reads.py`, `read_passage._structural_fetch` |
-| Document facts (tags, Dokumentart, superseded, folder) copied again weekly, every live collection, so a copy an edit failed to make (`refresh_facts` never raises) is repaired; counted per file, failed per collection | `POST /v1/maintenance/refresh-document-facts` (`routes/maintenance.py`), `qdrant/writes.py` — `copy_facts`; BFF `platform/vector-reconcile.ts` — `refreshDocumentFacts` |
-| Project facts and status on every chunk of a project, indexed; pushed on profile save, lifecycle move and ingest, swept weekly | `PUT /v1/collections/{c}/project-facts`, `qdrant/payload.py` — `project_payload`; BFF `cross-project/project-facts-mirror.ts` |
-| Cross-project tag pre-filters and the current project's likeness inside the one grouped query (§7 "As built") | `qdrant/boost.py`, `qdrant/search.py` — `grouped_search`; BFF `cross-project/service.ts` — `searchPage` |
+| `knowledge_search` pre-filters under `qdrant`: `doc_class = X` (the stored class over the chunk's guess, as `_hit_doc_class` resolves), `superseded != true` on user shelves unless `file_name=` names a file, `folder` as one match on `folder_ancestors` (case-folded paths, `/`-bounded). No 3× over-fetch and no `file_name $in/$nin` lists for them. The Postgres post-filters stay as a backstop, and the Postgres superseded list still drops hits a lagging mirror let through. The span carries `prefiltered: [fields]` | `vector_store/prefilter.py`; `register.py` — `search` |
+| Payload indexes added to an existing collection on first read or write (`ensure_payload_indexes`), so a new indexed field needs no rebuild | `vector_store/schema.py`, `store.py` — `exists`, `ensure` |
+| Structural reads by filter: `read_passage` (Punkt, page, outline, the whole-document fallback) and the family overview scroll by filter, ordered by `reading_order`, with no embedding and no ranking; Chroma keeps the embedded probe. `family_read` (`fetch` or `retrieve`) on the `retrieve.knowledge_search` span | `BaseRetriever.fetch`, `vector_store/reads.py`, `read_passage._structural_fetch` |
+| Document facts (tags, Dokumentart, superseded, folder) copied again weekly, every live collection, so a copy an edit failed to make (`refresh_facts` never raises) is repaired; counted per file, failed per collection | `POST /v1/maintenance/refresh-document-facts` (`routes/maintenance.py`), `vector_store/writes.py` — `copy_facts`; BFF `platform/vector-reconcile.ts` — `refreshDocumentFacts` |
+| Project facts and status on every chunk of a project, indexed; pushed on profile save, lifecycle move and ingest, swept weekly | `PUT /v1/collections/{c}/project-facts`, `vector_store/payload.py` — `project_payload`; BFF `cross-project/project-facts-mirror.ts` |
+| Cross-project tag pre-filters and the current project's likeness inside the one grouped query (§7 "As built") | `vector_store/boost.py`, `vector_store/search.py` — `grouped_search`; BFF `cross-project/service.ts` — `searchPage` |
 | Project-fact filters in the agent's cross-project contract (`project_facts` on `search` and `find`), judged on the Postgres profile before the page is cut; likeness still ranks | `tools/cross_project/register.py` — `project_facts_filter`; BFF `cross-project/types.ts` — `crossProjectFactsSchema`, `service.ts` — `holdsFacts`, `projectsInScope` |
-| Similar passages („Im Büro behandelt“): the nearest passages to one the reader is looking at, across the collections the BFF authorized (the reader's project, the projects a solo chat reaches with closed ones, the Büroablage), the source document and superseded Fassungen filtered out in the query. A stored chunk is queried by its point id (by `chunk_id`, or a cited passage found in its file by its text), from the corpus by `lookup_from`; a selection is embedded once through the cached query path. Hits are joined to screened rows only (`SCREENED_ONLY`), so a held document never shows. A `retrieve.similar_passages` retriever observation per call | `qdrant/similar.py` — `find_similar`; `POST /v1/collections/similar` (`routes/similar_passages.py`); BFF `lib/similar-passages/service.ts` — `findSimilarPassages` |
+| Similar passages („Im Büro behandelt“): the nearest passages to one the reader is looking at, across the collections the BFF authorized (the reader's project, the projects a solo chat reaches with closed ones, the Büroablage), the source document and superseded Fassungen filtered out in the query. A stored chunk is queried by its point id (by `chunk_id`, or a cited passage found in its file by its text), from the corpus by `lookup_from`; a selection is embedded once through the cached query path. Hits are joined to screened rows only (`SCREENED_ONLY`), so a held document never shows. A `retrieve.similar_passages` retriever observation per call | `vector_store/similar.py` — `find_similar`; `POST /v1/collections/similar` (`routes/similar_passages.py`); BFF `lib/similar-passages/service.ts` — `findSimilarPassages` |
 | Grouped answers ordered document by document across projects | `routes/document_search.py` — `_ranked_group_hits` |
-| Operations: every peer scraped by the collector on a keyless metrics port, 13 alert rules held to the collector's real export, quotas, the alias record beside the snapshots, alias-based rebuilds, a second key for rotation, the low-memory load mode, and a runbook whose procedures were drilled against real containers | `data/qdrant.ts`, `data/qdrant-alerts.ts`, `platform/otel-collector.ts` — `qdrantScrape`; `qdrant/rebuild.py`, `scripts/qdrant_rebuild.py`; [`qdrant-runbook.md`](../deployment/qdrant-runbook.md) |
+| Operations: every peer scraped by the collector on a keyless metrics port, 13 alert rules held to the collector's real export, quotas, the alias record beside the snapshots, alias-based rebuilds, a second key for rotation, the low-memory load mode, and a runbook whose procedures were drilled against real containers | `data/qdrant.ts`, `data/qdrant-alerts.ts`, `platform/otel-collector.ts` — `qdrantScrape`; `vector_store/rebuild.py`, `scripts/qdrant_rebuild.py`; [`qdrant-runbook.md`](../deployment/qdrant-runbook.md) |
 | The gate measurement (G1b, G2, G6): both paths over one OIB corpus with one set of production vectors, through the production retriever ([results](../audit/qdrant-gates-2026-10.md)) | `task be:eval:qdrant-parity`, `evals/oib-retrieval/src/oib_retrieval/qdrant_parity/` |
 | The ranking sweep: every `search.Ranking` variant read through the production retriever on one collection, per-question moves against a baseline measured first and last; the BM25 compound-splitting experiment ([results](../audit/qdrant-gates-2026-10.md#ranking-sweep-2026-10-13)) | `qdrant_parity/variants.py`, `decompound.py`; `task be:eval:qdrant-parity -- --variants all` |
-| From the sweep: RRF ties ordered by cosine, then chunk id, with a tie straddling the cut fetched whole (repeated calls returned another top-60 for 86 of 105 queries, now 0), in grouped search before the grouping; the settings named once (`RANKING`) and on the span as `ranking` | `qdrant/search.py` — `Ranking`, `RANKING`, `_cosine_ordered_ties`; `register.py` |
+| From the sweep: RRF ties ordered by cosine, then chunk id, with a tie straddling the cut fetched whole (repeated calls returned another top-60 for 86 of 105 queries, now 0), in grouped search before the grouping; the settings named once (`RANKING`) and on the span as `ranking` | `vector_store/search.py` — `Ranking`, `RANKING`, `_cosine_ordered_ties`; `register.py` |
 | From the sweep: BM25 never asked for the umlaut stopwords Qdrant's folding lets through (`über`, `für`, …) or for the pieces of a file name | `retrieval.bm25_candidates`, used by `lexical_query.lexical_inputs` |
-| From that measurement: BM25 terms priced by the German mirror's own rule (`german_text.select_terms`), with counts cached per collection size. Cross-project grouped search prices them too, and runs the same exact-term channels, with document frequencies over the union of the searched scopes (the corpus its IDF is computed over). It also found the tokenizer defect, fixed below under "Hardened after review" | `llamaindex/lexical_query.py` — `lexical_inputs`; `llamaindex/retriever.py` — `_search_grouped_sync`; `retrieval.term_frequencies` |
+| From that measurement: BM25 terms priced by the German mirror's own rule (`german_text.select_terms`), with counts cached per collection size. Cross-project grouped search prices them too, and runs the same exact-term channels, with document frequencies over the union of the searched scopes (the corpus its IDF is computed over). It also found the tokenizer defect, fixed below under "Hardened after review" | `search/lexical_query.py` — `lexical_inputs`; `search/retriever.py` — `_search_grouped_sync`; `retrieval.term_frequencies` |
 | Gate G1: the answer suite through the real agent on the pre-migration Chroma baseline and on Qdrant, one ingest read by both ([results](../audit/qdrant-gates-2026-10.md#g1-answer-quality-pass)) | `task be:eval:answer-suite -- --ingest --corpus data/oib`, `scripts/turn_census/suite.py` — `use_local_corpus` |
 
 ### Hardened after review (2026-10-13)
@@ -747,10 +794,10 @@ index changes went in place.
 
 | Defect | What changed | Where |
 |---|---|---|
-| The `text` index used the `multilingual` tokenizer, which drops digits: phrase counts for "5.1.1", "43", "§ 3" were 0, "Abs. 2" ignored its number, and `selective_terms` dropped every numeric exact term the Chroma `$contains` channel served | `word` tokenizer (`schema.TEXT_INDEX`), verified on 1.19.2: "5.1.1", "43", "OIB-Richtlinie 2", "Abs. 2" match exactly, and "Größe", "GRÖSSE", "grosse" stay one token. `§` references go through the `paragraph_refs` keyword field (`search.exact_term`), since every tokenizer drops the `§`. `ensure_payload_indexes` logs an ERROR when an existing text index was built otherwise, naming the rebuild path (new `_vN`, copy, alias switch) | `qdrant/schema.py`, `search.py`, `payload.paragraph_refs` |
+| The `text` index used the `multilingual` tokenizer, which drops digits: phrase counts for "5.1.1", "43", "§ 3" were 0, "Abs. 2" ignored its number, and `selective_terms` dropped every numeric exact term the Chroma `$contains` channel served | `word` tokenizer (`schema.TEXT_INDEX`), verified on 1.19.2: "5.1.1", "43", "OIB-Richtlinie 2", "Abs. 2" match exactly, and "Größe", "GRÖSSE", "grosse" stay one token. `§` references go through the `paragraph_refs` keyword field (`search.exact_term`), since every tokenizer drops the `§`. `ensure_payload_indexes` logs an ERROR when an existing text index was built otherwise, naming the rebuild path (new `_vN`, copy, alias switch) | `vector_store/schema.py`, `search.py`, `payload.paragraph_refs` |
 | Under `qdrant`, a delete took Chroma first; a Qdrant failure then left deleted, retired or quarantined (ADR-0086) chunks answering every search, and its raise skipped the Chroma-side cleanup | `mirror.ordered_delete`: under `qdrant`, Qdrant first, and a failure deletes nothing anywhere (the caller's retry starts over); under `dual`, Chroma first and the mirror best effort; the metadata row, the lexical mirror and the version bump always run after it. A retried `delete_file` that finds no Chroma chunks deletes Qdrant's by every stored spelling (`tmp…_`, percent-encoded) the adapter's own rule accepts | `adapter.py` (`delete_file`, `_retire_previous_version`, `_retire_held_predecessor`, `_discard_partial_version`, `delete_collection`), `mirror.py` |
 | `write_consistency_factor` equalled RF, so one peer down failed writes to most shards | Consistency 1, and transient write failures retried in the store (§9) | `schema.WRITE_CONSISTENCY_FACTOR`, `store.with_retry` |
-| The backfill pruned a file ingested between its two reads, stripped `office_id`/`project_id`/`grid_document_id` from points ingestion wrote, never visited a scope Chroma had dropped, and `--verify` compared counts only | Prune reads Qdrant's ids before Chroma's; the copy is insert-only (Qdrant 1.17 `update_mode`) and merges only the chunk's own fields onto existing points, then merges the facts; scopes are enumerated from Qdrant too (facet on `scope`) and `--prune` deletes those Chroma lacks; `--verify` compares the id sets (whole up to 200k chunks, sampled both ways above) | Then `qdrant/backfill.py`; now `qdrant/import_vectors.py` and `scripts/import_vectors.py`, which keep every fix but the read order: an export does not change under the importer |
+| The backfill pruned a file ingested between its two reads, stripped `office_id`/`project_id`/`grid_document_id` from points ingestion wrote, never visited a scope Chroma had dropped, and `--verify` compared counts only | Prune reads Qdrant's ids before Chroma's; the copy is insert-only (Qdrant 1.17 `update_mode`) and merges only the chunk's own fields onto existing points, then merges the facts; scopes are enumerated from Qdrant too (facet on `scope`) and `--prune` deletes those Chroma lacks; `--verify` compares the id sets (whole up to 200k chunks, sampled both ways above) | Then `qdrant/backfill.py`; now `vector_store/import_vectors.py` and `scripts/import_vectors.py`, which keep every fix but the read order: an export does not change under the importer |
 | A writer dying between `create_collection` and the alias wedged every later writer on the conflict, and the loser of a create race raised | A conflict finishes the collection: indexes added, alias made if missing; two writers finishing it at once agree | `schema._create_or_adopt` |
 | `find_text` returned chunks as stored, and the literal search counted every chunk's text: a word in a section's 96-token overlap counted twice, and a heading once per chunk of its section (its breadcrumb) | The count reads each chunk's own text: breadcrumb cut, the heading once on the section's first part, the overlap with the returned predecessor (`chunk_ordinal − 1`, which `_find_text_sync` now carries on the chunk) left to the predecessor | `chunk_positions.py`, `browse.group_matches`, `adapter._find_text_sync` |
 | `find_text` scrolled the whole scope (20k chunks: about 79 requests, 29 MB) | Narrowed on the server by the words every match of the pattern must hold as whole tokens; the regex still decides. A pattern without such a word (one word over three characters, which matches inside longer words) reads the whole scope as before | `retrieval.literal_tokens`, `find_text` |
@@ -778,9 +825,9 @@ test that fails without the fix.
 | Part | Where |
 |---|---|
 | `knowledge_search(group_by="document")`: one entry per document (best passage, passages in the ranked pool, pages), keyed by `grid_document_id`, else collection and file name. Grouped client-side over the reranked pool, never by Qdrant's group query, which re-fuses per round on a fusion | `document_groups.py`; `register.py` — `search` |
-| Folder card points: `kind = folder` in the folder's own scope, dense vector of path, abstract and key facts, no BM25 vector. `scope_filter` takes `kind` (`chunk` by default, `folder`, `any`), so every chunk read leaves them out; the store's whole-scope reads go through it too, a whole-scope delete takes them. Written beside the BFF `PUT`, restamped and deleted beside it; a rebuild copies them | `qdrant/scope.py`, `qdrant/folders.py`, `qdrant/store.py`; `agent/knowledge/folder_cards/worker.py` |
+| Folder card points: `kind = folder` in the folder's own scope, dense vector of path, abstract and key facts, no BM25 vector. `scope_filter` takes `kind` (`chunk` by default, `folder`, `any`), so every chunk read leaves them out; the store's whole-scope reads go through it too, a whole-scope delete takes them. Written beside the BFF `PUT`, restamped and deleted beside it; a rebuild copies them | `vector_store/scope.py`, `vector_store/folders.py`, `vector_store/store.py`; `agent/knowledge/folder_cards/worker.py` |
 | The folder channel: one dense query over the turn's office scopes beside the chunk search, up to three `Folder:` lines after the passages, never a grounding record. Behind the `folder-cards` flag | `folder_channel.py`; `register.py` |
-| BM25 length per collection: `bm25_length` in the collection metadata (none: Qdrant's defaults), read by every write and query (five minutes' trust). A `_vN` copy measures the source's chunk lengths from its stored weights and, more than 10 % off, writes the target with the measured `avg_len` and recomputed lexical vectors | `qdrant/schema.py` — `bm25_length_of`; `store.bm25_length`; `qdrant/rebuild.py` — `measure_lengths`, `tuned_length`; `scripts/qdrant_chunk_length_stats.py` |
+| BM25 length per collection: `bm25_length` in the collection metadata (none: Qdrant's defaults), read by every write and query (five minutes' trust). A `_vN` copy measures the source's chunk lengths from its stored weights and, more than 10 % off, writes the target with the measured `avg_len` and recomputed lexical vectors | `vector_store/schema.py` — `bm25_length_of`; `store.bm25_length`; `vector_store/rebuild.py` — `measure_lengths`, `tuned_length`; `scripts/qdrant_chunk_length_stats.py` |
 | Inflected exact search: a second text field `text_stem` with a Snowball German full-text index; `match="exact", stemmed=true` adds what it matches to the literal result. Written with every new point; a rebuild fills it on the rest | `schema.TEXT_STEM_INDEX`, `payload.build_payload`, `retrieval.stem_condition`, `browse.stemmed_pattern` |
 
 ### Where slice 1 departed from the target, and why
@@ -913,10 +960,11 @@ rest stands.
    filters in the agent's contract"), judged on Postgres; moving them into the
    query as `filters.project_facts` waits for that envelope, and for a copy
    whose freshness is checked rather than assumed.
-3. Deterministic `UUIDv5(document_version_id, ordinal)` point ids, once a
-   document version id reaches the ingest job: today a point id is the
-   chunker's random node id, which keeps retire-after-insert simple and the
-   migrated ids valid.
+3. ~~Deterministic point ids.~~ Done (2026-11-03): a chunk id is `uuid5` of the
+   collection, the document id, the file's content hash, the ordinal and the
+   text hash (`chunk_identity.chunk_id`); the payload's `chunk_id` names it and
+   the point id is the same UUID. Points written before keep their random ids
+   until their file is read again.
 4. A sweep for documents the vector store lost: a `documents` row whose
    collection holds no point for it after a peer was lost inside the
    re-sync window or restored from an older snapshot. `reconcile-vectors`

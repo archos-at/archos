@@ -1,0 +1,78 @@
+name: Test database
+
+# Records which test runs which code, for CI's `backend-affected` (pull
+# requests select from it: ci/pr_selection.py). On every push to develop,
+# reused or not: a squash merge of a green pull request skips CI's checks, and
+# the database would otherwise stop following develop. Saved only when every
+# test passed, because testmon re-runs a recorded failure forever.
+#
+# Its own workflow, not a job in ci.yml, because it checks nothing and a job in
+# CI holds up everything that waits on the CI run as a whole. It did: Deploy
+# (staging) follows the CI run's `completed` event, and this job was the last
+# to finish. On 2026-11-03 a reused push had `CI OK` after one minute and its
+# run completed after eight, all of it this job; and since develop's CI runs
+# queue one at a time, the next merge's run waited for it too (17:56 → 18:06).
+# The cache is shared across workflows on a branch, so pull requests find the
+# database under the same key and path as before.
+#
+# Only when Python changed. testmon maps Python functions to the tests that
+# execute them; a docs, UI or workflow merge cannot change that map, and the
+# full backend suite this re-runs costs seven runner-minutes a merge. A pull
+# request restores the newest database by prefix, which is then still exact for
+# every Python file. Non-Python inputs a test reads are matched by name in
+# ci/pr_selection.py, not through this database.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '**/*.py'
+      - '**/pyproject.toml'
+      - 'uv.lock'
+      - 'taskfiles/backend.yml'
+      - '.github/workflows/testmon.yml'
+      - '.github/actions/setup-python-env/**'
+
+permissions:
+  contents: read
+
+# One at a time, and a queued run is replaced by a newer push: only the newest
+# develop is worth recording.
+concurrency:
+  group: testmon-develop
+  cancel-in-progress: false
+
+jobs:
+  backend-testmon:
+    name: Backend test database (testmon)
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    services:
+      qdrant:
+        image: qdrant/qdrant:v1.19.2
+        # Storage in memory: on the container disk every payload index is a
+        # sync, and a test collection creates about forty (core suite with the
+        # server on 4 cores: 144 s on disk, 104 s on tmpfs, 2026-11-11). The
+        # tmpfs is half the runner's memory and an empty test collection takes
+        # about 300 MiB of it, so the store fixture keeps one module's pair per
+        # process (knowledge_layer_testing/vector_store.py); full, Qdrant
+        # refuses every write with "WAL buffer size exceeds available disk space".
+        options: --tmpfs /qdrant/storage
+        ports:
+          - 6333:6333
+    env:
+      QDRANT_TEST_URL: http://localhost:6333
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: "3.14"
+      - uses: ./.github/actions/setup-task
+      - run: task be:test:testmon
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .testmondata-*
+          # Its own prefix: `testmon-` alone also matches a pull request's
+          # `testmon-pr-…` entries, another suite's among them.
+          key: testmon-develop-${{ github.sha }}

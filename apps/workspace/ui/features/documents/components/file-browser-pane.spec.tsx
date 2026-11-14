@@ -119,12 +119,13 @@ describe('FileBrowserPane — card grid', () => {
     }
   })
 
-  it('shows the tinted extension chip and size, and a status badge only when the document is not citable', () => {
+  it('says the format and size in the facts line, and a status badge only when the document is not citable', () => {
     const { unmount } = renderPane()
     const card = screen.getAllByTestId('file-card').find((c) => within(c).queryByText('site-plan.pdf'))!
-    expect(within(card).getByText('PDF')).toBeInTheDocument()
-    // The size is in the footer, the card button's sibling.
-    expect(within(card.nextElementSibling as HTMLElement).getByText(/1 kB/)).toBeInTheDocument()
+    // The format and the size are in the footer, the card button's sibling: ink, not a tinted chip.
+    const footer = card.nextElementSibling as HTMLElement
+    expect(within(footer).getByText('PDF')).toBeInTheDocument()
+    expect(within(footer).getByText(/1 kB/)).toBeInTheDocument()
     // Citable is the normal state: the card says nothing about it.
     expect(within(card).queryByText('Citable')).not.toBeInTheDocument()
     unmount()
@@ -152,20 +153,25 @@ describe('FileBrowserPane — card grid', () => {
     expect(selected).not.toHaveAttribute('aria-pressed')
   })
 
-  it('renders the upload card as the last tile of the grid', () => {
-    renderPane({ uploadCard: <div data-testid="upload-card-stub" /> })
-    expect(screen.getByTestId('upload-card-stub')).toBeInTheDocument()
+  it('draws no upload tile among the files: the header uploads and the whole page takes a drop', () => {
+    // A dashed „Drag files here or browse“ cell stood in the grid as a file that was not one (dev, 2026-11-10).
+    renderPane({})
+    expect(screen.queryByTestId('project-upload-dropcard')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('file-card')).toHaveLength(files.length)
   })
 })
 
 describe('FileBrowserPane — document descriptions', () => {
-  it('surfaces the AI-generated description on the card when one exists', () => {
+  it('keeps the AI-generated description off the tile and on the list view\'s row', () => {
     const withSummary: FileItem[] = [
       { ...files[0], summary: 'A ground-floor plan of the east wing.' },
       files[1],
     ]
-    renderPane({ files: withSummary })
-    // The description shows for the file that has one, and only for that file.
+    // Paper on a desk: a tile is the sheet, the name and one meta line; the summary is the list's and the preview's.
+    const { unmount } = renderPane({ files: withSummary })
+    expect(screen.queryByText('A ground-floor plan of the east wing.')).not.toBeInTheDocument()
+    unmount()
+    renderPane({ files: withSummary, view: 'list' })
     expect(screen.getByText('A ground-floor plan of the east wing.')).toBeInTheDocument()
   })
 })
@@ -230,16 +236,56 @@ describe('FileBrowserPane — folder drill-down', () => {
   })
 
   /**
-   * In the list view the folders are one connected run with the file table
-   * under it. A row that carries its own radius, border or shadow is a pill, and
-   * the run stops reading as one list.
+   * In the list view the folders are the file table's first rows, under its one column head and in its columns
+   * (paper on a desk, tables): a block above the table put the head mid-table and the counts off the Größe column.
+   * A row with its own radius or shadow would be a pill.
    */
-  it('lists the level’s folders as one connected run in the list view', () => {
+  it('lists the level’s folders as the first rows of the file table, under its head', () => {
     renderPane({ folderNav: folderNav(null), view: 'list' })
     const row = screen.getByTestId('folder-row-root-1')
-    // Not the direct parent: the row's context menu wraps it in a block div.
-    expect(row.closest('[data-slot="item-list"]')).not.toBeNull()
-    expect(row.className).not.toMatch(/\brounded|\bborder\b|\bshadow/)
+    expect(row.tagName).toBe('TR')
+    const table = row.closest('table')
+    expect(table).toBe(screen.getByTestId('file-list-view'))
+    expect(table?.querySelector('tbody > tr')).toBe(row)
+    expect(row.className).not.toMatch(/\brounded|\bshadow/)
+  })
+
+  // Review of 2026-11-10, findings 9 and 10: a subfolder mixed its folders and files in one grid (a folder stretched to
+  // a thumbnail's height), and the root labelled its kinds while a subfolder did not.
+  it('draws every level in one grammar: its folders first, then its files, each labelled when both are there', () => {
+    renderPane({ files: [{ ...files[0], folderId: 'root-1' }], folderNav: folderNav('root-1') })
+    const folderTiles = screen.getByTestId('folder-tiles')
+    expect(within(folderTiles).getByTestId('folder-card-child-1')).toBeInTheDocument()
+    expect(within(folderTiles).queryByTestId('file-card')).not.toBeInTheDocument()
+    expect(screen.getByTestId('folders-label')).toHaveTextContent('Folders')
+    expect(screen.getByText('Files', { selector: 'p' })).toBeInTheDocument()
+    expect(folderTiles.compareDocumentPosition(screen.getByTestId('file-card')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('labels neither kind where the level holds only one', () => {
+    renderPane({ files: [], searchFiles: files, folderNav: folderNav(null) })
+    expect(screen.getByTestId('folder-tiles')).toBeInTheDocument()
+    expect(screen.queryByTestId('folders-label')).not.toBeInTheDocument()
+  })
+
+  it('starts each result’s meta line with the folder it lies in: a search spans every folder', async () => {
+    // Finding 13: results said nothing of where they were.
+    const user = userEvent.setup()
+    renderPane({ files: [], searchFiles: [{ ...files[1], folderId: 'root-2' }], folderNav: folderNav(null) })
+    await user.type(screen.getByRole('textbox', { name: /search files/i }), 'permit')
+    expect(screen.getByTestId('file-card-where')).toHaveTextContent('Bescheide')
+  })
+
+  it('keeps „Select“ in place where the level holds only folders, disabled, so nothing moves under the pointer', () => {
+    // Finding 19: the press came and went with the level's files and moved „Create folder“ under the pointer.
+    renderPane({ files: [], searchFiles: files, folderNav: folderNav(null), selection: { active: false, selectedIds: new Set(), onToggle: vi.fn(), onStart: vi.fn() } })
+    expect(screen.getByTestId('selection-start')).toBeDisabled()
+  })
+
+  it('marks an empty level so its own Hochladen is the pane’s one ink press', () => {
+    // Finding 8: two black Hochladen (the toolbar's and the empty state's; a phone's floating one and the empty state's).
+    const { container } = renderPane({ files: [], searchFiles: files, folderNav: folderNav('root-2') })
+    expect(container.querySelector('[data-empty-level]')).not.toBeNull()
   })
 
   it('a typed query escapes the current folder and searches the corpus', async () => {
@@ -400,8 +446,9 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
     // cards — and clearing the query threw them back again.
     expect(await screen.findByTestId('file-list-view')).toBeInTheDocument()
     expect(screen.queryByTestId('semantic-match')).not.toBeInTheDocument()
-    // And the ranking survives into it: the rank is on the row.
-    expect(await screen.findByTestId('file-list-relevance')).toHaveTextContent('1')
+    // And the ranking survives into it: the rows in rank order, with no „1, 2“ column repeating it.
+    expect(await screen.findAllByTestId('file-list-row')).not.toHaveLength(0)
+    expect(screen.queryByTestId('file-list-relevance')).toBeNull()
   })
 
   it('waits in the shape of the view the answer will arrive in', async () => {
@@ -454,7 +501,7 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
 
     // The match evidence: the passage and its page. The search ranks and shows no score (ADR-0136).
     const match = await screen.findByTestId('semantic-match')
-    expect(within(match).getByText(/second escape route/i)).toBeInTheDocument()
+    expect(match).toHaveTextContent(/second escape route/i)
     expect(within(match).getByTestId('semantic-page')).toHaveTextContent(/page 4/i)
     expect(within(match).queryByText(/%/)).not.toBeInTheDocument()
 
@@ -587,25 +634,17 @@ describe('FileBrowserPane — loading', () => {
     onDeleteFolder: vi.fn(),
   }
 
-  it('draws the breadcrumb row, the folder tiles and the upload cell it is about to be replaced by', () => {
-    renderPane({
-      isLoading: true,
-      folderNav,
-      uploadCard: <button type="button">Drop files</button>,
-    })
+  it('draws the folder tiles it is about to be replaced by, and no path row the root no longer has', () => {
+    renderPane({ isLoading: true, folderNav })
 
-    const skeleton = screen.getByTestId('file-browser-skeleton')
-    expect(within(skeleton).getByTestId('folder-breadcrumb-skeleton')).toBeInTheDocument()
-    expect(within(skeleton).getAllByTestId('folder-card-skeleton').length).toBeGreaterThan(0)
-    // The dashed cell is the last tile of a project's grid; a skeleton without
-    // it is one tile shorter than the answer.
-    expect(within(skeleton).getByText('Drop files')).toBeInTheDocument()
-  })
-
-  it('leaves the breadcrumb out on a surface that has no folders', () => {
-    renderPane({ isLoading: true })
     const skeleton = screen.getByTestId('file-browser-skeleton')
     expect(within(skeleton).queryByTestId('folder-breadcrumb-skeleton')).not.toBeInTheDocument()
+    expect(within(skeleton).getAllByTestId('folder-card-skeleton').length).toBeGreaterThan(0)
+  })
+
+  it('leaves the folder tiles out on a surface that has no folders', () => {
+    renderPane({ isLoading: true })
+    const skeleton = screen.getByTestId('file-browser-skeleton')
     expect(within(skeleton).queryByTestId('folder-card-skeleton')).not.toBeInTheDocument()
   })
 
@@ -615,7 +654,7 @@ describe('FileBrowserPane — loading', () => {
     expect(within(skeleton).getByTestId('file-list-skeleton')).toBeInTheDocument()
     // The detail view's column headings are known before the listing is, so the
     // rows do not jump down by a header when the answer lands.
-    expect(within(skeleton).getByText('Status')).toBeInTheDocument()
+    expect(within(skeleton).getByText('Name')).toBeInTheDocument()
   })
 })
 
@@ -653,9 +692,8 @@ describe('FileBrowserPane — folder aggregates', () => {
     // One document + one subfolder directly inside: two items, not the three
     // things that exist underneath it.
     expect(within(card).getByText('2 items')).toBeInTheDocument()
-    // The newest thing under it is in the SUBFOLDER, so the walk has to reach
-    // it — the folder's own document is two months older.
-    expect(within(card).getByRole('time')).toHaveAttribute('datetime', '2026-03-09T00:00:00Z')
+    // The tile says how much it holds; when it last changed is the list's column.
+    expect(within(card).queryByRole('time')).not.toBeInTheDocument()
   })
 
   it('counts one entry per document: a replaced Fassung leaves the tile unless older ones are shown', () => {
@@ -679,19 +717,18 @@ describe('FileBrowserPane — folder aggregates', () => {
     unmount()
 
     // The replaced Fassung failed to read, and nobody is told about it on the
-    // list view's row, the one place a folder's read state is drawn.
+    // list view's row: the row says only what departs from all read, and this is not that.
     const list = renderPane({ files: [], searchFiles: [...corpus, older], folderNav: nav, view: 'list' })
-    expect(within(screen.getByTestId('folder-row-root-a')).getByTestId('folder-read-state')).not.toHaveAttribute(
-      'data-state',
-      'failed'
-    )
+    expect(
+      within(screen.getByTestId('folder-row-root-a')).queryByTestId('folder-read-state')?.getAttribute('data-state')
+    ).not.toBe('failed')
     list.unmount()
 
     renderPane({ files: [], searchFiles: [...corpus, older], folderNav: nav, showOlderRevisions: true })
     expect(within(screen.getByTestId('folder-card-root-a')).getByText('3 items')).toBeInTheDocument()
   })
 
-  it('marks a folder tile with the dot alone and spells the state out on the list view\'s row', () => {
+  it('says on a folder tile only what departs from „all read“, in words, and spells the state out on the list view\'s row', () => {
     const failed: FileItem = { ...files[1], id: 'broken', folderId: 'root-a', status: 'failed' }
     const nav = {
       folders: tree,
@@ -704,9 +741,8 @@ describe('FileBrowserPane — folder aggregates', () => {
     const { unmount } = renderPane({ files: [], searchFiles: [...corpus, failed], folderNav: nav })
     const dot = within(screen.getByTestId('folder-card-root-a')).getByTestId('folder-read-state')
     expect(dot).toHaveAttribute('data-state', 'failed')
-    // The words are there for a screen reader and on hover, not drawn on the tile.
-    expect(dot).toHaveAttribute('title', '1 failed')
-    expect(within(dot).getByText('1 failed')).toHaveClass('sr-only')
+    // An exception carries its words on the tile: a colour never travels alone.
+    expect(within(dot).getByText('1 failed')).not.toHaveClass('sr-only')
     unmount()
 
     renderPane({ files: [], searchFiles: [...corpus, failed], folderNav: nav, view: 'list' })

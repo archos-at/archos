@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { parseWireEvent, type WireEvent } from '@/adapters/api/wire-v2'
-import { foldTurnEvents } from '@/features/chat/lib/turn-fold'
+import { foldTurnEvents } from '@/lib/turns/turn-fold'
 import { STREAM_FRAMES } from './stream-frames'
 import { answerBodies, asSettled, v2Turn } from './v2-turn'
 

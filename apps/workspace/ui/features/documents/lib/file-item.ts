@@ -50,6 +50,7 @@ type OptionalWireField =
   | 'lifecycle'
   | 'sourceDeletedAt'
   | 'marks'
+  | 'baseKnowledgeEntryId'
 
 /** Normalize one wire row into the shape every file surface reads. */
 export function toFileItem(row: DocumentWireRow): FileItem {
@@ -91,6 +92,7 @@ export function toFileItem(row: DocumentWireRow): FileItem {
     lifecycle: row.lifecycle ?? 'active',
     sourceDeletedAt: row.sourceDeletedAt ?? null,
     marks: row.marks ?? null,
+    baseKnowledgeEntryId: row.baseKnowledgeEntryId ?? null,
     retryable: row.retryable ?? true,
   }
 }

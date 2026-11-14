@@ -23,7 +23,7 @@
  */
 
 import { type FC } from 'react'
-import { CornerDownRight, MessageCircleQuestion, type LucideIcon } from 'lucide-react'
+import { CornerDownRight, type LucideIcon } from 'lucide-react'
 import { SectionLabel } from '@/components/ui/section-label'
 import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
@@ -69,7 +69,7 @@ interface FollowUpChipsProps {
  * chip fills the composer should not have to learn it twice.
  */
 const CHIP = cn(
-  'group inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-md border px-[13px] py-1',
+  'group inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-control px-[13px] py-1',
   // On a phone a chip is given a floor of 12rem and the row wraps, so each
   // question gets a line of its own: „Wie wird das Hauptgeschoß…" is still a
   // usable offer where „Wie…" is not, and the question WRAPS there instead of
@@ -79,7 +79,7 @@ const CHIP = cn(
   // at once is the whole affordance.
   'max-sm:min-w-[12rem] bg-card text-foreground/85 shadow-xs card-caption font-medium',
   'transition-colors duration-quick ease-out motion-reduce:transition-none',
-  'hover:bg-accent hover:text-foreground',
+  'hover:bg-sheet-hover hover:text-foreground',
   'focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-2',
   'pointer-coarse:min-h-11',
 )
@@ -110,7 +110,7 @@ export const FollowUpChips: FC<FollowUpChipsProps> = ({
 
   return (
     <div className={cn('flex flex-col gap-2.5', className)}>
-      <SectionLabel icon={MessageCircleQuestion}>{t('cards.followUps.eyebrow')}</SectionLabel>
+      <SectionLabel>{t('cards.followUps.eyebrow')}</SectionLabel>
       {title && <p className="card-title text-foreground">{title}</p>}
 
       <div

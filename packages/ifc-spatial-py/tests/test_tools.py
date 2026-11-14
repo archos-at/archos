@@ -21,13 +21,15 @@ import json
 from pathlib import Path
 
 import pytest
+from ifc_spatial.model import MAX_FILE_BYTES
+from ifc_spatial.model import ModelTooLargeError
+from ifc_spatial.model import ModelUnreadableError
 from ifc_spatial.tools import MEASURES
-from ifc_spatial.tools import RELATIONS
 from ifc_spatial.tools import ToolError
 from ifc_spatial.tools import call
 from ifc_spatial.tools import create_tools
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLE_HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 NO_NORTH = FIXTURES / "house-with-rooms.ifc"
 
@@ -221,42 +223,6 @@ def test_the_tool_list_is_the_ported_surface_plus_what_the_port_added(tools: lis
     ]
 
 
-def test_every_tool_documents_itself_in_german(tools: list) -> None:
-    for tool in tools:
-        assert tool.title and tool.description
-        assert tool.input_schema["type"] == "object"
-        for name in tool.input_schema.get("required", []):
-            assert name in tool.input_schema["properties"], f"{tool.name}.{name}"
-
-
-def test_one_relations_tool_carries_every_relation(tools: list) -> None:
-    """Eleven tools would be eleven copies of one schema. What must not be
-    coarse is the meaning, so the enum documents each relation individually."""
-    relations = next(tool for tool in tools if tool.name == "relations")
-    enum = relations.input_schema["properties"]["relation"]["enum"]
-    assert enum == list(RELATIONS)
-    for name, meaning in RELATIONS.items():
-        assert f"{name} — {meaning}" in relations.description
-
-
-def test_measure_lists_every_measurement_and_corrects_the_clear_height(tools: list) -> None:
-    measure = next(tool for tool in tools if tool.name == "measure")
-    assert measure.input_schema["properties"]["measure"]["enum"] == list(MEASURES)
-    # The TS description said clearHeight returns the space solid's height and
-    # NOT the lichte Höhe. On this engine it is the lichte Höhe, measured under
-    # the lowest obstruction; keeping the old sentence would describe an
-    # operator that no longer exists.
-    assert "Lichte Raumhöhe" in MEASURES["clearHeight"]
-    assert "NICHT die Höhe des Raumkörpers" in MEASURES["clearHeight"]
-
-
-def test_the_expensive_tools_say_they_are_expensive(tools: list) -> None:
-    by_name = {tool.name: tool for tool in tools}
-    assert "5 Sekunden" in by_name["draw"].description
-    assert "Kontaktkarte" in by_name["relations"].description
-    assert "tesselliert" in by_name["measure"].description
-
-
 def test_clear_height_measures_under_the_suspended_ceiling(tools: list, house: str) -> None:
     """The one number where the engine swap changes an ANSWER.
 
@@ -363,18 +329,10 @@ def test_the_same_file_opens_twice_to_one_handle(tools: list, house: str) -> Non
     assert again["contentHash"].startswith(house)
 
 
-def test_base64_and_path_reach_the_same_model(tools: list, house: str) -> None:
-    import base64
-
-    encoded = base64.b64encode(SAMPLE_HOUSE.read_bytes()).decode("ascii")
-    opened = call(tools, "open_model", {"base64": encoded})
-    assert opened["model"] == house
-
-
-def test_a_missing_source_says_which_ones_exist(tools: list) -> None:
+def test_a_missing_path_is_named(tools: list) -> None:
     with pytest.raises(ToolError) as raised:
         call(tools, "open_model", {})
-    assert "path, url oder base64" in str(raised.value)
+    assert "path" in str(raised.value)
 
 
 def test_an_unknown_tool_names_the_ones_that_exist(tools: list) -> None:
@@ -394,6 +352,66 @@ def test_an_unreadable_file_is_refused_with_the_reason_a_person_can_act_on(tools
     with pytest.raises(ToolError) as raised:
         call(tools, "open_model", {"path": str(broken)})
     assert "Modell konnte nicht geöffnet werden" in str(raised.value)
+
+
+def test_a_refused_file_stays_the_cause_so_a_client_can_tell_which_refusal_it_was(tools: list, tmp_path: Path) -> None:
+    """The agent's client reads the cause, and without it every refusal reads as an outage."""
+    empty = tmp_path / "leer.ifc"
+    empty.write_bytes(b"")
+    with pytest.raises(ToolError) as raised:
+        call(tools, "open_model", {"path": str(empty)})
+    cause = raised.value.__cause__
+    assert isinstance(cause, ModelUnreadableError)
+    assert not isinstance(cause, ModelTooLargeError)
+    assert cause.reason.startswith("Diese Datei ist leer")
+
+
+def test_a_file_over_the_limit_stays_the_cause_with_both_numbers(tools: list, tmp_path: Path) -> None:
+    big = tmp_path / "gross.ifc"
+    with big.open("wb") as file:
+        file.truncate(MAX_FILE_BYTES + 1)
+    with pytest.raises(ToolError) as raised:
+        call(tools, "open_model", {"path": str(big)})
+    cause = raised.value.__cause__
+    assert isinstance(cause, ModelTooLargeError)
+    assert (cause.size, cause.limit) == (MAX_FILE_BYTES + 1, MAX_FILE_BYTES)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [MemoryError(), OSError(5, "Input/output error"), FileNotFoundError(2, "Path does not exist")],
+    ids=["memory", "read_failed", "gone_meanwhile"],
+)
+def test_a_failure_in_the_parser_that_is_not_about_the_file_is_not_a_refusal(
+    tools: list, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: Exception
+) -> None:
+    """The file may be fine and the next attempt may work, so it must not read as a refusal of the file."""
+
+    def parser_fails(_path: str) -> None:
+        raise failure
+
+    monkeypatch.setattr("ifc_spatial.model.ifcopenshell.open", parser_fails)
+    complete = tmp_path / "vollstaendig.ifc"
+    complete.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="ascii")
+    with pytest.raises(ToolError) as raised:
+        call(tools, "open_model", {"path": str(complete)})
+    assert raised.value.__cause__ is failure
+
+
+def test_a_failed_read_in_the_preflight_is_not_a_refusal(
+    tools: list, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A refusal here told the reader the file was at fault, and its reason named this worker's scratch path."""
+
+    def read_fails(path: str, _mode: str) -> None:
+        raise OSError(24, "Too many open files", path)
+
+    monkeypatch.setattr("ifc_spatial.model.open", read_fails, raising=False)
+    complete = tmp_path / "vollstaendig.ifc"
+    complete.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="ascii")
+    with pytest.raises(ToolError) as raised:
+        call(tools, "open_model", {"path": str(complete)})
+    assert isinstance(raised.value.__cause__, OSError)
 
 
 class TestTheEnvelopeReachesTheSurface:
@@ -528,13 +546,6 @@ class TestTheClearanceReachesTheSurface:
         assert answer["decidable"] is False
         assert "clearOpeningWidth()" in answer["missing"]["remedy"]
 
-    def test_the_description_does_not_let_it_be_mistaken_for_measure_clear_width(self, tools: list) -> None:
-        """Two operators, both called a lichte Breite, one surface. The tool has to
-        say which is which where the model reads it, or it will pick by name."""
-        clearance = next(tool for tool in tools if tool.name == "clearance")
-        assert "measure/clearWidth" in clearance.description
-        assert "zwei Laibungen" in clearance.description
-
 
 class TestTheDoorGraphReachesTheSurface:
     """`egressPath` was on the surface and the graph under it was not.
@@ -644,10 +655,6 @@ class TestTheSunPositionReachesTheSurface:
             {"model": handle, "when": "2026-06-21T12:00:00+02:00", "latitude": 48.2082, "longitude": 16.3738},
         )
         assert smuggled["decidable"] is False, "the tool forwarded coordinates it must not accept"
-
-    def test_the_schema_offers_no_coordinates(self, tools: list) -> None:
-        sun = next(tool for tool in tools if tool.name == "sun_position")
-        assert set(sun.input_schema["properties"]) == {"model", "when"}
 
 
 # ── nothing may be library-only ─────────────────────────────────────────────

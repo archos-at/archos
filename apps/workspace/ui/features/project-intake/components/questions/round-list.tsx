@@ -2,6 +2,7 @@
 
 import type { JSX, ReactNode } from 'react'
 import { Check } from 'lucide-react'
+import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
 import { intakeQuestionsStepCopy } from '@/i18n/namespaces/intake-questions-step'
 import { cn } from '@/lib/utils'
@@ -55,7 +56,7 @@ export function RoundList({
     row.done ? t('list.done') : current ? t('list.current') : t('list.open')
   return (
     <aside aria-labelledby="questions-list-title" className="hidden w-[280px] shrink-0 md:block" data-testid="questions-list">
-      <h1 id="questions-list-title" className="ml-2.5 text-xl font-semibold tracking-tight">
+      <h1 id="questions-list-title" className="ml-2.5 text-xl font-medium">
         {t('heading')}
       </h1>
       <p className="text-muted-foreground ml-2.5 mt-1 text-[13px]">{t('subtitle')}</p>
@@ -65,12 +66,9 @@ export function RoundList({
         if (inGroup.length === 0) return null
         return (
           <section key={group} aria-labelledby={`questions-group-${group}`} data-testid={`questions-group-${group}`}>
-            <h2
-              id={`questions-group-${group}`}
-              className="text-muted-foreground mb-1.5 ml-2.5 mt-[18px] text-[11px] font-normal uppercase tracking-[0.06em]"
-            >
+            <SectionLabel as="h2" id={`questions-group-${group}`} className="mb-1.5 ml-2.5 mt-[18px]">
               {t(`groups.${group}`)}
-            </h2>
+            </SectionLabel>
             <ul>
               {inGroup.map((row) => {
                 const current = row.id === currentId
@@ -90,14 +88,14 @@ export function RoundList({
                     {row.done ? (
                       <div className={rowClass}>{body}</div>
                     ) : (
-                      <button
+                      <button data-attr="intake-choose"
                         type="button"
                         aria-current={current ? 'true' : undefined}
                         onClick={() => onChoose(row.id)}
                         className={cn(
                           rowClass,
-                          'focus-visible:ring-ring/60 hover:bg-card/70 focus-visible:outline-none focus-visible:ring-2',
-                          current && 'bg-card ring-border ring-1 hover:bg-card'
+                          'focus-visible:ring-ring/60 hover:bg-hover focus-visible:outline-none focus-visible:ring-2',
+                          current && 'bg-sheet ring-border ring-1 hover:bg-sheet'
                         )}
                       >
                         {body}

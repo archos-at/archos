@@ -36,17 +36,19 @@ from typing import NamedTuple
 
 from langchain_core.messages import BaseMessage
 from langchain_core.messages import HumanMessage
-from langchain_core.messages import SystemMessage
 
 from agent.common import load_prompt
 from agent.common import render_prompt_template
-from agent.common.applicability import render_project_block
 from agent.common.estate_paths import estate_path
 from agent.common.estate_paths import reads_the_estate
+from agent.common.law_gate import jurisdiction_note
+from agent.common.law_gate import turn_building_law_block
 from agent.common.norm_registry import parcel_note
 from agent.common.page_region_words import percent
 from agent.common.page_region_words import where_on_the_page_en
 from agent.common.platform_lessons import render_lessons_block
+from agent.common.prompt_caching import cached_context_message
+from agent.common.prompt_caching import cached_system_message
 from agent.common.prompt_store import ResolvedPrompt
 from agent.common.prompt_store import git_blob_version
 from agent.common.prompt_store import prompt_store
@@ -60,10 +62,15 @@ from agent.common.source_kinds import parse_shelf
 from agent.common.steering import AppliedSteer
 from agent.common.steering import with_steering
 from agent.knowledge.already_read import render_already_read_block
+from agent.knowledge.project_memory import turn_personal_memory
 from agent.observability.langfuse_trace_attributes import current_fallback_identity
 from agent.observability.langfuse_trace_attributes import record_prompt_link
 from agent.observability.langfuse_trace_attributes import record_trace_metadata
 
+from .context_layout import TURN_LAYOUT
+from .context_layout import as_conversation_context
+from .context_layout import context_layout
+from .context_layout import layout_values
 from .models import ResearchAgentState
 
 logger = logging.getLogger(__name__)
@@ -123,6 +130,10 @@ def bundled_static_block() -> ResolvedPrompt:
     )
 
 
+#: The block a static prompt published before ADR-0175 carries: Austria's chain, read by every turn.
+RETIRED_STATIC_BLOCK = "<building_law>"
+
+
 def resolve_static_block() -> ResolvedPrompt:
     """The static half to render with, and the prompt link for this turn's spans.
 
@@ -138,6 +149,10 @@ def resolve_static_block() -> ResolvedPrompt:
     free-form metadata through :func:`record_static_prompt_metadata`.
     """
     resolved = prompt_store().get(STATIC_PROMPT_NAME, fallback=bundled_static_block())
+    if not resolved.is_fallback and RETIRED_STATIC_BLOCK in resolved.text:
+        # A version published before ADR-0175 still holds Austria's chain for every turn; the
+        # turn context now carries the site's own. The bundled file serves until a push replaces it.
+        resolved = bundled_static_block()
     if not resolved.is_fallback and not _renders(resolved.text):
         # The store's promise ("never raises into a turn") covers the FETCH.
         # The text it fetched is still a Jinja template one layer up, and a
@@ -247,7 +262,7 @@ def focus_file_path(state: Any, tool_names: Sequence[str]) -> str | None:
     """The estate path of the turn's subject, when the turn reads the estate by path; else None.
 
     The folder is left out: inside one shelf the leaf names the document, and
-    ``read_file`` resolves it wherever it is filed (``knowledge_layer.estate.resolve_in``).
+    ``read_file`` resolves it wherever it is filed (``knowledge_layer.estate.backend.resolve_in``).
     """
     file_name = getattr(state, "focus_file_name", None)
     shelf = getattr(state, "focus_shelf", None)
@@ -350,22 +365,6 @@ def trigger_block(state: Any, tool_names: Sequence[str]) -> str | None:
     return "\n".join(lines)
 
 
-def oib_applicability(project_context: str | None) -> str | None:
-    """Which OIB-Richtlinien this project's own facts make applicable, or None.
-
-    The one part of the old ``## Normenregister`` block that survives the cut:
-    the catalog itself was a list of RIS addresses ``ris_lookup`` resolves from
-    a free-text question (ADR-0060 (d)), while this section is derived from the
-    project's `confirmed:` facts and no tool can produce it from the question.
-    Fail-open, because a verdict list is never worth a turn.
-    """
-    try:
-        return render_project_block(project_context or "")
-    except Exception:  # noqa: BLE001 — applicability must never break prompt building
-        logger.warning("piloti: OIB applicability block failed — omitted", exc_info=True)
-        return None
-
-
 def build_tools_info(tools: Sequence[Any]) -> list[dict[str, str]]:
     """Name + description per tool, the shape the template's tool list reads."""
     return [
@@ -378,17 +377,52 @@ def build_tools_info(tools: Sequence[Any]) -> list[dict[str, str]]:
 
 
 class TurnPrompt(NamedTuple):
-    """What one turn sends besides the transcript: the system prompt and the turn context."""
+    """What one turn sends besides the transcript: the system prompt, the turn context, and the stable head.
+
+    ``conversation`` is what the project and the office set, sent right after
+    the system prompt in the conversation layout (``context_layout``, ADR-0177);
+    None in the turn layout or when nothing is set.
+    """
 
     system: str
     context: str
+    conversation: str | None = None
+
+
+def cached_turn_prompt(state: ResearchAgentState) -> TurnPrompt | None:
+    """The prompt this run already rendered, kept on the state; None on the run's first call.
+
+    Every input is fixed for the life of one run, so the strings are
+    byte-identical across tool-loop rounds and the render runs once.
+    """
+    if state.cached_system_prompt is None or state.cached_turn_context is None:
+        return None
+    return TurnPrompt(state.cached_system_prompt, state.cached_turn_context, state.cached_conversation_context)
+
+
+def cached_prompt_fields(prompt: TurnPrompt) -> dict[str, str | None]:
+    """The state update that keeps ``prompt`` for the run's next rounds (:func:`cached_turn_prompt`)."""
+    return {
+        "cached_system_prompt": prompt.system,
+        "cached_turn_context": prompt.context,
+        "cached_conversation_context": prompt.conversation,
+    }
 
 
 def render_turn_prompt(template: str, state: ResearchAgentState, tools_info: Sequence[dict[str, str]]) -> TurnPrompt:
     """The system prompt (the static half, resolved through the store) and this turn's context."""
+    static = resolve_static_block().text
+    values = turn_context_values(state, tools_info)
+    if context_layout(template) == TURN_LAYOUT:
+        return TurnPrompt(
+            system=render_static_block(static),
+            context=with_answer_language(_render_context(template, values), state.messages),
+        )
+    conversation, note = layout_values(values)
     return TurnPrompt(
-        system=render_static_block(resolve_static_block().text),
-        context=with_answer_language(render_turn_context(template, state, tools_info), state.messages),
+        system=render_static_block(static),
+        context=with_answer_language(_render_context(template, note), state.messages),
+        conversation=as_conversation_context(_render_context(template, conversation)),
     )
 
 
@@ -412,7 +446,10 @@ def request_messages(
 ) -> list[BaseMessage]:
     """The request for one model call: system, history, turn context, newest human message, this turn. Pure.
 
-    The turn context goes right BEFORE the last human message and is never
+    The system prompt carries the one block breakpoint (``prompt_caching.
+    cached_system_message``): it is the same bytes on every call of every turn
+    of an organization, so the entry written there is read by the next turn's
+    first call. The turn context goes right BEFORE the last human message and is never
     stored, so every round of a turn shares the whole prefix up to and
     including it, and the next turn shares the system prompt and every turn
     before the previous question (that question was sent behind its own
@@ -420,19 +457,40 @@ def request_messages(
     human message gets it right after the system prompt. Steering notes are
     spliced after it: they arrive while the turn runs, so they index past the
     newest human message, and two messages (system, context) precede the
-    transcript they index into.
+    transcript they index into. In the conversation layout the stable head
+    (``TurnPrompt.conversation``) follows the system prompt, with a breakpoint
+    of its own: the same bytes on every turn of the project.
     """
     newest = next(
         (index for index in range(len(history) - 1, -1, -1) if isinstance(history[index], HumanMessage)),
         0,
     )
-    request = [
-        SystemMessage(content=prompt.system),
-        *history[:newest],
-        HumanMessage(content=prompt.context),
-        *history[newest:],
-    ]
-    return with_steering(request, steering, offset=2)
+    head = [cached_system_message(prompt.system)]
+    if prompt.conversation:
+        head.append(cached_context_message(prompt.conversation))
+    request = [*head, *history[:newest], HumanMessage(content=prompt.context), *history[newest:]]
+    return with_steering(request, steering, offset=len(head) + 1)
+
+
+def _site_blocks(state: ResearchAgentState, documents: list[dict[str, Any]], tool_names: list[str]) -> dict[str, Any]:
+    """Where the turn looks and where the project stands: the focus, the trigger and the site's law.
+
+    The site's law is the knowledge context's and nothing else's (ADR-0175): ``building_law`` is the chain
+    text the BFF rendered from the records (``citations/roles.py``), and ``jurisdiction_note`` is the gate's
+    note, which a gate that withholds law shows in its place (``common/law_gate.py``).
+    """
+    return {
+        "focus_file_name": state.focus_file_name,
+        "focus_shelf_label": shelf_label(state.focus_shelf),
+        # The path `read_file` opens it by, when the turn reads the estate: a bare „dieses Dokument“
+        # then goes straight into the read. A hint, never a filter (ADR-0133 decision 3).
+        "focus_file_path": focus_file_path(state, tool_names),
+        "focus_region_block": focus_region_block(state, tool_names),
+        "trigger_block": trigger_block(state, tool_names),
+        "building_law": turn_building_law_block(),
+        "jurisdiction_note": jurisdiction_note(),
+        "parcel_note": parcel_note(documents),
+    }
 
 
 def render_turn_context(
@@ -445,10 +503,24 @@ def render_turn_context(
     The date is rendered at DAY precision: research needs the date, not the
     clock, and a stable context keeps the rounds of one turn byte-identical.
     """
+    return _render_context(template, turn_context_values(state, tools_info))
+
+
+def _render_context(template: str, values: dict[str, Any]) -> str:
+    rendered = render_prompt_template(template, **values)
+    if os.environ.get("DEBUG_PROMPTS"):
+        logger.debug("Rendered turn context:\n%s", rendered)
+    return rendered
+
+
+def turn_context_values(
+    state: ResearchAgentState,
+    tools_info: Sequence[dict[str, str]],
+) -> dict[str, Any]:
+    """Every value the turn-context template reads, for one run. ``context_layout`` splits them."""
     documents = [doc.model_dump() for doc in (state.available_documents or [])]
     tool_names = [str(tool.get("name", "")) for tool in tools_info]
-    rendered = render_prompt_template(
-        template,
+    return dict(
         # Per TENANT. The envelope's `escalate_to_deep` stays in the schema
         # either way: a field described and then refused is one the model can
         # decline out loud. A hand-off that is refused anyway is replaced by a
@@ -488,15 +560,10 @@ def render_turn_context(
         workspace_block=(
             state.workspace_block if any(name.startswith(WORKSPACE_TOOL_PREFIX) for name in tool_names) else None
         ),
-        focus_file_name=state.focus_file_name,
-        focus_shelf_label=shelf_label(state.focus_shelf),
-        # The path `read_file` opens it by, when the turn reads the estate: a bare „dieses Dokument“
-        # then goes straight into the read. A hint, never a filter (ADR-0133 decision 3).
-        focus_file_path=focus_file_path(state, tool_names),
-        focus_region_block=focus_region_block(state, tool_names),
-        trigger_block=trigger_block(state, tool_names),
-        oib_applicability=oib_applicability(state.project_context),
-        parcel_note=parcel_note(documents),
+        # The asker's own notes (ADR-0180), read off the turn's memory log and
+        # not the state: the state is checkpointed and handed to deep research.
+        personal_memory=turn_personal_memory(),
+        **_site_blocks(state, documents, tool_names),
         # The L1 skills catalog, collated by the register layer; None renders
         # no section.
         skills_block=state.skills_block,
@@ -504,6 +571,3 @@ def render_turn_context(
         # beyond the shapes the envelope teaches (ENVELOPE_SHAPE_TYPES).
         card_shapes_block=state.card_shapes_block,
     )
-    if os.environ.get("DEBUG_PROMPTS"):
-        logger.debug("Rendered turn context:\n%s", rendered)
-    return rendered

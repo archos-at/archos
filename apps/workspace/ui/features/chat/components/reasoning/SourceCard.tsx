@@ -15,7 +15,7 @@
  *    did not use it — a real research outcome that was previously not
  *    expressible at all.
  *
- * Shape: a tinted uppercase folder tab (icon + provenance label) seated on the
+ * Shape: a tinted folder tab (icon + provenance label) seated on the
  * top-left of a card holding the name, its edition when the title states one,
  * and a place chip („Pkt. 3.1.1“, „S. 7“) with the `[N]` beside it. No hit
  * count: the place proves, the number does not (the 2026-10 value test).
@@ -43,7 +43,7 @@ import { Ruler } from 'lucide-react'
 import { SourcePreviewChip } from '../SourcePreview'
 import { CitationMarkers } from '../CitationMarker'
 import { documentEdition, documentShortName } from '../../lib/document-names'
-import { documentLocation } from '../../lib/derivation-basis'
+import { documentLocation, documentLocationDetail } from '../../lib/derivation-basis'
 
 /** Provenance icon per signal — mirrors SourceSignalChip so they never drift. */
 const SIGNAL_ICON: Record<SourceSignal, LucideIcon> = {
@@ -84,7 +84,7 @@ const RoundLoci: FC<{ loci: RoundLocus[]; marked: boolean; repeatLabel: string }
           {i > 0 && ', '}
           {locus.detail}
           {marked && locus.repeat && (
-            <span className="text-muted-foreground/80 italic"> ({repeatLabel})</span>
+            <span className="text-muted-foreground italic"> ({repeatLabel})</span>
           )}
         </Fragment>
       ))}
@@ -183,6 +183,9 @@ export const SourceCard: FC<{
         : pages.length === 1
           ? t('answerSources.page', { page: pages[0]! })
           : t('answerSources.pages', { pages: pages.join(', ') })
+  // The card says where at a glance; which page carries which [N], and the
+  // heading around it, is there for the reader who stops on the place.
+  const locationDetail = loci ? undefined : documentLocationDetail(t, doc)
 
   return (
     <div
@@ -195,7 +198,7 @@ export const SourceCard: FC<{
         link === 'receded' && RECEDED
       )}
     >
-      {/* Folder tab — tinted, uppercase, seated on the card's top-left. */}
+      {/* Folder tab — tinted, seated on the card's top-left. */}
       <SectionLabel
         className={cn(FOLDER_TAB, 'max-w-[calc(100%-0.625rem)]')}
         style={{ backgroundColor: tint.backgroundColor, color: tint.color }}
@@ -224,10 +227,11 @@ export const SourceCard: FC<{
           // rather than spill past a narrow column (design-language
           // §Typography); `break-word` is the last resort for a word the
           // dictionary does not know, never a mid-syllable cut by default.
-          'bg-card relative min-w-0 flex-1 rounded-lg border px-3 py-2.5 shadow-xs hyphens-auto [overflow-wrap:break-word] [hyphenate-limit-chars:10_4_4]',
-          !used && !live && 'border-dashed',
+          'bg-card relative min-w-0 flex-1 rounded-surface px-3 py-2.5 shadow-xs hyphens-auto [overflow-wrap:break-word] [hyphenate-limit-chars:10_4_4]',
+          // An uncited source is a dashed outline, not a sheet: a border of its own in place of the shadow's ring.
+          !used && !live && 'border border-dashed shadow-none',
           !used && !live && link !== 'receded' && UNCITED_DIM,
-          link === 'selected' && 'border-foreground ring-foreground ring-1'
+          link === 'selected' && 'ring-foreground ring-1'
         )}
       >
         {/* The keyboard's way to the card's own toggle: a real button under the
@@ -243,7 +247,7 @@ export const SourceCard: FC<{
               name: [named.title, edition].filter(Boolean).join(', '),
             })}
             data-source-card-toggle=""
-            className={cn('absolute inset-0 cursor-pointer rounded-lg outline-none', FOCUS_RING)}
+            className={cn('absolute inset-0 cursor-pointer rounded-control outline-none', FOCUS_RING)}
           />
         )}
 
@@ -263,7 +267,10 @@ export const SourceCard: FC<{
         {(location || allRepeat || numbers.length > 0) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[13px] leading-[19px]">
             {location && (
-              <span className="bg-muted text-foreground rounded-md px-1.5 tabular-nums">
+              <span
+                className="bg-muted text-foreground rounded-control px-1.5 tabular-nums"
+                title={locationDetail}
+              >
                 {loci ? (
                   <RoundLoci
                     loci={loci}
@@ -294,7 +301,7 @@ export const SourceCard: FC<{
             {numbers.length > 0 && (
               <span
                 data-source-card-markers=""
-                className="text-foreground relative z-10 ml-auto text-[15px] font-semibold tabular-nums"
+                className="text-foreground relative z-10 ml-auto text-[15px] font-medium tabular-nums"
                 onClick={(event) => event.stopPropagation()}
               >
                 <CitationMarkers numbers={numbers} />
@@ -337,7 +344,7 @@ export const BareSourceCard: FC<{ name: string; loci?: RoundLocus[]; workspace?:
     <div role="listitem" data-source-card className="flex min-w-0 flex-col">
       <div
         className={cn(
-          'bg-card min-w-0 flex-1 rounded-lg border border-dashed px-3 py-2.5 shadow-xs',
+          'bg-card min-w-0 flex-1 rounded-surface border border-dashed px-3 py-2.5',
           UNCITED_DIM
         )}
       >
@@ -357,7 +364,7 @@ export const BareSourceCard: FC<{ name: string; loci?: RoundLocus[]; workspace?:
             {/* No hit tally to stand in for: a bare slot has no card, so the
                 pill appears only when there is a repeat to declare. */}
             {allRepeat && (
-              <span className="bg-muted text-muted-foreground/80 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium italic">
+              <span className="bg-muted text-muted-foreground inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium italic">
                 {t('thinking.node.roundDocRepeat')}
               </span>
             )}

@@ -45,6 +45,10 @@ export const bimOperations = [
       'Run one deterministic query against one model, as numbers and rows rather than prose: the body is a ' +
       'closed vocabulary selected by `op` (overview, health, schedule, compliance, compliance-diff, profile, takeoff, compare, types, elements, element, properties, aggregate). Use it for ' +
       'every count, sum and filter ("how many external walls on the ground floor"); never estimate such answers. ' +
+      'Start with `overview` and copy storey names from it exactly; read `properties` before filtering on a property ' +
+      'you have not seen. A missing value is a fact about the export, not the building, and a compliance result reads ' +
+      'published values only: it is never a statement that the building complies. For a number the export does not ' +
+      'state (a clear height, a sill height, an area without a published quantity) use ifc-measure. ' +
       'Changes nothing. Get the model id from bim-model-list.',
     method: 'POST',
     path: '/api/bim/models/[modelId]/query',

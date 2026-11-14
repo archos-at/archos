@@ -55,6 +55,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from agent.common.brand import PRODUCT_NAME
+
 
 @dataclass(frozen=True)
 class SourceKind:
@@ -129,7 +131,26 @@ SOURCE_KINDS: dict[str, SourceKind] = {
 #: from the ``provenance`` payload), so the lane table stays a taxonomy rather
 #: than a sentence with a hole in it.
 AGENT_AUTHORED_LANE = "office_piloti"
-AGENT_AUTHORED_LANE_LABEL = "Piloti-Dokument"
+AGENT_AUTHORED_LANE_LABEL = f"{PRODUCT_NAME}-Dokument"
+
+#: The ``source_format`` a mail thread's chunks carry: the E-Mail-Verlauf, one
+#: Markdown section per message, rendered by the BFF from the messages a person
+#: filed (``apps/workspace/bff/mail-thread/render.ts``, ADR-0137). A FORMAT,
+#: not a document type: the type is ``correspondence``, which a scanned letter
+#: shares, and the format is what tells a reader that each section is a
+#: message whose heading names its sender and whether that sender's domain was
+#: confirmed.
+MAIL_SOURCE_FORMAT = "mail"
+
+#: The fine lanes of a mail thread, and the sub-label they render as. A
+#: project's thread is Projektwissen and an office's is Büroablage: the kind
+#: stays the shelf's, so a mail never wears the building-law colour, not even
+#: one from ``ma37.wien.gv.at`` (a clerk's e-mail is not a Bescheid). The lane
+#: is the sub-label inside that kind, the way ``AGENT_AUTHORED_LANE`` is. Mirrored in
+#: ``apps/workspace/bff/source-kinds.ts``.
+MAIL_LANE = "project_mail"
+OFFICE_MAIL_LANE = "office_mail"
+MAIL_LANE_LABEL = "E-Mail"
 
 #: The kind a model-derived measurement renders as. Named rather than spelled
 #: out at the call sites so the one place that decides "this is a measurement,

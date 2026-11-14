@@ -56,7 +56,7 @@ function InlineDialogFrame({ caption, meta, children }: { caption: string; meta?
       <figcaption className="text-muted-foreground text-xs">{caption}</figcaption>
       <div className="bg-popover text-popover-foreground overflow-hidden rounded-xl border shadow-lg">
         <div className="border-b px-5 pt-5 pb-4 sm:px-6">
-          <h2 className="text-lg font-semibold tracking-tight">Was angekommen ist</h2>
+          <h2 className="text-lg font-semibold">Was angekommen ist</h2>
           {meta}
         </div>
         <div className="px-5 py-5 sm:px-6">{children}</div>
@@ -78,7 +78,7 @@ function Preview(): JSX.Element {
           Opened from the inbox row „Ihr Upload ist gelesen“ (ADR-0086). Inline below; the real route dialog with{' '}
           <code>?dialog=1</code>.
         </p>
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="secondary" size="sm">
           <Link href="/dev/upload-summary?dialog=1">Als Dialog öffnen</Link>
         </Button>
       </div>

@@ -1,4 +1,5 @@
-# Repo-wide tooling: agent skills (apm), release notes, pre-commit.
+# Repo-wide tooling: agent skills (apm), release notes, pre-commit, and the
+# local stack (the whole app on this machine, scripts/local-stack/).
 #
 # Included by the root Taskfile.yml with `flatten: true`: task names stay literal
 # (`agents:audit`). Shared vars (UI, SITE, PY, ...) and env live in the root file.
@@ -24,6 +25,22 @@ tasks:
     desc: Publish every skill in apm.yml into the harness directories it targets
     cmds:
       - uvx --from apm-cli=={{.APM_VERSION}} apm install --frozen
+      - task: agents:browser
+
+  agents:browser:
+    desc: Install agent-browser at the pinned version and run its doctor
+    cmds:
+      # Pinned like apm, and skipped when that version is already installed.
+      # `agent-browser install` is NOT run: it downloads Chrome for Testing,
+      # which the cloud network policy blocks. Where Playwright's Chromium
+      # exists, point AGENT_BROWSER_EXECUTABLE_PATH at it (the SessionStart hook
+      # does this in cloud sessions). `doctor` reports what is still missing.
+      - |
+        have=$(agent-browser --version 2>/dev/null | awk '{print $NF}' || true)
+        if [ "$have" != "{{.AGENT_BROWSER_VERSION}}" ]; then
+          npm i -g agent-browser@{{.AGENT_BROWSER_VERSION}}
+        fi
+      - agent-browser doctor || true
 
   agents:audit:
     desc: Fail when apm.lock.yaml is stale against skills/, or the deployed skills have drifted
@@ -89,11 +106,12 @@ tasks:
 
   # ── repo-wide ───────────────────────────────────────────────────────────────
 
-  # ── release notes (releasenotes/ -> piloti.at/changelog) ────────────────────
+  # ── release notes (releasenotes/ -> the app's What's new, the website's /changelog/)
   #
-  # Every user-visible change ships a note; the notes are published to the
-  # marketing site automatically on merge. The full rules are in
-  # docs/contributing/release-notes.md, the mandate is in AGENTS.md.
+  # Every user-visible change ships a note; on merge the notes are published to
+  # the app (every note, for signed-in members) and the website (the weekly
+  # summaries only). The full rules are in docs/contributing/release-notes.md,
+  # the tiers in ADR-0156, the mandate in AGENTS.md.
 
   release:note:
     desc: 'Start a release note for the change you are making: task release:note -- <slug>'
@@ -126,10 +144,15 @@ tasks:
     cmds:
       - '{{.RENO}} report .'
 
+  release:week:
+    desc: 'One week''s customer notes by area, to write its public summary from: task release:week -- 2026-W44'
+    cmds:
+      - '{{.RELNOTES}} week {{.CLI_ARGS}}'
+
   release:changelog:
-    desc: Regenerate apps/site/src/data/changelog.json from the notes
+    desc: Regenerate the public changelog (website) and the customer list (app) from the notes
     # Normally you never run this: the release-notes workflow does it on merge to
-    # develop and commits the result. Run it locally to preview the page, or to
+    # develop and commits both artifacts. Run it locally to preview the page, or to
     # resolve a conflict in the generated file (regenerate, do not hand-merge).
     # Without OPENROUTER_API_KEY the German side falls back to English.
     cmds:
@@ -145,3 +168,36 @@ tasks:
       # gitignored, so an edit to a skill that was never re-locked shows up
       # here and nowhere else. See the task for what each half catches.
       - task: agents:audit
+
+  # ── the local stack ─────────────────────────────────────────────────────────
+  #
+  # The workspace, the BFF and the backend on this machine, with a real
+  # signed-in session and no Docker and no WorkOS account: Postgres from the
+  # server binaries, Redis for Dragonfly, a test double of the WorkOS API.
+  # Ports, the data directory and the UI directory are LOCAL_STACK_* variables
+  # (scripts/local-stack/defaults.sh). docs/contributing/local-stack.md.
+
+  local:up:
+    desc: 'Start the whole app locally (Postgres, Redis, fake WorkOS, backend api + chat, UI) and migrate; open http://localhost:3000 with `task local:session`'
+    cmds:
+      - bash scripts/local-stack/local-stack.sh up
+
+  local:down:
+    desc: Stop everything `local:up` started (the data directory stays)
+    cmds:
+      - bash scripts/local-stack/local-stack.sh down
+
+  local:status:
+    desc: Which process of the local stack runs, on which port, and where its logs are
+    cmds:
+      - bash scripts/local-stack/local-stack.sh status
+
+  local:session:
+    desc: 'Print a `wos-session` cookie value for a local user (`-- anna` or `-- bert`) to put in a browser or a curl call'
+    cmds:
+      - bash scripts/local-stack/local-stack.sh session {{.CLI_ARGS}}
+
+  local:smoke:
+    desc: 'Browser check of a running local stack: anna adds a memory note, bert sees none (Playwright)'
+    cmds:
+      - bash scripts/local-stack/local-stack.sh smoke

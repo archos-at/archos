@@ -27,6 +27,21 @@ export const common = {
     empty: 'Nothing here yet',
     copyFailed: 'Could not copy',
   },
+  /**
+   * Leaving an editor with unsaved changes (`components/ui/unsaved-edit-confirm.tsx`): Escape, the X and a
+   * scrim click ask first.
+   */
+  unsavedEdit: {
+    title: 'Leave without your changes?',
+    text: 'What you changed here has not been applied yet.',
+    confirm: 'Leave without changes',
+    keep: 'Keep editing',
+  },
+  /** A value a press copies (`components/ui/copyable-value.tsx`): an IFC GlobalId, a project's mail address. */
+  copyableValue: {
+    copy: 'Copy: {value}',
+    copied: 'Copied',
+  },
   /** The shared „failed to load, retry" block (`components/ui/load-error.tsx`). */
   loadError: {
     retry: 'Try again',

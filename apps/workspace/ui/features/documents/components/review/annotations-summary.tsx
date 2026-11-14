@@ -69,7 +69,7 @@ export function AnnotationsSummary({
         {review.load === 'error' && (
           <div className="space-y-2 p-3" data-testid="annotations-summary-error">
             <p className="text-muted-foreground text-xs leading-5">{t('annotations.loadError')}</p>
-            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" onClick={review.retry}>
+            <Button type="button" variant="secondary" size="sm" className="h-8 gap-1.5" onClick={review.retry}>
               <RotateCcw className="size-3.5" aria-hidden />
               {t('annotations.retry')}
             </Button>
@@ -82,12 +82,12 @@ export function AnnotationsSummary({
         )}
         {ready &&
           live.slice(0, PREVIEWED).map((annotation) => (
-            <button
+            <button data-attr="annotations-summary-row"
               key={annotation.id}
               type="button"
               data-testid="annotations-summary-row"
               onClick={() => onOpenReview(annotation.id)}
-              className="hover:bg-accent/40 border-border/60 flex w-full items-start gap-2.5 border-t px-3 py-2.5 text-left first:border-t-0"
+              className="hover:bg-hover border-border/60 flex w-full items-start gap-2.5 border-t px-3 py-2.5 text-left first:border-t-0"
             >
               <CommentPin
                 as="span"
@@ -118,7 +118,7 @@ export function AnnotationsSummary({
           <div className={cn('p-2', ready && live.length > 0 && 'border-border/60 border-t')}>
             <Button
               type="button"
-              variant={live.length > 0 ? 'ghost' : 'outline'}
+              variant={live.length > 0 ? 'ghost' : 'secondary'}
               size="sm"
               className="h-8 w-full justify-center gap-1.5"
               data-testid="open-review"

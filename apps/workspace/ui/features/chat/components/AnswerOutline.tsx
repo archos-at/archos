@@ -79,12 +79,12 @@ export const AnswerOutline: FC<{
     // settle would remount the prose it holds.
     <OutlineProvider value={offered ? () => setOpen(true) : null}>
       {offered && (
-      <button
+      <button data-attr="outline-entry"
         type="button"
         onClick={() => setOpen(true)}
         data-testid="outline-entry"
         className={cn(
-          'text-muted-foreground hover:text-foreground bg-muted/50 hidden min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium outline-none pointer-coarse:flex print:hidden',
+          'text-muted-foreground hover:text-foreground bg-muted/50 hidden min-h-11 w-full items-center gap-2 rounded-control px-3 text-left text-sm font-medium outline-none pointer-coarse:flex print:hidden',
           PRESSABLE,
           FOCUS_RING
         )}
@@ -111,11 +111,11 @@ export const AnswerOutline: FC<{
           <ol className="flex flex-col">
             {headings.map((heading) => (
               <li key={heading.id}>
-                <button
+                <button data-attr="chat-jump"
                   type="button"
                   onClick={() => jump(heading.id)}
                   className={cn(
-                    'text-foreground hover:bg-accent flex min-h-11 w-full items-center px-5 py-2 text-left outline-none',
+                    'text-foreground hover:bg-hover flex min-h-11 w-full items-center px-5 py-2 text-left outline-none',
                     heading.level === 3 ? 'text-muted-foreground pl-9 text-sm' : 'text-base font-medium',
                     PRESSABLE,
                     FOCUS_RING

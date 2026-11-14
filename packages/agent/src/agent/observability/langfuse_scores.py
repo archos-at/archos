@@ -34,35 +34,25 @@ import logging
 import os
 import uuid
 from collections.abc import Iterable
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from dataclasses import field
 from threading import Lock
 from typing import Any
-from typing import Literal
+
+from .base_knowledge_scores import BASE_KNOWLEDGE_SCORE_DEFINITIONS
+from .card_scores import card_validity_score  # noqa: F401  (re-exported)
+from .card_scores import formula_provenance_score  # noqa: F401  (re-exported)
+from .residency_scores import RESIDENCY_SCORE_DEFINITIONS
+from .score_definition import DataType
+from .score_definition import ScoreDefinition
 
 logger = logging.getLogger(__name__)
-
-DataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
 
 HOST_ENV = "LANGFUSE_HOST"
 PUBLIC_KEY_ENV = "LANGFUSE_PUBLIC_KEY"
 SECRET_KEY_ENV = "LANGFUSE_SECRET_KEY"  # pragma: allowlist secret
-
-
-@dataclass(frozen=True)
-class ScoreDefinition:
-    """One score name Grid writes, and the Langfuse score config that describes it."""
-
-    name: str
-    data_type: DataType
-    description: str
-    #: Who writes it: the agent at runtime, the BFF from a vote, a reviewer in
-    #: an annotation queue, or a Langfuse LLM-as-a-judge evaluator.
-    writer: Literal["agent", "bff", "annotation", "judge"] = "agent"
-    categories: tuple[str, ...] = ()
-    min_value: float | None = None
-    max_value: float | None = None
 
 
 #: Every score Grid writes. Adding a score means adding it here first.
@@ -86,9 +76,20 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "piloti-decision",
         "CATEGORICAL",
         "A person's decision on something Piloti produced in this turn: a proposal or a proposed mark taken "
-        "over (accepted) or dismissed, an applied change undone. Metadata names the subject and its id.",
+        "over (accepted) or dismissed, an applied change undone, a held mail's part filed where the agent "
+        "suggested (accepted) or not (dismissed). Metadata names the subject and its id.",
         writer="bff",
         categories=("accepted", "dismissed", "undone"),
+    ),
+    ScoreDefinition(
+        "mail-thread-match",
+        "CATEGORICAL",
+        "What a person did with the E-Mail-Verlauf a held mail matched (ADR-0137): appended it to the strongest "
+        "match (followed), to another Verlauf (other_thread), or started a new one (new_thread). One per decided "
+        "mail text with a match; a follow's append is followed with metadata via follow. The precision of "
+        "thread matching, by strength and sender trust.",
+        writer="bff",
+        categories=("followed", "other_thread", "new_thread"),
     ),
     ScoreDefinition(
         "diagram-filed",
@@ -147,6 +148,22 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         max_value=1,
     ),
     ScoreDefinition(
+        "citation-role-resolved",
+        "NUMERIC",
+        "Share of the building-law sources an answer cited that carry a role from the records, on a turn whose "
+        "gate may bind. Below 1, a cited passage found no edition: its chip states no status.",
+        min_value=0,
+        max_value=1,
+    ),
+    ScoreDefinition(
+        "edition-named",
+        "NUMERIC",
+        "Share of the building-law sources an answer cited whose citation names its edition: the record's "
+        "edition label, or the Fassung day its source stated. The design's edition_named; target 0.95 at core.",
+        min_value=0,
+        max_value=1,
+    ),
+    ScoreDefinition(
         "citation-fallback",
         "BOOLEAN",
         "Retired with the single-source fallback (ADR-0125); no longer written. Kept so older traces chart.",
@@ -167,12 +184,8 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "CATEGORICAL",
         "Which guard lowered the surfaced confidence, or none.",
         categories=(
-            "none",
-            "ungrounded",
-            "quote_unverified",
-            "normative_claim_uncited",
-            "measurement_only",
-            "citation_fallback",
+            *("none", "ungrounded", "quote_unverified", "law_unsettled", "open_point"),
+            *("normative_claim_uncited", "measurement_only", "citation_fallback"),  # retired; stored turns carry them
         ),
     ),
     ScoreDefinition(
@@ -186,6 +199,12 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "quotes-patched",
         "NUMERIC",
         "Misremembered quotes the repair pass corrected in place (ADR-0067).",
+        min_value=0,
+    ),
+    ScoreDefinition(
+        "licensed-quote-capped",
+        "NUMERIC",
+        "Quotes of licensed text a reply had cut at the licence's cap (ADR-0164); only on turns that read some.",
         min_value=0,
     ),
     ScoreDefinition(
@@ -206,6 +225,13 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "steer-count",
         "NUMERIC",
         "How many notes the asker typed into this turn while it ran; written only on a steered turn.",
+        min_value=0,
+    ),
+    ScoreDefinition(
+        "turn-slots-stranded",
+        "NUMERIC",
+        "Admission slots the turn's workflow still held when the turn ended (its teardown outran its bound), "
+        "given back then rather than renewed for as long as the teardown ran; written only when one was.",
         min_value=0,
     ),
     ScoreDefinition(
@@ -267,10 +293,29 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         categories=("low", "medium", "high"),
     ),
     ScoreDefinition(
+        "confidence-open-points",
+        "NUMERIC",
+        "How many open points the answer check read in the answer itself (its prose or its confidence reason): "
+        "something it states is open, unchecked or unresolved and its main point depends on. Above zero caps the "
+        "surfaced level at medium (confidence-capped open_point); the comment names them. Written with "
+        "confidence-judged-level.",
+        min_value=0,
+    ),
+    ScoreDefinition(
         "confidence-judge-unavailable",
         "BOOLEAN",
         "On a turn whose answer was to be graded: true when the answer check could not run (no model, a "
         "timeout, an error, an unreadable reply) and the turn surfaced no level.",
+    ),
+    ScoreDefinition(
+        "confidence-judge-unavailable-reason",
+        "CATEGORICAL",
+        "Written with confidence-judge-unavailable true: why the answer check gave no level. no_judge (no "
+        "model resolved), timeout (past its time limit), error (the call raised; the comment names the "
+        "exception class), unparseable (a reply that is no check; the comment says whether it stopped at the "
+        "output budget), no_reply (an empty reply). The comment and metadata carry the elapsed ms and the "
+        "characters of evidence and answer the prompt held.",
+        categories=("no_judge", "timeout", "error", "unparseable", "no_reply"),
     ),
     ScoreDefinition(
         "claims-by-class",
@@ -303,7 +348,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ScoreDefinition(
         "citations-dropped-labelled",
         "NUMERIC",
-        "Places the answer cited something that did not resolve, labelled in the text instead of removed.",
+        "Citations the answer wrote that did not resolve, removed from the text (named before ADR-0125's amendment).",
         min_value=0,
     ),
     ScoreDefinition(
@@ -312,6 +357,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "On a turn asked to answer in an Anmerkung's thread: true when the model replied there itself, false "
         "when the socket had to post the answer for it. Not written when the turn may not post there.",
     ),
+    *BASE_KNOWLEDGE_SCORE_DEFINITIONS,
 )
 
 #: Scores a person or a judge writes inside Langfuse. Grid never writes these;
@@ -355,7 +401,7 @@ REVIEW_AND_JUDGE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ),
 )
 
-SCORE_DEFINITIONS = SCORE_DEFINITIONS + REVIEW_AND_JUDGE_DEFINITIONS
+SCORE_DEFINITIONS = SCORE_DEFINITIONS + REVIEW_AND_JUDGE_DEFINITIONS + RESIDENCY_SCORE_DEFINITIONS
 
 _DEFINITIONS_BY_NAME = {definition.name: definition for definition in SCORE_DEFINITIONS}
 
@@ -386,41 +432,6 @@ def _boolean(name: str, value: bool, comment: str | None = None) -> RuntimeScore
 # ---------------------------------------------------------------------------
 # Builders: one check's outcome in, scores out. Pure.
 # ---------------------------------------------------------------------------
-
-
-def _count(by_kind: dict[str, Any], kind: str) -> float:
-    event = by_kind.get(kind)
-    return float(event.count) if event is not None else 0.0
-
-
-def citation_scores(events: Iterable[Any]) -> list[RuntimeScore]:
-    """Scores for one turn's ``common.citation_events``.
-
-    ``events`` are ``CitationEvent`` objects. A batch with no ``turn_verified``
-    row and no ``registry_empty`` row is not a turn's verification outcome and
-    yields nothing.
-    """
-    by_kind = {event.kind: event for event in events}
-    if "registry_empty" in by_kind:
-        return [_boolean("sources-empty", True), _boolean("citation-health", False, "registry_empty")]
-    if "turn_verified" not in by_kind:
-        return []
-    from agent.common.citation_events import SEVERITY_BY_KIND
-
-    unhealthy = sorted(kind for kind in by_kind if SEVERITY_BY_KIND.get(kind) in _UNHEALTHY_SEVERITIES)
-    scores = [
-        _boolean("citation-health", not unhealthy, ", ".join(unhealthy) or None),
-        _boolean("answer-grounded", "answer_ungrounded" not in by_kind),
-        _boolean("sources-empty", False),
-        RuntimeScore("citations-removed", _count(by_kind, "citations_removed")),
-        RuntimeScore("quotes-unverified", _count(by_kind, "quote_unverified")),
-    ]
-    precision = by_kind.get("retrieval_precision")
-    retrieved = int((precision.detail or {}).get("retrieved_count") or 0) if precision is not None else 0
-    if retrieved > 0:
-        cited = int(precision.detail.get("cited_count") or 0)
-        scores.append(RuntimeScore("retrieval-precision", round(cited / retrieved, 4)))
-    return scores
 
 
 def turn_outcome_scores(result: Any) -> list[RuntimeScore]:
@@ -464,15 +475,33 @@ def work_unfiled_scores(dropped: int) -> list[RuntimeScore]:
     return [RuntimeScore("work-proposals-unfiled", float(max(0, dropped)))]
 
 
-def answer_check_scores(level: str | None) -> list[RuntimeScore]:
-    """The answer check's level, or that it was unavailable (``common/claim_judge.py``, ADR-0139)."""
+def answer_check_scores(level: str | None, open_points: Sequence[str] = ()) -> list[RuntimeScore]:
+    """The answer check's level and the open points it read, or that it was unavailable (ADR-0139)."""
     if level is None:
         return [_boolean("confidence-judge-unavailable", True)]
-    return [_boolean("confidence-judge-unavailable", False), RuntimeScore("confidence-judged-level", level)]
+    named = RuntimeScore(
+        "confidence-open-points", float(len(open_points)), comment="; ".join(open_points)[:500] or None
+    )
+    return [_boolean("confidence-judge-unavailable", False), RuntimeScore("confidence-judged-level", level), named]
+
+
+def answer_check_unavailable_scores(reason: dict[str, Any]) -> list[RuntimeScore]:
+    """Why the answer check gave no level (``claim_judge.Unavailable.to_wire``), with the call's facts."""
+    facts = [
+        reason.get("error_type"),
+        f"finish_reason {reason['finish_reason']}" if reason.get("finish_reason") else None,
+        "truncated at the output budget" if reason.get("truncated") else None,
+        f"{reason['elapsed_ms']} ms" if reason.get("elapsed_ms") is not None else None,
+        f"evidence {reason['evidence_chars']} chars" if reason.get("evidence_chars") is not None else None,
+        f"answer {reason['answer_chars']} chars" if reason.get("answer_chars") is not None else None,
+    ]
+    comment = "; ".join(fact for fact in facts if fact) or None
+    metadata = {key: value for key, value in reason.items() if key != "cause"}
+    return [RuntimeScore("confidence-judge-unavailable-reason", reason["cause"], comment=comment, metadata=metadata)]
 
 
 def dropped_citation_scores(dropped: int) -> list[RuntimeScore]:
-    """How many places the final text labels a citation that did not resolve; zero included."""
+    """How many citations the verifier removed because they did not resolve; zero included."""
     return [RuntimeScore("citations-dropped-labelled", float(max(0, dropped)))]
 
 
@@ -516,56 +545,6 @@ def file_tool_scores(tools: Iterable[str], literal_searches: int = 0) -> list[Ru
     if literal:
         named.add("knowledge_search (literal)")
     return [RuntimeScore("file-tools-used", value, comment=", ".join(sorted(named)) or None)]
-
-
-def steer_scores(inbox: Any) -> list[RuntimeScore]:
-    """A steered turn's count of notes (``common.steering.SteerInbox``): taken, and how many the turn read."""
-    received = int(getattr(inbox, "received", 0) or 0)
-    if received <= 0:
-        return []
-    applied = len(getattr(inbox, "applied", None) or [])
-    return [RuntimeScore("steer-count", float(received), comment=f"applied {applied}")]
-
-
-def formula_provenance_score(card: dict[str, Any], *, index: int) -> RuntimeScore | None:
-    """How many of a formula card's given defaults say where they are written; ``None`` for any other card.
-
-    An input with no value is not counted against the card: it is shown as
-    unknown, which is the honest outcome, and counted in the metadata instead.
-    A card whose inputs are all unknown scores 1 — nothing on it is untraced.
-    """
-    if card.get("type") != "formula":
-        return None
-    from agent.cards.formula_card import formula_inputs
-
-    inputs = formula_inputs(card)
-    given = [item for item in inputs if item.get("value") is not None]
-    sourced = [item for item in given if (item.get("source") or "").strip() or item.get("reference")]
-    share = round(len(sourced) / len(given), 4) if given else 1.0
-    name = str((card.get("formula") or {}).get("name"))
-    return RuntimeScore(
-        "formula-input-provenance",
-        share,
-        comment=f"{len(sourced)} of {len(given)} given inputs sourced",
-        item=str(index),
-        metadata={
-            "formula": name,
-            "inputs": len(inputs),
-            "given": len(given),
-            "sourced": len(sourced),
-            "unknown": len(inputs) - len(given),
-        },
-    )
-
-
-def card_validity_score(*, outcome: str, card_type: str, index: int, fields: int | None = None) -> RuntimeScore:
-    """One envelope card's schema miss: repaired, dropped, or `stripped` of ``fields`` it may not state."""
-    metadata: dict[str, Any] = {"card_type": card_type}
-    comment = card_type
-    if fields is not None:
-        metadata["fields"] = fields
-        comment = f"{card_type}: {fields} stated field(s) removed"
-    return RuntimeScore("card-validity", outcome, comment=comment, item=str(index), metadata=metadata)
 
 
 def thread_reply_scores(verdict: str) -> list[RuntimeScore]:

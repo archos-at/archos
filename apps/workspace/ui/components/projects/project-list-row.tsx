@@ -6,7 +6,7 @@
  *
  * A different ARRANGEMENT of the project card, not a different component: every
  * part here comes from `project-atoms.tsx`, the same atoms `ProjectCard` is
- * assembled from, so the name, the brief, the timestamp rule and the Übersicht
+ * assembled from, so the name, the location, the timestamp rule and the Übersicht
  * shortcut behave identically in both. Only the layout differs — card material
  * spread into a row, with the meta moved into right-aligned tabular columns.
  * See `docs/design/project-surfaces.md`.
@@ -39,7 +39,7 @@ import {
   ProjectInitialsTile,
   ProjectOpenLink,
   ProjectOverviewLink,
-  ProjectSummaryLine,
+  ProjectLocationLine,
 } from './project-atoms'
 
 interface ProjectListRowProps {
@@ -56,7 +56,7 @@ export function ProjectListRow({ project, docCount = 0, activityAt }: ProjectLis
     // a lifted row would detach from the rows either side of it. The stretched
     // link's ring is square (`after:rounded-none`) so it follows the row, not a
     // pill that no longer exists.
-    <Item as="li" className="group relative gap-3 px-3 py-2.5 has-[a:focus-visible]:bg-accent/40">
+    <Item as="li" className="group relative gap-3 px-3 py-2.5 has-[a:focus-visible]:bg-hover">
       {/* Hidden on phones: indexing a single narrow column by initials is worth
           less than the 48px it takes from names that are already truncating. */}
       <ProjectInitialsTile project={project} className="hidden sm:grid" />
@@ -68,7 +68,7 @@ export function ProjectListRow({ project, docCount = 0, activityAt }: ProjectLis
           </span>
           <ProjectStatusMark project={project} />
         </span>
-        <ProjectSummaryLine project={project} fallback={false} className="mt-0.5" />
+        <ProjectLocationLine project={project} className="mt-0.5" />
       </div>
 
       {/* Left-aligned inside its fixed column: right-aligning an icon+text pair
@@ -78,7 +78,7 @@ export function ProjectListRow({ project, docCount = 0, activityAt }: ProjectLis
       <ProjectDocCount count={docCount} className="hidden w-[104px] shrink-0 lg:flex" />
 
       {/* The one meta column that survives to the narrowest screen: with the
-          brief truncated and the tile gone, "when was I last in this" is what is
+          location truncated and the tile gone, "when was I last in this" is what is
           left to choose a row by. */}
       <span className="flex w-[104px] min-w-0 shrink-0 items-center gap-1.5">
         {/* The icon says whose clock this is (a speech bubble for the viewer's own

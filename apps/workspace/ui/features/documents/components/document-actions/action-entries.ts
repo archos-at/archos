@@ -11,6 +11,7 @@ import {
   Check,
   CheckSquare,
   Download,
+  FileDown,
   Folder,
   FolderInput,
   FolderTree,
@@ -22,6 +23,7 @@ import {
   Eye,
 } from 'lucide-react'
 import type { ActionMenuEntry } from '@/components/ui/action-menu'
+import { isRenditionSource } from '@/lib/documents/preview-types'
 import { isCitableStatus, isFailedStatus, isSettlingStatus } from '../document-status'
 import { sortedFolderDestinations, type FolderDestination, type PathFolder } from '../../lib/folder-path-label'
 import type { ActionableDocument } from './use-document-actions'
@@ -31,6 +33,7 @@ export type DocumentActionKind =
   | 'ask'
   | 'select'
   | 'download'
+  | 'downloadPdf'
   | 'rename'
   | 'move'
   | 'copyOriginPath'
@@ -43,6 +46,7 @@ export const DEFAULT_DOCUMENT_ACTIONS: readonly DocumentActionKind[] = [
   'ask',
   'select',
   'download',
+  'downloadPdf',
   'rename',
   'move',
   'copyOriginPath',
@@ -55,13 +59,20 @@ export const DEFAULT_DOCUMENT_ACTIONS: readonly DocumentActionKind[] = [
  * What a document in a folder the reader may only read offers (ADR-0088):
  * nothing that changes it. The server refuses the rest anyway.
  */
-export const READ_ONLY_DOCUMENT_ACTIONS: readonly DocumentActionKind[] = ['open', 'ask', 'download', 'copyOriginPath']
+export const READ_ONLY_DOCUMENT_ACTIONS: readonly DocumentActionKind[] = [
+  'open',
+  'ask',
+  'download',
+  'downloadPdf',
+  'copyOriginPath',
+]
 
 export interface DocumentActionLabels {
   open: string
   ask: string
   select: string
   download: string
+  downloadPdf: string
   rename: string
   move: string
   copyOriginPath: string
@@ -100,6 +111,12 @@ export interface DocumentActionEntriesInput {
    */
   onPickMoveTarget?: () => void
   onDownload: () => void
+  /**
+   * Download the PDF a person reads the file as: an office file's rendition, a
+   * DXF drawn at a standard scale (ADR-0152). Offered only for those, and only
+   * where the caller passes it.
+   */
+  onDownloadPdf?: () => void
   onRename: () => void
   onDelete: () => void
   onReingest: () => void
@@ -173,6 +190,7 @@ export function documentActionEntries({
   onSelect,
   onPickMoveTarget,
   onDownload,
+  onDownloadPdf,
   onRename,
   onDelete,
   onReingest,
@@ -184,6 +202,7 @@ export function documentActionEntries({
   const offers = (kind: DocumentActionKind): boolean => {
     if (!actions.includes(kind)) return false
     if (kind === 'download') return true
+    if (kind === 'downloadPdf') return Boolean(onDownloadPdf) && isRenditionSource(document)
     if (kind === 'open') return Boolean(onOpen)
     if (kind === 'ask') return Boolean(onAsk)
     if (kind === 'select') return canManage && Boolean(onSelect)
@@ -266,7 +285,7 @@ export function documentActionEntries({
     })
   }
 
-  if (offers('download') || offers('rename') || offers('move') || offers('copyOriginPath')) {
+  if (offers('download') || offers('downloadPdf') || offers('rename') || offers('move') || offers('copyOriginPath')) {
     pushSep()
   }
 
@@ -279,6 +298,17 @@ export function documentActionEntries({
       disabled: isDownloading,
       onSelect: onDownload,
       testId: 'document-action-download',
+    })
+  }
+  if (offers('downloadPdf') && onDownloadPdf) {
+    entries.push({
+      type: 'item',
+      id: 'downloadPdf',
+      label: labels.downloadPdf,
+      icon: FileDown,
+      disabled: isDownloading,
+      onSelect: onDownloadPdf,
+      testId: 'document-action-download-pdf',
     })
   }
   if (offers('rename')) {

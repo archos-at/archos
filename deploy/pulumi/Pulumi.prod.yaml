@@ -32,6 +32,10 @@
 #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:gridAdminToken        "$(openssl rand -hex 32)" --secret
 
 #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:openrouterApiKey      "sk-or-..." --secret
+#   # Optional: openrouterChatKey, openrouterResearchKey, openrouterIngestKey, set
+#   # like openrouterApiKey above. One OpenRouter key per workload, each with its
+#   # own credit limit; each falls back to openrouterApiKey
+#   # (docs/deployment/kubernetes.md §6.3e).
 
 #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:tavilyApiKey          "tvly-..." --secret
 
@@ -47,7 +51,7 @@
 
 #   # REQUIRED (the deploy fails closed without it; set
 
-#   # grid-oib:allowPlaintextJobPayloads=true to override for dev/single-node):
+#   # allowPlaintextJobPayloads=true to override for dev/single-node):
 
 #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:jobPayloadKek          "$(openssl rand -base64 32)" --secret
 
@@ -55,7 +59,7 @@
 
 #   # REQUIRED — the deploy fails closed without them; set
 
-#   # grid-oib:allowUnauthenticatedRedis=true to run without authentication
+#   # allowUnauthenticatedRedis=true to run without authentication
 
 #   # deliberately. The two MUST DIFFER: every app pod carries the cache password
 
@@ -101,7 +105,12 @@ config:
   # dynamically from the merge commit — prod merge shas never have GHCR images;
 
   # only develop tips do.
-  grid-oib:imageTag: sha-331b9d9117661b201c762a7017f9c0d17ec21866
+  grid-oib:imageTag: sha-f9067fceb93b90efe3739265c654c74c2ca66867
+  # Building law exactly as dev released it, carried by this promotion with no
+  # review session here (ADR-0181): the Job `knowledge-carry` publishes the
+  # bundles in apps/workspace/config/knowledge-releases/, decided `carried`.
+  # Four eyes on every other prod change request stays (knowledgeSingleOperator unset).
+  grid-oib:knowledgeCarry: "true"
   # ── Storage (provider CSI, NVMe/TCP) ──
 
   # Classes offered by the provider (see `kubectl get storageclass`):
@@ -119,7 +128,11 @@ config:
   # ── Ingress / TLS ── One key moves every public host: app./s3./otel. derive
 
   # from baseDomain (per-host appDomain/s3Domain/otelDomain keys remain as overrides).
-  grid-oib:baseDomain: piloti.at
+  grid-oib:baseDomain: archos.tech
+  # The domain move (docs/deployment/domain-cutover.md), as dev made it on 2026-11-05: the former
+  # apex and app. host keep answering with a 301 to the same path on their new twin, and their DNS
+  # stays in the former zone (formerDnsZone* below). Keep it while anyone or any connector arrives there.
+  grid-oib:formerBaseDomain: piloti.at
   grid-oib:letsEncryptEmail: matthias@bigls.net
   grid-oib:useStagingIssuer: "false" # flip to false once DNS + TLS verified
   # The provider ships an unremovable metrics stack, so DON'T install a second.
@@ -151,13 +164,13 @@ config:
 
   # nothing to notice), plus:
 
-  #   pulumi config set        grid-oib:dnsZoneId   <zone id from the Cloudflare Overview page>
+  #   pulumi config set        dnsZoneId   <zone id from the Cloudflare Overview page>
 
-  #   pulumi config set        grid-oib:dnsZoneName example.com
+  #   pulumi config set        dnsZoneName example.com
 
   #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:cloudflareApiToken "<Zone:DNS:Edit + Zone:Dynamic URL Redirects:Edit, scoped to that zone>" --secret
 
-  #   pulumi config set        grid-oib:dnsEnabled  true
+  #   pulumi config set        dnsEnabled  true
 
   #
 
@@ -179,6 +192,47 @@ config:
 
   # the zone apex, that stack is the natural owner.
   grid-oib:dnsEnabled: "true"
+  # ── Project mail (Cloudflare Email Routing, ADR-0138) ──
+  # ON, unpaused, in ONE promotion: the November develop→prod release. Owner decision
+  # 2026-11-14, against the runbook's three promotions with gates between them: every
+  # office is a pilot, dev has received mail since 2026-11-05, and the data-protection
+  # go-ahead covers all offices. The WorkOS flag inbound-mail (Production) is the
+  # owner's, switched after the deploy job is green, gates included. Runbook:
+  # docs/deployment/project-mail-runbook.md §6, which lists what still needs a person.
+  #
+  # What makes one apply enough: the scanner is not awaited (src/app/clamav.ts; mail
+  # scans fail closed and retry until freshclam has signatures); the forwards point at a
+  # destination address the account already holds verified, so no click (below);
+  # deploy.yml switches subaddressing on and runs G7 (and G3 with a test address)
+  # after `pulumi up` (scripts/inbound-mail-after-deploy.sh).
+  #
+  # Rollback, fastest first: the WorkOS flag off (addresses bounce as unknown within
+  # 30 s); inboundMailPaused "true" (every delivery a retry, nothing lost); then
+  # inboundMailEnabled "false" (Cloudflare refuses at SMTP time). Never unset the
+  # domain first. The signing key lives in ESC (inboundMailSigningKeys, set
+  # 2026-11-05), never in this file.
+  grid-oib:malwareScanEnabled: "true"
+  # Decision D1 (2026-11-05): (b), the subdomain of the brand domain, a zone of its own.
+  # piloti.at's mail routing belongs to the dev stack (inbox.dev.piloti.at), and
+  # stack-files.spec.ts allows one stack per mail zone. The apex archos.tech keeps
+  # Google Workspace's MX: nothing here touches them (the preview's MX guard reads only
+  # inbox.archos.tech, and nothing calls …/email/routing/enable).
+  grid-oib:inboundMailDomain: inbox.archos.tech
+  grid-oib:inboundMailZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id of archos.tech, Cloudflare zone Overview page)
+  # archos.tech has no _dmarc (read 2026-11-14), and this block is its one writer until
+  # the domain cutover (no dnsDmarc on any stack in that zone; stack-files.spec.ts checks
+  # it). sp= is explicit so inbox.archos.tech is covered; p=none only reports. rua= is on
+  # archos.tech itself, so no other domain must authorize the reports.
+  grid-oib:inboundMailDmarc: "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:matthias.bigl+dmarc@archos.tech"
+  # Where postmaster@ and abuse@ forward (RFC 2142): dev's destination address, which
+  # the dev stack owns and Cloudflare verified on 2026-11-05 (destination addresses are
+  # the account's, shared by every zone). Shared: this stack never creates it, so no
+  # verification mail and no error 2054 half-way through the apply; the preview refuses
+  # it unless the account holds it verified. A prod-only mailbox later: its address
+  # here, Shared "false", one click on Cloudflare's mail (runbook §7).
+  grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-dev@archos.tech
+  grid-oib:inboundMailOperatorAddressShared: "true"
+  grid-oib:inboundMailPaused: "false"
   # NetworkPolicies (default-deny ingress + least-privilege allows) are ON by
 
   # default. Set false only if a validation pass shows they block required
@@ -228,6 +282,18 @@ config:
   grid-oib:pgBackupsEnabled: "true"
   grid-oib:pgBackupRetention: 30d
   grid-oib:pgBackupSchedule: "0 0 2 * * *" # 6-field (sec min hour …): 02:00 daily
+  # OFF-CLUSTER (open, needs a bucket): the archive above still goes to the
+  # in-cluster SeaweedFS, the one pod that crashed on 2026-11-02. Once the
+  # operator has an external S3-compatible bucket, uncomment these with the
+  # project namespace the keys above carry, and put pgBackupSecretKey in ESC like the
+  # other secrets above. Once any off-cluster endpoint is set (this one or
+  # backgroundWorkPgBackupEndpoint), a plan that leaves this archive on
+  # SeaweedFS is refused (`refuseInClusterAppArchive`). Runbook and restore
+  # drill: docs/deployment/kubernetes.md, "Moving the app archive off-cluster".
+  # pgBackupEndpoint: https://<s3-endpoint-outside-this-cluster>
+  # pgBackupBucket: <bucket>
+  # pgBackupAccessKey: <access key id of a key scoped to that bucket>
+  # pgBackupEncryption: AES256 # only if the destination documents SSE
   # ── SeaweedFS ──
 
   # Pin the storage engine in prod: the provider replaces nodes on ITS schedule,
@@ -262,7 +328,18 @@ config:
 
   # the ciphertext they open.
   grid-oib:seaweedfsTopology: single
-  grid-oib:seaweedfsStorageSize: 20Gi
+  # 4Gi, not the old 1Gi: on 2026-11-02 eight ingest pods downloading at once
+  # took the one `weed server` to 1,062 MB of 1 GiB and it restarted five times in
+  # 15 minutes, failing 109 files. Applying this restarts the only storage server.
+  grid-oib:seaweedfsSingleRequestsMemory: 1Gi
+  grid-oib:seaweedfsSingleLimitsMemory: 4Gi
+  # The deploy grows the live volume to this size and never shrinks it
+  # (src/data/pvc-grow.ts). Grown by hand to about 100Gi earlier; 91 % full on
+  # 2026-11-14, 74 GB of it qdrant-snapshots retaken by failed retries of the
+  # snapshot Job (fixed in snapshotScript). 200Gi gives the expiry room to catch
+  # up. Watch the [Objektspeicher] rule of the Infrastructure incidents alert.
+  grid-oib:seaweedfsStorageSize: 200Gi
+  grid-oib:seaweedfsGrowVolume: "true"
   grid-oib:seaweedfsBucket: grid-documents
   grid-oib:seaweedfsAccessKey: grid
   # ── Vector store ──
@@ -275,7 +352,7 @@ config:
 
   # 2026-10-18 (#1079): 11 collections, 52,280 chunks, 0 failed or out of step.
 
-  # Do NOT set `grid-oib:chromaMigration` again: a second Job's import finds the
+  # Do NOT set `chromaMigration` again: a second Job's import finds the
 
   # mark the first one left and refuses (exit 2), which fails the deploy. The
 
@@ -318,9 +395,9 @@ config:
 
   # `ingestWorkerConcurrency` jobs waiting or running. The web tier stops
 
-  # claiming. Peak VLM calls in flight = replicas × concurrency × 4
+  # claiming. VLM calls in flight are capped by vlmFleetConcurrency, the
 
-  # (VLM_BATCH_WORKERS), all on the shared OpenRouter key; the
+  # fleet's lease pool on the shared OpenRouter key; the
 
   # cluster-autoscaler adds nodes for Pending replicas up to the worker group's
 
@@ -336,13 +413,18 @@ config:
   # Two files a pod, because pdfplumber parses on one core (the GIL): a third
   # thread adds no parse speed, another pod does, and one OOM kill then costs
   # two jobs an attempt, not three. 1 CPU requested for that core.
-  # Ceilings it is held to: vision 8 x 2 x 4 = 64 <= 2 x vlmFleetConcurrency
-  # (assertVlmPeakFitsCeiling); Postgres 16 ingest locks, 157 of 200
+  # Seven, not eight, since the high-memory pool (`ingest-worker-heavy`, one
+  # 12Gi pod, one file of 40 MiB or more at a time, defaults in
+  # config/workers.ts) took the eighth pod's place: 7 x 6 + 12 = 54 GB still fits
+  # one batch node, and the fleet still runs 7 x 2 + 1 = 15 documents at once.
+  # Ceilings it is held to: vision 7 x 2 + 1 x 1 = 15 documents <=
+  # vlmFleetConcurrency (32) slots, each file's page-read pool (16) <= 32
+  # (assertVlmPeakFitsCeiling); Postgres 15 ingest locks, 156 of 200
   # (assertPgConnectionBudget, below).
   # Watch `[ingest-mem] file:released` and `kubectl top` after a large file;
   # raise the memory before the ceiling if a pod nears 6Gi.
   grid-oib:ingestWorkerMinReplicas: "1"
-  grid-oib:ingestWorkerMaxReplicas: "8"
+  grid-oib:ingestWorkerMaxReplicas: "7"
   grid-oib:ingestWorkerRequestsCpu: "1"
   grid-oib:ingestWorkerRequestsMemory: 6Gi
   grid-oib:ingestWorkerLimitsCpu: "2"
@@ -365,7 +447,7 @@ config:
   grid-oib:workosAuthkitDomain: prestigious-energy-03.authkit.app
   # ── Observability / OTel Collector + Aspire dashboard (ADR-0029) ──
 
-  # Deployed only when grid-oib:observabilityEnabled (default true) AND every
+  # Deployed only when observabilityEnabled (default true) AND every
 
   # dependency below is set (otelPrimaryApiKey plus the dashboard's Connect
 
@@ -399,9 +481,9 @@ config:
 
   # platform:organizations:view permission under Scopes. Then:
 
-  #   pulumi config set        grid-oib:otelOidcIssuer       https://<tenant>.authkit.app
+  #   pulumi config set        otelOidcIssuer       https://<tenant>.authkit.app
 
-  #   pulumi config set        grid-oib:otelOidcClientId     client_...
+  #   pulumi config set        otelOidcClientId     client_...
 
   #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:otelOidcClientSecret <secret> --secret
 
@@ -425,7 +507,7 @@ config:
 
   # Then:
 
-  #   pulumi config set        grid-oib:err2issueEnabled     true
+  #   pulumi config set        err2issueEnabled     true
 
   #   pulumi config set        grid-oib:err2issueGithubRepo  GRID-check/grid-oib-agent
 
@@ -449,16 +531,18 @@ config:
   # upload then fails with „Object storage is unavailable“ (2026-10-20). Slots
   # are a ceiling, not a reservation: raising this costs nothing until used.
   grid-oib:seaweedfsVolumeMaxCount: "512"
-  grid-oib:dnsZoneName: piloti.at
-  grid-oib:dnsZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id, Cloudflare zone Overview page)
-  # Prod serves the apex, so it owns the zone-level records: the apex A record,
-  # www (proxied, 301 to the apex) and _dmarc. Taken over from the dev stack,
-  # which parked the apex on a redirect to dev.piloti.at until prod existed.
+  grid-oib:dnsZoneName: archos.tech
+  grid-oib:dnsZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id of the new zone, as dev has it)
+  grid-oib:formerDnsZoneName: piloti.at
+  grid-oib:formerDnsZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id of the former zone, Cloudflare zone Overview page)
+  # Prod serves the apex, so it owns the zone-level records: the apex A record and www
+  # (proxied, 301 to the apex). _dmarc of the new zone belongs to the project-mail block
+  # above (inboundMailDmarc), so dnsDmarc stays unset: two TXT records at _dmarc fail DMARC.
   grid-oib:dnsZoneBaseline: "true"
-  # Carried over verbatim from GoDaddy, via the dev stack. The domain has no MX
-  # records; `v=DMARC1; p=reject;` plus `v=spf1 -all` would be the stronger
-  # posture, but that is a mail-policy decision, not a deployment one.
-  grid-oib:dnsDmarc: "v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@onsecureserver.net;"
+  # The former zone keeps its www (301 to its apex, which the Gateway 301s on) and this
+  # policy, carried over verbatim from GoDaddy, under the resource names they always had
+  # (platform/dns.ts), so the move deletes nothing there and needs no state edit.
+  grid-oib:formerDnsDmarc: "v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@onsecureserver.net;"
   grid-oib:langfuseInitUserEmail: matthias@bigls.net
   grid-oib:langfuseOrgId: grid
   grid-oib:langfuseProjectId: grid-oib
@@ -467,11 +551,11 @@ config:
   grid-oib:clickhouseStorageSize: 50Gi
   grid-oib:otelOidcIssuer: https://prestigious-energy-03.authkit.app
   grid-oib:otelOidcClientId: client_01M0SKKRX0XAQ99AFZ31WNJ6XT # pragma: allowlist secret (public OAuth client id)
-  # The same application gates Qdrant's dashboard at qdrant.piloti.at, on by
+  # The same application gates Qdrant's dashboard at qdrant.<baseDomain>, on by
   # default because these keys are set. Register
-  # https://qdrant.piloti.at/oauth2/callback on it in WorkOS before the deploy
+  # https://qdrant.<baseDomain>/oauth2/callback on it in WorkOS before the deploy
   # that brings it (docs/deployment/qdrant-runbook.md, "Dashboard"), or keep
-  # it off with: grid-oib:qdrantDashboardEnabled: "false"
+  # it off with: qdrantDashboardEnabled: "false"
   # ── BFF background pool (ADR-0079) ──
   # Internal replicas of the frontend image claim bff_job_queue fairly across
   # organisations and run project reindex and failed-ingestion rescan jobs, IFC
@@ -500,12 +584,11 @@ config:
   # What the one OpenRouter key is asked to carry, written down here instead of
   # left to the backend image's defaults (these ARE those defaults). Vision calls
   # are held to vlmFleetConcurrency fleet-wide whatever the replica count, so the
-  # ingest tier's ceiling is sized against it: ingestWorkerMaxReplicas (3) x
-  # ingestWorkerConcurrency (3) x vlmBatchWorkers (4) = 36, within 2 x 32. Node
-  # memory, not this budget, holds it at 3 (see the ingestion tier above); the
-  # budget alone would allow 5. The
-  # program refuses a stack past 2x (assertVlmPeakFitsCeiling), because replicas
-  # beyond it only queue on the pool. It was 12 replicas (144), then 8 (96 against
+  # ingest tier's ceiling is sized against it: ingestWorkerMaxReplicas x
+  # ingestWorkerConcurrency documents may not outnumber its slots, and one file's
+  # page-read pool (ingestPageReadParallelism, 16 by default: OCR and vision
+  # together) may not be larger than it (assertVlmPeakFitsCeiling). The pool
+  # caps the calls; a file's pool only bounds its threads and memory. It was 12 replicas (144), then 8 (96 against
   # a pool of 48), before this: a vision call also holds a slot in its model's own
   # pool (providerModelLimitCeiling, 32), so 48 was never reachable, and the three
   # replicas it paid for could never have run a vision call. The program also
@@ -513,7 +596,7 @@ config:
   # providerModelLimitCeiling and vlmFleetConcurrency together (and the provider's
   # own limit with them) first, then the replicas.
   grid-oib:vlmFleetConcurrency: "32"
-  grid-oib:vlmBatchWorkers: "4"
+  grid-oib:ingestPageReadParallelism: "16"
   # Model calls in flight fleet-wide: all models together (the key's limit), and
   # any one model. The adaptive limiter starts at these and halves on a 429.
   grid-oib:providerLimitCeiling: "128"
@@ -521,8 +604,8 @@ config:
   # ── Postgres pooler (ADR-0083) ──
   # Two PgBouncers, spread across nodes, so a drain takes one. Budget against the
   # primary's max_connections of 200 (assertPgConnectionBudget): 2 x (3 pooled
-  # database/role pairs x pgPoolerPoolSize 12 + 1 auth session) = 74, plus 83 held
-  # for the direct connections (see POSTGRES_DIRECT_RESERVE) = 157, 43 to spare.
+  # database/role pairs x pgPoolerPoolSize 12 + 1 auth session) = 74, plus 82 held
+  # for the direct connections (see POSTGRES_DIRECT_RESERVE) = 156, 44 to spare.
   grid-oib:pgPoolerInstances: "2"
   # ── The api tier (ADR-0082 step B) ── every backend HTTP route but the chat
   # socket, behind the aiq-api Service (BACKEND_URL). Sized like the frontend.
@@ -534,3 +617,20 @@ config:
   grid-oib:posthogHost: https://eu.i.posthog.com
   grid-oib:posthogProjectToken: phc_CVrz2Nt2hoJSmBQ9duYHDbWSjkdyQkQxKs7GHxDvg27X # pragma: allowlist secret (public project token)
   grid-oib:posthogSessionReplay: "true"
+  # ── The website's CMS (ADR-0155) ── prepared, not on yet.
+  # Payload at cms.<baseDomain>, behind the platform gate (otelOidc*, like
+  # Langfuse's): platform staff are signed in from it, as editors on a first
+  # visit, and cmsAdminEmail as administrator. The redirect URIs for both
+  # domains are on the Connect application in WorkOS Production. Turning it on
+  # is cmsEnabled "true", once cms-pg's PITR archive has an off-cluster bucket
+  # (cmsPgBackupsEnabled and cmsPgBackup*): ADR-0155, "What the owner has to
+  # decide or obtain", item 2. Until then the website serves its built-in posts.
+  grid-oib:cmsEnabled: "false"
+  grid-oib:cmsAdminEmail: biglmatthias@gmail.com
+  # ── Platform MCP gateway (ADR-0154) ──
+  # platform-mcp.<baseDomain>: /langfuse/mcp (and /cms/mcp once the CMS runs)
+  # for platform owners' agents, signed in with WorkOS. Its session key is
+  # derived from pgAppPassword. WorkOS Production has the resource indicators
+  # for both domains and the JWT template's roles claim.
+  grid-oib:mcpGatewayEnabled: "true"
+  grid-oib:mcpGatewayPlatformOrgId: org_01KYVEVMY9X582SSN872SBTR03

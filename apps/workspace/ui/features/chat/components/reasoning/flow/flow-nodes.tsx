@@ -26,7 +26,7 @@ const Eyebrow: FC<{ children: React.ReactNode }> = ({ children }) => (
 )
 
 const FramingFlowNode: FC<NodeProps<Node<FramingData>>> = ({ data }) => (
-  <div className="bg-card w-[var(--banner-w)] max-w-full rounded-xl border px-4 py-3 text-left shadow-xs">
+  <div className="bg-card w-[var(--banner-w)] max-w-full rounded-surface px-4 py-3 text-left shadow-xs">
     <Eyebrow>
       <span className="inline-flex items-center gap-1.5">{data.label}</span>
     </Eyebrow>
@@ -63,7 +63,7 @@ const FramingFlowNode: FC<NodeProps<Node<FramingData>>> = ({ data }) => (
  * than pointing at nothing.
  */
 const RoundFlowNode: FC<NodeProps<Node<RoundData>>> = ({ data }) => (
-  <div className="bg-card relative w-[var(--banner-w)] max-w-full rounded-xl border px-4 pt-3 pb-2 text-left shadow-xs">
+  <div className="bg-card relative w-[var(--banner-w)] max-w-full rounded-surface px-4 pt-3 pb-2 text-left shadow-xs">
     {data.targets.map((h) => (
       <Handle
         key={h.id}
@@ -74,14 +74,14 @@ const RoundFlowNode: FC<NodeProps<Node<RoundData>>> = ({ data }) => (
       />
     ))}
     {data.foldable && (
-      <button
+      <button data-attr="reasoning-round-toggle"
         type="button"
         onClick={data.onToggle}
         aria-expanded={!data.folded}
         aria-label={data.toggleLabel}
         data-testid="reasoning-round-toggle"
         className={cn(
-          'absolute inset-0 z-10 cursor-pointer rounded-xl outline-none',
+          'absolute inset-0 z-10 cursor-pointer rounded-surface outline-none',
           // Inset: the banner spans the content width, and an offset ring is
           // clipped by the pane on both sides.
           FOCUS_RING_INSET
@@ -111,7 +111,7 @@ const RoundFlowNode: FC<NodeProps<Node<RoundData>>> = ({ data }) => (
         {data.actions.map((action) => (
           <li
             key={action}
-            className="bg-muted text-muted-foreground rounded-md px-1.5 py-0.5 text-[11px] leading-snug pointer-coarse:text-xs"
+            className="bg-muted text-muted-foreground rounded-control px-1.5 py-0.5 text-[11px] leading-snug pointer-coarse:text-xs"
           >
             {action}
           </li>
@@ -192,7 +192,7 @@ const SourceColumnFlowNode: FC<NodeProps<Node<SourceColumnData>>> = ({ data }) =
         style={{ ...H, left: '50%', top: data.inTop }}
       />
       {data.grouped ? (
-        <div className="bg-muted rounded-xl border px-3 py-3">
+        <div className="bg-muted rounded-surface border px-3 py-3">
           <Eyebrow>{data.groupLabel}</Eyebrow>
           <div className="mt-2">{stack}</div>
         </div>
@@ -256,12 +256,12 @@ const UncitedFoldCard: FC<{
   if (slot.expanded) {
     return (
       <div role="listitem" data-testid="uncited-fold" className="mt-1.5 flex min-w-0">
-        <button
+        <button data-attr="chat-toggle"
           type="button"
           onClick={onToggle}
           aria-expanded
           className={cn(
-            'text-muted-foreground duration-snap pointer-fine:hover:text-foreground inline-flex min-h-8 items-center gap-1 rounded-md px-1 text-left text-[13px] leading-[19px] transition-[color,scale] ease-out outline-none active:scale-[0.985] motion-reduce:transition-none pointer-coarse:min-h-11',
+            'text-muted-foreground duration-snap pointer-fine:hover:text-foreground inline-flex min-h-8 items-center gap-1 rounded-control px-1 text-left text-[13px] leading-[19px] transition-[color,scale] ease-out outline-none active:scale-[0.985] motion-reduce:transition-none pointer-coarse:min-h-11',
             FOCUS_RING
           )}
         >
@@ -285,17 +285,17 @@ const UncitedFoldCard: FC<{
       <SectionLabel id={tabId} className={cn(FOLDER_TAB, 'bg-card text-muted-foreground')}>
         {t(`${U}${slot.live ? 'pillLive' : 'pill'}`)}
       </SectionLabel>
-      <button
+      <button data-attr="chat-toggle"
         type="button"
         onClick={onToggle}
         aria-expanded={false}
         aria-describedby={tabId}
         className={cn(
-          'bg-muted/40 duration-snap pointer-fine:hover:bg-muted flex min-h-11 w-full min-w-0 flex-col rounded-lg border border-dashed px-3 py-2.5 text-left transition-[background-color,scale] ease-out outline-none active:scale-[0.985] motion-reduce:transition-none',
+          'bg-muted/40 duration-snap pointer-fine:hover:bg-desk flex min-h-11 w-full min-w-0 flex-col rounded-control border border-dashed px-3 py-2.5 text-left transition-[background-color,scale] ease-out outline-none active:scale-[0.985] motion-reduce:transition-none',
           FOCUS_RING
         )}
       >
-        <span className="text-foreground/80 text-sm leading-5 font-semibold">
+        <span className="text-foreground/80 text-sm leading-5 font-medium">
           {t(`${U}${slot.live ? 'nameLive' : 'name'}`, { count: slot.count })}
         </span>
         <span className="text-muted-foreground line-clamp-2 text-[13px] leading-[19px] [overflow-wrap:break-word] hyphens-auto [hyphenate-limit-chars:10_4_4]">
@@ -309,10 +309,11 @@ const UncitedFoldCard: FC<{
 const FindingsFlowNode: FC<NodeProps<Node<FindingsData>>> = ({ data }) => (
   <div
     className={cn(
-      'bg-card w-[var(--banner-w)] max-w-full rounded-xl border px-4 py-3 text-left shadow-xs',
+      'bg-card w-[var(--banner-w)] max-w-full rounded-surface px-4 py-3 text-left shadow-xs',
       // Pending reads as in-flight rather than as an empty result: dashed
-      // hairline, no fill — the same visual grammar the uncited fold uses.
-      data.pending && 'border-dashed bg-transparent shadow-none'
+      // hairline, no fill — the same visual grammar the uncited fold uses. The
+      // dash is a border of its own, since the settled node's edge is its shadow.
+      data.pending && 'border border-dashed bg-transparent shadow-none'
     )}
   >
     {data.targets.map((h) => (
@@ -344,14 +345,14 @@ const FindingsFlowNode: FC<NodeProps<Node<FindingsData>>> = ({ data }) => (
             data-testid={group.open ? 'basis-open' : 'basis-group'}
             className={cn(
               'col-span-full grid grid-cols-subgrid gap-y-0.5',
-              group.open && 'bg-muted -mx-3 mt-1 rounded-lg px-3 py-2.5'
+              group.open && 'bg-muted -mx-3 mt-1 rounded-surface px-3 py-2.5'
             )}
           >
             <dt
               className={cn(
                 data.compact && 'text-[13px] leading-[19px]',
                 group.open
-                  ? 'text-foreground inline-flex items-start gap-1.5 font-semibold'
+                  ? 'text-foreground inline-flex items-start gap-1.5 font-medium'
                   : 'text-muted-foreground'
               )}
             >
@@ -369,7 +370,7 @@ const FindingsFlowNode: FC<NodeProps<Node<FindingsData>>> = ({ data }) => (
                     <>
                       <CitationMarkers
                         numbers={line.numbers}
-                        className="font-semibold tabular-nums"
+                        className="font-medium tabular-nums"
                       />{' '}
                     </>
                   )}

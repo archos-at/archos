@@ -15,9 +15,12 @@ import { findOpenJobId } from '@/lib/jobs-queue/repository'
 import { BFF_JOB_PRIORITY, type BffJobPriority } from '@/lib/jobs-queue/types'
 import { internalRead } from './document-reader'
 import { isIfcFilename } from '@/lib/bim/types'
-import { extractsFromRendition, isRenditionEnabled } from './rendition'
+import { extractsFromRendition, isRenditionEnabledFor } from './rendition'
 import { servedAsRendition } from './document-delivery'
+import type { DocumentTypeTag } from './tag-vocabulary'
+import type { MailOriginIngestFacts, MailThreadIngestFacts } from '@/lib/mail-thread/ingest-facts'
 import { type AgentDocumentProvenance, INGEST_DISPATCH_FAILED_MESSAGE, type IngestPriority, RENDITION_REQUIRED_MESSAGE, dispatchIngest } from './ingest-dispatch'
+import { isTextHeld } from '@/lib/base-knowledge/text-guard'
 
 export interface UploadDocumentInput {
   projectId: string
@@ -47,6 +50,12 @@ export interface UploadDocumentInput {
   revisionOf?: string | null
   /** See `ShelfUploadInput.priority`: `bulk` for a machine filing on a person's behalf. */
   priority?: IngestPriority
+  /** See `ShelfUploadInput.documentType`: what the file is, when the one filing it said so. */
+  documentType?: DocumentTypeTag
+  /** See `ShelfUploadInput.mailThread`. */
+  mailThread?: MailThreadIngestFacts
+  /** See `ShelfUploadInput.mailOrigin`. */
+  mailOrigin?: MailOriginIngestFacts
 }
 
 export type { UploadDocumentResult }
@@ -121,6 +130,16 @@ export interface DispatchDocumentInput extends BeginModelExtractionInput {
    * only: an IFC model's digest is not the file the row names.
    */
   revisionOf?: string | null
+  /** The older document's id, beside `revisionOf`; recorded for a release, never sent. */
+  revisionOfId?: string | null
+  /**
+   * The document type the filing chose (`ShelfUploadInput.documentType`). Read
+   * by the ingest paths only, like `revisionOf`.
+   */
+  documentType?: DocumentTypeTag | null
+  /** A filed mail's facts (`ShelfUploadInput.mailThread`, `.mailOrigin`). Read by the ingest paths only. */
+  mailThread?: MailThreadIngestFacts | null
+  mailOrigin?: MailOriginIngestFacts | null
 }
 
 export interface DispatchDocumentResult {
@@ -241,13 +260,21 @@ export async function dispatchDocument(
     await markDocumentNotIndexed(row.id, input.organizationId)
     return { jobId: null, status: 'stored' }
   }
+  // A licensed base-knowledge copy whose office has not stated that its licence
+  // covers AI processing is metadata-only (ADR-0163): kept, never read. Asked
+  // here so a re-read, a re-index or a restore cannot index it either. Only the
+  // office shelf holds base knowledge, so no other row pays the read.
+  if (row.scope === 'office_shelf' && (await isTextHeld(input.organizationId, row.id))) {
+    await markDocumentNotIndexed(row.id, input.organizationId)
+    return { jobId: null, status: 'stored' }
+  }
 
   if (isIfcFilename(input.filename)) {
     return beginModelExtraction(input)
   }
   // Decided on the ROW's name and stored type, like the preview route decides
   // what to serve, so a file is indexed from the same PDF a reader is shown.
-  if (isRenditionEnabled() && servedAsRendition(row)) {
+  if (servedAsRendition(row) && isRenditionEnabledFor(row)) {
     return beginRenditionIngest(input, row.filename)
   }
   // Without a converter a Word or presentation file has no source to index
@@ -272,6 +299,10 @@ export async function dispatchDocument(
       provenance: input.provenance ?? null,
       priority: input.priority,
       revisionOf: input.revisionOf ?? null,
+      revisionOfId: input.revisionOfId ?? null,
+      documentType: input.documentType ?? null,
+      mailThread: input.mailThread ?? null,
+      mailOrigin: input.mailOrigin ?? null,
     }
   )
 }
@@ -434,5 +465,9 @@ export async function beginRenditionIngest(
     fileName,
     provenance: input.provenance ?? null,
     revisionOf: input.revisionOf ?? null,
+    revisionOfId: input.revisionOfId ?? null,
+    documentType: input.documentType ?? null,
+    mailThread: input.mailThread ?? null,
+    mailOrigin: input.mailOrigin ?? null,
   })
 }

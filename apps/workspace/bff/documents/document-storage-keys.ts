@@ -46,28 +46,37 @@ export async function presignDocumentImageUpload(
 /**
  * One presigned PUT for a part of a version's stored page text (ADR-0134), with the row's id,
  * version and content hash, which the pipeline writes into `index.json` so the reader can refuse
- * a file that is not this version's. Null when the row is unknown or the part is not one of
- * `PAGE_TEXT_PARTS`; the pipeline then stores nothing.
+ * a file that is not this version's, and the key and bucket, which the ingest reads its parsed
+ * document back from with its read-only credential (`parsed.json`). Null when the row is unknown
+ * or the part is not one of `PAGE_TEXT_PARTS`; the pipeline then stores nothing.
  */
 export async function presignDocumentPageTextUpload(
   documentId: string,
   collectionName: string,
   part: string,
   organizationId?: string
-): Promise<{ uploadUrl: string; storageKey: string; documentId: string; version: number | null; contentHash: string | null } | null> {
+): Promise<{
+  uploadUrl: string
+  storageKey: string
+  storageBucket: string
+  documentId: string
+  version: number | null
+  contentHash: string | null
+} | null> {
   const doc = await findPageTextTarget(documentId, collectionName, organizationId)
   if (!doc) return null
   const storageKey = buildPageTextStorageKey(doc.storageKey, part)
   if (!storageKey) return null
+  const storageBucket = resolveDocumentBucket(doc.storageBucket)
   const uploadUrl = await presignForBackend(
     new PutObjectCommand({
-      Bucket: resolveDocumentBucket(doc.storageBucket),
+      Bucket: storageBucket,
       Key: storageKey,
       ContentType: part.endsWith('.json') ? 'application/json' : 'text/markdown; charset=utf-8',
     }),
     3600
   )
-  return { uploadUrl, storageKey, documentId, version: doc.version, contentHash: doc.contentHash }
+  return { uploadUrl, storageKey, storageBucket, documentId, version: doc.version, contentHash: doc.contentHash }
 }
 
 /**

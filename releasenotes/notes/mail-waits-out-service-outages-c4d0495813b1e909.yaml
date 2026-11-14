@@ -1,0 +1,7 @@
+---
+fixes:
+  - >
+    Mail that reaches a project during a short outage now waits until it can
+    be read properly instead of being mislabelled: a colleague's mail is no
+    longer taken for a stranger's and discarded after 14 days, and a text
+    that could not be read at first is read again later.

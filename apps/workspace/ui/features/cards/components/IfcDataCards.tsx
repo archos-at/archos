@@ -144,7 +144,7 @@ function CardShell({
   children: React.ReactNode
 }): JSX.Element {
   return (
-    <section className="rounded-lg border bg-card p-5" aria-label={title}>
+    <section className="rounded-surface border bg-card p-5" aria-label={title}>
       {/* `flex-wrap`: the compliance card carries two actions, and beside the
           title they pushed the header 104px past a phone's edge. Wrapped, they
           take a line of their own under the title and stay beside it where
@@ -152,7 +152,7 @@ function CardShell({
       <header className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex min-w-0 items-center gap-2">
           <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-          <h3 className="text-sm font-semibold">{title}</h3>
+          <h3 className="text-sm font-medium">{title}</h3>
         </div>
         {action}
       </header>
@@ -184,7 +184,7 @@ function NoModel({
   const t = useTranslations(bimCopy)
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed p-6">
+      <div className="flex items-center justify-center rounded-control border border-dashed p-6">
         <Spinner size="sm" />
       </div>
     )
@@ -348,7 +348,7 @@ export function IfcScheduleCard({
         <div className="space-y-3">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-muted-foreground">
+              <thead className="text-left text-xs text-muted-foreground">
                 <tr>
                   <th scope="col" className="py-1 pr-2 font-medium">
                     {t('schedule.room')}
@@ -364,7 +364,7 @@ export function IfcScheduleCard({
               {storeys.map((entry) => (
                 <tbody key={entry.storeyName}>
                   <tr className="border-t">
-                    <th scope="rowgroup" colSpan={3} className="pt-2 text-left text-xs font-semibold">
+                    <th scope="rowgroup" colSpan={3} className="pt-2 text-left text-xs font-medium">
                       {entry.storeyName}
                     </th>
                   </tr>
@@ -407,7 +407,7 @@ export function IfcScheduleCard({
               */}
               {!storey && (
                 <tfoot>
-                  <tr className="border-t-2 font-semibold">
+                  <tr className="border-t-2 font-medium">
                     <td className="py-1 pr-2">{t('schedule.total')}</td>
                     <td className="py-1 pr-2 text-right tabular-nums">
                       {number(schedule.totals.netFloorArea)} {schedule.units.area}
@@ -527,7 +527,7 @@ export function IfcElementCard({
             // between them: "Feuerwiderstand" and "REI 90" were read out as an
             // unlabelled pair, which is the whole content of the card.
             <div key={setName} className="space-y-0.5">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">{setName}</p>
+              <p className="text-xs font-medium text-muted-foreground">{setName}</p>
               <dl className="space-y-0.5">
                 {Object.entries(properties).map(([name, value]) => (
                   <div key={name} className="flex justify-between gap-3">
@@ -614,11 +614,8 @@ export function IfcComplianceCard({
   // WRONG — every fire-resistance rule stands down, so for a moment the card
   // contradicts the model page about the same building. It also costs a
   // measured ~1.5 s and ~126 MB of server work per card, thrown away.
-  const {
-    data: run,
-    isLoading: queryLoading,
-    error,
-  } = useModelQuery(facts.ready ? (model?.id ?? null) : null, request, pickCompliance)
+  const query = useModelQuery(facts.ready ? (model?.id ?? null) : null, request, pickCompliance)
+  const { data: run, isLoading: queryLoading, error } = query
   const rules = run?.rules ?? null
   const isLoading = queryLoading || !facts.ready
 
@@ -704,13 +701,15 @@ export function IfcComplianceCard({
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {rule.applicable
-                      ? t('compliance.counts', {
+                    {/* A hint, from the records, is said as is: its counts would read as missing data. */}
+                    {!rule.applicable
+                      ? `${t('compliance.notApplicable')}: ${rule.notApplicableReason ?? ''}`
+                      : (rule.hint ??
+                        t('compliance.counts', {
                           passed: rule.passed,
                           failed: rule.failed,
                           undecidable: rule.undecidable,
-                        })
-                      : `${t('compliance.notApplicable')}: ${rule.notApplicableReason ?? ''}`}
+                        }))}
                   </p>
                 </li>
               ))}

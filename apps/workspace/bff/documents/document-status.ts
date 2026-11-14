@@ -123,10 +123,16 @@ export const DOCUMENT_STATUS_FACTS = {
    */
   stored: { variant: 'secondary', phase: 'terminal' },
   /**
-   * Every row's birth status, and nothing else's. The upload path inserts the
-   * row as `uploaded` before dispatching, so a listing read in that millisecond
-   * window meets it — and rows stranded here by the old dispatch (OK without a
-   * job id, status left as-is) still exist in the wild.
+   * The bytes are here and no read of them has been started. Every upload is
+   * born here: the upload path inserts the row as `uploaded` before
+   * dispatching, so a listing read in that millisecond window meets it. It is
+   * not only the birth status, as this comment once said: a new version's
+   * bytes put the row back here (`replaceDocumentWithinQuota`), and so does a
+   * reviewer who releases a held file or sends it through the gate again
+   * (`markScreeningReleased`, `markForRescreening`); the dispatch that follows
+   * each moves it on. The moves are declared in `./reading-lifecycle`. Rows
+   * stranded here by the old dispatch (OK without a job id, status left
+   * as-is) still exist in the wild.
    *
    * NEUTRAL on purpose, for the same reason as `stored`: the bytes are here
    * but nothing was ever indexed, so green "Zitierbar" would promise a

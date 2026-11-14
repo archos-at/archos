@@ -42,6 +42,7 @@ import type { Document } from '@/lib/db/schema/documents'
 import { getAccessibleDocument } from '@/lib/documents/access'
 import type { JobAttempt, JobSliceResult, AgentWakePayload } from '@/lib/jobs-queue/types'
 import { publishToDocumentRoom } from '@/lib/realtime/document-channel'
+import { documentFocus } from '@/lib/turns/document-focus'
 import { chatSocketUrl, runHeadlessTurn, type HeadlessUserMessage } from '@/lib/turns/headless-turn'
 import { HEADLESS_MODE_HEADERS } from '@/lib/turns/headless-mode'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
@@ -55,6 +56,7 @@ import { auditWakeEnded, auditWakeStarted, type AuditedWake } from './wake-audit
 import { delegationEventId } from './wake-ids'
 import { announceAgentWork } from './agent-work'
 import { findWake, handBackDelegation, settleWake } from './wake-repository'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** The hello entries a server must name before a wake is sent: without `if_idle` it would supersede. */
 export const WAKE_REQUIRES = [
@@ -82,7 +84,7 @@ function questionOf(payload: AgentWakePayload, mark: AnnotationRecord): string |
 
 /** The line the thread keeps of the trigger: who, which mark, what they wrote. */
 function triggerLine(payload: AgentWakePayload, mark: AnnotationRecord, who: string, text: string): string {
-  if (payload.trigger === 'assigned') return `${who} hat Anmerkung ${mark.number} an Piloti delegiert: „${text}“`
+  if (payload.trigger === 'assigned') return `${who} hat Anmerkung ${mark.number} an ${PRODUCT_NAME} delegiert: „${text}“`
   return `${who} in Anmerkung ${mark.number}: „${text}“`
 }
 
@@ -102,9 +104,8 @@ export function wakeMessage(input: {
     message_id: payload.wakeId,
     text: input.text,
     author_name: input.authorName,
-    focus_file_name: doc.displayName?.trim() || doc.filename,
+    ...documentFocus(doc),
     focus_shelf: doc.scope === 'office_shelf' ? 'office_shelf' : 'project',
-    focus_document_id: doc.id,
     focus_region: { ...regionAround(mark), annotation_id: mark.id },
     reply_in_thread: true,
     trigger: { kind: payload.trigger, event_id: payload.eventId, annotation_id: payload.annotationId },
@@ -174,7 +175,7 @@ async function handBack(organizationId: string, payload: AgentWakePayload, doc: 
         kind: 'annotations.changed',
         annotationIds: [mark.id],
         change: 'updated',
-        actor: { peerId: null, userId: payload.actor.userId, name: 'Piloti', kind: 'piloti' },
+        actor: { peerId: null, userId: payload.actor.userId, name: PRODUCT_NAME, kind: 'piloti' },
       }).catch(() => undefined)
     }
     return handedBack

@@ -4,8 +4,10 @@
  *
  * All cron expressions are 5-field (minute hour day-of-month month day-of-week)
  * with a per-schedule IANA timezone. `cron-parser` handles DST. Validation runs
- * at save time in the BFF; the scheduler (a later phase) reuses `nextOccurrence`
- * to advance a claimed row before firing (at-most-once semantics).
+ * at save time in the BFF; a fire (`bff/scheduling/next-due.ts`) reuses
+ * `nextOccurrence` to advance the row before the run starts (at-most-once).
+ * Hatchet crons take no time zone, which is why this, not Hatchet, says when a
+ * definition is next due (ADR-0150).
  */
 
 import { CronExpressionParser } from 'cron-parser'
@@ -56,9 +58,8 @@ export function isValidCronExpression(expr: string, tz = 'UTC'): boolean {
 export function nextOccurrence(expr: string, tz: string, after: Date): Date {
   const interval = CronExpressionParser.parse(expr, { tz, currentDate: after })
   // next() is already exclusive of currentDate, but guard against any
-  // sub-second edge so the "strictly > after" contract always holds — keep
-  // this aligned with the workflows copy and the scheduler's copy
-  // (scheduler/cron.js) or a save-time next_run_at could be immediately "due".
+  // sub-second edge so the "strictly > after" contract always holds, or a
+  // save-time next_run_at could be immediately "due".
   let next = interval.next().toDate()
   while (next.getTime() <= after.getTime()) {
     next = interval.next().toDate()

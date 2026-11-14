@@ -1,0 +1,330 @@
+# Hosts and variables the scan finds that carry no data out of the cluster,
+# each with the reason. An entry that no longer occurs fails the check.
+hosts:
+  gesetzefinden.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
+  jusline.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
+  lexfind.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
+  data.legilux.public.lu: the JOLux ontology's namespace in Fedlex's SPARQL query, never fetched
+  docs.oasis-open.org: the Akoma Ntoso XML namespace (packages/public-sources/src/engines/akn.py), never fetched
+  publications.europa.eu: EU language-authority IRIs in Fedlex's SPARQL query, compared as identifiers, never fetched
+  cv.iptc.org: an IPTC digital-source-type vocabulary term in AI provenance metadata, never fetched
+  iptc.org: an XMP namespace in AI provenance metadata, never fetched
+  ns.adobe.com: an XMP namespace in AI provenance metadata, never fetched
+  www.geonames.org: the attribution of the bundled postal-code data (CC BY 4.0), never fetched
+  1.2.0.3: a version-like example in a comment
+  aspmx.l.google.com: an example in a comment (another domain's MX, which project mail never touches)
+  budurl.com: a URL shortener the citation sanitizer strips, never fetched
+  short.io: a URL shortener the citation sanitizer strips, never fetched
+  t.co: a URL shortener the citation sanitizer strips, never fetched
+  tinyurl.com: a URL shortener the citation sanitizer strips, never fetched
+  yourls.org: a URL shortener the citation sanitizer strips, never fetched
+  cloudflare-dns.com: the operator's project-mail smoke script resolves MX records through it; no product data
+  smtp.google.com: the operator's project-mail smoke script sends a test mail through it; no product data
+  gv.at: an example sender domain in the operator's smoke script
+  docs.hatchet.run: a documentation link in a comment
+  esm.sh: Excalidraw's font fallback CDN; copy-excalidraw-assets.mjs stages every font so it is never fetched
+  gateway.envoyproxy.io: a Kubernetes API group name, never fetched
+  vcluster.cnpg.io: a Kubernetes API group name, never fetched
+  integrate.api.nvidia.com: the removed NIM host, named so config_validation can refuse an llm entry on it
+  ma37.wien.gv.at: an example sender domain in a docstring
+  wien.gv.at: a source link in a docstring and the registry, shown to people
+  news.buero.at: an example sender domain
+  xn--mller-kva.at: an example sender domain
+  xample.org: an example address in a component
+  notopenrouter.ai: an example of a non-OpenRouter host in a comment
+  schema.org: a structured-data vocabulary identifier, never fetched
+  www.sitemaps.org: an XML namespace, never fetched
+  www.dsb.gv.at: a link to the Austrian data protection authority, shown to people
+  accounts.google.com: an example issuer in a docstring
+  agentskills.io: a link to the Agent Skills format, shown to people
+  app.example.at: an example address in a comment
+  app.piloti.at: our own app's domain
+  piloti.at: our own domain
+  arxiv.org: an example in a docstring
+  weathercams.faa.gov: an example in a comment
+  cdn.plot.ly: the tokenomics report (a developer tool) loads plotly when a developer opens it
+  ec.europa.eu: a link on the legal page (the EU complaint platform)
+  errors.pydantic.dev: a link inside pydantic error text
+  json-schema.org: a JSON Schema dialect identifier, never fetched
+  www.w3.org: an XML namespace, never fetched
+  schemas.openxmlformats.org: an Office XML namespace, never fetched
+  langfuse.com: links to Langfuse documentation in comments
+  oib.at: an example in a comment
+  www.oib.or.at: a link to the OIB guidelines, shown to people
+  www.openstreetmap.org: a link a person may click to see a photo's location; the app loads nothing from it
+  www.wien.gv.at: a source link in the norm registry, shown to people
+  vilmapflaum.com: the photographer's site, linked in the photo credit on the website's home page; the page loads nothing from it
+  www.instagram.com: the photographer's Instagram, linked in the photo credit on the website's home page; the page loads nothing from it
+  eur-lex.europa.eu: a citation in the EU knowledge pack (configs/knowledge-packs/eu.json), a source a reviewer opens; nothing fetches it
+model_vendors:
+  qdrant: Qdrant's built-in BM25 (qdrant/bm25), computed inside our own Qdrant
+posthog_destinations:
+  01a163d8-dfc6-0000-3e2d-82d9d653bc47: the older feedback workflow, archived on 2026-10-27 (deploy/posthog/README.md); it posts nothing
+env:
+  DEFAULT_BASE_URL: a Python constant in ris-adapter (src/client.py), not a variable; it holds RIS's base URL from configs/sources/at/ris/source.yml, whose hosts public-sources.yaml lists
+  A11Y_BASE_URL: the accessibility audit script's target, our own app
+  ACCESS_KEY: a constant's name in the storage migration script, not a variable
+  ADMIN_TOKEN: a token our own admin routes check
+  ANSWER_CARDS_KEY: a constant's name, not a variable
+  AUTH_CUSTOM_CLIENT_SECRET: Langfuse's sign-in secret, in the cluster
+  BOOTSTRAP_LOCK_KEY: a constant's name (an advisory lock), not a variable
+  CMS_DRAFTING_API_KEY: a key for our own website CMS
+  CMS_REVALIDATE_TOKEN: a token between our own website and CMS
+  CMS_SOCIAL_HANDOFF_API_KEY: a key for our own website CMS
+  CORPUS_EXPORT_TOKEN: a token our own internal route checks
+  COVERAGE_KEY: a constant's name, not a variable
+  DEFAULT_ACCOUNT_KEY: a constant's name, not a variable
+  DST_ACCESS_KEY: the storage migration script's target, our own object store
+  DST_ENDPOINT: the storage migration script's target, our own object store
+  DST_SECRET_KEY: the storage migration script's target, our own object store
+  SRC_ACCESS_KEY: the storage migration script's source, our own object store
+  SRC_ENDPOINT: the storage migration script's source, our own object store
+  SRC_SECRET_KEY: the storage migration script's source, our own object store
+  MINIO_ACCESS_KEY: the retired in-cluster MinIO, read by the storage migration script
+  MINIO_ENDPOINT: the retired in-cluster MinIO, read by the storage migration script
+  MINIO_SECRET_KEY: the retired in-cluster MinIO, read by the storage migration script
+  SECRET_KEY: a constant's name in the storage migration script, not a variable
+  ENCRYPTION_KEY: Langfuse's encryption key, in the cluster
+  FILING_CHOICE_METADATA_KEY: a constant's name, not a variable
+  HATCHET_CLIENT_TOKEN: the token of our own Hatchet
+  HATCHET_TOKEN_SECRET: the secret of our own Hatchet
+  INBOUND_MAIL_SIGNING_KEY: signs mail between the Cloudflare Worker and our BFF (cloudflare.yaml)
+  SIGNING_KEY: signs mail between the Cloudflare Worker and our BFF (cloudflare.yaml)
+  INTERNAL_API_TOKEN: the token between our own tiers
+  LANGFUSE_ENCRYPTION_KEY: Langfuse's encryption key, in the cluster
+  LANGFUSE_INIT_PROJECT_PUBLIC_KEY: our own Langfuse's project key
+  LANGFUSE_INIT_PROJECT_SECRET_KEY: our own Langfuse's project key
+  LANGFUSE_NEXTAUTH_SECRET: our own Langfuse's sign-in secret
+  LANGFUSE_PUBLIC_KEY: our own Langfuse's project key
+  LANGFUSE_SECRET_KEY: our own Langfuse's project key
+  LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: Langfuse's key for our own SeaweedFS
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: Langfuse's key for our own SeaweedFS
+  LEADER_KEY: a constant's name (a keyboard shortcut), not a variable
+  LOGIN_PHOTO_URL: the brand build's photo for the AuthKit page, a file we host
+  NEXTAUTH_SECRET: Langfuse's sign-in secret, in the cluster
+  NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: PostHog's public project token; the host it is sent to is in posthog.yaml
+  POSTHOG_PROJECT_TOKEN: PostHog's public project token; the host it is sent to is in posthog.yaml
+  PUBLIC_POSTHOG_PROJECT_TOKEN: PostHog's public project token; the host it is sent to is in posthog.yaml
+  OPENROUTER_KEY: read by development scripts as OPENROUTER_API_KEY (openrouter.yaml)
+  PAYLOAD_SECRET: our own website CMS's secret
+  PLATFORM_MCP_ADMISSION_TOKEN: a token our own internal route checks
+  QDRANT_READ_ONLY_KEY: our own Qdrant's read-only key
+  QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__ACCESS_KEY: Qdrant's key for our own SeaweedFS
+  QDRANT__STORAGE__SNAPSHOTS_CONFIG__S3_CONFIG__SECRET_KEY: Qdrant's key for our own SeaweedFS
+  REDACTED_TOKEN: a constant's name, not a variable
+  S3_ACCESS_KEY: a key for our own SeaweedFS
+  S3_SECRET_KEY: a key for our own SeaweedFS
+  SEAWEED_ACCESS_KEY: a key for our own SeaweedFS
+  SEAWEED_SECRET_KEY: a key for our own SeaweedFS
+  SEAWEED_BACKEND_READ_SECRET_KEY: a key for our own SeaweedFS
+  SEAWEED_LANGFUSE_ACCESS_KEY: a key for our own SeaweedFS
+  SEAWEED_LANGFUSE_SECRET_KEY: a key for our own SeaweedFS
+  SEAWEED_READONLY_ACCESS_KEY: a key for our own SeaweedFS
+  SEAWEED_READONLY_SECRET_KEY: a key for our own SeaweedFS
+  SEAWEED_TENANT_ADMIN_ACCESS_KEY: a key for our own SeaweedFS
+  SEAWEED_TENANT_ADMIN_SECRET_KEY: a key for our own SeaweedFS
+  SECRET_ACCESS_KEY: CNPG's key for our own object store
+  SESSION_KEY: agentgateway's session key, in the cluster
+  SITE_URL: our own website's address
+  STAGE_SECONDS_KEY: a constant's name, not a variable
+  TRACE_CLIENT_ID_HMAC_SECRET: an HMAC key for pseudonyms in our own traces
+  TRACE_USER_IDENTITY_HMAC_SECRET: an HMAC key for pseudonyms in our own traces
+  WEB_PUSH_VAPID_PRIVATE_KEY: signs our push messages (web-push.yaml); never sent
+  WEB_PUSH_VAPID_PUBLIC_KEY: identifies our push messages to the browser's push service (web-push.yaml)
+  NVIDIA_API_KEY: credential_resolution maps the removed NIM host to it; config_validation refuses an llm entry on NIM at boot
+# Every direct runtime dependency of an image says where it talks to. A vendor
+# SDK is in its row's `sdks` (it reaches the vendor's default host with no URL in
+# our code); everything else is here, under the reason it opens no flow of its own.
+packages:
+  'no network of its own: UI, parsing, rendering, formatting, validation, crypto':
+    - 'js:d3-array'
+    - 'js:github-slugger'
+    - 'js:micromark'
+    - 'js:micromark-extension-gfm'
+    - 'js:remark-frontmatter'
+    - 'js:remark-mdx'
+    - 'js:remark-parse'
+    - 'js:safe-regex2'
+    - 'js:unified'
+    - 'js:@xstate/react'
+    - 'js:xstate'
+    - 'js:yaml'
+    - 'js:graphql'
+    - 'js:jose'
+    - 'js:sharp'
+    - 'js:@payloadcms/richtext-lexical'
+    - 'js:@payloadcms/translations'
+    - 'js:@payloadcms/ui'
+    - 'py:numpy'
+    - 'py:ifcopenshell'
+    - 'js:@a2ui/react'
+    - 'js:@a2ui/web_core'
+    - 'js:@citation-js/core'
+    - 'js:@citation-js/plugin-bibtex'
+    - 'js:@citation-js/plugin-csl'
+    - 'js:@citation-js/plugin-ris'
+    - 'js:@dagrejs/dagre'
+    - 'js:@ifc-lite/data'
+    - 'js:@ifc-lite/geometry'
+    - 'js:@ifc-lite/parser'
+    - 'js:@ifc-lite/renderer'
+    - 'js:@opentelemetry/api'
+    - 'js:@opentelemetry/api-logs'
+    - 'js:@opentelemetry/context-async-hooks'
+    - 'js:@opentelemetry/resources'
+    - 'js:@opentelemetry/sdk-logs'
+    - 'js:@opentelemetry/sdk-metrics'
+    - 'js:@opentelemetry/sdk-trace'
+    - 'js:@radix-ui/react-avatar'
+    - 'js:@radix-ui/react-checkbox'
+    - 'js:@radix-ui/react-collapsible'
+    - 'js:@radix-ui/react-context-menu'
+    - 'js:@radix-ui/react-dialog'
+    - 'js:@radix-ui/react-dropdown-menu'
+    - 'js:@radix-ui/react-label'
+    - 'js:@radix-ui/react-popover'
+    - 'js:@radix-ui/react-progress'
+    - 'js:@radix-ui/react-radio-group'
+    - 'js:@radix-ui/react-scroll-area'
+    - 'js:@radix-ui/react-select'
+    - 'js:@radix-ui/react-separator'
+    - 'js:@radix-ui/react-slot'
+    - 'js:@radix-ui/react-switch'
+    - 'js:@radix-ui/react-tabs'
+    - 'js:@radix-ui/react-toggle'
+    - 'js:@radix-ui/react-toggle-group'
+    - 'js:@radix-ui/react-tooltip'
+    - 'js:@radix-ui/themes'
+    - 'js:@redactpii/node'
+    - 'js:@tanstack/react-form'
+    - 'js:@tanstack/react-query'
+    - 'js:@uiw/react-md-editor'
+    - 'js:@uppy/core'
+    - 'js:@uppy/react'
+    - 'js:@xyflow/react'
+    - 'js:chrono-node'
+    - 'js:class-variance-authority'
+    - 'js:clsx'
+    - 'js:cmdk'
+    - 'js:cron-parser'
+    - 'js:diff'
+    - 'js:email-forward-parser'
+    - 'js:exceljs'
+    - 'js:fflate'
+    - 'js:file-type'
+    - 'js:http-message-signatures'
+    - 'js:katex'
+    - 'js:lucide-react'
+    - 'js:marked'
+    - 'js:mermaid'
+    - 'js:motion'
+    - 'js:nextstepjs'
+    - 'js:postal-mime'
+    - 'js:react'
+    - 'js:react-dom'
+    - 'js:react-markdown'
+    - 'js:react-resizable-panels'
+    - 'js:rehype-katex'
+    - 'js:remark-directive'
+    - 'js:remark-gfm'
+    - 'js:remark-math'
+    - 'js:roughjs'
+    - 'js:server-only'
+    - 'js:sonner'
+    - 'js:structured-headers'
+    - 'js:tailwind-merge'
+    - 'js:tw-animate-css'
+    - 'js:uuid'
+    - 'js:zod'
+    - 'js:zod-v3'
+    - 'js:zustand'
+    - 'py:a2ui-core'
+    - 'py:aiofiles'
+    - 'py:aiosqlite'
+    - 'py:beautifulsoup4'
+    - 'py:brotli'
+    - 'py:cryptography'
+    - 'py:ezdxf'
+    - 'py:icalendar'
+    - 'py:langgraph-checkpoint-sqlite'
+    - 'py:libpff-python'
+    - 'py:lxml'
+    - 'py:mail-parser-reply'
+    - 'py:matplotlib'
+    - 'py:pillow'
+    - 'py:py3langid'
+    - 'py:pydantic'
+    - 'py:pygments'
+    - 'py:python-dotenv'
+    - 'py:python-multipart'
+    - 'py:regex'
+    - 'py:shapely'
+    - 'py:striprtf'
+    - 'py:validators'
+  'assets it would fetch are self-hosted: Excalidraw fonts (EXCALIDRAW_ASSET_PATH), pdf.js cmaps and fonts (public/pdfjs), PDF fonts from local files, Geist from the package':
+    - 'js:@excalidraw/excalidraw'
+    - 'js:pdfjs-dist'
+    - 'js:@react-pdf/renderer'
+    - 'js:geist'
+  'a client that connects only to the address we give it: a service in the cluster (in-cluster.yaml), our own routes, or a host a row names':
+    - 'js:@payloadcms/db-postgres'
+    - 'js:@payloadcms/storage-s3'
+    - 'js:@payloadcms/plugin-mcp'
+    - 'js:@astrojs/node'
+    - 'js:@a2a-js/sdk'
+    - 'js:@aws-sdk/client-s3'
+    - 'js:@aws-sdk/s3-request-presigner'
+    - 'js:@hatchet-dev/typescript-sdk'
+    - 'js:@langfuse/client'
+    - 'js:@modelcontextprotocol/client'
+    - 'js:@modelcontextprotocol/ext-apps'
+    - 'js:@modelcontextprotocol/server'
+    - 'js:@opentelemetry/exporter-logs-otlp-http'
+    - 'js:@opentelemetry/exporter-metrics-otlp-http'
+    - 'js:@opentelemetry/exporter-trace-otlp-http'
+    - 'js:@uppy/xhr-upload'
+    - 'js:drizzle-kit'
+    - 'js:drizzle-orm'
+    - 'js:http-proxy'
+    - 'js:ioredis'
+    - 'js:postgres'
+    - 'js:rate-limiter-flexible'
+    - 'js:ws'
+    - 'py:asyncpg'
+    - 'py:boto3'
+    - 'py:hatchet-sdk'
+    - 'py:httpx'
+    - 'py:langfuse'
+    - 'py:langgraph-checkpoint-postgres'
+    - 'py:psycopg'
+    - 'py:pyjwt'
+    - 'py:redis'
+    - 'py:sqlalchemy'
+  'DNS lookups of a mail sender''s domain (DKIM, DMARC, SPF) through the cluster''s resolver; no message content':
+    - 'js:mailauth'
+  'the agent runtime and its frameworks: network only through the models and exporters the rows above name':
+    - 'py:deepagents'
+    - 'py:fastapi'
+    - 'py:nvidia-nat'
+    - 'py:nvidia-nat-core'
+    - 'py:nvidia-nat-eval'
+    - 'py:nvidia-nat-langchain'
+    - 'py:nvidia-nat-profiler'
+  'Next.js: its telemetry is switched off in the image (NEXT_TELEMETRY_DISABLED, apps/workspace/deploy/Dockerfile)':
+    - 'js:next'
+  'Payload CMS: `telemetry: false` (apps/cms/src/payload.config.ts) and NEXT_TELEMETRY_DISABLED (apps/cms/Dockerfile)':
+    - 'js:payload'
+    - 'js:@payloadcms/next'
+  'Astro: ASTRO_TELEMETRY_DISABLED in the image (apps/website/Dockerfile); the site is static, served from our cluster':
+    - 'js:astro'
+  'build time only: CSS, type checking, the static site build and its plugins':
+    - 'js:@astrojs/check'
+    - 'js:@astrojs/mdx'
+    - 'js:@astrojs/rss'
+    - 'js:@astrojs/sitemap'
+    - 'js:cross-env'
+    - 'js:@tailwindcss/postcss'
+    - 'js:typescript'
+  'our own workspace package':
+    - 'py:public-sources'
+    - 'py:knowledge-layer'

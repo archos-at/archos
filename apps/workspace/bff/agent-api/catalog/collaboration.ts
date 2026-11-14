@@ -28,12 +28,20 @@ import {
   unreadAnchorsQuerySchema,
 } from '@/lib/inbox/inbox-wire'
 import { pushPreferencesPatchSchema } from '@/lib/inbox/push-categories'
+import {
+  createPersonalMemorySchema,
+  deletePersonalMemoryTopicSchema,
+  listPersonalMemoryQuerySchema,
+  patchPersonalMemorySchema,
+  renamePersonalMemoryTopicSchema,
+} from '@/lib/personal-memory/wire'
 import { grantPostSchema, roleChangeSchema, visibilitySchema } from '@/lib/sharing/sharing-wire'
 import { SHAREABLE_RESOURCE_TYPES } from '@/lib/sharing/sharing-vocabulary'
 import { applyProposalRequestSchema, proposalListQueryShape } from '@/lib/proposals/types'
 import { listSessionDocumentsQuerySchema } from '@/lib/session-documents/session-documents-wire'
 import { updatePreferencesSchema } from '@/lib/user-preferences/preferences-wire'
 import type { AgentOperation } from '../operation'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const resourceParams = z.object({
   resourceType: z.enum(SHAREABLE_RESOURCE_TYPES).describe('The kind of shareable resource.'),
@@ -41,6 +49,10 @@ const resourceParams = z.object({
 })
 
 const inboxItemParams = z.object({ id: z.string().describe('The inbox item id (a UUID), from inbox-list.') })
+
+const personalMemoryParams = z.object({
+  itemId: z.string().describe('The personal memory note id (a UUID), from personal-memory-list.'),
+})
 
 const conversationParams = z.object({
   id: z.string().describe('The conversation id, from conversation-list.'),
@@ -227,7 +239,8 @@ export const collaborationOperations = [
     description:
       'Grants `subjectUserId` a `role` on the resource: `viewer`, `collaborator` (the default) or `owner`. User ids come from ' +
       'sharing-candidate-list. Only the resource owner may grant. `{ escalate: true }` instead makes a project administrator ' +
-      'the owner of a resource they were not party to, recorded as its own act. Returns the sharing state. ' +
+      'the owner of a resource they can already read and do not own, recorded as its own act, and its owners are told; ' +
+      'a resource the caller cannot read answers 404. Returns the sharing state. ' +
       'Sensitive: the organization switches it on for agents, and the person confirms every call.',
     method: 'POST',
     path: '/api/sharing/[resourceType]/[resourceId]/grants',
@@ -335,7 +348,7 @@ export const collaborationOperations = [
     domain: 'collaboration',
     summary: 'List who can be mentioned in a conversation',
     description:
-      'Who a message here may mention (people and Piloti). Use these `targetId` values in conversation-message-add, never typed names.',
+      'Who a message here may mention (people and ' + PRODUCT_NAME + '). Use these `targetId` values in conversation-message-add, never typed names.',
     method: 'GET',
     path: '/api/conversations/[id]/mention-candidates',
     params: conversationParams,
@@ -362,7 +375,7 @@ export const collaborationOperations = [
     domain: 'collaboration',
     summary: 'List open proposed changes on a shelf',
     description:
-      'Piloti’s open proposals (file operations, notes, profile changes) with the documents they name, newest first. Give ' +
+      PRODUCT_NAME + '’s open proposals (file operations, notes, profile changes) with the documents they name, newest first. Give ' +
       '`projectId` (from project-list) or `shelf`, and optionally `kind`. Page with `nextCursor`. Ids feed proposal-get; the person decides each.',
     method: 'GET',
     path: '/api/proposals',
@@ -410,9 +423,9 @@ export const collaborationOperations = [
   {
     name: 'agent-change-undo',
     domain: 'collaboration',
-    summary: 'Undo a change Piloti made',
+    summary: 'Undo a change ' + PRODUCT_NAME + ' made',
     description:
-      'Reverses one change Piloti applied (id from conversation-message-changes); 409 `moved-on` if the object changed since, or `already-undone`. Runs with the person’s rights.',
+      'Reverses one change ' + PRODUCT_NAME + ' applied (id from conversation-message-changes); 409 `moved-on` if the object changed since, or `already-undone`. Runs with the person’s rights.',
     method: 'POST',
     path: '/api/piloti-changes/[id]/undo',
     params: z.object({ id: z.string().describe('The change id (a UUID), from conversation-message-changes.') }),
@@ -441,6 +454,100 @@ export const collaborationOperations = [
     body: updatePreferencesSchema,
     idempotent: true,
     load: () => import('@/app/api/user/preferences/route'),
+  },
+
+  // Personal memory (ADR-0180)
+  {
+    name: 'personal-memory-list',
+    domain: 'collaboration',
+    summary: 'List the person’s personal memory',
+    description:
+      'The notes kept about the person themself (how they want answers, their role and recurring topics), ' +
+      'pinned first then newest, as `{ items, nextCursor }`. Only this person reads these notes: no colleague and no administrator of the ' +
+      'organization sees them. `topics` counts all the person’s notes. Item ids feed personal-memory-update and personal-memory-delete.',
+    method: 'GET',
+    path: '/api/user/memory',
+    query: listPersonalMemoryQuerySchema,
+    load: () => import('@/app/api/user/memory/route'),
+  },
+  {
+    name: 'personal-memory-create',
+    domain: 'collaboration',
+    summary: 'Add a personal memory note',
+    description:
+      'Keeps one note about the person themself: `kind` and `content`, optional `pinned` and `topic`. A note about a project belongs in ' +
+      'project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers ' +
+      '`{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. ' +
+      '400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.',
+    method: 'POST',
+    path: '/api/user/memory',
+    body: createPersonalMemorySchema,
+    idempotent: true,
+    load: () => import('@/app/api/user/memory/route'),
+  },
+  {
+    name: 'personal-memory-update',
+    domain: 'collaboration',
+    summary: 'Edit a personal memory note',
+    description:
+      'Changes any of a personal note’s kind, content, pinned flag or `topic`; at least one field. `itemId` is from personal-memory-list. ' +
+      '409 when another note of the person already says the new content. Answers `{ item }`.',
+    method: 'PATCH',
+    path: '/api/user/memory/[itemId]',
+    params: personalMemoryParams,
+    body: patchPersonalMemorySchema,
+    idempotent: true,
+    load: () => import('@/app/api/user/memory/[itemId]/route'),
+  },
+  {
+    name: 'personal-memory-delete',
+    domain: 'collaboration',
+    summary: 'Delete a personal memory note',
+    description:
+      'Removes one personal note for good; it cannot be undone. `itemId` is from personal-memory-list.',
+    method: 'DELETE',
+    path: '/api/user/memory/[itemId]',
+    params: personalMemoryParams,
+    destructive: true,
+    load: () => import('@/app/api/user/memory/[itemId]/route'),
+  },
+  {
+    name: 'personal-memory-topic-rename',
+    domain: 'collaboration',
+    summary: 'Rename or merge a personal memory topic',
+    description:
+      'Moves the person’s notes from topic `from` to `to`; an existing `to` merges, `to: null` ungroups. Answers `{ moved }`.',
+    method: 'PATCH',
+    path: '/api/user/memory/topics',
+    body: renamePersonalMemoryTopicSchema,
+    idempotent: true,
+    load: () => import('@/app/api/user/memory/topics/route'),
+  },
+  {
+    name: 'personal-memory-topic-delete',
+    domain: 'collaboration',
+    summary: 'Delete a personal memory topic and its notes',
+    description:
+      'Deletes every personal note on topic `name` (from personal-memory-list), for good; it cannot be undone. ' +
+      'Answers `{ removed }`. To keep the notes, use personal-memory-topic-rename with `to: null`.',
+    method: 'DELETE',
+    path: '/api/user/memory/topics',
+    body: deletePersonalMemoryTopicSchema,
+    destructive: true,
+    load: () => import('@/app/api/user/memory/topics/route'),
+  },
+  {
+    name: 'personal-memory-clear',
+    domain: 'collaboration',
+    summary: 'Delete all personal memory notes',
+    description:
+      'Removes every personal note of the person for good, pinned ones included; it cannot be undone. ' +
+      'Notes of the project and of the organization are not touched. Answers `{ removed }`, the number of notes removed ' +
+      '(0 when there were none). To remove one note use personal-memory-delete.',
+    method: 'DELETE',
+    path: '/api/user/memory',
+    destructive: true,
+    load: () => import('@/app/api/user/memory/route'),
   },
 
   // Files attached to a chat

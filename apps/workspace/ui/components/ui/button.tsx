@@ -5,6 +5,7 @@ import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
+import { CONTROL_HEIGHT } from '@/components/ui/control-height'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -38,7 +39,7 @@ const buttonVariants = cva(
   // `select-none` and no touch callout: a long press on a phone selected the
   // label, or offered to share a link-button, where a native control does
   // neither. The label of a control is not content anyone copies.
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium select-none [-webkit-touch-callout:none] transition-[color,background-color,opacity,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 outline-none pointer-coarse:min-w-11 aria-invalid:ring-destructive/20 aria-invalid:border-destructive " +
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-control text-sm font-medium select-none [-webkit-touch-callout:none] transition-[color,background-color,opacity,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 outline-none pointer-coarse:min-w-11 aria-invalid:ring-destructive/20 aria-invalid:border-destructive " +
     FOCUS_RING,
   {
     variants: {
@@ -48,13 +49,22 @@ const buttonVariants = cva(
         default: 'bg-primary text-primary-foreground shadow-xs hover:bg-interaction-primary-hover',
         destructive:
           'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/40',
-        // Outline keeps its hairline and fills one step to card white, never
-        // to accent (a filled-to-accent outline reads as secondary).
-        outline:
-          'border border-input bg-transparent hover:bg-card hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-accent',
-        // Ghost is the quietest action: one step to secondary, not accent.
-        ghost: 'hover:bg-secondary hover:text-accent-foreground',
+        // The press (paper on a desk, „white with an edge means you can touch
+        // it; its shape says what happens“): white, its 1px edge at 12% ink and
+        // no drop shadow, one step down the ladder under the pointer (the sheet's
+        // own hover, as a folder's), the pressed grey while down. It gained a 1px
+        // shadow under the pointer until 2026-11-12, which nobody saw on white.
+        // It is the ONE press beside the primary: `outline`, a second form for the
+        // same role at 230 sites, is gone (V2 of the interaction review). A track's thumb keeps the shadow at rest and a
+        // sheet is elevation 1 at radius 10, so the three never share a look.
+        // Replaces the tonal secondary (D4, 2026-11-10). In dark only a sheet or a thumb is lighter than its plane:
+        // a press is its plane's own fill with the 16% edge, a white wash one step up under the pointer. Round 3's
+        // dark press was the sheet's fill, and a press, a folder sheet and a chip were one filled box.
+        secondary:
+          'bg-sheet text-foreground shadow-press hover:bg-sheet-hover active:bg-pressed dark:bg-transparent dark:hover:bg-hover dark:active:bg-foreground/[0.1]',
+        // Ghost is the quietest action: the pointer's fill and nothing else. The wash, not a named grey, so a ghost
+        // inside a hovered row still shows (a file row's ⋯ was the desk on the desk until 2026-11).
+        ghost: 'hover:bg-hover hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline active:scale-100',
         // An action inside a sentence („… – trotzdem freigeben? In der
         // Prüfansicht öffnen"). `link` underlines only on hover, and its
@@ -75,8 +85,8 @@ const buttonVariants = cva(
       // viewport width, so a touch tablet past `md` is covered too and a
       // narrow desktop window is left at its intended density.
       size: {
-        default: 'h-9 px-5 py-2 pointer-coarse:h-11',
-        sm: 'h-8 px-3.5 text-xs pointer-coarse:h-11',
+        default: `${CONTROL_HEIGHT.default} px-5 py-2`,
+        sm: `${CONTROL_HEIGHT.sm} px-3.5 text-xs`,
         lg: 'h-11 px-6 text-base',
         icon: 'size-9 pointer-coarse:size-11',
       },
@@ -119,6 +129,15 @@ export interface ButtonProps
    * to put the spinner without the caller composing it themselves.
    */
   loading?: boolean
+  /**
+   * The id PostHog's autocapture reads from `data-attr` (`attr__data-attr` on
+   * the click, dead-click and rage-click events), so a click can be attributed
+   * to a control without its German label. Stable English kebab-case
+   * (`files-move`, `intake-save`), see `docs/contributing/naming.md`. When
+   * omitted it falls back to `data-testid`, which already names most controls.
+   */
+  'data-attr'?: string
+  'data-testid'?: string
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -134,6 +153,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       onClick,
       'aria-disabled': ariaDisabled,
       'aria-busy': ariaBusy,
+      'data-attr': dataAttr,
       ...props
     },
     ref
@@ -172,6 +192,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <Comp
         data-slot="button"
+        data-attr={dataAttr ?? props['data-testid']}
         className={cn(
           buttonVariants({ variant, size }),
           // The caller's first `<svg>` child (the leading icon at every current

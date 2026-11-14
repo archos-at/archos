@@ -17,6 +17,7 @@ export const shortcuts = {
       move: 'to move',
       open: 'to open',
       close: 'to close',
+      all: 'for all results',
     },
   },
   cheatsheet: {
@@ -33,6 +34,7 @@ export const shortcuts = {
       chat: 'Chat',
       review: 'Review',
       inbox: 'Inbox',
+      inboundMail: 'Project mail',
     },
     /** Shown under the navigation group, which mixes scoped and global jumps. */
     projectScopeNote: 'Section jumps open that section of the project you are in.',
@@ -57,6 +59,12 @@ export const shortcuts = {
       inboxOpen: 'Open the item',
       inboxArchive: 'Archive the item',
       inboxToggleRead: 'Mark as read or unread',
+      inboundMailStep: 'Next or previous mail',
+      inboundMailOpen: 'Open the mail',
+      inboundMailSelect: 'Select the mail',
+      inboundMailPreview: 'Preview the attachment',
+      inboundMailFile: 'File as shown',
+      inboundMailDismiss: 'Dismiss the mail',
     },
     disableHint: 'You can turn shortcuts off in your profile settings.',
   },

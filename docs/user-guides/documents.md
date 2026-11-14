@@ -1,34 +1,41 @@
 # Document Management
 
-Keep the office's files in folders and share them with everyone who has access to the project. Piloti reads each file, so its answers and tasks can cite it.
+Keep the office's files in folders and share them with everyone who has access to the project. ARCHOS reads each file, so its answers and tasks can cite it.
 
 ---
 
 ## Uploading Documents
 
-There are two upload zones in the UI:
+Files can also reach a project by e-mail: mail sent to the project's own
+address waits in its **E-Mail-Eingang** until someone files it (a member's own
+mail, confirmed by their domain, is filed directly), and its text becomes an
+**E-Mail-Verlauf**. See [Project mail](inbound-mail.md).
 
-- **Project upload zone** — appears in the Data Sources panel when a project is active. Files uploaded here are scoped to the project (`proj_{projectId}` collection) and shared with everyone who has access to that project.
-- **Chat upload zone** — appears within a conversation. Files uploaded here are scoped to that session (`s_{conversationId}` collection) and visible only within that conversation.
+A file goes to one of two places, and the place decides who can use it:
 
-To upload, drag and drop files onto the upload zone or click to browse. Multiple files can be uploaded at once.
+- **The project's Dateien** — the project's file storage. Files here are shared with everyone who has access to the project and searched by every chat in it (`proj_{projectId}` collection). Upload with **„Hochladen“** in the Dateien header (its menu offers **„Dateien auswählen“** and **„Ordner hochladen“**), or by dropping files anywhere on the file area (the foot of the upload menu says so, with the formats and the size limit); on a phone „Hochladen“ floats over the foot of the list. The Büroablage has the same controls for the whole office (see [The Büroablage](#the-büroablage-adr-0024)).
+- **A chat** — drop files anywhere over the conversation („Dateien zum Hochladen ablegen“), paste them, or pick them with the paperclip. They stay in that conversation (`s_{conversationId}` collection), and the line under their chips says so: „Hier hochgeladene Dateien gelangen in die private Sitzung, sofern nicht entfernt.“ The chips, **Dateien verwalten** and the touch menu are described in [the chat guide](chat.md#the-composer).
 
-The project Files workspace shows folders, the file grid, and the preview side by side on desktop. On small screens the panes stack — folders above the file grid — and selecting a file opens the preview as a full-screen overlay with a close button.
+In a project chat that already has a file attached, **Dateien verwalten** also offers **„Hochladen nach“** with **„Projektwissen“** and **„Private Sitzung“**. It starts on „Projektwissen“, so a file added there with **„+ Datei hinzufügen“** goes into the project's Dateien, not into the chat; pick „Private Sitzung“ to keep it in the conversation. A project file listed there is deleted in Dateien („Projektdateien löschen Sie in den Projektdateien.“), not in the dialog.
+
+Every way of uploading takes several files at once.
+
+In Dateien, folders are the drill-down inside the listing, on the **„Ordner“** tab: each level shows its folders first, as tiles (or rows, in the list view), then its files, each under its heading when both are there. At the top level the title is „Dateien“ under the project's name; inside a folder the title is the folder's name with what it holds beside it („240 Elemente“), and the line above it names the way there („Projekt › Dateien › Abgabepläne › …“), each step a click back up. The „Ordner“ tab takes you back to the top level from any folder. On a phone the line above the title names the parent folder (the levels above it behind „…“) and the arrow before the title goes up one level. The level's tools stand in one row under the tabs: the search, „Filter“ and the view on the left, „Auswählen“, „Ordner anlegen“, „Hochladen“ and `⋯` on the right; on a narrower window „Ordner anlegen“ moves into the „Hochladen“ menu (on a phone all of them are in the `⋯`). Long file names keep their end: a name that does not fit two lines loses its middle („Brandschutzkonzept_Wohnha…Index-D.pdf“), never its extension. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
 
 ### Folders
 
-The folder tree in the left pane is the project's filing system, and it supports the full set of operations — not just creating folders.
+The folders are the project's filing system, and they support the full set of operations — not just creating folders.
 
-- **Create** — `New folder` at the bottom of the tree adds a top-level folder; hovering a row reveals a `+` (`Add subfolder in {name}`) that nests one inside it. Both open an inline name field; Enter commits, Escape cancels.
-- **Rename** — the row's `⋯` menu → `Rename…` turns the row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
+- **Create** — **„Ordner anlegen“** in the row under the tabs (or in the „Hochladen“ menu on a narrower window) opens a name field and creates the folder in the level you are in; to nest one, open the parent first, or use **„Neuer Ordner darin“** in a folder's `⋯` menu. Enter commits, Escape cancels.
+- **Rename** — the folder's `⋯` menu → **„Umbenennen …“** turns the tile or row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
 - **Move** — `PATCH …/folders/{folderId}` accepts a new `parentId`; moving a folder into itself or into one of its own subfolders is refused rather than silently producing a loop.
-- **Delete** — the same menu's `Delete…`. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin icon in Files; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
+- **Delete** — the same menu's **„Löschen …“**. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin icon in Files; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
 
 Each of these is a write in the folder. In a folder whose access list gives you only **Lesen**, the tree and the file grid mark it **Nur lesen** and offer none of them, nor upload or moving a document in or out; the route refuses them too (403, `reason: folder-read-only`). Who may read and edit a folder: [sensitive data and access](sensitive-data-and-access.md#who-may-read-and-edit-a-folder).
 
 Renaming or moving a folder rewrites the stored path of everything beneath it in the same transaction, so a deeply nested document is never left pointing at a path that no longer exists.
 
-**Moving a document between folders** is in the document's own `⋯` menu, under `Move to folder`. Until now a file was filed once, at upload, and stayed there: a document dropped in the wrong folder — or uploaded before the folder existed — could not be re-filed at all. Each destination is listed by its full path (`Brandschutz / Fluchtwege`), because two branches of a tree can both hold a *Fluchtwege*; the folder the document is in now carries a check and cannot be picked; and **All Files** is a real destination, so a document can be taken back out of every folder. The move also re-files the document on the assistant's side, so what Piloti says about where a document lives follows it immediately (see ADR-0049).
+**Moving a document between folders** is in the document's own `⋯` menu, under `Move to folder`. Until now a file was filed once, at upload, and stayed there: a document dropped in the wrong folder — or uploaded before the folder existed — could not be re-filed at all. Each destination is listed by its full path (`Brandschutz / Fluchtwege`), because two branches of a tree can both hold a *Fluchtwege*; the folder the document is in now carries a check and cannot be picked; and **All Files** is a real destination, so a document can be taken back out of every folder. The move also re-files the document on the assistant's side, so what ARCHOS says about where a document lives follows it immediately (see ADR-0049).
 
 **The assistant knows your folders.** When you file a document, the folder travels
 with it into the knowledge base, so the agent can answer "welche Unterlagen habe
@@ -39,7 +46,7 @@ moving a folder updates what the assistant sees too; it may take one more
 question before a very recent rename shows up in its answers. Documents that were
 never filed simply have no folder, and the assistant says nothing about one.
 
-### What Piloti knows about a folder
+### What ARCHOS knows about a folder
 
 Above every folder's files sits one quiet line, for example „35 von 44
 Dokumenten gelesen in diesem Projekt“. It covers the folder and everything
@@ -47,23 +54,23 @@ inside it, subfolders included, so you can see what has been read without
 opening each folder. Click the line and the full overview opens around it; click
 it again to fold it. The choice is remembered in this browser.
 
-- The bar counts the documents by state: „gelesen“ (Piloti can cite them),
+- The bar counts the documents by state: „gelesen“ (ARCHOS can cite them),
   „wird gelesen“, „fehlgeschlagen“ and „zurückgehalten“ (the content check holds
   them back until someone reviews them). These add up to the headline's „von N“.
   Documents kept in the files but not read for answers, for example a report
-  Piloti wrote and filed, follow as „dazu 1 nicht in der Wissensbasis“.
+  ARCHOS wrote and filed, follow as „dazu 1 nicht in der Wissensbasis“.
   Click a state to see those documents, across all subfolders, as one list.
 - „Hier sind Sie gefragt“ comes first and lists what needs you: failed documents,
-  documents the content check is holding, and documents Piloti could not assign a
+  documents the content check is holding, and documents ARCHOS could not assign a
   document type. For failed documents, „Alle N erneut lesen“ reads all of them
   again. With one document the button says „Erneut lesen“. Only people who may
   change files in the folder see it.
 - The other parts are folded to one line that names what they hold. Click the
   line to open one.
 - „Worum es hier geht“ lists the document types („Dokumentart“) and disciplines
-  („Fachbereich“) Piloti assigned, with the number of documents that carry each.
-  Click one to see them. Below them, „Themen, die Piloti erkannt hat“ lists the
-  topics Piloti found in the documents (see „Themen“ below), and for photos the
+  („Fachbereich“) ARCHOS assigned, with the number of documents that carry each.
+  Click one to see them. Below them, „Themen, die ARCHOS erkannt hat“ lists the
+  topics ARCHOS found in the documents (see „Themen“ below), and for photos the
   days they were taken on, as the camera recorded it.
 - „Wo es hakt“ names the subfolders where something is stuck. Click one to go
   straight there.
@@ -72,15 +79,15 @@ A document with several Fassungen counts once, as it appears in the list. An
 older Fassung is never counted, never listed as failed and never read again by
 „Alle N erneut lesen“.
 
-At the top level of a project, „Was Piloti noch fehlt“ lists the documents the
+At the top level of a project, „Was ARCHOS noch fehlt“ lists the documents the
 project's intake answers say it should have, and that no file is linked to yet.
 Being read is not the same as being known to be a particular document. A file
 you uploaded but have not yet linked to its role still appears here, because
-Piloti cannot tell that it is the Energieausweis until you link it.
+ARCHOS cannot tell that it is the Energieausweis until you link it.
 
 In the list view, folder rows carry the same state in short form: „2
-fehlgeschlagen“, „3 werden gelesen“, or „Alles gelesen“ when everything Piloti is
-meant to read is ready. A folder with nothing Piloti reads shows no state. In
+fehlgeschlagen“, „3 werden gelesen“, or „Alles gelesen“ when everything ARCHOS is
+meant to read is ready. A folder with nothing ARCHOS reads shows no state. In
 the card view a folder tile shows only the coloured dot (green read, blue being
 read, red failed, amber held back); hover it for the words.
 
@@ -92,7 +99,7 @@ Files render as cards in a responsive grid. Each card shows:
 - the file name and, when ingestion generated one, a one-line **AI description**
 - a tinted **extension chip** (PDF, DOCX, …), the file size and a relative upload time
 - an **ingestion status badge** only while the document is not yet citable (Processing / Failed / held back) — failed cards show the failure reason inline. A citable document carries no badge on its card; the list view's status column names every state, „Zitierbar“ included
-- what is **still open on its pages**, when anything is: a small chip under the size and date that says how many Anmerkungen are open (from every Fassung), how many of those are yours, and how many of Piloti's proposals nobody has decided on yet, „2 offen · 1 für Sie · 12 Vorschläge“. A proposal is not counted as open until someone takes it over, as in Offene Punkte and the Protokoll. Pointing at it shows the whole sentence, „2 offene Anmerkungen, 1 für Sie und 12 Vorschläge von Piloti“. Pressing it opens the document in the Prüfansicht. The list view shows the same beside the name
+- what is **still open on its pages**, when anything is: a small chip under the size and date that says how many Anmerkungen are open (from every Fassung), how many of those are yours, and how many of ARCHOS's proposals nobody has decided on yet, „2 offen · 1 für Sie · 12 Vorschläge“. A proposal is not counted as open until someone takes it over, as in Offene Punkte and the Protokoll. Pointing at it shows the whole sentence, „2 offene Anmerkungen, 1 für Sie und 12 Vorschläge von ARCHOS“. Pressing it opens the document in the Prüfansicht. The list view shows the same beside the name
 
 The last tile of the grid is a dashed **upload card** listing the actually accepted file types and the size limit; drag-and-drop anywhere on the workspace also works. A file dropped on another project page, such as Settings or Members, opens Files and is uploaded there; the chat, the research page and the intake keep their own drop targets.
 
@@ -154,7 +161,7 @@ Your office's sensitive-data list can also hold files back, by name before they 
 
 ### Supported File Types
 
-The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default: `.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx`).
+The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default: `.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf`).
 
 | Extension | MIME Type |
 |-----------|-----------|
@@ -167,12 +174,13 @@ The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default
 | `.html` | `text/html` |
 | `.csv` | `text/csv` |
 | `.json` | `application/json` |
+| `.dxf` | stored as `application/dxf`, whatever the browser sends ([DXF files](#dxf-files-katasterauszüge-and-other-cad-drawings)) |
 
 Spreadsheets index one chunk per worksheet (labelled by sheet name), so a citation points at the sheet. Word files and presentations are indexed from their PDF preview, page by page and with their pictures, so a citation points at the page or slide (see [Word, Excel and PowerPoint files](#word-excel-and-powerpoint-files)). Image uploads (`.png`, `.jpg`, `.jpeg`, `.webp`) are governed by the image-upload flag plus VLM availability, not by this list (see below).
 
 ### File Size Limits
 
-The maximum upload size applies to **each file**, not to a batch: a folder of fifty 80 MB drawings uploads into Dateien under a 100 MB limit. It is your organization's own limit when Piloti has set one, otherwise the deployment default from `FILE_UPLOAD_MAX_SIZE_MB` (default: **100 MB**, decimal). The upload area shows the limit in force ("max. 100 MB per file"), and Organization → Storage lists it beside the storage quota. Only Piloti's platform staff can change it, between 1 MB and the largest request the deployment accepts. A file over the limit is refused with a message naming it. IFC models (`.ifc`, `.ifczip`) have their own, larger limit (`BIM_MAX_IFC_BYTES`, default 250 MB) that the organization limit does not change.
+The maximum upload size applies to **each file**, not to a batch: a folder of fifty 80 MB drawings uploads into Dateien under a 100 MB limit. It is your organization's own limit when ARCHOS has set one, otherwise the deployment default from `FILE_UPLOAD_MAX_SIZE_MB` (default: **100 MB**, decimal). The upload area shows the limit in force ("max. 100 MB per file"), and Organization → Storage lists it beside the storage quota. Only ARCHOS's platform staff can change it, between 1 MB and the largest request the deployment accepts. A file over the limit is refused with a message naming it. IFC models (`.ifc`, `.ifczip`) have their own, larger limit (`BIM_MAX_IFC_BYTES`, default 250 MB) that the organization limit does not change.
 
 The total stored per organization is bounded separately by the storage quota.
 
@@ -190,8 +198,8 @@ Additional limits:
 
 ## Moving a file into a folder
 
-Drag it onto the folder — a card, a row, or „Alle Dateien“ or any folder in the
-breadcrumb to move it up. The folder lights up as the target while you are over
+Drag it onto the folder — a card, a row, or „Dateien“ or any folder in the
+line above the title to move it up. The folder lights up as the target while you are over
 it. Folders move the same way.
 
 To reach a folder that is not on screen, hold the drag over a folder (or a
@@ -200,28 +208,41 @@ go anywhere in it. „Verschieben“ in the overflow menu does the same thing
 without a drag.
 
 Every move says where it went, with **Rückgängig** to put it back. When a move
-cannot happen, Piloti says why: a folder you may only read (it turns red while
+cannot happen, ARCHOS says why: a folder you may only read (it turns red while
 you hold something over it), a folder of the same name already there, or a
 folder someone has just deleted.
 
-Dragging a file inside Piloti never starts an upload: a drag carrying files from
+Dragging a file inside ARCHOS never starts an upload: a drag carrying files from
 your desktop and a drag carrying a document already here are different things to
 the browser, and only the first raises the upload overlay.
 
 Files from your desktop go where you drop them, too: onto a folder card or row
-to upload into that folder, onto „Alle Dateien“ or a folder in the breadcrumb to
+to upload into that folder, onto „Dateien“ or a folder in the line above the title to
 upload there, anywhere else in the file area to upload into the folder you are
 looking at. The overlay names the folder before you let go.
 
 A folder you may only read takes nothing: a file in it cannot be dragged out,
 and the overlay says „Nur lesen“ in red instead of offering a drop that the
 server would refuse. A second drop while an upload is still running waits its
-turn, and Piloti says that it will follow, rather than dropping it.
+turn, and ARCHOS says that it will follow, rather than dropping it.
+
+## Sorting the root folder into folders
+
+**Alle Dateien in Ordner einsortieren…** (the file area's menu, under
+„Erweitert“) asks ARCHOS to propose a folder for every file lying in the root
+folder of a project or of the Büroablage. It is offered to people who manage the
+files and may write at the root. ARCHOS first matches each file to an existing
+folder, then proposes new folders for the rest; you need at least one folder
+before it can start. Files ARCHOS has not read yet stay out. Nothing moves until
+you accept the proposal, and **Rückgängig** puts moved files back. The run is
+the server's: you can close the dialog and keep working, and ARCHOS tells you in
+the inbox when the proposal is ready to review
+([ADR-0121](../adr/0121-bulk-work-is-owned-by-the-server.md)).
 
 ## Uploading a whole folder
 
 A büro onboarding a project moves a directory tree, not a hand-picked list. Two
-ways to give Piloti one:
+ways to give ARCHOS one:
 
 - **„Ordner hochladen“**, beside the upload button in a project's Dateien.
 - **Dragging the folder** onto the file area. A dropped folder used to do
@@ -229,14 +250,14 @@ ways to give Piloti one:
   loose files, and the old handler read only the loose ones — so the overlay
   appeared, the finger let go, and nothing happened.
 
-Everything under the folder is uploaded, at any depth. What Piloti will not read
+Everything under the folder is uploaded, at any depth. What ARCHOS will not read
 is refused per file, in the usual upload report; the folder as a whole is never
 rejected for containing one file of the wrong kind.
 
 **The original path is recorded, and shown.** A file that arrives this way keeps
 where it came from — `Wohnbau Nord/03_Einreichung/Grundrisse/EG.pdf` — visible
 under „Herkunft“ in the file's detail panel and copyable with a click. That is
-deliberately not the same thing as the folder you file it into here: Piloti's
+deliberately not the same thing as the folder you file it into here: ARCHOS's
 folders are yours to rename and rearrange, while the origin is a fact about the
 file and is never rewritten. The point of it is that you can go back and work on
 the ORIGINAL on the office server, instead of downloading a copy that diverges
@@ -259,13 +280,13 @@ Offices name every state with its index and date and never overwrite one
 dropped file's name continues a document that is already in the same shelf and
 is newer than it, the upload dialog opens even though no file has that name, and
 asks whether to file it as the **new Fassung** of that document. The older file
-stays readable; Piloti answers from the new one, notes what changed, and the
+stays readable; ARCHOS answers from the new one, notes what changed, and the
 document's preview shows the history. An unticked file still uploads, as a
 document of its own, and a link can be undone later („Verknüpfung lösen“).
 
 - **One block for every new Fassung.** A file of the same name and a file that
   continues a document under another name are both a new Fassung, so the dialog
-  asks them in one block, „39 neue Fassungen“, each group saying why Piloti
+  asks them in one block, „39 neue Fassungen“, each group saying why ARCHOS
   thinks so: „Gleicher Name“ (one box for all of them; unticked, they are not
   uploaded) and „Namensreihe“ (index or date in the name).
 - **One decision for a whole export.** An ArchiCAD publisher export of forty
@@ -284,19 +305,19 @@ document of its own, and a link can be undone later („Verknüpfung lösen“).
   question on its own, „Neue Fassung von „…“?“, with two buttons: „Als neue
   Fassung ablegen“ and „Als eigenes Dokument hochladen“.
 - **Unchanged re-exports** (same name, same content) stay „unverändert, wird
-  übersprungen“ and never get a proposal. The exception is a file Piloti could
+  übersprungen“ and never get a proposal. The exception is a file ARCHOS could
   not read, or never read: uploading the same bytes again retries it.
 
-The tick travels with the upload: Piloti files the link as soon as the new file
+The tick travels with the upload: ARCHOS files the link as soon as the new file
 has been read, and says in words what changed. If the older document was deleted
-in the meantime, or the link would loop, the file is simply uploaded and Piloti
+in the meantime, or the link would loop, the file is simply uploaded and ARCHOS
 suggests the link after reading, as before. You need write access to the older
 document (a folder you can only read is not offered as a target).
 
 ## Uploading a ZIP
 
 A `.zip` can be dropped on the file area, or picked with the upload button, in a
-project's Dateien and in the Büroablage alike. Piloti treats it as the
+project's Dateien and in the Büroablage alike. ARCHOS treats it as the
 folder it contains: the ZIP is unpacked in your browser and then goes through
 exactly what a dropped folder goes through — the „Wollen Sie aktualisieren?“
 plan, the folders it names created in one step, a file that is already here
@@ -313,13 +334,16 @@ offered as its next Fassung, an unchanged one left alone.
   that unpacks to more than 1 GB. The whole ZIP is refused, never its first
   half — the missing files would look exactly like files nobody chose. Other ZIPs
   dropped with it are unaffected.
-- **Types Piloti does not read** inside a ZIP are refused per file in the usual
+- **Types ARCHOS does not read** inside a ZIP are refused per file in the usual
   upload report, like any other file. A ZIP inside a ZIP is not unpacked.
 - **An `.ifczip` is not a ZIP of documents.** It is a building model and is
   uploaded as one, as before.
+- **Only the browser unpacks.** A ZIP that reaches ARCHOS any other way (a mail
+  attachment in an Outlook import, an agent's upload) is refused as a type
+  ARCHOS does not read; unpack it and upload its content.
 
 File names in ZIPs made by very old Windows versions, which did not mark their
-names as UTF-8, can show garbled umlauts; renaming the folder in Piloti fixes it.
+names as UTF-8, can show garbled umlauts; renaming the folder in ARCHOS fixes it.
 
 **Re-uploading a file that is already there makes it the next Fassung.** Dropping a corrected
 document under the same name into the same project, the Büroablage, or the same chat
@@ -357,7 +381,7 @@ When you select files, the UI shows each file's status in real time:
 3. **completed** — Ingestion finished successfully; the document is searchable
 4. **failed** — Ingestion encountered an error (hover the row for details)
 
-After upload, the `UploadOrchestrator` polls the ingestion job every 5 seconds via `/api/v1/documents/{jobId}/status` until the job reaches a terminal state, for at most 420 attempts (~35 minutes). Running out of that budget, or a job the backend no longer knows, is not a failure: the rows keep reading „Wird gelesen“, a notice says reading continues in the background, and the workspace listing settles them when the documents finish. A file that is open in the preview asks `/api/documents/{id}/status` on its own and shows the summary, page count and tags as soon as indexing finishes.
+After upload, the `UploadOrchestrator` reads the ingestion job via `/api/v1/documents/{jobId}/status` until the job reaches a terminal state: at once when the shelf's live channel says a read settled, and once a minute otherwise. A chat's attachments have no such channel; their listing is re-read every 5 seconds for at most 420 attempts (~35 minutes), then once a minute. Running out of that budget, or a job the backend no longer knows, is not a failure: the rows keep reading „Wird gelesen“, a notice says reading continues in the background, and the workspace listing settles them when the documents finish. A file that is open in the preview asks `/api/documents/{id}/status` on its own and shows the summary, page count and tags as soon as indexing finishes.
 
 On **page refresh**, the orchestrator resumes polling from persisted job state in localStorage, so in-progress uploads are not lost.
 
@@ -403,17 +427,17 @@ User uploads file
 
 ---
 
-## The "Read by Piloti" Panel
+## The "Read by ARCHOS" Panel
 
-The preview pane leads with a **Read by Piloti** panel showing what ingestion
+The preview pane leads with a **Read by ARCHOS** panel showing what ingestion
 extracted from the document (the compact peek of a cited source leaves it out):
 
 - the one-sentence **AI summary** that grounds the agent's answers
 - key-value rows from real metadata only: detected **document type** (first
   document-type tag), **project** and the **updated** timestamp
-- **„Piloti hält es für“**: the document type and disciplines Piloti assigned
-  when it read the file, or „Piloti hat keine Dokumentart erkannt.“ when it found
-  no type. You do not enter tags. Piloti assigns them on every upload, so there
+- **„ARCHOS hält es für“**: the document type and disciplines ARCHOS assigned
+  when it read the file, or „ARCHOS hat keine Dokumentart erkannt.“ when it found
+  no type. You do not enter tags. ARCHOS assigns them on every upload, so there
   is nothing to fill in.
 - **„Korrigieren“** opens the tag editor. Add or remove types and disciplines
   from the controlled vocabulary (document types and OIB disciplines). Free-form
@@ -421,27 +445,27 @@ extracted from the document (the compact peek of a cited source leaves it out):
   shows „Zuordnen“ instead.
 - **Your correction stays.** A correction is stored as yours. Reading the file
   again („Erneut lesen“) keeps it, and so does a backfill of tags. The editor says
-  so: „Ihre Zuordnung bleibt, auch wenn Piloti die Datei neu liest.“
-- **Photographs** that Piloti recognizes as photos are tagged „Foto“, beside
+  so: „Ihre Zuordnung bleibt, auch wenn ARCHOS die Datei neu liest.“
+- **Photographs** that ARCHOS recognizes as photos are tagged „Foto“, beside
   whatever else they show: a photo of a floor plan is „Foto“ and „Grundriss“. Phone photos taken in portrait are shown upright.
-- **Themen** are Piloti's own keywords for a document, such as „Attika“ or
-  „Holzrahmenbau“, beside the fixed document types and disciplines. Piloti adds
+- **Themen** are ARCHOS's own keywords for a document, such as „Attika“ or
+  „Holzrahmenbau“, beside the fixed document types and disciplines. ARCHOS adds
   one only when it is confident and no fixed tag says the same, at most six per
   document, and it reuses the spelling the project already uses. You can add or
   remove topics with „Korrigieren“. Like a tag correction, your topics stay when
   the file is read again. The file list's search and tag filter find topics too.
 - **When and where a photo was taken.** For a photo with camera data (EXIF),
   the panel shows the day and time it was taken and the camera. If the photo
-  records a position, it also shows a „Standort“ link to the map. Piloti uses the
+  records a position, it also shows a „Standort“ link to the map. ARCHOS uses the
   date and the camera to describe the photo, but never sends the position to a
   model. Only people who may open the file see it.
 - **Fassungen.** What a document has been and where it stands now is one
-  section under Piloti's reading, „Fassungen und Freigabe“. See
+  section under ARCHOS's reading, „Fassungen und Freigabe“. See
   [Fassungen und Freigabe](#fassungen-und-freigabe) below.
 - **What the tags do.** They do not decide which documents answers draw on;
   answers are found from the text of a document. The tags are used in three
   places: the tag filter and the search field of the file list, the folder brief
-  (see above), and the file list Piloti works from for each question, where each
+  (see above), and the file list ARCHOS works from for each question, where each
   file name is followed by its tags.
 
 With the flag off, the preview pane shows only the ungated status/type/size
@@ -450,8 +474,8 @@ rows, the raw preview, and download — unchanged behavior.
 ## Fassungen und Freigabe
 
 A document goes through states: a drawing gets an index, a report is revised, a
-file is re-exported. Piloti shows all of it in **one section** of the file's
-preview, „Fassungen und Freigabe“, directly under what Piloti made of the
+file is re-exported. ARCHOS shows all of it in **one section** of the file's
+preview, „Fassungen und Freigabe“, directly under what ARCHOS made of the
 document. It answers three questions: which Fassung is this, is it the one
 answers come from, and what happened before.
 
@@ -471,36 +495,36 @@ The header is always visible, also when the section is shut. It is about the
 - **The next step, with a person:** „Nächster Schritt: Freigabe durch Sabine
   Gruber“ (whoever the round was sent to), „Nächster Schritt: Ihre Freigabe“ when
   it is you, „Überarbeitung durch Anna Berger“ when changes were requested. A
-  person Piloti cannot name reads as „ein Teammitglied“, never as a raw id.
-- **Which Fassung Piloti answers from**, in one sentence:
+  person ARCHOS cannot name reads as „ein Teammitglied“, never as a raw id.
+- **Which Fassung ARCHOS answers from**, in one sentence:
 
   | Situation | What the header says |
   |---|---|
-  | The newest is published, or is a file you uploaded, and Piloti has read it | Piloti antwortet aus dieser Fassung. |
-  | The newest waits, an older one is published | Piloti antwortet weiter aus Fassung 1. |
-  | You uploaded a new Fassung and Piloti is still reading it, or could not read it | Piloti antwortet weiter aus Fassung 1. |
-  | The newest waits, nothing published yet | Piloti antwortet erst daraus, wenn sie freigegeben ist. |
-  | Your first upload is still being read | Piloti antwortet daraus, sobald sie gelesen ist. |
-  | The newest was refused, or could not be read, and nothing stands behind it | Piloti antwortet nicht daraus. |
-  | You opened an older document a newer one replaced | Piloti antwortet aus der neueren Fassung 2; diese bleibt lesbar, auch für Vergleiche. |
-  | Stillgelegt | Stillgelegt. Nicht mehr in der Dateiliste, Piloti zitiert sie nicht mehr. |
+  | The newest is published, or is a file you uploaded, and ARCHOS has read it | ARCHOS antwortet aus dieser Fassung. |
+  | The newest waits, an older one is published | ARCHOS antwortet weiter aus Fassung 1. |
+  | You uploaded a new Fassung and ARCHOS is still reading it, or could not read it | ARCHOS antwortet weiter aus Fassung 1. |
+  | The newest waits, nothing published yet | ARCHOS antwortet erst daraus, wenn sie freigegeben ist. |
+  | Your first upload is still being read | ARCHOS antwortet daraus, sobald sie gelesen ist. |
+  | The newest was refused, or could not be read, and nothing stands behind it | ARCHOS antwortet nicht daraus. |
+  | You opened an older document a newer one replaced | ARCHOS antwortet aus der neueren Fassung 2; diese bleibt lesbar, auch für Vergleiche. |
+  | Stillgelegt | Stillgelegt. Nicht mehr in der Dateiliste, ARCHOS zitiert sie nicht mehr. |
 
   Only a **published** Fassung is read into the knowledge base, so a draft or a
   round in review never replaces the Fassung answers come from. When you upload
   a new Fassung of a file, the previous one keeps answering until the new one
   has been read, and goes on answering if the reading fails; „aktuell“ stays on
-  it until then. A document Piloti wrote has no such overlap: publishing removes
+  it until then. A document ARCHOS wrote has no such overlap: publishing removes
   the previous Fassung from the knowledge base first.
 
 When a decision is yours, **Freigeben** and **Änderungen anfordern** sit under
-the header; **Piloti überarbeiten lassen** and **Ablehnen** are behind the ⋯
+the header; **ARCHOS überarbeiten lassen** and **Ablehnen** are behind the ⋯
 beside them. The section opens itself when something is asked of you: a decision
-is yours to take, Piloti has a suggestion to answer, or the file is an older
+is yours to take, ARCHOS has a suggestion to answer, or the file is an older
 Fassung. Once you close it, it stays closed.
 
 When Anmerkungen are still open on the document, **Freigeben** says so before
-you sign, and Piloti's proposals nobody took over apart from them: „2 offene
-Anmerkungen und 12 Vorschläge von Piloti – trotzdem freigeben?“, with **In der
+you sign, and ARCHOS's proposals nobody took over apart from them: „2 offene
+Anmerkungen und 12 Vorschläge von ARCHOS – trotzdem freigeben?“, with **In der
 Prüfansicht öffnen** beside it. If the Anmerkungen are still loading, or
 could not be read, it says that instead, so silence always means nothing is
 open. It does not stop you: whether an open point stands in the way of a
@@ -521,16 +545,16 @@ Open it and there is **one list, newest first, numbered „Fassung 3“, „Fass
   number. When you open an older document, the newer one is the first row.
 
 A row carries its index („Index C“) or date as a tag, and **aktuell** only on
-the Fassung Piloti answers from. Each fact appears once: who did what and when
+the Fassung ARCHOS answers from. Each fact appears once: who did what and when
 on one line („Hochgeladen von Anna Berger · 14.08.2026“), what changed in it (a
-summary by Piloti, read from both Fassungen; check dimensions and values in the
+summary by ARCHOS, read from both Fassungen; check dimensions and values in the
 document itself), and the reviewer's words. Each row has one visible action,
 **Öffnen**; the rest is behind its ⋯: **Herunterladen**, **Text mit Fassung 2
 vergleichen** (what changed line by line), **Vergleichen** (beside the current
 Fassung: side by side, overlaid or swiped) and **Verknüpfung lösen** (for people
 who may edit the folder; only for the document this one replaces directly).
 
-Above the timeline, **Piloti's suggestion.** When Piloti thinks a document is a
+Above the timeline, **ARCHOS's suggestion.** When ARCHOS thinks a document is a
 newer Fassung of another, it asks „Ist das eine neuere Fassung von …?“ and says
 why: the drawing number and index in the title block (Plankopf), the index and
 date in the names, or what it read in both documents. This works when the names
@@ -541,6 +565,18 @@ People assigned to the older document, and whoever uploaded it, get a note in th
 inbox when a newer Fassung is linked or uploaded under the same name, if they
 may open the newer one (see „The inbox“ in the chat guide).
 
+### ARCHOS notices a new Fassung
+
+When a document becomes the newer Fassung of another, ARCHOS can compare the
+pages that changed on its own and leave **proposed marks** where something
+moved, in the name of the person whose upload or link made the Fassung. Each
+mark waits for a person to take it over or dismiss it. That person gets one
+message in the document's chat and one inbox row, which opens the Prüfansicht at
+the first mark. Your organization's operator switches this on; with it off, nothing is compared
+until someone opens
+**Vergleichen**
+([ADR-0130](../adr/0130-piloti-notices-a-new-fassung.md)).
+
 ### Anmerkungen from an earlier Fassung, and the Protokoll
 
 In the Prüfansicht of the current Fassung, the list keeps what is still open
@@ -549,13 +585,13 @@ under the same name, and „Aus Fassung „…““ for marks of the document t
 replaces. Each can be carried on to the current Fassung, one by one or all at
 once.
 
-**Piloti prüfen lassen, was behoben ist** sits under both. Piloti reads those
+**ARCHOS prüfen lassen, was behoben ist** sits under both. ARCHOS reads those
 marks, looks at the same place in the current Fassung, and answers in each
 mark's thread: „In Fassung 3 behoben: …“ or „Weiterhin offen: …“, with what it
 saw. It only answers; it never closes a mark. You decide: **Erledigt** in the
 mark's thread, or, for a mark of the replaced document, **Erledigen** on its row,
-where Piloti's answer is shown too. Piloti checks only when you ask, never on its
-own when a new Fassung arrives. The question and Piloti's summary stay in your
+where ARCHOS's answer is shown too. ARCHOS checks only when you ask, never on its
+own when a new Fassung arrives. The question and ARCHOS's summary stay in your
 conversation about the document (**Gespräch** in the header).
 
 **Protokoll exportieren** in the header downloads the Anmerkungen as PDF, Word
@@ -570,7 +606,7 @@ filed as Word.
 ### The approval process
 
 For a file you uploaded there is none: your upload is published the moment it
-lands, because you put it there. Approval matters for reports Piloti wrote and
+lands, because you put it there. Approval matters for reports ARCHOS wrote and
 for Fassungen that need a second pair of eyes. The steps are in
 [Fassungen und Freigabe](agent-authored-reports.md#fassungen-und-freigabe): the
 buttons sit under the header, which is about the Fassung they decide.
@@ -598,7 +634,7 @@ The **Document List** component (`document-list.tsx`) renders all tracked files 
 ### Word, Excel and PowerPoint files
 
 Office files (`.docx`, `.xlsx`, `.pptx`, their older and OpenDocument
-counterparts, and `.rtf`) open in the preview as a **PDF preview**. Piloti
+counterparts, and `.rtf`) open in the preview as a **PDF preview**. ARCHOS
 converts the file to a PDF and shows that in the same viewer as any other PDF,
 so a citation to an office file opens the document instead of only offering a
 download. The pane says that it is showing a PDF preview of the original.
@@ -619,7 +655,7 @@ What to expect:
 - If conversion is not set up for your installation, or fails for a file, the
   pane shows the placeholder and the Download button as before.
 
-**Pictures in Word and PowerPoint files are read.** Piloti indexes these files
+**Pictures in Word and PowerPoint files are read.** ARCHOS indexes these files
 from the PDF, the same way it reads a PDF you upload: a photo, a pasted drawing or
 a rendering on a slide gets a description, and a question about it can find it
 and cite it. PowerPoint speaker notes are still read from the original file,
@@ -636,7 +672,7 @@ tables.
   Uploading the same file again does not: identical bytes of a file that was
   read are skipped as „Unverändert“. Until the new reading finishes, answers use
   the old one.
-- A diagram drawn with Office shapes or SmartArt is not a picture to Piloti.
+- A diagram drawn with Office shapes or SmartArt is not a picture to ARCHOS.
   Its labels are text and are found; its layout is not described.
 - If the PDF cannot be made, the file shows „Lesen fehlgeschlagen“ with the
   reason, and „Erneut lesen“ tries again. It stays stored and downloadable.
@@ -645,6 +681,59 @@ tables.
 Why it works this way: [ADR-0070](../adr/0070-office-files-are-viewed-through-a-pdf-rendition.md)
 for viewing, [ADR-0071](../adr/0071-word-and-presentation-files-are-indexed-from-their-rendition.md)
 for indexing.
+
+### DXF files (Katasterauszüge and other CAD drawings)
+
+A `.dxf` opens in the preview as a PDF sheet drawn **to scale**: the most
+detailed standard scale that fits on A4 or A3 (larger sheets for larger
+drawings), in a frame with a scale bar and a title block. A Katasterauszug of
+150 × 100 m comes out at 1:500 on A3. **„Als PDF herunterladen“** in the file's
+⋯ menu, in the list and in the preview, gives you that PDF to print or attach;
+Download still gives the original DXF. The same entry gives the PDF of a Word,
+Excel or PowerPoint file.
+
+**A Katasterauszug is read, not only shown.** After the drawing comes a page
+„Grundstücke“ listing every parcel in the file: its number, Katastralgemeinde,
+whether it is in the Grenz- or the Grundsteuerkataster, its area as drawn in the
+map, and the parcels it borders. You can ask about them in the chat („Wie groß
+ist 123/4, und wer grenzt an?“) and the answer cites that page. The area is
+computed from the drawn boundary: in the Grundsteuerkataster it is graphic, and
+it is never the Flächenausmaß in the Grundbuch, which the page says too.
+
+**And measured.** The agent reads the drawing's geometry, not the picture of it,
+so it can answer what a page of text cannot: how long the boundary to 123/5 is,
+how far each house stands from each boundary, what remains buildable after 3 m
+on every side and 4 m towards a neighbour, and what a coverage of 40 % or a
+floor-area ratio of 1.2 allows. The setbacks and limits are the ones you give or
+the agent looks up in the Bebauungsplan or the building code; the drawing holds
+none. Each answer carries the same caveat as the page: in the
+Grundsteuerkataster a distance is as drawn, not as surveyed. For any other DXF
+the agent finds labels and says what each layer holds („wie viel Fläche liegt
+auf GRÜNFLÄCHE?“); buildings there are the closed outlines on the layers you
+name.
+
+What to expect:
+
+- The scale comes from the unit the file names. A file that names none is drawn
+  to fit the sheet, and the title block says „Nicht maßstäblich“.
+- The text in the drawing (parcel numbers, street names, labels) is searchable
+  in the viewer and is what the file is indexed by, so a question about a parcel
+  number finds the file.
+- A Katastralmappe from BEV is drawn in BEV's own plot colours (parcel
+  boundaries black, buildings red, land use green), and the title block names
+  the Katastralgemeinde and the coordinate system. Where parcels are in the
+  Grundsteuerkataster it says that their boundaries are graphic and not legally
+  binding: a distance to the boundary for a submission needs a surveyor's plan.
+- Any other DXF is drawn in black, with its own line weights, as a CAD plot is.
+- Boundary points are marked in a simplified form; land-use symbols are not
+  drawn. Only the model space is drawn, not paper-space layouts. DWG files are
+  not shown yet.
+- A file that cannot be read („Diese DXF-Datei ließ sich nicht lesen“) needs to
+  be exported again from the CAD program; reading it again will not help.
+- A whole Katastralgemeinde takes up to a minute; the parcel list covers about
+  4,000 parcels and says how many it left out beyond that.
+
+Why it works this way: [ADR-0152](../adr/0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md) (the PDF) and [ADR-0153](../adr/0153-a-dxf-drawing-is-a-site-the-agent-measures.md) (the measuring).
 
 ---
 
@@ -677,19 +766,17 @@ component, two shelves** (`FileWorkspace`; see
 Everything described for a project's Dateien above — folders, moving files by
 menu or drag, uploading a whole folder, the cards/list toggle, filters and sort,
 search, the preview and its `?doc=` link — works the same here, with the same
-words. It keeps the gold office mark (the Büroablage provenance signal used
-across the app) and what is specific to the office:
+words, and it looks the same: the header of a project section, the same cards and
+rows. What is specific to the office:
 
 - **Folders** — the office's own tree, separate from every project's. Members
   with `org:office_shelf:manage` create, rename, move and delete folders and re-file
   documents; deleting a folder never deletes documents, it re-files them into the
   parent. Everyone else can open folders, search, filter, preview and download
   but sees no upload, drag, create, rename, move or delete.
-- **Gold kind chip and provenance footer** — a card shows the document's kind
-  (floor plan, notice, …) on a gold chip, and cards whose documents carry
-  ingestion tags show them as an "Aus: …"/"From: …" line. Documents without
-  tags show none, and there is no "verified" marker — the Büroablage has no review
-  workflow.
+- **Cards as in a project** — a Büroablage card is a project's card: no kind
+  chip and no provenance line of its own. There is no "verified" marker — the
+  Büroablage has no review workflow.
 - **Category filter** — the filter menu offers „Kategorie“, derived from the
   controlled ingestion tags actually present on the loaded documents (document
   type + OIB discipline). Categories come from the documents themselves;

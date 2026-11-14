@@ -1,12 +1,73 @@
+import { existsSync } from 'node:fs'
 import path from 'path'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 import DurationSequencer from './config/vitest/duration-sequencer'
 
+/** What vitest collects; `_VITEST_INCLUDE` in ci/pr_selection.py mirrors it. */
+const SPEC_FILES = [
+  '{app,bff,ui,i18n,shared,types,utils}/**/*.{spec,test}.{ts,tsx}',
+  '*.{spec,test}.{ts,tsx}',
+  'tests/**/*.{spec,test}.{ts,tsx}',
+  'purger/**/*.spec.mjs',
+  'observability/**/*.spec.mjs',
+  'workers/**/*.spec.mjs',
+  'scripts/**/*.spec.mjs',
+  'eslint-rules/**/*.spec.mjs',
+]
+const NEVER_SPECS = ['**/mocks/**', '**/node_modules/**']
+
+/**
+ * The spec files that keep a process of their own (the `forks` pool), each with
+ * what a vm context breaks for it. Everything else runs in the vm pool. A spec
+ * joins this list with its reason, and leaves it when the reason is gone.
+ */
+const PROCESS_PER_FILE: Record<string, string> = {
+  'bff/feedback/export-workbook.spec.ts': 'exceljs requires uuid, an ES module the vm loader reads as CommonJS',
+  'bff/search/plan-list-export.spec.ts': 'exceljs, as above',
+  'app/api/platform/answer-feedback/export/route.spec.ts': 'exceljs, as above',
+  'ui/features/diagrams/map-svg.spec.ts': 'mermaid imports khroma by directory, which the vm loader does not resolve',
+  'ui/features/diagrams/parse-mermaid.spec.ts': 'khroma, as above',
+  'bff/malware-scan/fake.spec.ts': 'net sockets hand back Buffers of the outer realm, which the fake refuses',
+  'ui/features/documents/hooks/use-file-upload.spec.ts': 'the abort is told apart by its DOMException, another realm here',
+}
+
+const gone = Object.keys(PROCESS_PER_FILE).filter((spec) => !existsSync(`${__dirname}/${spec}`))
+if (gone.length > 0) throw new Error(`PROCESS_PER_FILE in vitest.config.ts names specs that no longer exist: ${gone.join(', ')}`)
+
 export default defineConfig({
   plugins: [react()],
   test: {
+    // `include` and `exclude` are stated per project and nowhere above them: a
+    // project that extends this config ADDS its lists to the ones here, so a
+    // root-level `include` made both projects run every spec (3,737 files run
+    // where there are 1,870).
+    projects: [
+      { extends: true, test: { name: 'vm', include: SPEC_FILES, exclude: [...NEVER_SPECS, ...Object.keys(PROCESS_PER_FILE)] } },
+      {
+        extends: true,
+        test: { name: 'process', pool: 'forks', include: Object.keys(PROCESS_PER_FILE), exclude: NEVER_SPECS },
+      },
+    ],
     css: false,
+    /**
+     * One worker process runs many spec files, each in a fresh vm context.
+     *
+     * The default pool forks a process per spec file: 1,847 process starts,
+     * each paying the setup files and the DOM again. Measured 2026-11-10 on
+     * four cores, the whole suite: 800s and 2,310 CPU seconds with forks,
+     * against the vm pool's 489s and 1,559. A context is a realm of its own,
+     * so a spec still cannot see another's globals, modules or mocks; what
+     * they do share is the process, which `config/vitest/polyfills.ts` resets
+     * (`process.env`).
+     *
+     * Contexts are not fully collected, so a worker's heap grows with every
+     * file: the first full run lost eleven workers to the heap limit. Past
+     * `vmMemoryLimit` a worker is replaced after its file, before it can die
+     * in the middle of one.
+     */
+    pool: 'vmForks',
+    vmMemoryLimit: '1200MB',
     globals: true,
     environment: 'happy-dom',
     /**
@@ -31,19 +92,11 @@ export default defineConfig({
       happyDOM: { settings: { navigation: { disableChildFrameNavigation: true } } },
     },
     testTimeout: 50000,
+    // A hook gets what a test gets. Vitest's own 10 s ran out in the Postgres
+    // suites' `beforeAll`, which imports a module graph cold while every other
+    // file loads the same runner (gotchas.md, "Hook timed out in 10000ms").
+    hookTimeout: 50000,
     root: './',
-    include: [
-      '{app,bff,ui,i18n,shared,types,utils}/**/*.{spec,test}.{ts,tsx}',
-      '*.{spec,test}.{ts,tsx}',
-      'tests/**/*.{spec,test}.{ts,tsx}',
-      'purger/**/*.spec.mjs',
-      'scheduler/**/*.spec.mjs',
-      'observability/**/*.spec.mjs',
-      'workers/**/*.spec.mjs',
-      'scripts/**/*.spec.mjs',
-      'eslint-rules/**/*.spec.mjs',
-    ],
-    exclude: ['**/mocks/**', '**/node_modules/**'],
     setupFiles: ['./config/vitest/polyfills.ts', './config/vitest/disk-inputs.ts', './config/vitest/vitest.setup.ts'],
     clearMocks: true,
     // Shards by recorded time (tests/vitest-durations.json), not file count.

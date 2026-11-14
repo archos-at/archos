@@ -4,8 +4,25 @@
 import * as pulumi from "@pulumi/pulumi";
 import { bool, num } from "../config/readers";
 
+/**
+ * The workloads that each spend from their own OpenRouter key, so one cannot
+ * drain the credit another needs: the provider answers 402 to every caller of
+ * a key once its in-flight requests could exceed the balance (2026-11-02).
+ * `chat` is the conversation: the chat and api tiers, and the frontend's model
+ * catalog reads. `research` is the agent-worker, `ingest` the ingest-worker.
+ */
+export type ModelWorkload = "chat" | "research" | "ingest";
+
+/** The stack secret each workload's key is read from; unset falls back to `openrouterApiKey`. */
+export const OPENROUTER_KEY_CONFIG: Record<ModelWorkload, string> = {
+  chat: "openrouterChatKey",
+  research: "openrouterResearchKey",
+  ingest: "openrouterIngestKey",
+};
+
 export interface LlmConfig {
-  openrouterApiKey: pulumi.Output<string>;
+  /** One OpenRouter key per workload, each the shared `openrouterApiKey` until the stack sets its own. */
+  openrouterKeys: Record<ModelWorkload, pulumi.Output<string>>;
   tavilyApiKey: pulumi.Output<string>;
   embedModel: string;
   embedBaseUrl: string;
@@ -32,6 +49,19 @@ export interface AuthConfig {
   byokSecretBackend: string;
   byokLocalKek: pulumi.Output<string>;
   allowAgentOrgMemory: boolean;
+  /**
+   * One operator reviews, approves and publishes a platform change request
+   * alone (`KNOWLEDGE_SINGLE_OPERATOR`, migration 0233). The owner's decision
+   * of 2026-11-11: dev only. Prod keeps four eyes, so it never sets the key.
+   */
+  knowledgeSingleOperator: boolean;
+  /**
+   * Run the promotion's carry of reviewed knowledge releases (ADR-0181): the
+   * Job `knowledge-carry` (`src/app/knowledge-carry-job.ts`) publishes the
+   * bundles in `apps/workspace/config/knowledge-releases/` here. On the stack
+   * they came from (dev) it is a no-op: it logs that stable already holds them.
+   */
+  knowledgeCarry: boolean;
 }
 
 export interface InternalConfig {
@@ -68,6 +98,17 @@ export interface SkillsConfig {
   minIntervalMinutes: number;
 }
 
+/**
+ * Each workload's OpenRouter key: its own stack secret when set (a key with a
+ * credit limit in OpenRouter), else the shared `openrouterApiKey`, so a stack
+ * changes nothing until an operator sets one.
+ */
+function openrouterKeys(cfg: pulumi.Config): Record<ModelWorkload, pulumi.Output<string>> {
+  const shared = cfg.requireSecret("openrouterApiKey");
+  const own = (workload: ModelWorkload) => cfg.getSecret(OPENROUTER_KEY_CONFIG[workload]) ?? shared;
+  return { chat: own("chat"), research: own("research"), ingest: own("ingest") };
+}
+
 export function loadAppServices(
   cfg: pulumi.Config,
 ): { llm: LlmConfig; auth: AuthConfig; internal: InternalConfig; webPush: WebPushConfig; skills: SkillsConfig } {
@@ -90,7 +131,7 @@ export function loadAppServices(
   const workosApiKey = cfg.getSecret("workosApiKey");
   return {
     llm: {
-      openrouterApiKey: cfg.requireSecret("openrouterApiKey"),
+      openrouterKeys: openrouterKeys(cfg),
       tavilyApiKey: cfg.requireSecret("tavilyApiKey"),
       embedModel: cfg.get("embedModel") ?? "openai/text-embedding-3-large",
       embedBaseUrl: cfg.get("embedBaseUrl") ?? "https://openrouter.ai/api/v1",
@@ -110,6 +151,8 @@ export function loadAppServices(
       byokSecretBackend: cfg.get("byokSecretBackend") ?? "",
       byokLocalKek: cfg.getSecret("byokLocalKek") ?? pulumi.output(""),
       allowAgentOrgMemory: bool(cfg, "allowAgentOrgMemory", false),
+      knowledgeSingleOperator: bool(cfg, "knowledgeSingleOperator", false),
+      knowledgeCarry: bool(cfg, "knowledgeCarry", false),
     },
     internal: {
       apiToken: cfg.requireSecret("gridInternalApiToken"),

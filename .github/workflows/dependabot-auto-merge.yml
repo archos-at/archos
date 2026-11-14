@@ -1,0 +1,103 @@
+name: Dependabot auto-merge
+
+# Turns on GitHub's auto-merge for the Dependabot pull requests nobody needs to
+# read first: minor and patch bumps, grouped or not, security fixes included,
+# outside deploy/pulumi (ci/dependabot_merge.py holds the policy). GitHub then
+# squash-merges each one when its required checks pass, and not before. A
+# major, a held directory or a red CI stays open for a person, as before.
+# Dependabot has no setting of its own for this; this workflow is GitHub's
+# documented way ("Automating Dependabot with GitHub Actions").
+#
+# Two guards, because a wrong merge here lands on staging by itself:
+#   * `CI OK` must be a required check on the base branch, bound to the GitHub
+#     Actions app (the ruleset's source for it, not "any source"). Auto-merge
+#     on a pull request with no required check merges it AT ONCE, whatever CI
+#     says, so without the rule this workflow does nothing and says why.
+#   * The merge must start the push run (images, tags, the staging deploy). A
+#     merge by GITHUB_TOKEN starts no workflow, so auto-merge is turned on with
+#     DEPENDABOT_MERGE_TOKEN, a fine-grained token (contents and pull requests:
+#     write, this repository only). A run Dependabot triggers sees only
+#     Dependabot secrets: it lives under Settings → Secrets and variables →
+#     Dependabot, not Actions. Without it this workflow does nothing and says
+#     why.
+#
+# Repository setting it needs: General → Pull Requests → Allow auto-merge.
+# Setup and the policy: docs/contributing/testing-and-verification.md.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  enable:
+    name: Auto-merge a minor or patch update
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # the base branch's rules, and the policy script
+      pull-requests: write # turn auto-merge off on an update a person must read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: ci
+          persist-credentials: false
+
+      - name: Read the update
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Decide
+        id: decide
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DIRECTORY: ${{ steps.meta.outputs.directory }}
+        run: |
+          python3 ci/dependabot_merge.py "$UPDATE_TYPE" "$DIRECTORY" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Turn on auto-merge
+        if: steps.decide.outputs.merge == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_TOKEN: ${{ secrets.DEPENDABOT_MERGE_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/rules/branches/$BASE" | python3 ci/dependabot_merge.py rules > rules.env
+          . ./rules.env
+          if [ "$ci_ok_required" != "true" ]; then
+            echo "::notice::CI OK from GitHub Actions is not a required check on $BASE, so auto-merge would merge at once; left for a person"
+            exit 0
+          fi
+          if [ -z "$MERGE_TOKEN" ]; then
+            echo "::notice::no Dependabot secret DEPENDABOT_MERGE_TOKEN; a merge by GITHUB_TOKEN would start no push run, so left for a person"
+            exit 0
+          fi
+          # The approval a ruleset requires comes from the merge token's owner,
+          # not from github-actions: the organization does not let workflows
+          # approve pull requests, and allowing it would let any workflow in
+          # any repository of the organization approve its own.
+          if [ "$reviews" -gt 0 ]; then
+            GH_TOKEN="$MERGE_TOKEN" gh pr review --approve --body "Automatic approval: a minor or patch update, merged only when CI OK passes (ci/dependabot_merge.py)." "$PR_URL"
+          fi
+          GH_TOKEN="$MERGE_TOKEN" gh pr merge --auto --squash "$PR_URL"
+
+      # A later push can make a pull request ineligible (Dependabot rewrites a
+      # group when a member gains a major), and auto-merge set on an earlier
+      # push survives it. Also when the metadata could not be read.
+      - name: Turn off auto-merge on an update a person must read
+        if: always() && steps.decide.outputs.merge != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REASON: ${{ steps.decide.outputs.reason || 'the update could not be read' }}
+        run: |
+          if [ "$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')" = "true" ]; then
+            gh pr merge --disable-auto "$PR_URL"
+            echo "::notice::auto-merge turned off: $REASON"
+          fi

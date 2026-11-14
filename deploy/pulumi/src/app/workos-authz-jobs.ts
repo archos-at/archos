@@ -6,7 +6,8 @@ import { appPullPolicy, frontendImage } from '../config/images'
 import { commonLabels } from "../platform/namespaces";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, UID } from "../constants";
-import { AppSecrets, AppWiring, authzCatalogEnv, folderGrantsCarryOverEnv } from "./config";
+import { AppSecrets, AppWiring } from "./config";
+import { authzCatalogEnv, folderGrantsCarryOverEnv } from "./job-env";
 import { logicalName } from "../names";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
@@ -71,9 +72,15 @@ function workosJob(
  *
  * Safe to run every deploy because the catalog is what the code checks: the
  * script creates a missing permission or role, sets a catalog role's
- * permissions to the catalog's, and deletes no permission and no role. Custom
- * roles an office made are not in the catalog and are never touched. An
- * unchanged catalog writes nothing.
+ * permissions to the catalog's, and deletes only a permission the catalog
+ * retired (`apps/workspace/bff/authz/retired-permissions.ts`), after taking it
+ * off every role that holds it. It deletes no role. Custom roles an office made
+ * are not in the catalog and are touched for nothing else. An unchanged catalog
+ * writes nothing.
+ *
+ * Any drift fails the Job, in apply mode too: a permission in WorkOS that the
+ * catalog neither declares nor retired shows as CrashLoopBackOff with exit 1
+ * (`docs/contributing/gotchas.md`).
  *
  * What it cannot do is create a resource type: neither the SDK nor the public
  * API exposes them. A catalog tier whose type is missing fails the Job, which

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@/test-utils'
+import { render, screen, waitFor, within } from '@/test-utils'
 import { act, fireEvent } from '@testing-library/react'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { KeyboardShortcuts } from './keyboard-shortcuts'
@@ -75,7 +75,7 @@ describe('KeyboardShortcuts', () => {
 
     expect(await screen.findByText('Current project')).toBeInTheDocument()
     // Click-dummy IA (spec §5): Chat/Files/Settings + Setup (intake).
-    for (const section of ['Ask Piloti', 'Files', 'Overview', 'Setup']) {
+    for (const section of ['Chat', 'Files', 'Overview', 'Setup']) {
       expect(screen.getByText(section)).toBeInTheDocument()
     }
     // Members/Research left the IA (FB-9/FB-10). "Overview" is listed above,
@@ -101,8 +101,9 @@ describe('KeyboardShortcuts', () => {
 
     expect(await screen.findByText('Keyboard shortcuts')).toBeInTheDocument()
     // Grouped: what the shell binds, where you can jump, what the chat does.
+    // As headings: the jump to the Chat section is a row with the same word.
     for (const group of ['General', 'Jump to', 'Chat']) {
-      expect(screen.getByText(group)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 3, name: group })).toBeInTheDocument()
     }
     expect(screen.getByText('Open the command palette')).toBeInTheDocument()
     expect(screen.getByText('Close a dialog or menu')).toBeInTheDocument()
@@ -119,8 +120,10 @@ describe('KeyboardShortcuts', () => {
 
     await screen.findByText('Keyboard shortcuts')
     // Rows are derived from the shared IA, so they carry the rail's own labels.
-    for (const label of ['All projects', 'Organization', 'Ask Piloti', 'Files', 'Office filing', 'Overview']) {
-      expect(screen.getByText(label)).toBeInTheDocument()
+    // Scoped to the jump group: the composer's group is headed "Chat" too.
+    const jumps = within(document.querySelector<HTMLElement>('[data-shortcut-group="navigation"]')!)
+    for (const label of ['All projects', 'Organization', 'Chat', 'Files', 'Office filing', 'Overview']) {
+      expect(jumps.getByText(label)).toBeInTheDocument()
     }
     // Flag-gated sections stay out until their flag is on.
     expect(screen.queryByText('Skills')).toBeNull()

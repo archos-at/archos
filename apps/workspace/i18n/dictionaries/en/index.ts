@@ -17,6 +17,8 @@ import { collaboration } from './collaboration'
 import { files } from './files'
 import { dossier } from './dossier'
 import { officeShelf } from './office-shelf'
+import { baseKnowledge } from './base-knowledge'
+import { lawMap } from './law-map'
 import { bim } from './bim'
 import { knowledge } from './knowledge'
 import { research } from './research'
@@ -47,7 +49,13 @@ import { intakeFilingStep } from './intake-filing-step'
 import { intakeProjectStep } from './intake-project-step'
 import { intakeShell } from './intake-shell'
 import { notifications } from './notifications'
+import { inboundMail } from './inbound-mail'
+import { mailThread } from './mail-thread'
 import { search } from './search'
+import { whatsNew } from './whats-new'
+import { personalMemory } from './personal-memory'
+import { memoryNotes } from './memory-notes'
+import { memoryTopics } from './memory-topics'
 
 export const en = {
   common,
@@ -64,6 +72,8 @@ export const en = {
   files,
   dossier,
   officeShelf,
+  baseKnowledge,
+  lawMap,
   bim,
   knowledge,
   research,
@@ -91,5 +101,11 @@ export const en = {
   intakeProjectStep,
   intakeShell,
   notifications,
+  inboundMail,
+  mailThread,
   search,
+  whatsNew,
+  personalMemory,
+  memoryNotes,
+  memoryTopics,
 } as const

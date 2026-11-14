@@ -242,7 +242,7 @@ export function QuestionHeader({ question, domId }: { question: ProjectIntakeQue
             control beside every label — an accordion the length of the form
             competing with the questions it annotates. */}
         {question.why && (
-          <button
+          <button data-attr="project-why-open"
             type="button"
             onClick={() => setWhyOpen((previous) => !previous)}
             aria-expanded={whyOpen}
@@ -276,7 +276,7 @@ export function QuestionHeader({ question, domId }: { question: ProjectIntakeQue
         // (design-language.md, "Emphasis without a stripe").
         <p
           id={whyId}
-          className="bg-muted text-muted-foreground max-w-prose rounded-md px-3 py-2 text-xs"
+          className="bg-muted text-muted-foreground max-w-prose rounded-control px-3 py-2 text-xs"
         >
           {question.why}
         </p>
@@ -365,13 +365,13 @@ export function Segmented({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="border-border inline-flex w-fit flex-wrap self-start overflow-hidden rounded-lg border"
+      className="border-border inline-flex w-fit flex-wrap self-start overflow-hidden rounded-control border"
     >
       {options.map((opt, i) => {
         const active = value === opt.value
         const tone = opt.tone ?? 'default'
         return (
-          <button
+          <button data-attr="project-change"
             key={opt.value}
             type="button"
             aria-pressed={active}
@@ -386,7 +386,7 @@ export function Segmented({
               size === 'sm'
                 ? 'min-h-8 px-2.5 text-[11px] font-medium pointer-coarse:min-h-11 pointer-coarse:px-3.5 pointer-coarse:text-xs'
                 : 'min-h-9 px-3.5 text-sm pointer-coarse:min-h-11 pointer-coarse:px-4',
-              !active && 'bg-card text-foreground hover:bg-muted',
+              !active && 'bg-card text-foreground hover:bg-sheet-hover',
               active && tone === 'default' && 'text-primary-foreground',
               active && tone === 'warning' && 'text-white',
               active && tone === 'muted' && 'text-background'
@@ -428,7 +428,7 @@ export function ChipMultiSelect({
       {(question.options ?? []).map((opt) => {
         const active = value.includes(opt.value)
         return (
-          <button
+          <button data-attr="project-change"
             key={opt.value}
             type="button"
             aria-pressed={active}
@@ -439,7 +439,7 @@ export function ChipMultiSelect({
               'inline-flex min-h-9 items-center justify-center rounded-full border px-3.5 py-1.5 text-sm transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:min-h-11 pointer-coarse:px-4',
               active
                 ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5'
+                : 'border-border bg-card text-foreground hover:border-primary/50 hover:bg-sheet-hover'
             )}
           >
             {opt.label}

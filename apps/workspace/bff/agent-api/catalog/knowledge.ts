@@ -3,7 +3,9 @@
 import { z } from 'zod'
 import { geocodeQuerySchema } from '@/lib/geocoding/types'
 import { listNormsQuerySchema } from '@/lib/norms/norm-list-wire'
+import { siteResolveQuerySchema } from '@/lib/site-resolution/wire'
 import type { AgentOperation } from '../operation'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 export const knowledgeOperations = [
   {
@@ -11,9 +13,9 @@ export const knowledgeOperations = [
     domain: 'knowledge',
     summary: 'See what the building-law corpus contains',
     description:
-      'The status of the platform-owned base corpus (OIB guidelines and the like): which documents it holds and ' +
-      'whether they are indexed. Identical for every organization. To search it use the document search with ' +
-      '`shelf: "base"` (no project needed); for Austrian law itself the law lookup. This only lists what is there.',
+      'The base corpus as this organization reads it: the documents released in a country the organization is entitled to, and ' +
+      'whether each is indexed. An organization entitled to no country gets an empty list. To search it use the document search with ' +
+      '`shelf: "base"` (no project needed); for the law itself the law lookup. This only lists what is there.',
     method: 'GET',
     path: '/api/knowledge-base',
     load: () => import('@/app/api/knowledge-base/route'),
@@ -23,7 +25,7 @@ export const knowledgeOperations = [
     domain: 'knowledge',
     summary: 'List the norm register',
     description:
-      'Austrian laws and authority guidance Piloti knows by number: `{ norms: [{ id, short, title, rank, federalState, topics, citationUrl, documentNumber, bindingNote }], nextCursor }`. ' +
+      'Austrian laws and authority guidance ' + PRODUCT_NAME + ' knows by number: `{ norms: [{ id, short, title, rank, federalState, topics, citationUrl, documentNumber, bindingNote }], nextCursor }`. ' +
       '`federalState` ("Wien" or "vienna") keeps that state’s norms plus federal ones; `topic` matches topics, title or short name. `bindingNote` (German) says how it becomes binding. ' +
       'Pass `documentNumber` as the `instrument` of the law lookup to read it.',
     method: 'GET',
@@ -43,6 +45,20 @@ export const knowledgeOperations = [
     path: '/api/geocode',
     query: geocodeQuerySchema,
     load: () => import('@/app/api/geocode/route'),
+  },
+  {
+    name: 'site-resolve',
+    domain: 'knowledge',
+    summary: 'Resolve a site address against official registers',
+    description:
+      'Looks a typed address (`q`) up in the official address registers hosted here (Austria: BEV); nothing leaves to a third party. ' +
+      '`verified`: exactly one register address; `site` has country, `state`, `municipality`, the territory `chain` and the ' +
+      'competent `authority` (`decided`, or `undetermined` with a reason). `unverified`: a `reason` and up to 8 `candidates` to ' +
+      'ask the person about; never treat it as placed. Then project-site-set with an `addressId`.',
+    method: 'GET',
+    path: '/api/sites/resolve',
+    query: siteResolveQuerySchema,
+    load: () => import('@/app/api/sites/resolve/route'),
   },
   {
     name: 'widget-token-get',
@@ -67,8 +83,8 @@ export const knowledgeOperations = [
     summary: 'Read a base-corpus PDF',
     description:
       'The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an ' +
-      'attached resource up to 5 MiB; a larger file is not sent. Identical for every organization. Use it to quote a source a ' +
-      'citation points at.',
+      'attached resource up to 5 MiB; a larger file is not sent. Only a document released in a country the organization is entitled to; ' +
+      'any other name answers 404, whether or not such a file exists. Use it to quote a source a citation points at.',
     method: 'GET',
     path: '/api/knowledge-base/documents/[fileName]',
     params: z.object({ fileName: z.string().describe('The base-corpus file name, exactly as knowledge-base-get lists it.') }),

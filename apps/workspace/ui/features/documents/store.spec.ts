@@ -397,6 +397,62 @@ describe('useDocumentsStore', () => {
       expect(sess.status).toBe('success')
     })
 
+    describe('a same-named file in the polled job', () => {
+      const olderJob: IngestionJobStatus = {
+        job_id: 'older-job',
+        status: 'completed',
+        submitted_at: '2024-01-01T00:00:00Z',
+        total_files: 1,
+        processed_files: 1,
+        collection_name: 'proj_corpus',
+        backend: 'milvus',
+        metadata: {},
+        file_details: [
+          { file_id: 'older-document', file_name: 'report.pdf', status: 'success', progress_percent: 100 },
+        ],
+      }
+
+      test('does not claim an upload of this session whose own request is still out', () => {
+        // The reader dropped a second report.pdf while the first one's job is
+        // polled. Taking that job's file id would point this row at the other
+        // document, and removing the row would then delete it.
+        const fresh: TrackedFile = {
+          id: 'fresh-1',
+          file: new File(['x'], 'report.pdf'),
+          fileName: 'report.pdf',
+          fileSize: 1,
+          status: 'uploading',
+          progress: 0,
+          collectionName: 'proj_corpus',
+        }
+        useDocumentsStore.setState({ trackedFiles: [fresh] })
+
+        useDocumentsStore.getState().updateFilesFromJobStatus(olderJob)
+
+        const row = useDocumentsStore.getState().trackedFiles[0]
+        expect(row.status).toBe('uploading')
+        expect(row.serverFileId).toBeUndefined()
+      })
+
+      test('still resumes a row restored after a reload, which knows only its name', () => {
+        const restored: TrackedFile = {
+          id: 'restored-1',
+          fileName: 'report.pdf',
+          fileSize: 1,
+          status: 'uploading',
+          progress: 0,
+          collectionName: 'proj_corpus',
+        }
+        useDocumentsStore.setState({ trackedFiles: [restored] })
+
+        useDocumentsStore.getState().updateFilesFromJobStatus(olderJob)
+
+        const row = useDocumentsStore.getState().trackedFiles[0]
+        expect(row.status).toBe('success')
+        expect(row.serverFileId).toBe('older-document')
+      })
+    })
+
     test('updates files based on job status by filename', () => {
       const trackedFile: TrackedFile = {
         id: 'local-1',

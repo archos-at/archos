@@ -59,25 +59,12 @@ vulnerabilities:
   # under `go version -m`, and a local trivy 0.61.1 scan of that digest with
   # this file EMPTY reports no fixable HIGH/CRITICAL. The three boxes are gone.
   #
-  # 2026-10-28: go-jose/v4 4.1.5 (CVE-2026-116587, published 2026-10-26) drew
-  # one HIGH against 0.163.2, and the newest release, 0.164.0
-  # (`sha256:340c9ca6…`), still carries 4.1.5 (local trivy 0.61.1 scan with this
-  # file EMPTY). go-jose 4.1.6 is out, but 0.165.0 exists only as a nightly, so
-  # there is nothing released to move to. Boxed for the 14-day maximum.
-  - id: CVE-2026-116587
-    expired_at: 2026-11-11
-    statement: |
-      github.com/go-jose/go-jose/v4 4.1.5 (GHSA-mgcc-cww5-fp2q) in the
-      otelcol-contrib binary — CPU-cubic validation of crafted RSA parameters
-      when parsing a JWK from an untrusted source. Fixed in 4.1.6.
-      Not exploitable here: the library is compiled into contrib but nothing in
-      our collector parses a JWK. `collector-config.ts` enables a single
-      extension, `health_check`; no OIDC, OAuth2 or bearer-token authenticator
-      is configured, so there is no JWKS fetch and no JOSE parsing on any path,
-      authenticated or not. The OIDC flow that gates the dashboards runs in
-      Envoy Gateway, not in the collector.
-      Drop as soon as a release ships go-jose >= 4.1.6 (0.165.0 is the first
-      expected); bump the pin and delete this entry rather than extending it.
+  # 2026-10-28: go-jose/v4 4.1.5 (CVE-2026-116587) drew one HIGH against 0.163.2
+  # and was boxed to 2026-11-11, waiting for 0.165.0. Its expiry turned the
+  # 2026-11-14 promotion red; the pin moved to 0.165.0 (`sha256:e40d61f1…`), whose
+  # amd64 binary reads go1.27.3, go-jose v4.1.6 and x/net v0.62.0 under
+  # `go version -m` (which also clears CVE-2026-78661 against x/net v0.61.0). The
+  # box is gone; this block is empty again.
 
   # ── Langfuse web/worker images (ADR-0044) ─────────────────────────────────
   #
@@ -103,6 +90,11 @@ vulnerabilities:
   # below (sdk 1.32.0, follow-redirects 1.16.1, migrate go1.26.10), and
   # neither digest carries CVE-2026-104850 (sdk 1.29.0; 4.63.0 already shipped
   # 1.31.0), so that box is gone.
+  # 4.71.0 -> 4.74.0 on 2026-11-03 cleared follow-redirects 1.16.1
+  # (CVE-2026-116689, HIGH, never boxed: it kept develop's CI, and so the
+  # staging deploy, red) and dd-trace 5.109.0 (CVE-2026-116693, boxed to
+  # 2026-11-11), both images. Verified by a local trivy 0.61.1 scan of the
+  # 4.74.0 digests with this file EMPTY: only CVE-2026-40345 below remains.
   #
   # Shared context: the Langfuse UI is reachable only through the Envoy
   # Gateway behind an OIDC flow gated on `platform:organizations:view` or
@@ -110,30 +102,8 @@ vulnerabilities:
   # public API) is reachable only from the pods a NetworkPolicy names: the
   # collector, the BFF, the backend tiers, the purger and the scheduler. There
   # is no unauthenticated surface.
-  - id: CVE-2026-116693
-    expired_at: 2026-11-11
-    statement: |
-      dd-trace 5.109.0 (GHSA-x94g-w73q-hpcw, published 2026-10-27) — the default
-      DD_TRACE_OBFUSCATION_QUERY_STRING_REGEXP backtracks excessively on a
-      crafted URL query string, applied synchronously while recording HTTP URL
-      metadata: a denial of service against the instrumented process. Fixed in
-      5.131.1 and 6.20.1. Both images, the same bundled copy.
-      No release clears it: 4.71.0 is the newest Langfuse tag and `latest`
-      resolves to the same digests as our pin (checked against ghcr.io on
-      2026-10-28). The finding comes from the promotion's CI scan of those
-      digests; trivy 0.61.1 run locally could not pull from ghcr.io.
-      Not reachable by an outsider: the web UI sits behind the Envoy Gateway
-      OIDC flow, so a crafted URL needs a signed-in person with
-      `platform:organizations:view` or `platform:observability:view`, and the
-      API and OTLP receiver answer only the pods a NetworkPolicy names, all
-      ours. The worker serves no user-supplied URL. Note this rests on the
-      network boundary, NOT on dd-trace being switched off: Langfuse's
-      `observability.config.ts` imports it unconditionally and we did not
-      verify the tracer is disabled in the running pods.
-      Drop as soon as a Langfuse release bundles dd-trace >= 5.131.1.
-
   - id: CVE-2026-40345
-    expired_at: 2026-11-09
+    expired_at: 2026-11-28
     statement: |
       deepmerge-ts 7.1.5 (GHSA-ggr8-5vv4-36mx) — stack exhaustion when BOTH
       merged objects reference themselves at the same key path. A denial of
@@ -168,8 +138,64 @@ vulnerabilities:
       Still present in 4.68.0, read from a scan of its digests on 2026-10-22:
       the same three copies, under `prisma` and `@prisma/config` 6.19.3.
 
+      Extended on 2026-11-14, when its expiry of 2026-11-09 turned the
+      promotion red and the pin moved 4.74.0 -> 4.80.0: the reasoning above is
+      structural (the CLI runs before the server, no request reaches it), and
+      Langfuse has not announced a move off Prisma 6. Not re-verified against
+      the 4.80.0 layers: the promotion's trivy run is the check, and an entry no
+      finding matches costs nothing.
+
       Drop as soon as a Langfuse image ships `@prisma/config` >= 8 (deepmerge-ts
       >= 8.0.0).
+
+  # ── Base-image packages, the 2026-11-14 advisory wave ────────────────────
+  #
+  # On 2026-11-14 the trivy DB took a wave of Ubuntu and Debian advisories in the
+  # middle of the prod promotion, and each run of the promotion's scan found a
+  # pin the previous one had passed. RabbitMQ, Langfuse and the collector were
+  # cleared by bumping (#1727, #1729); for the rest no rebuilt digest existed
+  # that day: ClickHouse's next build is a version jump, and the PgBouncer image
+  # 1.26.0 had no newer build. Boxed for SEVEN days, the shortest box this file
+  # uses: bump each pin before it expires and delete the entry, never extend it.
+  - id: CVE-2026-109518
+    expired_at: 2026-11-21
+    statement: |
+      apt / libapt-pkg (clickhouse-server 2.4.14, pgbouncer 3.0.3): remote code
+      execution via hard-link reuse while apt downloads packages. Not reachable
+      here: apt runs only at image build time, never in a running container,
+      and none of these containers runs as root or has a package source it
+      would fetch from. Drop when the clickhouse and pgbouncer pins move to
+      rebuilds with apt 2.4.15ubuntu0.1 / 3.0.4 (RabbitMQ already did, #1727).
+  - id: CVE-2026-33630
+    expired_at: 2026-11-21
+    statement: |
+      c-ares 1.34.5 in the pgbouncer image: use-after-free / double free in the
+      resolver. PgBouncer resolves one name, the in-cluster Postgres Service,
+      through the cluster DNS; no answer comes from outside the cluster. Drop
+      with the pgbouncer rebuild carrying c-ares 1.34.9.
+  - id: CVE-2026-69184
+    expired_at: 2026-11-21
+    statement: |
+      c-ares 1.34.5 in the pgbouncer image: CPU exhaustion from crafted DNS
+      answers. Same reasoning as CVE-2026-33630: only cluster DNS answers it.
+  - id: CVE-2026-69186
+    expired_at: 2026-11-21
+    statement: |
+      c-ares 1.34.5 in the pgbouncer image: denial of service via an unvalidated
+      DNS header. Same reasoning as CVE-2026-33630: only cluster DNS answers it.
+  - id: CVE-2026-76844
+    expired_at: 2026-11-21
+    statement: |
+      zlib1g in the pgbouncer image (Debian's advisory text names
+      webpack-dev-middleware, which the image does not contain). PgBouncer
+      decompresses nothing a client sends. Drop with the pgbouncer rebuild
+      carrying zlib 1:1.3.dfsg+really1.3.1-1+deb13u1.
+  - id: CVE-2026-85091
+    expired_at: 2026-11-21
+    statement: |
+      zlib1g in the pgbouncer image: heap overflow in gz_vacate(), the gzip
+      file-writing path. PgBouncer writes no gzip file. Drop with the same
+      pgbouncer rebuild as CVE-2026-76844.
 
   # ── ClickHouse (ADR-0044) ─────────────────────────────────────────────────
   #
@@ -177,10 +203,8 @@ vulnerabilities:
   # 2026-10-22), went with the pin moving 26.8.15.10 -> 26.8.33.10 within the
   # 26.8 LTS line: libssl3/openssl 3.0.2-0ubuntu1.30, and a local trivy 0.61.1
   # scan of that digest with this file EMPTY reports no fixable HIGH/CRITICAL.
-  # The same box was silently covering the geocoder's eclipse-temurin
-  # 21.0.12_8-jre-noble (libssl3t64 3.0.13-0ubuntu3.15), found only by
-  # scanning every pin; it moved to 21.0.12.1_1-jre-noble (0ubuntu3.16),
-  # which scans clean the same way. An `id` box matches every image.
+  # An `id` box matches every image, so a box written for one pin covers them
+  # all; scan every pin before trusting that one is empty.
 
 secrets:
   - id: gcp-service-account

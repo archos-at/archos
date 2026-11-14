@@ -1,0 +1,88 @@
+/**
+ * Production entry for the public site: the Astro node adapter's own handler,
+ * behind steps that set the security headers on every response
+ * (`security-headers.mjs`), answer the health probe at `/healthz`, and set
+ * Cache-Control on static files (`cache-control.mjs`), and answer 410 for an old
+ * address that is gone on purpose (`gone.mjs`, reading the route fates in
+ * `../redirects.mjs`).
+ *
+ * Why a wrapper and not an adapter option: `@astrojs/node` has no hook for the
+ * headers of files it serves from `dist/client` (`staticHeaders` covers
+ * prerendered routes only, and only for CSP), and Astro middleware never runs
+ * for a static file. Why not Envoy: an HTTPRoute `ResponseHeaderModifier`
+ * cannot tell a 200 from a 404, and during a rolling update a new page can ask
+ * an old pod for an asset it does not have yet. That 404 must not be cached
+ * for a year. Here the header is set only when the file exists.
+ *
+ * Run it after `npm run build`: `node runtime/server.mjs`. HOST and PORT come
+ * from the environment, as with `dist/server/entry.mjs`.
+ */
+import fs from 'node:fs'
+import http from 'node:http'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { cacheControlFor } from './cache-control.mjs'
+import { HEALTH_PATH, cmsImageOrigins, isPreviewPath, securityHeaders } from './security-headers.mjs'
+import { analyticsOrigins, webAnalyticsConfig } from './web-analytics.mjs'
+import { goneStatus } from './gone.mjs'
+
+// The standalone entry starts its own server on import unless told not to.
+// Static imports are hoisted, so the flag has to be set before a dynamic one.
+process.env.ASTRO_NODE_AUTOSTART = 'disabled'
+const { handler } = await import('../dist/server/entry.mjs')
+
+const CLIENT_DIR = fileURLToPath(new URL('../dist/client/', import.meta.url))
+const HOST = process.env.HOST ?? 'localhost'
+const PORT = Number(process.env.PORT ?? 4321)
+
+/** @param {string} pathname */
+function isClientFile(pathname) {
+  let decoded
+  try {
+    decoded = decodeURI(pathname)
+  } catch {
+    return false
+  }
+  const file = path.resolve(CLIENT_DIR, `.${decoded}`)
+  if (!file.startsWith(CLIENT_DIR)) return false
+  try {
+    return fs.statSync(file).isFile()
+  } catch {
+    return false
+  }
+}
+
+/** @param {http.IncomingMessage} req @param {http.ServerResponse} res */
+function setCacheControl(req, res) {
+  const pathname = (req.url ?? '/').split(/[?#]/, 1)[0]
+  const value = cacheControlFor(pathname)
+  if (value && isClientFile(pathname)) res.setHeader('Cache-Control', value)
+}
+
+// The policy names the PostHog origins only when this container has analytics on.
+const ANALYTICS = analyticsOrigins(webAnalyticsConfig(process.env))
+const CMS_ORIGINS = cmsImageOrigins(process.env)
+const SECURITY_HEADERS = securityHeaders(ANALYTICS, CMS_ORIGINS)
+// The blog's preview, framed by the CMS's admin panel (ADR-0155): its origin may frame it, nobody else.
+const PREVIEW_HEADERS = securityHeaders(ANALYTICS, CMS_ORIGINS, CMS_ORIGINS)
+
+const server = http.createServer((req, res) => {
+  const pathname = (req.url ?? '/').split(/[?#]/, 1)[0]
+  for (const [name, value] of isPreviewPath(pathname) && CMS_ORIGINS.length ? PREVIEW_HEADERS : SECURITY_HEADERS) res.setHeader(name, value)
+  // Liveness and readiness: the process answers. Cheap, uncached, never logged
+  // as a page view, and not dependent on any file in dist/.
+  if ((req.url ?? '').split('?', 1)[0] === HEALTH_PATH) {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' })
+    res.end(req.method === 'HEAD' ? undefined : 'ok\n')
+    return
+  }
+  // HEAD is GET without the body (RFC 9110). Astro answers a redirect to a HEAD with 308 where
+  // the GET gets 301; Node already knows the request was HEAD and sends no body either way.
+  if (req.method === 'HEAD') req.method = 'GET'
+  setCacheControl(req, res)
+  goneStatus(req, res)
+  handler(req, res)
+})
+server.listen(PORT, HOST, () => {
+  console.log(`website listening on http://${HOST}:${PORT}`)
+})

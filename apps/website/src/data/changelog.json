@@ -1,0 +1,126 @@
+{
+  "$comment": "GENERATED FILE, do not edit. Written by scripts/release_notes.py from releasenotes/ and committed by .github/workflows/release-notes.yml on merge to develop. Regenerate with `task release:changelog`. The public tier: one summary per week, never a single note.",
+  "releases": [
+    {
+      "id": "2026-W44",
+      "kind": "week",
+      "version": null,
+      "date": "2026-10-26",
+      "dateEnd": "2026-11-01",
+      "summary": {
+        "en": "Ctrl+K now searches everything your office holds, by name, by kind and by what a document says, and documents can be filtered by drawing number, revision, scale or the facts they state. Each document is read whole, and a project lists where its documents contradict each other or refer to one it does not hold. Sketches can be drawn in the chat and reworked by hand.",
+        "de": "Mit Strg+K durchsuchen Sie jetzt alles, was Ihr Büro hat: nach Name, nach Art und nach dem Inhalt eines Dokuments, und Dokumente lassen sich nach Plannummer, Planstand, Maßstab oder den darin genannten Angaben filtern. Jedes Dokument wird vollständig gelesen, und ein Projekt zeigt, wo sich seine Dokumente widersprechen oder auf eines verweisen, das ihm fehlt. Skizzen entstehen direkt im Chat und lassen sich von Hand überarbeiten."
+      }
+    },
+    {
+      "id": "2026-W43",
+      "kind": "week",
+      "version": null,
+      "date": "2026-10-19",
+      "dateEnd": "2026-10-25",
+      "summary": {
+        "en": "Your own AI assistant, such as Claude or Cursor, can now work in your workspace in your name and with your rights, and it asks before it changes anything. Setting up a project takes five short steps, and the Steckbrief shows how the Gebäudeklasse was worked out and which OIB-Richtlinien apply. Loose files can be sorted into folders in one go, and a document in the bin or the archive can be brought back.",
+        "de": "Ihr eigener KI-Assistent, etwa Claude oder Cursor, kann jetzt in Ihrem Namen und mit Ihren Rechten in Ihrem Arbeitsbereich arbeiten und fragt nach, bevor er etwas ändert. Ein Projekt richten Sie in fünf kurzen Schritten ein, und der Steckbrief zeigt, wie die Gebäudeklasse ermittelt wurde und welche OIB-Richtlinien gelten. Lose Dateien lassen sich in einem Schritt in Ordner sortieren, und ein Dokument im Papierkorb oder im Archiv lässt sich zurückholen."
+      }
+    },
+    {
+      "id": "2026-W42",
+      "kind": "week",
+      "version": null,
+      "date": "2026-10-12",
+      "dateEnd": "2026-10-18",
+      "summary": {
+        "en": "Documents can now be reviewed together: set an Anmerkung on a page, give it a person and a date, discuss it in its thread, carry it over to the next revision, or export all of them as minutes. The Postfach shows who wrote, filters what waits on you and can notify your phone or computer. On a phone, a bar at the bottom reaches the main areas, and photos and dictation go straight into the chat.",
+        "de": "Dokumente lassen sich jetzt gemeinsam prüfen: Setzen Sie eine Anmerkung auf eine Seite, geben Sie ihr eine zuständige Person und ein Datum, besprechen Sie sie im Verlauf, übernehmen Sie sie in die nächste Fassung oder exportieren Sie alle als Protokoll. Das Postfach zeigt, wer geschrieben hat, filtert, was auf Sie wartet, und kann Ihr Telefon oder Ihren Computer benachrichtigen. Am Telefon erreichen Sie die wichtigsten Bereiche über eine Leiste am unteren Rand, und Fotos und Diktate gelangen direkt in den Chat."
+      }
+    },
+    {
+      "id": "2026-W41",
+      "kind": "week",
+      "version": null,
+      "date": "2026-10-05",
+      "dateEnd": "2026-10-11",
+      "summary": {
+        "en": "You can now close a finished project, which keeps it searchable and read-only, and clear out the working copies, duplicates and temporary files Piloti proposes, deciding on each one yourself. Piloti draws on similar closed projects as precedents, and your office decides per folder which roles may read or edit it. Uploads are screened for IBANs and other listed terms before any model reads them, and each document keeps all its revisions in one entry you can compare.",
+        "de": "Sie können jetzt ein fertiges Projekt abschließen, das dabei durchsuchbar bleibt und schreibgeschützt wird, und danach die Arbeitskopien, Duplikate und temporären Dateien aussortieren, die Piloti vorschlägt, wobei Sie über jede Datei selbst entscheiden. Piloti zieht bei Fragen, wie etwas schon einmal gelöst wurde, ähnliche abgeschlossene Projekte als Präzedenzfälle heran, und Ihr Büro legt pro Ordner fest, welche Rollen ihn lesen oder bearbeiten dürfen. Uploads werden auf IBANs und andere Begriffe geprüft, die Ihr Büro festgelegt hat, bevor ein Sprachmodell sie liest, und jedes Dokument behält alle seine Revisionen in einem einzigen Eintrag, den Sie nebeneinander vergleichen können."
+      }
+    },
+    {
+      "id": "2026-W40",
+      "kind": "week",
+      "version": null,
+      "date": "2026-09-28",
+      "dateEnd": "2026-10-04",
+      "summary": {
+        "en": "Piloti can now search every file in a project for a word, name or number and list each place it appears, and it goes through all of a project's files, not only the first 50 or so names. Word, Excel and PowerPoint files open as a PDF preview, and pictures inside Word and PowerPoint files can be cited. A scanned PDF is now read word for word, up to 500 pages.",
+        "de": "Piloti findet jetzt jede Stelle, an der ein Wort, ein Name oder eine Zahl in den Dateien eines Projekts vorkommt, und listet jede Fundstelle mit Seitenzahl auf. Piloti geht außerdem alle Dateien eines Projekts durch, nicht nur die ersten rund 50 Namen. Word-, Excel- und PowerPoint-Dateien öffnen sich als PDF-Vorschau, Bilder in Word- und PowerPoint-Dateien lassen sich zitieren, und ein gescanntes PDF wird Wort für Wort bis zu 500 Seiten gelesen."
+      }
+    },
+    {
+      "id": "2026-W39",
+      "kind": "week",
+      "version": null,
+      "date": "2026-09-21",
+      "dateEnd": "2026-09-27",
+      "summary": {
+        "en": "Answers now appear while Piloti writes them, and each reference becomes a clickable source once it is verified. Answers come structured as tables, numbered steps and tabs for the variants you compare, and they survive a dropped connection. Questions on garages and parking decks now find OIB-Richtlinie 2.2.",
+        "de": "Antworten erscheinen jetzt, während Piloti sie schreibt, und jede Fundstelle wird zu einer anklickbaren Quelle, sobald sie geprüft ist. Antworten sind gegliedert in Tabellen, nummerierte Schritte und Reiter für die Varianten, die Sie vergleichen, und sie überstehen einen Verbindungsabbruch. Fragen zu Garagen und Parkdecks finden jetzt die OIB-Richtlinie 2.2."
+      }
+    },
+    {
+      "id": "2026-W38",
+      "kind": "week",
+      "version": null,
+      "date": "2026-09-14",
+      "dateEnd": "2026-09-20",
+      "summary": {
+        "en": "Questions about Austrian law are answered with citable paragraphs from the RIS, and an office can give Piloti standing instructions that apply to every question. Deep research and the Automation section are switched off for now, and an office that needs them can ask us to switch them on.",
+        "de": "Fragen zum österreichischen Recht beantwortet Piloti mit zitierbaren Paragraphen aus dem RIS, und ein Büro kann Piloti stehende Anweisungen geben, die für jede Frage gelten. Tiefenrecherche und der Bereich Automatisierung sind vorerst ausgeschaltet; ein Büro, das sie braucht, kann uns bitten, sie für dieses Büro einzuschalten."
+      }
+    },
+    {
+      "id": "2026-W37",
+      "kind": "week",
+      "version": null,
+      "date": "2026-09-07",
+      "dateEnd": "2026-09-13",
+      "summary": {
+        "en": "Every file now keeps its versions, and a version can be submitted for approval, approved and then published, with exactly one version published at a time. Piloti can write an Aktenvermerk, a Protokoll or a checklist as a draft and file it in the project when you ask, and nothing it writes is searchable until someone approves it. Usage and budgets are now shown in points instead of euros, so check your limits once.",
+        "de": "Jede Datei behält jetzt ihre Fassungen, und eine Fassung lässt sich zur Freigabe einreichen, freigeben und danach veröffentlichen; immer nur eine Fassung ist veröffentlicht. Piloti schreibt auf Zuruf einen Aktenvermerk, ein Protokoll oder eine Checkliste als Entwurf und legt ihn im Projekt ab, und was Piloti schreibt, ist erst durchsuchbar, wenn es jemand freigegeben und veröffentlicht hat. Verbrauch und Budgets werden jetzt in Punkten statt in Euro angezeigt; prüfen Sie Ihre Budgetlimits deshalb einmal nach."
+      }
+    },
+    {
+      "id": "2026-W36",
+      "kind": "week",
+      "version": null,
+      "date": "2026-08-31",
+      "dateEnd": "2026-09-06",
+      "summary": {
+        "en": "Piloti can now look at your drawings as images when a question turns on what they show. References name the point of the Richtlinie as well as the page, and legal sources from the RIS open inside Piloti with the cited passage highlighted. Whole folders can be uploaded and matched against the project's existing folders.",
+        "de": "Piloti kann sich Ihre Zeichnungen jetzt als Bild ansehen, wenn eine Frage davon abhängt, was sie zeigen. Fundstellen nennen neben der Seite auch den Punkt der Richtlinie, und Rechtsquellen aus dem RIS öffnen sich in Piloti mit markierter Stelle. Ganze Ordner lassen sich hochladen und mit den vorhandenen Ordnern des Projekts abgleichen."
+      }
+    },
+    {
+      "id": "2026-W35",
+      "kind": "week",
+      "version": null,
+      "date": "2026-08-24",
+      "dateEnd": "2026-08-30",
+      "summary": {
+        "en": "Piloti now works properly on a phone. Answers can be downloaded as Word documents, and diagrams are real drawings. Excel, PowerPoint and CSV files can be uploaded, and answers cite the right sheet or slide.",
+        "de": "Piloti funktioniert jetzt richtig auf dem Telefon. Antworten lassen sich als Word-Dokument herunterladen, und Diagramme sind echte Zeichnungen. Excel-, PowerPoint- und CSV-Dateien lassen sich hochladen, und Antworten zitieren das richtige Blatt oder die richtige Folie."
+      }
+    },
+    {
+      "id": "2026-W34",
+      "kind": "week",
+      "version": null,
+      "date": "2026-08-17",
+      "dateEnd": "2026-08-23",
+      "summary": {
+        "en": "Research reports are now filed in your project under Berichte, marked as written by Piloti. Project folders can be renamed, moved and deleted without losing documents, and Piloti knows which folder each one is in. This changelog started this week.",
+        "de": "Rechercheberichte werden jetzt in Ihrem Projekt unter „Berichte“ abgelegt und als von Piloti verfasst gekennzeichnet. Projektordner lassen sich umbenennen, verschieben und löschen, ohne dass Dokumente verloren gehen, und Piloti weiß, in welchem Ordner jedes Dokument liegt. In dieser Woche ist dieses Changelog gestartet."
+      }
+    }
+  ]
+}

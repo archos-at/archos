@@ -9,14 +9,16 @@ vi.mock('@/lib/backend-proxy', () => ({
   getBackendUrl: vi.fn().mockReturnValue('http://backend:8000'),
 }))
 
-const { recordAuditEvent, getPlatformOrganizationId } = vi.hoisted(() => ({
+const { recordAuditEvent, getPlatformOrganizationId, isOrgFeatureEnabled } = vi.hoisted(() => ({
   recordAuditEvent: vi.fn(),
   getPlatformOrganizationId: vi.fn(),
+  isOrgFeatureEnabled: vi.fn(),
 }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent }))
+vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled }))
 vi.mock('@/lib/authz/platform', () => ({ getPlatformOrganizationId }))
 
-import { ConflictError, UpstreamError } from '@/lib/api/errors'
+import { UpstreamError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
 import { getNormRegistry, putNormRegistry, verifyNormPointer } from './service'
 import type { NormEntry, NormsFile } from './schemas'
@@ -71,6 +73,8 @@ describe('norm registry service', () => {
     recordAuditEvent.mockResolvedValue(undefined)
     getPlatformOrganizationId.mockReset()
     getPlatformOrganizationId.mockResolvedValue('org_platform')
+    isOrgFeatureEnabled.mockReset()
+    isOrgFeatureEnabled.mockResolvedValue(false)
     vi.stubEnv('ADMIN_TOKEN', 'admin-secret')
   })
 
@@ -103,37 +107,10 @@ describe('norm registry service', () => {
     await expect(getNormRegistry()).rejects.toBeInstanceOf(UpstreamError)
   })
 
-  it('putNormRegistry persists and records a platform-scoped audit event', async () => {
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({ version: 5 }), { status: 200 }))
-
-    const result = await putNormRegistry(session, { version: 4, registry })
-
-    expect(result).toEqual({ version: 5 })
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(String(url)).toContain('/v1/admin/norms')
-    expect(init?.method).toBe('PUT')
-    expect(recordAuditEvent).toHaveBeenCalledTimes(1)
-    const audited = recordAuditEvent.mock.calls[0][0]
-    expect(audited.organizationId).toBe('org_platform')
-    expect(audited.action).toBe('platform.norm_registry.updated')
-    expect(audited.metadata).toEqual({ entries: 1, version: 5 })
-  })
-
-  it('putNormRegistry maps a 409 to ConflictError (no audit)', async () => {
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({ detail: 'stale version' }), { status: 409 }))
-    await expect(
-      putNormRegistry(session, { version: 1, registry }),
-    ).rejects.toBeInstanceOf(ConflictError)
+  it('putNormRegistry always answers 409: the platform records own the norms (ADR-0175), and nothing is sent', async () => {
+    await expect(putNormRegistry(session, { version: 4, registry })).rejects.toThrow(/platform change request/)
+    expect(fetchMock).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
-  })
-
-  it('putNormRegistry maps a 422 to UnprocessableError carrying the backend detail', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ detail: 'entry[0].id duplicate' }), { status: 422 }),
-    )
-    await expect(
-      putNormRegistry(session, { version: 4, registry }),
-    ).rejects.toMatchObject({ status: 422, message: 'entry[0].id duplicate' })
   })
 
   it('verifyNormPointer returns candidates', async () => {

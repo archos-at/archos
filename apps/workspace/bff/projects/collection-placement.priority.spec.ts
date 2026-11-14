@@ -31,11 +31,10 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({
 }))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: vi.fn().mockReturnValue('http://backend:8000') }))
 vi.mock('@/lib/organizations/service', () => ({ getOrgSettings: vi.fn() }))
-vi.mock('@/lib/documents/rendition', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/documents/rendition')>()),
-  isRenditionEnabled: vi.fn().mockReturnValue(false),
-  ensureRendition: vi.fn(),
-}))
+vi.mock('@/lib/documents/rendition', async (importOriginal) => {
+  const { renditionModuleMock } = await import('@/test-utils/rendition-module')
+  return renditionModuleMock(await importOriginal(), false)
+})
 vi.mock('@/lib/jobs-queue/enqueue', () => ({ enqueueJob: vi.fn().mockResolvedValue({ jobId: 'bff-job-1' }) }))
 vi.mock('@/lib/jobs-queue/repository', () => ({ findOpenJobId: vi.fn().mockResolvedValue(null) }))
 vi.mock('@/lib/documents/repository', () => ({
@@ -109,7 +108,7 @@ let fetchSpy: ReturnType<typeof vi.fn>
 beforeEach(() => {
   fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job_id: 'ingest-1' }) })
   vi.stubGlobal('fetch', fetchSpy)
-  vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'de', settings: {} })
+  vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'de', homeCountry: null, settings: {} })
   vi.mocked(findProjectInOrg).mockResolvedValue(makeProject({ id: PROJECT, collectionName: COLLECTION }))
   // "Honorare" is restricted to one role: its documents belong in its own collection.
   vi.mocked(listProjectFolderTree).mockResolvedValue([

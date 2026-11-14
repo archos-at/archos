@@ -26,10 +26,17 @@ import {
   renderBimComplianceDiff,
   missingPropertyShoppingList,
   renderBimRules,
-  runBimRules,
+  runBimRules as runOnSite,
+  rulesWithOpenWork,
+  type BimRuleFacts,
   summarizeBimRules,
 } from './rules'
+import { SETTLED_BASES } from './rule-basis.fixtures'
 import type { BimElement } from './types'
+
+/** Every rule judged where its edition binds at a settled site, unless a test states another basis. */
+const runBimRules = (elements: readonly BimElement[], facts: Partial<BimRuleFacts> = {}) =>
+  runOnSite(elements, { bases: SETTLED_BASES, ...facts })
 
 function element(overrides: Partial<BimElement> & Pick<BimElement, 'ifcType'>): BimElement {
   return {
@@ -402,7 +409,7 @@ describe('false verdicts a reviewer found by running the catalogue', () => {
         element({
           ifcType: 'IfcWall',
           name: 'Wohnungstrennwand',
-          properties: { Pset_WallCommon: { AcousticRating: 0 } },
+          properties: { Pset_WallCommon: { IsExternal: false, AcousticRating: 0 } },
         }),
       ],
       { mainUse: 'residential' }
@@ -418,7 +425,7 @@ describe('false verdicts a reviewer found by running the catalogue', () => {
         element({
           ifcType: 'IfcWall',
           name: 'Wohnungstrennwand',
-          properties: { Pset_WallCommon: { AcousticRating: 55 } },
+          properties: { Pset_WallCommon: { IsExternal: false, AcousticRating: 55 } },
         }),
       ],
       { mainUse: 'residential' }
@@ -465,7 +472,8 @@ describe('the catalog itself', () => {
       // check the RULE, not just the result. A rule without one is a rule that
       // asks to be trusted.
       expect(rule.thresholdDe.length).toBeGreaterThan(0)
-      expect(rule.richtlinie).toMatch(/^OIB /)
+      expect(rule.designation.length).toBeGreaterThan(0)
+      expect(rule.edition.length).toBeGreaterThan(0)
       expect(rule.clause.length).toBeGreaterThan(0)
     }
   })
@@ -1133,7 +1141,10 @@ describe('oib5-sound-insulation-declared', () => {
     // A missing AcousticRating is a gap in the model, not proof that the wall
     // fails the Richtlinie.
     const rule = ruleOf(
-      runBimRules([element({ ifcType: 'IfcWall', name: 'IW1' })], { mainUse: 'residential' }),
+      runBimRules(
+        [element({ ifcType: 'IfcWall', name: 'IW1', properties: { Pset_WallCommon: { IsExternal: false } } })],
+        { mainUse: 'residential' }
+      ),
       'oib5-sound-insulation-declared'
     )
     expect(rule.undecidable).toBe(1)
@@ -1144,7 +1155,7 @@ describe('oib5-sound-insulation-declared', () => {
     element({
       ifcType: 'IfcWall',
       name: 'IW1',
-      properties: { Pset_WallCommon: { AcousticRating: rating } },
+      properties: { Pset_WallCommon: { IsExternal: false, AcousticRating: rating } },
     })
   const verdict = (rating: string | number) =>
     ruleOf(runBimRules([wall(rating)], { mainUse: 'residential' }), 'oib5-sound-insulation-declared')
@@ -1217,6 +1228,78 @@ describe('oib5-sound-insulation-declared', () => {
       expect(rule.undecidable, String(zero)).toBe(1)
       expect(rule.unknowns[0]?.reading, String(zero)).toContain('vermutlich nicht gesetzt')
     }
+  })
+})
+
+describe('the IsExternal flag', () => {
+  const U_VALUE_RULE = 'oib6-u-value-external-wall'
+  const SOUND_RULE = 'oib5-sound-insulation-declared'
+  const wall = (flag?: string | boolean) =>
+    element({
+      ifcType: 'IfcWall',
+      name: 'W1',
+      properties: {
+        Pset_WallCommon: {
+          ThermalTransmittance: 0.5,
+          AcousticRating: 'Rw 55 dB',
+          ...(flag === undefined ? {} : { IsExternal: flag }),
+        },
+      },
+    })
+  const verdicts = (flag?: string | boolean) => {
+    const results = runBimRules([wall(flag)], { mainUse: 'residential' })
+    return { envelope: ruleOf(results, U_VALUE_RULE), separating: ruleOf(results, SOUND_RULE) }
+  }
+
+  it('leaves a wall without the flag undecidable in both rules, whatever else it publishes', () => {
+    const { envelope, separating } = verdicts()
+
+    expect([envelope.failed, envelope.undecidable]).toEqual([0, 1])
+    expect([separating.passed, separating.undecidable]).toEqual([0, 1])
+    expect(envelope.unknowns[0]?.reading).toContain('außen liegt')
+    expect(envelope.missing.map((entry) => entry.path)).toEqual(['Pset_WallCommon.IsExternal'])
+    expect(separating.missing.map((entry) => entry.path)).toEqual([
+      'Pset_WallCommon.IsExternal (bzw. Pset_SlabCommon.IsExternal)',
+    ])
+  })
+
+  it.each([true, 'TRUE'])('reads %s as an external wall: judged on U, out of the sound rule', (flag) => {
+    const { envelope, separating } = verdicts(flag)
+
+    expect(envelope.failed).toBe(1)
+    expect(separating.passed + separating.failed + separating.undecidable).toBe(0)
+  })
+
+  it.each([false, 'FALSE'])('reads %s as an internal wall: out of the U rule, judged on sound', (flag) => {
+    const { envelope, separating } = verdicts(flag)
+
+    expect(envelope.passed + envelope.failed + envelope.undecidable).toBe(0)
+    expect(separating.passed).toBe(1)
+  })
+
+  it('does not guess at a flag it cannot read', () => {
+    const { envelope, separating } = verdicts('Wahr')
+
+    expect(envelope.undecidable).toBe(1)
+    expect(separating.undecidable).toBe(1)
+  })
+
+  it('keeps one shopping row per rule, so a wall in both is not added up across them', () => {
+    const results = runBimRules(
+      [wall(), element({ ifcType: 'IfcSlab', name: 'D1' })],
+      { mainUse: 'residential' }
+    )
+
+    expect(
+      missingPropertyShoppingList(results).filter((row) => row.path.includes('IsExternal'))
+    ).toEqual([
+      {
+        path: 'Pset_WallCommon.IsExternal (bzw. Pset_SlabCommon.IsExternal)',
+        elements: 2,
+        rules: [SOUND_RULE],
+      },
+      { path: 'Pset_WallCommon.IsExternal', elements: 1, rules: [U_VALUE_RULE] },
+    ])
   })
 })
 
@@ -1403,6 +1486,16 @@ describe('human confirmations', () => {
     expect(rule.confirmationStale).toBe(false)
   })
 
+  it('shows no confirmation on a rule that now only gives a hint, and keeps it for when it judges again', () => {
+    const hinted = failing.map((entry) => (entry.ruleId === 'oib4-door-clear-width' ? { ...entry, hint: 'Hinweis: Grundlage am Standort nicht bestimmt' } : entry))
+    const [hint] = attachConfirmations(hinted, [confirmation], 'rev-3').filter((entry) => entry.ruleId === 'oib4-door-clear-width')
+    expect(hint.confirmation).toBeNull()
+    expect(hint.confirmationStale).toBe(false)
+    // The same stored row is shown again once the rule judges: nothing was deleted.
+    const [judged] = attachConfirmations(failing, [confirmation], 'rev-3').filter((entry) => entry.ruleId === 'oib4-door-clear-width')
+    expect(judged.confirmation?.confirmedBy).toBe('a.muster')
+  })
+
   it('marks a confirmation made against another revision as stale', () => {
     // `rev-3` and `rev-4` are two revisions of ONE building, so the series has
     // to name both — a confirmation from outside the building on screen is not
@@ -1507,5 +1600,43 @@ describe('outstandingRules', () => {
       expect(rule.applicable).toBe(true)
       expect(rule.failed + rule.undecidable).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('a rule judges only on its basis at the site', () => {
+  const FIRE = 'oib2-fire-resistance-load-bearing'
+  const wall = (fireRating: string): BimElement =>
+    ({
+      globalId: 'W1',
+      name: 'W1',
+      ifcType: 'IfcWall',
+      storeyName: 'Erdgeschoss',
+      properties: { Pset_WallCommon: { LoadBearing: true, FireRating: fireRating } },
+    }) as unknown as BimElement
+  const on = (basis: BimRuleFacts['bases'][string], fireRating = 'REI 30') =>
+    runOnSite([wall(fireRating)], { bases: { ...SETTLED_BASES, [FIRE]: basis }, buildingClass: 5, storeys: STOREYS })
+  const fire = (results: ReturnType<typeof on>) => results.find((rule) => rule.ruleId === FIRE)
+
+  it('gives a verdict where its edition binds, the positive control', () => {
+    expect(fire(on({ kind: 'verdict' }))).toMatchObject({ applicable: true, failed: 1 })
+    expect(fire(on({ kind: 'verdict' }))?.richtlinie).toBe('OIB-Richtlinie 2, Ausgabe Mai 2023')
+  })
+
+  it('reads every element as a hint: no pass, no fail, no to-do, the reason on the reading and the line', () => {
+    const reason = 'Hinweis: Schwellwerte aus Ausgabe Mai 2023; am Standort gilt Ausgabe April 2019 über StBTV'
+    for (const rating of ['REI 30', 'REI 90', '']) {
+      const results = on({ kind: 'hint', reason }, rating)
+      const result = fire(results)
+      expect(result).toMatchObject({ applicable: true, passed: 0, failed: 0, undecidable: 1, missing: [], hint: reason })
+      expect(result?.unknowns[0]?.reading).toContain(reason)
+      expect(rulesWithOpenWork(results).map((rule) => rule.ruleId)).not.toContain(FIRE)
+      // Nothing to sign off either: a confirmation on a hint would outlive it.
+      expect(outstandingRules(attachConfirmations(results, [], 'rev-3')).map((rule) => rule.ruleId)).not.toContain(FIRE)
+      expect(renderBimRules(results)).toContain(`OIB-Richtlinie 2, Ausgabe Mai 2023 3 — Tragende Bauteile — Feuerwiderstand: ${reason}`)
+    }
+  })
+
+  it('treats a rule with no basis as a hint, never a verdict', () => {
+    expect(fire(runOnSite([wall('REI 90')], { bases: {}, buildingClass: 4 }))).toMatchObject({ passed: 0, failed: 0, undecidable: 1 })
   })
 })

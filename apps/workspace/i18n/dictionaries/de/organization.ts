@@ -294,6 +294,15 @@ export const organization: typeof en.organization = {
     members: 'Mitglieder',
     membersCapped: '{count}+',
     pendingInvites: 'Ausstehende Einladungen',
+    homeCountry: 'Land des Büros',
+    homeCountryMissing: {
+      title: 'Das Land Ihres Büros fehlt',
+      description:
+        'Es bestimmt die Voreinstellungen Ihres Büros, zuerst die Uhrzeit, mit der Fristen und Tage gerechnet werden; bis dahin gilt die österreichische. Welches Baurecht für ein Projekt gilt, entscheidet sein Standort, nicht der Sitz. Sie geben es einmal an.',
+      placeholder: 'Land wählen',
+      save: 'Festlegen',
+      saveError: 'Das Land konnte nicht gespeichert werden.',
+    },
   },
   settings: {
     title: 'Organisationseinstellungen',
@@ -667,6 +676,8 @@ export const organization: typeof en.organization = {
     detector: {
       iban: 'IBAN',
       at_svnr: 'Sozialversicherungsnummer (AT)',
+      de_svnr: 'Sozialversicherungsnummer (DE)',
+      de_tax_id: 'Steuer-ID (DE)',
       credit_card: 'Kreditkartennummer',
     },
     limits:
@@ -712,8 +723,50 @@ export const organization: typeof en.organization = {
     deleteError: 'Die Datei konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.',
     deleteErrorSession: 'Einen Chat-Anhang können nur Personen löschen, die an diesem Chat beteiligt sind.',
     loadError: 'Die Quarantäne konnte gerade nicht geladen werden.',
+    // Mehrfachauswahl: mehrere zurückgehaltene Dateien auf einmal zulassen oder
+    // löschen, etwa alle, die nur wegen einer vermeintlichen Kartennummer warten.
+    selectRow: '„{name}“ auswählen',
+    selectAll: 'Alle angezeigten auswählen',
+    selected: '{count} ausgewählt',
+    selectionLimit: 'Höchstens {limit} Dateien auf einmal. Die übrigen wählen Sie danach.',
+    clearSelection: 'Auswahl aufheben',
+    releaseManyTitle: '{count, plural, one {Eine Datei zulassen?} other {# Dateien zulassen?}}',
+    releaseManyDescription:
+      '{productName} liest {count, plural, one {die Datei} other {die # Dateien}} dann wie jeden anderen Upload: Sprachmodelle sehen den Inhalt, und die Suche findet sie. Ihre Entscheidung wird für jede Datei mit Ihrem Namen protokolliert.',
+    releasedMany: '{count, plural, one {Eine Datei ist zugelassen und wird gelesen.} other {# Dateien sind zugelassen und werden gelesen.}}',
+    deleteManyTitle: '{count, plural, one {Eine Datei löschen?} other {# Dateien löschen?}}',
+    deleteManyDescription:
+      '{count, plural, one {Die Datei wird} other {Die # Dateien werden}} aus {productName} entfernt. Das lässt sich nicht rückgängig machen.',
+    deletedMany: '{count, plural, one {Eine Datei ist gelöscht.} other {# Dateien sind gelöscht.}}',
+    someFailed:
+      '{count, plural, one {Über eine Datei ließ sich nicht entscheiden. Sie bleibt ausgewählt.} other {Über # Dateien ließ sich nicht entscheiden. Sie bleiben ausgewählt.}}',
+    decideError: 'Die Entscheidung konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
+    // Mit den Regeln von heute erneut prüfen: die Prüfung wurde verbessert oder
+    // das Büro hat seine Liste geändert. Gibt nichts frei, was die Regeln halten.
+    recheck: 'Erneut prüfen',
+    recheckHint:
+      'Prüft die Dateien noch einmal mit den heute geltenden Regeln. Was nicht mehr anschlägt, liest {productName} wie jeden Upload; was weiterhin anschlägt, kommt hierher zurück.',
+    recheckingMany:
+      '{count, plural, one {Eine Datei wird erneut geprüft.} other {# Dateien werden erneut geprüft.}} Was weiterhin anschlägt, kommt hierher zurück.',
+    filterLabel: 'Nach Fund filtern',
+    filter: {
+      all: 'Alle',
+      term: 'Begriff',
+      iban: 'IBAN',
+      at_svnr: 'SV-Nummer',
+      de_svnr: 'RV-Nummer',
+      de_tax_id: 'Steuer-ID',
+      credit_card: 'Kartennummer',
+      other: 'Andere Regel',
+      unscreened: 'Nicht geprüft',
+    },
   },
   /** What Piloti learned about the office's conventions, to confirm or decline (ADR-0129). */
+  baseKnowledge: {
+    title: 'Grundlagen des Büros',
+    description: 'Die Normen, Kommentare und Weisungen Ihres Büros haben einen eigenen Bereich neben der Büroablage. Dort laden Sie sie hoch, ordnen sie in Ordner, bestätigen und prüfen sie. {productName} antwortet nur für Ihr Büro aus ihnen.',
+    open: 'Grundlagen öffnen',
+  },
   officeConventions: {
     title: 'Was {productName} über das Büro gelernt hat',
     description: 'Konventionen, die {productName} in Ihren Projekten gezählt hat. Bestätigen Sie, was stimmt, und lehnen Sie ab, was nicht stimmt: {productName} verwendet eine abgelehnte Zeile nie und behält eine bestätigte immer.',

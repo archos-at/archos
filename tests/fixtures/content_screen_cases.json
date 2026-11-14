@@ -1,9 +1,11 @@
 {
-  "description": "Cross-language contract for the content screen (ADR-0086): the office's content terms and number detectors, found and masked. Python: agent.common.content_screen (packages/agent/tests/common/test_content_screen.py). TypeScript: apps/workspace/bff/upload-screening/content-screen.ts (content-screen.spec.ts). For each case both assert the same matches (rule and matched text, in rule order then position: terms in list order, then iban, at_svnr, credit_card), the same masked text and the same findings, and that masking the masked text changes nothing. `matches` is a single pass over `text`; `masked` and `findings` are the result of masking to a fixpoint. Matched text, not offsets, is compared because Python counts code points and JavaScript UTF-16 units. `placeholders` is defined in Python (PLACEHOLDERS) and held here so the TS mirror cannot drift. There is ONE copy: the TS spec reads this file from disk at run time (vitest runs in apps/workspace with the whole repository checked out) rather than importing it, so the frontend typecheck never needs a path outside apps/workspace. `unicode` holds the character tables Python computed, which each side checks its own against for every code point: `whitespace` (the White_Space property, the only whitespace either side uses), `decimal_zeros` (the zero of every run of ten Nd digits; a digit's value is its distance from that zero), `classes_sha256` (per code point L, N, M or -, joined) and `fold_sha256` (the fold of each code point, joined by a line feed), all over every code point but the surrogates, made with Unicode `version`. `iban_lengths` is the IBAN registry both sides hold. When Python's Unicode version changes, the tables move with it: each is computed by its test in packages/agent/tests/common/test_content_screen.py, whose failure prints the value to put here; then run the TS spec on a Node with the same Unicode version.",
+  "description": "Cross-language contract for the content screen (ADR-0086): the office's content terms and number detectors, found and masked. Python: agent.common.content_screen (packages/agent/tests/common/test_content_screen.py). TypeScript: apps/workspace/bff/upload-screening/content-screen.ts (content-screen.spec.ts). For each case both assert the same matches (rule and matched text, in rule order then position: terms in list order, then iban, at_svnr, credit_card, de_svnr, de_tax_id), the same masked text and the same findings, and that masking the masked text changes nothing. `matches` is a single pass over `text`; `masked` and `findings` are the result of masking to a fixpoint. Matched text, not offsets, is compared because Python counts code points and JavaScript UTF-16 units. `placeholders` is defined in Python (PLACEHOLDERS) and held here so the TS mirror cannot drift. There is ONE copy: the TS spec reads this file from disk at run time (vitest runs in apps/workspace with the whole repository checked out) rather than importing it, so the frontend typecheck never needs a path outside apps/workspace. `unicode` holds the character tables Python computed, which each side checks its own against for every code point: `whitespace` (the White_Space property, the only whitespace either side uses), `decimal_zeros` (the zero of every run of ten Nd digits; a digit's value is its distance from that zero), `classes_sha256` (per code point L, N, M or -, joined) and `fold_sha256` (the fold of each code point, joined by a line feed), all over every code point but the surrogates, made with Unicode `version`. `iban_lengths` is the IBAN registry both sides hold. When Python's Unicode version changes, the tables move with it: each is computed by its test in packages/agent/tests/common/test_content_screen.py, whose failure prints the value to put here; then run the TS spec on a Node with the same Unicode version.",
   "placeholders": {
     "iban": "[IBAN entfernt]",
     "at_svnr": "[SV-Nummer entfernt]",
     "credit_card": "[Kartennummer entfernt]",
+    "de_svnr": "[RV-Nummer entfernt]",
+    "de_tax_id": "[Steuer-ID entfernt]",
     "term": "[Begriff entfernt]"
   },
   "cases": [
@@ -1400,7 +1402,7 @@
         "at_svnr",
         "credit_card"
       ],
-      "text": "AT61 1904 3002 3457 3201\u200B1237010180",
+      "text": "AT61 1904 3002 3457 3201\u200B1237010180 (SV-Nr.)",
       "matches": [
         {
           "kind": "iban",
@@ -1411,7 +1413,7 @@
           "text": "1237010180"
         }
       ],
-      "masked": "[IBAN entfernt]\u200B[SV-Nummer entfernt]",
+      "masked": "[IBAN entfernt]\u200B[SV-Nummer entfernt] (SV-Nr.)",
       "findings": [
         {
           "kind": "iban",
@@ -1709,6 +1711,394 @@
           "sample": "•••• 0004"
         }
       ]
+    },
+    {
+      "name": "an unbroken number with nothing that says card is not one, though it passes Luhn",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "Auftrag 5555555555554444, Artikel 4006381333932",
+      "matches": [],
+      "masked": "Auftrag 5555555555554444, Artikel 4006381333932",
+      "findings": []
+    },
+    {
+      "name": "an unbroken number with a card's word beside it is a card",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "Kreditkarte: 5555555555554444 (Visa 4111111111111111)",
+      "matches": [
+        {
+          "kind": "credit_card",
+          "text": "5555555555554444"
+        },
+        {
+          "kind": "credit_card",
+          "text": "4111111111111111"
+        }
+      ],
+      "masked": "Kreditkarte: [Kartennummer entfernt] (Visa [Kartennummer entfernt])",
+      "findings": [
+        {
+          "kind": "credit_card",
+          "count": 2,
+          "sample": "•••• 4444"
+        }
+      ]
+    },
+    {
+      "name": "a card's word inside another word, or out of reach, does not make a number a card",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "Ricardo 4111111111111111. Danach steht noch ein langer Satz ohne Bezug, erst dann die Karte.",
+      "matches": [],
+      "masked": "Ricardo 4111111111111111. Danach steht noch ein langer Satz ohne Bezug, erst dann die Karte.",
+      "findings": []
+    },
+    {
+      "name": "the Amex and Diners layouts count only in their own network's range",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "4111 111111 11116 und 4111 111111 1114",
+      "matches": [],
+      "masked": "4111 111111 11116 und 4111 111111 1114",
+      "findings": []
+    },
+    {
+      "name": "a timestamp in a spreadsheet cell is no social-security number, though its digits pass",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "| 2026-09-12 10:17:51.065000 | 2026-10-05 00:00:00 | 40 |",
+      "matches": [],
+      "masked": "| 2026-09-12 10:17:51.065000 | 2026-10-05 00:00:00 | 40 |",
+      "findings": []
+    },
+    {
+      "name": "a social-security number printed unbroken counts only with a label on the page",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "Kundennummer 1237010180",
+      "matches": [],
+      "masked": "Kundennummer 1237010180",
+      "findings": []
+    },
+    {
+      "name": "a staff list's header labels the unbroken numbers in its rows",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "| Name | SV-Nr | Eintritt |\n|---|---|---|\n| Huber | 1237010180 | 2024-03-01 |",
+      "matches": [
+        {
+          "kind": "at_svnr",
+          "text": "1237010180"
+        }
+      ],
+      "masked": "| Name | SV-Nr | Eintritt |\n|---|---|---|\n| Huber | [SV-Nummer entfernt] | 2024-03-01 |",
+      "findings": [
+        {
+          "kind": "at_svnr",
+          "count": 1,
+          "sample": "•••• ••••80"
+        }
+      ]
+    },
+    {
+      "name": "a card list's header labels the unbroken numbers in its rows",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "| Inhaber | Kartennummer | Limit |\n|---|---|---|\n| Huber | 5555555555554444 | 5000 |",
+      "matches": [
+        {
+          "kind": "credit_card",
+          "text": "5555555555554444"
+        }
+      ],
+      "masked": "| Inhaber | Kartennummer | Limit |\n|---|---|---|\n| Huber | [Kartennummer entfernt] | 5000 |",
+      "findings": [
+        {
+          "kind": "credit_card",
+          "count": 1,
+          "sample": "•••• 4444"
+        }
+      ]
+    },
+    {
+      "name": "a dimension chain in millimetres is no card number, though it passes Luhn",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "5215 4080 5475 3640 und 4000 0000 0000 0002",
+      "matches": [
+        {
+          "kind": "credit_card",
+          "text": "4000 0000 0000 0002"
+        }
+      ],
+      "masked": "5215 4080 5475 3640 und [Kartennummer entfernt]",
+      "findings": [
+        {
+          "kind": "credit_card",
+          "count": 1,
+          "sample": "•••• 0002"
+        }
+      ]
+    },
+    {
+      "name": "a card's word cut by the right edge of the window is read whole",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "5555555555554444 Bestellung Bestellung Bestellung Bestellung  Visa",
+      "matches": [
+        {
+          "kind": "credit_card",
+          "text": "5555555555554444"
+        }
+      ],
+      "masked": "[Kartennummer entfernt] Bestellung Bestellung Bestellung Bestellung  Visa",
+      "findings": [
+        {
+          "kind": "credit_card",
+          "count": 1,
+          "sample": "•••• 4444"
+        }
+      ]
+    },
+    {
+      "name": "a word that starts out of reach does not bring its card word into the window",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "Visabestimmungenfürdieeinreiseundnochvieleweiterebuchstabenohneleerzeichen 4111111111111111",
+      "matches": [],
+      "masked": "Visabestimmungenfürdieeinreiseundnochvieleweiterebuchstabenohneleerzeichen 4111111111111111",
+      "findings": []
+    },
+    {
+      "name": "a German Rentenversicherungsnummer as it is printed, in its groups",
+      "terms": [],
+      "detectors": [
+        "de_svnr",
+        "de_tax_id"
+      ],
+      "text": "Rentenversicherungsnummer: 15 070649 C 103.",
+      "matches": [
+        {
+          "kind": "de_svnr",
+          "text": "15 070649 C 103"
+        }
+      ],
+      "masked": "Rentenversicherungsnummer: [RV-Nummer entfernt].",
+      "findings": [
+        {
+          "kind": "de_svnr",
+          "count": 1,
+          "sample": "•• •••••• • •03"
+        }
+      ]
+    },
+    {
+      "name": "a Rentenversicherungsnummer printed unbroken needs no label: the letter makes it rare",
+      "terms": [],
+      "detectors": [
+        "de_svnr",
+        "de_tax_id"
+      ],
+      "text": "RVNR 15070649C103",
+      "matches": [
+        {
+          "kind": "de_svnr",
+          "text": "15070649C103"
+        }
+      ],
+      "masked": "RVNR [RV-Nummer entfernt]",
+      "findings": [
+        {
+          "kind": "de_svnr",
+          "count": 1,
+          "sample": "•• •••••• • •03"
+        }
+      ]
+    },
+    {
+      "name": "a Rentenversicherungsnummer with a wrong check digit is no number",
+      "terms": [],
+      "detectors": [
+        "de_svnr",
+        "de_tax_id"
+      ],
+      "text": "Nummer 15 070649 C 104",
+      "matches": [],
+      "masked": "Nummer 15 070649 C 104",
+      "findings": []
+    },
+    {
+      "name": "a lower-case letter in the middle is no Rentenversicherungsnummer",
+      "terms": [],
+      "detectors": [
+        "de_svnr",
+        "de_tax_id"
+      ],
+      "text": "Position 15070649c103",
+      "matches": [],
+      "masked": "Position 15070649c103",
+      "findings": []
+    },
+    {
+      "name": "a digit right after a Rentenversicherungsnummer makes it a longer number",
+      "terms": [],
+      "detectors": [
+        "de_svnr",
+        "de_tax_id"
+      ],
+      "text": "15070649C1031",
+      "matches": [],
+      "masked": "15070649C1031",
+      "findings": []
+    },
+    {
+      "name": "a German tax ID in its groups, on a page that names it",
+      "terms": [],
+      "detectors": [
+        "de_svnr",
+        "de_tax_id"
+      ],
+      "text": "Steuer-ID: 36 574 261 809",
+      "matches": [
+        {
+          "kind": "de_tax_id",
+          "text": "36 574 261 809"
+        }
+      ],
+      "masked": "Steuer-ID: [Steuer-ID entfernt]",
+      "findings": [
+        {
+          "kind": "de_tax_id",
+          "count": 1,
+          "sample": "•• ••• ••• •09"
+        }
+      ]
+    },
+    {
+      "name": "an unbroken tax ID with its label",
+      "terms": [],
+      "detectors": [
+        "de_svnr",
+        "de_tax_id"
+      ],
+      "text": "Steuerliche Identifikationsnummer 36574261809, Steuerklasse 1",
+      "matches": [
+        {
+          "kind": "de_tax_id",
+          "text": "36574261809"
+        }
+      ],
+      "masked": "Steuerliche Identifikationsnummer [Steuer-ID entfernt], Steuerklasse 1",
+      "findings": [
+        {
+          "kind": "de_tax_id",
+          "count": 1,
+          "sample": "•• ••• ••• •09"
+        }
+      ]
+    },
+    {
+      "name": "eleven digits that pass the check are no tax ID on a page that names none",
+      "terms": [],
+      "detectors": [
+        "de_svnr",
+        "de_tax_id"
+      ],
+      "text": "Bestellnummer 36574261809",
+      "matches": [],
+      "masked": "Bestellnummer 36574261809",
+      "findings": []
+    },
+    {
+      "name": "a tax ID whose first ten digits repeat more than one digit is no tax ID",
+      "terms": [],
+      "detectors": [
+        "de_svnr",
+        "de_tax_id"
+      ],
+      "text": "Steuer-ID 36554266806",
+      "matches": [],
+      "masked": "Steuer-ID 36554266806",
+      "findings": []
+    },
+    {
+      "name": "an IBAN printed in groups of four is never read as a tax ID, even on a page that names one",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "de_tax_id"
+      ],
+      "text": "Steuer-ID beiliegend, IBAN DE89 3704 0044 0532 0130 00",
+      "matches": [
+        {
+          "kind": "iban",
+          "text": "DE89 3704 0044 0532 0130 00"
+        }
+      ],
+      "masked": "Steuer-ID beiliegend, IBAN [IBAN entfernt]",
+      "findings": [
+        {
+          "kind": "iban",
+          "count": 1,
+          "sample": "DE89 •••• •••• •••• •••• 3000"
+        }
+      ]
+    },
+    {
+      "name": "the German detectors switched off find nothing",
+      "terms": [],
+      "detectors": [
+        "iban"
+      ],
+      "text": "Steuer-ID: 36 574 261 809, RVNR 15070649C103",
+      "matches": [],
+      "masked": "Steuer-ID: 36 574 261 809, RVNR 15070649C103",
+      "findings": []
     }
   ],
   "unicode": {

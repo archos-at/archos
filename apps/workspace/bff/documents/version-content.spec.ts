@@ -24,6 +24,8 @@ import type { Document } from '@/lib/db/schema/documents'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
 vi.mock('./access', () => ({ getAccessibleDocument: vi.fn() }))
+// The stop itself is `cancel-ingest.spec.ts`'s; here it is what archiving asks for.
+vi.mock('./reingest', () => ({ cancelDocumentIngest: vi.fn() }))
 vi.mock('./repository', () => ({ findDocumentInOrg: vi.fn(), markDocumentNotIndexed: vi.fn() }))
 vi.mock('./version-repository', () => ({
   findDocumentVersion: vi.fn(),
@@ -100,9 +102,11 @@ import {
   writeVersionContent,
 } from './version-content'
 import { NotFoundError } from '@/lib/api/errors'
+import { cancelDocumentIngest } from './reingest'
 import { AI_PROVENANCE_PROPERTIES } from '@/lib/ai-provenance'
 import { recordDocumentAccess } from '@/lib/download-log/service'
 import { maySeeHeld } from '@/lib/upload-screening/quarantine-reviewers'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const session: AuthorizedSession = {
   userId: 'user_reviewer',
@@ -221,7 +225,7 @@ describe('renderVersionBytes — the marking survives an update', () => {
 
     expect(text).toContain('# Aktenvermerk')
     expect(text).toContain(`${AI_PROVENANCE_PROPERTIES.generated}=true`)
-    expect(text).toContain(`${AI_PROVENANCE_PROPERTIES.generator}=Piloti`)
+    expect(text).toContain(`${AI_PROVENANCE_PROPERTIES.generator}=${PRODUCT_NAME}`)
     expect(rendered.contentType).toBe('text/markdown')
     expect(rendered.contentHash).toMatch(/^sha256:[0-9a-f]{64}$/)
   })
@@ -721,6 +725,58 @@ describe('archiveDocument', () => {
       // refused", which is what `false` means.
       expect.objectContaining({ metadata: expect.objectContaining({ chunksPurged: null }) }),
     )
+  })
+
+  describe('a document that is still being read', () => {
+    const reading = makeDocument({ id: 'doc_1', projectId: 'proj_1', status: 'pending' })
+
+    beforeEach(() => {
+      vi.mocked(getAccessibleDocument).mockResolvedValue(reading)
+      vi.mocked(purgeIngestedChunks).mockResolvedValue(true)
+    })
+
+    it('stops the read before it archives and purges, so the job writes no chunks afterwards', async () => {
+      vi.mocked(cancelDocumentIngest).mockResolvedValue({ id: 'doc_1', result: 'cancelled', status: 'cancelled' })
+
+      await archiveDocument(session, 'doc_1')
+
+      expect(cancelDocumentIngest).toHaveBeenCalledWith(session, 'doc_1')
+      const stopped = vi.mocked(cancelDocumentIngest).mock.invocationCallOrder[0]
+      expect(stopped).toBeLessThan(vi.mocked(setDocumentLifecycle).mock.invocationCallOrder[0])
+      expect(stopped).toBeLessThan(vi.mocked(purgeIngestedChunks).mock.invocationCallOrder[0])
+      expect(recordAuditEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ readStopped: 'cancelled' }) }),
+      )
+    })
+
+    it('ends not indexed, not cancelled: the stop settles the row and the archive then says what the person asked for', async () => {
+      vi.mocked(cancelDocumentIngest).mockResolvedValue({ id: 'doc_1', result: 'cancelled', status: 'cancelled' })
+
+      await archiveDocument(session, 'doc_1')
+
+      expect(vi.mocked(cancelDocumentIngest).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(markDocumentNotIndexed).mock.invocationCallOrder[0],
+      )
+    })
+
+    it('archives all the same when the queue cannot be reached, and says so on the trail', async () => {
+      vi.mocked(cancelDocumentIngest).mockRejectedValue(new Error('backend down'))
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+      const result = await archiveDocument(session, 'doc_1')
+
+      expect(result.lifecycle).toBe('archived')
+      expect(setDocumentLifecycle).toHaveBeenCalledWith('doc_1', 'org_1', 'archived')
+      expect(recordAuditEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ readStopped: 'unreachable' }) }),
+      )
+      warn.mockRestore()
+    })
+  })
+
+  it('asks for no stop on a document that has come to rest', async () => {
+    await archiveDocument(session, 'doc_1')
+    expect(cancelDocumentIngest).not.toHaveBeenCalled()
   })
 
   it('archives even when the backend refuses, and says so on the trail', async () => {

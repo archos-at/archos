@@ -41,12 +41,26 @@
  * Pure: a function of element records plus the project facts.
  */
 
+import {
+  dimensionProperty,
+  externalFlag,
+  numericProperty,
+  property,
+  quantity,
+  undecidableWithoutExternalFlag,
+} from './rule-values'
+import type { RuleBasis } from './rule-basis'
 import type { BimElement } from './types'
 
 export type BimCheckStatus = 'pass' | 'fail' | 'undecidable'
 
 /** The project facts a rule's applicability may depend on. */
 export interface BimRuleFacts {
+  /**
+   * Required: each rule's basis at the site, by rule id (`rule-basis.ts`): a
+   * verdict or a hint. A rule with none is a hint, never a verdict.
+   */
+  bases: Readonly<Record<string, RuleBasis>>
   /** `1` … `5`, as the intake vocabulary records it. */
   buildingClass?: number | null
   /** Intake main-use token: `residential`, `office`, `lodging`, … */
@@ -102,6 +116,8 @@ export interface BimRuleResult {
   applicable: boolean
   /** Why it is out of scope, when it is. */
   notApplicableReason?: string
+  /** Why it judges nothing at the site (`Hinweis: …`): its elements are read and left undecided. */
+  hint?: string
   passed: number
   failed: number
   undecidable: number
@@ -121,86 +137,6 @@ const VISIBLE_VERDICTS = 25
 // ---------------------------------------------------------------------------
 // Reading published values
 // ---------------------------------------------------------------------------
-
-/**
- * First POSITIVE value found at any of the named quantity keys.
- *
- * Every caller here reads a dimension — a clear width, a riser height, a room
- * height — and no building has one of zero. A `0` in a quantity set is an
- * exporter writing `$`: the parser substitutes zero for it, and
- * `ZERO_MEANS_ABSENT` in `extract.ts` drops those on the way in.
- *
- * This is the second guard, and it is here rather than only there because the
- * consequence is a false accusation: read as a measurement, an unmeasured
- * `ClearWidth` produces "Lichte Durchgangsbreite 0,00 m — nicht erfüllt" on an
- * escape-route rule, for a door that may be perfectly compliant. Rows already
- * in the database were extracted under the narrower rule, so without this
- * every model uploaded before that fix keeps failing until it is re-read.
- *
- * A negative is refused for the same reason: it is not a measurement either.
- */
-function quantity(element: BimElement, keys: readonly string[]): number | null {
-  for (const set of Object.values(element.quantities)) {
-    for (const key of keys) {
-      const value = set[key]
-      if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value
-    }
-  }
-  return null
-}
-
-/** First value found at any of the named property keys, across all sets. */
-function property(
-  element: BimElement,
-  keys: readonly string[]
-): string | number | boolean | null {
-  for (const set of Object.values(element.properties)) {
-    for (const key of keys) {
-      const value = set[key]
-      if (value !== undefined && value !== null && value !== '') return value
-    }
-  }
-  return null
-}
-
-/**
- * A numeric property, tolerating the string a CAD sometimes writes.
- *
- * Reads the LEADING number and stops. The obvious implementation — strip every
- * non-numeric character and parse what is left — silently concatenates digits
- * that were never part of the value: `0,35 W/m2K` becomes `0.352`, which fails
- * a `≤ 0,35` check and reports a compliant wall as non-compliant. (The pretty
- * `m²` escapes because U+00B2 is not an ASCII digit; the plain `m2` a CAD
- * writes just as often does not.) A checker whose answer depends on how the
- * exporter spelled a unit is not a checker.
- *
- * Anything that does not START with a number is refused rather than mined for
- * digits, so `Klasse 2 gemäß ÖNORM` yields nothing instead of `2`.
- */
-const LEADING_NUMBER = /^[+-]?\d+(?:[.,]\d+)?(?:[eE][+-]?\d+)?/
-
-function numericProperty(element: BimElement, keys: readonly string[]): number | null {
-  const raw = property(element, keys)
-  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
-  if (typeof raw !== 'string') return null
-  const match = LEADING_NUMBER.exec(raw.trim())
-  if (!match) return null
-  const parsed = Number(match[0].replace(',', '.'))
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-/**
- * The same read, for a DIMENSION.
- *
- * `numericProperty` also serves the U-value rules, where the number is a
- * physical property rather than a size and where a zero — however implausible
- * — is at least a statement. A width, a height or a tread length of zero or
- * less is not: see {@link quantity}.
- */
-function dimensionProperty(element: BimElement, keys: readonly string[]): number | null {
-  const value = numericProperty(element, keys)
-  return value !== null && value > 0 ? value : null
-}
 
 /**
  * A model length, in metres.
@@ -443,7 +379,10 @@ export function classifyStorey(
 
 interface RuleDefinition {
   id: string
-  richtlinie: string
+  /** The work's designation as its record holds it (`KnowledgeContext.uses[].designation`). */
+  designation: string
+  /** The label of the edition the thresholds come from, as its record holds it. */
+  edition: string
   clause: string
   titleDe: string
   thresholdDe: string
@@ -472,8 +411,6 @@ interface RuleDefinition {
  */
 const mayBeLoadBearing = (element: BimElement): boolean =>
   property(element, ['LoadBearing']) !== false
-
-const isExternal = (element: BimElement): boolean => property(element, ['IsExternal']) === true
 
 /**
  * Room names that mark circulation or service space rather than an
@@ -692,7 +629,8 @@ export const canonicalBimRuleId = (ruleId: string): string => LEGACY_BIM_RULE_ID
 export const BIM_RULES: RuleDefinition[] = [
   {
     id: 'oib4-stair-rise-run-ratio',
-    richtlinie: 'OIB 4',
+    designation: 'OIB-Richtlinie 4',
+    edition: 'Ausgabe Mai 2023',
     clause: '2.2',
     titleDe: 'Treppen — Steigungsverhältnis',
     thresholdDe: '2 × Steigung + Auftritt = 59–65 cm, Steigung ≤ 18 cm, Auftritt ≥ 28 cm',
@@ -731,7 +669,8 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib4-door-clear-width',
-    richtlinie: 'OIB 4',
+    designation: 'OIB-Richtlinie 4',
+    edition: 'Ausgabe Mai 2023',
     clause: '3',
     titleDe: 'Türen — lichte Durchgangsbreite',
     thresholdDe: 'lichte Durchgangsbreite ≥ 0,80 m',
@@ -786,7 +725,8 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib3-room-height',
-    richtlinie: 'OIB 3',
+    designation: 'OIB-Richtlinie 3',
+    edition: 'Ausgabe Mai 2023',
     clause: '2',
     titleDe: 'Aufenthaltsräume — lichte Raumhöhe',
     thresholdDe: 'lichte Raumhöhe ≥ 2,50 m',
@@ -844,7 +784,8 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib2-fire-resistance-load-bearing',
-    richtlinie: 'OIB 2',
+    designation: 'OIB-Richtlinie 2',
+    edition: 'Ausgabe Mai 2023',
     clause: '3',
     titleDe: 'Tragende Bauteile — Feuerwiderstand',
     thresholdDe:
@@ -936,17 +877,21 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib6-u-value-external-wall',
-    richtlinie: 'OIB 6',
+    designation: 'OIB-Richtlinie 6',
+    edition: 'Ausgabe Mai 2023',
     clause: '4.1',
     titleDe: 'Außenwände — Wärmedurchgangskoeffizient',
     thresholdDe: 'U ≤ 0,35 W/m²K',
     ifcTypes: ['IfcWall', 'IfcWallStandardCase'],
-    scope: isExternal,
+    scope: (element) => externalFlag(element) !== false,
     notApplicable: (facts) =>
       facts.mainUse === 'storage' || facts.mainUse === 'agriculture'
         ? 'OIB 6 gilt für unkonditionierte Lager-/landwirtschaftliche Gebäude nicht ohne Weiteres'
         : null,
     judge: (element) => {
+      if (externalFlag(element) === null) {
+        return undecidableWithoutExternalFlag('Pset_WallCommon.IsExternal')
+      }
       const uValue = numericProperty(element, ['ThermalTransmittance'])
       if (uValue === null) {
         return {
@@ -973,7 +918,8 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib6-u-value-window',
-    richtlinie: 'OIB 6',
+    designation: 'OIB-Richtlinie 6',
+    edition: 'Ausgabe Mai 2023',
     clause: '4.1',
     titleDe: 'Fenster — Wärmedurchgangskoeffizient',
     thresholdDe: 'U ≤ 1,40 W/m²K',
@@ -1006,19 +952,25 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib5-sound-insulation-declared',
-    richtlinie: 'OIB 5',
+    designation: 'OIB-Richtlinie 5',
+    edition: 'Ausgabe Mai 2023',
     clause: '3',
     titleDe: 'Trennbauteile — Schalldämmung deklariert',
     thresholdDe: 'bewertetes Schalldämm-Maß am Bauteil hinterlegt',
     ifcTypes: ['IfcWall', 'IfcWallStandardCase', 'IfcSlab'],
     // Only the separating components, which in a property-only model means the
     // internal ones — an external wall's Schallschutz is a different clause.
-    scope: (element) => !isExternal(element),
+    scope: (element) => externalFlag(element) !== true,
     notApplicable: (facts) =>
       facts.mainUse && !['residential', 'lodging', 'healthcare', 'office', 'assembly'].includes(facts.mainUse)
         ? 'OIB 5 ist für diese Nutzung nicht lärmempfindlich einschlägig'
         : null,
     judge: (element) => {
+      if (externalFlag(element) === null) {
+        return undecidableWithoutExternalFlag(
+          'Pset_WallCommon.IsExternal (bzw. Pset_SlabCommon.IsExternal)'
+        )
+      }
       const rating = property(element, ['AcousticRating'])
       if (rating === null || String(rating).trim() === '') {
         return {
@@ -1115,13 +1067,18 @@ const matchesType = (element: BimElement, types: readonly string[]): boolean =>
  */
 export function runBimRules(
   elements: readonly BimElement[],
-  facts: BimRuleFacts = {}
+  facts: BimRuleFacts
 ): BimRuleResult[] {
   return BIM_RULES.map((rule) => {
+    const basis = facts.bases[rule.id] ?? { kind: 'hint', reason: 'Hinweis: Grundlage am Standort nicht bestimmt' }
     const notApplicableReason = rule.notApplicable?.(facts) ?? null
+    // A hint reads every element and decides none: no verdict, nothing for the CAD to-do list.
+    const judge: RuleDefinition['judge'] =
+      basis.kind === 'hint' ? (element) => ({ status: 'undecidable', reading: `${rule.judge(element, facts).reading} — ${basis.reason}` }) : rule.judge
     const base = {
       ruleId: rule.id,
-      richtlinie: rule.richtlinie,
+      richtlinie: `${rule.designation}, ${rule.edition}`,
+      ...(basis.kind === 'hint' ? { hint: basis.reason } : {}),
       clause: rule.clause,
       titleDe: rule.titleDe,
       thresholdDe: rule.thresholdDe,
@@ -1150,7 +1107,7 @@ export function runBimRules(
     let truncated = false
 
     for (const element of scoped) {
-      const { status, reading, missing: missingPath } = rule.judge(element, facts)
+      const { status, reading, missing: missingPath } = judge(element, facts)
       const verdict: BimElementVerdict = {
         globalId: element.globalId,
         name: element.name,
@@ -1347,7 +1304,9 @@ export function attachConfirmations(
   }
 
   return results.map((result) => {
-    const confirmation = byRule.get(result.ruleId) ?? null
+    // A hint judges nothing, so it shows no confirmation (one given while the rule still judged, and new
+    // ones are refused, `confirmAccessibleCheck`). The row stays stored and counts again once the rule judges.
+    const confirmation = result.hint ? null : (byRule.get(result.ruleId) ?? null)
     return {
       ...result,
       confirmation,
@@ -1357,7 +1316,16 @@ export function attachConfirmations(
 }
 
 /**
- * Rules that leave work behind — a failure or an unknown, in scope.
+ * Whether a rule leaves work behind: in scope, not a hint, and a failure or an
+ * unknown. A hint's threshold is not the one that binds at the site, so it
+ * goes to no export, no to-do and no confirmation: a signature given on a hint
+ * would still count once the rule judges (the API refuses one, too).
+ */
+export const hasOpenWork = (result: BimRuleResult): boolean =>
+  result.applicable && !result.hint && (result.failed > 0 || result.undecidable > 0)
+
+/**
+ * Rules that leave work behind.
  *
  * Distinct from {@link outstandingRules}, which asks the narrower question
  * "what still needs a HUMAN". This one ignores confirmations: a rule somebody
@@ -1365,170 +1333,24 @@ export function attachConfirmations(
  * unstated, which is exactly what belongs in an export to the authoring tool.
  */
 export function rulesWithOpenWork<T extends BimRuleResult>(results: readonly T[]): T[] {
-  return results.filter((result) => result.applicable && (result.failed > 0 || result.undecidable > 0))
+  return results.filter(hasOpenWork)
 }
 
 /**
  * What still needs a human before the Prüfbuch can be signed.
  *
- * A rule counts as outstanding when the catalogue could not settle it (or
- * settled it as a failure) and no CURRENT confirmation covers it. A stale
- * confirmation does not count — that is the point of tracking staleness.
+ * A rule counts as outstanding when it has open work and no CURRENT
+ * confirmation covers it. A stale confirmation does not count — that is the
+ * point of tracking staleness. A hint does not block: it judges nothing.
  */
 export function outstandingRules(
   results: readonly BimRuleResultWithConfirmation[]
 ): BimRuleResultWithConfirmation[] {
-  return results.filter((result) => {
-    if (!result.applicable) return false
-    if (result.confirmation !== null && !result.confirmationStale) return false
-    return result.failed > 0 || result.undecidable > 0
-  })
+  return results.filter((result) => hasOpenWork(result) && (result.confirmation === null || result.confirmationStale))
 }
 
-// ---------------------------------------------------------------------------
-// Regression across revisions
-// ---------------------------------------------------------------------------
-
-/** How a rule's standing moved between two revisions. */
-export type BimComplianceTrend =
-  /** Was failing (or undecidable), now passes. */
-  | 'resolved'
-  /** Was passing, now fails — the answer nobody gets today. */
-  | 'broken'
-  /** Became decidable: the model gained the property. */
-  | 'decidable'
-  /** Stopped being decidable: the model LOST the property. */
-  | 'undecidable'
-  /** Still failing, but a different number of elements. */
-  | 'moved'
-
-export interface BimComplianceChange {
-  ruleId: string
-  titleDe: string
-  richtlinie: string
-  trend: BimComplianceTrend
-  before: { passed: number; failed: number; undecidable: number }
-  after: { passed: number; failed: number; undecidable: number }
-}
-
-/** The verdict a rule's counts amount to, for trend purposes. */
-function standing(result: BimRuleResult): 'pass' | 'fail' | 'unknown' | 'empty' {
-  if (!result.applicable) return 'empty'
-  if (result.failed > 0) return 'fail'
-  if (result.passed === 0 && result.undecidable === 0) return 'empty'
-  // ANY undecidable element leaves the rule unsettled, not passing. The
-  // alternative reads a revision that dropped `FireRating` from half its walls
-  // as "no change" — the rule stood at `pass` with 40 passed, and it still
-  // stands at `pass` with 20 passed and 20 undecidable. That regression is
-  // precisely what a diff is for, and it is the same unearned tick
-  // `summarizeBimRules` refuses to show on the page.
-  if (result.undecidable > 0) return 'unknown'
-  return 'pass'
-}
-
-/**
- * What a new revision changed about the building's standing.
- *
- * This is the payoff of having verdicts at all. "188 Bauteile, +17" says a
- * revision happened; **"Treppe Ost erfüllt das Steigungsverhältnis nicht
- * mehr"** says what it did — and that is the sentence an architect cannot get
- * from any tool at a price a small office would pay.
- *
- * `undecidable` as a trend is deliberately reported and not swallowed: a
- * revision that DROPS a property (a re-export with a different mapping, a
- * Pset that stopped being written) silently un-checks a requirement that was
- * green yesterday. Reporting only pass↔fail would let that pass unnoticed,
- * which is the same silence the whole subsystem exists to break.
- *
- * Rules whose standing did not change are omitted — a change list that
- * restates everything is a list nobody reads.
- */
-export function diffBimCompliance(
-  before: readonly BimRuleResult[],
-  after: readonly BimRuleResult[]
-): BimComplianceChange[] {
-  const previous = new Map(before.map((result) => [result.ruleId, result]))
-  const changes: BimComplianceChange[] = []
-
-  for (const now of after) {
-    const then = previous.get(now.ruleId)
-    if (!then) continue
-    const from = standing(then)
-    const to = standing(now)
-
-    let trend: BimComplianceTrend | null = null
-    if (from !== to) {
-      if (to === 'pass') trend = from === 'unknown' ? 'decidable' : 'resolved'
-      else if (to === 'fail') trend = 'broken'
-      else if (to === 'unknown') trend = 'undecidable'
-    } else if (to === 'fail' && then.failed !== now.failed) {
-      // Same verdict, different scale. Worth surfacing: nine failing doors
-      // becoming two is progress, and becoming ninety is a regression, and
-      // neither shows up in a pass/fail comparison.
-      trend = 'moved'
-    }
-    if (!trend) continue
-
-    changes.push({
-      ruleId: now.ruleId,
-      titleDe: now.titleDe,
-      richtlinie: now.richtlinie,
-      trend,
-      before: { passed: then.passed, failed: then.failed, undecidable: then.undecidable },
-      after: { passed: now.passed, failed: now.failed, undecidable: now.undecidable },
-    })
-  }
-
-  // Regressions first: what a revision BROKE is the reason to read this list.
-  const order: Record<BimComplianceTrend, number> = {
-    broken: 0,
-    undecidable: 1,
-    moved: 2,
-    decidable: 3,
-    resolved: 4,
-  }
-  return changes.sort(
-    (a, b) => order[a.trend] - order[b.trend] || a.ruleId.localeCompare(b.ruleId)
-  )
-}
-
-/**
- * The agent's wording for a status change.
- *
- * A second copy of `complianceDiff.trend.*` in the dictionaries, and it had
- * already drifted: this one says "nicht mehr entscheidbar (Wert im Modell
- * entfallen)" where the badge says only "nicht mehr entscheidbar", so the
- * chip and the sentence beside it described the same change differently.
- *
- * It stays a copy rather than reading the dictionary, because this module is
- * server-side and locale-free — it renders one German string for the agent,
- * which has no `useTranslations` and no locale to read. The parenthetical is
- * the better wording and has been carried into the dictionary; if either side
- * changes, change both.
- */
-const TREND_DE: Record<BimComplianceTrend, string> = {
-  broken: 'neu nicht erfüllt',
-  undecidable: 'nicht mehr entscheidbar (Wert im Modell entfallen)',
-  moved: 'weiterhin nicht erfüllt, andere Anzahl',
-  decidable: 'jetzt entscheidbar und erfüllt',
-  resolved: 'jetzt erfüllt',
-}
-
-/** German lines for the agent, regressions first. */
-export function renderBimComplianceDiff(changes: readonly BimComplianceChange[]): string {
-  if (changes.length === 0) {
-    return 'Keine Anforderung hat ihren Status zwischen diesen beiden Ständen geändert.'
-  }
-  return changes
-    .map(
-      (change) =>
-        `${change.richtlinie} — ${change.titleDe}: ${TREND_DE[change.trend]} ` +
-        `(${change.before.passed}/${change.before.failed}/${change.before.undecidable} → ` +
-        `${change.after.passed}/${change.after.failed}/${change.after.undecidable} ` +
-        'erfüllt/nicht erfüllt/nicht entscheidbar)'
-    )
-    .join('\n')
-}
+// Regression across revisions: `compliance-diff.ts`, re-exported for the importers of this catalog.
+export { diffBimCompliance, renderBimComplianceDiff, type BimComplianceChange, type BimComplianceTrend } from './compliance-diff'
 
 /** German one-liner per rule, for the agent to quote without doing arithmetic. */
 export function renderBimRules(results: readonly BimRuleResult[]): string {
@@ -1537,6 +1359,7 @@ export function renderBimRules(results: readonly BimRuleResult[]): string {
     if (!result.applicable) return `${head}: nicht einschlägig (${result.notApplicableReason})`
     const checked = result.passed + result.failed + result.undecidable
     if (checked === 0) return `${head}: keine betroffenen Bauteile im Modell`
+    if (result.hint) return `${head}: ${result.hint}; ${checked} Bauteile gelesen, keines beurteilt (${result.thresholdDe})`
     return (
       `${head}: ${result.passed} erfüllt, ${result.failed} nicht erfüllt, ` +
       `${result.undecidable} nicht entscheidbar (${result.thresholdDe})`

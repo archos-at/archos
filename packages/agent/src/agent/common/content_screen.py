@@ -3,7 +3,7 @@
 One matcher for every place Piloti checks text against the office's „Sensible
 Daten" policy (ADR-0086):
 
-* the ingest job's content gate (``knowledge_layer.llamaindex.screening``) turns
+* the ingest job's content gate (``knowledge_layer.ingest.screening``) turns
   the spans into a quarantine verdict before the first model call;
 * the chat socket (``agent_host.chat_socket``) replaces them with a placeholder
   before the agent sees a message or its history keeps one.
@@ -17,7 +17,7 @@ runtime's own idea of whitespace, case folding or digits, and the detectors are
 the same small parsers on both sides, not two regex dialects.
 
 It lives in ``agent.common`` because both Python consumers already import
-from here, while importing anything under ``knowledge_layer.llamaindex`` loads
+from here, while importing anything under ``knowledge_layer.ingest`` loads
 LlamaIndex (seconds) into a process that only wants a regex.
 
 Characters
@@ -88,12 +88,19 @@ and a label may stand right against it (``SV-Nr1237010180``, ``IBAN:AT61…``,
   groups: a run of whitespace (line breaks too) or one ``-`` or ``.``. Mod 97.
 * ``at_svnr``: four digits, then the birth date DDMMYY, optionally separated
   from it (whitespace, ``-``, ``.`` or ``/``), optionally with the date's own
-  parts separated. The check digit, the first digit and the date must hold.
+  parts separated by one and the same separator. The check digit, the first
+  digit and the date must hold, no ``:`` may follow (a time), and an unbroken
+  number needs a social-security label on the page
+  (:mod:`agent.common.svnr_numbers`): a timestamp and a customer number pass the
+  checksum too.
 * ``credit_card``: digit groups joined by spaces, ``-`` or ``.`` (not a tab:
   that is a table cell). Somewhere in such a run, consecutive groups that have a
   card's layout (one unbroken number of 13-19 digits, 4-4-4-4 with a last group
-  of 1-4, 4-6-5 or 4-6-4), start in a card network's issuer range
-  (:data:`_CARD_PREFIXES`) and pass Luhn are a card; a position before
+  of 1-4, 4-6-5 for Amex or 4-6-4 for Diners), start in a card network's
+  issuer range and pass Luhn are a card (:mod:`agent.common.card_numbers`). An
+  UNBROKEN number counts only with a card's word within reach of it
+  (``Kreditkarte``, ``Visa``, ``CVC``): order, article and meter numbers are
+  printed unbroken, and one in thirty of them passes the checksum. A position before
   it or an expiry date or security code after it are not part of it. Groups of
   four beside it make it a piece of a longer number printed in fours, which gets
   no sliding window, except that the last group may be the security code.
@@ -128,7 +135,6 @@ import re
 import unicodedata
 from bisect import bisect_left
 from bisect import bisect_right
-from collections.abc import Callable
 from collections.abc import Iterable
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -137,11 +143,38 @@ from dataclasses import field
 from dataclasses import replace
 from typing import Literal
 
+from agent.common.card_numbers import CARD_CONTEXT_WORDS
+from agent.common.card_numbers import CARD_PAGE_LABELS
+from agent.common.card_numbers import cards_in
+from agent.common.card_numbers import context_window
+from agent.common.card_numbers import has_word
+from agent.common.card_numbers import mask_card
+from agent.common.card_numbers import wrapped_card_layout
+from agent.common.de_numbers import TAX_ID_LABELS
+from agent.common.de_numbers import de_svnr_at
+from agent.common.de_numbers import de_tax_id_at
+from agent.common.de_numbers import mask_de_svnr
+from agent.common.de_numbers import mask_de_tax_id
+from agent.common.screen_chars import _HORIZONTAL_SPACE
+from agent.common.screen_chars import _LINE_BREAKS
+from agent.common.screen_chars import WHITESPACE
+from agent.common.screen_chars import _digit_at
+from agent.common.screen_chars import _digit_touches
+from agent.common.screen_chars import _digits_at
+from agent.common.screen_chars import _is_letter
+from agent.common.screen_chars import _is_mark
+from agent.common.screen_chars import _is_word_char
+from agent.common.screen_chars import _skip_separator
+from agent.common.svnr_numbers import SVNR_LABELS
+from agent.common.svnr_numbers import mask_at_svnr
+from agent.common.svnr_numbers import printed_as_svnr
+from agent.common.svnr_numbers import valid_at_svnr
+
 logger = logging.getLogger(__name__)
 
-Detector = Literal["iban", "at_svnr", "credit_card"]
+Detector = Literal["iban", "at_svnr", "credit_card", "de_svnr", "de_tax_id"]
 #: Detectors in the order their findings are reported.
-DETECTORS: tuple[str, ...] = ("iban", "at_svnr", "credit_card")
+DETECTORS: tuple[str, ...] = ("iban", "at_svnr", "credit_card", "de_svnr", "de_tax_id")
 
 #: Bounds the request model enforces too (``agent_host.models.requests.ScreeningPolicy``).
 MAX_TERMS = 200
@@ -158,6 +191,8 @@ PLACEHOLDERS: dict[str, str] = {
     "iban": "[IBAN entfernt]",
     "at_svnr": "[SV-Nummer entfernt]",
     "credit_card": "[Kartennummer entfernt]",
+    "de_svnr": "[RV-Nummer entfernt]",
+    "de_tax_id": "[Steuer-ID entfernt]",
     "term": "[Begriff entfernt]",
 }
 
@@ -165,53 +200,11 @@ _PLACEHOLDER_RE = re.compile("|".join(re.escape(placeholder) for placeholder in 
 
 
 # ------------------------------------------------------------------- characters
+# WHITESPACE, the digit and separator readers: agent.common.screen_chars.
 
-#: Unicode's ``White_Space`` property, all 25 code points. The one definition of
-#: whitespace on both sides (the TypeScript twin lists the same, and its spec
-#: holds the list to ``\p{White_Space}``).
-WHITESPACE = (
-    "\t\n\x0b\x0c\r \x85\xa0\u1680"
-    "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a"
-    "\u2028\u2029\u202f\u205f\u3000"
-)
-_LINE_BREAKS = "\n\x0b\x0c\r\x85\u2028\u2029"
-#: Whitespace that keeps a line: what may join the groups of a card number.
-_HORIZONTAL_SPACE = "".join(char for char in WHITESPACE if char not in _LINE_BREAKS)
 _SPACE_RUN = re.compile(f"[{WHITESPACE}]+")
 
 _FOLD_TABLE = str.maketrans({"ς": "σ", "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
-
-
-def _is_mark(char: str) -> bool:
-    return unicodedata.category(char)[0] == "M"
-
-
-def _is_letter(char: str) -> bool:
-    """A letter: general category ``L*``."""
-    return unicodedata.category(char)[0] == "L"
-
-
-def _is_word_char(char: str) -> bool:
-    """A letter or a number: general category ``L*`` or ``N*``."""
-    return unicodedata.category(char)[0] in "LN"
-
-
-def _digit_at(text: str, index: int) -> str | None:
-    """The ASCII digit for a Unicode decimal digit (``Nd``) at ``index``, else ``None``."""
-    if index >= len(text):
-        return None
-    value = unicodedata.decimal(text[index], None)
-    return None if value is None else str(value)
-
-
-def _skip_separator(text: str, index: int, marks: str) -> int:
-    """``index`` moved past one separator: a run of whitespace, or one of ``marks``."""
-    if index < len(text) and text[index] in WHITESPACE:
-        while index < len(text) and text[index] in WHITESPACE:
-            index += 1
-    elif index < len(text) and text[index] in marks:
-        index += 1
-    return index
 
 
 def _split_words(text: str) -> list[str]:
@@ -499,7 +492,6 @@ _IBAN_AT = re.compile(r"[A-Za-z](?=[A-Za-z])")
 #: Where a social-security number may start: a digit not right after another.
 _SVNR_START = re.compile(r"(?<!\d)\d")
 _SVNR_AT = re.compile(r"\d")
-_SVNR_WEIGHTS = (3, 7, 9, 0, 5, 8, 4, 2, 1, 6)
 _SVNR_MARKS = "-./"
 #: What may join the groups of a card number: spaces, never a tab (a tab is a
 #: table cell), one ``-`` or ``.``.
@@ -511,9 +503,6 @@ _WRAPPED_CARD_RUN = re.compile(
     rf"\d(?:(?:[{_CARD_SPACE}]+|[-.]|[{_CARD_SPACE}]*(?:\r\n|[{_LINE_BREAKS}])[{_CARD_SPACE}]*)?\d)*"
 )
 _DIGIT_GROUP = re.compile(r"\d+")
-#: Layouts a card is printed in besides 4-4-4-4 and one unbroken number.
-_CARD_SPLITS = ((4, 6, 5), (4, 6, 4))
-_CARD_MAX_GROUPS = 5
 
 
 def valid_iban(compact: str) -> bool:
@@ -559,11 +548,6 @@ def _iban_in_groups(text: str, start: int, soft: frozenset[int], width: int) -> 
     return compact, index
 
 
-def _digit_touches(text: str, index: int, soft: frozenset[int]) -> bool:
-    """Whether a digit stands at ``index`` right against what came before, without even an invisible character."""
-    return _digit_at(text, index) is not None and index not in soft
-
-
 def _iban_char(text: str, index: int, *, digits_only: bool) -> str | None:
     """The IBAN character at ``index``: a digit as ASCII, or (past the check digits) an ASCII letter upper-cased."""
     digit = _digit_at(text, index)
@@ -577,32 +561,6 @@ def mask_iban(compact: str) -> str:
     """Country and check digits, then masked groups, then the last four."""
     hidden = math.ceil(max(len(compact) - 8, 0) / 4)
     return " ".join([compact[:4], *([MASK] * hidden), compact[-4:]])
-
-
-def valid_at_svnr(digits: str) -> bool:
-    """An Austrian social-security number: check digit, first digit, birth day and month. Pure.
-
-    The check digit (4th) is the weighted sum of the other nine mod 11; a sum
-    giving 10 is never issued. Months 13-15 stand for an unknown birth month.
-    """
-    if len(digits) != 10 or not digits.isascii() or not digits.isdigit() or digits[0] == "0":
-        return False
-    check = sum(int(d) * w for d, w in zip(digits, _SVNR_WEIGHTS, strict=True)) % 11
-    if check == 10 or check != int(digits[3]):
-        return False
-    day, month = int(digits[4:6]), int(digits[6:8])
-    return 1 <= day <= 31 and 1 <= month <= 15
-
-
-def _digits_at(text: str, index: int, count: int) -> str | None:
-    """``count`` digits from ``index`` on, as ASCII; ``None`` unless every one is a digit."""
-    digits = ""
-    for offset in range(count):
-        digit = _digit_at(text, index + offset)
-        if digit is None:
-            return None
-        digits += digit
-    return digits
 
 
 def _svnr_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | None:
@@ -622,81 +580,22 @@ def _svnr_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | N
     if (split and year_at == month_at + 2) or any(part is None for part in parts) or _digit_touches(text, end, soft):
         return None
     digits = "".join(part or "" for part in parts)
-    return (digits, end) if valid_at_svnr(digits) else None
+    separators = (_separator_kind(text, day_at + 2, month_at), _separator_kind(text, month_at + 2, year_at))
+    time_follows = text[end : end + 1] == ":" and _digit_at(text, end + 1) is not None
+    unbroken = day_at == start + 4 and not split
+    if not valid_at_svnr(digits) or not printed_as_svnr(separators, time_follows):
+        return None
+    return None if unbroken and not _page_says(text, SVNR_LABELS) else (digits, end)
 
 
-def mask_at_svnr(digits: str) -> str:
-    return f"{MASK} {MASK}{digits[-2:]}"
+def _separator_kind(text: str, start: int, end: int) -> str:
+    """What joins two parts of a number: ``""``, ``" "`` for any whitespace, or the mark itself."""
+    return "" if start == end else (" " if text[start] in WHITESPACE else text[start])
 
 
-def luhn_valid(digits: str) -> bool:
-    """The Luhn check every payment-card number carries. Pure."""
-    total = 0
-    for index, char in enumerate(reversed(digits)):
-        value = int(char) * (2 if index % 2 else 1)
-        total += value - 9 if value > 9 else value
-    return total % 10 == 0
-
-
-#: The card networks' issuer ranges, on a number's first four digits: Mir 2200-2204,
-#: Mastercard 2221-2720, Diners 30, Amex 34/37, JCB 35, Diners 36/38/39, Visa 4,
-#: Maestro and Mastercard 5, Maestro, Discover and UnionPay 6. No card begins
-#: 2000-2199, the years a table prints in rows of four.
-_CARD_PREFIXES = ((2200, 2204), (2221, 2720), (3000, 3099), (3400, 3999), (4000, 6999))
-
-
-def valid_card(digits: str) -> bool:
-    if not 13 <= len(digits) <= 19 or not luhn_valid(digits):
-        return False
-    prefix = int(digits[:4])
-    return any(low <= prefix <= high for low, high in _CARD_PREFIXES)
-
-
-def _card_layout(sizes: tuple[int, ...]) -> bool:
-    """Whether groups of these sizes are a card's layout: unbroken, 4-4-4-4 (last group 1-4), 4-6-5 or 4-6-4."""
-    if len(sizes) == 1:
-        return 13 <= sizes[0] <= 19
-    if sizes in _CARD_SPLITS:
-        return True
-    return len(sizes) >= 4 and all(size == 4 for size in sizes[:-1]) and 1 <= sizes[-1] <= 4 and sum(sizes) <= 19
-
-
-def _stands_alone(groups: list[str], first: int, last: int) -> bool:
-    """Whether the groups ``first`` to ``last`` are not cut out of a longer number printed in fours."""
-    before = first == 0 or len(groups[first - 1]) != 4
-    after = last == len(groups) or len(groups[last]) != 4 or last == len(groups) - 1
-    return before and after
-
-
-def _wrapped_card_layout(sizes: tuple[int, ...]) -> bool:
-    """A card wrapped at a line end counts in one layout only, four groups of four: table rows are not cards."""
-    return sizes == (4, 4, 4, 4)
-
-
-def _cards_in(
-    groups: list[tuple[str, int, int]], layout: Callable[[tuple[int, ...]], bool] = _card_layout
-) -> Iterator[tuple[str, int, int]]:
-    """Each card among a run's digit groups (digits, start, end): its digits and where it starts and ends in the run.
-
-    A card is some consecutive groups that have a card's layout and pass its
-    checksum; the leftmost start wins and takes the longest such stretch. What
-    stands before it (a position) or after it (an expiry, a security code) is
-    not part of it. A group of four digits beside it is, though: it makes the
-    card a piece of a longer number printed in fours, which is judged as a
-    whole, so a table of years gets no sliding window. The last group may be
-    four digits long: it is the security code.
-    """
-    digits_of = [digits for digits, _, _ in groups]
-    first = 0
-    while first < len(groups):
-        for last in range(min(len(groups), first + _CARD_MAX_GROUPS), first, -1):
-            digits = "".join(digits_of[first:last])
-            sizes = tuple(len(group) for group in digits_of[first:last])
-            if layout(sizes) and _stands_alone(digits_of, first, last) and valid_card(digits):
-                yield digits, groups[first][1], groups[last - 1][2]
-                first = last - 1
-                break
-        first += 1
+def _page_says(text: str, labels: tuple[str, ...]) -> bool:
+    """Whether one of ``labels`` stands anywhere in ``text``, at a word start."""
+    return has_word(fold(text), labels, _is_letter)
 
 
 def _digit_groups(run: str) -> list[tuple[str, int, int]]:
@@ -709,10 +608,6 @@ def _cut_runs(run: str, cuts: list[int]) -> Iterator[list[tuple[str, int, int]]]
     bounds = [0, *cuts, len(run)]
     for a, b in zip(bounds, bounds[1:], strict=False):
         yield [(digits, start + a, end + a) for digits, start, end in _digit_groups(run[a:b])]
-
-
-def mask_card(digits: str) -> str:
-    return f"{MASK} {digits[-4:]}"
 
 
 # ------------------------------------------------------------------------- spans
@@ -778,17 +673,31 @@ def _unwrapped_cards(text: str, soft: frozenset[int]) -> Iterator[tuple[str, int
         run = match.group(0)
         within = cuts[bisect_right(cuts, match.start()) : bisect_left(cuts, match.end())]
         inside = [cut - match.start() for cut in within]
-        found = list(_cards_in(_digit_groups(run)))
+        found = list(_cards_said(text, match.start(), _digit_groups(run)))
         if inside:
             joined = list(found)
             found += [
                 card
                 for groups in _cut_runs(run, inside)
-                for card in _cards_in(groups)
+                for card in _cards_said(text, match.start(), groups)
                 if not _overlaps_card(card, joined)
             ]
         for digits, start, end in found:
             yield digits, match.start() + start, match.start() + end
+
+
+def _cards_said(text: str, offset: int, groups: list[tuple[str, int, int]]) -> Iterator[tuple[str, int, int]]:
+    """The cards among a run's groups (``cards_in``), an unbroken one only with a card's word beside it."""
+    for digits, start, end, unbroken in cards_in(groups):
+        if not unbroken or _has_card_context(text, offset + start, offset + end):
+            yield digits, start, end
+
+
+def _has_card_context(text: str, start: int, end: int) -> bool:
+    """Whether a card's word (``card_numbers.CARD_CONTEXT_WORDS``) stands within reach of ``text[start:end]``."""
+    begin, stop = context_window(text, start, end, _is_letter)
+    near = fold(text[begin:stop])
+    return has_word(near, CARD_CONTEXT_WORDS, _is_letter) or _page_says(text, CARD_PAGE_LABELS)
 
 
 def _wrapped_cards(text: str) -> Iterator[tuple[str, int, int]]:
@@ -796,7 +705,7 @@ def _wrapped_cards(text: str) -> Iterator[tuple[str, int, int]]:
         run = match.group(0)
         if not any(char in _LINE_BREAKS for char in run):
             continue
-        for digits, start, end in _cards_in(_digit_groups(run), _wrapped_card_layout):
+        for digits, start, end, _ in cards_in(_digit_groups(run), wrapped_card_layout):
             if any(char in _LINE_BREAKS for char in run[start:end]):
                 yield digits, match.start() + start, match.start() + end
 
@@ -805,7 +714,38 @@ def _overlaps_card(card: tuple[str, int, int], others: list[tuple[str, int, int]
     return any(card[1] < end and start < card[2] for _, start, end in others)
 
 
-_DETECTOR_SPANS = {"iban": _iban_spans, "at_svnr": _svnr_spans, "credit_card": _card_spans}
+def _de_svnr_spans(text: str, soft: frozenset[int]) -> Iterator[Span]:
+    resume = 0
+    for start in _starts(text, soft, _SVNR_START, _SVNR_AT):
+        if start < resume:
+            continue
+        found = de_svnr_at(text, start, soft)
+        if found is not None:
+            compact, resume = found
+            yield Span("de_svnr", start, resume, sample=mask_de_svnr(compact))
+
+
+def _de_tax_id_spans(text: str, soft: frozenset[int]) -> Iterator[Span]:
+    """Tax identification numbers, only on a page that names one: eleven digits are often something else."""
+    if not _page_says(text, TAX_ID_LABELS):
+        return
+    resume = 0
+    for start in _starts(text, soft, _SVNR_START, _SVNR_AT):
+        if start < resume:
+            continue
+        found = de_tax_id_at(text, start, soft)
+        if found is not None:
+            digits, resume = found
+            yield Span("de_tax_id", start, resume, sample=mask_de_tax_id(digits))
+
+
+_DETECTOR_SPANS = {
+    "iban": _iban_spans,
+    "at_svnr": _svnr_spans,
+    "credit_card": _card_spans,
+    "de_svnr": _de_svnr_spans,
+    "de_tax_id": _de_tax_id_spans,
+}
 
 
 #: A single-word term this long (folded) still matches with one space or hyphen inside it…
@@ -942,7 +882,11 @@ def _outside_ibans(spans: list[Span]) -> list[Span]:
         at = bisect_right(starts, span.start) - 1
         return at >= 0 and span.end <= ibans[at].end
 
-    return [span for span in spans if span.kind not in ("at_svnr", "credit_card") or not inside(span)]
+    return [span for span in spans if span.kind not in _NUMBER_KINDS or not inside(span)]
+
+
+#: The detectors whose digits an IBAN can hold: never reported inside one.
+_NUMBER_KINDS = ("at_svnr", "credit_card", "de_svnr", "de_tax_id")
 
 
 def _overlaps_any(span: Span, regions: list[tuple[int, int]]) -> bool:

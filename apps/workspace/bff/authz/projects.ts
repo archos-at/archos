@@ -45,9 +45,18 @@ export interface ProjectAccess {
   /** The project is closed (ADR-0090): read-only, whatever the role. */
   closed: boolean
   /**
-   * The caller reads the project only because it is closed: they hold no FGA
-   * grant on it and are not an organization admin. Their folder clearance is a
-   * member's with no role (`clearanceOf`), so no restricted folder opens to them.
+   * What the caller asked for was granted only because the project is closed
+   * (ADR-0090): they hold none of the requested permissions themselves and are
+   * not an organization admin. Such a caller steers no run but their own and
+   * signs no project on a job request.
+   *
+   * It answers for the permission ASKED, not for membership: a Project Viewer
+   * (`project:view` only) asking to chat in a closed project gets `true`, since
+   * the chat is the closure's, while asking to view gets `false`. Folder
+   * clearance asks the other question, whether the caller holds any grant on
+   * the project at all (`clearanceOf` in `./folder-access`): that viewer keeps
+   * their folder roles, and only someone with no grant clears what a member
+   * with no role clears.
    */
   readsBecauseClosed: boolean
 }
@@ -81,8 +90,12 @@ export async function requireProjectAccess(
   options: {
     includeDeleted?: boolean
     /**
-     * Ask the permission as if the project were active. Only for the one write a
-     * closed project allows, reopening it (`project:manage`); never to read.
+     * Ask the permission as if the project were active. Only with
+     * `project:manage`, and only for what its holder may still do to a closed
+     * project as a whole: reopen it, delete or restore it (the GDPR path),
+     * restore from its Papierkorb or erase from its record before the purge
+     * runs, and see those controls. Never to read, and never for a write into
+     * its files, folders, profile or memory.
      */
     evenWhenClosed?: boolean
   } = {}

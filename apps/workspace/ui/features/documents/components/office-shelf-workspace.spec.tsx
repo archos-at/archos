@@ -8,6 +8,14 @@ import { OfficeShelfWorkspace } from './office-shelf-workspace'
 import { useOfficeShelfDocuments } from '../hooks/use-office-shelf-documents'
 import { shelfGet, shelfPost } from '@/test-utils/shelf-handlers'
 
+/** The tool row measures itself: every box reports `width`, as a sheet that wide would. Restored after each test. */
+function deskWidth(width: number): void {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 32, top: 0, left: 0, right: width, bottom: 32, x: 0, y: 0, toJSON: () => ({}) })
+}
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
 /**
  * The completion toast is an assertion here, not decoration: it is the only
  * moment the Archiv tells a user that the file they uploaded became usable.
@@ -104,16 +112,39 @@ beforeEach(() => {
 })
 
 describe('OfficeShelfWorkspace — library listing', () => {
-  it('loads the Archiv and renders the shared card grid with the gold Büroablage chip', async () => {
+  // Ticket #38, topic 14: a Büroablage document is shown as a project's is. The
+  // gold kind chip and the tags restated as „Aus …" labelled it twice.
+  it('loads the Archiv into the shared card grid, with the cards a project shows and nothing added', async () => {
     render(<OfficeShelfWorkspace canManage />)
 
     expect(await screen.findByText('brandschutz-gutachten.pdf')).toBeInTheDocument()
     expect(screen.getAllByTestId('file-card')).toHaveLength(2)
-    // Real AI summary is surfaced, and the card says where it came from.
-    expect(screen.getByText('Brandschutzkonzept für mehrgeschossigen Holzbau.')).toBeInTheDocument()
-    expect(screen.getByText('From: Brandschutz · Gutachten')).toBeInTheDocument()
-    // The card's chip is the document KIND, in the Büroablage's own wording.
-    expect(screen.getAllByText('Document').length).toBeGreaterThan(0)
+    // A tile is the sheet, the name and one meta line, as a project's: its summary is the list's and the preview's.
+    expect(screen.queryByText('Brandschutzkonzept für mehrgeschossigen Holzbau.')).not.toBeInTheDocument()
+    expect(screen.queryByText('From: Brandschutz · Gutachten')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('office-shelf-provenance')).not.toBeInTheDocument()
+    expect(screen.queryByText('Document')).not.toBeInTheDocument()
+  })
+
+  it('opens with the project section header: a title, no mark beside it, and the controls in its action slot', async () => {
+    render(<OfficeShelfWorkspace canManage trailingActions={<button type="button">Close</button>} />)
+    const header = await screen.findByTestId('office-shelf-header')
+    expect(within(header).getByRole('heading', { level: 1, name: /Office filing/ })).toBeInTheDocument()
+    // The gold Archive mark is gone; every glyph left in the header belongs to a control.
+    for (const glyph of header.querySelectorAll('svg')) expect(glyph.closest('button, a, label, input, [role="group"]')).not.toBeNull()
+    expect(within(header).getByTestId('office-shelf-controls')).toBeInTheDocument()
+    expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
+  })
+
+  // As a project's Dateien (review of 2026-11-11): the title on its line, the tools in one row under it, the level's
+  // „Select“ and „Create folder“ in that row and not in a row of their own over the listing.
+  it('puts the level\u2019s tools in the tool row under the title', async () => {
+    deskWidth(1200)
+    render(<OfficeShelfWorkspace canManage />)
+    const row = within(screen.getByTestId('office-shelf-header')).getByTestId('files-tool-row')
+    expect(row).toHaveAttribute('data-tier', 'wide')
+    expect(await within(row).findByRole('button', { name: /create folder/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('folder-breadcrumb-row')).not.toBeInTheDocument()
   })
 
   // The count is the shelf's, counted by the server (ADR-0102): the listing on
@@ -839,6 +870,21 @@ describe('OfficeShelfWorkspace — folders', () => {
     expect(screen.queryByText('fassadendetail.pdf')).not.toBeInTheDocument()
   })
 
+  // As in a project's Dateien (review of 2026-11-11): inside a folder the header names it, the crumb is the way there
+  // from the office, and the title's line starts with the way one level up.
+  it('names the open folder in the header, with the office over the way there and the way up', async () => {
+    currentSearch = 'folder=f-2'
+    render(<OfficeShelfWorkspace canManage organizationName="Atelier Nord" />)
+
+    const header = screen.getByTestId('office-shelf-header')
+    expect(await within(header).findByRole('heading', { level: 1, name: /^Statik/ })).toBeInTheDocument()
+    const crumb = within(header).getByTestId('page-header-crumb')
+    expect(crumb).toHaveTextContent('Atelier Nord')
+    expect(within(crumb).getByRole('button', { name: 'Planung' })).toBeInTheDocument()
+    fireEvent.click(within(header).getByTestId('page-header-up'))
+    expect(new URLSearchParams(String(routerPush.mock.calls.at(-1)?.[0]).split('?')[1]).get('folder')).toBe('f-1')
+  })
+
   it('creates a folder on the Archiv route', async () => {
     const user = userEvent.setup()
     const posted: unknown[] = []
@@ -851,10 +897,11 @@ describe('OfficeShelfWorkspace — folders', () => {
         )
       })
     )
+    deskWidth(1200)
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByTestId('folder-card-f-1')
 
-    await user.click(screen.getByRole('button', { name: /new folder/i }))
+    await user.click(screen.getByRole('button', { name: /create folder/i }))
     await user.type(await screen.findByPlaceholderText(/folder name/i), 'Recht{Enter}')
 
     await waitFor(() => expect(posted).toEqual([{ name: 'Recht' }]))

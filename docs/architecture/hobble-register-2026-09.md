@@ -556,9 +556,10 @@ the one merge candidate on the horizon, and it can wait.
 * **Citation verification that only ever removes** (`piloti.j2`,
   `common/citation_verification.py`). It catches a false claim after the fact
   and cannot invent one. The archetype. *Since ADR-0125 it labels instead of
-  removing silently: an unresolvable `[N]`, or one whose § / Punkt the passage
-  does not hold, becomes „[Beleg nicht verifiziert]" where it stood. It still
-  invents nothing; the single-source fallback that did is gone.*
+  removing silently; since its amendment of 2026-11-10 it removes again, because no
+  verification marker may reach an answer, and the answer check reads the claim
+  without its pointer. It still invents nothing; the single-source fallback that
+  did is gone.*
 * **The confidence ceiling** — a measurement never buys more than `medium`, and
   an answer touching the law without verified citations is capped whatever it
   measured (`piloti/grounding.py`, `piloti/AGENTS.md` "two currencies that do

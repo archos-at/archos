@@ -5,7 +5,7 @@
  */
 
 import 'server-only'
-import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, lt, lte } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documentVersions } from '@/lib/db/schema/document-versions'
 import { documents } from '@/lib/db/schema/documents'
@@ -13,7 +13,7 @@ import { messages } from '@/lib/db/schema/messages'
 import { agentAsks, type AgentAskRow } from '@/lib/db/schema/piloti-asks'
 import { withTenant } from '@/lib/db/tenant-context'
 import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibility'
-import type { AskDocument, AskState } from './ask-wire'
+import { ASK_LIFECYCLE, type AskDocument, type AskState } from './ask-wire'
 
 /** The most documents one answer lists; a turn that filed more is an outlier, and the conversation shows them all. */
 export const ASK_DOCUMENT_LIMIT = 20
@@ -62,6 +62,30 @@ export async function findAskById(id: string): Promise<AgentAskRow | null> {
   const db = getDb()
   const [row] = await db.select().from(agentAsks).where(eq(agentAsks.id, id)).limit(1)
   return row ?? null
+}
+
+/** How many open asks one expiry sweep reads by default, and the most it may ask for. */
+export const OPEN_ASKS_PAGE = 200
+export const MAX_OPEN_ASKS_PAGE = 1_000
+
+/**
+ * The asks of every organization still open that were asked before `before`,
+ * oldest first and at most `limit` (clamped to 1..{@link MAX_OPEN_ASKS_PAGE}):
+ * the expiry sweep's work. Run under platform access; each is then ended in its
+ * own organization (`endAsk`). The partial index of migration 0230 serves it.
+ */
+export async function findAsksOpenBefore(
+  before: Date,
+  limit: number = OPEN_ASKS_PAGE,
+): Promise<Array<Pick<AgentAskRow, 'id' | 'organizationId'>>> {
+  const db = getDb()
+  const bounded = Math.min(Math.max(1, Math.trunc(Number.isFinite(limit) ? limit : OPEN_ASKS_PAGE)), MAX_OPEN_ASKS_PAGE)
+  return db
+    .select({ id: agentAsks.id, organizationId: agentAsks.organizationId })
+    .from(agentAsks)
+    .where(and(inArray(agentAsks.state, [...ASK_LIFECYCLE.liveStates]), lt(agentAsks.createdAt, before)))
+    .orderBy(asc(agentAsks.createdAt))
+    .limit(bounded)
 }
 
 /** Whether `requestedBy` asked anything in `conversationId`: the test that a conversation may be continued by an ask. */
@@ -115,7 +139,7 @@ export async function markAskWorking(organizationId: string, id: string): Promis
     db
       .update(agentAsks)
       .set({ state: 'working', updatedAt: new Date() })
-      .where(and(eq(agentAsks.organizationId, organizationId), eq(agentAsks.id, id), eq(agentAsks.state, 'submitted')))
+      .where(and(eq(agentAsks.organizationId, organizationId), eq(agentAsks.id, id), inArray(agentAsks.state, [...ASK_LIFECYCLE.sourcesOf('start')])))
       .returning({ id: agentAsks.id }),
   )
   return rows.length > 0
@@ -135,7 +159,7 @@ export async function endAsk(organizationId: string, id: string, end: AskEnd): P
   const db = getDb()
   const now = new Date()
   const reason = 'reason' in end ? clipReason(end.reason) : null
-  const open: AskState[] = ['submitted', 'working']
+  const open: AskState[] = [...ASK_LIFECYCLE.liveStates]
   const [row] = await withTenant({ organizationId }, () =>
     db
       .update(agentAsks)

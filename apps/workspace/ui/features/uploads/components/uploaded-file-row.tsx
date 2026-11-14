@@ -17,6 +17,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import type { UploadSummary, UploadSummaryDocument } from '@/adapters/api/upload-batches-client'
 import { Chip } from '@/components/ui/chip'
@@ -25,11 +26,11 @@ import { Item, ItemContent, ItemDescription, ItemMedia } from '@/components/ui/i
 import { DocumentStatusBadge, fileTypeIcon } from '@/features/documents/components/document-status'
 import { IngestFailureNotice } from '@/features/documents/components/ingest-failure-notice'
 import { QuarantineFindings } from '@/features/documents/components/quarantine-findings'
-import { RequestReviewButton } from '@/features/documents/components/request-review-button'
+import { HeldUploadDecision } from '@/features/documents'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { uploadBatchesCopy } from '@/i18n/namespaces/upload-batches'
-import { documentTypeOf } from '@/lib/documents/tag-vocabulary'
+import { documentTypeOf, tagLabel } from '@/lib/documents/tag-vocabulary'
 import { displayNameOf, otherTags } from '../lib/upload-summary'
 import { FacetChip, useTallyLabel } from './upload-atoms'
 
@@ -37,13 +38,20 @@ import { FacetChip, useTallyLabel } from './upload-atoms'
 const SUMMARY_LINES = 2
 
 /**
- * „Prüfung anfragen" (ADR-0086), the button the Files preview shows too. Only
- * the uploader opens an upload summary, so whoever sees it may press it.
+ * „Trotzdem zulassen" for whoever may decide, „Prüfung anfragen" for the
+ * uploader who may not (ADR-0086), as the tray and the Files preview offer it.
  */
-function RequestReleaseButton({ documentId, name }: { documentId: string; name: string }): JSX.Element {
+function HeldFileDecision({ documentId, name, href }: { documentId: string; name: string; href: string | null }): JSX.Element {
+  const router = useRouter()
   return (
-    <div>
-      <RequestReviewButton documentId={documentId} name={name} testId={`upload-file-request-release-${documentId}`} />
+    <div className="flex flex-wrap gap-1.5">
+      <HeldUploadDecision
+        documentId={documentId}
+        name={name}
+        onView={href ? () => router.push(href) : undefined}
+        askTestId={`upload-file-request-release-${documentId}`}
+        allowTestId={`upload-file-allow-${documentId}`}
+      />
     </div>
   )
 }
@@ -101,7 +109,7 @@ export function UploadedFileRow({
             )}
             {type && (
               <Chip variant="outline" size="sm" title={tFiles('preview.indexed.documentType')}>
-                {type}
+                {tagLabel(type, tFiles)}
               </Chip>
             )}
             {tags.length > 0 && (
@@ -109,7 +117,7 @@ export function UploadedFileRow({
                 {tags.map((tag) => (
                   <li key={tag} className="contents">
                     <Chip variant="muted" size="sm">
-                      {tag}
+                      {tagLabel(tag, tFiles)}
                     </Chip>
                   </li>
                 ))}
@@ -143,7 +151,7 @@ export function UploadedFileRow({
               verdict={document.quarantine ?? null}
               testId={`upload-file-findings-${document.id}`}
             />
-            <RequestReleaseButton documentId={document.id} name={name} />
+            <HeldFileDecision documentId={document.id} name={name} href={href} />
           </div>
         )}
 
@@ -158,7 +166,7 @@ export function UploadedFileRow({
           // Its reading ended before the check had a verdict, so colleagues do
           // not see it until a reviewer releases it (ADR-0086); a retry of an
           // IFC too large to read fails the same way.
-          <RequestReleaseButton documentId={document.id} name={name} />
+          <HeldFileDecision documentId={document.id} name={name} href={href} />
         )}
 
         {partlyChecked && document.outcome !== 'quarantined' && (

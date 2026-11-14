@@ -1,5 +1,6 @@
 'use client'
 
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { ArrowUpRight, RotateCcw, ScanSearch } from 'lucide-react'
@@ -99,13 +100,14 @@ export function PageReadings({
         ) : failed ? (
           <div className="space-y-2 p-3">
             <p className="text-muted-foreground text-xs">{t('preview.visualDetails.failed')}</p>
-            <Button variant="outline" size="sm" className="h-7 gap-1.5" onClick={onRetry}>
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={onRetry}>
               <RotateCcw className="size-3.5" aria-hidden />
               {t('preview.tryAgain')}
             </Button>
           </div>
         ) : (
-          <ol className="divide-border/60 divide-y">
+          // Rows apart by space, no hairlines: the design system's lines are for fields and info lists, and this panel is one.
+          <ol className="flex flex-col">
             {shown.map((detail, index) => (
               <PageReading
                 key={`${detail.page}-${detail.contentType}-${detail.segment ?? 0}-${index}`}
@@ -116,10 +118,10 @@ export function PageReadings({
           </ol>
         )}
         {hidden > 0 || (expanded && details && details.length > FIRST_ENTRIES) ? (
-          <button
+          <button data-attr="files-expanded"
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="text-muted-foreground hover:text-foreground hover:bg-accent/40 duration-snap border-border/60 touch-target focus-visible:bg-accent/40 w-full border-t px-3 py-2 text-left text-xs/5 font-medium outline-none transition-colors ease-out motion-reduce:transition-none"
+            className="text-muted-foreground hover:text-foreground hover:bg-hover duration-snap touch-target focus-visible:bg-accent w-full px-3 py-2 text-left text-xs/5 font-medium outline-none transition-colors ease-out motion-reduce:transition-none"
           >
             {expanded
               ? t('preview.visualDetails.showFewer')
@@ -160,7 +162,8 @@ function PageReading({
   const heading = (
     <>
       <span
-        className="bg-muted text-muted-foreground inline-flex h-5 shrink-0 items-center rounded-md px-1.5 text-[11px] font-medium tabular-nums"
+        // White on the group's grey: nothing grey on grey.
+        className="bg-background text-muted-foreground inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-[11px] font-medium tabular-nums"
         aria-label={t('preview.visualDetails.page', { page: detail.page })}
       >
         {t('preview.visualDetails.pageShort', { page: detail.page })}
@@ -168,7 +171,7 @@ function PageReading({
       <span className="text-foreground min-w-0 flex-1 truncate font-medium">
         {typeLabel ?? t('preview.visualDetails.page', { page: detail.page })}
         {position && (
-          <span className="text-muted-foreground font-normal tabular-nums"> · {position}</span>
+          <span className="text-muted-foreground font-normal tabular-nums">{CLAUSE_JOIN}{position}</span>
         )}
       </span>
       {scale && (
@@ -182,15 +185,15 @@ function PageReading({
   return (
     <li className="py-2.5 text-xs/5">
       {onShowPage ? (
-        <button
+        <button data-attr="files-show-page"
           type="button"
           onClick={() => onShowPage(detail.page)}
           title={t('preview.visualDetails.showPage', { page: detail.page })}
-          className="hover:bg-accent/40 duration-snap group/page focus-visible:bg-accent/40 -my-1 flex w-full items-center gap-2 px-3 py-1 text-left outline-none transition-colors ease-out motion-reduce:transition-none"
+          className="hover:bg-hover duration-snap group/page focus-visible:bg-accent -my-1 flex w-full items-center gap-2 px-3 py-1 text-left outline-none transition-colors ease-out motion-reduce:transition-none"
         >
           {heading}
           <ArrowUpRight
-            className="text-muted-foreground/60 group-hover/page:text-foreground size-3.5 shrink-0 transition-colors"
+            className="text-muted-foreground group-hover/page:text-foreground size-3.5 shrink-0 transition-colors"
             aria-hidden
           />
         </button>

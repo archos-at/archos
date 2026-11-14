@@ -66,6 +66,18 @@ function containersOf(pod: PodSpec | undefined): Container[] {
  */
 const CREATED_WITH_POD_MANAGEMENT_POLICY: Record<string, string> = { qdrant: "Parallel" };
 
+/**
+ * Deployments a vendor's release manifest creates, referenced by URL rather than
+ * copied into the repo, so their soak is upstream's to set. Each is exempt from
+ * the soak in `deployment-rollout-gated`, with the reason that is safe. Keep it to
+ * controllers no request is served by; index-policy.spec.ts holds the list.
+ */
+const UPSTREAM_SOAK_EXEMPT: Record<string, string> = {
+  "rabbitmq-cluster-operator":
+    "Reconciles RabbitmqCluster objects and serves nothing (deploy/pulumi/src/platform/rabbitmq.ts); " +
+    "the brokers keep serving while it restarts.",
+};
+
 /** An image reference is immutable if it is digest-pinned or version-tagged. */
 function isImmutableRef(image: string): boolean {
   if (image.includes("@sha256:")) return true;
@@ -78,10 +90,9 @@ export default new PolicyPack("grid-oib-guardrails", {
     {
       name: "deployment-rollout-gated",
       description:
-        "Deployments must gate their rollout: a stability soak (minReadySeconds) so a " +
-        "crash-on-first-request image cannot walk through the fleet, and a " +
-        "progressDeadlineSeconds so a wedged rollout is reported as failed instead of " +
-        "hanging. See deploy/pulumi/src/platform/rollout.ts.",
+        "Deployments must gate their rollout with a stability soak (minReadySeconds), so a " +
+        "crash-on-first-request image cannot walk through the fleet. progressDeadlineSeconds " +
+        "is not required: apps/v1 defaults it to 600. See deploy/pulumi/src/platform/rollout.ts.",
       enforcementLevel: "mandatory",
       validateResource: validateResourceOfType(
         k8s.apps.v1.Deployment,
@@ -89,18 +100,12 @@ export default new PolicyPack("grid-oib-guardrails", {
           const spec = deployment.spec;
           if (!spec) return;
           const name = deployment.metadata?.name ?? "<unnamed>";
+          if (UPSTREAM_SOAK_EXEMPT[name]) return;
           if (!spec.minReadySeconds || spec.minReadySeconds < 1) {
             report(
               `Deployment "${name}" does not set spec.minReadySeconds. Without it a new pod ` +
                 `counts as available the instant it first passes readiness, so a broken ` +
                 `image rolls through every replica before anything notices.`,
-            );
-          }
-          if (!spec.progressDeadlineSeconds || spec.progressDeadlineSeconds < 1) {
-            report(
-              `Deployment "${name}" does not set spec.progressDeadlineSeconds. A stuck ` +
-                `rollout would never surface a ProgressDeadlineExceeded condition, so ` +
-                `\`pulumi up\` fails on an opaque client timeout instead of the real reason.`,
             );
           }
         },
@@ -136,7 +141,9 @@ export default new PolicyPack("grid-oib-guardrails", {
 
           const maxUnavailable = spec.strategy?.rollingUpdate?.maxUnavailable;
           // Kubernetes defaults maxUnavailable to 25% when unset — a silent
-          // capacity dip, which is exactly what this rule exists to catch.
+          // capacity dip, which is exactly what this rule exists to catch. It
+          // rounds down, so at one replica the default is 0 and the pod surges.
+          if (replicas === 1 && maxUnavailable === undefined) return;
           if (maxUnavailable === undefined || String(maxUnavailable) !== "0") {
             report(
               `Deployment "${name}" rolls with maxUnavailable=${

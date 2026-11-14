@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * The controls of the Dateien header: view, Offene Punkte, Papierkorb, filter, search, upload.
+ * The controls of the Dateien header: view, Offene Punkte, E-Mail-Eingang, Papierkorb, filter, search, upload.
  *
  * ONE ROW ON A PHONE. The header used to stack four rows (view and filter,
  * search, upload) and put about 270px of controls between the title and the
@@ -17,12 +17,15 @@
 
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
-import { LayoutGrid, List, ListTodo, MoreHorizontal, Trash2 } from 'lucide-react'
+import { LayoutGrid, List, ListTodo, Mail, MoreHorizontal, Trash2 } from 'lucide-react'
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
+import { CountPill } from '@/components/ui/count-pill'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { SectionLevelTools, useSectionToolTier } from '@/components/shell/project-section-frame'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
+import { cn } from '@/lib/utils'
 import type { FileView } from '../hooks/use-view-preference'
 import { FileSearchField } from './file-search-bar'
 
@@ -35,6 +38,13 @@ export interface FilesHeaderControlsProps {
   binHref?: string
   /** Where the shelf's Offene Punkte are, the open Anmerkungen of all its documents; absent where it has none. */
   openPointsHref?: string
+  /**
+   * The project's E-Mail-Eingang (ADR-0137) and how many mails wait in it for
+   * this reader; absent where the reader may not decide held mail. The count
+   * is a muted pill: the Postfach's ink pill is the one that asks for
+   * attention, and two of them would make neither mean anything.
+   */
+  inboundMail?: { href: string; waiting: number | null }
   /** The filter menu, told whether the row has room for its word. */
   renderFilter: (compact: boolean) => ReactNode
   search: {
@@ -52,6 +62,8 @@ export interface FilesHeaderControlsProps {
   upload?: ReactNode
   /** More for the phone's ⋯, after the view choice and the Papierkorb. */
   moreEntries?: readonly ActionMenuEntry[]
+  /** The level's own tools for the phone's ⋯, first (iOS Files' order): „Auswählen“, „Ordner anlegen“. */
+  levelEntries?: readonly ActionMenuEntry[]
   /**
    * The shelf's advanced actions (sort the root into folders). On a phone they
    * follow `moreEntries` in the ⋯; on a wide screen they get a ⋯ of their own.
@@ -65,19 +77,62 @@ export function FilesHeaderControls({
   onViewChange,
   binHref,
   openPointsHref,
+  inboundMail,
   renderFilter,
   search,
   upload,
   moreEntries,
+  levelEntries,
   advancedEntries,
 }: FilesHeaderControlsProps): JSX.Element {
   const t = useTranslations(filesCopy)
+  const tier = useSectionToolTier()
   const choose = (value: string): void => {
     if (value === 'cards' || value === 'list') onViewChange(value)
   }
+  const viewChoice: ActionMenuEntry = {
+    type: 'radio-group',
+    value: view,
+    onValueChange: choose,
+    items: [
+      { value: 'cards', label: t('workspace.view.cards'), testId: 'files-view-cards' },
+      { value: 'list', label: t('workspace.view.list'), testId: 'files-view-list' },
+    ],
+  }
+  const viewToggle = (
+    <ToggleGroup
+      type="single"
+      value={view}
+      onValueChange={choose}
+      segmented
+      size="icon-sm" /* 28px squares on the track's 2px: 32px, the search field's and Hochladen's height */
+      aria-label={t('workspace.view.label')}
+    >
+      <ToggleGroupItem value="cards" aria-label={t('workspace.view.cards')} title={t('workspace.view.cards')}>
+        <LayoutGrid />
+      </ToggleGroupItem>
+      <ToggleGroupItem value="list" aria-label={t('workspace.view.list')} title={t('workspace.view.list')}>
+        <List />
+      </ToggleGroupItem>
+    </ToggleGroup>
+  )
+  const moreMenu = (entries: readonly ActionMenuEntry[], testId: string): JSX.Element => (
+    <ActionMenu
+      mode="dropdown"
+      entries={[...entries]}
+      trigger={
+        // Tonal: it opens a menu of actions, and a bare glyph beside the tonal filter read as a label.
+        <Button type="button" variant="secondary" size="icon" aria-label={t('workspace.more')} data-testid={testId}>
+          <MoreHorizontal aria-hidden />
+        </Button>
+      }
+    />
+  )
+  // As tall as its neighbours: the wide row's buttons are `sm`, the phone's filter and ⋯ are `icon` (the default height).
   const searchField = (className: string): JSX.Element => (
     <FileSearchField
       className={className}
+      size={phone ? 'default' : 'sm'}
       value={search.value}
       onChange={search.onChange}
       onSubmit={search.onSubmit}
@@ -90,15 +145,8 @@ export function FilesHeaderControls({
 
   if (phone) {
     const entries: ActionMenuEntry[] = [
-      {
-        type: 'radio-group',
-        value: view,
-        onValueChange: choose,
-        items: [
-          { value: 'cards', label: t('workspace.view.cards'), testId: 'files-view-cards' },
-          { value: 'list', label: t('workspace.view.list'), testId: 'files-view-list' },
-        ],
-      },
+      ...(levelEntries && levelEntries.length > 0 ? [...levelEntries, { type: 'separator' as const }] : []),
+      viewChoice,
       ...(openPointsHref
         ? [
             { type: 'separator' as const },
@@ -109,6 +157,20 @@ export function FilesHeaderControls({
               icon: ListTodo,
               href: openPointsHref,
               testId: 'files-open-points',
+            },
+          ]
+        : []),
+      ...(inboundMail
+        ? [
+            { type: 'separator' as const },
+            {
+              type: 'item' as const,
+              id: 'inbound-mail',
+              label: t('inboundMail.open'),
+              hint: inboundMail.waiting ? t('inboundMail.waitingLine', { count: inboundMail.waiting }) : undefined,
+              icon: Mail,
+              href: inboundMail.href,
+              testId: 'files-inbound-mail',
             },
           ]
         : []),
@@ -132,42 +194,64 @@ export function FilesHeaderControls({
       <div className="flex min-w-0 items-center gap-2" data-testid="files-controls">
         {searchField('flex-1')}
         {renderFilter(true)}
-        <ActionMenu
-          mode="dropdown"
-          entries={entries}
-          trigger={
-            <Button type="button" variant="outline" size="icon" aria-label={t('workspace.more')} data-testid="files-more">
-              <MoreHorizontal aria-hidden />
-            </Button>
-          }
-        />
+        {moreMenu(entries, 'files-more')}
+      </div>
+    )
+  }
+
+  // In the section's frame: one row on the title's left edge that never wraps. What finds (the search, flexing, the
+  // filter, the view) on the left; what acts on the level (Auswählen, Ordner anlegen, Hochladen, ⋯) on the right. A
+  // tier gives way in steps (`SectionToolTier`): „Ordner anlegen“ into Hochladen's menu, then the view into the ⋯.
+  if (tier !== null) {
+    const narrow = tier === 'narrow'
+    const more: ActionMenuEntry[] = [
+      ...(narrow ? [viewChoice] : []),
+      ...(advancedEntries && advancedEntries.length > 0 ? [...(narrow ? [{ type: 'separator' as const }] : []), ...advancedEntries] : []),
+    ]
+    return (
+      <div className={cn('flex min-w-0 flex-1 items-center [&_[data-slot=button]]:text-sm', narrow ? 'gap-2' : 'gap-3')} data-testid="files-controls">
+        {searchField('min-w-40 max-w-[28rem] flex-1')}
+        {renderFilter(narrow)}
+        {!narrow && viewToggle}
+        <div className={cn('ml-auto flex shrink-0 items-center', narrow ? 'gap-2' : 'gap-3')}>
+          <SectionLevelTools />
+          {upload}
+          {more.length > 0 && moreMenu(more, 'files-advanced')}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-end gap-2" data-testid="files-controls">
-      <ToggleGroup
-        type="single"
-        value={view}
-        onValueChange={choose}
-        segmented
-        size="icon-sm"
-        aria-label={t('workspace.view.label')}
-      >
-        <ToggleGroupItem value="cards" aria-label={t('workspace.view.cards')} title={t('workspace.view.cards')}>
-          <LayoutGrid />
-        </ToggleGroupItem>
-        <ToggleGroupItem value="list" aria-label={t('workspace.view.list')} title={t('workspace.view.list')}>
-          <List />
-        </ToggleGroupItem>
-      </ToggleGroup>
+    // At the tabs' 14px, as the tabs row's tools below: one press size for the head of the page.
+    <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 [&_[data-slot=button]]:text-sm" data-testid="files-controls">
+      {viewToggle}
       {/* The open Anmerkungen of every document, for the Jour fixe: a page of its own, as the Papierkorb is. */}
       {openPointsHref && (
         <Button asChild variant="ghost" size="sm">
           <Link href={openPointsHref} data-testid="files-open-points">
             <ListTodo />
             {t('openPoints.open')}
+          </Link>
+        </Button>
+      )}
+      {/* Mail sent to the project's address, waiting until a person files it (ADR-0137). */}
+      {inboundMail && (
+        <Button asChild variant="ghost" size="sm">
+          <Link
+            href={inboundMail.href}
+            data-testid="files-inbound-mail"
+          >
+            <Mail />
+            {t('inboundMail.open')}
+            {/* The name is the content, the visible words first (WCAG 2.5.3, label in name): an aria-label over
+                „E-Mail-Eingang“ and the pill's figure never matched the text a speech user reads off the screen. */}
+            {inboundMail.waiting ? (
+              <>
+                <CountPill count={inboundMail.waiting} tone="muted" aria-hidden />
+                <span className="sr-only"> {t('inboundMail.waitingAria', { count: inboundMail.waiting })}</span>
+              </>
+            ) : null}
           </Link>
         </Button>
       )}
@@ -182,17 +266,7 @@ export function FilesHeaderControls({
       {renderFilter(false)}
       {searchField('w-full sm:w-64 lg:w-72')}
       {upload}
-      {advancedEntries && advancedEntries.length > 0 && (
-        <ActionMenu
-          mode="dropdown"
-          entries={advancedEntries}
-          trigger={
-            <Button type="button" variant="ghost" size="icon" aria-label={t('workspace.more')} data-testid="files-advanced">
-              <MoreHorizontal aria-hidden />
-            </Button>
-          }
-        />
-      )}
+      {advancedEntries && advancedEntries.length > 0 && moreMenu(advancedEntries, 'files-advanced')}
     </div>
   )
 }

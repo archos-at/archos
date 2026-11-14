@@ -13,7 +13,7 @@ import type { JSX } from 'react'
 import { ProjectMembersForm } from '@/components/projects/project-members-form'
 import { useTranslations } from '@/i18n'
 import { settingsCopy } from '@/i18n/namespaces/settings'
-import { SettingsSectionIntro } from './settings-panel'
+import { SettingsSectionIntro } from '@/components/settings/settings-panel'
 
 export interface MembersSettingsProps {
   projectId: string

@@ -17,7 +17,8 @@ import { FileExtChip } from './file-ext-chip'
 import { IngestionStatusWord, ingestionMarkOfPhase } from './ingestion-atoms'
 import { IngestFailureNotice } from './ingest-failure-notice'
 import { HeldUploadReason } from './held-upload-reason'
-import { RequestReviewButton } from './request-review-button'
+import { HeldUploadDecision } from './held-upload-decision'
+import { readAllowedRowAgain } from '../lib/read-allowed-row'
 import { quarantineVerdictOf } from '@/lib/upload-screening/quarantine'
 import { failedWhileReading } from '../lib/ingest-failure'
 import { Button } from '@/components/ui/button'
@@ -25,7 +26,7 @@ import { AnimatePresence, iconSwapTransition, motion, motionBase, useMotionToken
 import { useLocale, useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatBytes, formatDurationShort, formatTransferRate } from '@/lib/format'
+import { formatByteProgress, formatBytes, formatDurationShort, formatTransferRate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { FilingSuggestionSlot, useFilingHighlighted } from './filing-suggestion'
 import { FilingViewBar } from './filing-bar'
@@ -56,10 +57,12 @@ interface UploadTrayProps {
   onRetry: (id: string) => void
   /** Abort one in-flight upload. Omitted where cancellation is not wired up. */
   onCancel?: (id: string) => void
-  /** Abort everything still in flight. */
-  onCancelAll?: () => void
+  onCancelAll?: () => void /* abort everything still in flight */
   /** Take rows off the tray. Dismissing a NOTICE — never a document delete. */
   onDismiss?: (ids: string[]) => void
+  /** Open one of the shelf's documents in the preview, where the surface has one. */
+  onOpenDocument?: (documentId: string) => void
+  className?: string /* its plane where it lies: in Dateien a sheet on the column (`UPLOAD_TRAY_SHEET`) */
 }
 
 /** Phases that belong on a live upload surface. */
@@ -111,7 +114,7 @@ function useOnline(): boolean {
   return useSyncExternalStore(subscribeOnline, readOnline, serverOnline)
 }
 
-export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }: UploadTrayProps) {
+export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, onOpenDocument, className }: UploadTrayProps) {
   // Height and opacity are not covered by MotionConfig's reduced motion.
   const foldTransition = useMotionToken(motionBase)
   const t = useTranslations(filesCopy)
@@ -225,7 +228,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }:
       transition={foldTransition}
       aria-label={t('uploads.region')}
       data-testid="upload-tray"
-      className="shrink-0 overflow-hidden border-b bg-card"
+      className={cn('shrink-0 overflow-hidden border-b bg-card', className)}
       onMouseEnter={() => setIsHeld(true)}
       onMouseLeave={() => setIsHeld(false)}
       onFocusCapture={() => setIsHeld(true)}
@@ -242,10 +245,10 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }:
           truncated to an ellipsis while three buttons sat beside them at full
           size. The summary now holds a readable floor and the actions drop to a
           second line when they no longer fit beside it. */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 phone:gap-2">
         <TrayGlyph summary={summary} offline={isWaitingForNetwork} />
 
-        <button
+        <button data-attr="files-toggle-expanded"
           type="button"
           onClick={() => setIsExpanded((open) => !open)}
           aria-expanded={isExpanded}
@@ -256,12 +259,12 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }:
           // second line separated by `gap-3` (12px), and a 10px overhang eats
           // most of that gap, so a tap aimed at "Retry all" lands on the summary
           // instead. A hit box has to stay inside its own flex line.
-          className="min-w-40 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+          className="min-w-32 flex-1 rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11"
         >
           {/* Polite, not assertive: the phase changes two or three times per
               batch and each one is worth hearing, but the byte counter beneath
               it updates every second and must never be announced. */}
-          <p aria-live="polite" className="truncate text-sm font-medium leading-tight text-foreground">
+          <p aria-live="polite" className="text-pretty text-sm font-medium leading-tight text-foreground" /* wraps, never cuts: „2 Dokumente werden hochgeladen“ lost its end at 768px */>
             {headline}
           </p>
           {/* Two lines, not one: on a phone the sentence that says why nothing
@@ -279,18 +282,20 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }:
             160px floor and the expander does not fit 390px, and the
             expander is what wrapped. */}
         {hasHeaderActions && (
-          <div className="order-3 flex basis-full items-center justify-end gap-2 sm:order-2 sm:basis-auto">
+          // While sending, „Alle abbrechen“ is a text press on the headline's own row: on its own row it left a 60px
+          // empty band on a phone (finding 20). Settled, the retry and dismiss presses take a row of their own there.
+          <div className={cn('flex items-center justify-end gap-3', summary.isSettled ? 'order-3 basis-full sm:order-2 sm:basis-auto' : 'order-2')}>
           {isTransferring && onCancelAll && (
-            <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-xs" onClick={onCancelAll}>
+            <Button type="button" variant="ghost" size="sm" className="-mx-2 shrink-0" onClick={onCancelAll}>
               {t('uploads.actions.cancelAll')}
             </Button>
           )}
           {summary.isSettled && retryAll && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
-              className="h-7 shrink-0 gap-1.5 px-2 text-xs"
+              className="shrink-0 gap-1.5"
               onClick={retryAll}
             >
               <RotateCcw className="size-3.5" aria-hidden />
@@ -298,18 +303,18 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }:
             </Button>
           )}
           {summary.isSettled && dismissAll && (
-            <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-xs" onClick={dismissAll}>
+            <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={dismissAll}>
               {t('uploads.actions.dismissAll')}
             </Button>
           )}
           </div>
         )}
-        <button
+        <button data-attr="files-toggle-expanded"
           type="button"
           onClick={() => setIsExpanded((open) => !open)}
           aria-expanded={isExpanded}
           aria-label={isExpanded ? t('uploads.actions.collapse') : t('uploads.actions.expand')}
-          className="order-2 flex size-7 shrink-0 sm:order-3 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:size-11"
+          className="order-2 flex size-7 shrink-0 sm:order-3 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:-m-2 pointer-coarse:size-11"
         >
           <ChevronDown
             className={cn(
@@ -358,6 +363,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }:
                   onRetry={onRetry}
                   onCancel={onCancel}
                   onDismiss={onDismiss}
+                  onOpenDocument={onOpenDocument}
                 />
               ))}
             </AnimatePresence>
@@ -514,12 +520,8 @@ function UploadRow({
   onRetry,
   onCancel,
   onDismiss,
-}: {
-  file: TrackedFile
-  onRetry: (id: string) => void
-  onCancel?: (id: string) => void
-  onDismiss?: (ids: string[]) => void
-}) {
+  onOpenDocument,
+}: Pick<UploadTrayProps, 'onRetry' | 'onCancel' | 'onDismiss' | 'onOpenDocument'> & { file: TrackedFile }) {
   const t = useTranslations(filesCopy)
   const tc = useTranslations(commonCopy)
   const { locale } = useLocale()
@@ -706,7 +708,7 @@ function UploadRow({
               {canRetry && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   className="mt-2 hidden gap-1.5 pointer-coarse:inline-flex"
                   onClick={() => onRetry(file.id)}
@@ -731,16 +733,17 @@ function UploadRow({
                   testId="upload-row-held"
                 />
               )}
-              {/* The one thing the uploader can do about a held file, where
-                  they first learn of it: this session's own upload, or the
-                  held file this one would replace when they uploaded it too.
-                  The server accepts the request from the uploader alone. */}
+              {/* Allow it or ask for a review, where they first learn of it:
+                  this upload, or the held file it would replace. */}
               {isHeldBack && reviewableId && (
-                <RequestReviewButton
+                <HeldUploadDecision
                   documentId={reviewableId}
                   name={file.fileName}
+                  onReleased={reviewableId === file.serverFileId ? () => readAllowedRowAgain(file.id) : undefined}
+                  onView={onOpenDocument && (() => onOpenDocument(reviewableId))}
                   className="mt-2 h-7 px-2 text-xs"
-                  testId="upload-row-request-review"
+                  askTestId="upload-row-request-review"
+                  allowTestId="upload-row-allow"
                 />
               )}
             </div>
@@ -769,7 +772,7 @@ function RowAction({
       aria-label={label}
       title={label}
       className={cn(
-        'flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:size-11',
+        'flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:size-11',
         className
       )}
     >
@@ -854,12 +857,7 @@ function trayDetail(
   const { bytesPerSecond, etaSeconds, processingElapsed, locale, t } = context
 
   if (summary.stage === 'transferring') {
-    const parts = [
-      t('uploads.detail.bytes', {
-        done: formatBytes(summary.uploadedBytes, locale),
-        total: formatBytes(summary.totalBytes, locale),
-      }),
-    ]
+    const parts = [t('uploads.detail.bytes', formatByteProgress(summary.uploadedBytes, summary.totalBytes, locale))]
     if (bytesPerSecond !== null) parts.push(formatTransferRate(bytesPerSecond, locale))
     if (etaSeconds !== null && etaSeconds > 0) {
       parts.push(t('uploads.detail.eta', { time: formatDurationShort(etaSeconds, locale) }))

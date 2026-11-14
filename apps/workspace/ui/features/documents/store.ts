@@ -22,10 +22,12 @@ const initialState: DocumentsState = {
   loadedSessionId: null,
   recentlyDeletedIds: new Set<string>(),
   error: null,
+  nameStopped: null,
   shownBannersForJobs: {},
 }
 
 import { trackedStatusOfJobFile } from './utils'
+import { jobFileOfRow } from './lib/job-file-match'
 
 export const useDocumentsStore = create<DocumentsStore>()(
   devtools(
@@ -201,7 +203,11 @@ export const useDocumentsStore = create<DocumentsStore>()(
       },
 
       clearError: () => {
-        set({ error: null }, false, 'clearError')
+        set({ error: null, nameStopped: null }, false, 'clearError')
+      },
+
+      setNameStopped: (nameStopped) => {
+        set({ nameStopped }, false, 'setNameStopped')
       },
 
       // --------------------------------------------------------------------------
@@ -224,10 +230,8 @@ export const useDocumentsStore = create<DocumentsStore>()(
               if (file.jobId && file.jobId !== jobStatus.job_id) return file
               if (file.collectionName && file.collectionName !== jobStatus.collection_name) return file
 
-              // Find matching file in job details by server ID or filename
-              const jobFile = jobStatus.file_details.find(
-                (jf) => jf.file_id === file.serverFileId || jf.file_name === file.fileName
-              )
+              // By server id, or by name for a row that knows only its name.
+              const jobFile = jobFileOfRow(file, jobStatus.file_details)
 
               if (!jobFile) return file
 

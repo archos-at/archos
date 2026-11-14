@@ -35,6 +35,12 @@ LAZY_PACKAGES = [
     "agent.agents.deep_researcher",
     "agent.common",
     "knowledge_layer",
+    "knowledge_layer.browse",
+    "knowledge_layer.estate",
+    "knowledge_layer.ingest",
+    "knowledge_layer.read_passage",
+    "knowledge_layer.search",
+    "knowledge_layer.vector_store",
 ]
 
 # What a package ``__init__`` or a conftest every test loads may not load: each
@@ -100,4 +106,4 @@ def test_every_knowledge_layer_tool_module_is_an_entry_point():
 
     plugins = {entry.value for entry in entry_points(group="nat.plugins")}
 
-    assert {"knowledge_layer.register", "knowledge_layer.browse", "knowledge_layer.read_passage"} <= plugins
+    assert {"knowledge_layer.register", "knowledge_layer.browse.tool", "knowledge_layer.read_passage.tool"} <= plugins

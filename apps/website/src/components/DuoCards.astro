@@ -1,0 +1,77 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import AITag from './AITag.astro';
+import type { Locale } from '../i18n/paths';
+import { PHOTO_QUALITY, PHOTO_WIDTHS, SIZES } from '../lib/media';
+
+export interface DuoItem {
+  title: string;
+  text?: string;
+  /** default: first light, second dark */
+  theme?: 'light' | 'dark';
+  /**
+   * Photo filling the whole card (from `src/lib/media.ts`); keeps its width while the card widens
+   * on hover. It shows in its own colours: the text's contrast comes from the scrim the design
+   * system lays behind the text (`components.css`, "Duo photo scrim"), never from a filter.
+   */
+  photo?: ImageMetadata;
+  alt?: string;
+  /** Inline CSS for the photo's crop (object-position) */
+  photoStyle?: string;
+  /** Text in on-ink over a light photo */
+  onPhoto?: boolean;
+  /** Shows the AI tag */
+  ai?: boolean;
+}
+
+// Without a photo, the card's visual goes in the slot `media-<index>`.
+interface Props {
+  locale: Locale;
+  /** Exactly two */
+  items: [DuoItem, DuoItem];
+  class?: string;
+}
+
+const { locale, items, class: className } = Astro.props;
+---
+
+<div class:list={['ui-duo', className]}>
+  {
+    items.slice(0, 2).map((item, i) => {
+      const theme = item.theme || (i === 1 ? 'dark' : undefined);
+      const cardStyle = item.photo
+        ? `background: ${theme === 'dark' ? 'var(--surface-raised)' : 'var(--surface-sunken)'}`
+        : undefined;
+      return (
+        <div class:list={['ui-duo-card', item.photo && item.onPhoto && 'ui-duo-on-photo']} data-theme={theme} style={cardStyle}>
+          {item.photo && (
+            <Image
+              class="ui-duo-photo"
+              src={item.photo}
+              widths={PHOTO_WIDTHS}
+              sizes={SIZES.duo}
+              quality={PHOTO_QUALITY}
+              alt={item.alt || ''}
+              style={item.photoStyle}
+            />
+          )}
+          {item.ai && <AITag locale={locale} ink={!item.onPhoto} />}
+          <div class="ui-duo-text">
+            <h3 class="ui-duo-title heading-1">{item.title}</h3>
+            {item.text && (
+              <p class="ui-duo-body body" style={item.photo ? 'color: inherit' : undefined}>
+                {item.text}
+              </p>
+            )}
+          </div>
+          {!item.photo && (
+            <div class="ui-duo-media" data-theme={theme === 'dark' ? 'light' : undefined}>
+              <slot name={`media-${i}`} />
+            </div>
+          )}
+        </div>
+      );
+    })
+  }
+</div>

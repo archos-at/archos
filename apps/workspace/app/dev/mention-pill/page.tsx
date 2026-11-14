@@ -28,6 +28,8 @@ import { PersonPeek } from '@/features/collaboration/components/PersonPeek'
 import { MentionPeopleProvider } from '@/features/collaboration/context/mention-people'
 import { I18nProvider } from '@/i18n'
 import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { PRODUCT_NAME } from '@/lib/brand'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const person = (userId: string, name: string) => ({
   userId,
@@ -44,9 +46,9 @@ const ROSTER = [ME, ANNA, SABINE]
 
 const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <section className="flex flex-col gap-1.5">
-    <h2 className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+    <SectionLabel as="h2">
       {label}
-    </h2>
+    </SectionLabel>
     <p className="text-foreground text-sm leading-relaxed">{children}</p>
   </section>
 )
@@ -58,13 +60,13 @@ export default function MentionPillPreviewPage() {
 
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <MentionPeopleProvider participants={ROSTER} currentUserId={ME.userId} agentName="Piloti">
+      <MentionPeopleProvider participants={ROSTER} currentUserId={ME.userId} agentName={PRODUCT_NAME}>
         <main
           data-testid="mention-pill-preview"
           className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 md:p-8"
         >
           <header>
-            <h1 className="text-xl font-semibold tracking-tight">Erwähnungen im Chat</h1>
+            <h1 className="text-xl font-semibold">Erwähnungen im Chat</h1>
             <p className="text-muted-foreground mt-1 text-sm">
               Eine Erwähnung verweist auf eine Person — und beantwortet im Vorbeigehen, wer das ist.
             </p>
@@ -89,8 +91,8 @@ export default function MentionPillPreviewPage() {
 
             <Row label="Der Assistent">
               <MentionText
-                content="@Piloti bitte auf dieser Grundlage weiterarbeiten."
-                mentions={[{ targetId: AGENT_MENTION_ID, display: 'Piloti' }]}
+                content={"@" + PRODUCT_NAME + " bitte auf dieser Grundlage weiterarbeiten."}
+                mentions={[{ targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }]}
                 currentUserId={ME.userId}
               />
             </Row>
@@ -105,9 +107,9 @@ export default function MentionPillPreviewPage() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <h2 className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+            <SectionLabel as="h2">
               Die Karte hinter der Erwähnung
-            </h2>
+            </SectionLabel>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="bg-popover w-64 rounded-2xl border p-3 shadow-md">
                 <PersonPeek person={SABINE} isParticipant />
@@ -119,7 +121,7 @@ export default function MentionPillPreviewPage() {
                 <PersonPeek person={ME} isYou isParticipant />
               </div>
               <div className="bg-popover w-64 rounded-2xl border p-3 shadow-md">
-                <PersonPeek person={{ userId: AGENT_MENTION_ID, name: 'Piloti' }} isAgent />
+                <PersonPeek person={{ userId: AGENT_MENTION_ID, name: PRODUCT_NAME }} isAgent />
               </div>
             </div>
           </div>

@@ -10,6 +10,7 @@ PREPARE a job: an upload or a re-ingest must leave a job in the queue and ingest
 nothing in the route's own process.
 """
 
+import hashlib
 import io
 import os
 import tarfile
@@ -21,6 +22,9 @@ from pathlib import Path
 from unittest.mock import create_autospec
 
 import pytest
+from agent_testing import orchestrator_fake
+from agent_testing.orchestrator_fake import take_run
+from agent_testing.orchestrator_fake import waiting_runs
 from fastapi import APIRouter
 from fastapi import FastAPI
 from httpx import ASGITransport
@@ -30,7 +34,6 @@ from sqlalchemy import text
 
 from agent import corpus_store
 from agent import oib_sync
-from agent.knowledge import ingest_queue
 from agent.knowledge import ingest_status_store
 from agent.knowledge.base import PreparedIngestJob
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
@@ -45,6 +48,12 @@ from agent_host.routes import oib as oib_routes
 from agent_host.routes.oib import add_oib_routes
 
 _COLLECTION = "oib_knowledge"
+
+
+def _job_done(name: str, sha256: str, chunk_format_version: int) -> bool:
+    """A job for ``name`` prepared at the file's current mark and finished: what ``oib_sync`` records."""
+    corpus_store.begin_job(name)
+    return corpus_store.mark_ingested(name, sha256, chunk_format_version)
 
 
 @pytest.fixture
@@ -102,14 +111,12 @@ def bucket(monkeypatch, tmp_path):
     monkeypatch.setattr(corpus_store, "_put_object", fake.put_object)
     monkeypatch.setattr(corpus_store, "_delete_object", fake.delete_object)
     monkeypatch.setattr(corpus_store, "_download_object", fake.download_object)
-    monkeypatch.delenv("INGEST_QUEUE", raising=False)
-    monkeypatch.delenv("JOB_PAYLOAD_KEK", raising=False)
     with corpus_store._transaction() as conn:
         conn.execute(delete(corpus_store._files))
-    ingest_status_store.get("never-existed")  # creates the status and queue tables
-    with DocumentMetadataStore._get_or_create_sync_engine(ingest_queue.db_url()).begin() as conn:
-        for table in ("ingest_jobs", ingest_queue.TABLE):
-            conn.execute(text(f"DELETE FROM {table}"))
+    ingest_status_store.get("never-existed")  # creates the status table
+    with DocumentMetadataStore._get_or_create_sync_engine(ingest_status_store._db_url()).begin() as conn:
+        conn.execute(text("DELETE FROM ingest_jobs"))
+    orchestrator_fake.install_for(monkeypatch)
     return fake
 
 
@@ -216,7 +223,7 @@ async def test_upload_explicit_doc_class_persists(app, ingestor, bucket, cache_d
     # One job on the ingest queue, carrying the admin's Dokumentart; nothing ingested here.
     assert ingestor.names == ["plan.pdf"]
     assert ingestor.prepared[0].config["doc_class"] == "oib_guide"
-    assert ingest_queue.counts()["queued"] == 1
+    assert len(waiting_runs()) == 1
 
 
 @pytest.mark.asyncio
@@ -291,7 +298,7 @@ async def test_zip_happy_path_and_skips(app, ingestor, bucket):
     assert set(bucket.objects) == {"base-corpus/a.pdf", "base-corpus/b.pdf"}
     assert set(corpus_store.list_files()) == {"a.pdf", "b.pdf"}
     assert sorted(ingestor.names) == ["a.pdf", "b.pdf"]
-    assert ingest_queue.counts()["queued"] == 2
+    assert len(waiting_runs()) == 2
 
 
 @pytest.mark.asyncio
@@ -315,6 +322,132 @@ async def test_zip_slip_member_rejected(app, bucket):
     assert set(bucket.objects) == {"base-corpus/ok.pdf"}
 
 
+async def _upload(app, name: str, content: bytes, content_type: str):
+    async with _client(app) as client:
+        return await client.post("/v1/admin/oib/documents", files={"file": (name, content, content_type)})
+
+
+@pytest.mark.asyncio
+async def test_a_name_the_corpus_keeps_takes_the_same_bytes_and_no_others(app, bucket, ingestor):
+    """A corpus file is immutable in the tier that writes it (ADR-0165): a reviewer's bytes stay the published ones."""
+    reviewed = _pdf_bytes(b"%PDF-1.4 the text a reviewer read")
+    assert (await _upload(app, "oib-rl-2.pdf", reviewed, "application/pdf")).status_code == 200
+
+    again = await _upload(app, "oib-rl-2.pdf", reviewed, "application/pdf")
+    other = await _upload(app, "oib-rl-2.pdf", _pdf_bytes(b"%PDF-1.4 other bytes"), "application/pdf")
+
+    assert again.status_code == 200
+    assert other.status_code == 409 and "other bytes" in other.json()["detail"]
+    assert bucket.objects["base-corpus/oib-rl-2.pdf"] == reviewed
+    assert corpus_store.get_file("oib-rl-2.pdf").sha256 == hashlib.sha256(reviewed).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_a_zip_sent_as_a_pdf_replaces_no_file(app, bucket):
+    """The reported attack: `innocent.pdf`, `Content-Type: application/zip`, a ZIP body holding a named text.
+
+    The BFF hashed one file, `innocent.pdf`, and let it through; this tier read the content type, extracted the
+    member and replaced the text. Both tiers now decide by the bytes, the name has to agree, and a member that
+    reaches the store under a name it keeps is refused there.
+    """
+    reviewed = _pdf_bytes(b"%PDF-1.4 the text a reviewer read")
+    assert (await _upload(app, "at-oib-rl-2-2019.pdf", reviewed, "application/pdf")).status_code == 200
+    archive = _build_zip({"at-oib-rl-2-2019.pdf": _pdf_bytes(b"%PDF-1.4 the attacker's text")})
+
+    disguised = await _upload(app, "innocent.pdf", archive, "application/zip")
+    honest = await _upload(app, "bulk.zip", archive, "application/zip")
+
+    assert disguised.status_code == 400 and "disagree" in disguised.json()["detail"]
+    member = honest.json()["members"][0]
+    assert (member["status"], member["reason"]) == ("rejected", "the corpus keeps other bytes under this name")
+    assert bucket.objects == {"base-corpus/at-oib-rl-2-2019.pdf": reviewed}
+    assert set(corpus_store.list_files()) == {"at-oib-rl-2-2019.pdf"}
+
+
+@pytest.mark.asyncio
+async def test_the_content_type_decides_nothing_about_an_upload(app, bucket):
+    as_zip = await _upload(app, "plan.pdf", _pdf_bytes(), "application/zip")
+    not_a_zip = await _upload(app, "bulk.zip", _pdf_bytes(), "application/zip")
+
+    assert as_zip.status_code == 200 and as_zip.json()["kind"] == "file"
+    assert not_a_zip.status_code == 400
+    assert set(bucket.objects) == {"base-corpus/plan.pdf"}
+
+
+@pytest.mark.asyncio
+async def test_a_zip_that_holds_one_path_twice_is_refused_whole(app, bucket):
+    """zipfile keeps the first copy of a path and the BFF's reader the last: two tiers, two files."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf, pytest.warns(UserWarning, match="Duplicate name"):
+        zf.writestr("F.pdf", _pdf_bytes(b"%PDF-1.4 the copy this tier would store"))
+        zf.writestr("F.pdf", _pdf_bytes(b"%PDF-1.4 the copy the BFF would hash"))
+        zf.writestr("ok.pdf", _pdf_bytes())
+
+    res = await _upload(app, "bulk.zip", buf.getvalue(), "application/zip")
+
+    assert res.status_code == 400 and "twice" in res.json()["detail"]
+    assert bucket.objects == {}
+    # Positive control: the same base name in two folders is two paths, and the first is kept as before.
+    folders = _build_zip({"a/F.pdf": _pdf_bytes(), "b/F.pdf": _pdf_bytes()})
+    assert (await _upload(app, "bulk.zip", folders, "application/zip")).json()["accepted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_plain_upload_cannot_take_the_name_an_attached_text_would_get(app, bucket):
+    """`<key>-<12 hex>.pdf` says what its bytes are: other bytes under it would hold the name against the real text."""
+    text = _pdf_bytes(b"%PDF-1.4 the publisher's text")
+    honest = f"at-oib-rl-6-2015-text-{hashlib.sha256(text).hexdigest()[:12]}.pdf"
+    squatted = "at-oib-rl-6-2015-text-0123456789ab.pdf"
+    other = _pdf_bytes(b"%PDF-1.4 somebody else's bytes")
+
+    single = await _upload(app, squatted, other, "application/pdf")
+    archive = await _upload(
+        app, "bulk.zip", _build_zip({f"texts/{squatted}": other, "ok.pdf": _pdf_bytes()}), "application/zip"
+    )
+
+    assert single.status_code == 400 and "sha256" in single.json()["detail"]
+    rejected = [m for m in archive.json()["members"] if m["status"] == "rejected"]
+    assert [(m["file_name"], "sha256" in m["reason"]) for m in rejected] == [(squatted, True)]
+    assert set(bucket.objects) == {"base-corpus/ok.pdf"}
+    # Positive controls: the name of these very bytes, and a name that only looks similar.
+    assert (await _upload(app, honest, text, "application/pdf")).status_code == 200
+    assert (await _upload(app, "oib-rl-6-2015.pdf", other, "application/pdf")).status_code == 200
+
+
+def _zip_with_raw_names(members: dict[str, bytes]) -> bytes:
+    """A ZIP whose member names are written as given: `ZipInfo` itself would cut one at a NUL."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data in members.items():
+            info = zipfile.ZipInfo("placeholder.pdf")
+            info.filename = name
+            zf.writestr(info, data)
+    return buf.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_a_zip_member_two_readers_would_name_differently_is_kept_under_no_name(app, bucket):
+    """The second attack: `x.pdf\0y.pdf`. The BFF's reader keeps the NUL, zipfile cuts the name to `x.pdf`."""
+    reviewed = _pdf_bytes(b"%PDF-1.4 the text a reviewer read")
+    assert (await _upload(app, "x.pdf", reviewed, "application/pdf")).status_code == 200
+    archive = _zip_with_raw_names(
+        {
+            "x.pdf\0y.pdf": _pdf_bytes(b"%PDF-1.4 the attacker's text"),
+            "fresh.pdf\0z.pdf": _pdf_bytes(),
+            "a\\b.pdf": _pdf_bytes(),
+            "sub/../c.pdf": _pdf_bytes(),
+            "ok.pdf": _pdf_bytes(),
+        }
+    )
+
+    res = await _upload(app, "bulk.zip", archive, "application/zip")
+
+    body = res.json()
+    assert (body["accepted"], body["rejected"]) == (1, 4)
+    assert all("unsafe" in m["reason"] for m in body["members"] if m["status"] == "rejected")
+    assert bucket.objects == {"base-corpus/x.pdf": reviewed, "base-corpus/ok.pdf": _pdf_bytes()}
+
+
 @pytest.mark.asyncio
 async def test_upload_the_store_refuses_is_an_error_and_queues_no_ingestion(app, bucket, ingestor, cache_dir):
     bucket.refuse_uploads = True
@@ -327,7 +460,7 @@ async def test_upload_the_store_refuses_is_an_error_and_queues_no_ingestion(app,
     assert res.status_code == 500
     assert "refused" in res.json()["detail"]
     assert ingestor.prepared == []
-    assert ingest_queue.counts()["queued"] == 0
+    assert len(waiting_runs()) == 0
     assert corpus_store.get_file("plan.pdf") is None
     assert not (cache_dir / "plan.pdf").exists()
 
@@ -366,7 +499,7 @@ async def test_a_zip_member_the_queue_refuses_is_rejected_and_the_others_go_on(a
     assert res.status_code == 200
     body = res.json()
     assert {m["file_name"]: m["status"] for m in body["members"]} == {"good.pdf": "pending", "bad.pdf": "rejected"}
-    assert ingest_queue.counts()["queued"] == 1
+    assert len(waiting_runs()) == 1
 
 
 @pytest.mark.asyncio
@@ -375,15 +508,17 @@ async def test_an_upload_queues_the_ingestion_of_the_file_it_stored(app, ingesto
         await client.post("/v1/admin/oib/documents", files={"file": ("plan.pdf", _pdf_bytes(), "application/pdf")})
 
     assert ingestor.names == ["plan.pdf"]
-    claim = ingest_queue.claim_next("w1", stale_seconds=180, max_attempts=3)
-    assert claim is not None and claim.job_id == ingestor.prepared[0].job_id
+    run = take_run()
+    assert run is not None and run.input.job_id == ingestor.prepared[0].job_id
 
 
 @pytest.mark.asyncio
-async def test_an_upload_when_the_queue_is_off_is_an_error_not_an_in_process_ingestion(
+async def test_an_upload_hatchet_cannot_take_is_an_error_not_an_in_process_ingestion(
     app, bucket, ingestor, monkeypatch
 ):
-    monkeypatch.setenv("INGEST_QUEUE", "off")
+    from agent.knowledge import ingest_workflow
+
+    ingest_workflow.ingest_workflow().refuse_with = ConnectionError("engine down")
 
     async with _client(app) as client:
         res = await client.post(
@@ -391,11 +526,11 @@ async def test_an_upload_when_the_queue_is_off_is_an_error_not_an_in_process_ing
         )
 
     assert res.status_code == 500
-    assert "ingest queue is off" in res.json()["detail"]
-    # The file is kept: the next sync cycle queues it as soon as the queue is back.
+    assert "ConnectionError" in res.json()["detail"]
+    # The file is kept: the next sync cycle hands it over as soon as Hatchet is back.
     assert corpus_store.get_file("plan.pdf") is not None
     assert bucket.objects == {"base-corpus/plan.pdf": _pdf_bytes()}
-    assert ingest_queue.counts()["queued"] == 0
+    assert len(waiting_runs()) == 0
 
 
 @pytest.mark.asyncio
@@ -407,7 +542,7 @@ async def test_the_same_bytes_uploaded_twice_are_one_job(app, ingestor):
             )
             assert res.status_code == 200
 
-    assert ingest_queue.counts()["queued"] == 1
+    assert len(waiting_runs()) == 1
     assert len(ingestor.prepared) == 1
 
 
@@ -532,12 +667,12 @@ async def test_delete_removes_chunks_row_object_and_cached_copy(app, bucket, ing
 async def test_delete_cancels_the_ingestion_that_is_still_queued(app, ingestor):
     async with _client(app) as client:
         await client.post("/v1/admin/oib/documents", files={"file": ("plan.pdf", _pdf_bytes(), "application/pdf")})
-        assert ingest_queue.counts()["queued"] == 1
+        assert len(waiting_runs()) == 1
 
         res = await client.delete("/v1/admin/oib/documents/plan.pdf")
 
     assert res.status_code == 200
-    assert ingest_queue.counts()["queued"] == 0
+    assert len(waiting_runs()) == 0
     assert ingest_status_store.get(ingestor.prepared[0].job_id) is None
 
 
@@ -653,7 +788,7 @@ async def test_a_manual_sync_that_breaks_is_a_500(app, monkeypatch):
 async def test_reingest_queues_only_the_named_documents(app, ingestor):
     for name in ("a.pdf", "b.pdf", "c.pdf"):
         corpus_store.put(name, _pdf_bytes())
-        corpus_store.mark_ingested(name, corpus_store.get_file(name).sha256, oib_sync.CHUNK_FORMAT_VERSION)
+        _job_done(name, corpus_store.get_file(name).sha256, oib_sync.CHUNK_FORMAT_VERSION)
 
     async with _client(app) as client:
         response = await client.post("/v1/admin/oib/reingest", json={"file_names": ["a.pdf", "c.pdf"]})
@@ -664,23 +799,42 @@ async def test_reingest_queues_only_the_named_documents(app, ingestor):
     assert sorted(body["queued"]) == ["a.pdf", "c.pdf"]
     assert body["unknown"] == []
     assert sorted(ingestor.names) == ["a.pdf", "c.pdf"], "b.pdf was not selected and must not be touched"
-    assert ingest_queue.counts()["queued"] == 2
+    assert len(waiting_runs()) == 2
     # Queued documents read as not ingested (PENDING in the status panel) until their chunks are rebuilt.
     assert corpus_store.get_file("a.pdf").ingested_sha256 is None
     assert corpus_store.get_file("b.pdf").ingested_sha256 is not None
 
 
 @pytest.mark.asyncio
+async def test_reingest_records_the_country_and_edition_the_platform_sent(app, ingestor):
+    corpus_store.put("a.pdf", _pdf_bytes())
+    marks = {"a.pdf": {"country_id": "DE", "edition_id": "edition:baybo-2025"}}
+
+    async with _client(app) as client:
+        response = await client.post("/v1/admin/oib/reingest", json={"file_names": ["a.pdf"], "marks": marks})
+        refused = await client.post(
+            "/v1/admin/oib/reingest", json={"file_names": ["a.pdf"], "marks": {"a.pdf": {"country_id": "Germany"}}}
+        )
+
+    assert response.status_code == 200
+    assert response.json()["released"] == ["a.pdf"]  # the BFF refuses an answer without it
+    assert corpus_store.get_mark("a.pdf") == corpus_store.FileMark(
+        country_id="DE", edition_id="edition:baybo-2025", released=True
+    )
+    assert refused.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_reingesting_twice_while_the_first_job_waits_is_still_one_job(app, ingestor):
     corpus_store.put("a.pdf", _pdf_bytes())
-    corpus_store.mark_ingested("a.pdf", corpus_store.get_file("a.pdf").sha256, oib_sync.CHUNK_FORMAT_VERSION)
+    _job_done("a.pdf", corpus_store.get_file("a.pdf").sha256, oib_sync.CHUNK_FORMAT_VERSION)
 
     async with _client(app) as client:
         for _ in range(2):
             response = await client.post("/v1/admin/oib/reingest", json={"file_names": ["a.pdf"]})
             assert response.status_code == 200
 
-    assert ingest_queue.counts()["queued"] == 1
+    assert len(waiting_runs()) == 1
     assert ingestor.names == ["a.pdf"]
 
 
@@ -726,7 +880,7 @@ async def test_a_document_this_replica_does_not_hold_is_fetched_and_served(app, 
     (cache_dir / "elsewhere.pdf").unlink()
 
     async with _client(app) as client:
-        res = await client.get("/v1/oib/documents/elsewhere.pdf")
+        res = await client.get("/v1/admin/corpus/documents/elsewhere.pdf")
 
     assert res.status_code == 200
     assert res.content == b"%PDF elsewhere"
@@ -740,7 +894,7 @@ async def test_a_document_removed_elsewhere_is_not_served_from_a_stale_cache(app
     (cache_dir / "removed.pdf").write_bytes(b"%PDF stale")
 
     async with _client(app) as client:
-        res = await client.get("/v1/oib/documents/removed.pdf")
+        res = await client.get("/v1/admin/corpus/documents/removed.pdf")
 
     assert res.status_code == 404
     assert not (cache_dir / "removed.pdf").exists()
@@ -753,7 +907,7 @@ async def test_a_listed_document_the_object_store_cannot_serve_is_503_not_404(ap
     bucket.objects.clear()
 
     async with _client(app) as client:
-        res = await client.get("/v1/oib/documents/lost.pdf")
+        res = await client.get("/v1/admin/corpus/documents/lost.pdf")
 
     assert res.status_code == 503
 
@@ -761,7 +915,7 @@ async def test_a_listed_document_the_object_store_cannot_serve_is_503_not_404(ap
 @pytest.mark.asyncio
 async def test_the_pdf_route_refuses_what_is_not_a_plain_pdf_name(app):
     async with _client(app) as client:
-        res = await client.get("/v1/oib/documents/notes.txt")
+        res = await client.get("/v1/admin/corpus/documents/notes.txt")
 
     assert res.status_code == 404
 
@@ -842,3 +996,94 @@ class TestCorpusExport:
         with pytest.raises(corpus_store.CorpusStoreError):
             oib_routes._corpus_tarball()
         assert list(scratch.iterdir()) == []
+
+
+# ---------------------------------------------------------------------------
+# The source PDF is served to whom it is released (ADR-0173)
+# ---------------------------------------------------------------------------
+
+_INTERNAL_TOKEN = "an-internal-token-of-this-test"
+_INTERNAL = {"x-internal-token": _INTERNAL_TOKEN}
+
+#: One file per class a corpus holds, with the mark each carries. The countries are invented: the
+#: rule reads the mark and the caller's countries, and knows no country of its own.
+_RELEASED_HERE = "released-here.pdf"
+_FILE_CLASSES = {
+    _RELEASED_HERE: "QA",
+    "released-elsewhere.pdf": "QB",
+    "rolled-back.pdf": "ZZ",
+    "draft-upload.pdf": None,
+}
+
+
+@pytest.fixture
+def corpus(app, bucket, monkeypatch):
+    """A corpus holding one file of each class, and the internal token the BFF calls with."""
+    monkeypatch.setenv("INTERNAL_API_TOKEN", _INTERNAL_TOKEN)
+    monkeypatch.setenv("APP_ENV", "development")
+    for name, country in _FILE_CLASSES.items():
+        corpus_store.put(name, _pdf_bytes(b"%PDF-1.4 " + name.encode()))
+        if country is not None:
+            corpus_store.set_mark(name, corpus_store.FileMark(country_id=country))
+    return app
+
+
+async def _read(app, name: str, countries: tuple[str, ...] = ("QA",), headers=None):
+    async with _client(app) as client:
+        return await client.get(
+            f"/v1/corpus/documents/{name}",
+            params=[("country", country) for country in countries],
+            headers=_INTERNAL if headers is None else headers,
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_file_released_in_a_country_the_office_reads_is_served(corpus):
+    res = await _read(corpus, _RELEASED_HERE)
+
+    assert res.status_code == 200
+    assert res.content == b"%PDF-1.4 " + _RELEASED_HERE.encode()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", [name for name in _FILE_CLASSES if name != _RELEASED_HERE])
+async def test_a_file_the_office_may_not_read_answers_as_a_file_that_is_not_there(corpus, name):
+    missing = await _read(corpus, "no-such-file.pdf")
+    res = await _read(corpus, name)
+
+    assert missing.status_code == 404
+    assert res.status_code == 404
+    # A name cannot tell whether the file exists: the two answers are the same bytes.
+    assert res.content == missing.content
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_names_no_country_is_served_nothing(corpus):
+    res = await _read(corpus, _RELEASED_HERE, countries=())
+
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_a_second_country_of_the_office_reads_its_files_too(corpus):
+    res = await _read(corpus, "released-elsewhere.pdf", countries=("QA", "QB"))
+
+    assert res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_the_office_read_takes_the_internal_token(corpus):
+    res = await _read(corpus, _RELEASED_HERE, headers={})
+
+    assert res.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", list(_FILE_CLASSES))
+async def test_the_platform_read_serves_every_file_the_corpus_lists(corpus, name):
+    async with _client(corpus) as client:
+        res = await client.get(f"/v1/admin/corpus/documents/{name}")
+        missing = await client.get("/v1/admin/corpus/documents/no-such-file.pdf")
+
+    assert res.status_code == 200
+    assert missing.status_code == 404

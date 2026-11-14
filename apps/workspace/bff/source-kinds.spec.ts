@@ -6,9 +6,13 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import {
   AGENT_AUTHORED_LANE,
   AGENT_AUTHORED_LANE_LABEL,
+  MAIL_LANE,
+  MAIL_LANE_LABEL,
+  OFFICE_MAIL_LANE,
   KIND_TO_SIGNAL,
   CITATION_KEY_QUALIFIERS,
   SHELVES,
+  accentForLane,
   asShelf,
   asSourceKind,
   authorityTag,
@@ -18,6 +22,7 @@ import {
   type Shelf,
   type SourceKind,
 } from './source-kinds'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 describe('asSourceKind', () => {
   test('accepts the four canonical kinds', () => {
@@ -105,12 +110,31 @@ describe('the agent-authored lane', () => {
   test('its label names the document kind and no approver', () => {
     // Who approved it, and when, arrive as data on the source payload and are
     // appended by the renderer — the taxonomy is not a sentence with a hole.
-    expect(AGENT_AUTHORED_LANE_LABEL).toBe('Piloti-Dokument')
+    expect(AGENT_AUTHORED_LANE_LABEL).toBe(`${PRODUCT_NAME}-Dokument`)
     expect(AGENT_AUTHORED_LANE_LABEL).not.toContain('{')
   })
 
   test('carries no authority tag — it is not a rung of the legal ladder', () => {
     expect(authorityTag(AGENT_AUTHORED_LANE)).toBeNull()
+  })
+})
+
+describe('the mail lanes', () => {
+  test("are sub-labels inside the shelf's kind, never a kind of their own", () => {
+    // A filed E-Mail-Verlauf is project (or office) knowledge; the lane says it is mail.
+    expect(MAIL_LANE).toBe('project_mail')
+    expect(OFFICE_MAIL_LANE).toBe('office_mail')
+    expect(kindForLane(MAIL_LANE)).toBe('project')
+    expect(kindForLane(OFFICE_MAIL_LANE)).toBe('office')
+    expect(asSourceKind(MAIL_LANE)).toBeUndefined()
+    expect(MAIL_LANE_LABEL).toBe('E-Mail')
+  })
+
+  test('carry no authority tag, whoever sent the mail', () => {
+    // A clerk's e-mail from a Behörde's domain is not a Bescheid: no `Behörde` badge, no law colour.
+    expect(authorityTag(MAIL_LANE)).toBeNull()
+    expect(authorityTag(OFFICE_MAIL_LANE)).toBeNull()
+    expect(accentForLane(MAIL_LANE, 'project')).toBe('project')
   })
 })
 

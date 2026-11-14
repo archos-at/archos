@@ -15,8 +15,7 @@
  *   (`statusLabel`, `missingLabel`, `fmtDim`, `provenanceLabel`) therefore take
  *   a {@link Translator} as their last argument rather than closing over German
  *   literals: they are shared by fifteen cards and cannot call a hook
- *   themselves, and the components that render them all have one to hand. Same
- *   shape as `applicable-standards.tsx`'s `statusLabel(status, t)`.
+ *   themselves, and the components that render them all have one to hand.
  * - Every card ends in a `NormRefFooter` echoing LegalBasisCard's visual
  *   language, so each drawn limit stays verifiable.
  */
@@ -251,7 +250,7 @@ export const SvgLabel: FC<SvgLabelProps> = ({
       fontSize={drawn}
       fontWeight={weight}
       fontStyle={italic ? 'italic' : undefined}
-      fontFamily={mono ? 'var(--font-mono)' : 'var(--font-sans)'}
+      className={mono ? 'font-mono' : 'font-sans'}
       fill={fill}
       stroke={halo}
       strokeWidth={(3 * drawn) / size}

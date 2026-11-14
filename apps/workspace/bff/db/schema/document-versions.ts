@@ -68,7 +68,7 @@ import {
   type DocumentSubmitActor,
   type DocumentVersionOrigin,
   type DocumentVersionState,
-} from '@/lib/documents/lifecycle-types'
+} from '@/lib/documents/lifecycle-vocabulary'
 import { documents } from './documents'
 
 // Re-exported so `@/lib/db/schema` stays the one import site, exactly as
@@ -187,7 +187,7 @@ export const documentVersions = pgTable(
      * a `revision` task instead — a conversation gets the block, unattended
      * work gets the row.
      *
-     * `text` with no foreign key, as `job_runs.conversation_id` is: the honest
+     * `text` with no foreign key: the honest
      * constraint would be the composite `(conversation_id, organization_id)`,
      * which is worth its cost on a row that decides access and not on one that
      * decides prose.
@@ -218,6 +218,8 @@ export const documentVersions = pgTable(
      * constraint exists only in the migration.
      */
     idDocumentKey: unique('document_versions_id_document_id_key').on(table.id, table.documentId),
+    /** Referenceable `(id, project_id)`, so a mail thread entry's first Fassung is its own project's (migration 0196). */
+    idProjectKey: unique('document_versions_id_project_id_key').on(table.id, table.projectId),
     documentProjectFk: foreignKey({
       name: 'document_versions_document_id_project_id_fkey',
       columns: [table.documentId, table.projectId],

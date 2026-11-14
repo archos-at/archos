@@ -153,6 +153,8 @@ async function buildProjectCollectionScope(
     projectId,
     projectCollectionName: project?.collectionName,
     includeProject: true,
+    // As the chat's scope: the base corpus is in it, and the run's knowledge context decides which
+    // countries of it the run reads (ADR-0173), an unplaced project's included.
   })
   return scope.length > 0 ? scope : null
 }

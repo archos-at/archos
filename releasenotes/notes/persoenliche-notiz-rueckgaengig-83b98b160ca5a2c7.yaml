@@ -1,0 +1,7 @@
+---
+# area: agents
+fixes:
+  - >
+    When you ask the assistant to undo or correct one of your personal notes, it
+    now removes or replaces that note instead of adding a second one that
+    contradicts it.

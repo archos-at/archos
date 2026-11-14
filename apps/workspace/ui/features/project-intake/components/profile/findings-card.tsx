@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
 import { intakeProfileStepCopy } from '@/i18n/namespaces/intake-profile-step'
 import type { DerivationReview, IntakeDecision, Suggestion, SuggestionGroup } from '@/lib/project-intake/types'
@@ -67,7 +68,7 @@ export function FindingsCard({
       <Collapsible open={open} onOpenChange={setOpen}>
         <header className="flex flex-col gap-1 px-4 pb-1.5 pt-4 md:flex-row md:items-start md:justify-between md:gap-6 md:px-[18px]">
           <div className="min-w-0">
-            <h2 id="profile-findings-heading" className="text-base font-semibold">
+            <h2 id="profile-findings-heading" className="text-base font-medium">
               {t('findings.heading')}
             </h2>
             <p className="text-muted-foreground mt-0.5 text-[13px]">
@@ -89,7 +90,7 @@ export function FindingsCard({
               aria-hidden
               className={cn(
                 ROW_GRID,
-                'text-muted-foreground hidden px-[18px] pb-2 pt-3.5 text-[11px] uppercase tracking-[0.06em]',
+                'card-eyebrow text-muted-foreground hidden px-[18px] pb-2 pt-3.5',
               )}
             >
               <span>{t('findings.columns.label')}</span>
@@ -101,9 +102,9 @@ export function FindingsCard({
             <CollapsibleContent data-testid="profile-findings-rest">
               {rest.map((group) => (
                 <div key={group.stage} data-testid={`profile-topic-${group.stage}`}>
-                  <h3 className="text-muted-foreground border-border border-t px-4 pb-2 pt-3.5 text-[11px] uppercase tracking-[0.06em] md:px-[18px]">
+                  <SectionLabel as="h3" className="border-border border-t px-4 pb-2 pt-3.5 md:px-[18px]">
                     {group.title}
-                  </h3>
+                  </SectionLabel>
                   <FindingRows items={group.items} severalBuildings={severalBuildings} {...decide} />
                 </div>
               ))}
@@ -171,7 +172,7 @@ function FindingRow({ item, severalBuildings, ...decide }: Decide & { item: Sugg
     >
       <span className="text-muted-foreground col-span-2 min-w-0 truncate text-[13px] md:col-span-1" title={item.label}>
         {label}
-        {building && <span className="text-muted-foreground/80"> · {building}</span>}
+        {building && <span className="text-muted-foreground"> · {building}</span>}
       </span>
       <span className="min-w-0 truncate text-[15px] font-medium md:text-sm" title={item.display}>
         {item.display}

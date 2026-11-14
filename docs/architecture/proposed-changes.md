@@ -18,6 +18,14 @@ folder ([Filing suggestions](#filing-suggestions)). An `operation` may be the
 organization's, with no project (0176). What differs between them is held in one file,
 `apps/workspace/bff/proposals/kinds.ts`: the payload schema, who may decide,
 what is refused when it is proposed, the inbox line, and which applier runs.
+
+An applied `operation` runs its route as the person, and the route can tell it
+was a card: the applier passes the proposal's id as `callOperation`'s `origin`,
+and the acting session answers it (`actingProposalId`,
+`lib/agent-api/acting-session.ts`). The E-Mail-Eingang records such a filing
+as `via = 'agent_proposal'`, and the database refuses a card that carries an
+acknowledgement or a name release (ADR-0137): The agent proposes `inbound-mail-file`
+for clean, unflagged parts only.
 The lifecycle in `service.ts` is the same for every kind and asks `kinds.ts`
 for the rest.
 
@@ -136,7 +144,10 @@ Payload (`memoryPayloadSchema`): `scope` (`project` or `organization`), `kind`
 `derived_fact`, `preference`), `content` (up to 500 characters), `confidence`
 and an optional `supersedes`, the earlier note this one corrects, quoted
 verbatim. Accepting a correction retires the note it quotes
-(`createProjectMemoryItem`'s `supersedesContent`).
+(`createProjectMemoryItem`'s `supersedesContent`). An optional `topic` files the
+note under a topic of its shelf: accepting resolves it against that shelf's
+topics (`resolveTopic`), as a create does, and a payload without one files
+the note under none.
 
 Piloti proposes one only where it may not write the note itself: the `remember`
 tool, when an organization-scoped write is refused by the deployment
@@ -445,6 +456,14 @@ what must not drift between them:
   every decision, and when the channel says a colleague decided. It draws the
   card's own copy of the payload until the object is read, so the first paint is
   never empty and what a reader decides is what is stored.
+- Its read is one state: loading, loaded or failed. A failed read (the first
+  one, or the re-read after a 409) holds no object, so the card says „could not
+  be loaded“ and offers nothing to press, never that beside buttons. Failed is
+  not final: the card asks again when its channel comes up or says something,
+  and when the reader comes back to the tab (focus, or the tab shown again),
+  which is the only one of the three where there is no channel (an MCP Apps
+  frame). There is no retry button; the sibling cards have none either.
+  `ProposalReceipt.load.spec.tsx`.
 - It offers „Übernehmen“ and „Verwerfen“ only when the server says this reader
   may decide (`canDecide`).
 - Once decided it says who and when: „Übernommen von Anna · 14:02“. A

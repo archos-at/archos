@@ -24,7 +24,7 @@ CONFIG = Path(__file__).resolve().parents[5] / "configs" / "config_oib_openroute
 
 #: The tools that render passages a reader cites: a grounding block
 #: (`render_grounding_block`) or a registered source parser. Each must be a data source.
-PASSAGE_TOOLS = {"knowledge_search", "read_passage", "ris_lookup_tool", "project_lookup"}
+PASSAGE_TOOLS = {"knowledge_search", "read_passage", "law_lookup", "project_lookup"}
 
 #: Chat tools that are deliberately NOT data sources, and why. Adding a tool
 #: here says its result is never evidence an answer cites.
@@ -46,6 +46,7 @@ NOT_SOURCES = {
     "ask_user": "asks the reader a question",
     "ifc_query": "answers from the building model through cards, not passages",
     "ifc_measure": "measures in the building model; its numbers arrive through cards",
+    "dxf_measure": "measures a DXF drawing's geometry; its answers are records the answer check reads, not passages",
     "look": "shows a page, a region of it or an image of a document already searchable; an image is no passage",
     "show_in_viewer": "proposes to open a place in the asker's viewer (ADR-0144); its confirmation is not evidence",
 }

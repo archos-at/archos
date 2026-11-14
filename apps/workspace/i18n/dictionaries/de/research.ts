@@ -54,6 +54,8 @@ export const research: typeof en.research = {
       'Es kann keine neue Sitzung erstellt werden, solange die aktuelle Sitzung aktiv ist',
     newChat: 'Neuer Chat',
     toggleSessions: 'Chatverlauf',
+    /** The history door's visible word, beside its glyph at every width (one word with the rail's „Alle Chats“). */
+    historyDoor: 'Chats',
     signInToView: 'Melden Sie sich an, um Ihren Chatverlauf zu sehen',
     sessions: 'Sitzungen',
     addSources: 'Datenquellen hinzufügen',
@@ -180,6 +182,9 @@ export const research: typeof en.research = {
     // Gespeichert, nie gelesen: Piloti kann daraus nicht antworten, nichts ist fehlgeschlagen.
     statusStored: 'Abgelegt',
     statusDeleting: 'Wird gelöscht...',
+    // Wie in der Upload-Leiste (`uploads.row.canceled`, `uploads.actions.dismiss`).
+    statusCanceled: 'Abgebrochen',
+    dismiss: '{title} ausblenden',
     expiryPending: 'Löschung ausstehend – erneut hochladen',
     expiresIn: 'Läuft in {minutes} Min. ab',
     deleteDisabled: '{title} löschen (deaktiviert)',
@@ -331,6 +336,9 @@ export const research: typeof en.research = {
     sessionLabel: 'Chat: {title}',
     /** Dieselbe Zeile, ergänzt um den Zustand, den ihr Symbol zeigt. */
     sessionLabelWithStatus: 'Chat: {title} — {status}',
+    /** Eine Zeile eines temporären Chats (ADR-0180): die Marke als Tooltip, und die Zeile mit ihr im Namen. */
+    temporaryMark: 'Temporärer Chat: Daraus wird nichts gemerkt.',
+    sessionLabelTemporary: '{label} (temporärer Chat, daraus wird nichts gemerkt)',
     // FB-10: Deep-Research-Bereich im Sitzungsbereich. Die Anzahl trägt ein
     // CountPill neben der Überschrift, nicht der Text selbst.
     deepResearchHeading: 'Deep Research',

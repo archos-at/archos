@@ -46,7 +46,7 @@ const FOUND_IN_THE_FIRST_THREE: ReadonlyArray<readonly [string, string]> = [
   ['Austrian law paragraph Bauordnung', 'law-lookup'],
   ['find documents by file name', 'document-by-name-resolve'],
   ['download link for a document', 'document-download'],
-  ['IFC model storeys rooms', 'ifc-query'],
+  ['IFC model storeys rooms', 'bim-model-query'],
   ['project memory', 'project-memory-list'],
   ['list projects', 'project-list'],
   ['add member project', 'project-person-add'],
@@ -55,6 +55,15 @@ const FOUND_IN_THE_FIRST_THREE: ReadonlyArray<readonly [string, string]> = [
   ['undo deleting a document', 'document-restore'],
   ['create a task', 'task-create'],
   ['open points of the project', 'project-annotation-list'],
+  // The project's mail (ADR-0137): what waits, filing it, the address it comes to.
+  ['incoming email', 'inbound-mail-list'],
+  ['file email attachment', 'inbound-mail-file'],
+  ['project email address', 'inbound-mail-address-get'],
+  ['E-Mail-Anhang ablegen', 'inbound-mail-file'],
+  ['email thread of the project', 'mail-thread-list'],
+  // `mail-thread-follow` is `control`-sensitive: no outside agent sees it until the step-up scope is
+  // enforced (`SENSITIVE_SCOPE_ENFORCED_BY_WORKOS`), so no query can find it yet. Its way back out is.
+  ['stop following email thread', 'mail-thread-unfollow'],
 ]
 
 describe('search-operations for the requests agents typed', () => {

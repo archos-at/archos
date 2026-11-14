@@ -12,8 +12,14 @@ import { presignForBackend, buildThumbnailStorageKey } from '@/lib/s3'
 import { resolveDocumentBucket } from '@/lib/storage/bucket'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { projectFactsForIngest } from '@/lib/cross-project/project-facts-mirror'
-import { findDocumentInOrg, markDocumentIngestFailed, setDocumentIngestJob } from './repository'
+import { findDocumentInOrg, markDocumentIngestFailed, setDocumentIngestJob, type DispatchStart } from './repository'
+import { extractIngestJobId } from './lost-job'
 import { internalRead } from './document-reader'
+import { announceIngestStarted } from '@/lib/analytics/ingest-events'
+import { filingChoiceRecord } from './filing-choice'
+import type { DocumentTypeTag } from './tag-vocabulary'
+import type { MailOriginIngestFacts, MailThreadIngestFacts } from '@/lib/mail-thread/ingest-facts'
+import { copyMarkForIngest, licenceMarkFields } from '@/lib/base-knowledge/text-guard'
 
 /**
  * Bound every server-side call to the Python backend: an unreachable backend
@@ -99,6 +105,14 @@ export const INGEST_JOB_REF_TTL_SECONDS = 86_400
 export const RENDITION_REQUIRED_MESSAGE = 'The PDF version of this file could not be created'
 
 /**
+ * Why a DXF was not indexed: the backend refused its bytes (ADR-0152), a file no
+ * DXF reader can open or one with nothing drawn in it. Its own sentence, because
+ * the remedy is the reader's: export it again from the CAD program. Reading it
+ * again changes nothing, and the generic sentence would say it might.
+ */
+export const DRAWING_UNREADABLE_MESSAGE = 'This DXF drawing could not be read'
+
+/**
  * Dispatch a document to the backend ingest API and persist the outcome. The
  * upload and re-ingest paths share this so the success path (status pending +
  * jobId) and the failure path (status failed + errorMessage) stay identical.
@@ -155,6 +169,31 @@ export interface DispatchIngestExtras {
    * and then not sent at all.
    */
   revisionOf?: string | null
+  /**
+   * The older document's ID, beside `revisionOf`: recorded with the job, never sent,
+   * so a reviewer's release re-resolves the choice (`./filing-choice`).
+   */
+  revisionOfId?: string | null
+  /**
+   * The document type the one filing these bytes chose (`ShelfUploadInput.documentType`).
+   * Sent as `document_type`; the ingest job stores it as the person's type tag,
+   * which no classifier pass replaces. Absent for every other dispatch, and then
+   * not sent at all. `ingest-document-type-contract.spec.ts` pins the key.
+   */
+  documentType?: DocumentTypeTag | null
+  /**
+   * A Fassung of an E-Mail-Verlauf (ADR-0137): sent as `mail_thread`, which
+   * makes its chunks the `project_mail` lane and the newest message's date the
+   * document's. Absent for every other dispatch, and then not sent at all.
+   * `ingest-mail-contract.spec.ts` pins the key.
+   */
+  mailThread?: MailThreadIngestFacts | null
+  /**
+   * An attachment filed with a mail (ADR-0137): sent as `mail_origin`, the
+   * message it came with, which the knowledge layer prints beside the file.
+   * Never together with `mailThread` (the backend refuses both).
+   */
+  mailOrigin?: MailOriginIngestFacts | null
 }
 
 /**
@@ -187,6 +226,16 @@ export interface AgentDocumentProvenance {
   approved_at: string | null
   /** Which pipeline wrote the document — `documents.authored_by_producer`. */
   producer: string | null
+}
+
+/**
+ * The base-knowledge mark of a document, as ingest job fields (ADR-0163): empty
+ * unless it is a confirmed copy. A failed read sends no mark rather than failing
+ * the dispatch; the next confirm or edit marks the points again.
+ */
+async function knowledgeMarkForIngest(organizationId: string, documentId: string): Promise<Record<string, string | number | boolean>> {
+  const mark = await copyMarkForIngest(organizationId, documentId).catch(() => null)
+  return mark ? { ...licenceMarkFields(mark), knowledge_edition_id: mark.editionId } : {}
 }
 
 export async function dispatchIngest(
@@ -247,6 +296,12 @@ export async function dispatchIngest(
   // Read from the row rather than threaded through every caller; a failed read
   // books the spend to the organization alone, never fails the dispatch.
   const attribution = await findDocumentInOrg(documentId, organizationId, internalRead('ingest')).catch(() => null)
+  // The row as this dispatch found it. The backend may answer much later, and
+  // what is then written, the job or the failure, lands only if no newer
+  // dispatch or re-upload has taken the row meanwhile (`unchangedSinceDispatch`).
+  const start: DispatchStart | undefined = attribution
+    ? { ingestJobId: extractIngestJobId(attribution.metadata), storageKey: attribution.storageKey }
+    : undefined
   const projectFacts = await projectFactsForIngest(attribution?.projectId, organizationId)
   // The content gate's rules (ADR-0086). Every path into the index passes this
   // line — upload, re-ingest, re-index, Archiv, chat, the IFC digest — so the
@@ -256,7 +311,7 @@ export async function dispatchIngest(
   try {
     screening = await ingestScreeningFor(organizationId, attribution)
   } catch {
-    await markDocumentIngestFailed(documentId, organizationId, INGEST_DISPATCH_FAILED_MESSAGE)
+    await markDocumentIngestFailed(documentId, organizationId, INGEST_DISPATCH_FAILED_MESSAGE, start)
     return { jobId: null, status: 'failed' }
   }
 
@@ -264,6 +319,11 @@ export async function dispatchIngest(
     file_ref: presignedUrl,
     collection: collectionName,
     document_id: documentId,
+    // The original's size, from the row, when the row names these bytes: the
+    // backend reads a file of `INGEST_HEAVY_FILE_BYTES` or more on its
+    // high-memory pool. Null (the IFC digest, a row without a size) is the
+    // standard pool.
+    byte_size: attribution?.storageKey === storageKey ? (attribution?.fileSize ?? null) : null,
     project_id: attribution?.projectId ?? null,
     user_id: attribution?.createdBy ?? null,
     // The project's facts and status, stamped onto every chunk the job writes
@@ -282,6 +342,10 @@ export async function dispatchIngest(
     // only the bytes read differ, never the identity.
     extraction_ref: extras.extractionRef ?? null,
     folder_path: folderPath,
+    // A confirmed base-knowledge copy's licence mark and edition (ADR-0163, ADR-0159),
+    // stamped on every point so a re-ingest keeps the mark the licensed seam
+    // keys on. Absent for every other document.
+    ...(await knowledgeMarkForIngest(organizationId, documentId)),
     // Null when screening is off for the organization or a reviewer released
     // these exact bytes from quarantine; the job then reads as it always did.
     screening,
@@ -300,6 +364,11 @@ export async function dispatchIngest(
     ...(extras.priority === 'bulk' ? { priority: 'bulk' } : {}),
     // Only an upload a person filed as a new Fassung says so (ADR-0099).
     ...(extras.revisionOf ? { revision_of: extras.revisionOf } : {}),
+    // Only a filing that said what the file is says so.
+    ...(extras.documentType ? { document_type: extras.documentType } : {}),
+    // Only a filed mail says so: a Verlauf its thread, an attachment its message.
+    ...(extras.mailThread ? { mail_thread: extras.mailThread } : {}),
+    ...(extras.mailOrigin && !extras.mailThread ? { mail_origin: extras.mailOrigin } : {}),
     // Absent for every human document, and the Python side treats absent,
     // null and a non-agent author identically (`parse_agent_provenance`).
     // Spread so the four keys are the four keys, never a nested object the
@@ -318,7 +387,25 @@ export async function dispatchIngest(
   const ingestJobId = attempt.jobId
 
   if (ingestJobId) {
-    await setDocumentIngestJob(documentId, organizationId, ingestJobId)
+    // The choice rides on the row with the job, so a reviewer's release of a
+    // file this reading holds sends it again (`./filing-choice`).
+    const filingChoice = filingChoiceRecord({
+      documentType: extras.documentType,
+      revisionOfId: extras.revisionOf ? extras.revisionOfId : null,
+      mailThread: extras.mailThread,
+      mailOrigin: extras.mailThread ? null : extras.mailOrigin,
+    })
+    const moved = await setDocumentIngestJob(documentId, organizationId, ingestJobId, filingChoice, start)
+    // The start of the clock `document_ingest_finished.duration_ms` measures: a row
+    // with a start and no finish for an hour is a document waiting for somebody.
+    if (moved) {
+      announceIngestStarted(organizationId, {
+        documentId,
+        filename: attribution?.filename ?? extras.fileName ?? '',
+        attempt: (attribution?.ingestAttempts ?? 0) + 1,
+        jobId: ingestJobId,
+      })
+    }
     return { jobId: ingestJobId, status: 'pending' }
   }
   // No job id, failed or not. The backend answers 202 with a `job_id` on every
@@ -327,6 +414,6 @@ export async function dispatchIngest(
   // leaving the row at its birth status ('uploaded', which the badge renders
   // green "Ready") would promise citations for a document nothing ever
   // indexed. Failed with retry offered is the honest state either way.
-  await markDocumentIngestFailed(documentId, organizationId, INGEST_DISPATCH_FAILED_MESSAGE)
+  await markDocumentIngestFailed(documentId, organizationId, INGEST_DISPATCH_FAILED_MESSAGE, start)
   return { jobId: null, status: 'failed' }
 }

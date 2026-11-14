@@ -51,25 +51,26 @@ export interface CollectorConsumers {
   langfuseEnabled: boolean;
   posthogLogsEnabled: boolean;
   posthogMetricsEnabled: boolean;
+  posthogTracesEnabled: boolean;
 }
 
 export function loadObservability(
   cfg: pulumi.Config,
   observabilityFlag: boolean,
   { otelOidcIssuer, otelOidcClientId, otelOidcClientSecret }: PlatformOidc,
-  { langfuseEnabled, posthogLogsEnabled, posthogMetricsEnabled }: CollectorConsumers,
+  { langfuseEnabled, posthogLogsEnabled, posthogMetricsEnabled, posthogTracesEnabled }: CollectorConsumers,
 ): ObservabilityConfig {
   // ── The collector: deployed when something consumes what it forwards ──────
-  // Three consumers, any of which is enough: Langfuse (traces), PostHog logs
-  // and PostHog metrics. With none it would receive OTLP from every producer
+  // Four consumers, any of which is enough: Langfuse (LLM traces), PostHog
+  // logs, PostHog metrics and PostHog request traces. With none it would receive OTLP from every producer
   // and forward it nowhere, and each producer would carry an endpoint pointing
   // at a pod that does nothing.
-  const collectorEnabled = observabilityFlag && (langfuseEnabled || posthogLogsEnabled || posthogMetricsEnabled);
+  const collectorEnabled = observabilityFlag && (langfuseEnabled || posthogLogsEnabled || posthogMetricsEnabled || posthogTracesEnabled);
   if (observabilityFlag && !collectorEnabled) {
     pulumi.log.warn(
       "OTel Collector (ADR-0029) not deployed: nothing consumes it. Enable Langfuse " +
-        "(it also needs the otelOidc* application), grid-oib:posthogLogsEnabled or " +
-        "grid-oib:posthogMetricsEnabled, or set " +
+        "(it also needs the otelOidc* application) or one of the stack keys " +
+        "posthogLogsEnabled, posthogMetricsEnabled and posthogTracesEnabled, or set " +
         "grid-oib:observabilityEnabled=false to silence this.",
     );
   }
@@ -84,9 +85,12 @@ export function loadObservability(
     // advisories (CVE-2026-78667, -78669, -97031, -111943); the 0.163.2 amd64
     // binary, read with `go version -m`, is go1.26.10 with x/net v0.61.0. The
     // otelcol-contrib build in ci.yml (`OTELCOL_VERSION`) moves with this pin.
+    // 0.163.2 -> 0.165.0 on 2026-11-14: the promotion's trivy found go-jose v4.1.5
+    // (CVE-2026-116587) and x/net v0.61.0 (CVE-2026-78661); the 0.165.0 binary, read
+    // with `go version -m`, is go1.27.3 with go-jose v4.1.6 and x/net v0.62.0.
     collectorImage:
       cfg.get("collectorImage") ??
-      "otel/opentelemetry-collector-contrib@sha256:7f22d2a6748110ffb6a59bc0df448bccbf501cdb667d610ede4c61d3863d5849",
+      "otel/opentelemetry-collector-contrib@sha256:e40d61f10c9a617cca1ffd1be4d7e2b3a4b0f0001798ff07e58cabe82e618cea",
     oidcIssuer: otelOidcIssuer,
     oidcClientId: otelOidcClientId,
     oidcClientSecret: otelOidcClientSecret ?? pulumi.output(""),

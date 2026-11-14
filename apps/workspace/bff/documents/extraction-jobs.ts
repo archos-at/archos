@@ -11,9 +11,20 @@ import { findDocumentInOrg, markDocumentIngestFailed } from './repository'
 import { runBimExtraction } from '@/lib/bim/service'
 import type { BimExtractPayload, JobAttempt, OfficeRenditionPayload } from '@/lib/jobs-queue/types'
 import { internalRead } from './document-reader'
-import { ensureRendition, extractsFromRendition } from './rendition'
+import { projectShelf } from './shelf'
+import { publishShelfChanged } from './shelf-live'
+import { localWorkOwnsRow, type LocalWorkOwnership } from './local-work-ownership'
+import { documentTypeOf } from './tag-vocabulary'
+import { mailOriginIngestFactsSchema, mailThreadIngestFactsSchema } from '@/lib/mail-thread/ingest-facts'
+import { RenditionFailedError, ensureRendition, extractsFromRendition } from './rendition'
 import { type DispatchDocumentInput, mayBeIndexed } from './document-dispatch'
-import { INGEST_DISPATCH_FAILED_MESSAGE, INGEST_JOB_REF_TTL_SECONDS, RENDITION_REQUIRED_MESSAGE, dispatchIngest } from './ingest-dispatch'
+import {
+  DRAWING_UNREADABLE_MESSAGE,
+  INGEST_DISPATCH_FAILED_MESSAGE,
+  INGEST_JOB_REF_TTL_SECONDS,
+  RENDITION_REQUIRED_MESSAGE,
+  dispatchIngest,
+} from './ingest-dispatch'
 
 /**
  * The job half of {@link beginModelExtraction}: parse the model, store its
@@ -32,7 +43,7 @@ export async function runBimExtractJob(
   attempt: JobAttempt
 ): Promise<void> {
   const input = dispatchInputOf(organizationId, payload)
-  if (!(await jobStillOwnsRow(input))) return
+  if (!(await jobStillOwnsRow(input, attempt))) return
 
   await failRowOnLastAttempt(input, attempt, 'IFC extraction failed', async () => {
     const outcome = await runBimExtraction({
@@ -61,8 +72,15 @@ export async function runBimExtractJob(
         ),
     })
     if (outcome.status === 'failed') {
-      await markDocumentIngestFailed(input.documentId, organizationId, outcome.error ?? 'IFC extraction failed')
+      const reason = outcome.error ?? 'IFC extraction failed'
+      await markDocumentIngestFailed(input.documentId, organizationId, reason, ownershipOf(input, attempt))
     }
+    // The model can be opened and asked from now on: tell the project's shelf,
+    // so a surface waiting for it reads its models again instead of asking
+    // every few seconds (`useProjectBimModels`). The failure above announces
+    // itself (`markDocumentIngestFailed`); a model outside a project has no
+    // shelf this job knows without reading the row again, and stays on the poll.
+    if (outcome.status === 'ready' && input.projectId) publishShelfChanged(organizationId, projectShelf(input.projectId))
   })
 }
 
@@ -93,11 +111,24 @@ function dispatchInputOf(organizationId: string, payload: BimExtractPayload): Di
  * document is held to the publish rule again, because it may have been
  * superseded while it waited.
  */
-async function jobStillOwnsRow(input: DispatchDocumentInput): Promise<boolean> {
+async function jobStillOwnsRow(input: DispatchDocumentInput, attempt: JobAttempt): Promise<boolean> {
   const row = await findDocumentInOrg(input.documentId, input.organizationId, internalRead('ingest'))
   if (!row) return false
-  if (row.storageKey !== input.storageKey || row.status !== 'processing') return false
+  if (!localWorkOwnsRow(row, ownershipOf(input, attempt))) return false
   return mayBeIndexed(row, input.versionId ?? null)
+}
+
+/**
+ * How a job knows the row is still its own: the bytes it was queued for AND
+ * the job it is (`metadata.bffJobId`, which `setDocumentBackgroundJob` writes).
+ * The bytes alone are not enough. The same file read again runs under a new
+ * job, and the earlier job's failure on its last attempt would then fail the
+ * row, after which the new job finds a row that is no longer `processing` and
+ * leaves without reading it. One value, for the check before the work and for
+ * the write after it.
+ */
+function ownershipOf(input: DispatchDocumentInput, attempt: JobAttempt): LocalWorkOwnership {
+  return { storageKey: input.storageKey, backgroundJobId: attempt.jobId ?? null, unnamedCounts: true }
 }
 
 /**
@@ -115,7 +146,12 @@ async function failRowOnLastAttempt(
     await work()
   } catch (error) {
     if (attempt.last) {
-      await markDocumentIngestFailed(input.documentId, input.organizationId, message).catch(() => undefined)
+      // Only while the job still owns the row, as it did when it started
+      // (`jobStillOwnsRow`): the work may have dispatched the read before it
+      // threw, and a person may have archived or replaced the file meanwhile.
+      await markDocumentIngestFailed(input.documentId, input.organizationId, message, ownershipOf(input, attempt)).catch(
+        () => undefined
+      )
     }
     throw error
   }
@@ -139,11 +175,17 @@ export async function runOfficeRenditionJob(
     ...dispatchInputOf(organizationId, payload),
     provenance: payload.provenance ?? null,
     revisionOf: payload.revisionOf ?? payload.fassungOf ?? null,
+    revisionOfId: payload.revisionOfId ?? null,
+    // Read through the vocabulary: a queued value it no longer holds is no choice.
+    documentType: documentTypeOf([payload.documentType ?? '']) ?? null,
+    // Parsed as the backend parses them: a queued record that no longer fits is none.
+    mailThread: mailThreadIngestFactsSchema.safeParse(payload.mailThread).data ?? null,
+    mailOrigin: mailOriginIngestFactsSchema.safeParse(payload.mailOrigin).data ?? null,
   }
-  if (!(await jobStillOwnsRow(input))) return
+  if (!(await jobStillOwnsRow(input, attempt))) return
 
   await failRowOnLastAttempt(input, attempt, INGEST_DISPATCH_FAILED_MESSAGE, () =>
-    ingestThroughRendition(input, payload.fileName)
+    ingestThroughRendition(input, payload.fileName, attempt)
   )
 }
 
@@ -155,11 +197,16 @@ export async function runOfficeRenditionJob(
  * existing retry re-runs the conversion. A spreadsheet only loses its
  * thumbnail and is ingested from the original as before.
  */
-async function ingestThroughRendition(input: DispatchDocumentInput, fileName: string): Promise<void> {
-  const renditionRef = await signedRenditionRef(input, fileName)
+async function ingestThroughRendition(
+  input: DispatchDocumentInput,
+  fileName: string,
+  attempt: JobAttempt
+): Promise<void> {
+  const { ref: renditionRef, refusedFile } = await signedRenditionRef(input, fileName)
   const indexesRendition = extractsFromRendition(fileName)
   if (indexesRendition && !renditionRef) {
-    await markDocumentIngestFailed(input.documentId, input.organizationId, RENDITION_REQUIRED_MESSAGE)
+    const message = refusedFile ? DRAWING_UNREADABLE_MESSAGE : RENDITION_REQUIRED_MESSAGE
+    await markDocumentIngestFailed(input.documentId, input.organizationId, message, ownershipOf(input, attempt))
     return
   }
   await dispatchIngest(
@@ -178,6 +225,10 @@ async function ingestThroughRendition(input: DispatchDocumentInput, fileName: st
       extractionRef: indexesRendition ? renditionRef : null,
       priority: input.priority,
       revisionOf: input.revisionOf ?? null,
+      revisionOfId: input.revisionOfId ?? null,
+      documentType: input.documentType ?? null,
+      mailThread: input.mailThread ?? null,
+      mailOrigin: input.mailOrigin ?? null,
     }
   )
 }
@@ -195,16 +246,17 @@ async function ingestThroughRendition(input: DispatchDocumentInput, fileName: st
  * An expired link fails the document as `office_rendition_required`, which
  * would read as a converter fault.
  */
-async function signedRenditionRef(input: DispatchDocumentInput, fileName: string): Promise<string | null> {
+async function signedRenditionRef(
+  input: DispatchDocumentInput,
+  fileName: string
+): Promise<{ ref: string | null; refusedFile: boolean }> {
   const bucket = resolveDocumentBucket(input.storageBucket)
   try {
     const renditionKey = await ensureRendition({ bucket, storageKey: input.storageKey, filename: fileName })
-    return await presignForBackend(new GetObjectCommand({ Bucket: bucket, Key: renditionKey }), INGEST_JOB_REF_TTL_SECONDS)
+    const ref = await presignForBackend(new GetObjectCommand({ Bucket: bucket, Key: renditionKey }), INGEST_JOB_REF_TTL_SECONDS)
+    return { ref, refusedFile: false }
   } catch (error) {
-    console.warn(
-      '[documents] office rendition at ingest failed:',
-      error instanceof Error ? error.message : String(error)
-    )
-    return null
+    console.warn('[documents] rendition at ingest failed:', error instanceof Error ? error.message : String(error))
+    return { ref: null, refusedFile: error instanceof RenditionFailedError && error.refusedFile }
   }
 }

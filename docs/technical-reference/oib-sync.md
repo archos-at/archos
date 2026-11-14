@@ -24,7 +24,22 @@ oib_corpus_files
   ingested_sha256        text null          -- the bytes the index was last built from
   chunk_format_version   int null           -- the chunking pipeline's version at that ingestion
   failed_job_id          text null          -- the ingest job that ran for these bytes and gave up
+  mark_generation        int not null default 0  -- how often the file was marked (set_mark bumps it)
+  job_mark_generation    int null           -- the mark_generation the job for these bytes was prepared at
 ```
+
+The last two were added after the table (`_ADDED_FILE_COLUMNS`): a table created before them gets them on first use, under the schema lock and only when the catalog says they are missing.
+
+```
+oib_corpus_marks                            -- ADR-0173: the platform record a file is the text of
+  file_name    text pk
+  country_id   text null                    -- its pack's country (ISO 3166-1); ZZ on a row a rollback withdrew before `released`
+  edition_id   text null                    -- its knowledge edition's record id
+  released     boolean null                 -- a release writes true, a rollback false; NULL (a row from before it) reads by country
+  marked_at    timestamptz not null default now()
+```
+
+The platform's indexing job (`platform_text_index`, `bff/base-knowledge/platform/indexing.ts`) sends a published text's country and edition with its re-ingest (`marks` on `POST /v1/admin/oib/reingest`); every ingest job of the file carries them, and each chunk gets `country_id` and `knowledge_edition_id`. Every base-corpus read filters by the countries its request may see (`vector_store.scope.scope_filter`): the turn's gate, or the office's entitled countries signed onto the base corpus's scope entry. A chunk without `country_id` is read by nobody: a base-corpus ingest job that names no country writes `released: false`, and the first sync after the deploy marks the corpus that predates the field as Austrian and released, once (`backfill_legacy_marks`, recorded by a marker row). A rollback that leaves a text unreleased marks its chunks and its row `released: false` and keeps their country (`platform_text_deindex`, through `PUT …/knowledge-mark` with `released` alone, which leaves the licence fields as they are; the BFF checks the answer echoes it), so a re-ingest keeps it unread until a re-release marks it released again. A chunk or row from before the flag has none and is read by its country alone, so the flag hides nothing that was readable; a rollback before it marked the country `ZZ`, which no office is entitled to. `released` (`ADDED_MARK_COLUMNS`) is added to an older mark table on first use, like the file table's columns. While an image from before the flag still serves (a rolling deploy, a revert), the BFF refuses its answers so the job retries on the new one: a withdrawal must echo `released: false` and may not answer 404 (the new route writes the row and answers 200 with 0 chunks), and a re-index with release marks must list each marked file under `released`, since the old upsert leaves a withdrawn row withdrawn. What the flag does not hold across a revert: an image from before it reads a withdrawn text by its country. The prod revert target named in the rollover predates the country filter altogether, so `ZZ` held nothing there either.
 
 Without `SUMMARY_DB` the store fails with an error. It does not fall back to a local SQLite file, which would recreate the per-replica state it exists to remove.
 
@@ -52,15 +67,15 @@ OR chunk_format_version IS DISTINCT FROM CHUNK_FORMAT_VERSION
 | A Qdrant cluster that was wiped or repointed (`QDRANT_URL`) | The cycle sees rows claiming ingestion while the collection is empty, forgets every `ingested_sha256` and re-ingests |
 | An admin's "re-index" | `POST /v1/admin/oib/reingest` clears `ingested_sha256` and `failed_job_id` for the named files, drops their finished or failed job and queues a new one |
 
-The hash and version are written only after the file's job reached `FileStatus.SUCCESS`, and only if the row still holds the bytes that were ingested (`mark_ingested` is a conditional update), so a file replaced while it was being ingested still needs ingestion afterwards. The worker never writes the table; whoever reads the job's status next does (`oib_sync.settle`, called by the sync cycle and by the status view).
+The hash and version are written only after the file's job reached `FileStatus.SUCCESS`, and only if the row still holds the bytes that were ingested (`mark_ingested` is a conditional update), so a file replaced while it was being ingested still needs ingestion afterwards. The same update takes only a job prepared at the file's current mark (`job_mark_generation = mark_generation`): `begin_job` records the generation when a job is prepared, `set_mark` bumps it, and a job a mark overtook wrote chunks without that mark, so `settle` drops it and the next cycle queues one that carries it (ADR-0165). No timestamp decides this. The worker never writes the table; whoever reads the job's status next does (`oib_sync.settle`, called by the sync cycle and by the status view).
 
 ---
 
 ## Who runs ingestion
 
-**The ingest workers do.** A file that needs ingestion becomes exactly one job on the `ingest_job_queue` table, the queue `POST /v1/ingest` uses (`agent.knowledge.ingest_queue`), in the platform lane (no organisation) at `bulk` priority. It is claimed by the ingest-worker tier, and by nothing else: the `chat` and `api` roles only enqueue (ADR-0082 step B). Kubernetes runs it as the `ingest-worker` Deployment and both Compose files as the `ingest-worker` service, with the queue's heartbeat, stale-claim reclaim, attempt limit, dead rows and drain behaviour. The queue is on whenever `SUMMARY_DB` is set, which the corpus needs anyway.
+**The ingest workers do.** A file that needs ingestion becomes exactly one ingest job, an `ingest-document` run on Hatchet (ADR-0150, [`hatchet.md`](../deployment/hatchet.md)) with no organisation and `bulk` priority. The rest of this paragraph describes the claim queue it replaced, `ingest_job_queue`, kept until the cutover drains it: one job on that table, the queue `POST /v1/ingest` uses (`agent.knowledge.ingest_queue`), in the platform lane (no organisation) at `bulk` priority. It is claimed by the ingest-worker tier, and by nothing else: the `chat` and `api` roles only enqueue (ADR-0082 step B). Kubernetes runs it as the `ingest-worker` Deployment and both Compose files as the `ingest-worker` service, with the queue's heartbeat, stale-claim reclaim, attempt limit, dead rows and drain behaviour. The queue is on whenever `SUMMARY_DB` is set, which the corpus needs anyway.
 
-**There is no in-process path.** `oib_sync` never calls `upload_file`, `submit_job` or `run_prepared`, and has no thread pool (a test greps for it). If the queue is off or cannot take the job (`INGEST_QUEUE=off`, no database, a write error), `ingest_dispatch.enqueue_only` (the API tier's own enqueue, which its routes hand to `oib_sync` as `enqueue`, so the agent tier never imports the API tier) raises `QueueUnavailable`: the upload route answers 500, the sync cycle fails loudly, and the next cycle queues the file once the queue is back.
+**There is no in-process path.** `oib_sync` never calls `upload_file`, `submit_job` or `run_prepared`, and has no thread pool (a test greps for it). If the queue is off or cannot take the job (no database, a write error), `ingest_dispatch.enqueue_only` (the API tier's own enqueue, which its routes hand to `oib_sync` as `enqueue`, so the agent tier never imports the API tier) raises `QueueUnavailable`: the upload route answers 500, the sync cycle fails loudly, and the next cycle queues the file once the queue is back.
 
 **The job** is built like `POST /v1/ingest` builds one: `ingestor.prepare_job(...)` records a `PENDING` status and `ingest_dispatch.enqueue_only(prepared)` stores it. Its pieces:
 
@@ -75,7 +90,7 @@ The hash and version are written only after the file's job reached `FileStatus.S
 
 **A sync cycle** (`oib_sync.sync()`) is housekeeping. It runs
 
-- every ten minutes, as the base-corpus housekeeping route `POST /v1/maintenance/housekeeping/base-corpus` (internal token). On Kubernetes that is the `housekeeping-base-corpus` CronJob (`deploy/pulumi/src/app/workers.ts`, `*/10 * * * *`, `concurrencyPolicy: Forbid`); in Compose it is the housekeeping clock (`apps/workspace/workers/housekeeping-clock.js`);
+- every ten minutes, as the base-corpus housekeeping route `POST /v1/maintenance/housekeeping/base-corpus` (internal token). On Kubernetes that is the `housekeeping-base-corpus` CronJob (`deploy/pulumi/src/app/workers.ts`, `*/10 * * * *`, `concurrencyPolicy: Forbid`); each Kubernetes deploy also runs one cycle as soon as the api tier has rolled out, the Job `housekeeping-base-corpus-deploy` (`syncBaseCorpusAfterRollout`, same Job spec, not awaited by the deploy, none while `chromaMigration` is on); in Compose it is the housekeeping clock (`apps/workspace/workers/housekeeping-clock.js`);
 - on demand, as `POST /v1/admin/oib/sync`, the admin's "run it now". It calls the same function.
 
 There is no sync at boot and no boot thread. A cycle does bookkeeping and queues; it ingests nothing:
@@ -107,7 +122,7 @@ Run twice, the second cycle queues nothing: the job exists, waiting or running. 
 - A name the table does not list returns `None`, and any copy this process still holds is deleted: the table says what exists.
 - A listed file that cannot be fetched (the object is gone, the hash does not match) raises `CorpusStoreError`; a table that cannot be read raises too. Neither is "not in the corpus", and nothing is deleted on a guess.
 
-What calls it: ingestion, `GET /v1/oib/documents/{file_name}` (the PDF viewer; 404 for a name the table does not list, 503 for a listed one the store cannot serve), the corpus export (`GET /v1/admin/oib/corpus.tar.gz`, which fails rather than ship half a corpus) and the chat tool `look`.
+What calls it: ingestion, the two PDF reads (`GET /v1/corpus/documents/{file_name}` for an office, which serves a file only to a reader of a country its release marked it with and answers 404 otherwise, and `GET /v1/admin/corpus/documents/{file_name}` for the platform operator, which serves any listed file; both 404 for a name the table does not list and 503 for a listed one the store cannot serve), the corpus export (`GET /v1/admin/oib/corpus.tar.gz`, which fails rather than ship half a corpus) and the chat tool `look`.
 
 ---
 
@@ -130,7 +145,7 @@ What calls it: ingestion, `GET /v1/oib/documents/{file_name}` (the PDF viewer; 4
 | `inconsistent` | The table says ingested, the collection holds no chunks for it |
 | `removed` | The collection holds chunks for it, the table does not list it. Delete the document to clear them |
 
-The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `ingested_sha256`, `current_sha256`, `ingested_at`, `summary`, `doc_class`, `doc_class_suggestion` and `display_title`; the summary carries a count per state (`ingested`, `stale`, `pending`, `failed`, `removed`, `inconsistent`) and `total_chunks`.
+The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `ingested_sha256`, `current_sha256`, `ingested_at`, `summary`, `doc_class`, `doc_class_suggestion` and `display_title`; the summary carries a count per state (`ingested`, `stale`, `pending`, `failed`, `removed`, `inconsistent`) and `total_chunks`. `ingested_at` is the ingest job's completion while its record lasts (24 hours), then when the collection's chunks for the file were last written (`indexed_at`, `ingest/listing.py`), so it never goes blank on an older file.
 
 ---
 
@@ -139,7 +154,7 @@ The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `inge
 | Lock | Protects |
 |------|----------|
 | `keyed_lock("oib-sync")` | One sync cycle at a time, across replicas |
-| `keyed_lock("oib-file:<name>")` | The decision to queue a job for **one** document, an upload's store plus its enqueue, and `remove_document`. Held for milliseconds, never for an ingestion. Different documents stay fully concurrent |
+| `keyed_lock("oib-file:<name>")` | The decision to queue a job for **one** document, an upload's store plus its enqueue, `mark_for_reingest` (so a job is prepared wholly before a mark or wholly after it) and `remove_document`. Held for milliseconds, never for an ingestion. Different documents stay fully concurrent |
 
 `keyed_lock` waits, in this process and, on Postgres, across replicas (a Postgres advisory lock); without Postgres only the process lock holds. The ingestor also serialises the replacement of one document's previous version, under its own key. Two workers cannot run one job: the queue claim is exclusive and the job id is unique.
 
@@ -159,7 +174,6 @@ The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `inge
 | `SUMMARY_DB` | none | The knowledge database; holds `oib_corpus_files`. Required |
 | `FRONTEND_INTERNAL_URL`, `INTERNAL_API_TOKEN` | none | How the backend reaches the BFF to write and delete objects |
 | `SEAWEED_ENDPOINT`, `SEAWEED_ACCESS_KEY`, `SEAWEED_SECRET_KEY`, `SEAWEED_BUCKET` | none, none, none, `grid-documents` | The read-only credential and bucket the backend downloads with |
-| `INGEST_QUEUE` | on when a database is set | `off` turns the durable ingest queue off. The base corpus then cannot be ingested: uploads and sync cycles fail loudly |
 | `OIB_COLLECTION_NAME` | `oib_knowledge` | Target collection (a scope in Qdrant's corpus collection) |
 | `QDRANT_URL` | none (required) | The Qdrant cluster every chunk is stored in |
 
@@ -179,7 +193,7 @@ which sends each PDF through `POST /v1/admin/oib/documents` (header `X-Admin-Tok
 
 ## Ingestor initialization
 
-`oib_sync` imports `knowledge_layer.llamaindex.adapter` lazily to register the ingestor backend with the factory, then obtains an ingestor, which it uses only to prepare jobs and to read and clean the collection, via:
+`oib_sync` imports `knowledge_layer.ingest.adapter` lazily to register the ingestor backend with the factory, then obtains an ingestor, which it uses only to prepare jobs and to read and clean the collection, via:
 
 ```python
 from agent.knowledge.factory import get_ingestor
@@ -206,7 +220,7 @@ packages/agent/src/agent/oib_sync.py ──────────► packages/
        │                                                          │ claimed by
        │                                                          ▼
        │                                         ingest workers (QueueSource) ─► CorpusObjectDownload
-       ├── knowledge_layer.llamaindex.adapter   (prepare_job; the worker runs the job)
+       ├── knowledge_layer.ingest.adapter   (prepare_job; the worker runs the job)
        ├── agent.knowledge.ingest_status_store (job outcomes, read by settle)
        ├── agent.knowledge.leader_lock
        └── Qdrant (oib_knowledge scope)

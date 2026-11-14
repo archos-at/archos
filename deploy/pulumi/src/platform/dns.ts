@@ -45,12 +45,16 @@ export interface ManagedDns {
   provider: cloudflare.Provider;
   /** One A record per Gateway listener host. */
   hostRecords: cloudflare.DnsRecord[];
+  /** One A record per former host during a domain move, in the former zone (`app/former-domain.ts`). */
+  formerHostRecords: cloudflare.DnsRecord[];
   /** `www` CNAME and (when configured) the `_dmarc` TXT — zone-level, not stack-level. */
   baselineRecords: cloudflare.DnsRecord[];
   /** Apex placeholder + dynamic-redirect ruleset, when `apexRedirectTo` is set. */
   apexRedirect?: { placeholder: cloudflare.DnsRecord; ruleset: cloudflare.Ruleset };
   /** `www` → apex ruleset, when this stack owns the zone baseline AND serves the apex. */
   wwwRedirect?: cloudflare.Ruleset;
+  /** The former zone's `www` → apex ruleset, kept during a move of the baseline stack. */
+  formerWwwRedirect?: cloudflare.Ruleset;
 }
 
 /**
@@ -58,7 +62,8 @@ export interface ManagedDns {
  *
  * `langfuseDomain` appears only when its tier is actually deployed, mirroring
  * the conditional `https-langfuse` listener, and `qdrantDashboardDomain` only
- * when `qdrantDashboardEnabled` adds `https-qdrant`: a record for a host with no listener resolves, answers with the
+ * when `qdrantDashboardEnabled` adds `https-qdrant` (`mcpGatewayDomain` likewise
+ * with `https-platform-mcp`): a record for a host with no listener resolves, answers with the
  * wrong certificate, and reads as a broken deployment rather than a disabled
  * feature.
  *
@@ -72,6 +77,9 @@ export function managedHosts(args: {
   s3Domain: string;
   langfuseDomain?: string;
   qdrantDashboardDomain?: string;
+  /** The CMS (ADR-0155), when `cmsEnabled` adds `https-cms`. */
+  cmsDomain?: string;
+  mcpGatewayDomain?: string;
 }): string[] {
   return [
     args.webDomain,
@@ -79,6 +87,8 @@ export function managedHosts(args: {
     args.s3Domain,
     ...(args.langfuseDomain !== undefined ? [args.langfuseDomain] : []),
     ...(args.qdrantDashboardDomain !== undefined ? [args.qdrantDashboardDomain] : []),
+    ...(args.cmsDomain !== undefined ? [args.cmsDomain] : []),
+    ...(args.mcpGatewayDomain !== undefined ? [args.mcpGatewayDomain] : []),
   ];
 }
 
@@ -120,22 +130,27 @@ export function installDns(cfg: DeployConfig): ManagedDns | undefined {
   //
   // Turning this on is a real option — it just has to be a deliberate one, made
   // together with a DNS-01 issuer and a paid upload limit, not a default.
-  const hostRecords = dns.hosts.map(
-    (host) =>
-      new cloudflare.DnsRecord(
-        `dns-${host}`,
-        {
-          zoneId: dns.zoneId,
-          name: host,
-          type: "A",
-          content: dns.targetIp,
-          ttl: dns.ttl,
-          proxied: false,
-          comment: "Managed by Pulumi (deploy/pulumi/src/platform/dns.ts)",
-        },
-        opts,
-      ),
-  );
+  //
+  // The former hosts of a domain move are the same kind of record in their own
+  // zone, and keep the logical name they had as this stack's hosts: the move
+  // then changes nothing about them, rather than deleting a live record and
+  // re-creating it with the redirect's certificate still unissued.
+  const aRecord = (host: string, zoneId: string) =>
+    new cloudflare.DnsRecord(
+      `dns-${host}`,
+      {
+        zoneId,
+        name: host,
+        type: "A",
+        content: dns.targetIp,
+        ttl: dns.ttl,
+        proxied: false,
+        comment: "Managed by Pulumi (deploy/pulumi/src/platform/dns.ts)",
+      },
+      opts,
+    );
+  const hostRecords = dns.hosts.map((host) => aRecord(host, dns.zoneId));
+  const formerHostRecords = dns.formerHosts.map((host) => aRecord(host, dns.formerZoneId));
 
   // Zone-level records, owned by AT MOST ONE stack. `loadConfig` refuses the
   // combination that would have two stacks fighting over the apex, because
@@ -145,6 +160,7 @@ export function installDns(cfg: DeployConfig): ManagedDns | undefined {
   let apexRedirect: ManagedDns["apexRedirect"];
 
   let wwwRedirect: ManagedDns["wwwRedirect"];
+  let formerWwwRedirect: ManagedDns["formerWwwRedirect"];
 
   if (dns.zoneBaseline) {
     // www is never a Gateway listener, so it is served only by redirecting at
@@ -155,37 +171,36 @@ export function installDns(cfg: DeployConfig): ManagedDns | undefined {
     // no listener and no certificate answer for it. Proxied records also
     // cannot carry an explicit TTL.
     const servesApex = dns.hosts.includes(dns.zoneName);
-    const wwwProxied = dns.apexRedirectTo !== undefined || servesApex;
-    baselineRecords.push(
-      new cloudflare.DnsRecord(
-        "dns-www",
-        {
-          zoneId: dns.zoneId,
-          name: `www.${dns.zoneName}`,
-          type: "CNAME",
-          content: dns.zoneName,
-          ttl: wwwProxied ? TTL_AUTOMATIC : dns.ttl,
-          proxied: wwwProxied,
-        },
-        opts,
-      ),
-    );
-
-    if (dns.dmarc !== undefined) {
-      baselineRecords.push(
-        new cloudflare.DnsRecord(
-          "dns-dmarc",
-          {
-            zoneId: dns.zoneId,
-            name: `_dmarc.${dns.zoneName}`,
-            type: "TXT",
-            content: dns.dmarc,
-            ttl: dns.ttl,
-            proxied: false,
-          },
-          opts,
-        ),
-      );
+    const former = dns.formerZoneBaseline;
+    // During a move of this stack's zone the former zone keeps the names its
+    // baseline had (below), so the new zone's take its zone as a suffix: one
+    // program cannot hold two resources of one name.
+    const suffix = former ? `-${dns.zoneName}` : "";
+    const current = zoneBaseline(suffix, {
+      zoneId: dns.zoneId,
+      zoneName: dns.zoneName,
+      proxied: dns.apexRedirectTo !== undefined || servesApex,
+      dmarc: dns.dmarc,
+      // Mutually exclusive with the apex placeholder redirect (`loadConfig`
+      // refuses `apexRedirectTo` on a stack that serves the apex), which
+      // matters because a zone holds ONE entrypoint ruleset per phase.
+      wwwRedirect: servesApex,
+    }, dns.ttl, opts);
+    baselineRecords.push(...current.records);
+    wwwRedirect = current.wwwRedirect;
+    if (former) {
+      // The zone being left keeps its www (301 to its apex, which the Gateway
+      // 301s to the new domain) and its DMARC policy, unchanged: same names,
+      // same values, so the move neither deletes them nor needs a state edit.
+      const kept = zoneBaseline("", {
+        zoneId: dns.formerZoneId,
+        zoneName: former.zoneName,
+        proxied: true,
+        dmarc: former.dmarc,
+        wwwRedirect: true,
+      }, dns.ttl, opts);
+      baselineRecords.push(...kept.records);
+      formerWwwRedirect = kept.wwwRedirect;
     }
 
     if (dns.apexRedirectTo !== undefined) {
@@ -243,45 +258,78 @@ export function installDns(cfg: DeployConfig): ManagedDns | undefined {
       apexRedirect = { placeholder, ruleset };
     }
 
-    // Mutually exclusive with the ruleset above (`loadConfig` refuses
-    // `apexRedirectTo` on a stack that serves the apex), which matters because
-    // a zone holds ONE entrypoint ruleset per phase.
-    if (servesApex) {
-      wwwRedirect = new cloudflare.Ruleset(
-        "dns-www-redirect",
-        {
-          zoneId: dns.zoneId,
-          name: "www-redirect",
-          kind: "zone",
-          phase: "http_request_dynamic_redirect",
-          description: `www to the ${dns.zoneName} apex this stack serves`,
-          rules: [
-            {
-              action: "redirect",
-              expression: `http.host eq "www.${dns.zoneName}"`,
-              description: "www to apex",
-              actionParameters: {
-                fromValue: {
-                  targetUrl: { expression: `concat("https://${dns.zoneName}", http.request.uri.path)` },
-                  // 301 is safe here where the placeholder's could not be: the
-                  // target is the same site at its canonical name, so a
-                  // browser that caches it is caching the right answer.
-                  statusCode: 301,
-                  preserveQueryString: true,
-                },
-              },
-            },
-          ],
-        },
-        opts,
-      );
-    }
   }
 
-  return { provider, hostRecords, baselineRecords, apexRedirect, wwwRedirect };
+  return { provider, hostRecords, formerHostRecords, baselineRecords, apexRedirect, wwwRedirect, formerWwwRedirect };
+}
+
+/**
+ * A zone's own records: `www` (a CNAME to the apex), its `_dmarc` when given,
+ * and the edge redirect of `www` to the apex. `suffix` is empty for the names
+ * a zone has always had (`dns-www`, `dns-dmarc`, `dns-www-redirect`).
+ */
+function zoneBaseline(
+  suffix: string,
+  zone: { zoneId: string; zoneName: string; proxied: boolean; dmarc?: string; wwwRedirect: boolean },
+  ttl: number,
+  opts: pulumi.CustomResourceOptions,
+): { records: cloudflare.DnsRecord[]; wwwRedirect?: cloudflare.Ruleset } {
+  const records = [
+    new cloudflare.DnsRecord(
+      `dns-www${suffix}`,
+      {
+        zoneId: zone.zoneId,
+        name: `www.${zone.zoneName}`,
+        type: "CNAME",
+        content: zone.zoneName,
+        ttl: zone.proxied ? TTL_AUTOMATIC : ttl,
+        proxied: zone.proxied,
+      },
+      opts,
+    ),
+  ];
+  if (zone.dmarc !== undefined) {
+    records.push(
+      new cloudflare.DnsRecord(
+        `dns-dmarc${suffix}`,
+        { zoneId: zone.zoneId, name: `_dmarc.${zone.zoneName}`, type: "TXT", content: zone.dmarc, ttl, proxied: false },
+        opts,
+      ),
+    );
+  }
+  if (!zone.wwwRedirect) return { records };
+  const wwwRedirect = new cloudflare.Ruleset(
+    `dns-www-redirect${suffix}`,
+    {
+      zoneId: zone.zoneId,
+      name: "www-redirect",
+      kind: "zone",
+      phase: "http_request_dynamic_redirect",
+      description: `www to the ${zone.zoneName} apex this stack serves`,
+      rules: [
+        {
+          action: "redirect",
+          expression: `http.host eq "www.${zone.zoneName}"`,
+          description: "www to apex",
+          actionParameters: {
+            fromValue: {
+              targetUrl: { expression: `concat("https://${zone.zoneName}", http.request.uri.path)` },
+              // 301 is safe here where the placeholder's could not be: the
+              // target is the same site at its canonical name, so a
+              // browser that caches it is caching the right answer.
+              statusCode: 301,
+              preserveQueryString: true,
+            },
+          },
+        },
+      ],
+    },
+    opts,
+  );
+  return { records, wwwRedirect };
 }
 
 /** Convenience for stack outputs: the FQDNs this stack put in DNS. */
 export function managedRecordNames(dns: ManagedDns): pulumi.Output<string>[] {
-  return [...dns.hostRecords, ...dns.baselineRecords].map((r) => r.name);
+  return [...dns.hostRecords, ...dns.formerHostRecords, ...dns.baselineRecords].map((r) => r.name);
 }

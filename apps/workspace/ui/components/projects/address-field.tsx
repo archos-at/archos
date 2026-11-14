@@ -209,7 +209,7 @@ export function AddressField({
           // none has to be chosen. The reminder sits outside the listbox,
           // which may hold options only.
           <div
-            className="bg-popover text-popover-foreground border-border absolute inset-x-0 top-full z-20 mt-1.5 rounded-[10px] border p-1 shadow-lg"
+            className="bg-popover text-popover-foreground absolute inset-x-0 top-full z-20 mt-1.5 rounded-overlay p-1 shadow-lg"
             data-testid="create-project-address-suggestions"
           >
             <Listbox
@@ -237,6 +237,10 @@ export function AddressField({
             </Listbox>
             <p className="text-muted-foreground border-border mt-1 border-t px-2.5 pt-2 pb-1.5 text-xs">
               {t('form.address.keepTyped')}
+            </p>
+            {/* The hits are OpenStreetMap data, whose licence (ODbL) asks for this line. */}
+            <p className="text-muted-foreground px-2.5 pb-1 text-xs" data-testid="create-project-address-attribution">
+              {t('form.address.attribution')}
             </p>
           </div>
         )}

@@ -154,7 +154,7 @@ function BrowserAppliedProfileCard({
 
   return (
     <ProposalShell tone="pending">
-      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="text-sm font-medium text-foreground">{title}</p>
       <p className="text-sm leading-relaxed text-muted-foreground">{rationale}</p>
 
       <ProfilePatchTable rows={rows} showBefore={profile !== null} />
@@ -195,7 +195,7 @@ function BrowserAppliedProfileCard({
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={handleReject}
             aria-disabled={isSubmitting || undefined}

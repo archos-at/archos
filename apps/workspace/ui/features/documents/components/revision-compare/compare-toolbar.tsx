@@ -119,7 +119,7 @@ export function PageNav({ current, count, onPage }: { current: number; count: nu
               commit()
             }
           }}
-          className="h-8 w-11 rounded-md px-1 text-center tabular-nums"
+          className="h-8 w-11 rounded-control px-1 text-center tabular-nums"
         />
         <span aria-hidden>{t('compare.pageOfTotal', { m: count })}</span>
       </label>
@@ -203,7 +203,7 @@ export function MarkButton({ state, onMark, className }: { state: MarkState; onM
           : t('compare.markPage', { page })
   return (
     <Button
-      variant="outline"
+      variant="secondary"
       size="sm"
       className={className}
       loading={state.kind === 'loading'}

@@ -359,7 +359,7 @@ function FilingDecisionBody({
       {decision.mayDecide ? (
         <SuggestionActions>
           <SuggestionButton
-            variant="ghost"
+            variant="secondary"
             loading={decision.busy?.action === 'dismiss'}
             aria-disabled={decision.busy !== null}
             onClick={decision.dismiss}
@@ -372,6 +372,7 @@ function FilingDecisionBody({
             aria-disabled={decision.busy !== null}
             onClick={decision.apply}
             data-testid="filing-suggestion-apply"
+            data-attr="files-filing-move"
           >
             {moveLabel}
           </SuggestionButton>

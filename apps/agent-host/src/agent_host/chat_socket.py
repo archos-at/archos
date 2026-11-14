@@ -53,7 +53,8 @@ them back with ``attach``, and the finished answer is persisted server-side with
 a deterministic id, so the browser's own write of it is a no-op.
 
 What follows a terminal goes out off the turn's path, in order, once
-(:func:`_after_terminal`): the answer row; the answer into an Anmerkung's thread
+(:func:`_after_terminal`): the answer row, and the question's Herleitung
+(``turn_record``); the answer into an Anmerkung's thread
 when the turn was asked there and the model did not reply in it
 (``agent.turn.annotation_reply``); and, for a turn a headless caller (the
 BFF's wake job, ``X-Chat-Mode: headless``) started, how it ended
@@ -74,11 +75,11 @@ import logging
 import os
 import re
 import time
-from collections import deque
 from collections.abc import AsyncIterator
 from collections.abc import Awaitable
 from collections.abc import Callable
 from collections.abc import Mapping
+from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import field
 from typing import TYPE_CHECKING
@@ -95,6 +96,7 @@ from agent.common.content_screen import findings_summary
 from agent.common.content_screen import mask_text
 from agent.common.human_prompt import human_response
 from agent.common.human_prompt import interaction_request
+from agent.common.licensed_text import LICENSED_TRACE_TAG
 from agent.common.steering import SteerInbox
 from agent.common.steering import SteerNote
 from agent.common.steering import bind_steer_inbox
@@ -138,9 +140,10 @@ from agent.common.write_fence import unbind_write_fence
 from agent.conversation_context import ContextOnlyMessage
 from agent.conversation_context import append_conversation_context
 from agent.conversation_context import format_context_turn
+from agent.observability import answer_failure
+from agent.observability.answer_scores import steer_scores
 from agent.observability.langfuse_scores import emit_scores
 from agent.observability.langfuse_scores import file_tool_scores
-from agent.observability.langfuse_scores import steer_scores
 from agent.observability.langfuse_scores import turn_outcome_scores
 from agent.observability.langfuse_trace_attributes import begin_trace_contributions
 from agent.observability.langfuse_trace_attributes import end_trace_contributions
@@ -151,10 +154,9 @@ from agent.observability.turn_outcome import begin_turn_outcome
 from agent.observability.turn_outcome import end_turn_outcome
 from agent.observability.turn_outcome import record_turn_error
 from agent.observability.turn_outcome import record_turn_finished
-from agent.observability.turn_trace import TRACE_ID_METADATA_KEY
+from agent.observability.turn_outcome import turn_tagged
 from agent.observability.turn_trace import pinned_trace
 from agent.observability.turn_trace import trace_id_for_message
-from agent.observability.turn_trace import trace_id_hex
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import RequestContext
@@ -170,6 +172,7 @@ from agent.turn.payload import turn_surface
 from agent.turn.response import answer_message_id
 from agent.turn.streaming import TurnTextFold
 from agent_host.after_terminal_writes import drain_after_terminal
+from agent_host.after_terminal_writes import drain_cancel_grace
 from agent_host.after_terminal_writes import in_background
 from agent_host.auth.middleware import build_request_trace_tags
 from agent_host.auth.middleware import detect_internal_caller
@@ -192,9 +195,18 @@ from agent_host.internal_api import ChatScreening
 from agent_host.internal_api import chat_screening_for
 from agent_host.internal_api import post_internal_conversation_message
 from agent_host.internal_api import post_internal_turn_outcome
+from agent_host.internal_api import post_internal_turn_steps
+from agent_host.socket_identity import may_act_for
+from agent_host.socket_identity import token_expired
+from agent_host.socket_identity import trace_user_id
+from agent_host.socket_identity import verified_display_name
+from agent_host.socket_identity import verified_subject
 from agent_host.startup_banner import deployed_sha
+from agent_host.tool_calls import tool_called_by
 from agent_host.turn_fence import TurnFence
 from agent_host.turn_fence import validate_running_ttl
+from agent_host.turn_record import TurnFrames
+from agent_host.turn_record import turn_row_metadata
 from agent_host.workflow_stream import stream_workflow
 from nat.plugin_api import HumanResponse
 from nat.plugin_api import InteractionPrompt
@@ -260,9 +272,6 @@ SUPERSEDE_WAIT_SECONDS = float(os.getenv("CHAT_SUPERSEDE_WAIT_SECONDS", "13.5") 
 # must fit inside the pod's grace period, and cover the longest turn:
 # `CHAT_TURN_DEADLINE_SECONDS`. Pulumi derives both from one number.
 DRAIN_SECONDS = float(os.getenv("CHAT_DRAIN_SECONDS", "2700") or "2700")
-
-#: How long a drain waits for cancelled turns to unwind and publish their terminal.
-DRAIN_CANCEL_GRACE_SECONDS = 10.0
 
 #: How often the wait looks at the running marker, and how often it asks the
 #: owner to stop again: a pub/sub message sent while the owner's input
@@ -396,45 +405,6 @@ async def authenticate_websocket_connection(socket: WebSocket) -> tuple[dict[str
     return None, WS_POLICY_VIOLATION
 
 
-def verified_subject(user: Mapping[str, Any]) -> str | None:
-    """The stable identity of the human holding the socket, from VERIFIED claims.
-
-    Internal and anonymous callers carry none; they are trusted by other means
-    (a service token, not a user), see :func:`may_act_for`.
-    """
-    for key in ("sub", "user_id", "id"):
-        value = user.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
-def verified_display_name(user: Mapping[str, Any]) -> str | None:
-    """The display name from the verified claims, preferred over a client-supplied ``author_name``."""
-    for key in ("name", "email"):
-        value = user.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
-def token_expired(user: Mapping[str, Any]) -> bool:
-    """Whether the handshake token has passed its ``exp``. Callers without one never expire."""
-    exp = user.get("exp")
-    return isinstance(exp, int | float) and time.time() >= exp
-
-
-def may_act_for(asker: str | None, actor: str | None, *, internal: bool) -> bool:
-    """Whether ``actor`` may stop, or answer a question of, a turn ``asker`` asked.
-
-    An internal caller may. A turn with no verified asker (an internal or
-    anonymous caller asked) has no identity to match. Everyone else must be the
-    asker: in a shared conversation a colleague is a different subject, and the
-    assistant asked one person.
-    """
-    return internal or asker is None or actor == asker
-
-
 def _handshake_envelope(scope: Mapping[str, Any]) -> RequestContext | None:
     """The verified ``X-Grid-Request-Context`` envelope of the upgrade, or None when absent or forged."""
     headers: dict[str, str] = {}
@@ -482,37 +452,15 @@ def _org_id_from_scope(scope: Mapping[str, Any]) -> str | None:
 # Persistence: the finished answer is the server's to keep
 # ---------------------------------------------------------------------------
 
-#: What the row does not keep: its id and text travel as columns, cards are
-#: stored unkeyed, and a queue notice or a run hand-off is not an answer.
-_NOT_METADATA = {"message_id", "text", "cards", "job_admission_rejected", "retry_after_seconds", "run"}
-
-
-def turn_row_metadata(finished: RunFinishedBody) -> dict[str, Any] | None:
-    """The message row's metadata for a finished turn, or None when nothing is written.
-
-    Pure, from the typed result alone, in the wire spellings
-    ``agent-answer-metadata.ts`` maps. A job-admission rejection is a transient
-    notice, and a turn with no text and no cards (a run hand-off) has nothing
-    to show.
-    """
-    result = finished.result
-    if result.job_admission_rejected or not (result.text.strip() or result.cards):
-        return None
-    metadata = result.model_dump(mode="json", exclude_defaults=True, exclude=_NOT_METADATA)
-    if result.cards:
-        metadata["cards"] = [keyed.card for keyed in result.cards]
-    if finished.outcome == "cancelled":
-        metadata["stopped"] = True
-    # The trace this answer was produced in: the one `_drive` pinned from the
-    # same id, so the BFF can score and link it (`observability.turn_trace`).
-    trace_id = trace_id_hex(trace_id_for_message(result.message_id))
-    if trace_id:
-        metadata[TRACE_ID_METADATA_KEY] = trace_id
-    return metadata
-
 
 async def persist_turn_result(
-    *, conversation_id: str, organization_id: str | None, finished: RunFinishedBody, guard: WriteFence | None = None
+    *,
+    conversation_id: str,
+    organization_id: str | None,
+    finished: RunFinishedBody,
+    guard: WriteFence | None = None,
+    turn_id: str | None = None,
+    step_frames: Sequence[dict[str, Any]] = (),
 ) -> bool:
     """Write a finished turn to the BFF, whether or not a socket took its frame. Fail-soft.
 
@@ -526,12 +474,14 @@ async def persist_turn_result(
     metadata = turn_row_metadata(finished)
     if metadata is None:
         return False
+    if turn_tagged(LICENSED_TRACE_TAG):  # read licensed text: the distiller takes no vote on it (E44, ADR-0164)
+        metadata["licensed_text"] = True
     try:
         check_write(guard)
     except TurnFenced:
         logger.warning("Turn %s lost its conversation: its outcome is not persisted", finished.result.message_id)
         return False
-    return await post_internal_conversation_message(
+    written = await post_internal_conversation_message(
         conversation_id=conversation_id,
         organization_id=organization_id,
         message_id=finished.result.message_id,
@@ -540,15 +490,23 @@ async def persist_turn_result(
         message_type="agent_response",
         metadata=metadata,
     )
+    if written and turn_id and step_frames:  # the Herleitung, on the question; nothing waits on it (`turn_record`)
+        in_background(post_internal_turn_steps(conversation_id, organization_id, turn_id, step_frames))
+    return written
 
 
 def _persist_in_background(
-    conversation_id: str, organization_id: str | None, finished: RunFinishedBody, guard: WriteFence | None = None
+    wire: TurnWire, organization_id: str | None, finished: RunFinishedBody, guard: WriteFence | None = None
 ) -> asyncio.Task[Any]:
-    """Persist off the frame's path: the stage events behind it must not wait on the BFF."""
+    """Persist off the frame's path; its task copies the turn's context, so the turn-outcome box's tags too."""
     return in_background(
         persist_turn_result(
-            conversation_id=conversation_id, organization_id=organization_id, finished=finished, guard=guard
+            conversation_id=wire.conversation_id,
+            organization_id=organization_id,
+            finished=finished,
+            guard=guard,
+            turn_id=wire.turn_id,
+            step_frames=wire.step_frames(),
         )
     )
 
@@ -666,7 +624,7 @@ class TurnWire:
         self._publish = publish
         self._lock = asyncio.Lock()
         self._held_stages: list[StageBody] = []
-        self._frames: deque[dict[str, Any]] = deque(maxlen=LOCAL_REPLAY_FRAMES)
+        self._frames = TurnFrames(LOCAL_REPLAY_FRAMES)
         #: Told each body with the seq it was stamped, under the lock: so a fold
         #: of them sees exactly the frames a reader saw, in their order.
         self.on_stamp: Callable[[EventBody, int], None] | None = None
@@ -674,6 +632,10 @@ class TurnWire:
     def replay(self) -> list[dict[str, Any]]:
         """Every frame this sequencer stamped (the last ``LOCAL_REPLAY_FRAMES``), in ``seq`` order."""
         return list(self._frames)
+
+    def step_frames(self) -> list[dict[str, Any]]:
+        """Every frame this sequencer stamped that the Herleitung is folded from, in ``seq`` order."""
+        return list(self._frames.steps)
 
     async def send(self, body: EventBody) -> bool:
         """Stamp ``body`` with the next ``seq`` and publish it. Whether a local socket took it.
@@ -820,6 +782,9 @@ class RunningTurn:
     thread_reply: ThreadReply | None = None
     #: The socket's signed envelope as received, echoed by the thread's answer (echo, never sign).
     envelope: SignedEnvelope | None = None
+    #: The WorkOS user the BFF signed into the envelope. An internal (service-token) caller has no
+    #: verified subject of its own, so this is who the trace belongs to, not the caller's type.
+    envelope_user_id: str | None = None
     #: The answer row's write, which what follows the terminal waits for.
     persisting: asyncio.Task[Any] | None = None
     _followed: bool = field(default=False, init=False, repr=False)
@@ -847,7 +812,7 @@ class RunningTurn:
             logger.warning("Turn %s already ended; a second terminal is dropped", self.wire.turn_id)
             return
         await self.wire.send(finished)
-        self.persisting = _persist_in_background(self.wire.conversation_id, self.organization_id, finished, self.guard)
+        self.persisting = _persist_in_background(self.wire, self.organization_id, finished, self.guard)
 
     def after_terminal(self) -> None:
         """Start what follows the terminal (:func:`_after_terminal`), once, and only once there is one."""
@@ -1298,7 +1263,7 @@ class ChatRegistry:
             task.cancel()
         if pending:
             logger.warning("Cancelling %d chat turn(s) still running after the drain", len(pending))
-            await asyncio.wait(pending, timeout=DRAIN_CANCEL_GRACE_SECONDS)
+            await asyncio.wait(pending, timeout=drain_cancel_grace())
         await drain_after_terminal()
         return len(pending)
 
@@ -1500,23 +1465,6 @@ async def _beat(wire: TurnWire) -> None:
         await wire.send(body)
 
 
-def tool_called_by(body: Any) -> str | None:
-    """The basename of the tool a ``tool`` step names, from a step body; nothing for any other body.
-
-    A file tool that stayed in the drafts (``mount`` ``drafts``, ADR-0133) is named ``draft:<tool>``: it
-    was a call, but no office-file move, so ``file_tool_scores`` counts it as neither search nor navigate.
-    """
-    step = getattr(body, "step", None)
-    if getattr(step, "kind", None) != "tool":
-        return None
-    tool = getattr(step, "tool", None) or None
-    mount = getattr(step, "mount", None)
-    if tool and mount in ("drafts", "skills"):
-        # A skill read (ADR-0135) is no office-file move either.
-        return f"{'draft' if mount == 'drafts' else 'skill'}:{tool}"
-    return tool
-
-
 async def _relay_workflow(turn: RunningTurn, request: UserMessage, session: Any) -> None:
     """Send every body the turn's ``_run`` yields, in order; the stream closes in this task."""
     # One entry per call (a tool step is sent when it starts and again when it ends, under one id).
@@ -1539,6 +1487,9 @@ async def _relay_workflow(turn: RunningTurn, request: UserMessage, session: Any)
                     emit_scores(steer_scores(turn.inbox), writer="chat")
             elif isinstance(body, RunErrorBody):
                 record_turn_error(body.code, body.details or body.message)
+                answer_failure.report_turn_failed(
+                    turn, answer_failure.reason_for_text(body.details or body.message), body.code
+                )
             await turn.publish(body)
 
 
@@ -1581,7 +1532,7 @@ async def _drive(
         with pinned_trace(trace_id_for_message(turn.message_id)), user_context(caller), request_trace_tag_context(tags):
             async with session_manager.session(
                 # Never None: the agent runtime would then derive an id from the unverified headers.
-                user_id=turn.asker_subject or caller.get("type"),
+                user_id=trace_user_id(turn, caller),
                 user_message_id=request.message_id,
                 conversation_id=request.conversation_id,
                 http_connection=socket,
@@ -1616,6 +1567,8 @@ def _error_for(exc: Exception) -> RunErrorBody:
             message="The answer took too long and was stopped. Please ask again, perhaps more narrowly.",
             details=f"{DEADLINE_DETAILS}: {exc}",
         )
+    if answer_failure.reason_for(exc) == answer_failure.PROVIDER_CREDITS:
+        return RunErrorBody(code="workflow_error", message=answer_failure.CREDITS_MESSAGE, details=str(exc))
     return RunErrorBody(
         code="workflow_error",
         message="The assistant hit an unexpected error while handling your request. Please try again.",
@@ -1673,6 +1626,7 @@ async def _end_turn(turn: RunningTurn, request: UserMessage, **drive: Any) -> No
         await turn.finish_cancelled()
     except Exception as exc:  # noqa: BLE001 — every failure ends the turn with a RUN_ERROR the client can act on
         logger.warning("Turn %s failed", turn.wire.turn_id, exc_info=True)
+        answer_failure.report_turn_failed(turn, answer_failure.reason_for(exc), type(exc).__name__)
         await turn.wire.send(_error_for(exc))
 
 
@@ -1680,6 +1634,7 @@ async def _ensure_terminal(turn: RunningTurn) -> None:
     """The last line of the one-terminal rule: a turn that has none yet gets a RUN_ERROR."""
     if turn.wire.finished:
         return
+    answer_failure.report_turn_failed(turn, answer_failure.WORKFLOW_ERROR, "no_terminal")
     await turn.wire.send(RunErrorBody(code="workflow_error", message="The turn ended without a result."))
 
 
@@ -1713,6 +1668,7 @@ class ChatSocket:
         #: restricted folders a turn may draw on is asked per TURN by the agent
         #: (``agent.knowledge.restricted_use``), never fixed per socket.
         self.signed_org_id = envelope.organization_id if envelope is not None else None
+        self.signed_user_id = envelope.user_id if envelope is not None else None
         #: The envelope's bytes as received, for a write that acts as the asker (echo, never sign).
         self.signed = (
             SignedEnvelope(header=envelope.envelope_header, signature=envelope.envelope_signature)
@@ -1859,6 +1815,7 @@ class ChatSocket:
             headless=bool(self.caller.get("headless")),
             thread_reply=ThreadReply.requested_by(message),
             envelope=self.signed,
+            envelope_user_id=self.signed_user_id,
         )
         await wire.send(RunStartedBody(message_id=turn.message_id))
         if fence.refusal is not None:

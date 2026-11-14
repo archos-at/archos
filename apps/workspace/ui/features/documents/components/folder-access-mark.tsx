@@ -72,7 +72,7 @@ export function FolderReadOnlyBadge({ testId }: { testId?: string }): JSX.Elemen
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant="outline" className="text-muted-foreground shrink-0 gap-1 font-normal" data-testid={testId}>
+        <Badge variant="secondary" className="text-muted-foreground shrink-0 gap-1 font-normal" data-testid={testId}>
           <Eye className="size-3" aria-hidden />
           {t('folders.access.readOnlyBadge')}
         </Badge>

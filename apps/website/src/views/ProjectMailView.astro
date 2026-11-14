@@ -1,0 +1,37 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import copy from '../i18n/pages/project-mail';
+import { format } from '../i18n/ui';
+import { localePath, type Locale } from '../i18n/paths';
+import identity, { withName } from '../lib/identity';
+
+// Markup only. Text comes from src/i18n/pages/project-mail.ts, in both locales.
+// The section ids are anchors the app links to (`#dkim`), so they are rendered as given.
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const c = withName(copy[locale]);
+const fill = (text: string) => format(text, { domain: identity.domain });
+---
+
+<BaseLayout locale={locale} title={c.title} description={c.description} alternatePath={localePath('projectMail', locale === 'de' ? 'en' : 'de')}>
+  <Hero title={c.heading} text={fill(c.lede)} />
+  <section class="ui-container ui-section page-main">
+    <div class="post-body">
+      {
+        c.sections.map((section) => (
+          <>
+            <h2 id={section.id}>{section.heading}</h2>
+            {section.paragraphs.map((paragraph) => (
+              <p>{fill(paragraph)}</p>
+            ))}
+          </>
+        ))
+      }
+      <p><a href={localePath('privacy', locale)}>{c.privacyLink}</a></p>
+    </div>
+  </section>
+</BaseLayout>

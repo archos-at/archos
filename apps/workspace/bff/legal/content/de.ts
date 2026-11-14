@@ -2,22 +2,33 @@
  * Rechtsdokumente — Deutsch (maßgebliche Sprachfassung für den
  * österreichischen Markt). Strukturelles Gegenstück zu `./en.ts`.
  *
- * Betreiberangaben sind bewusste Platzhalter in [KLAMMERN] — sie MÜSSEN vor
- * dem Produktivbetrieb vervollständigt werden. Diese Texte entstanden im
+ * Betreiberangaben kommen aus packages/brand/identity.json. Die Gesellschaft ist
+ * in Gründung: Firmenbuchnummer, Firmenbuchgericht und UID gibt es noch nicht,
+ * und der Text sagt das so wie das Impressum der Website
+ * (apps/website/src/i18n/pages/imprint.ts). Kein Wert steht in eckigen Klammern;
+ * was nicht belegt ist, ist ein TODO(owner) im Kommentar. Diese Texte entstanden im
  * Rahmen des Compliance-Reviews 2026-07 (docs/compliance/) und sind
  * Vorlagen, keine Rechtsberatung: vor Verwendung anwaltlich prüfen lassen.
  */
 
 import type { LegalContent } from '../types'
+import { PRODUCT_NAME, withProductName } from '@/lib/brand'
+import { SUBPROCESSOR_PAGE } from './subprocessors.generated'
+import identity from '@/shared/brand/identity.json'
 
-const OPERATOR = '[Name des Betreibers — z. B. Piloti Check GmbH]'
-const ADDRESS = '[Straße, Nummer, PLZ, Ort, Österreich]'
-const EMAIL = '[Kontakt-E-Mail-Adresse]'
+// Betreiber, Anschrift und Kontakt aus der einen Quelle der Marke (packages/brand/identity.json),
+// wie im Impressum der Website.
+const OPERATOR = identity.legalEntity
+const ADDRESS = `${identity.street}, ${identity.postalCode} ${identity.city}, Österreich`
+const EMAIL = identity.email
+
+// Tabellen und Listen der Seite „Subunternehmer“, erzeugt aus configs/subprocessors/ (scripts/generate_subprocessor_pages.py).
+const PAGE = withProductName(SUBPROCESSOR_PAGE.de)
 
 export const de: LegalContent = {
   imprint: {
     title: 'Impressum',
-    updated: '2026-07-10',
+    updated: '2026-10-29',
     intro:
       'Offenlegung gemäß §5 E-Commerce-Gesetz (ECG), §25 Mediengesetz und §63 Gewerbeordnung.',
     sections: [
@@ -26,14 +37,17 @@ export const de: LegalContent = {
         paragraphs: [
           `${OPERATOR}, ${ADDRESS}.`,
           `Kontakt: ${EMAIL}`,
-          'Firmenbuchnummer: [FN-Nummer], Firmenbuchgericht: [Gericht]. UID: [ATU-Nummer].',
-          'Unternehmensgegenstand: [z. B. IT-Dienstleistungen / Software as a Service]. Aufsichtsbehörde gemäß ECG: [zuständige Bezirksverwaltungsbehörde]. Anwendbare gewerberechtliche Vorschriften: Gewerbeordnung 1994, abrufbar unter ris.bka.gv.at.',
+          // Wortlaut wie im Impressum der Website (apps/website/src/i18n/pages/imprint.ts).
+          'Rechtsform: Flexible Kapitalgesellschaft (FlexCo), in Gründung. Firmenbuch: Noch nicht eingetragen. Firmenbuchnummer, Firmenbuchgericht und UID-Nummer ergänzen wir nach der Eintragung.',
+          // TODO(owner): die Aufsichtsbehörde gemäß ECG nach Eintragung und Gewerbeanmeldung nennen.
+          'Unternehmensgegenstand: Entwicklung und Betrieb von Software für Architektur- und Planungsbüros. Die Aufsichtsbehörde gemäß ECG ergänzen wir nach der Eintragung. Anwendbare gewerberechtliche Vorschriften: Gewerbeordnung 1994, abrufbar unter ris.bka.gv.at.',
         ],
       },
       {
         heading: 'Zweck des Dienstes',
         paragraphs: [
-          'Piloti ist ein KI-gestütztes Recherchewerkzeug, das Baufachleute dabei unterstützt, Informationen aus den österreichischen OIB-Richtlinien und den im Rechtsinformationssystem des Bundes (RIS) veröffentlichten Rechtsquellen zu finden und zu überprüfen. Piloti erbringt keine Rechtsberatung; siehe Nutzungsbedingungen und KI-Transparenzhinweis.',
+          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
+          PRODUCT_NAME + ' (vormals Piloti) ist der Workspace für Architektur- und Planungsbüros. Projektwissen, Unterlagen und Modelle liegen an einem Ort, und ' + PRODUCT_NAME + ' übernimmt dort mit Unterstützung von KI die regelgeleitete Arbeit. Baurecht ist eine dieser Fähigkeiten: ' + PRODUCT_NAME + ' findet Stellen in den österreichischen OIB-Richtlinien und den im Rechtsinformationssystem des Bundes (RIS) veröffentlichten Rechtsquellen und zitiert sie zur Überprüfung. ' + PRODUCT_NAME + ' erbringt keine Rechtsberatung; siehe Nutzungsbedingungen und KI-Transparenzhinweis.',
         ],
       },
       {
@@ -45,7 +59,7 @@ export const de: LegalContent = {
       {
         heading: 'Haftung für Inhalte',
         paragraphs: [
-          'Die von diesem Dienst erzeugten Antworten werden von einem KI-System generiert und können fehlerhaft oder unvollständig sein. Sie ersetzen weder die Prüfung der anwendbaren Vorschriften noch fachliche Beratung. Maßgeblich sind in jedem Fall die zitierten Primärquellen (OIB-Richtlinien, RIS).',
+          'Die von diesem Dienst erzeugten Antworten werden von einem KI-System generiert und können fehlerhaft oder unvollständig sein. Sie ersetzen weder die Prüfung der anwendbaren Vorschriften noch fachliche Beratung. Maßgeblich sind in jedem Fall die zitierten Primärquellen (etwa Projektunterlagen, OIB-Richtlinien, RIS).',
         ],
       },
     ],
@@ -53,15 +67,15 @@ export const de: LegalContent = {
 
   privacy: {
     title: 'Datenschutzerklärung',
-    updated: '2026-10-27',
+    updated: '2026-11-06',
     intro:
-      'Diese Erklärung informiert gemäß Verordnung (EU) 2016/679 (DSGVO) darüber, wie personenbezogene Daten bei der Nutzung von Piloti verarbeitet werden.',
+      'Diese Erklärung informiert gemäß Verordnung (EU) 2016/679 (DSGVO) darüber, wie personenbezogene Daten bei der Nutzung von ' + PRODUCT_NAME + ' (vormals Piloti) verarbeitet werden.',
     sections: [
       {
         heading: '1. Verantwortlicher',
         paragraphs: [
           `Verantwortlicher im Sinne des Art. 4 Z 7 DSGVO: ${OPERATOR}, ${ADDRESS}, ${EMAIL}.`,
-          'Wird Piloti über Ihren Arbeitgeber bzw. Ihre Organisation bereitgestellt, bestimmt diese Organisation die Zwecke der Verarbeitung der Projektinhalte in ihrem Arbeitsbereich; insoweit handelt der Betreiber als Auftragsverarbeiter im Auftrag der Organisation, und ein Auftragsverarbeitungsvertrag (Art. 28 DSGVO) regelt das Verhältnis.',
+          'Wird ' + PRODUCT_NAME + ' über Ihren Arbeitgeber bzw. Ihre Organisation bereitgestellt, bestimmt diese Organisation die Zwecke der Verarbeitung der Projektinhalte in ihrem Arbeitsbereich; insoweit handelt der Betreiber als Auftragsverarbeiter im Auftrag der Organisation, und ein Auftragsverarbeitungsvertrag (Art. 28 DSGVO) regelt das Verhältnis.',
         ],
       },
       {
@@ -70,8 +84,9 @@ export const de: LegalContent = {
           'Konto- und Organisationsdaten: Name, E-Mail-Adresse, Organisationszugehörigkeit, Rollen und Berechtigungen. Die Identitätsverwaltung erfolgt über unseren Identitätsdienstleister WorkOS (AuthKit); wir führen bewusst keine eigene lokale Kopie Ihres Identitätsprofils.',
           'Inhaltsdaten: Ihre Chat-Fragen und die für Sie erzeugten Antworten, Rechercheberichte, von Ihnen hochgeladene Projektdokumente (Pläne, Bescheide, Spezifikationen — die selbst personenbezogene Daten enthalten können) sowie aus Ihren Interaktionen abgeleitete Projekt- und Organisationsnotizen (Memory).',
           'Nutzungs- und Abrechnungsdaten: ein Nutzungsledger, das je KI-Anfrage das angeforderte und das tatsächlich antwortende KI-Modell, Token-Zahlen und Kosten erfasst, zugeordnet zu Organisation, Projekt und Nutzer.',
-          'Audit-Daten: privilegierte administrative Aktionen (z. B. Modellkonfigurations-Änderungen, Budgetänderungen, Löschungen, Legal Holds) werden mit handelnder Person, Zeitstempel, IP-Adresse und User-Agent protokolliert.',
+          'Audit-Daten: privilegierte administrative Aktionen (z. B. Modellkonfigurations-Änderungen, Budgetänderungen, Löschungen, Legal Holds) werden mit handelnder Person, Zeitstempel, IP-Adresse und User-Agent protokolliert. Der Audit-Trail wird bei WorkOS gespeichert; Ereignisse zu Projekten und Dokumenten enthalten deren Namen, soweit die Ablage für alle Projektmitglieder sichtbar ist.',
           'Technische Daten: Server-Logs, Session-Cookie (Authentifizierung), Cookie für die Spracheinstellung.',
+          'E-Mails an Projektadressen (nur wenn Ihre Organisation die Funktion freigeschaltet hat): E-Mails, die jemand an die E-Mail-Adresse eines Projekts sendet, mit Absender, Empfängern, Betreff, Text, Anhängen und dem Ergebnis der Absenderprüfung (DKIM/DMARC). Sie warten im E-Mail-Eingang des Projekts, bis eine berechtigte Person sie ablegt oder verwirft; abgelegte E-Mails werden Teil der Projektunterlagen, und ihr Original (.eml) wird als Nachweis neben dem E-Mail-Verlauf aufbewahrt. Für diese E-Mails ist die Organisation, die die Adresse bereitstellt, verantwortlich.',
           'Nutzungs- und Gerätedaten (Produktanalyse): Ihre Nutzer-ID (die pseudonyme WorkOS-Kennung), die Kennung und der Name Ihrer Organisation sowie Ihre Rolle; aufgerufene Seiten, Klicks (ohne die Beschriftung der angeklickten Elemente) und Bedienereignisse (z. B. Frage gesendet, Dokument hochgeladen, Export); Browser-, Geräte- und Spracheinstellungen; Fehlermeldungen mit technischem Kontext; bei aufgezeichneten Sitzungen eine Wiedergabe Ihrer Bildschirmansicht, in der Texte und Eingaben maskiert sind und in der Bilder, die PDF-Ansicht und die IFC-Modellansicht nicht aufgezeichnet werden; Antworten auf Umfragen und Nachrichten an den Support, soweit Sie diese absenden. Ihre E-Mail-Adresse und Ihr Name werden nicht an die Produktanalyse übermittelt. Passwörter, API-Schlüssel und Zugangsdaten werden nie erfasst.',
         ],
       },
@@ -88,8 +103,9 @@ export const de: LegalContent = {
       {
         heading: '4. KI-Verarbeitung und Empfänger Ihrer Inhalte',
         paragraphs: [
-          'Zur Erzeugung von Antworten werden Ihre Chat-Nachrichten, relevante Auszüge Ihrer hochgeladenen Dokumente und abgerufene Vorschriftenpassagen über das API-Gateway OpenRouter, Inc. (USA) an externe KI-Modellanbieter übermittelt. Aus Ihren Fragen abgeleitete Web-Recherche-Anfragen gehen an den Suchdienst Tavily. Identität und Anmeldung werden von WorkOS, Inc. (USA) abgewickelt.',
+          'Zur Erzeugung von Antworten werden Ihre Chat-Nachrichten, die Inhalte Ihrer hochgeladenen Dokumente, die eine Frage braucht (gefundene Passagen, bei Bedarf ganze Seiten oder Abschnitte), und abgerufene Vorschriften über das API-Gateway OpenRouter, Inc. (USA) an externe KI-Modellanbieter übermittelt. Beim Einlesen eines Dokuments läuft jede Seite einmal durch ein KI-Modell (Texterkennung und Suchindex), stets bei Anbietern ohne Datenspeicherung. Aus Ihren Fragen abgeleitete Web-Recherche-Anfragen gehen an den Suchdienst Tavily. Identität und Anmeldung werden von WorkOS, Inc. (USA) abgewickelt. Wenn Sie im Chat diktieren, geht die Audioaufnahme über OpenRouter an ein Transkriptionsmodell (ElevenLabs, USA). Ist die Adresssuche in Ihrer Installation eingeschaltet, geht die eingetippte Adresse an den öffentlichen Photon-Dienst der komoot GmbH (Deutschland).',
           'Für Produktanalyse, Sitzungsaufzeichnung, Fehlererfassung, Umfragen und Support setzen wir PostHog ein (PostHog, Inc.; Datenspeicherung in der EU-Cloud, Frankfurt am Main). PostHog verarbeitet diese Daten in unserem Auftrag auf Grundlage eines Auftragsverarbeitungsvertrags (Art. 28 DSGVO). Zusätzlich übernimmt PostHog von unserem Tracing-System Langfuse Metadaten zu KI-Anfragen (Zeitpunkt, Modell, Dauer, Token-Zahlen, Kosten, Bezeichnung der Verarbeitungsschritte) und die Bewertungen, die Sie zu Antworten abgeben, einschließlich Ihres Kommentars. Chat-Nachrichten, Antworten und Dokumentinhalte gehören nicht dazu.',
+          'E-Mails an Projektadressen: Solange eine E-Mail im E-Mail-Eingang wartet, liest kein KI-Modell ihren Text oder ihre Anhänge. Für einen Ablagevorschlag erhält das KI-Modell nur Dateinamen der Anhänge, die die Namensprüfung bestanden haben, den Betreff (maskiert durch die Inhaltsprüfung Ihrer Organisation) und die Absender-Domain, dazu die Ordner, die alle Projektmitglieder sehen, und die Ablagegewohnheiten Ihrer Organisation; für E-Mails von nicht bestätigten Domains und automatische E-Mails gibt es keinen Vorschlag. Erst abgelegte E-Mails werden wie andere Projektdokumente verarbeitet. Das Original (.eml) einer E-Mail erhält kein KI-Modell. E-Mails erreichen ' + PRODUCT_NAME + ' über Cloudflare, Inc. (USA, Weiterleitung); Anhänge und Originale werden in unserer eigenen Infrastruktur auf Schadsoftware geprüft (ClamAV).',
         ],
         notice:
           'Wichtig: Welches KI-Modell — und damit welcher vorgelagerte Modellanbieter (z. B. DeepSeek, OpenAI, Anthropic, Google, Meta, Mistral und weitere im OpenRouter-Katalog gelistete Anbieter) — Ihre Anfragen verarbeitet, kann von den Administratorinnen und Administratoren Ihrer Organisation zur Laufzeit konfiguriert werden. Der gesamte KI-Verkehr läuft stets über OpenRouter und niemals über ein anderes Gateway; der tatsächliche nachgelagerte Anbieter — und damit der Ort dieser Verarbeitung (auch außerhalb der EU/des EWR möglich) — hängt jedoch vom Modell ab, das Ihre Organisation auswählt. Jede Modelländerung wird validiert, versioniert, der handelnden Administratorin bzw. dem Administrator zugeordnet und ist nachvollziehbar; das Modell, das eine Anfrage tatsächlich beantwortet hat, wird protokolliert. Die aktuelle Liste externer Dienste finden Sie auf der Seite „Subunternehmer".',
@@ -105,6 +121,7 @@ export const de: LegalContent = {
         heading: '6. Speicherung, Aufbewahrung und Löschung',
         paragraphs: [
           'Projektinhalte werden in unserer Anwendungsdatenbank, im Objektspeicher (hochgeladene Dokumente) und in einem Vektorindex (Dokument-Embeddings) gespeichert — alles in eigener Infrastruktur betrieben. Beim Löschen eines Projekts wird es zunächst als gelöscht markiert und ist während einer Karenzfrist wiederherstellbar; danach entfernt eine automatisierte Bereinigung es dauerhaft aus allen Speichern (Datenbank, Objektspeicher, Vektorindex und zugehörige Berechtigungsdatensätze). Die Löschung kann durch einen Legal Hold (Einschränkung nach Art. 18 DSGVO) ausgesetzt werden, den die Compliance-Rolle Ihrer Organisation setzt; jedes Setzen und Aufheben wird im Audit-Trail protokolliert.',
+          'Eine E-Mail an eine Projektadresse wartet höchstens 30 Tage im E-Mail-Eingang; verworfene oder abgelaufene Teile lassen sich 7 Tage wiederherstellen und werden danach gelöscht, ebenso das Original einer E-Mail, deren Text nicht abgelegt wurde. Das Original einer abgelegten E-Mail wird so lange aufbewahrt wie der E-Mail-Verlauf, zu dem sie gehört. Ein Legal Hold auf das Projekt oder etwas darin setzt diese Löschungen aus.',
           'Nutzungsledger- und Audit-Datensätze werden zu Rechenschafts- und Abrechnungszwecken so lange aufbewahrt, wie es der Vertrag der Organisation und gesetzliche Aufbewahrungsfristen erfordern.',
           'Bei PostHog werden Produktanalyse-Ereignisse (einschließlich Fehlerberichten, Umfrageantworten und den aus Langfuse übernommenen KI-Metadaten) bis zu 12 Monate und Sitzungsaufzeichnungen bis zu 30 Tage gespeichert. Nachrichten an den Support bleiben bis zu ihrer Löschung durch uns erhalten. Auf Ihren Wunsch löschen wir die zu Ihrer Nutzer-ID bei PostHog gespeicherten Daten.',
         ],
@@ -112,15 +129,15 @@ export const de: LegalContent = {
       {
         heading: '7. Cookies',
         paragraphs: [
-          'Piloti verwendet technisch notwendige Cookies: einen verschlüsselten Session-Cookie für die Anmeldung (WorkOS AuthKit) und einen Cookie für Ihre Spracheinstellung.',
-          'Zusätzlich speichert unsere Produktanalyse (PostHog) eine pseudonyme Kennung, die Sitzungs-ID und einige Einstellungen in einem Cookie und im lokalen Speicher Ihres Browsers (Schlüssel „ph_…“, konkret „ph_<Projekt-Token>_posthog“; das Cookie läuft nach 365 Tagen ab und gilt auch für die öffentliche Website von Piloti auf derselben Domain). Wird Ihnen eine Umfrage angezeigt, legt PostHog dafür weitere Einträge im lokalen Speicher an (Schlüssel „seenSurvey_…“ und „lastSeenSurveyDate“). Ebenso merkt sich PostHog, welche Hinweise und Ankündigungen Sie schon gesehen, geschlossen oder abgeschlossen haben, damit sie nicht erneut erscheinen (Schlüssel „ph_product_tour_…“, „ph_last_seen_tour_date_…“ und „ph_active_product_tour“). Diese Speicherung ist nicht technisch notwendig; sie dient der Produktverbesserung. Werbe- oder seitenübergreifende Tracking-Cookies setzen wir nicht.',
+          PRODUCT_NAME + ' verwendet technisch notwendige Cookies: einen verschlüsselten Session-Cookie für die Anmeldung (WorkOS AuthKit), einen Cookie für Ihre Spracheinstellung und, solange Sie angemeldet sind, den Cookie ‚signed_in‘. Er enthält nur den Wert ‚1‘, keine Kennung, gilt für die ganze Domain und sagt unserer Website, dass sie statt „Login“ den Weg in die Anwendung anbieten soll; bei der Abmeldung oder wenn die Sitzung abläuft, wird er gelöscht.',
+          'Zusätzlich speichert unsere Produktanalyse (PostHog) eine pseudonyme Kennung, die Sitzungs-ID und einige Einstellungen in einem Cookie und im lokalen Speicher Ihres Browsers (Schlüssel „ph_…“, konkret „ph_<Projekt-Token>_posthog“; das Cookie läuft nach 365 Tagen ab und gilt auch für die öffentliche Website von ' + PRODUCT_NAME + ' auf derselben Domain). Wird Ihnen eine Umfrage angezeigt, legt PostHog dafür weitere Einträge im lokalen Speicher an (Schlüssel „seenSurvey_…“ und „lastSeenSurveyDate“). Ebenso merkt sich PostHog, welche Hinweise und Ankündigungen Sie schon gesehen, geschlossen oder abgeschlossen haben, damit sie nicht erneut erscheinen (Schlüssel „ph_product_tour_…“, „ph_last_seen_tour_date_…“ und „ph_active_product_tour“). Diese Speicherung ist nicht technisch notwendig; sie dient der Produktverbesserung. Werbe- oder seitenübergreifende Tracking-Cookies setzen wir nicht.',
           `Sie können die Produktanalyse in den Einstellungen Ihres Profils abschalten oder ihr jederzeit unter ${EMAIL} widersprechen; sie erfasst dann nichts mehr, und die genannten Einträge werden nicht mehr fortgeschrieben.`,
         ],
       },
       {
         heading: '8. Ihre Rechte',
         paragraphs: [
-          'Ihnen stehen die Rechte auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung (Art. 18), Datenübertragbarkeit (Art. 20) und Widerspruch (Art. 21) zu. Soweit eine Verarbeitung auf Einwilligung beruht, können Sie diese jederzeit widerrufen. Wird Piloti über Ihre Organisation bereitgestellt, richten Sie Anfragen bitte zunächst an Ihre Organisation; wir unterstützen die Organisation bei der Erfüllung.',
+          'Ihnen stehen die Rechte auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung (Art. 18), Datenübertragbarkeit (Art. 20) und Widerspruch (Art. 21) zu. Soweit eine Verarbeitung auf Einwilligung beruht, können Sie diese jederzeit widerrufen. Wird ' + PRODUCT_NAME + ' über Ihre Organisation bereitgestellt, richten Sie Anfragen bitte zunächst an Ihre Organisation; wir unterstützen die Organisation bei der Erfüllung.',
           `Zur Ausübung Ihrer Rechte wenden Sie sich an ${EMAIL}. Sie haben zudem das Recht auf Beschwerde bei der österreichischen Datenschutzbehörde, Barichgasse 40–42, 1030 Wien, dsb.gv.at, oder Ihrer örtlichen Aufsichtsbehörde.`,
         ],
       },
@@ -141,20 +158,21 @@ export const de: LegalContent = {
 
   terms: {
     title: 'Nutzungsbedingungen',
-    updated: '2026-07-10',
+    updated: '2026-10-29',
     intro:
-      'Diese Bedingungen regeln die Nutzung von Piloti. Vorlage — vor Produktivbetrieb anwaltlich prüfen und vervollständigen.',
+      'Diese Bedingungen regeln die Nutzung von ' + PRODUCT_NAME + ' (vormals Piloti). Vorlage — vor Produktivbetrieb anwaltlich prüfen und vervollständigen.',
     sections: [
       {
         heading: '1. Leistungsumfang',
         paragraphs: [
-          'Piloti ist ein KI-gestützter Rechercheassistent für österreichisches Baurecht (OIB-Richtlinien und RIS-Rechtsquellen). Piloti ruft Vorschrifteninhalte und von Ihrer Organisation bereitgestellte Projektdokumente ab, fasst sie zusammen und zitiert sie.',
+          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
+          PRODUCT_NAME + ' ist der Workspace für Architektur- und Planungsbüros, in dem eine Organisation ihre Projekte, Unterlagen und Modelle führt; ' + PRODUCT_NAME + ' unterstützt die Arbeit darin mit KI. Zum Leistungsumfang gehört die Recherche im österreichischen Baurecht (OIB-Richtlinien und RIS-Rechtsquellen). ' + PRODUCT_NAME + ' ruft Vorschrifteninhalte und von Ihrer Organisation bereitgestellte Projektdokumente ab, fasst sie zusammen und zitiert sie.',
         ],
       },
       {
         heading: '2. Keine Rechtsberatung',
         paragraphs: [
-          'Piloti erbringt keine Rechtsberatung und ersetzt nicht die Beurteilung qualifizierter Fachleute wie Architektinnen und Architekten, Ziviltechnikerinnen und Ziviltechnikern oder Rechtsanwältinnen und Rechtsanwälten. Antworten werden von KI erzeugt, können fehlerhaft, unvollständig oder veraltet sein und müssen vor der Verwendung für Planungs-, Genehmigungs- oder Bauentscheidungen anhand der zitierten Primärquellen überprüft werden. Die Verantwortung für Entscheidungen auf Grundlage von Piloti-Ausgaben verbleibt bei den Nutzenden und ihrer Organisation.',
+          PRODUCT_NAME + ' erbringt keine Rechtsberatung und ersetzt nicht die Beurteilung qualifizierter Fachleute wie Architektinnen und Architekten, Ziviltechnikerinnen und Ziviltechnikern oder Rechtsanwältinnen und Rechtsanwälten. Antworten werden von KI erzeugt, können fehlerhaft, unvollständig oder veraltet sein und müssen vor der Verwendung für Planungs-, Genehmigungs- oder Bauentscheidungen anhand der zitierten Primärquellen überprüft werden. Die Verantwortung für Entscheidungen auf Grundlage von ' + PRODUCT_NAME + '-Ausgaben verbleibt bei den Nutzenden und ihrer Organisation.',
         ],
       },
       {
@@ -181,7 +199,8 @@ export const de: LegalContent = {
       {
         heading: '6. Verfügbarkeit und Support',
         paragraphs: [
-          'Der Dienst wird ohne zugesichertes Service-Level bereitgestellt, sofern nicht schriftlich anderes vereinbart ist. Geplante Wartungen und Abhängigkeiten von externen Anbietern (Identität, KI-Modelle, Websuche) können die Verfügbarkeit beeinträchtigen. [Vereinbarte SLA-/Support-Regelungen einfügen, falls zutreffend.]',
+          'Der Dienst wird ohne zugesichertes Service-Level bereitgestellt, sofern nicht schriftlich anderes vereinbart ist. Geplante Wartungen und Abhängigkeiten von externen Anbietern (Identität, KI-Modelle, Websuche) können die Verfügbarkeit beeinträchtigen.',
+          // TODO(owner): vereinbarte SLA- und Support-Regelungen ergänzen, falls zutreffend.
         ],
       },
       {
@@ -193,13 +212,15 @@ export const de: LegalContent = {
       {
         heading: '8. Haftung',
         paragraphs: [
-          'Die Haftung für leichte Fahrlässigkeit ist im gesetzlich zulässigen Umfang ausgeschlossen; zwingende Haftung (z. B. für Personenschäden, nach dem Produkthaftungsgesetz) bleibt unberührt. Der Betreiber haftet nicht für Entscheidungen, die entgegen Punkt 2 im Vertrauen auf KI-generierte Ausgaben getroffen wurden. [Haftungsbeschränkungsklausel anwaltlich vervollständigen.]',
+          'Die Haftung für leichte Fahrlässigkeit ist im gesetzlich zulässigen Umfang ausgeschlossen; zwingende Haftung (z. B. für Personenschäden, nach dem Produkthaftungsgesetz) bleibt unberührt. Der Betreiber haftet nicht für Entscheidungen, die entgegen Punkt 2 im Vertrauen auf KI-generierte Ausgaben getroffen wurden.',
+          // TODO(owner): die Haftungsbeschränkungsklausel anwaltlich vervollständigen.
         ],
       },
       {
         heading: '9. Schlussbestimmungen',
         paragraphs: [
-          'Es gilt österreichisches Recht unter Ausschluss der Verweisungsnormen und des UN-Kaufrechts. Gerichtsstand: [zuständiges Gericht]; für Verbraucher gelten zwingende Verbrauchergerichtsstände. Sollten einzelne Bestimmungen unwirksam sein, bleibt der Rest wirksam.',
+          // TODO(owner): einen Gerichtsstand vereinbaren und nennen; bis dahin gilt der gesetzliche.
+          'Es gilt österreichisches Recht unter Ausschluss der Verweisungsnormen und des UN-Kaufrechts. Für Verbraucher gelten zwingende Verbrauchergerichtsstände. Sollten einzelne Bestimmungen unwirksam sein, bleibt der Rest wirksam.',
         ],
       },
     ],
@@ -207,32 +228,34 @@ export const de: LegalContent = {
 
   'ai-transparency': {
     title: 'KI-Transparenzhinweis',
-    updated: '2026-07-10',
+    updated: '2026-10-29',
     intro:
-      'Information gemäß Art. 50 der Verordnung (EU) 2024/1689 (KI-Verordnung) über das KI-System, mit dem Sie bei der Nutzung von Piloti interagieren.',
+      'Information gemäß Art. 50 der Verordnung (EU) 2024/1689 (KI-Verordnung) über das KI-System, mit dem Sie bei der Nutzung von ' + PRODUCT_NAME + ' (vormals Piloti) interagieren.',
     sections: [
       {
         heading: 'Sie interagieren mit einem KI-System',
         paragraphs: [
-          'Piloti beantwortet Ihre Fragen mit großen Sprachmodellen (LLMs). Chat-Antworten, Rechercheberichte und Rechtsgrundlagen-Karten sind KI-generierte Inhalte. Piloti kennzeichnet die zitierten Quellen, sodass jede Aussage anhand der zugrunde liegenden OIB-Richtlinie oder RIS-Fundstelle überprüft werden kann.',
+          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
+          PRODUCT_NAME + ' beantwortet Ihre Fragen und arbeitet in Ihren Projekten mit großen Sprachmodellen (LLMs). Chat-Antworten, Rechercheberichte und Rechtsgrundlagen-Karten sind KI-generierte Inhalte. ' + PRODUCT_NAME + ' kennzeichnet die zitierten Quellen, sodass jede Aussage anhand der zugrunde liegenden Quelle überprüft werden kann, etwa eines Projektdokuments, einer OIB-Richtlinie oder einer RIS-Fundstelle.',
         ],
       },
       {
         heading: 'Was das System tut',
         paragraphs: [
-          'Piloti ruft Passagen aus den OIB-Richtlinien, österreichischen Rechtsquellen (RIS) und Ihren Projektdokumenten ab, führt optional Web-Recherchen durch und erstellt mit KI-Modellen eine Antwort mit Zitaten. Eine asynchrone Memory-Funktion kann aus Interaktionen Notizen auf Projekt- und Organisationsebene ableiten, um künftige Antworten zu verbessern; organisationsweite Memory-Einträge durch die KI sind standardmäßig deaktiviert.',
+          PRODUCT_NAME + ' ruft Passagen aus Ihren Projektdokumenten, den OIB-Richtlinien und österreichischen Rechtsquellen (RIS) ab, führt optional Web-Recherchen durch und erstellt mit KI-Modellen eine Antwort mit Zitaten. Eine asynchrone Memory-Funktion kann aus Interaktionen Notizen auf Projekt- und Organisationsebene ableiten, um künftige Antworten zu verbessern; organisationsweite Memory-Einträge durch die KI sind standardmäßig deaktiviert.',
         ],
       },
       {
         heading: 'Grenzen und menschliche Aufsicht',
         paragraphs: [
-          'KI-generierte Antworten können falsch, unvollständig oder veraltet sein, auch wenn sie überzeugend klingen. Piloti ist ein Recherchewerkzeug und als KI-Anwendung mit begrenztem Risiko eingestuft: Es trifft keine Entscheidungen über Gebäude, Genehmigungen oder Personen — die fachliche Prüfung jeder Antwort anhand der zitierten Primärquelle ist Teil der bestimmungsgemäßen Verwendung. Verwenden Sie Piloti-Ausgaben nicht als alleinige Grundlage sicherheitsrelevanter Planungsentscheidungen.',
+          // TODO(owner): Satz am 2026-10-29 neu gefasst (Positionierung: Workspace statt Recherchewerkzeug); die rechtliche Aussage ist unverändert. Zur anwaltlichen Prüfung.
+          'KI-generierte Antworten können falsch, unvollständig oder veraltet sein, auch wenn sie überzeugend klingen. ' + PRODUCT_NAME + ' ist als KI-Anwendung mit begrenztem Risiko eingestuft: Es trifft keine Entscheidungen über Gebäude, Genehmigungen oder Personen — die fachliche Prüfung jeder Antwort anhand der zitierten Primärquelle ist Teil der bestimmungsgemäßen Verwendung. Verwenden Sie ' + PRODUCT_NAME + '-Ausgaben nicht als alleinige Grundlage sicherheitsrelevanter Planungsentscheidungen.',
         ],
       },
       {
         heading: 'Welche KI-Modelle eingesetzt werden',
         paragraphs: [
-          'Standardmäßig nutzt Piloti Modelle, die über das API-Gateway OpenRouter geleitet werden (Referenzmodell: OpenAI GPT-5.6 Luna). Verschiedene interne Funktionen (Rückfragen, Recherche, Tiefenrecherche, Memory-Reflexion) können unterschiedliche Modelle verwenden.',
+          'Standardmäßig nutzt ' + PRODUCT_NAME + ' Modelle, die über das API-Gateway OpenRouter geleitet werden (Referenzmodell: OpenAI GPT-5.6 Luna). Verschiedene interne Funktionen (Rückfragen, Recherche, Tiefenrecherche, Memory-Reflexion) können unterschiedliche Modelle verwenden.',
         ],
         notice:
           'Die Modellwahl ist dynamisch: Administratorinnen und Administratoren Ihrer Organisation können jede Funktion jederzeit auf ein anderes KI-Modell aus dem OpenRouter-Katalog umstellen, ohne dass eine neue Version des Dienstes erscheint. Jede Änderung wird gegen den Katalog validiert, versioniert, der handelnden Person zugeordnet und ist umkehrbar; für jede einzelne KI-Anfrage wird im Nutzungsledger festgehalten, welches Modell die Antwort tatsächlich erzeugt hat. Das Gateway (OpenRouter) und dessen Zugangsdaten können durch eine Modellauswahl niemals geändert werden — nur, welches Modell hinter diesem Gateway Ihre Organisation bedient.',
@@ -240,7 +263,7 @@ export const de: LegalContent = {
       {
         heading: 'Nachvollziehbarkeit',
         paragraphs: [
-          'Für jede Antwort protokolliert Piloti, welches Modell die Anfrage bedient hat, die verbrauchten Tokens und die Kosten, zugeordnet zu Organisation, Projekt und Nutzer. Administrative Änderungen der Modellkonfiguration erscheinen im Audit-Log der Organisation.',
+          'Für jede Antwort protokolliert ' + PRODUCT_NAME + ', welches Modell die Anfrage bedient hat, die verbrauchten Tokens und die Kosten, zugeordnet zu Organisation, Projekt und Nutzer. Administrative Änderungen der Modellkonfiguration erscheinen im Audit-Log der Organisation.',
         ],
       },
       {
@@ -254,132 +277,41 @@ export const de: LegalContent = {
 
   subprocessors: {
     title: 'Externe Dienste & Subunternehmer',
-    updated: '2026-10-10',
+    updated: '2026-11-06',
     intro:
-      'Alle externen Dienste, die bei der Nutzung von Piloti Daten verarbeiten können, sowie die vom Betreiber selbst betriebene Infrastruktur. Diese Seite setzt die in der Datenschutzerklärung genannte Transparenzzusage um.',
+      'Alle externen Dienste, die bei der Nutzung von ' + PRODUCT_NAME + ' (vormals Piloti) Daten verarbeiten können, sowie die vom Betreiber selbst betriebene Infrastruktur. Diese Seite setzt die in der Datenschutzerklärung genannte Transparenzzusage um.',
     sections: [
       {
         heading: 'Externe Auftragsverarbeiter',
-        table: {
-          headers: ['Dienst', 'Zweck', 'Verarbeitete Daten', 'Standort', 'Erforderlich?'],
-          rows: [
-            [
-              'WorkOS, Inc.',
-              'Identität & Anmeldung (SSO, MFA), Autorisierung, Audit-Log-Speicherung',
-              'Name, E-Mail, Organisationszugehörigkeit, Rollen, Anmeldeereignisse, Audit-Ereignisse (inkl. IP-Adresse)',
-              'USA',
-              'Ja',
-            ],
-            [
-              'PostHog, Inc.',
-              'Produktanalyse, Sitzungsaufzeichnung, Fehlererfassung, Umfragen, Support',
-              'Nutzer-ID (WorkOS), Organisations-ID und -Name, Rolle, Sprache, Seitenaufrufe, Bedienereignisse, Geräte- und Browserangaben, Fehlerberichte, maskierte Sitzungsaufzeichnungen, Umfrageantworten und Support-Nachrichten; KI-Metadaten und Antwort-Bewertungen aus Langfuse. Keine E-Mail-Adresse, kein Name',
-              'EU (Frankfurt); Konzern mit Sitz in den USA',
-              'Ja (Produktanalyse, Fehlererfassung); Sitzungsaufzeichnung nur stichprobenweise und nur falls aktiviert; abschaltbar in den Profil-Einstellungen',
-            ],
-            [
-              'OpenRouter, Inc.',
-              'KI-Gateway für alle Sprachmodell-, Embedding- und Bildmodell-Anfragen',
-              'Chat-Nachrichten, Dokumentauszüge, abgerufene Vorschriftenpassagen, erzeugte Antworten',
-              'USA (Gateway); vorgelagerter Modellanbieter variiert — siehe Hinweis unten',
-              'Ja',
-            ],
-            [
-              'Vorgelagerte KI-Modellanbieter (via OpenRouter, z. B. DeepSeek, OpenAI, Anthropic, Google, Meta, Mistral)',
-              'Betrieb des von Ihrer Organisation gewählten KI-Modells',
-              'Gleiche Inhalte wie OpenRouter',
-              'Abhängig vom gewählten Modell (auch außerhalb EU/EWR möglich)',
-              'Jeweils eines, je Organisation gewählt',
-            ],
-            [
-              'Tavily',
-              'Websuche für Recherchefragen',
-              'Aus Ihren Fragen abgeleitete (KI-generierte) Suchanfragen',
-              'USA',
-              'Ja (für Web-Recherche)',
-            ],
-            [
-              'Weitere Suchdienste (Exa, Serper/Google Scholar, DuckDuckGo, Polymarket)',
-              'Alternative/optionale Suchwerkzeuge',
-              'Aus Ihren Fragen abgeleitete Suchanfragen',
-              'USA / verschieden',
-              'Optional (nur falls konfiguriert)',
-            ],
-            [
-              'Modal Labs',
-              'Isolierte Code-Ausführung bei Tiefenrecherchen',
-              'Code und Daten, die der Recherche-Agent ausführt',
-              'USA',
-              'Optional (nur falls konfiguriert)',
-            ],
-            [
-              'NVIDIA (integrate.api.nvidia.com)',
-              'Embeddings und Bild-/Tabellenextraktion aus Dokumenten (Standardkonfiguration; die Produktions-Referenzkonfiguration leitet dies stattdessen über OpenRouter)',
-              'Dokument-Textabschnitte und Seitenbilder',
-              'USA',
-              'Abhängig von der Deployment-Konfiguration',
-            ],
-            [
-              'Moonshot AI (Kimi)',
-              'Alternative KI-Modellkonfiguration',
-              'Chat-Nachrichten und Dokumentauszüge',
-              'China',
-              'Optional (Nicht-Standard-Konfiguration)',
-            ],
-            [
-              'OpenAI, Inc. (direkt)',
-              'Alternative Modellkonfiguration; Fallback für die Projekt-Zusammenfassung',
-              'Chat-Nachrichten, Dokumentauszüge, Projektprofil-Text',
-              'USA',
-              'Optional (nur falls konfiguriert)',
-            ],
-            [
-              'Hosting-Anbieter',
-              'Betrieb der Anwendung, Datenbanken und des Objektspeichers',
-              'Alle Anwendungsdaten',
-              '[Ergänzen: Anbieter & Region]',
-              'Ja',
-            ],
-          ],
-        },
+        // Zeilen aus dem Datenfluss-Register (configs/subprocessors/*.yaml), nicht hier bearbeiten.
+        table: PAGE.processors,
         notice:
           'Dynamische Modellanbieter: Da Organisations-Administratorinnen und -Administratoren das KI-Modell zur Laufzeit wechseln können (siehe KI-Transparenzhinweis), ist der tatsächliche vorgelagerte Modellanbieter nicht fest. Der gesamte KI-Verkehr läuft stets über OpenRouter; die Menge möglicher vorgelagerter Anbieter ist auf den OpenRouter-Katalog beschränkt; die für Ihre Organisation aktive Auswahl ist für Ihre Administratorinnen und Administratoren einsehbar, jede Änderung wird audit-protokolliert, und das antwortende Modell wird je Anfrage festgehalten.',
       },
       {
         heading: 'Selbst betriebene Infrastruktur (keine Drittverarbeitung)',
-        table: {
-          headers: ['Komponente', 'Zweck', 'Gespeicherte Daten'],
-          rows: [
-            ['PostgreSQL', 'Anwendungsdatenbank', 'Projekte, Konversationen, Memory, Nutzungsledger, Konfiguration'],
-            ['SeaweedFS (S3-kompatibel)', 'Objektspeicher', 'Hochgeladene Dokumente'],
-            ['ChromaDB', 'Vektorindex', 'Embeddings von Dokumenten und Vorschriften'],
-            ['Dragonfly (Redis-kompatibel)', 'Cache, Rate-Limiting', 'Kurzlebige Betriebsdaten'],
-          ],
-        },
+        table: PAGE.selfHosted,
       },
       {
-        heading: 'Optionale Telemetrie (standardmäßig deaktiviert)',
+        heading: 'Öffentliche Rechtsquellen (keine Auftragsverarbeiter)',
         paragraphs: [
-          'Die Codebasis unterstützt optionale Tracing-/Monitoring-Integrationen, die inaktiv sind, solange der Betreiber sie nicht ausdrücklich konfiguriert. Wird eine davon für ein Deployment aktiviert, wird diese Seite entsprechend aktualisiert, denn sie würden die unten genannten Daten erhalten:',
+          'Für Antworten zum Baurecht ruft ' + PRODUCT_NAME + ' öffentliche Rechtsquellen ab. Diese Stellen erhalten Suchbegriffe und Kennungen von Vorschriften, keine Dokumente Ihrer Organisation:',
         ],
-        list: [
-          'LangSmith (LangChain, USA) — vollständige KI-Eingaben und -Antworten, falls Tracing aktiviert wird.',
-          'OpenTelemetry/Phoenix-Trace-Export — KI-Anfrage-Traces, nur an einen vom Betreiber konfigurierten Endpunkt.',
-          'Datadog RUM (USA) — Browser-Performance-/Nutzungstelemetrie, falls vom Deployment eingebunden.',
-          'Weights & Biases (USA) — Evaluierungsläufe; derzeit mit keinem Codepfad verbunden.',
+        list: PAGE.publicSources,
+      },
+      {
+        heading: 'Unterstützt, aber nicht in Gebrauch',
+        paragraphs: [
+          'Die Codebasis kann die folgenden Dienste ansprechen; keiner ist in Gebrauch. Ein Deployment, in dem sich Personen anmelden, startet nicht, solange einer davon konfiguriert ist, ohne zuvor oben als Auftragsverarbeiter gelistet zu sein. Sie würden die genannten Daten erhalten:',
         ],
+        list: PAGE.latent,
       },
       {
         heading: 'Entwicklungs- und Build-Dienste (keine Nutzerinhalte)',
         paragraphs: [
-          'Die folgenden Dienste werden für Entwicklung und Build von Piloti genutzt. Sie verarbeiten Quellcode und Build-Artefakte, niemals Ihre Eingaben, Dokumente oder Kontodaten:',
+          'Die folgenden Dienste werden für Entwicklung, Build und Betrieb von ' + PRODUCT_NAME + ' genutzt. Sie verarbeiten Quellcode, Build-Artefakte und Domainnamen, niemals Ihre Eingaben, Dokumente oder Kontodaten:',
         ],
-        list: [
-          'GitHub (USA) — Quellcode-Hosting, CI-Pipelines, Sicherheits-Scans.',
-          'SonarSource / SonarQube Cloud (EU/CH) — statische Analyse des Quellcodes.',
-          'Paket-Registries und Basis-Images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build-Zeit geladen werden.',
-          'Google Fonts — Schriften werden einmalig zur Build-Zeit geladen und selbst gehostet; Ihr Browser kontaktiert bei der Nutzung von Piloti niemals Google.',
-        ],
+        list: PAGE.build,
       },
       {
         heading: 'Änderungen dieser Liste',

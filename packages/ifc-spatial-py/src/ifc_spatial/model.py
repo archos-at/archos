@@ -49,7 +49,11 @@ import ifcopenshell.util.shape as us
 import ifcopenshell.util.unit as uu
 import numpy as np
 
+from .crash_probe import PARSER_CRASH_REASON
+from .crash_probe import crashes_the_parser
 from .envelope import ElementRef
+from .parser_refusal import parser_refusal
+from .project_units import project_unit_scale
 
 # ── kinds ───────────────────────────────────────────────────────────────────
 #
@@ -156,7 +160,7 @@ class ModelTooLargeError(ModelUnreadableError):
 
 
 def _preflight(path: str, max_bytes: int) -> None:
-    """Everything about the bytes that can be checked before the parser sees them.
+    """Everything about the bytes that can be checked before this process parses them.
 
     The truncation check is the one that matters. ``ifcopenshell.open`` **crashes
     the process** on a file cut mid-entity — measured on this corpus: a Duplex
@@ -166,9 +170,7 @@ def _preflight(path: str, max_bytes: int) -> None:
     before handing the bytes over. A complete SPF file ends with
     ``END-ISO-10303-21;``; a truncated download essentially never does.
 
-    This is a guard, not a validator. A file can still be malformed in ways only
-    the parser discovers, which is why the design doc's "extraction becomes a
-    worker" (§11) remains the real answer and this is the cheap half of it.
+    Last comes a trial parse in a child; the design doc's worker (§11) remains the real answer.
     """
     if not isinstance(path, (str, os.PathLike)):
         raise ModelUnreadableError(str(path), "Kein Dateipfad übergeben.")
@@ -183,13 +185,12 @@ def _preflight(path: str, max_bytes: int) -> None:
     if size > max_bytes:
         raise ModelTooLargeError(path, size, max_bytes)
 
-    try:
-        with open(path, "rb") as handle:
-            head = handle.read(64)
-            handle.seek(max(0, size - 4096))
-            tail = handle.read(4096)
-    except OSError as error:
-        raise ModelUnreadableError(path, f"Diese Datei ist nicht lesbar ({error}).") from None
+    # A failed read stays an `OSError`, as in `getsize` above: it says nothing
+    # about the bytes, so it must not reach a person as a refusal of the file.
+    with open(path, "rb") as handle:
+        head = handle.read(64)
+        handle.seek(max(0, size - 4096))
+        tail = handle.read(4096)
 
     if not head.lstrip()[:12].upper().startswith(b"ISO-10303-21"):
         raise ModelUnreadableError(
@@ -205,6 +206,8 @@ def _preflight(path: str, max_bytes: int) -> None:
             "bringt den Parser zum Absturz und wird deshalb gar nicht erst geöffnet; die Datei bitte "
             "vollständig neu hochladen.",
         )
+    if crashes_the_parser(path):
+        raise ModelUnreadableError(path, PARSER_CRASH_REASON)
 
 
 class UnknownElementError(KeyError):
@@ -388,16 +391,13 @@ class SpatialModel:
         t0 = time.perf_counter()
         try:
             self.file = ifcopenshell.open(path)
-        except ModelUnreadableError:
+            self.open_seconds = time.perf_counter() - t0
+            # In here because a unit the file cannot state is a broken file too.
+            self.unit_scale = project_unit_scale(self.file, path)
+        except ModelUnreadableError, MemoryError, OSError:  # no memory or a failed read: no refusal of the file
             raise
         except BaseException as error:  # noqa: BLE001 — every parser failure, one refusal
-            raise ModelUnreadableError(
-                str(path),
-                f"IfcOpenShell konnte diese Datei nicht lesen ({type(error).__name__}: {error}). "
-                "Entweder ist das Schema nicht unterstützt oder die Datei ist beschädigt.",
-            ) from None
-        self.open_seconds = time.perf_counter() - t0
-        self.unit_scale = uu.calculate_unit_scale(self.file)
+            raise ModelUnreadableError(str(path), parser_refusal(error)) from None
 
         self._settings = ifcopenshell.geom.settings()
         self._settings.set("use-world-coords", True)

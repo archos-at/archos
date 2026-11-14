@@ -7,6 +7,8 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import { useLayoutStore } from '@/features/layout/store'
 import { storedStep } from '@/test-utils/wire-v2-steps'
 import type { StoredThinkingStep } from '@/lib/conversations/message-provenance'
+import type { ConfidenceCheck } from '@/lib/conversations/confidence-check'
+import type { RetrievalLedger } from '@/lib/conversations/message-retrieval-ledger'
 import {
   MOCKUP_QUESTION,
   failedCallCitations,
@@ -17,6 +19,7 @@ import {
   singleReadCitations,
   singleReadScene,
 } from '@/test-utils/work-list-scenes'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** The copy as the English dictionary words it, so a retune of a phrase is not a broken spec. */
 const tEn = translatorFor(chatCopy, 'en')
@@ -363,7 +366,7 @@ describe('ChatThinking', () => {
       // Header chip + inline notice both show the reconnecting/checking copy …
       expect(header().getByText('Fetching the answer')).toBeInTheDocument()
       expect(
-        screen.getByText('Piloti is still working — the answer appears here as soon as it is ready …')
+        screen.getByText(`${PRODUCT_NAME} is still working — the answer appears here as soon as it is ready …`)
       ).toBeInTheDocument()
       // … and the "answer lost" copy must NOT appear while we are still checking.
       expect(screen.queryByText('Interrupted')).not.toBeInTheDocument()
@@ -563,7 +566,7 @@ describe('ChatThinking', () => {
       render(<ChatThinking steps={steps} />)
 
       const triggerText = screen.getByText('Trace')
-      const outerDiv = triggerText.closest('.rounded-2xl.shadow-xs')
+      const outerDiv = triggerText.closest('.rounded-surface.shadow-xs')
       expect(outerDiv).toBeInTheDocument()
     })
   })
@@ -956,6 +959,155 @@ describe('ChatThinking', () => {
     test('no warning while the turn works', () => {
       render(<ChatThinking steps={foldScene(failedCallScene())} isThinking />)
       expect(screen.queryByTestId('derivation-warning')).not.toBeInTheDocument()
+    })
+
+    // The answer's own check (ADR-0139), stored on the message: two statements
+    // unbacked was a green check and „2 sources cited“ (2026-11-12).
+    const check = (level: 'low' | 'medium', count = 2): ConfidenceCheck => ({
+      status: 'judged',
+      level,
+      findings: ['Ausgabe April 2019 gilt seit 10. April 2021.', 'Mai 2023 ist nicht verbindlich.']
+        .slice(0, count)
+        .map((statement) => ({ statement, problem: 'unbacked' as const, reason: '', source: 'none' })),
+    })
+    const trigger = () => document.querySelector('[data-derivation-trigger]')!
+
+    test('an answer its check rated low for unbacked statements is a warning, not a green check', () => {
+      render(
+        <ChatThinking
+          steps={foldScene(failedCallScene())}
+          citations={failedCallCitations()}
+          confidenceCheck={check('low')}
+          isThinking={false}
+        />
+      )
+      // The finding outranks the failed call.
+      expect(screen.getByTestId('derivation-warning')).toHaveTextContent(
+        plain(tEn('thinking.derivationWarning.unbacked', { count: 2 }))
+      )
+      expect(trigger().querySelector('.text-success')).toBeNull()
+      expect(trigger().querySelector('.text-warning')).not.toBeNull()
+      // Said as its own phase, not „Done“.
+      expect(trigger()).toHaveAccessibleName(new RegExp(`^${tEn('thinking.flagged')} · `))
+    })
+
+    test('a mostly backed answer keeps its check, and the pill names what is unbacked', () => {
+      render(
+        <ChatThinking
+          steps={foldScene(mockupScene())}
+          citations={mockupCitations()}
+          confidenceCheck={check('medium', 1)}
+          isThinking={false}
+        />
+      )
+      expect(trigger().querySelector('.text-success')).not.toBeNull()
+      expect(screen.getByTestId('derivation-warning')).toHaveTextContent(
+        plain(tEn('thinking.derivationWarning.unbacked', { count: 1 }))
+      )
+    })
+
+    test('a clean check keeps the green check', () => {
+      render(
+        <ChatThinking
+          steps={foldScene(mockupScene())}
+          citations={mockupCitations()}
+          confidenceCheck={{ status: 'judged', level: 'high', findings: [] }}
+          isThinking={false}
+        />
+      )
+      expect(trigger().querySelector('.text-success')).not.toBeNull()
+    })
+
+    test('a general-knowledge answer with findings stays „without research“ and carries the pill', () => {
+      render(
+        <ChatThinking
+          steps={[]}
+          confidenceCheck={check('low')}
+          answerText="Eine Brandwand trennt Brandabschnitte."
+          isThinking={false}
+          userQuestion="Was ist eine Brandwand?"
+          answerConfidence="low"
+        />
+      )
+      const line = screen.getByTestId('derivation-no-research')
+      expect(plain(line.textContent)).toContain(
+        `${tEn('thinking.noResearch')} · ${plain(tEn('thinking.derivationWarning.unbacked', { count: 2 }))}`
+      )
+      expect(line.querySelector('.text-warning')).not.toBeNull()
+    })
+
+    const ledger: RetrievalLedger = [
+      {
+        index: 0,
+        key: 'status.retrieval.withQuery',
+        tools: ['knowledge_search'],
+        corpora: [],
+        docs: [{ name: 'Planungsbericht.pdf', detail: 'p.1' }],
+        newDocs: ['Planungsbericht.pdf'],
+        hits: 1,
+        documents: 1,
+      },
+    ]
+    const askBack = 'Das hängt vom Landesrecht ab.\n\nIn welchem Bundesland liegt das Bauvorhaben?'
+
+    test('an answer that read documents and then asked back is a Rückfrage, not „without research“', () => {
+      render(
+        <ChatThinking
+          steps={[]}
+          retrievalLedger={ledger}
+          confidenceCheck={check('medium', 1)}
+          answerText={askBack}
+          isThinking={false}
+          userQuestion="Welche Ausgabe der OIB-Richtlinie 6 gilt?"
+        />
+      )
+      expect(screen.queryByTestId('derivation-no-research')).not.toBeInTheDocument()
+      expect(trigger()).toHaveAccessibleName(new RegExp(`^${tEn('thinking.askedBack')} · `))
+      expect(trigger().querySelector('.text-success')).toBeNull()
+      expect(within(screen.getByRole('button')).getByText(tEn('thinking.askedBack'))).toBeInTheDocument()
+    })
+
+    test('a finding that sinks the answer outranks its question back', () => {
+      render(
+        <ChatThinking
+          steps={[]}
+          retrievalLedger={ledger}
+          confidenceCheck={check('low')}
+          answerText={askBack}
+          isThinking={false}
+          userQuestion="Welche Ausgabe der OIB-Richtlinie 6 gilt?"
+        />
+      )
+      expect(trigger()).toHaveAccessibleName(new RegExp(`^${tEn('thinking.flagged')} · `))
+    })
+
+    test('a cited answer under an assumption that invites a correction is no Rückfrage', () => {
+      render(
+        <ChatThinking
+          steps={foldScene(mockupScene())}
+          citations={mockupCitations()}
+          answerText={'Ich gehe von Wien aus: mindestens 1,00 m [1].\n\nLiegt das Projekt in einem anderen Bundesland?'}
+          isThinking={false}
+        />
+      )
+      expect(trigger()).toHaveAccessibleName(new RegExp(`^${tEn('thinking.done')} · `))
+      expect(trigger().querySelector('.text-success')).not.toBeNull()
+    })
+
+    test('an answer that asked back without researching says so in its one line', () => {
+      render(
+        <ChatThinking
+          steps={[]}
+          answerText="Welche Brandschutzklasse hat das Gebäude?"
+          isThinking={false}
+          userQuestion="Brauche ich eine Brandwand?"
+          answerConfidence="medium"
+        />
+      )
+      expect(screen.getByTestId('derivation-asked-back')).toHaveTextContent(
+        tEn('thinking.askedBackHeadline')
+      )
+      expect(screen.queryByTestId('derivation-no-research')).not.toBeInTheDocument()
     })
 
     test('a turn that looked nothing up is one line that opens nothing', () => {

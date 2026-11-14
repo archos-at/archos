@@ -15,7 +15,7 @@
  * layout DOES pass through is different: it renders a sheet, not the chrome,
  * and re-rendering a sheet on navigation is its job.)
  *
- * TWO SCOPES, TWO SHAPES. Inside a project the chrome is the 236px rail
+ * TWO SCOPES, TWO SHAPES. Inside a project the chrome is the 272px rail
  * (`AppSidebar`) — a project has sections to navigate. Above a project it is a
  * slim header (`OrgHeader`) and the page gets the full width: the org scope's
  * one real surface is the projects home, and its other destinations are sheets
@@ -24,7 +24,7 @@
  *
  * ON A PHONE the chrome has a second half: the bottom tab bar
  * (`PhoneTabBar`), mounted after `<main>` so it sits in flow under the page
- * rather than over it, and the project switcher sheet its header opens.
+ * rather than over it, and „Mehr“ (`PhoneMoreSheet`), whose first row is the project selector.
  *
  * OVERLAY ROUTES KEEP THE CHROME OF THE PAGE THEY COVER. The Archiv and the
  * Postfach are intercepted routes: a soft navigation to `/app/office-shelf` changes
@@ -44,13 +44,26 @@ import { ProductTour } from '@/features/onboarding/components/product-tour'
 import { FeedbackProvider } from '@/features/product-feedback/components'
 import { useVisualViewport } from '@/hooks/use-visual-viewport'
 import { cn } from '@/lib/utils'
+import { useTranslations } from '@/i18n'
+import { navCopy } from '@/i18n/namespaces/nav'
+import { DockedSplit } from '@/components/ui/docked-split'
+import { useMediaQuery } from '@/hooks/use-media-query'
+import { DOCK_LAYOUT_QUERY } from '@/hooks/use-is-mobile'
+import {
+  PAGE_INSET_START_VAR,
+  PAGE_INSET_TOP_VAR,
+  START_DOCK_WIDTH_MAX,
+  START_DOCK_WIDTH_MIN,
+  defaultStartDockWidth,
+  useStartDock,
+  type StartDockPanel,
+} from './start-dock'
 import { AppSidebar } from './app-sidebar'
 import { OrgHeader } from './org-header'
 import { projectIdFromPathname } from './org-sections'
 import { PhoneMoreSheet } from './phone-more-sheet'
 import { PhoneTabBar } from './phone-tab-bar'
 import { phoneTabBarHiddenOnRoute } from './phone-tabs'
-import { ProjectSwitcherSheet } from './project-switcher-sheet'
 import { useKeyboardUp } from './use-keyboard-up'
 import type { ProjectSwitcherProject } from './project-switcher'
 import type { SidebarUser } from './sidebar-user-menu'
@@ -59,7 +72,7 @@ import type { SwitchableOrganization } from '@/lib/organizations/switchable'
 
 // `/app/uploads/<id>` is the upload summary's dialog (ADR-0086), opened from
 // the Postfach over the page the reader was on.
-const OVERLAY_ROUTES = ['/app/office-shelf', '/app/inbox', '/app/uploads'] as const
+const OVERLAY_ROUTES = ['/app/office-shelf', '/app/base-knowledge', '/app/inbox', '/app/uploads'] as const
 
 function isOverlayPath(pathname: string): boolean {
   return OVERLAY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
@@ -75,22 +88,34 @@ export interface AppShellChromeProps {
   canViewOrganization: boolean
   canManagePlatform: boolean
   canAccessOfficeShelf: boolean
+  /** The office's own standards have their doorway (`office-standards`, ADR-0163). Absent: off. */
+  canAccessOfficeStandards?: boolean
   canAccessInbox: boolean
   showSkills: boolean
   showModels: boolean
+  /** The office receives project mail: Dateien carries the waiting count (ADR-0137). Absent: off. */
+  inboundMail?: boolean
   /** Which product tours start by themselves for this reader. */
   tours: TourEligibility
   /** The `(shell)` layout's `<main>` (with the page inside). */
   children: React.ReactNode
   /** The `@overlay` parallel slot — the Archiv/Postfach sheet, or null. */
   overlay: React.ReactNode
+  /**
+   * What may dock at the start edge beside the page, by panel (the Postfach).
+   * Handed down by the app layout so the shell never imports a feature; a
+   * panel the reader may not open is simply absent.
+   */
+  startDock?: Partial<Record<StartDockPanel, React.ReactNode>>
 }
 
 export function AppShellChrome({
   children,
   overlay,
+  startDock = {},
   ...chrome
 }: AppShellChromeProps): JSX.Element {
+  const t = useTranslations(navCopy)
   const pathname = usePathname() ?? ''
 
   // The last non-overlay pathname — the page the sheet covers. A ref written
@@ -113,6 +138,59 @@ export function AppShellChrome({
   // the home-indicator inset a surface at the bottom of `<main>` still has to
   // clear. Zero while the bar stands (the bar clears it) and while the
   // keyboard is up (it covers the indicator); the real inset otherwise.
+  // The panel docked beside the page: open in this tab, handed over by the
+  // layout, and with room for it. Below `lg` its list is a page of its own.
+  const dockedPanel = useStartDock((state) => state.panel)
+  const dockWidth = useStartDock((state) => state.width)
+  const setDockWidth = useStartDock((state) => state.setWidth)
+  const restoreDockWidth = useStartDock((state) => state.restoreWidth)
+  const closeDock = useStartDock((state) => state.close)
+  const restoreDock = useStartDock((state) => state.restore)
+  React.useEffect(() => restoreDock(), [restoreDock])
+  // A panel that is open because the page loaded that way (restored, or the
+  // window found wide enough on hydration) stands; only the reader's own open
+  // and close slide. Settled one frame after mount, once both have happened.
+  const [dockSettled, setDockSettled] = React.useState(false)
+  React.useEffect(() => {
+    const frame = requestAnimationFrame(() => setDockSettled(true))
+    return () => cancelAnimationFrame(frame)
+  }, [])
+  const dockFits = useMediaQuery(DOCK_LAYOUT_QUERY)
+  const dockContent = dockedPanel && dockFits ? (startDock[dockedPanel] ?? null) : null
+
+  // Where the page begins while a panel is docked: the panel's end edge and its
+  // top, published on the root so an overlay that belongs to the page (the
+  // file preview, the review, portalled to <body>) covers the page from there
+  // and leaves the panel, and the header band over both, in view. Unset
+  // otherwise, so every overlay keeps the whole window as it always did.
+  const dockFrameRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const frame = dockFrameRef.current
+    const root = document.documentElement
+    const clear = (): void => {
+      root.style.removeProperty(PAGE_INSET_START_VAR)
+      root.style.removeProperty(PAGE_INSET_TOP_VAR)
+    }
+    if (!dockContent || !frame) {
+      clear()
+      return
+    }
+    const publish = (): void => {
+      const box = frame.getBoundingClientRect()
+      root.style.setProperty(PAGE_INSET_START_VAR, `${Math.round(box.right)}px`)
+      root.style.setProperty(PAGE_INSET_TOP_VAR, `${Math.round(box.top)}px`)
+    }
+    publish()
+    const observer = new ResizeObserver(publish)
+    observer.observe(frame)
+    window.addEventListener('resize', publish)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', publish)
+      clear()
+    }
+  }, [dockContent])
+
   const keyboardUp = useKeyboardUp()
   const tabBarShown = !keyboardUp && !phoneTabBarHiddenOnRoute(solidPathRef.current)
 
@@ -147,9 +225,11 @@ export function AppShellChrome({
           canViewOrganization={chrome.canViewOrganization}
           canManagePlatform={chrome.canManagePlatform}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
+          canAccessOfficeStandards={chrome.canAccessOfficeStandards}
           canAccessInbox={chrome.canAccessInbox}
           showSkills={chrome.showSkills}
           showModels={chrome.showModels}
+          inboundMailEnabled={chrome.inboundMail}
         />
       ) : (
         <OrgHeader
@@ -161,22 +241,53 @@ export function AppShellChrome({
           canViewOrganization={chrome.canViewOrganization}
           canManagePlatform={chrome.canManagePlatform}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
+          canAccessOfficeStandards={chrome.canAccessOfficeStandards}
           canAccessInbox={chrome.canAccessInbox}
         />
       )}
-      {children}
+      {/* Always the same tree: the page is the split's first panel whether or
+          not anything is docked, so opening the Postfach never remounts it. */}
+      <DockedSplit
+        id="start-dock"
+        side="start"
+        open={dockContent !== null}
+        width={dockWidth}
+        minWidth={START_DOCK_WIDTH_MIN}
+        maxWidth={START_DOCK_WIDTH_MAX}
+        defaultWidth={defaultStartDockWidth}
+        onWidthChange={setDockWidth}
+        onDismiss={closeDock}
+        restoreWidth={restoreDockWidth}
+        resizeLabel={t('resizeDock')}
+        slide={dockSettled}
+        panel={dockContent && (
+          <div ref={dockFrameRef} className="h-full min-h-0">
+            {dockContent}
+          </div>
+        )}
+        panelClassName="border-border bg-surface-sunken border-r"
+        pageClassName="flex flex-col"
+      >
+        {children}
+      </DockedSplit>
       {tabBarShown && (
         <PhoneTabBar
           projectId={projectId}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
           canAccessInbox={chrome.canAccessInbox}
+          inboundMailEnabled={chrome.inboundMail}
         />
       )}
       {inProject && tabBarShown && (
         <PhoneMoreSheet
           projectId={projectId}
+          projects={chrome.projects}
+          organizationName={chrome.organizationName}
+          projectName={chrome.projects.find((project) => project.id === projectId)?.name ?? null}
+          user={chrome.user}
           authRequired={chrome.authRequired}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
+          canAccessOfficeStandards={chrome.canAccessOfficeStandards}
           canAccessInbox={chrome.canAccessInbox}
           showSkills={chrome.showSkills}
           canViewOrganization={chrome.canViewOrganization}
@@ -184,7 +295,6 @@ export function AppShellChrome({
           canManagePlatform={chrome.canManagePlatform}
         />
       )}
-      {inProject && <ProjectSwitcherSheet projects={chrome.projects} activeProjectId={projectId} />}
       {overlay}
     </div>
     </FeedbackProvider>

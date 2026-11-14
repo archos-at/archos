@@ -21,7 +21,7 @@
 
 import { z } from 'zod'
 import { DOCUMENT_AUTHORS } from './document-authors'
-import { DOCUMENT_LIFECYCLES } from './lifecycle-types'
+import { DOCUMENT_LIFECYCLES } from './lifecycle-vocabulary'
 import { shelfSelectorFields } from './shelf-scope'
 
 /**

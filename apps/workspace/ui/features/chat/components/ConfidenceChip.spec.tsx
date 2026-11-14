@@ -2,6 +2,7 @@ import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, test, expect } from 'vitest'
 import { ConfidenceChip } from './ConfidenceChip'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /**
  * ConfidenceChip surfaces the model's self-assessment and — when the backend
@@ -182,6 +183,37 @@ describe('ConfidenceChip for a checked answer (ADR-0139)', () => {
     expect(screen.queryByTestId('confidence-check-findings')).not.toBeInTheDocument()
   })
 
+  test('says when building law the records do not settle capped the level (ADR-0175)', async () => {
+    const user = userEvent.setup()
+    render(
+      <ConfidenceChip
+        confidence="medium"
+        cappedReason="law_unsettled"
+        check={{ status: 'judged', level: 'high', findings: [] }}
+      />
+    )
+
+    await user.hover(screen.getByRole('button'))
+
+    expect((await screen.findAllByText(/Which edition binds at this site is not yet settled/)).length).toBeGreaterThan(0)
+  })
+
+  test('says when an open point the answer names itself capped the level', async () => {
+    const user = userEvent.setup()
+    render(
+      <ConfidenceChip
+        confidence="medium"
+        cappedReason="open_point"
+        reason="Bindung der OIB-RL 2 nicht an der Quelle geprüft"
+        check={{ status: 'judged', level: 'high', findings: [] }}
+      />
+    )
+
+    await user.hover(screen.getByRole('button'))
+
+    expect((await screen.findAllByText(/Capped by the answer itself: an open point it names/)).length).toBeGreaterThan(0)
+  })
+
   test('an unavailable check shows no level and says the check did not run', async () => {
     const user = userEvent.setup()
     render(<ConfidenceChip confidence={null} check={{ status: 'unavailable', findings: [] }} />)
@@ -189,6 +221,6 @@ describe('ConfidenceChip for a checked answer (ADR-0139)', () => {
     expect(screen.getByTestId('confidence-check-unavailable')).toHaveTextContent('Evidence check unavailable')
     expect(screen.queryByText(/Confidence:/)).not.toBeInTheDocument()
     await user.hover(screen.getByRole('button'))
-    expect((await screen.findAllByText(/so Piloti shows no level/)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText(new RegExp(String.raw`so ${PRODUCT_NAME} shows no level`))).length).toBeGreaterThan(0)
   })
 })

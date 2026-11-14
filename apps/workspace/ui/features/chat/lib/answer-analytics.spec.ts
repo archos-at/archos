@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage, CitationSource } from '../types'
-import { initialTurnView, type TurnView } from './turn-fold'
+import { initialTurnView, type TurnView } from '@/lib/turns/turn-fold'
 import { answerCompletionOf } from './answer-analytics'
 
 const running = initialTurnView('turn-1', 'conv-1')
@@ -37,6 +37,7 @@ describe('answerCompletionOf', () => {
       4200
     )
     expect(completion).toEqual({
+      message_id: undefined,
       outcome: 'ok',
       duration_ms: 4200,
       citation_count: 3,

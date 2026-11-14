@@ -1,0 +1,5 @@
+---
+security:
+  - >
+    Langfuse moves to 4.74.0 on both images, clearing a high follow-redirects
+    finding and a dd-trace finding its 4.71.0 images carried.

@@ -1,0 +1,369 @@
+/* Page glue on top of the design system. Colours and sizes come only from the tokens in brand/tokens.css. */
+
+img,
+video {
+  max-width: 100%;
+}
+
+/* Scripts toggle `hidden` on controls (the video play button); the design system sets display on them. */
+[hidden] {
+  display: none !important;
+}
+
+.site-skip {
+  position: absolute;
+  left: var(--space-4);
+  top: var(--space-4);
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  background: var(--ink);
+  color: var(--on-ink);
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.site-skip:focus-visible {
+  transform: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Page rhythm: the gap between sections and above a grid, from the spacing tokens. */
+.page-section {
+  padding-bottom: var(--space-40);
+}
+
+.page-gap {
+  margin-top: var(--space-18);
+}
+
+/* Phone: sections sit closer, as on the reference (96px between blocks). The sub pages'
+   first section starts straight under the hero, so it takes no top padding there. */
+@media (max-width: 767px) {
+  .page-section {
+    padding-bottom: var(--space-24);
+  }
+
+  .page-main {
+    padding-top: 0;
+    padding-bottom: var(--space-24);
+  }
+}
+
+/* A filter control is a button in the blog; it keeps the link look of .ui-nav-link. */
+button.ui-nav-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Blog post: the header, then the MDX body in one readable column. Tokens only. */
+.post {
+  padding-top: var(--space-32);
+  padding-bottom: var(--space-24);
+}
+
+/* Phone: the post starts closer to the header, as the hero does. */
+@media (max-width: 767px) {
+  .post {
+    padding-top: var(--space-12);
+  }
+}
+
+.post-head {
+  max-width: var(--measure);
+}
+
+.post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+.post-title {
+  margin: var(--space-6) 0 0;
+}
+
+.post-lead {
+  margin: var(--space-6) 0 0;
+  color: var(--ink-muted);
+}
+
+.post-body {
+  max-width: var(--measure);
+  margin-top: var(--space-16);
+  color: var(--ink);
+}
+
+.post-body p,
+.post-body ul,
+.post-body ol,
+.post-body blockquote {
+  font: var(--text-body);
+  margin: var(--space-4) 0 0;
+}
+
+.post-body h2 {
+  font: var(--text-heading-2);
+  margin: var(--space-16) 0 0;
+}
+
+.post-body h3 {
+  font: var(--text-heading-3);
+  margin: var(--space-12) 0 0;
+}
+
+.post-body ul,
+.post-body ol {
+  padding-left: var(--space-6);
+}
+
+.post-body li + li {
+  margin-top: var(--space-2);
+}
+
+.post-body blockquote {
+  padding-left: var(--space-6);
+  border-left: var(--stroke-strong) solid var(--line-strong);
+  color: var(--ink-muted);
+}
+
+.post-body a {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-thickness: var(--stroke-hairline);
+  text-underline-offset: 0.25em;
+}
+
+.post-body a:hover {
+  text-decoration-thickness: var(--stroke-strong);
+}
+
+.post-body code {
+  font: inherit;
+  padding: 0 var(--space-1);
+  background: var(--surface-sunken);
+}
+
+/* What a CMS post's body can hold beyond the fixtures' Markdown (src/components/RichText.astro). */
+.post-body h4 {
+  font: var(--text-body);
+  font-weight: 600;
+  margin: var(--space-8) 0 0;
+}
+
+.post-body hr {
+  margin: var(--space-12) 0 0;
+  border: 0;
+  border-top: var(--stroke-hairline) solid var(--line-strong);
+}
+
+.post-body abbr[title] {
+  text-decoration: underline dotted;
+  text-underline-offset: 0.25em;
+}
+
+/* A table scrolls inside its own box on a phone rather than widening the page. */
+.post-table {
+  margin: var(--space-6) 0 0;
+  overflow-x: auto;
+}
+
+.post-body table {
+  border-collapse: collapse;
+  font: var(--text-small);
+}
+
+.post-body th,
+.post-body td {
+  padding: var(--space-2) var(--space-4) var(--space-2) 0;
+  border-bottom: var(--stroke-hairline) solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.post-body th {
+  border-bottom-color: var(--line-strong);
+}
+
+.post-body pre.post-code {
+  margin: var(--space-6) 0 0;
+  padding: var(--space-4);
+  overflow-x: auto;
+  background: var(--surface-sunken);
+  font: var(--text-small);
+}
+
+.post-body pre.post-code code {
+  padding: 0;
+  background: none;
+}
+
+.post-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.post-back {
+  margin: var(--space-16) 0 0;
+}
+
+/* Two columns from 1024px, stacked below (reference: the home page's split blocks). Used by
+   SectionIntro layout="split" and the founders block. */
+.site-split,
+.site-intro-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .site-split,
+  .site-intro-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: var(--space-16);
+  }
+}
+
+.site-intro-split {
+  max-width: none;
+}
+
+.site-intro-split-body > .ui-intro-lead:first-child,
+.site-intro-split-body > .ui-intro-text:first-child {
+  margin-top: 0;
+}
+
+/* The hero lead set as deliberate lines: each line keeps its length on a desktop, as on
+   the reference, instead of wrapping inside the design system's 400px column. */
+@media (min-width: 1024px) {
+  .site-hero-text-lines {
+    max-width: none;
+    width: max-content;
+  }
+}
+
+/* Home: the founders' call to action sits at the bottom of its column on a desktop. */
+.home-founders-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+
+@media (min-width: 1024px) {
+  .home-founders-action {
+    align-self: end;
+  }
+}
+
+/* Contact and demo: what happens after the hand-off to the mail program. */
+.mail-form-sent > * {
+  margin: 0;
+}
+
+.mail-form-sent > * + * {
+  margin-top: var(--space-4);
+}
+
+.mail-form-sent > .ui-btn {
+  margin-top: var(--space-8);
+}
+
+.mail-form-sent:focus {
+  outline: none;
+}
+
+/* The footer's "Cookie-Einstellungen": a button that reads like the footer's links. */
+.site-footer-consent {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.site-footer-consent:hover {
+  text-decoration: underline;
+  text-decoration-thickness: var(--stroke-hairline);
+  text-underline-offset: 0.25em;
+}
+
+.site-footer-consent:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+@media (max-width: 767px) {
+  .site-footer-consent {
+    min-height: 44px;
+  }
+}
+
+/* The consent note: a quiet card in the bottom corner, a strip along the bottom on a phone.
+   Fixed, so it shifts no layout; no overlay, the page stays usable behind it. */
+.consent-note {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  z-index: 50;
+  box-sizing: border-box;
+  max-width: var(--login-form);
+  padding: var(--space-6);
+  border: var(--stroke-hairline) solid var(--line-strong);
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+
+.consent-note-text {
+  margin: 0;
+}
+
+.consent-note-actions {
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 767px) {
+  .consent-note {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    max-width: none;
+    padding: var(--space-4) var(--gutter-mobile);
+    border-width: var(--stroke-hairline) 0 0;
+  }
+}
+
+/* Below 360px (WCAG 1.4.10 reflow at 320px) the header's wordmark, language switch, demo button
+   and menu do not fit in one row. The demo button steps back into the menu, where it also is. */
+@media (max-width: 359px) {
+  .ui-header-actions > .ui-btn-primary {
+    display: none;
+  }
+}
+
+/* Not found: the two ways on. */
+.not-found-actions {
+  margin-top: var(--space-8);
+}
+
+/* Home: the "Gebaut für" image is a 3:1 strip on desktop; on a phone it is 4:3 so the plan reads. */
+@media (max-width: 767px) {
+  .home-built-image {
+    aspect-ratio: 4 / 3 !important;
+    object-position: 50% center !important;
+  }
+}
+
+/* The header's Login and its signed-in twin "App öffnen": one is shown, chosen before paint by
+   src/scripts/signed-in.js. Both have the same size class, so nothing shifts. */
+html[data-signed-in] .site-signed-out,
+html:not([data-signed-in]) .site-signed-in {
+  display: none;
+}

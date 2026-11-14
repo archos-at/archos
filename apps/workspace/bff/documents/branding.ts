@@ -51,6 +51,8 @@ import { z } from 'zod'
 import { AI_GENERATOR_NAME } from '@/lib/ai-provenance'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { defaultLocale, isLocale, locales, type Locale } from '@/i18n/config'
+import { translatorFor } from '@/i18n/namespace'
+import { answerExportCopy } from '@/i18n/namespaces/answer-export'
 import { getOrgSettings } from '@/lib/organizations/service'
 
 /**
@@ -149,6 +151,14 @@ export interface DocumentBranding {
    * object to read instead of two imports, not so it can be changed.
    */
   aiGeneratorName: string
+  /**
+   * The Art. 50(1) AI Act disclosure: an AI system wrote this, for whom.
+   *
+   * From the i18n dictionaries (`answerExport.aiDisclosure`), never from the
+   * template an organization may override: an office can rename its header,
+   * not remove what the law requires the document to say.
+   */
+  aiDisclosure: string
 }
 
 /**
@@ -397,6 +407,7 @@ export async function resolveDocumentBranding(
   const template = branding.copy[locale] ?? branding.copy[defaultLocale]
 
   const organization = input.organizationName?.trim()
+  const disclose = translatorFor(answerExportCopy, locale, 'aiDisclosure')
   const values: TemplateValues = { product: template.productName, organization }
 
   return {
@@ -411,5 +422,8 @@ export async function resolveDocumentBranding(
     disclaimer: fillTemplate(template.disclaimer, values),
     logo: branding.logo,
     aiGeneratorName: AI_GENERATOR_NAME,
+    aiDisclosure: organization
+      ? disclose('withOrganization', { organization })
+      : disclose('withoutOrganization'),
   }
 }

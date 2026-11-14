@@ -1,0 +1,15 @@
+---
+# area: general
+improvements:
+  - >
+    The sidebar inside a project reads lighter again: smaller, quieter text,
+    a thin line along its edge, and more room between the office's places and
+    your name at the bottom.
+  - >
+    Your ten most recent chats now stand under „Letzte Chats“ below the
+    project's sections, while the sections above and the office's places below
+    stay where they are; „Alle Chats“ at the end of the list opens the whole
+    chat history, and a click on „Letzte Chats“ folds the list away.
+  - >
+    The project list that opens from the project's name is as wide as the
+    sidebar's button instead of running past its edge.

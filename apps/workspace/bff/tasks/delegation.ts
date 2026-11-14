@@ -42,11 +42,12 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import type { JobOutput } from '@/lib/db/schema/jobs'
 import type { NewTaskDefinition, TaskDefinition, TaskRun } from '@/lib/db/schema/task-model'
-import type { DelegatableTaskKind, TaskPlan } from '@/lib/db/schema/tasks'
-import { DELEGATABLE_TASK_KINDS } from '@/lib/db/schema/tasks'
+import type { DelegatableTaskKind, TaskPlan } from '@/lib/db/schema/task-model'
+import { DELEGATABLE_TASK_KINDS } from '@/lib/db/schema/task-model'
 import { createTaskThread, submitAgentRun } from '@/lib/jobs/service'
 import { JobSubmitError, JobSubmitSkippedError } from '@/lib/jobs/backend-client'
 import { minIntervalMinutesFromEnv, nextOccurrence, validateCron } from '@/lib/jobs/schedule'
+import { syncScheduledRun } from '@/lib/scheduling/scheduled-runs'
 import { AGENT_RUN_INPUT_MAX_CHARS, emptySkillSnapshot } from '@/lib/jobs/types'
 import { formatCount } from '@/lib/format'
 import { isEmptyPlanDocuments, type PlanDocuments } from '@/lib/runs/plan-documents'
@@ -57,8 +58,10 @@ import {
 } from '@/lib/conversations/restricted-egress'
 import type { Locale } from '@/i18n/config'
 import * as repository from './repository'
+import { recordSubmission } from './run-moves'
 import { submittedRunStatus } from './task-vocabulary'
 import { TASK_GOAL_MAX_CHARS } from './wire'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 // Re-exported so a caller reaching for the bound has one place to look, while
 // the DECLARATION stays in the wire module the route parses with.
@@ -147,7 +150,7 @@ const TASK_ENGINES: Record<DelegatableTaskKind, TaskEngine> = {
         'Schreibe das beauftragte Dokument VOLLSTÄNDIG als deine Antwort, in Markdown,',
         'mit einer Überschrift (`# …`) am Anfang. Die Antwort IST das Dokument: keine',
         'Zusammenfassung davor, keine Rückfrage, kein „ich könnte".',
-        'Piloti legt es danach als ENTWURF im Projekt ab und legt es zur Freigabe vor —',
+        PRODUCT_NAME + ' legt es danach als ENTWURF im Projekt ab und legt es zur Freigabe vor —',
         'behaupte nicht, es sei freigegeben.',
         '',
         'Der Auftrag, wörtlich:',
@@ -171,7 +174,7 @@ const TASK_ENGINES: Record<DelegatableTaskKind, TaskEngine> = {
         'geschrieben hat, und gib das ÜBERARBEITETE DOKUMENT vollständig als deine',
         'Antwort aus, in Markdown, mit Überschrift. Die Antwort IST die neue Fassung:',
         'keine Liste der Änderungen, kein Kommentar davor.',
-        'Piloti macht daraus die nächste Version desselben Dokuments und legt sie wieder',
+        PRODUCT_NAME + ' macht daraus die nächste Version desselben Dokuments und legt sie wieder',
         'zur Freigabe vor.',
         '',
         'Der Auftrag, wörtlich:',
@@ -364,10 +367,10 @@ export async function delegateTask(
     dueAt: input.cadence ? null : (input.dueAt ?? null),
   }
 
-  // A cadence is a STANDING definition: nothing runs until the scheduler
-  // claims it, and the requester's chat answer has to say exactly that.
+  // A cadence is a STANDING definition: nothing runs until it is due, and the chat answer says so.
   if (input.cadence) {
     const definition = await repository.insertDefinition(definitionValues)
+    await syncScheduledRun(definition)
     await recordAuditEvent({
       organizationId: session.organizationId,
       actor: { userId: session.userId, email: session.email },
@@ -411,7 +414,7 @@ export async function delegateTask(
   if (source.refusal) {
     return {
       definition,
-      run: await recordRun(run, { status: 'failed', error: source.refusal, finishedAt: new Date() }),
+      run: await recordFailedRun(run, source.refusal),
     }
   }
   return { definition, run: await dispatchRun(definition, run, input.conversationId ?? null) }
@@ -662,7 +665,7 @@ async function submitQueuedRun(run: TaskRun, target: DispatchTarget): Promise<Ta
           ? error.message
           : 'Unexpected error while preparing the run'
     console.error('[runs] could not submit run', run.id, error)
-    return recordRun(run, { status: 'failed', error: detail.slice(0, 2000), finishedAt: new Date() })
+    return recordFailedRun(run, detail.slice(0, 2000))
   }
   // From here the job exists on the backend. A failure to record that is not
   // a failed run (#723): marking it `failed` told the reader the work had not
@@ -670,30 +673,30 @@ async function submitQueuedRun(run: TaskRun, target: DispatchTarget): Promise<Ta
   // threw as well. The worker's run ledger addresses the run by its id, so the
   // row catches up when the database is back.
   const { backendJobId, conversationId, runMessageId } = submitted
-  const status = submittedRunStatus(submitted)
-  return recordRun(run, {
-    status,
-    backendJobId,
-    conversationId,
-    runMessageId,
-    // A queued run has not started: the worker's first flush stamps it (`applyRunLedgerOp`).
-    startedAt: status === 'running' ? new Date() : null,
-  })
+  const submission = { status: submittedRunStatus(submitted), backendJobId, conversationId, runMessageId }
+  try {
+    return (await recordSubmission(run.id, run.organizationId, submission)) ?? run
+  } catch (error) {
+    console.error('[runs] could not record run', run.id, submission.status, backendJobId, error)
+    return { ...run, ...submission, startedAt: submission.status === 'running' ? new Date() : null }
+  }
 }
 
 /**
- * Store what happened to a run, and return the row as it now is.
+ * End a run that never reached the worker as `failed`, and return the row as
+ * it now is: an ending, so it is written by the lifecycle's one close and an
+ * ending that already stands (the kill switch's) is kept and returned.
  *
  * Never throws: when the write fails, the run as this process knows it is
- * returned with the patch applied, and the failure is logged with the run's
- * id beside what could not be written.
+ * returned as failed, and the failure is logged with the run's id.
  */
-async function recordRun(run: TaskRun, patch: Partial<TaskRun>): Promise<TaskRun> {
+async function recordFailedRun(run: TaskRun, error: string): Promise<TaskRun> {
   try {
-    return (await repository.updateRun(run.id, run.organizationId, patch)) ?? run
-  } catch (error) {
-    console.error('[runs] could not record run', run.id, patch.status, patch.backendJobId ?? '', error)
-    return { ...run, ...patch }
+    const closed = await repository.closeActiveRun(run.id, run.organizationId, { status: 'failed', error })
+    return closed ?? (await repository.findRunById(run.id)) ?? run
+  } catch (cause) {
+    console.error('[runs] could not record run', run.id, 'failed', cause)
+    return { ...run, status: 'failed', error, finishedAt: new Date() }
   }
 }
 
@@ -746,6 +749,6 @@ function tooLongToRevise(length: number, budget: number): string {
   return [
     `Das Dokument ist mit ${formatCount(length, 'de-AT')} Zeichen zu lang für einen Überarbeitungsauftrag`,
     `(höchstens ${formatCount(budget, 'de-AT')} Zeichen). Die zurückgegebene Fassung bleibt unverändert;`,
-    'über „Mit Piloti besprechen“ am Dokument lässt sie sich abschnittsweise überarbeiten.',
+    'über „Mit ' + PRODUCT_NAME + ' besprechen“ am Dokument lässt sie sich abschnittsweise überarbeiten.',
   ].join(' ')
 }

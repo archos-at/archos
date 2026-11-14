@@ -13,12 +13,15 @@ import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { withOptionalTenant } from '@/lib/db/tenant-context'
 import { BadRequestError, NotFoundError, OrgMemoryDisabledError } from '@/lib/api/errors'
 import { requireMayRememberFrom } from '@/lib/conversations/cross-project-use'
+import { requireConversationKeepsMemory } from '@/lib/conversations/temporary'
 import { findProjectTenancy } from '@/lib/projects/repository'
 import {
   createProjectMemoryItem,
   createProjectMemoryItemForProject,
   organizationExists,
 } from '@/lib/projects/memory-service'
+import { resolveOfficeTopicForWrite, resolveTopicForAgentProjectWrite } from '@/lib/projects/memory-topics'
+import { memoryTopicField } from '@/lib/memory-topics/wire'
 import {
   memoryJudgeVerdictSchema,
   recordMemoryJudgeVerdict,
@@ -84,6 +87,11 @@ const internalMemorySchema = z
      * helped decide who reads it. Collections only, never text.
      */
     restrictionJudge: memoryJudgeVerdictSchema.optional(),
+    /**
+     * The topic the agent files the note under (ADR-0180): a short subject, reused
+     * from the shelf's topics when one matches in any case (`resolveTopic`).
+     */
+    topic: memoryTopicField.optional(),
   })
   .refine((v) => (v.scope === 'project' ? !!v.projectId : !!v.organizationId), {
     message: 'project scope requires projectId; organization scope requires organizationId',
@@ -105,6 +113,7 @@ export const POST = internalApiRoute(
       salience,
       restrictedCollections,
       restrictionJudge,
+      topic: rawTopic,
     } = await parseJsonBody(request, internalMemorySchema)
 
     // Organization memory reaches every project in the tenant, so it is never
@@ -159,6 +168,16 @@ export const POST = internalApiRoute(
         // conversation's cross-project record refuses before anything is written.
         const tenant = organizationId ?? (projectId ? (await findProjectTenancy(projectId))?.organizationId : null)
         await requireMayRememberFrom(sourceConversationId, tenant)
+        // A temporary conversation keeps nothing (ADR-0180): refused here, at
+        // the single writer, whatever the agent decided.
+        await requireConversationKeepsMemory(sourceConversationId, tenant)
+        // The topic, resolved against the shelf the note goes to (undefined: none named).
+        const topic =
+          rawTopic === undefined
+            ? undefined
+            : scope === 'project'
+              ? await resolveTopicForAgentProjectWrite(projectId as string, rawTopic)
+              : await resolveOfficeTopicForWrite(organizationId as string, rawTopic)
 
         // Reported by the service, never derived from the returned row: a duplicate
         // or paraphrase refresh returns an EXISTING item whose `supersedesId` may
@@ -184,6 +203,7 @@ export const POST = internalApiRoute(
                   ...(salience !== undefined ? { salience } : {}),
                   ...(restrictedCollections ? { restrictedCollections } : {}),
                   ...(restrictionJudge ? { restrictionJudge: restrictionJudge.verdict } : {}),
+                  ...(topic === undefined ? {} : { topic }),
                 },
                 writeOptions
               )
@@ -198,6 +218,7 @@ export const POST = internalApiRoute(
                   sourceConversationId: sourceConversationId ?? null,
                   provenanceType,
                   ...(salience !== undefined ? { salience } : {}),
+                  ...(topic === undefined ? {} : { topic }),
                 },
                 writeOptions
               )
@@ -209,7 +230,13 @@ export const POST = internalApiRoute(
 
         // `supersededId` is null when the quote resolved to nothing, or to an entry
         // the agent may not retire — the caller can then be honest about what it did.
-        return { item, supersededId: outcome.supersededId }
+        // `created` is false when the write restated a note and that row was
+        // refreshed in place: a new row's two timestamps are one statement's
+        // `now()`, a refreshed row's `updated_at` is later. The agent then
+        // leaves it off the answer's noted chip, whose remove action would
+        // delete a note this turn did not write.
+        const created = item.createdAt.getTime() === item.updatedAt.getTime()
+        return { item, supersededId: outcome.supersededId, created }
       }
     )
   },

@@ -1,4 +1,4 @@
-// @disk-inputs: app/**, bff/**, i18n.ts, i18n.tsx, i18n/**, shared/**, test-utils.ts, test-utils.tsx, tests/fixtures/backend-tools.schema.json.ts, tests/fixtures/backend-tools.schema.json.tsx, tests/fixtures/backend-tools.schema.json/index.ts, tests/fixtures/backend-tools.schema.json/index.tsx, tests/mocks/server.ts, tests/test-utils/index.ts, tests/test-utils/index.tsx, types/**, ui/**, utils/**, workers/database-unavailable.js.ts, workers/database-unavailable.js.tsx, workers/database-unavailable.js/index.ts, workers/database-unavailable.js/index.tsx
+// @disk-inputs: app/**, bff/**, i18n.ts, i18n.tsx, i18n/**, shared/**, test-utils.ts, test-utils.tsx, tests/fixtures/backend-tools.schema.json.ts, tests/fixtures/backend-tools.schema.json.tsx, tests/fixtures/backend-tools.schema.json/index.ts, tests/fixtures/backend-tools.schema.json/index.tsx, tests/mocks/server.ts, tests/test-utils/index.ts, tests/test-utils/index.tsx, types/**, ui/**, utils/**, workers/app-database.js.ts, workers/app-database.js.tsx, workers/app-database.js/index.ts, workers/app-database.js/index.tsx, workers/database-unavailable.js.ts, workers/database-unavailable.js.tsx, workers/database-unavailable.js/index.ts, workers/database-unavailable.js/index.tsx, workers/job-queue.js.ts, workers/job-queue.js.tsx, workers/job-queue.js/index.ts, workers/job-queue.js/index.tsx, workers/langfuse-traces.js.ts, workers/langfuse-traces.js.tsx, workers/langfuse-traces.js/index.ts, workers/langfuse-traces.js/index.tsx, workers/maintenance-sql.js.ts, workers/maintenance-sql.js.tsx, workers/maintenance-sql.js/index.ts, workers/maintenance-sql.js/index.tsx
 /**
  * @vitest-environment node
  */
@@ -120,6 +120,16 @@ const OBJECT_READERS: Record<string, Disposition> = {
     exempt:
       'presigns the person’s own staged .pst for the filing job to hand the backend, whose range reader opens it for libpff: a machine reading an upload in flight, not a document’s bytes. Nobody downloads it; the mails it files are documents, logged when a person opens them.',
   },
+  'lib/inbound-mail/staging.ts::readStagedObject': {
+    exempt:
+      'reads a held mail’s staged objects (its raw message, `read.json`, an attachment) and a filed message’s original (ADR-0137): never a document. A person receives such bytes only through the held-attachment and the two original routes, each audited in its own trail (`inbound_mail.part_read`, `inbound_mail.original_read`, `mail_thread.original_read`), scanned before they leave; filed, an attachment is a document, logged when a person opens it.',
+  },
+  'lib/inbound-mail/staging.ts::streamStagedObject': {
+    exempt: 'streams a staged mail object to the malware scanner, a machine (ADR-0157). Nobody receives the bytes.',
+  },
+  'lib/inbound-mail/staging.ts::stagedObjectUrlForBackend': {
+    exempt: 'presigns the staged raw message for the Python mail reader, a machine (`POST /v1/mail/read`). Nobody downloads it.',
+  },
   'lib/s3.ts::presignForBackend': {
     exempt:
       'signs, against the in-network endpoint, the command its caller built for the backend, a machine. A caller that reads builds the GetObjectCommand itself and is classified here in its own right.',
@@ -185,6 +195,7 @@ const ROUTES: Record<string, RouteDisposition> = {
   },
   'v1/[...path]/route.ts': { exempt: 'proxy of the allowlisted JSON endpoints of the agent service (lib/proxy/v1-allowlist); no file bytes.' },
   'knowledge-base/documents/[fileName]/route.ts': { exempt: 'the platform’s shared knowledge base (norms), served from the agent service; not an organization’s document.' },
+  'platform/knowledge/documents/[fileName]/route.ts': { exempt: 'the platform operator’s read of the same shared knowledge base, released or not; not an organization’s document.' },
   'internal/document-file/route.ts': { exempt: 'agent service only: tells it where an object is; it fetches the object itself for a turn.' },
   'internal/bim/source/route.ts': { exempt: 'agent service only: a presigned IFC for the model tool.' },
   'internal/document-versions/[versionId]/content/route.ts': { exempt: 'agent service only: opens a turn’s subject into its working directory.' },
@@ -1183,7 +1194,7 @@ describe('download log coverage: routes', () => {
     return names
   }
 
-  const RAW_RESPONSE = /new (Next)?Response\(|\bstreamKnowledgeBaseDocument\b/
+  const RAW_RESPONSE = /new (Next)?Response\(|\bstreamKnowledgeBaseDocument(For|AsPlatform)\b/
 
   function detectedRoutes(): string[] {
     const names = reaching()

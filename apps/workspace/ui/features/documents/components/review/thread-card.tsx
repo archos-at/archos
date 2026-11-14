@@ -128,7 +128,7 @@ function Message({
         {/* The name gives way, the time never wraps: „2 hours ago" on two lines reads as two facts. */}
         <p className="flex min-w-0 items-baseline gap-1.5 text-xs">
           <span
-            className="text-foreground min-w-0 truncate font-semibold"
+            className="text-foreground min-w-0 truncate font-medium"
             data-testid={authorKind === 'piloti' ? 'thread-byline' : undefined}
             title={authorKind === 'piloti' ? byline(name, { proposal }) : (name ?? undefined)}
           >
@@ -183,7 +183,7 @@ const MetaChip = forwardRef<
         !set && 'border-dashed',
         set && 'bg-secondary text-foreground border-transparent',
         // Overdue is ink and weight, not gold: gold is the Büroablage's colour.
-        tone === 'urgent' && 'text-foreground border-foreground/50 border-solid font-semibold'
+        tone === 'urgent' && 'text-foreground border-foreground/50 border-solid font-medium'
       )}
     >
       <button
@@ -199,9 +199,9 @@ const MetaChip = forwardRef<
         <span className="truncate">{children}</span>
       </button>
       {onClear && (
-        <button
+        <button data-attr="files-clear"
           type="button"
-          className="text-muted-foreground hover:text-foreground mr-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="text-muted-foreground hover:text-foreground mr-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/60"
           aria-label={clearLabel}
           onClick={onClear}
         >
@@ -323,12 +323,12 @@ function ResponsibilityRow({
 function KindPicker({ value, onChange }: { value: AnnotationKind; onChange: (kind: AnnotationKind) => void }) {
   const t = useTranslations(filesCopy)
   return (
-    <div role="group" aria-label={t('annotations.kind')} className="bg-muted inline-flex rounded-md p-0.5">
+    <div role="group" aria-label={t('annotations.kind')} className="bg-muted inline-flex rounded-control p-0.5">
       {ANNOTATION_KINDS.map((kind) => {
         const Icon = KIND_ICONS[kind]
         const on = kind === value
         return (
-          <button
+          <button data-attr="files-change"
             key={kind}
             type="button"
             aria-pressed={on}
@@ -423,7 +423,7 @@ export function ReviewCard({
       aria-label={labelledBy ? undefined : label}
       className={cn(
         'focus-visible:ring-ring/60 outline-none focus-visible:ring-2',
-        'bg-popover text-popover-foreground border-border/70 animate-in fade-in-0 zoom-in-95 duration-base ease-entrance motion-reduce:animate-none w-[20rem] rounded-xl border shadow-xl',
+        'bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 duration-base ease-entrance motion-reduce:animate-none w-[20rem] rounded-overlay shadow-xl',
         'flex max-h-(--card-max-height) flex-col',
         PLACEMENT_CLASSES[placement]
       )}
@@ -448,7 +448,7 @@ function AgentThreadRow({ ask, review }: { ask: CanvasAsk; review: DocumentRevie
   const [adoptFailed, setAdoptFailed] = useState(false)
   const line = liveLine(stepsOf(ask.view), tChat) ?? t('review.piloti.replying')
   const close = (
-    <button
+    <button data-attr="files-dismiss"
       type="button"
       className="text-muted-foreground hover:text-foreground ml-auto shrink-0 self-start rounded p-0.5"
       aria-label={t('review.piloti.close')}
@@ -469,7 +469,7 @@ function AgentThreadRow({ ask, review }: { ask: CanvasAsk; review: DocumentRevie
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             className="h-7 text-xs"
             disabled={adopting}
             onClick={async () => {
@@ -653,7 +653,7 @@ function RevisionLines({
         {target && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="h-7 self-start text-xs"
             disabled={busy}
@@ -691,7 +691,7 @@ function RevisionLines({
   }
   if (lines.length === 0) return null
   return (
-    <div className="text-muted-foreground bg-muted/40 space-y-1 border-b px-3 py-1.5 text-[11px] leading-4">{lines}</div>
+    <div className="text-muted-foreground bg-muted space-y-1 border-b px-3 py-1.5 text-[11px] leading-4">{lines}</div>
   )
 }
 
@@ -1058,7 +1058,7 @@ export function ThreadCard({
     <ReviewCard placement={placement} testId="review-thread" labelledBy={headerId}>
       <RevisionLines review={review} annotation={annotation} busy={busy} onCarry={() => void act(() => review.carry(annotation))} />
       {walk && proposed && (
-        <div className="bg-muted/40 flex items-center gap-2 border-b py-1 pr-1.5 pl-3" data-testid="thread-walk">
+        <div className="bg-muted flex items-center gap-2 border-b py-1 pr-1.5 pl-3" data-testid="thread-walk">
           <span className="text-muted-foreground text-[11px] font-medium tabular-nums">
             {t('review.walkPosition', { index: walk.index, total: walk.total })}
           </span>
@@ -1082,7 +1082,7 @@ export function ThreadCard({
         <KindIcon className="text-muted-foreground size-3.5" aria-hidden />
         {/* What the card is about, which names it as a dialog: the kind, the number, its state. */}
         <span id={headerId} className="flex min-w-0 items-center gap-1.5">
-          <span className="text-foreground text-xs font-semibold">{t(`annotations.kinds.${annotation.kind}`)}</span>{' '}
+          <span className="text-foreground text-xs font-medium">{t(`annotations.kinds.${annotation.kind}`)}</span>{' '}
           <span className="text-muted-foreground font-mono text-[11px]">#{annotation.number}</span>
           {proposed && (
             <span className="text-muted-foreground border-foreground/50 ml-1 rounded-full border border-dashed px-1.5 text-[10px] font-medium">
@@ -1218,12 +1218,12 @@ export function ThreadCard({
       </div>
 
       {proposed && annotation.canEdit && (
-        <div className="bg-muted/40 space-y-2 border-t px-3 py-2.5">
+        <div className="bg-muted space-y-2 border-t px-3 py-2.5">
           <p className="text-muted-foreground text-[11px] leading-4">{t('review.proposalHint')}</p>
           <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="h-8 justify-between text-xs"
               disabled={busy}

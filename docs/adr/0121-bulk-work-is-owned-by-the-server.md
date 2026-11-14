@@ -82,6 +82,15 @@ part upload of an archive, ADR-0085) is not a loop over server items; the server
 cannot pull those bytes, and this decision does not judge how the browser sends
 them. The rule covers a loop over items the server already holds.
 
+Nor is **one request over a small, hand-picked set** that the SERVER walks: the
+Quarantäne's multi-select (`POST /api/quarantine/decisions`, 2026-11-03) allows
+or deletes at most 50 held documents, each a row update and a dispatch or a
+delete, in a few seconds, and answers per document. The browser sends one
+request and loops over nothing, the cap keeps the request well inside its
+timeout, and a request that fails half-way leaves each document either decided
+or as it was, which the person sees on the next read of the queue. A selection
+that can grow past what one request finishes in seconds is a run.
+
 **Debt, named.** Two browser loops over server items predate this decision and
 are not yet runs:
 

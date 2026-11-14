@@ -14,6 +14,7 @@ import type { DocumentWireRow } from '../lib/file-item'
 import { handOverDroppedFiles, takeDroppedFiles } from '../lib/dropped-file-handover'
 import { SUGGESTED_SCREENING_POLICY } from '@/lib/upload-screening/policy'
 import { projectScreeningBody } from '@/mocks/handlers/upload-screening'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 function renderWorkspace(ui: ReactElement) {
   return render(
@@ -118,6 +119,18 @@ vi.mock('../hooks/use-project-documents', () => ({
 // The real portal lands in the layout header; unit tests have no slot.
 vi.mock('@/components/shell/project-section-frame', () => ({
   ProjectSectionActions: ({ children }: { children: ReactNode }) => children,
+  // No tabs row in the spec: the root's tools stay on the path row, where the specs look for them.
+  ProjectSectionTabActions: () => null,
+  useSectionTabActionsSlot: () => false,
+  // No header in the spec either: a folder keeps its path row, where the specs look for the way back.
+  ProjectSectionPlace: () => null,
+  useSectionPlaceSlot: () => false,
+  // Outside the frame: no tool row, so no tier, the level's tools on the path row and Hochladen as it is.
+  useSectionToolTier: () => null,
+  SectionLevelTools: () => null,
+  useSectionNewFolder: () => null,
+  useSectionPrimaryYields: () => false,
+  useInSectionToolRow: () => false,
 }))
 
 // useFileDragDrop reads accepted MIME types from AppConfig for its drag affordance.
@@ -776,7 +789,7 @@ describe('ProjectFileWorkspace — a picked file the project already holds', () 
     renderWithCorpus()
 
     await userEvent.click(screen.getByTestId('file-filter-menu-trigger'))
-    await userEvent.click(await screen.findByLabelText('By Piloti'))
+    await userEvent.click(await screen.findByLabelText(`By ${PRODUCT_NAME}`))
     await waitFor(() => expect(searches.at(-1)).toContain('authoredBy=agent'))
     await userEvent.keyboard('{Escape}')
 
@@ -967,7 +980,7 @@ describe('ProjectFileWorkspace — server-seeded first paint', () => {
     expect(await findFileButton(/Einreichplan\.pdf/)).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /filter/i }))
-    await userEvent.click(await screen.findByLabelText('By Piloti'))
+    await userEvent.click(await screen.findByLabelText(`By ${PRODUCT_NAME}`))
 
     // The seed is spent by the mount, not by the component's lifetime: a filter
     // that only the server can apply must still reach it.
@@ -1345,7 +1358,7 @@ describe('ProjectFileWorkspace — saved tags survive reselect', () => {
     await user.click(await screen.findByRole('button', { name: 'Correct' }))
     await user.type(await screen.findByRole('textbox', { name: /add tag/i }), 'Brandschutz{Enter}')
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove tag Brandschutz' })).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Remove tag Fire safety' })).toBeDefined()
     )
 
     // Switch to doc-b (the pane re-seeds from the newly selected file's tags)...
@@ -1364,9 +1377,9 @@ describe('ProjectFileWorkspace — saved tags survive reselect', () => {
     // The reading is static again; open the editor to see what was saved.
     await user.click(await screen.findByRole('button', { name: 'Correct' }))
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove tag Brandschutz' })).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Remove tag Fire safety' })).toBeDefined()
     )
-    expect(screen.getByRole('button', { name: 'Remove tag Grundriss' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Remove tag Floor plan' })).toBeDefined()
   })
 })
 
@@ -1854,7 +1867,7 @@ describe('ProjectFileWorkspace — the Von Piloti filter', () => {
     // header. The rule it tests is unchanged: the filter is a QUERY, not a
     // client-side pass over rows already fetched.
     await userEvent.click(screen.getByTestId('file-filter-menu-trigger'))
-    await userEvent.click(await screen.findByLabelText('By Piloti'))
+    await userEvent.click(await screen.findByLabelText(`By ${PRODUCT_NAME}`))
 
     await waitFor(() => expect(searches.at(-1)).toContain('authoredBy=agent'))
     expect(searches.at(-1)).toContain('projectId=proj-1')
@@ -1874,7 +1887,7 @@ describe('ProjectFileWorkspace — the Von Piloti filter', () => {
     await waitFor(() => expect(searches.length).toBeGreaterThan(0))
 
     await userEvent.click(screen.getByTestId('file-filter-menu-trigger'))
-    const check = await screen.findByLabelText('By Piloti')
+    const check = await screen.findByLabelText(`By ${PRODUCT_NAME}`)
     await userEvent.click(check)
     await waitFor(() => expect(searches.at(-1)).toContain('authoredBy=agent'))
     await userEvent.click(check)
@@ -2543,6 +2556,12 @@ describe('ProjectFileWorkspace — Fassungen', () => {
  * the arrangement that replaced them, and the selection that makes moving five
  * photos one gesture.
  */
+/** A phone's root keeps „Auswählen“ in the header's ⋯. */
+async function startPicking(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(await screen.findByTestId('files-more'))
+  await user.click(await screen.findByTestId('selection-start'))
+}
+
 describe('ProjectFileWorkspace — on a phone', () => {
   const photo = (id: string, filename: string): DocumentWireRow => ({
     id,
@@ -2649,8 +2668,8 @@ describe('ProjectFileWorkspace — on a phone', () => {
     )
     renderWorkspace(phoneWorkspace())
 
-    // In through „Auswählen" on the row, then pick two more.
-    await user.click(await screen.findByTestId('selection-start'))
+    // In through „Auswählen“, the first entry of the ⋯ at a phone's root, then pick two more.
+    await startPicking(user)
     expect(screen.getByTestId('selection-bar')).toBeInTheDocument()
     expect(screen.getByTestId('selection-count')).toHaveTextContent('0 selected')
     const cards = screen.getAllByTestId('file-card')
@@ -2675,7 +2694,7 @@ describe('ProjectFileWorkspace — on a phone', () => {
   it('selects every document of the level with „Alle"', async () => {
     const user = userEvent.setup()
     renderWorkspace(phoneWorkspace())
-    await user.click(await screen.findByTestId('selection-start'))
+    await startPicking(user)
     await user.click(screen.getByTestId('selection-all'))
     expect(screen.getByTestId('selection-count')).toHaveTextContent('3 selected')
   })
@@ -2683,15 +2702,28 @@ describe('ProjectFileWorkspace — on a phone', () => {
   it('ends the selection with „Fertig" and opens files again', async () => {
     const user = userEvent.setup()
     renderWorkspace(phoneWorkspace())
-    await user.click(await screen.findByTestId('selection-start'))
+    await startPicking(user)
     await user.click(screen.getByTestId('selection-done'))
     expect(screen.queryByTestId('selection-bar')).toBeNull()
     await user.click(screen.getAllByTestId('file-card')[0]!)
     await waitFor(() => expect(useFilePreviewStore.getState().file?.id).toBeDefined())
   })
 
-  it('offers no selection where the reader may only read', () => {
+  it('offers no selection where the reader may only read', async () => {
+    const user = userEvent.setup()
     renderWorkspace(phoneWorkspace({ initialRootAccess: 'read' }))
+    await user.click(await screen.findByTestId('files-more'))
     expect(screen.queryByTestId('selection-start')).toBeNull()
+    expect(screen.queryByTestId('files-new-folder')).toBeNull()
+  })
+
+  it('puts „Auswählen“ and „Ordner anlegen“ first in the ⋯ at the root, with no path row above the brief', async () => {
+    const user = userEvent.setup()
+    renderWorkspace(phoneWorkspace())
+    await screen.findAllByTestId('file-card')
+    expect(screen.queryByTestId('folder-breadcrumb-row')).toBeNull()
+    await user.click(screen.getByTestId('files-more'))
+    expect(await screen.findByTestId('selection-start')).toBeInTheDocument()
+    expect(screen.getByTestId('files-new-folder')).toBeInTheDocument()
   })
 })

@@ -91,7 +91,7 @@ def document_position(metadata: Mapping[str, Any] | None, chunk_id: Any) -> Docu
     (``chunk_ordinal``; a chunk without one, written before the field existed, sorts after the
     numbered chunks of its place), then the chunk id, which makes the order total. A ranged read's
     cursor carries this whole key and the continuation compares the same key
-    (``read_passage``, ``qdrant/reads.fetch_from``): a cursor holding only part of it skipped
+    (``read_passage``, ``vector_store/reads.fetch_from``): a cursor holding only part of it skipped
     chunks whose part agreed but whose sort position did not (a table part filed after a later
     text chunk, an unnumbered chunk in an earlier section).
     """
@@ -118,10 +118,9 @@ class PreparedIngestJob:
     """An ingestion job validated and recorded PENDING, not yet running anywhere.
 
     ``BaseIngestor.prepare_job`` makes one; whoever holds it decides where it
-    runs: ``submit_prepared`` in this process's pool, or the durable queue for
-    any worker that claims it (``agent_host.jobs.ingest_queue``), which runs it
-    with ``run_prepared``. ``file_paths`` are local paths or deferred downloads,
-    as ``submit_job`` takes them.
+    runs: ``submit_prepared`` in this process's pool, or Hatchet, whose ingest
+    worker runs it with ``run_prepared`` (``agent.knowledge.ingest_workflow``).
+    ``file_paths`` are local paths or deferred downloads, as ``submit_job`` takes them.
     """
 
     job_id: str
@@ -465,7 +464,7 @@ class BaseIngestor(ABC):
                 zero-argument callable the job runs when it reaches the file,
                 which downloads it and returns the local path; that file is the
                 job's to delete. ``POST /v1/ingest`` hands over the latter so
-                the request downloads nothing (``knowledge_layer.deferred_files``).
+                the request downloads nothing (``knowledge_layer.ingest.deferred_files``).
             collection_name: Target collection/index name.
             config: Optional ingestion configuration (chunking, extraction, and so on).
 
@@ -474,7 +473,7 @@ class BaseIngestor(ABC):
         """
 
     @abstractmethod
-    def get_job_status(self, job_id: str) -> IngestionJobStatus:
+    def get_job_status(self, job_id: str) -> IngestionJobStatus | None:
         """
         Get the current status of an ingestion job.
 
@@ -484,10 +483,10 @@ class BaseIngestor(ABC):
             job_id: The job ID returned from submit_job.
 
         Returns:
-            IngestionJobStatus with current state.
+            IngestionJobStatus with current state; None for a job nothing knows any more, never a made-up failure.
         """
 
-    #: Whether ``prepare_job``/``run_prepared``/``attach_job_source`` work, so a
+    #: Whether ``prepare_job``/``run_prepared`` work, so a
     #: job can run in another process than the one that accepted it.
     supports_durable_jobs = False
 
@@ -510,20 +509,8 @@ class BaseIngestor(ABC):
         raise NotImplementedError
 
     def run_prepared(self, prepared: PreparedIngestJob, still_owner: Callable[[], bool] | None = None) -> None:
-        """Run a prepared job on the calling thread; ``still_owner`` says whether its claim is still held."""
+        """Run a prepared job on the calling thread; ``still_owner`` says whether it should go on."""
         raise NotImplementedError
-
-    def attach_job_source(self, source: Callable[[], Callable[[], None] | None]) -> None:
-        """Let this process's free workers claim jobs from ``source``."""
-        raise NotImplementedError
-
-    def detach_job_source(self) -> None:
-        """Stop claiming from the attached source."""
-
-    @property
-    def busy_workers(self) -> int:
-        """Workers running a job right now."""
-        return 0
 
     def find_live_job(self, dispatch_key: str) -> str | None:
         """The id of a pending or processing job submitted under ``dispatch_key``, or None.
@@ -571,8 +558,8 @@ class BaseIngestor(ABC):
         Args:
             name: Collection name to delete.
 
-        Returns:
-            True if deleted successfully, False otherwise.
+        Returns True when something was removed, False when nothing of the file
+        was there. Raises when a store fails, so a failure is never "not found".
         """
 
     @abstractmethod
@@ -658,24 +645,24 @@ class BaseIngestor(ABC):
             collection_name: Collection containing the files.
             permanent: Passed to :meth:`delete_file` for each file.
 
-        Returns:
-            Dict with 'successful' (list), 'failed' (list), 'total_deleted' (int).
+        Returns: 'successful', 'not_found' (nothing was there), 'failed' (raised:
+        points may remain) and 'total_deleted'.
         """
-        successful = []
-        failed = []
+        successful, not_found, failed = [], [], []
 
         for file_id in file_ids:
             try:
                 if self.delete_file(file_id, collection_name, permanent=permanent):
                     successful.append(file_id)
                 else:
-                    failed.append({"file_id": file_id, "error": "Not found or already deleted"})
+                    not_found.append(file_id)
             except Exception as e:
                 failed.append({"file_id": file_id, "error": str(e)})
 
         return {
             "message": f"Deleted {len(successful)} of {len(file_ids)} files",
             "successful": successful,
+            "not_found": not_found,
             "failed": failed,
             "total_deleted": len(successful),
         }

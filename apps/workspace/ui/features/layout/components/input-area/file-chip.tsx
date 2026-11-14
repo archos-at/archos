@@ -10,6 +10,7 @@ import { heldSentenceKey, quarantineVerdictOf } from '@/lib/upload-screening/qua
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { researchCopy } from '@/i18n/namespaces/research'
+import { isInlinePreviewable } from '@/lib/documents/preview-types'
 
 /**
  * The photo itself, small, on its chip: a site photo is recognised by what it
@@ -19,7 +20,9 @@ import { researchCopy } from '@/i18n/namespaces/research'
 function usePhotoThumbnail(file: File | undefined): ReactNode {
   const [url, setUrl] = useState<string | null>(null)
   useEffect(() => {
-    if (!file || !file.type.startsWith('image/') || typeof URL.createObjectURL !== 'function') {
+    // `isInlinePreviewable`, not `image/*`: a DXF from a CAD machine arrives as
+    // `image/vnd.dxf`, and an <img> of it is a broken image on the chip.
+    if (!file || !file.type.startsWith('image/') || !isInlinePreviewable(file.type) || typeof URL.createObjectURL !== 'function') {
       setUrl(null)
       return
     }
@@ -162,7 +165,7 @@ export const FileChip: FC<{
       title={`${file.fileName} — ${statusTitle}`}
     >
       {isSuccess ? (
-        <button
+        <button data-attr="chat-open"
           type="button"
           onClick={() => onOpen(file)}
           aria-label={t('inputArea.openFile', { name: file.fileName })}
@@ -180,7 +183,7 @@ export const FileChip: FC<{
         </span>
       )}
       {isFailed && !readOnly && (
-        <button
+        <button data-attr="chat-retry"
           type="button"
           onClick={() => onRetry(file.id)}
           aria-label={t('inputArea.retryUpload')}
@@ -194,7 +197,7 @@ export const FileChip: FC<{
         </button>
       )}
       {!readOnly && (
-        <button
+        <button data-attr="chat-remove"
           type="button"
           onClick={() => onRemove(file.id)}
           aria-label={t('inputArea.removeFile', { name: file.fileName })}

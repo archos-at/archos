@@ -13,12 +13,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import image_store
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-from knowledge_layer.search_results import format_results
-from knowledge_layer_testing.qdrant import FakeEmbedder
-from knowledge_layer_testing.qdrant import capture_indexed_documents
+from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import image_store
+from knowledge_layer.search import format_results
+from knowledge_layer_testing.vector_store import FakeEmbedder
+from knowledge_layer_testing.vector_store import capture_indexed_documents
 
 from agent.common.credential_resolution import ResolvedCredential
 
@@ -139,7 +139,7 @@ def test_request_upload_slot_fail_open(monkeypatch):
 
     state = {"response": _Response(200, {"uploadUrl": "http://seaweed/put", "storageKey": "org/o1/_img/0.jpg"})}
 
-    def _post(url, *, json, headers, timeout):
+    def _post(self, url, *, json, headers):
         assert url == "http://frontend:3000/api/internal/document-image-upload-url"
         assert headers["x-internal-token"] == "tok"
         calls.append(json)
@@ -147,7 +147,7 @@ def test_request_upload_slot_fail_open(monkeypatch):
 
     monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://frontend:3000/")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
-    monkeypatch.setattr(httpx, "post", _post)
+    monkeypatch.setattr(httpx.Client, "post", _post)
 
     assert image_store.request_upload_slot("d1", "proj_1", 2) == ("http://seaweed/put", "org/o1/_img/0.jpg")
     assert calls[-1] == {"documentId": "d1", "collection": "proj_1", "imageIndex": 2}
@@ -162,10 +162,10 @@ def test_request_upload_slot_fail_open(monkeypatch):
     state["response"] = _Response(200, {"uploadUrl": "", "storageKey": "k"})
     assert image_store.request_upload_slot("d1", "proj_1", 0) is None
 
-    def _boom(*_a, **_k):
+    def _boom(self, *_a, **_k):
         raise httpx.ConnectError("down")
 
-    monkeypatch.setattr(httpx, "post", _boom)
+    monkeypatch.setattr(httpx.Client, "post", _boom)
     assert image_store.request_upload_slot("d1", "proj_1", 0) is None
 
 
@@ -239,7 +239,7 @@ def _prepare_pdf_with_one_raster(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(adapter, "analyze_visual", lambda *a, **k: ("image", "A photo of the facade.", {}))
-    import knowledge_layer.llamaindex.processing as processing_module
+    import knowledge_layer.ingest.processing as processing_module
 
     monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", lambda *a, **k: [])
     pdf = tmp_path / "fassade.pdf"

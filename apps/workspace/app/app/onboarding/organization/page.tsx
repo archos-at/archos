@@ -17,6 +17,7 @@ import { OrganizationSetup } from '@/features/onboarding/components/organization
 import { TOUR_START_URL } from '@/lib/onboarding/product-tour'
 import { useTranslations } from '@/i18n'
 import { onboardingCopy } from '@/i18n/namespaces/onboarding'
+import type { HomeCountry } from '@/lib/organizations/home-country'
 
 /** The "you're in" beat before the hand-off. Long enough to read, no longer. */
 const HANDOFF_DELAY_MS = 1200
@@ -37,13 +38,13 @@ const OrganizationOnboardingPage = (): ReactNode => {
       .catch(() => {})
   }, [])
 
-  const create = async (name: string): Promise<void> => {
+  const create = async ({ name, homeCountry }: { name: string; homeCountry: HomeCountry }): Promise<void> => {
     setError(null)
     try {
       const response = await fetch('/api/organizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, homeCountry }),
       })
 
       if (!response.ok) {

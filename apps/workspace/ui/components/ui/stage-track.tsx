@@ -98,7 +98,7 @@ export function StageTrack({
     const done = index < reached
     const next = index === reached
     return cn(
-      'h-1 flex-1 rounded-full',
+      'h-1 flex-1 rounded-none',
       done && TONE_FILL[tone],
       !done && 'bg-border',
       // The segment the subject is IN: the same fill at half weight. A
@@ -137,7 +137,7 @@ export function StageTrack({
               data-stage-label={stage}
               data-current={index === current || undefined}
               className={cn(
-                'truncate text-[10.5px] leading-tight tracking-tight whitespace-nowrap',
+                'truncate text-[10.5px] leading-tight whitespace-nowrap',
                 index === current ? 'text-foreground font-medium' : 'text-muted-foreground',
               )}
             >

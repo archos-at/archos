@@ -41,6 +41,8 @@ import {
   type MentionPickerHandle,
 } from '@/features/collaboration/components/MentionPicker'
 import { AGENT_MENTION_ID, type MentionCandidate } from '@/lib/mentions/types'
+import { PRODUCT_NAME } from '@/lib/brand'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const candidate = (
   userId: string,
@@ -63,7 +65,7 @@ const candidate = (
 const CANDIDATES: MentionCandidate[] = [
   {
     targetId: AGENT_MENTION_ID,
-    person: { userId: AGENT_MENTION_ID, name: 'Piloti', email: null, profilePictureUrl: null },
+    person: { userId: AGENT_MENTION_ID, name: PRODUCT_NAME, email: null, profilePictureUrl: null },
     isAgent: true,
     isParticipant: true,
     needsInvite: false,
@@ -100,9 +102,9 @@ function PickerBlock({
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+      <SectionLabel as="h2">
         {label}
-      </h2>
+      </SectionLabel>
 
       <MentionPicker
         ref={pickerRef}
@@ -111,7 +113,7 @@ function PickerBlock({
         canInvite={canInvite}
         loading={loading}
         onSelect={(picked) => {
-          const display = picked.isAgent ? 'Piloti' : picked.person.name
+          const display = picked.isAgent ? PRODUCT_NAME : picked.person.name
           setText((current) => `${current.replace(/@[^\s]*$/, '')}@${display} `)
         }}
       />

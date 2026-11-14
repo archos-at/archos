@@ -12,6 +12,7 @@ import {
 } from "../platform/rollout";
 import { DATA_RESOURCES, PORT, SEAWEED } from "../constants";
 import { scrapeAnnotations } from "../platform/scrape";
+import { growPvcToConfigured } from "./pvc-grow";
 import type { SeaweedTopology } from "./seaweedfs-types";
 
 /**
@@ -189,7 +190,12 @@ export function installSingleNodeSeaweedFS(
                   initialDelaySeconds: 30,
                   periodSeconds: 15,
                 },
-                resources: DATA_RESOURCES.seaweedfs,
+                // CPU from the constant; memory from the stack (`singleMemory`),
+                // because memory is what killed this pod under bulk ingest.
+                resources: {
+                  requests: { ...DATA_RESOURCES.seaweedfs.requests, memory: cfg.seaweedfs.singleMemory.request },
+                  limits: { ...DATA_RESOURCES.seaweedfs.limits, memory: cfg.seaweedfs.singleMemory.limit },
+                },
               },
             ],
             volumes: [{ name: "s3config", secret: { secretName: s3Secret.metadata.name } }],
@@ -238,6 +244,18 @@ export function installSingleNodeSeaweedFS(
     },
     { provider, dependsOn: statefulSet },
   );
+
+  // The template's size is the initial size only (`ignoreChanges` above); this
+  // carries a raised `seaweedfsStorageSize` to the live volume, grow-only.
+  if (cfg.seaweedfs.growVolume) {
+    growPvcToConfigured("seaweedfs-data-size", {
+      provider,
+      namespace,
+      pvcName: `data-${SEAWEED.filer}-0`,
+      configured: cfg.seaweedfs.storageSize,
+      dependsOn: [statefulSet],
+    });
+  }
 
   return {
     workloads: [statefulSet],

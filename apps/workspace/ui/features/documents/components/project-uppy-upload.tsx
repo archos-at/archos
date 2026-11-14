@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, type MutableRefObject } from 'react'
-import { Camera, ChevronDown, FolderUp, Images, Upload } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Camera, ChevronDown, FolderPlus, FolderUp, Images, Mail, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -12,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
+import { useInSectionToolRow, useSectionNewFolder, useSectionPrimaryYields, useSectionToolTier } from '@/components/shell/project-section-frame'
 import { useCoarsePointer } from '../hooks/use-coarse-pointer'
 import { useLocale, useTranslations } from '@/i18n'
 import { captureCopy } from '@/i18n/namespaces/capture'
@@ -28,13 +30,12 @@ interface ProjectUppyUploadProps {
   folderId?: string | null
   onUpload: (files: File[]) => void
   isUploading: boolean
-  /**
-   * Visual variant of the trigger: a button (`default`/`outline`) or the
-   * dashed drop-card tile rendered inside the file card grid (`dropcard`).
-   */
-  variant?: 'default' | 'outline' | 'dropcard'
+  /** Visual variant of the trigger. */
+  variant?: 'default' | 'secondary'
   size?: 'sm' | 'default'
   label?: string
+  /** The glyph alone, its label for a screen reader only (the phone's floating 56px Hochladen). */
+  glyphOnly?: boolean
   /**
    * Offer a second trigger that picks a WHOLE FOLDER.
    *
@@ -48,6 +49,12 @@ interface ProjectUppyUploadProps {
   /** Lets a context-menu item click the hidden file input. */
   pickFilesRef?: MutableRefObject<(() => void) | null>
   pickFolderRef?: MutableRefObject<(() => void) | null>
+  /**
+   * „Per E-Mail senden …“: opens the project's mail address (ADR-0137), a
+   * project shelf's only, for a reader who may decide held mail. In this menu
+   * because forwarding a mail is one more way of bringing files here.
+   */
+  onSendByMail?: () => void
 }
 
 /**
@@ -63,9 +70,11 @@ export function ProjectUppyUpload({
   variant = 'default',
   size = 'sm',
   label,
+  glyphOnly = false,
   allowFolders = false,
   pickFilesRef,
   pickFolderRef,
+  onSendByMail,
 }: ProjectUppyUploadProps) {
   const t = useTranslations(filesCopy)
   const tCapture = useTranslations(captureCopy)
@@ -87,6 +96,14 @@ export function ProjectUppyUpload({
     }
   }, [pickFilesRef, pickFolderRef])
   const buttonLabel = label ?? t('upload.upload')
+  // The section tool row's Hochladen (`useInSectionToolRow`; never the empty state's own): its glyph alone on a narrow row, the
+  // raised press while an empty level's own Hochladen is the pane's primary, and „Neuer Ordner“ in its menu where the
+  // row has no room for that press.
+  const tier = useSectionToolTier()
+  const yields = useSectionPrimaryYields()
+  const newFolder = useSectionNewFolder()
+  const headerInstance = useInSectionToolRow() && !glyphOnly
+  const compact = headerInstance && tier === 'narrow'
   // Server-computed, flag-gated accept-list and size limit (image types only
   // when the `image-upload` flag allows). Falls back to the static defaults if
   // the AppConfig provider is somehow absent (e.g. isolated tests).
@@ -132,9 +149,7 @@ export function ProjectUppyUpload({
         accept={filesAccept}
         className="hidden"
         onChange={handleChange()}
-        data-testid={
-          variant === 'dropcard' ? 'project-upload-dropcard-input' : 'project-upload-input'
-        }
+        data-testid="project-upload-input"
       />
       {allowFolders && (
         <input
@@ -180,38 +195,12 @@ export function ProjectUppyUpload({
     </>
   )
 
-  if (variant === 'dropcard') {
-    // The REAL accepted extensions/limit, prettified ("PDF, DOCX, TXT, MD").
-    const typesLabel = acceptedTypes
-      .split(',')
-      .map((ext) => ext.trim().replace(/^\./, '').toUpperCase())
-      .filter(Boolean)
-      .join(', ')
-    return (
-      <>
-        {input}
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={isUploading}
-          data-testid="project-upload-dropcard"
-          className="flex min-h-[132px] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-card p-4 text-center transition-colors duration-quick ease-out hover:border-ring hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isUploading ? (
-            <Spinner size="default" className="text-muted-foreground" />
-          ) : (
-            <Upload className="size-5 text-muted-foreground" aria-hidden />
-          )}
-          <span className="text-sm font-medium text-foreground">
-            {isUploading ? t('upload.uploading') : t('uploadZone.dragOrBrowse')}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {typesLabel} · {t('uploadZone.maxSizeShort', { size: formatBytes(maxFileSize, locale) })}
-          </span>
-        </button>
-      </>
-    )
-  }
+  // The REAL accepted extensions and limit, prettified („PDF, DOCX, TXT, MD“), as the menu's foot says them.
+  const typesLabel = acceptedTypes
+    .split(',')
+    .map((ext) => ext.trim().replace(/^\./, '').toUpperCase())
+    .filter(Boolean)
+    .join(', ')
 
   const trigger = (
     <Button
@@ -219,12 +208,13 @@ export function ProjectUppyUpload({
       onClick={allowFolders ? undefined : () => inputRef.current?.click()}
       disabled={isUploading}
       size={size}
-      variant={variant}
-      className="gap-2"
+      variant={headerInstance && yields ? 'secondary' : variant}
+      className={cn('gap-2', compact && 'gap-1 px-2.5')}
+      title={compact ? buttonLabel : undefined}
     >
       {isUploading ? <Spinner size="sm" /> : <Upload className="size-4" aria-hidden />}
-      {isUploading ? t('upload.uploading') : buttonLabel}
-      {allowFolders && <ChevronDown className="size-3.5 opacity-70" aria-hidden />}
+      <span className={cn((glyphOnly || compact) && 'sr-only')}>{isUploading ? t('upload.uploading') : buttonLabel}</span>
+      {allowFolders && !glyphOnly && <ChevronDown className="size-3.5 opacity-70" aria-hidden />}
     </Button>
   )
 
@@ -259,7 +249,7 @@ export function ProjectUppyUpload({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className={photoEntries ? 'w-72 max-w-[calc(100vw-2rem)]' : 'w-48'}
+          className="w-72 max-w-[calc(100vw-2rem)]"
         >
           {photoEntries && (
             <>
@@ -318,6 +308,28 @@ export function ProjectUppyUpload({
               {t('upload.uploadFolder')}
             </DropdownMenuItem>
           )}
+          {headerInstance && newFolder && (
+            <DropdownMenuItem onSelect={newFolder} data-testid="project-upload-new-folder">
+              <FolderPlus className="size-4" aria-hidden />
+              {t('folders.newFolder')}
+            </DropdownMenuItem>
+          )}
+          {onSendByMail && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={onSendByMail} data-testid="project-upload-send-by-mail">
+                <Mail className="size-4" aria-hidden />
+                <DropdownMenuItemText title={t('inboundMail.sendByMail')} hint={t('inboundMail.sendByMailHint')} />
+              </DropdownMenuItem>
+            </>
+          )}
+          {/* What the grid's dashed „Dateien hierher ziehen“ tile said, where the hand already is: the page takes a drop
+              anywhere, and the formats and the limit are what a person asks before they pick. */}
+          <DropdownMenuSeparator />
+          <p className="text-muted-foreground px-2.5 pb-1.5 pt-1 text-xs leading-snug" role="note" data-testid="project-upload-limits">
+            {!touch && <span className="block">{t('uploadZone.dropAnywhere')}</span>}
+            {typesLabel} · {t('uploadZone.maxSizeShort', { size: formatBytes(maxFileSize, locale) })}
+          </p>
         </DropdownMenuContent>
       </DropdownMenu>
     </>

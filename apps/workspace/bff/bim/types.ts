@@ -12,6 +12,7 @@
  * serialized positions (drizzle round-trips `null`, not `undefined`).
  */
 
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import type { BimHealth } from './validate'
 
 /** Scalar shapes an IFC property can carry once flattened for storage. */
@@ -194,10 +195,37 @@ export interface BimModelIndex extends BimModelSummary {
   unreadableEntities: number
 }
 
-/** Lifecycle of a `bim_models` row. */
-export type BimModelStatus = 'pending' | 'extracting' | 'ready' | 'failed'
-
 export const BIM_MODEL_STATUSES = ['pending', 'extracting', 'ready', 'failed'] as const
+
+/** The state of a `bim_models` row: how far the extraction of its document got. */
+export type BimModelStatus = (typeof BIM_MODEL_STATUSES)[number]
+
+/**
+ * What a model row may become (ADR-0179), read off its three writers in
+ * `./extraction-repository.ts`.
+ *
+ * One row per document, and a re-ingest reuses it, so no state is final:
+ * `start` takes the row from wherever the last extraction left it, including
+ * from an extraction still running, which is thereby superseded. That is why
+ * `complete` and `fail` match on the run that started as well as on
+ * `extracting`: the status alone cannot tell a run from the one that replaced
+ * it.
+ *
+ * `pending` is the column's default and nothing writes it: `start` inserts the
+ * row as `extracting`. It stays declared because the column allows it and a
+ * row seeded without a status has it.
+ */
+export const BIM_MODEL_LIFECYCLE = defineLifecycle<BimModelStatus, 'start' | 'complete' | 'fail'>({
+  id: 'bim-model',
+  initial: 'pending',
+  bornAs: ['extracting'],
+  states: {
+    pending: { on: { start: 'extracting' } },
+    extracting: { on: { start: 'extracting', complete: 'ready', fail: 'failed' } },
+    ready: { on: { start: 'extracting' } },
+    failed: { on: { start: 'extracting' } },
+  },
+})
 
 /** File extensions the IFC pipeline claims. `.ifcxml` is deliberately absent. */
 export const IFC_EXTENSIONS = ['.ifc', '.ifczip'] as const

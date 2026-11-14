@@ -1,6 +1,6 @@
 # Project setup in five steps
 
-Status: building. Ticket: Notion „Agentische Projekterfassung statt Wizard" (ID 26).
+Status: building. Ticket: Notion ticket 31, the agentic project setup, which took over the archived ticket 26 („Agentische Projekterfassung statt Wizard").
 Builds on [agentic-project-intake.md](agentic-project-intake.md) and ADR-0111.
 That document says how Piloti reads a project. This one says what a person goes
 through, step by step, and why each step looks the way it does.
@@ -77,10 +77,11 @@ under a minute. Every step stays reachable, and nothing in one blocks the next.
 
 ## Not in scope
 
-- A self-hosted geocoder is a deployment decision: the address is client data.
-  [ADR-0120](../adr/0120-addresses-are-geocoded-by-a-self-hosted-photon.md)
-  proposes Photon in the cluster on the Austria index; the Pulumi program has
-  it, off by default (`geocoderEnabled`). Until a stack switches it on, the
-  address is the typed line and the Bundesland is the reading's to find.
+- Running our own geocoder.
+  [ADR-0151](../adr/0151-addresses-are-geocoded-by-komoots-public-photon.md)
+  points the address search at komoot's public Photon (superseding the
+  self-hosted Photon of ADR-0120, which never ran). Where it throttles or
+  fails, the address is the typed line and the Bundesland is the reading's to
+  find.
 - Editions of the law per Stichtag, a German catalogue, Standortdienste (BEV,
   Landes-GIS): unchanged from the ticket's deferrals.

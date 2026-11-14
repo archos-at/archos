@@ -12,7 +12,6 @@ See docs/architecture/project-memory-design.md.
 from __future__ import annotations
 
 import logging
-import re
 from collections.abc import Mapping
 from collections.abc import Sequence
 from contextvars import ContextVar
@@ -21,6 +20,7 @@ from dataclasses import dataclass
 from dataclasses import field
 
 from agent.common import bff_http
+from agent.knowledge.memory_content_guard import note_refusal
 from agent.knowledge.restricted_use import current_restricted_use
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,19 @@ class OrgMemoryDisabledError(ProjectMemoryError):
     """
 
 
+class TemporaryConversationError(ProjectMemoryError):
+    """The frontend refused a write from a temporary conversation (ADR-0180).
+
+    Raised when ``POST /api/internal/memory`` or ``POST
+    /api/internal/personal-memory`` answers 403 ``TEMPORARY_CONVERSATION``. A
+    temporary conversation keeps nothing, at any scope and by any path, so a
+    caller offers no way around it (no card) and does not retry.
+    """
+
+
+#: The refusal code both memory routes answer a temporary conversation's write with (403).
+TEMPORARY_CONVERSATION_CODE = "TEMPORARY_CONVERSATION"
+
 VALID_KINDS = {"decision", "constraint", "open_question", "derived_fact", "preference"}
 VALID_CONFIDENCES = {"low", "medium", "high"}
 VALID_SCOPES = {"project", "organization"}
@@ -68,6 +81,38 @@ _REQUEST_TIMEOUT_SECONDS = 5
 _DIGEST_TIMEOUT_SECONDS = 2.5
 
 
+@dataclass(frozen=True)
+class TurnMemoryNote:
+    """One project or organization note a write created, as the answer's noted chip shows it.
+
+    Never a personal note (ADR-0180): this record rides the reflection stage's
+    frame, which is stored on a message other people read.
+    """
+
+    id: str
+    kind: str
+    content: str
+    #: ``project`` or ``organization``: the shelf, and so who reads the note.
+    scope: str
+    #: The earlier note this one retired, quoted, when the BFF confirmed the retirement.
+    supersedes: str | None = None
+    #: Stored as restricted memory (ADR-0087): shown only to people cleared for its folders.
+    restricted: bool = False
+
+    def frame_item(self, *, in_turn: bool) -> dict[str, object]:
+        """The note as an item of the ``memory_reflection`` frame; absent keys are the defaults."""
+        item: dict[str, object] = {"id": self.id, "kind": self.kind, "content": self.content}
+        if in_turn:
+            item["provenance"] = "agent"
+        if self.scope == "organization":
+            item["scope"] = "organization"
+        if self.supersedes:
+            item["supersedes"] = self.supersedes
+        if self.restricted:
+            item["restricted"] = True
+        return item
+
+
 @dataclass
 class _TurnMemoryLog:
     """The turn's memory ledger: the digest it was shown and what it wrote."""
@@ -76,8 +121,27 @@ class _TurnMemoryLog:
     #: ``restricted`` lines are restricted content in the prompt).
     digest: str | None = None
     writes: list[str] = field(default_factory=list)
+    #: The project and organization notes those writes CREATED, with their ids
+    #: (a restated note the BFF refreshed in place is in ``writes`` only).
+    notes: list[TurnMemoryNote] = field(default_factory=list)
     #: The subset of ``writes`` stored as restricted memory.
     restricted_writes: list[str] = field(default_factory=list)
+    #: The conversation is temporary (ADR-0180): nothing from it is kept, so
+    #: the ``remember`` tool answers without calling the BFF.
+    temporary: bool = False
+    #: The ``PERSONAL_MEMORY v1`` block of the person asking, for the chat
+    #: prompt's turn context. Held here and not on the graph state: the
+    #: state is checkpointed with the conversation and handed to deep research,
+    #: and both are read by people the notes are not for.
+    personal_memory: str | None = None
+    #: The id of the answer the writes under this log belong to
+    #: (``turn.response.answer_message_id``), which the browser holds as that
+    #: answer's message id. A personal note is stored with it, so the answer's
+    #: chip can show the note to its owner; None off the WebSocket path.
+    answer_message_id: str | None = None
+    #: Ids the route answered for a write that created nothing: a restated
+    #: note, refreshed in place.
+    refreshed: list[str] = field(default_factory=list)
 
 
 #: What the ``remember`` tool wrote during THIS turn, per turn. The
@@ -89,13 +153,27 @@ class _TurnMemoryLog:
 _turn_memory_log: ContextVar[_TurnMemoryLog | None] = ContextVar("turn_memory_log", default=None)
 
 
-def begin_turn_memory_log(digest: str | None = None) -> Token:
+def begin_turn_memory_log(
+    digest: str | None = None,
+    *,
+    temporary: bool = False,
+    personal_memory: str | None = None,
+    answer_message_id: str | None = None,
+) -> Token:
     """Start recording this turn's memory writes; reset with the token.
 
     ``digest`` is the memory digest the agent is shown this turn, kept so the
     ``remember`` tool can tell which restricted notes were in its prompt.
+    ``temporary`` and ``personal_memory`` are the turn context's (ADR-0180):
+    whether the conversation keeps nothing, and the asker's personal notes.
+    ``answer_message_id`` names the answer the writes belong to. The reflection
+    stage binds a log of its own for its writes, after the turn's is gone.
     """
-    return _turn_memory_log.set(_TurnMemoryLog(digest=digest))
+    return _turn_memory_log.set(
+        _TurnMemoryLog(
+            digest=digest, temporary=temporary, personal_memory=personal_memory, answer_message_id=answer_message_id
+        )
+    )
 
 
 def end_turn_memory_log(token: Token) -> None:
@@ -111,10 +189,73 @@ def record_turn_memory_write(content: str, *, restricted: bool = False) -> None:
             log.restricted_writes.append(content)
 
 
+def turn_memory_notes() -> tuple[TurnMemoryNote, ...]:
+    """The project and organization notes created under the bound log, in write order."""
+    log = _turn_memory_log.get()
+    return tuple(log.notes) if log is not None else ()
+
+
+def turn_refreshed_memory_ids() -> frozenset[str]:
+    """Ids of the notes a write under the bound log only refreshed (it created no row)."""
+    log = _turn_memory_log.get()
+    return frozenset(log.refreshed) if log is not None else frozenset()
+
+
+def turn_answer_message() -> str | None:
+    """The id of the answer the bound log's writes belong to; None outside a turn or off the WebSocket path."""
+    log = _turn_memory_log.get()
+    return log.answer_message_id if log is not None else None
+
+
+def _record_write(body: object, payload: Mapping[str, object]) -> str | None:
+    """Enter a stored write in the bound log and answer its id; None when the route named no item.
+
+    The note is kept for the answer's chip only when the route created a row
+    (``created``; an older BFF does not say, and is believed) and the earlier
+    note counts as replaced only when the route retired one (``supersededId``).
+    """
+    answer = body if isinstance(body, dict) else {}
+    item = answer.get("item")
+    item_id = item.get("id") if isinstance(item, dict) else None
+    if not item_id:
+        return None
+    content = str(payload["content"])
+    restricted = bool(payload.get("restrictedCollections"))
+    record_turn_memory_write(content, restricted=restricted)
+    log = _turn_memory_log.get()
+    if log is not None and answer.get("created") is False:
+        log.refreshed.append(str(item_id))
+    elif log is not None:
+        retired = str(payload.get("supersedesContent") or "") if answer.get("supersededId") else ""
+        log.notes.append(
+            TurnMemoryNote(
+                id=str(item_id),
+                kind=str(payload["kind"]),
+                content=content,
+                scope=str(payload["scope"]),
+                supersedes=retired or None,
+                restricted=restricted,
+            )
+        )
+    return str(item_id)
+
+
 def turn_memory_digest() -> str | None:
     """The memory digest the agent was shown this turn; None outside a turn."""
     log = _turn_memory_log.get()
     return log.digest if log is not None else None
+
+
+def turn_is_temporary() -> bool:
+    """Whether this turn's conversation is temporary (ADR-0180); False outside a turn."""
+    log = _turn_memory_log.get()
+    return log is not None and log.temporary
+
+
+def turn_personal_memory() -> str | None:
+    """The asker's ``PERSONAL_MEMORY v1`` block this turn; None outside a turn or without one."""
+    log = _turn_memory_log.get()
+    return log.personal_memory if log is not None else None
 
 
 def turn_restricted_memory_writes() -> tuple[str, ...]:
@@ -131,6 +272,16 @@ def turn_memory_writes() -> tuple[str, ...]:
 
 VALID_PROVENANCES = {"agent", "distillation"}
 
+#: The longest topic the BFF keeps (``MEMORY_TOPIC_MAX_LENGTH``). A longer one is
+#: dropped here, not sent: the note is still worth keeping, and the BFF would refuse it.
+MEMORY_TOPIC_MAX_LENGTH = 40
+
+
+def memory_topic(raw: object) -> str:
+    """The topic to send with a note: trimmed, or "" when there is none or it is too long to keep."""
+    topic = raw.strip() if isinstance(raw, str) else ""
+    return topic if len(topic) <= MEMORY_TOPIC_MAX_LENGTH else ""
+
 
 def fetch_memory_digest(
     *,
@@ -143,10 +294,10 @@ def fetch_memory_digest(
 ) -> str | None:
     """Fetch the CURRENT core-memory digest via the internal BFF endpoint.
 
-    The digest normally rides the ``x-grid-project-memory`` header set on the WS
-    upgrade, but that header is frozen for the connection's life — memory written
-    mid-session never reaches the agent until a reconnect. Calling this at the
-    start of a turn re-serves the up-to-date digest.
+    A signed-in chat turn reads its digest from the turn context (ADR-0077) and
+    calls this only when its signed scope holds restricted collections. The job
+    worker calls it too, and a turn where nobody signs in: its digest rides the
+    ``x-grid-project-memory`` handshake header, frozen for the connection's life.
 
     The channel carries three blocks, not one: ``PROJECT_MEMORY``,
     ``PROPOSAL_DECISIONS`` and — when this turn belongs to a conversation —
@@ -229,36 +380,27 @@ def fetch_memory_digest(
 # later prompt, so a finding that carries a person's contact details or a
 # secret must not be written by EITHER writer. This guard used to live only in
 # the reflection stage; the in-turn ``remember`` tool wrote whatever the model
-# handed it. It sits here now, on the one path both writers share.
-#
-# Shapes, not meanings: an email address, a run of digits long enough to be a
-# number to call, an IBAN, an SSN-shaped triple, and the handful of secret
-# words a leaked credential travels with. And one carve-out that the phone
-# pattern needs: a date is a run of digits with separators too, and a permit
-# deadline written 12/03/2027 was being dropped as a phone number — precisely
-# the class of fact a project memory exists to carry.
-_DATE_SHAPE_RE = re.compile(r"(?<!\d)(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2})(?!\d)")
-_PERSONAL_DATA_PATTERNS = (
-    re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"),  # email address
-    re.compile(r"(?<!\d)(?:\+?\d[\d ()/-]{7,}\d)(?!\d)"),  # phone/fax-shaped digit run
-    re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b"),  # IBAN
-    re.compile(r"\b\d{3}-?\d{2}-?\d{4}\b"),  # SSN-shaped
-    re.compile(
-        r"\b(?:password|passwort|api[_ -]?key|secret|token|bearer|"
-        r"sozialversicherungsnummer|steuernummer|personalausweis)\b",
-        re.IGNORECASE,
-    ),
-)
+# handed it. It sits here now, on the one path both writers share. The rules
+# are :mod:`agent.knowledge.memory_content_guard`, the twin of the refusal the
+# BFF makes at its one writer; the agent's copy saves the round trip.
 
 
 def looks_like_personal_data(content: str) -> bool:
-    """Whether a memory finding matches a coarse personal-data or secret shape.
+    """Whether a memory finding holds a secret or a way to reach a person.
 
-    A denylist of shapes, not a privacy guarantee (audit S4). Dates are blanked
-    before the digit-run pattern looks, so a deadline survives.
+    A denylist of shapes, not a privacy guarantee (audit S4). Guards project
+    and organization memory, which other people read.
     """
-    scrubbed = _DATE_SHAPE_RE.sub(" ", content or "")
-    return any(pattern.search(scrubbed) for pattern in _PERSONAL_DATA_PATTERNS)
+    return note_refusal(content, shared=True) is not None
+
+
+def looks_like_secret(content: str) -> bool:
+    """Whether a note holds a secret: the part of the denylist that guards personal memory too.
+
+    A note about the person is what personal memory is for, so their contact
+    details pass; an account number, an identity number or a credential does not.
+    """
+    return note_refusal(content, shared=False) is not None
 
 
 def insert_memory_item(
@@ -275,6 +417,7 @@ def insert_memory_item(
     salience: float | None = None,
     restricted_collections: Sequence[str] | None = None,
     restriction_judge: Mapping[str, object] | None = None,
+    topic: str | None = None,
 ) -> str | None:
     """Record one memory item via the internal BFF endpoint.
 
@@ -299,6 +442,9 @@ def insert_memory_item(
     ``restriction_judge`` is the memory judge's verdict on this item, when it
     was asked (``JudgeVerdict.as_payload``): the BFF records it in the audit
     trail with the item it was about. Collections only, never text.
+
+    ``topic`` is the subject the note is filed under on its shelf, sent only when
+    :func:`memory_topic` keeps one; the BFF normalizes it against the shelf's topics.
 
     Returns the new item id, or None when the target (project/org) is unknown.
     Raises :class:`agent.common.bff_http.BffError` (a ``RuntimeError``)
@@ -340,10 +486,7 @@ def insert_memory_item(
         # only when the caller rated it — the column's 0.5 default is the
         # neutral midpoint and must stay the fallback, not an explicit write.
         payload["salience"] = max(0.0, min(1.0, float(salience)))
-    if restricted_collections:
-        payload["restrictedCollections"] = sorted(set(restricted_collections))
-    if restriction_judge:
-        payload["restrictionJudge"] = dict(restriction_judge)
+    payload.update(_shelf_fields(restricted_collections, restriction_judge, topic))
 
     try:
         body = bff_http.post_json("/api/internal/memory", payload, timeout=_REQUEST_TIMEOUT_SECONDS)
@@ -353,15 +496,31 @@ def insert_memory_item(
             return None
         _raise_named_refusal(exc)
         raise
-    item = body.get("item") if isinstance(body, dict) else None
-    item_id = item.get("id") if isinstance(item, dict) else None
-    if item_id:
-        record_turn_memory_write(content, restricted=bool(restricted_collections))
-    return item_id
+    # The ledger entry, and the note the answer's chip shows, are made of what
+    # was SENT and what the route answered: the stored text is the payload's
+    # (stripped and capped), and only the route knows whether a row was created
+    # or an earlier note retired.
+    return _record_write(body, payload)
+
+
+def _shelf_fields(
+    restricted_collections: Sequence[str] | None,
+    restriction_judge: Mapping[str, object] | None,
+    topic: str | None,
+) -> dict[str, object]:
+    """The optional fields of a shelf write: the restriction the caller decided, and the note's topic."""
+    fields: dict[str, object] = {}
+    if restricted_collections:
+        fields["restrictedCollections"] = sorted(set(restricted_collections))
+    if restriction_judge:
+        fields["restrictionJudge"] = dict(restriction_judge)
+    if kept_topic := memory_topic(topic):
+        fields["topic"] = kept_topic
+    return fields
 
 
 def _raise_named_refusal(exc: bff_http.BffRefusedError) -> None:
-    """Log a refused write, and raise the named error for the two refusals a caller handles."""
+    """Log a refused write, and raise the named error for the three refusals a caller handles."""
     if 300 <= exc.status < 400:
         logger.error(
             "Internal memory endpoint redirected (%s) — an auth middleware is "
@@ -370,6 +529,9 @@ def _raise_named_refusal(exc: bff_http.BffRefusedError) -> None:
             exc.status,
             bff_http.internal_base_url(),
         )
+    elif exc.status == 403 and exc.code == TEMPORARY_CONVERSATION_CODE:
+        logger.info("Internal memory endpoint declined a write from a temporary conversation")
+        raise TemporaryConversationError("the conversation is temporary", status=403, code=exc.code) from exc
     elif exc.status == 403 and exc.code == "ORG_MEMORY_DISABLED":
         # Expected default-deny (audit finding S1), not a misconfiguration:
         # an agent's service token may not write org-wide memory, so the

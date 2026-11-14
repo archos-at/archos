@@ -165,3 +165,51 @@ export async function listFailedDocumentPageInOrg(
     nextCursor: hasMore && last ? { createdAt: last.cursorCreatedAt, id: last.id } : null,
   }
 }
+
+/**
+ * Send a held document back through the content gate with the rules in force
+ * now (ADR-0086, „Erneut prüfen"): the screen was corrected, or the office
+ * changed its list, since it was held. Not a release: nothing about the bytes
+ * is lifted, the row stays held from everyone but its uploader and reviewers
+ * until the new reading passes, and a match quarantines it again. The hold is
+ * the verdict columns and not the status (`passedScreening` in `../visibility`),
+ * which is why a quarantined row may take this way out (migration 0225's
+ * trigger allows it only while the outcome still says `quarantined`). Guarded on
+ * the row still being held at rest with the bytes the reviewer saw. Returns
+ * whether it took; the caller dispatches.
+ */
+export async function markForRescreening(
+  documentId: string,
+  organizationId: string,
+  contentHash: string
+): Promise<boolean> {
+  const db = getDb()
+  const updated = await withTenant({ organizationId }, () =>
+    db
+      .update(documents)
+      .set({
+        status: 'uploaded',
+        errorMessage: null,
+        // Only a quarantined row carries a verdict (migration 0148's CHECK).
+        quarantine: null,
+        // What holds the row once its status says `uploaded` (migration 0225):
+        // a quarantined row keeps the holding outcome, or takes it when an
+        // older writer left another one beside the status. Any other held row
+        // keeps what it has.
+        screeningOutcome: sql`CASE WHEN ${documents.status} = 'quarantined' THEN 'quarantined' ELSE ${documents.screeningOutcome} END`,
+        ingestFailureCategory: null,
+        ingestRetryable: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(documents.id, documentId),
+          eq(documents.organizationId, organizationId),
+          heldAtRest(),
+          eq(documents.contentHash, contentHash)
+        )
+      )
+      .returning({ id: documents.id })
+  )
+  return updated.length > 0
+}

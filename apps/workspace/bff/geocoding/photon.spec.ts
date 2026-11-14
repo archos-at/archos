@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { FEDERAL_STATE_TOKENS } from '@/lib/project-profile/intake-conditions'
-import { parsePhotonResponse, searchPhoton } from './photon'
+import { PHOTON_USER_AGENT, parsePhotonResponse, searchPhoton } from './photon'
 import {
   PHOTON_BERLIN,
   PHOTON_GRABEN,
@@ -158,6 +158,13 @@ describe('searchPhoton', () => {
     expect(url.searchParams.get('lang')).toBe('de')
     expect(url.searchParams.get('bbox')).toBe('9.53,46.37,17.16,49.02')
     expect(Number(url.searchParams.get('limit'))).toBeGreaterThanOrEqual(1)
+  })
+
+  it('names itself to the provider, as the public instance asks (ADR-0151)', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(PHOTON_MOEDLING))
+    await searchPhoton('https://photon.test', 'Mödling', { fetchImpl: fetchImpl as unknown as typeof fetch })
+    const init = (fetchImpl.mock.calls[0] as unknown as [URL, RequestInit])[1]
+    expect(new Headers(init.headers).get('user-agent')).toBe(PHOTON_USER_AGENT)
   })
 
   it('keeps a path prefix on the base URL', async () => {

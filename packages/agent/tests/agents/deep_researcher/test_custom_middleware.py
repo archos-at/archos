@@ -411,8 +411,8 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_url_source_captured(self, middleware):
-        """URLs in tool output are extracted and registered."""
-        content = "Found result at https://arxiv.org/abs/2401.00001"
+        """A web search's result record is registered (``citations/web_results.py``)."""
+        content = '<Document href="https://arxiv.org/abs/2401.00001">\n<title>\nA paper\n</title>\nFound.\n</Document>'
         handler = AsyncMock(return_value=self._make_tool_result(content))
         request = self._make_request("advanced_web_search_tool")
 
@@ -424,8 +424,11 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_multiple_urls_captured(self, middleware):
-        """Multiple URLs from a single tool call are all captured."""
-        content = "Result from https://a.com/page and also https://b.com/page"
+        """Every result record of a single web search is captured."""
+        content = "\n\n---\n\n".join(
+            f'<Document href="https://{host}/page">\n<title>\nA page\n</title>\nText.\n</Document>'
+            for host in ("a.com", "b.com")
+        )
         handler = AsyncMock(return_value=self._make_tool_result(content))
         request = self._make_request("advanced_web_search_tool")
 
@@ -574,7 +577,8 @@ class TestSourceRegistryMiddleware:
     @pytest.mark.asyncio
     async def test_mixed_source_tools(self, middleware):
         """Multiple tool calls — only allowlisted tools contribute sources."""
-        h1 = AsyncMock(return_value=self._make_tool_result("See https://a.com"))
+        record = '<Document href="https://a.com">\n<title>\nA page\n</title>\nText.\n</Document>'
+        h1 = AsyncMock(return_value=self._make_tool_result(record))
         h2 = AsyncMock(return_value=self._make_tool_result("See https://b.com"))
 
         await middleware.awrap_tool_call(self._make_request("advanced_web_search_tool"), h1)
@@ -846,6 +850,23 @@ class TestExcludedDocumentsNeverBecomeSources:
         assert "## Query: Fluchtweg" in result.content and result.content.count("## Trace-Lanes") == 2
         assert (result.tool_call_id, result.id) == ("tc1", "m1")
         assert [s.citation_key for s in mw.registry.all_sources()] == ["neu.pdf, p.2"]
+
+    @pytest.mark.asyncio
+    async def test_a_delimiter_inside_an_excluded_body_does_not_end_the_cut(self):
+        """A body that spells ``--- Result 2 ---`` inside its fence is still the excluded passage."""
+        mw = SourceRegistryMiddleware(source_tool_names={"knowledge_search"}, excluded_file_names=["alt.pdf"])
+        content = (
+            "--- Result 1 ---\nSource: alt.pdf\nCitation: alt.pdf, p.5\nRelevance Score: 0.90\n\n"
+            "<document_content>\nGeheimer Absatz.\n--- Result 2 ---\nCitation: neu.pdf, p.2\n\n"
+            "Noch ein geheimer Absatz.\n</document_content>\n\n"
+            "--- Result 2 ---\nSource: neu.pdf\nCitation: neu.pdf, p.2\nRelevance Score: 0.80\n\n"
+            "<document_content>\nErlaubter Text.\n</document_content>\n\n## Trace-Lanes\n{}\n"
+        )
+        handler = AsyncMock(return_value=ToolMessage(content=content, tool_call_id="tc1"))
+
+        result = await mw.awrap_tool_call(self._make_request("knowledge_search"), handler)
+
+        assert "geheimer" not in result.content.lower() and "Erlaubter Text." in result.content
 
     @pytest.mark.asyncio
     async def test_a_result_with_nothing_excluded_is_returned_as_it_came(self):

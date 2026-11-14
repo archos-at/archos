@@ -104,7 +104,7 @@ export function DocumentVersionDiff({ from, to, className }: DocumentVersionDiff
         </p>
       ) : (
         <ol
-          className="bg-card max-h-80 overflow-auto rounded-lg border py-1 font-mono text-[11px] leading-[1.6] pointer-coarse:text-[13px]"
+          className="bg-card max-h-80 overflow-auto rounded-surface border py-1 font-mono text-[11px] leading-[1.6] pointer-coarse:text-[13px]"
           data-testid="document-version-diff-rows"
         >
           {diff.rows.map((row, index) => (
@@ -126,7 +126,7 @@ function DiffRowItem({ row, t }: { row: DiffRow; t: Translator }): JSX.Element {
   if (row.kind === 'gap') {
     return (
       <li
-        className="text-muted-foreground/70 flex items-center gap-2 px-2 py-1 select-none"
+        className="text-muted-foreground flex items-center gap-2 px-2 py-1 select-none"
         data-testid="document-version-diff-gap"
       >
         <span aria-hidden className="border-border flex-1 border-t border-dashed" />

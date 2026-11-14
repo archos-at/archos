@@ -12,6 +12,8 @@ and keeps what ingestion needs to know about each file:
 ``ingested_sha256``    the hash the index was last built from, ``NULL`` before
 ``chunk_format_version`` the chunking pipeline's version at that ingestion
 ``failed_job_id``      the ingest job that gave up on the current bytes, ``NULL`` if none
+``mark_generation``    how often the file was marked (:func:`set_mark`), 0 before
+``job_mark_generation`` the ``mark_generation`` the job for these bytes was prepared at
 ====================== ======================================================
 
 A file needs ingestion when its ``ingested_sha256`` differs from its
@@ -33,7 +35,7 @@ WHO WRITES WHAT. The backend holds a read-only object credential
 (``agent.common.seaweed_s3``), so it reads objects itself and asks the BFF to
 write them: ``POST /api/internal/base-corpus/upload-url`` returns a presigned PUT,
 ``DELETE /api/internal/base-corpus/<name>`` removes the object. Same internal
-channel and token header as ``knowledge_layer.llamaindex.image_store``. A
+channel and token header as ``knowledge_layer.ingest.image_store``. A
 presigned URL is a live bearer credential and is never logged, nor is any
 exception text that could carry it.
 
@@ -52,29 +54,27 @@ import logging
 import os
 import tempfile
 import threading
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 from urllib.parse import quote
 
 import httpx
-from sqlalchemy import BigInteger
-from sqlalchemy import Column
-from sqlalchemy import DateTime
-from sqlalchemy import Integer
-from sqlalchemy import MetaData
-from sqlalchemy import Table
-from sqlalchemy import Text
 from sqlalchemy import delete
 from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy import update
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects import sqlite
-from sqlalchemy.schema import CreateTable
 
 from agent.common import seaweed_s3
 from agent.common.db_utils import ensure_schema
+from agent.corpus_tables import ADDED_FILE_COLUMNS as _ADDED_FILE_COLUMNS  # noqa: F401 - a test drops them
+from agent.corpus_tables import create_files as _create_files
+from agent.corpus_tables import create_marks as _create_marks
+from agent.corpus_tables import files as _files
+from agent.corpus_tables import marks as _marks
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
 
 logger = logging.getLogger(__name__)
@@ -91,20 +91,6 @@ _BFF_TIMEOUT_SECONDS = 15.0
 _PUT_TIMEOUT_SECONDS = 300.0
 _CHUNK_BYTES = 1024 * 1024
 
-_metadata = MetaData()
-_files = Table(
-    "oib_corpus_files",
-    _metadata,
-    Column("file_name", Text, primary_key=True),
-    Column("storage_key", Text, nullable=False),
-    Column("sha256", Text, nullable=False),
-    Column("size_bytes", BigInteger, nullable=False),
-    Column("uploaded_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
-    Column("ingested_sha256", Text, nullable=True),
-    Column("chunk_format_version", Integer, nullable=True),
-    Column("failed_job_id", Text, nullable=True),
-)
-
 _initialized: set[str] = set()
 _INIT_LOCK = threading.Lock()
 
@@ -120,6 +106,18 @@ class CorpusStoreError(RuntimeError):
     """
 
 
+class CorpusFileImmutable(CorpusStoreError):
+    """A name the corpus keeps was offered other bytes: a corpus file's bytes never change (ADR-0165).
+
+    Another text is another file. To put other bytes under a name, the file is
+    removed first, and the BFF refuses to remove one a platform record names.
+    """
+
+    def __init__(self, name: str):
+        super().__init__(f"the base corpus keeps other bytes as {name}; remove that file first, or use another name")
+        self.file_name = name
+
+
 @dataclass(frozen=True)
 class FileRow:
     """One corpus PDF as the table records it."""
@@ -131,6 +129,12 @@ class FileRow:
     ingested_sha256: str | None = None
     chunk_format_version: int | None = None
     failed_job_id: str | None = None
+    mark_generation: int = 0
+    job_mark_generation: int | None = None
+
+    def job_carries_the_mark(self) -> bool:
+        """Whether the job for these bytes was prepared at the file's current mark (:func:`begin_job`)."""
+        return self.job_mark_generation == self.mark_generation
 
     def needs_ingestion(self, chunk_format_version: int) -> bool:
         """True when the index was not built from these bytes with this pipeline version."""
@@ -202,7 +206,8 @@ def _ensure_table(url: str) -> None:
             return
         # Replicas that first touch the table together would race the CREATE.
         engine = DocumentMetadataStore._get_or_create_sync_engine(url)
-        ensure_schema(engine, _files.name, lambda conn: conn.execute(CreateTable(_files, if_not_exists=True)))
+        ensure_schema(engine, _files.name, _create_files)
+        ensure_schema(engine, _marks.name, _create_marks)
         _initialized.add(url)
 
 
@@ -224,6 +229,8 @@ def _row_from(record) -> FileRow:
         ingested_sha256=record.ingested_sha256,
         chunk_format_version=None if record.chunk_format_version is None else int(record.chunk_format_version),
         failed_job_id=record.failed_job_id,
+        mark_generation=int(record.mark_generation),
+        job_mark_generation=None if record.job_mark_generation is None else int(record.job_mark_generation),
     )
 
 
@@ -255,19 +262,134 @@ def _upsert_file(row: FileRow) -> None:
 def _delete_file_row(name: str) -> None:
     with _transaction() as conn:
         conn.execute(delete(_files).where(_files.c.file_name == name))
+        conn.execute(delete(_marks).where(_marks.c.file_name == name))
+
+
+@dataclass(frozen=True)
+class FileMark:
+    """The country and the edition a corpus file is the text of, and whether it is released; any may be unknown.
+
+    ``released`` is None on a row from before the flag: such a row is read by its country alone.
+    """
+
+    country_id: str | None = None
+    edition_id: str | None = None
+    released: bool | None = None
+
+    @classmethod
+    def of(cls, record) -> FileMark:
+        return cls(country_id=record.country_id, edition_id=record.edition_id, released=record.released)
+
+    def job_config(self) -> dict[str, str | bool]:
+        """The fields an ingest job carries (``vector_store.writes.licence_mark`` writes them on every chunk)."""
+        fields = {"country_id": self.country_id, "knowledge_edition_id": self.edition_id}
+        config: dict[str, str | bool] = {key: value for key, value in fields.items() if value}
+        if self.released is not None:
+            config["released"] = self.released
+        return config
+
+
+def set_mark(name: str, mark: FileMark) -> None:
+    """Record which country and edition ``name`` is the text of; a later ingest job carries them.
+
+    Each call is a new generation of the file's mark, in the same transaction: a job prepared before
+    it (:func:`begin_job`) no longer counts as the file's index (:func:`mark_ingested`).
+    """
+    _require_name(name)
+    values = {"country_id": mark.country_id, "edition_id": mark.edition_id, "released": mark.released}
+    with _transaction() as conn:
+        insert = postgresql.insert if conn.dialect.name == "postgresql" else sqlite.insert
+        conn.execute(
+            insert(_marks)
+            .values(file_name=name, **values)
+            .on_conflict_do_update(index_elements=[_marks.c.file_name], set_={**values, "marked_at": func.now()})
+        )
+        conn.execute(
+            update(_files).where(_files.c.file_name == name).values(mark_generation=_files.c.mark_generation + 1)
+        )
+
+
+def begin_job(name: str) -> FileMark | None:
+    """Record that a job for ``name`` is prepared at the file's current mark generation; the mark it carries.
+
+    The generation is taken before the mark is read, so a mark that lands in between leaves the job
+    a generation behind and its result is refused: never a job that counts and lacks the mark.
+    """
+    with _transaction() as conn:
+        conn.execute(
+            update(_files).where(_files.c.file_name == name).values(job_mark_generation=_files.c.mark_generation)
+        )
+        record = conn.execute(select(_marks).where(_marks.c.file_name == name)).first()
+    return FileMark.of(record) if record is not None else None
+
+
+#: The country of the corpus that predates ``country_id``: it held Austria alone (ADR-0173).
+LEGACY_CORPUS_COUNTRY = "AT"
+#: The row that records the one-time backfill ran; a name no PDF can have.
+_BACKFILL_DONE = "__legacy_country_backfill_done__"
+
+
+def legacy_unmarked() -> list[str]:
+    """Files without a mark, until the one-time backfill has run; then nothing, ever."""
+    with _transaction() as conn:
+        if conn.execute(select(_marks.c.file_name).where(_marks.c.file_name == _BACKFILL_DONE)).first():
+            return []
+        rows = conn.execute(
+            select(_files.c.file_name)
+            .outerjoin(_marks, _marks.c.file_name == _files.c.file_name)
+            .where(_marks.c.file_name.is_(None))
+        )
+        return sorted(row.file_name for row in rows)
+
+
+def record_legacy_backfill() -> None:
+    """Record that the one-time backfill ran: a file uploaded from now on carries its release's mark, or none."""
+    with _transaction() as conn:
+        insert = postgresql.insert if conn.dialect.name == "postgresql" else sqlite.insert
+        conn.execute(
+            insert(_marks).values(file_name=_BACKFILL_DONE).on_conflict_do_nothing(index_elements=[_marks.c.file_name])
+        )
+
+
+def get_mark(name: str) -> FileMark | None:
+    with _transaction() as conn:
+        record = conn.execute(select(_marks).where(_marks.c.file_name == name)).first()
+    return FileMark.of(record) if record is not None else None
+
+
+def released_to(name: str, countries: Iterable[str]) -> bool:
+    """Whether a reader of ``countries`` reads ``name``: its release mark names one of them and does not withhold
+    it; unmarked, nobody's."""
+    # The file-level form of ``vector_store.scope.corpus_country_condition`` (ADR-0173).
+    mark = get_mark(name)
+    return mark is not None and mark.released is not False and mark.country_id in set(countries)
+
+
+def list_marks() -> dict[str, FileMark]:
+    """Every file's mark, by file name: what the status reads to say which files a country reads."""
+    with _transaction() as conn:
+        return {record.file_name: FileMark.of(record) for record in conn.execute(select(_marks))}
 
 
 def mark_ingested(name: str, sha256: str, chunk_format_version: int) -> bool:
     """Record that the index was built from ``sha256`` by pipeline ``chunk_format_version``.
 
     Only if the row still holds those bytes: a file replaced while it was being
-    ingested keeps its old ingested hash and so still needs ingestion. False
-    when the row is gone or changed. A recorded success clears a recorded failure.
+    ingested keeps its old ingested hash and so still needs ingestion. And only
+    if the job was prepared at the file's current mark (:func:`begin_job`): one
+    prepared before the last :func:`set_mark` wrote chunks without that mark, and
+    the check is in this one statement, so a mark set while a cycle settles is not
+    missed. False when the row is gone or changed, or the job is a mark behind.
+    A recorded success clears a recorded failure.
     """
     with _transaction() as conn:
         result = conn.execute(
             update(_files)
-            .where(_files.c.file_name == name, _files.c.sha256 == sha256)
+            .where(
+                _files.c.file_name == name,
+                _files.c.sha256 == sha256,
+                _files.c.job_mark_generation == _files.c.mark_generation,
+            )
             .values(ingested_sha256=sha256, chunk_format_version=chunk_format_version, failed_job_id=None)
         )
     return result.rowcount == 1
@@ -477,7 +599,7 @@ class CorpusObjectDownload:
     carries the object's key and hash instead, and the worker, which holds the same
     read credential as every backend process (``agent.common.seaweed_s3``),
     downloads it when it reaches the file, to a temp file the job then owns and
-    deletes (``knowledge_layer.deferred_files``: any zero-argument callable that
+    deletes (``knowledge_layer.ingest.deferred_files``: any zero-argument callable that
     returns a path). The bytes are checked against the hash the job was made for, so a
     file replaced while the job waited fails here, as a failed download, instead of
     being indexed under the wrong hash.

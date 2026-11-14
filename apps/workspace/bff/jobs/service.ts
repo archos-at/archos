@@ -38,6 +38,7 @@ import { snapshotOf, type SkillSnapshot } from '@/lib/skills/types'
 import { nextOccurrence, validateCron, validateDueAt, minIntervalMinutesFromEnv } from './schedule'
 import { JobSubmitError, JobSubmitSkippedError, type JobPriority } from './backend-client'
 import * as repository from '@/lib/tasks/repository'
+import { dropScheduledRun, syncScheduledRun } from '@/lib/scheduling/scheduled-runs'
 import { requireMaySeeSubject } from '@/lib/tasks/subject-access'
 import { decodeCursorParam, previousDecisionsBlock, toTaskRunViews } from '@/lib/tasks/service'
 import type { TaskListQuery, TaskPage, TaskRunView, TaskView } from '@/lib/tasks/task-wire'
@@ -282,6 +283,7 @@ export async function createJob(
     dueAt,
     nextRunAt,
   })
+  await syncScheduledRun(definition)
   return toTaskView(definition)
 }
 
@@ -349,6 +351,7 @@ export async function updateJob(
     updatedAt: new Date(),
   })
   if (!definition) throw new NotFoundError('Task not found.')
+  await syncScheduledRun(definition)
   return toTaskView(definition)
 }
 
@@ -363,6 +366,7 @@ export async function deleteJob(
   await requireDefinitionAccess(session, projectId, existing.scheduleCron !== null)
 
   await repository.deleteDefinition(jobId, session.organizationId)
+  await dropScheduledRun(existing)
   return { deleted: true }
 }
 
@@ -754,18 +758,13 @@ export async function createTaskThread(definition: TaskDefinition): Promise<stri
   }
 }
 
-/** Internal (scheduler) fire: load a definition by id WITHOUT an org filter. */
-export async function loadJobForFire(jobId: string): Promise<TaskDefinition | null> {
-  return repository.findDefinitionById(jobId)
-}
-
 /**
- * The scheduler's gate: disabled definition → `disabled`; the per-org `skills`
- * flag is checked and anything short of a yes records a `skipped` run
- * (fail-closed); otherwise the run fires. The scheduler container claims every
- * due definition and leaves this decision here, per organization, so revoking
- * an organization's flag pauses its schedules without a deploy. `fireJob`
- * itself never throws for a skip.
+ * The gate of a scheduled fire (`bff/scheduling/fire-definition.ts`): disabled
+ * definition → `disabled`; the per-org `skills` flag is checked and anything
+ * short of a yes records a `skipped` run (fail-closed); otherwise the run
+ * fires. Every due definition is fired and this decision is left here, per
+ * organization, so revoking an organization's flag pauses its schedules without
+ * a deploy. `fireJob` itself never throws for a skip.
  */
 export async function fireScheduledJob(
   definition: TaskDefinition,

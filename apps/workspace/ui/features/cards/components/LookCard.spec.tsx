@@ -1,7 +1,7 @@
 /**
- * The look card (ADR-0128): per place a thumbnail with the box marked, the
- * page and the place in words, what Piloti looked for and, marked as such,
- * what it read there; pressing a place, with the mouse or the keyboard, opens
+ * The look card (ADR-0128): per place a thumbnail with the box marked and the
+ * page and the place in words; folded under them, what Piloti looked for and,
+ * marked as such, what it read there; pressing a place, with the mouse or the keyboard, opens
  * the document at that page with the box on it. pdf.js is the shared fake.
  */
 import { render, screen, waitFor, within } from '@/test-utils'
@@ -12,6 +12,7 @@ import { fakePdfjsRuntime, type FakePdfState } from '@/test-utils/pdfjs-fake'
 import { lookCardSchema } from '@/shared/cards/generated'
 import { placeFileUrl } from '@/features/knowledge/lib/page-place'
 import { LookCard, lookItemColor, lookItemPlace } from './LookCard'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const state = vi.hoisted((): FakePdfState => ({ fail: false, pages: [], destroyed: 0 }))
 vi.mock('@/features/knowledge/lib/pdfjs-runtime', () => fakePdfjsRuntime(state))
@@ -49,26 +50,74 @@ beforeEach(() => {
 afterEach(() => restore())
 
 describe('LookCard', () => {
-  test('names each place, what Piloti looked for, and what it read, marked as a reading', () => {
+  test('names each place, and a reference’s label on it', () => {
     render(<LookCard document={DOCUMENT} items={ITEMS} />)
     const card = screen.getByTestId('look-card')
     expect(within(card).getByText('Grundriss EG.pdf')).toBeInTheDocument()
     const [look, reference] = screen.getAllByTestId('look-item')
     expect(look).toHaveTextContent('p. 2 · oben rechts')
-    expect(look).toHaveTextContent('Maßstab im Plankopf?')
-    expect(within(look).getByTestId('look-reading')).toHaveTextContent('Read: M 1:100')
-    expect(within(look).getByTestId('look-reading')).toHaveAttribute('title', 'Read off the page by Piloti, not measured.')
-    expect(screen.getByTestId('look-reading-note')).toHaveTextContent('not measured')
     expect(reference).toHaveAttribute('data-origin', 'reference')
     expect(reference).toHaveTextContent('Shown on p. 2 · in der Seitenmitte')
     expect(reference).toHaveTextContent('Laufbreite 1,10 m')
-    expect(within(reference).queryByTestId('look-reading')).toBeNull()
   })
 
-  test('without a reading, no note about readings', () => {
+  // Notion #38, topic 10: the section mark is the word alone, no icon beside it.
+  test('marks its section with the word, not an icon', () => {
+    render(<LookCard document={DOCUMENT} items={ITEMS} />)
+    const mark = screen.getByText('Looked at')
+    expect(mark).toHaveClass('card-eyebrow')
+    expect(mark.querySelector('svg')).toBeNull()
+  })
+
+  // Notion #38, topic 10: the question and the readings are folded until asked
+  // for; the places stay on screen.
+  test('folds the explanation, and opens it on a press: the question, the reading, marked as read', async () => {
+    const user = userEvent.setup()
+    render(<LookCard document={DOCUMENT} items={ITEMS} />)
+    const trigger = screen.getByRole('button', { name: 'Explanation' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Maßstab im Plankopf?')).toBeNull()
+    expect(screen.queryByTestId('look-reading')).toBeNull()
+    expect(screen.queryByTestId('look-reading-note')).toBeNull()
+    expect(screen.getAllByTestId('look-item')).toHaveLength(2)
+
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    const panel = screen.getByTestId('look-explanation')
+    expect(trigger).toHaveAttribute('aria-controls', panel.id)
+    expect(panel).toHaveTextContent('p. 2 · oben rechts')
+    expect(panel).toHaveTextContent('Maßstab im Plankopf?')
+    expect(within(panel).getByTestId('look-reading')).toHaveTextContent('Read: M 1:100')
+    expect(within(panel).getByTestId('look-reading')).toHaveAttribute('title', `Read off the page by ${PRODUCT_NAME}, not measured.`)
+    expect(within(panel).getByTestId('look-reading-note')).toHaveTextContent('not measured')
+    // A reference explains nothing here: its label is on its place.
+    expect(panel).not.toHaveTextContent('Laufbreite')
+  })
+
+  test('opens and closes the explanation from the keyboard', async () => {
+    const user = userEvent.setup()
+    render(<LookCard document={DOCUMENT} items={ITEMS} />)
+    const trigger = screen.getByRole('button', { name: 'Explanation' })
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Maßstab im Plankopf?')).toBeInTheDocument()
+    await user.keyboard(' ')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  test('without a question or a reading, nothing to unfold and no note about readings', () => {
     render(<LookCard document={DOCUMENT} items={parsed([{ page: 1, scope: 'overview' }])} />)
     expect(screen.getByTestId('look-item')).toHaveTextContent('p. 1 · whole page')
+    expect(screen.queryByRole('button', { name: 'Explanation' })).toBeNull()
     expect(screen.queryByTestId('look-reading-note')).toBeNull()
+  })
+
+  test('one place: the explanation does not repeat its address', async () => {
+    const user = userEvent.setup()
+    render(<LookCard document={DOCUMENT} items={[ITEMS[0]!]} />)
+    await user.click(screen.getByRole('button', { name: 'Explanation' }))
+    expect(screen.getByTestId('look-explanation')).not.toHaveTextContent('oben rechts')
   })
 
   test('an item is an address: the place, its tint, a reference’s label on its box', () => {

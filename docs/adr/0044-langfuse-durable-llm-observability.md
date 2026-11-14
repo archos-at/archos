@@ -437,7 +437,10 @@ this client and whose queue row the purger never claims. A third job closes
 that: every scheduler tick it reads the `deletion_queue` rows the BFF closed as
 `purged` for conversations (within 35 days, at least 15 minutes ago, not under a
 legal hold, not yet stamped), deletes each chat's traces and stamps
-`payload.langfuseTracesErasedAt`. It is kept in the scheduler on purpose: the
+`payload.langfuseTracesErasedAt`. Since 2026-11-11 it also reads a `failed` row
+whose chat is gone (the purger's trace step failed on every attempt) and closes
+it `purged` after deleting the traces
+([deletion pipeline](../architecture/deletion-pipeline.md)). It is kept in the scheduler on purpose: the
 BFF's erasure stays untouched and trace deletion keeps one home (the BFF
 writes scores since Amendment 3, but deletes nothing). Its cost is
 that the traces go within the hour, not in the request, and a span exported

@@ -30,7 +30,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 import { settingsCopy } from '@/i18n/namespaces/settings'
 import { formatCredits, formatTokens } from '@/lib/format'
-import { SettingsPanel } from './settings-panel'
+import { SettingsPanel } from '@/components/settings/settings-panel'
 
 type BudgetUnit = 'credit' | 'token'
 
@@ -171,7 +171,7 @@ export function UsageSettings({ projectId, usage, canEditLimit }: UsageSettingsP
               unitWord={unitWord}
               onSaved={async () => router.refresh()}
               trigger={
-                <Button variant="outline" size="sm">
+                <Button variant="secondary" size="sm">
                   <Pencil className="size-3.5" aria-hidden />
                   {projectLimit ? t('project.usage.editLimit') : t('project.usage.setLimit')}
                 </Button>

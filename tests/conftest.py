@@ -13,8 +13,9 @@ import sys
 from typing import Any
 
 import pytest
-from knowledge_layer_testing.qdrant_fixtures import fresh_qdrant_store  # noqa: F401 - a store of its own
-from knowledge_layer_testing.qdrant_fixtures import qdrant_store  # noqa: F401 - the shared store fixture
+from knowledge_layer_testing.ingest_fixtures import _no_memory_release_between_files  # noqa: F401 - autouse
+from knowledge_layer_testing.vector_store_fixtures import fresh_qdrant_store  # noqa: F401 - a store of its own
+from knowledge_layer_testing.vector_store_fixtures import qdrant_store  # noqa: F401 - the shared store fixture
 
 
 def _reset_shared_cache() -> None:
@@ -61,6 +62,22 @@ def strict_provider_llm():
         return enforce_chat_request_contract(model) if with_contract else model
 
     return _make
+
+
+@pytest.fixture(autouse=True)
+def _no_retrieval_round_from_another_test():
+    """Start every test outside a retrieval round.
+
+    ``turn_status.stamp_retrieval_round`` sets a context variable "with no
+    reset", which is right inside a turn and wrong between tests: synchronous
+    tests on one xdist worker share a context, so a test that stamps a round
+    leaves it for whichever test the worker runs next, and a step that test
+    builds carries ``round: 1``. ``test_visibility.py`` failed that way once in
+    five full runs (2026-11-10), depending on how xdist dealt the tests.
+    """
+    from agent.common import turn_status
+
+    turn_status._retrieval_round.set(None)
 
 
 @pytest.fixture(autouse=True)

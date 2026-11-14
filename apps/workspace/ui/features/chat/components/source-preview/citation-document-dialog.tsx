@@ -34,6 +34,7 @@ import {
   type DocumentTarget,
 } from './document-target'
 import { useCitationDownload } from './use-citation-download'
+import { useCitationStyles } from '../../hooks/use-citation-styles'
 import { LocusRail } from './locus-rail'
 import { CitedPassageBox } from './cited-passage-box'
 
@@ -69,6 +70,7 @@ export const CitationDocumentDialog: FC<{
 }> = ({ target, citation, activeLocus, onSelectLocus, src, open, onOpenChange, similarFixtures }) => {
   const t = useTranslations(chatCopy)
   const tKnowledge = useTranslations(knowledgeCopy)
+  const styles = useCitationStyles()
   const projectId = useChatStore((s) => s.projectId)
   // The provenance tint comes from the SOURCE, not from where the file happens
   // to be stored: a chip and the dialog it opens must never disagree about what
@@ -192,7 +194,8 @@ export const CitationDocumentDialog: FC<{
                     locus: { key: 'selection', page: quotedPage, snippet: text, isCited: true },
                   },
                 ],
-                new Date()
+                new Date(),
+                styles
               )
           : undefined
       }
@@ -215,7 +218,7 @@ export const CitationDocumentDialog: FC<{
         (shown || rendition || citedSearchable || beside) && (
           <span className="flex shrink-0 items-center gap-2">
             {beside && (
-              <button
+              <button data-attr="chat-open-beside"
                 type="button"
                 onClick={() => void openBeside()}
                 data-open-beside-chat=""

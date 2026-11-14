@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
 from agent_testing.claim_judge_stub import failing_judge
 from agent_testing.claim_judge_stub import stub_judge
 from langchain_core.messages import AIMessage
@@ -25,6 +26,7 @@ from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
 from agent.common.claim_judge import Evidence
 from agent.common.claim_judge import Finding
+from agent.common.claim_judge import Unavailable
 
 APPROVALS = (
     '{"items": [{"assignee": "Anna Berger", "status": "pending", "document": "Einreichplan EG"},'
@@ -94,7 +96,7 @@ async def test_the_check_reads_the_question_the_answer_and_this_turns_records():
 
     assert evidence.question == "Was liegt bei Anna?" and evidence.answer == prose
     assert any(r.startswith("project-approvals-list (read):") and "Anna Berger" in r for r in evidence.records)
-    assert any("Lacknergasse 98" in r for r in evidence.records)
+    assert any("Lacknergasse 98" in c for c in evidence.context)
 
 
 async def test_last_turns_workspace_read_is_not_this_turns_evidence():
@@ -166,9 +168,13 @@ async def test_an_unavailable_check_surfaces_no_level_and_is_scored(monkeypatch)
 
     final, state = await _finalize(messages, judge=failing_judge())
 
-    assert final.confidence_check == {"status": "unavailable"}
+    reason = {"cause": "timeout", "error_type": "TimeoutError", "elapsed_ms": 12_000}
+    assert final.confidence_check == {"status": "unavailable", "unavailable_reason": reason}
     assert state.answer_confidence is None and state.answer_confidence_version is None
-    assert {score.name: score.value for score in written}["confidence-judge-unavailable"] == 1.0
+    by_name = {score.name: score for score in written}
+    assert by_name["confidence-judge-unavailable"].value == 1.0
+    assert by_name["confidence-judge-unavailable-reason"].value == "timeout"
+    assert "TimeoutError" in by_name["confidence-judge-unavailable-reason"].comment
 
 
 async def test_no_judge_at_all_is_the_same_unavailable_turn():
@@ -176,7 +182,21 @@ async def test_no_judge_at_all_is_the_same_unavailable_turn():
 
     final = await finalize_answer(messages, registry=SourceRegistry(), tools=[], repair=None, turn_sources=[])
 
-    assert final.confidence_check == {"status": "unavailable"}
+    assert final.confidence_check == {"status": "unavailable", "unavailable_reason": {"cause": "no_judge"}}
+
+
+async def test_the_unavailable_reason_reaches_the_stored_turn_through_the_wire_model():
+    """The persisted row is built from ``TurnResult``; a reason it refused would cost the whole check."""
+    from agent.common.wire_v2 import ConfidenceCheck
+
+    reason = Unavailable("unparseable", finish_reason="length", truncated=True, elapsed_ms=9_100, answer_chars=40)
+    messages = [HumanMessage("Was liegt bei Anna?"), *_workspace_read(), AIMessage(ANSWER_ENVELOPE.format(prose="3."))]
+
+    final, _ = await _finalize(messages, judge=failing_judge(reason=reason))
+
+    check = ConfidenceCheck.model_validate(final.confidence_check)
+    assert check.unavailable_reason is not None and check.unavailable_reason.truncated is True
+    assert check.unavailable_reason.cause == "unparseable" and check.level is None
 
 
 async def test_a_judged_level_and_the_dropped_labels_are_scored(monkeypatch):
@@ -225,7 +245,7 @@ async def test_a_record_never_enters_the_source_registry():
     assert final.citation_grounded is False and state.verified_sources is None
 
 
-async def test_a_locus_the_cited_passage_does_not_hold_is_labelled_in_the_answer():
+async def test_a_locus_the_cited_passage_does_not_hold_is_removed_from_the_answer():
     from agent.citations.entries import DROPPED_CITATION_MARKER
     from agent.citations.entries import SourceEntry
 
@@ -247,7 +267,9 @@ async def test_a_locus_the_cited_passage_does_not_hold_is_labelled_in_the_answer
 
     final, _ = await _finalize(messages, registry)
 
-    assert f"Punkt 11.2.1 [1], die Belichtung Punkt 9.1 {DROPPED_CITATION_MARKER}." in final.content
+    # Removed, never labelled (ADR-0125, amended 2026-11-10).
+    assert "Punkt 11.2.1 [1], die Belichtung Punkt 9.1." in final.content
+    assert DROPPED_CITATION_MARKER not in final.content
 
 
 # --- a work turn (kind work, ADR-0123) under per-sentence provenance (ADR-0125) ---
@@ -433,3 +455,135 @@ async def test_a_turn_with_no_drawing_value_writes_no_looked_before_measurement(
 
     names = {score.name for score in written}
     assert "look-count" in names and "looked-before-measurement" not in names
+
+
+# --- no verification marker ever reaches an answer (dev acceptance; ADR-0125, amended 2026-11-10) ---
+
+#: Every spelling a verification marker has had in an answer: the verifier's German labels and the English
+#: the BFF translated them to for an agent (``bff/agent-asks/answer-text.ts``). QC found both in answers.
+VERIFICATION_MARKER_SPELLINGS = (
+    "[nicht wörtlich in der Quelle belegt]",
+    "[Beleg nicht verifiziert]",
+    "(quote not found verbatim in the source)",
+    "(citation not verified)",
+)
+
+_MARKER_CASES = {
+    # A number whose source line names nothing retrieved.
+    "unresolved": (
+        "Die Raumhöhe beträgt 2,50 m [1]. Das gilt immer [2].",
+        "\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7\\n- [2] erfunden.pdf, p.1",
+    ),
+    # A Punkt beside a resolved number the passage does not hold.
+    "locus": (
+        "Die Raumhöhe regelt Punkt 11.2.1 [1], die Belichtung Punkt 9.1 [1].",
+        "\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7",
+    ),
+    # A quotation no passage holds.
+    "quote": (
+        "Es gilt: „Aufenthaltsräume müssen eine Sprinkleranlage haben“ [1].",
+        "\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7",
+    ),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", sorted(_MARKER_CASES))
+@pytest.mark.parametrize("retrieved", [True, False], ids=["retrieved", "nothing-retrieved"])
+async def test_no_verification_marker_reaches_the_answer(case, retrieved):
+    """Dev acceptance: no raw verification marker appears in an answer, whatever the verifier found."""
+    registry = SourceRegistry()
+    if retrieved:
+        registry.add(_oib_passage())
+    body, sources = _MARKER_CASES[case]
+    messages = [HumanMessage("Raumhöhe?"), AIMessage(ANSWER_ENVELOPE.format(prose=body + sources))]
+
+    final, _ = await _finalize(messages, registry)
+
+    for spelling in VERIFICATION_MARKER_SPELLINGS:
+        assert spelling not in final.content, (case, spelling)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("gate", "unsettled"), [("none", True), ("core", False)])
+async def test_an_answer_resting_on_law_the_records_do_not_settle_is_marked(gate, unsettled):
+    """Staging QC F6: the law gate caps the level of an answer that cites building law the records do not settle."""
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    registry = SourceRegistry()
+    registry.add(
+        SourceEntry(
+            citation_key="oib-rl_3.pdf, p.7",
+            source_type="knowledge_layer",
+            tool_name="knowledge_search",
+            shelf="base",
+            chunk_text="11.2.1 Die lichte Raumhöhe von Aufenthaltsräumen muss mindestens 2,50 m betragen.",
+        )
+    )
+    prose = "Die Raumhöhe beträgt mindestens 2,50 m [1].\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7"
+    set_turn_knowledge_context(KnowledgeContext(gate=gate, site_country="AT", retrieval_countries=frozenset({"AT"})))
+    try:
+        _, state = await _finalize(
+            [HumanMessage("Raumhöhe?"), AIMessage(ANSWER_ENVELOPE.format(prose=prose))], registry
+        )
+    finally:
+        set_turn_knowledge_context(None)
+
+    assert state.answer_law_unsettled is unsettled
+
+
+# Golden case at-a6 (AT run 31eed61f, 2026-11-12): "high" beside a reason that says "nicht geprüft".
+REASONED_ENVELOPE = (
+    '```answer_json\n{{"kind": "walkthrough", "confidence": {{"level": "{level}", "reason": "{reason}"}}, '
+    '"answer": "{prose}"}}\n```'
+)
+UNCHECKED = "Gebäudeklasse aus dem Profil; Bindung der OIB-RL 2 nicht an der Quelle geprüft"
+
+
+async def _reasoned(level: str, reason: str, judge) -> tuple:
+    prose = "Für das Projekt ist im Profil **GK 5** bestätigt."
+    envelope = REASONED_ENVELOPE.format(level=level, reason=reason, prose=prose)
+    return await _finalize([HumanMessage("Welche Gebäudeklasse ist das?"), AIMessage(envelope)], judge=judge)
+
+
+async def test_the_check_reads_the_answers_own_confidence_reason():
+    calls: list[Evidence] = []
+
+    await _reasoned("high", UNCHECKED, stub_judge(calls=calls))
+
+    [evidence] = calls
+    assert evidence.confidence_reason == UNCHECKED
+
+
+async def test_an_open_point_the_check_reads_holds_a_backed_answer_to_medium():
+    final, state = await _reasoned("high", UNCHECKED, stub_judge("high", open_points=[UNCHECKED]))
+
+    assert final.open_points == (UNCHECKED,) and state.answer_open_points == [UNCHECKED]
+    assert state.confidence_check["level"] == "high"
+    assert state.answer_confidence == "medium" and state.answer_confidence_capped_reason == "open_point"
+    assert state.answer_confidence_marker_reason == UNCHECKED
+
+
+async def test_a_self_report_is_a_ceiling_the_check_never_raises():
+    _, state = await _reasoned("medium", UNCHECKED, stub_judge("high"))
+    assert state.answer_confidence == "medium" and state.answer_confidence_capped_reason == "open_point"
+
+    _, state = await _reasoned("low", "Kein Beleg für die Gebäudeklasse gefunden", stub_judge("high"))
+    assert state.answer_confidence == "low" and state.answer_confidence_capped_reason == "open_point"
+
+
+async def test_an_answer_that_names_no_open_point_keeps_the_checks_high():
+    _, state = await _reasoned("high", "direkt aus der Projektbeschreibung belegt", stub_judge("high"))
+
+    assert state.answer_confidence == "high" and state.answer_confidence_capped_reason is None
+
+
+async def test_the_open_points_are_scored_with_the_judged_level(monkeypatch):
+    emitted: list = []
+    monkeypatch.setattr(answer_check, "emit_scores", lambda scores, **_: emitted.extend(scores))
+
+    await _reasoned("high", UNCHECKED, stub_judge("high", open_points=[UNCHECKED]))
+
+    [named] = [score for score in emitted if score.name == "confidence-open-points"]
+    assert named.value == 1.0 and named.comment == UNCHECKED
