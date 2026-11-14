@@ -13,6 +13,10 @@ Amends [ADR-0165](0165-platform-knowledge-changes-through-reviewed-change-reques
 [ADR-0170](0170-the-platform-door-is-agent-grade-for-onboarding-a-country.md)
 (four eyes on claim verdicts, source checks).
 
+Amended by [ADR-0181](0181-a-reviewed-dev-release-may-be-carried-to-production-once-by-the-promotion.md):
+a release reviewed on dev may be carried to production once by the promotion, decided `carried`, with no
+second review due there.
+
 ## Context and Problem Statement
 
 Platform knowledge reaches every entitled office only through a change

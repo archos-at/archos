@@ -199,6 +199,9 @@ config:
   # change request (KNOWLEDGE_SINGLE_OPERATOR, migration 0233): the owner's
   # decision of 2026-11-11, for dev only. Never set it in Pulumi.prod.yaml.
   grid-oib:knowledgeSingleOperator: "true"
+  # The promotion's carry of reviewed knowledge releases (ADR-0181). Dev is the
+  # stack the bundles come from, so here the Job only logs that stable holds them.
+  grid-oib:knowledgeCarry: "true"
   # ── Observability / OTel Collector + Aspire dashboard (ADR-0029) ──
   # Deployed only when the flag is on AND every dependency is set; otherwise
   # `pulumi preview` logs a warning naming what is missing and the tier

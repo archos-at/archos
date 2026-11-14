@@ -109,6 +109,9 @@ const APPROVED_ALONE = {
 }
 const EVERY_ROLE = { file: ALONE_SPEC, name: 'owes a second review in every role approved alone, each from somebody holding that role' }
 const SECOND_REVIEW_KEPT = { file: ALONE_SPEC, name: 'keeps the author from giving the second review themselves' }
+/** A release carried from another deployment by the promotion (ADR-0181). */
+const CARRY = 'apps/workspace/bff/base-knowledge/platform/carry.ts'
+const CARRIED = { file: 'apps/workspace/bff/base-knowledge/platform/carry.integration.spec.ts', name: 'carries both to stable, decided `carried`, once the right bytes are fetched' }
 const FOUR_EYES = { file: PLATFORM_SPEC, name: 'refuses an approval by the request’s own author (four eyes)' }
 const RACE = { file: PLATFORM_SPEC, name: 'publishes to stable only after preview, and refuses a record released by another request since' }
 const COMPETENCE_IDS = { file: 'apps/workspace/bff/base-knowledge/platform/validate.spec.ts', name: 'names a competence territory that is not imported, by pointer' }
@@ -321,6 +324,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_change_requests.second_review', consumer: PLATFORM_SERVICE, test: APPROVED_ALONE },
   { element: 'knowledge_change_requests.second_review_by', consumer: PLATFORM_STORE, test: SECOND_REVIEW_KEPT },
   { element: 'knowledge_change_requests.second_review_at', consumer: PLATFORM_STORE, test: APPROVED_ALONE },
+  { element: 'knowledge_change_requests.carried_from', consumer: CARRY, test: CARRIED },
   { element: 'knowledge_second_reviews.id', consumer: PLATFORM_STORE, test: EVERY_ROLE },
   { element: 'knowledge_second_reviews.change_request_id', consumer: PLATFORM_STORE, test: EVERY_ROLE },
   { element: 'knowledge_second_reviews.role', consumer: PLATFORM_STORE, test: EVERY_ROLE },

@@ -41,6 +41,7 @@ import { installWorkloadAlerts } from "./src/platform/workload-alerts";
 import { AppWiring, PULL_SECRET_NAME, buildRegistryPullSecret, buildSecrets } from "./src/app/config";
 import { runMigrations } from "./src/app/migrations-job";
 import { buildOnlineIndexes } from "./src/app/online-indexes-job";
+import { runKnowledgeCarry } from "./src/app/knowledge-carry-job";
 import { reconcileAuditSchemas } from "./src/app/audit-schemas-job";
 import { carryOverFolderGrants, reconcileAuthzCatalog } from "./src/app/workos-authz-jobs";
 import { migrateChromaToQdrant } from "./src/app/chroma-migration-job";
@@ -246,7 +247,7 @@ const pullSecret = buildRegistryPullSecret(cfg, provider, namespace);
 // The sandboxed fetcher of public sources (ADR-0162), in every stack: the backend roles read
 // public sources, and parse their PDFs, only through it (`publicSourceFetcherEnv`, ADR-0162 amendment).
 // It runs the private backend image, so it needs the pull Secret like every app pod.
-installPublicSourceFetcher(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : []);
+const publicSourceFetcher = installPublicSourceFetcher(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : []);
 const wiring: AppWiring = {
   cfg,
   namespace,
@@ -467,6 +468,23 @@ const bffJobs = installBffJobs(wiring, cfg, secrets, [
   legacyApi.service,
   ...queueScalerDeps,
 ]);
+
+// The promotion's carry of reviewed knowledge releases (ADR-0181), where the
+// stack says so: after everything it calls has rolled out (the schema, the api
+// tier and the fetcher it fetches through, the pool that runs the index runs,
+// the workers that ingest). Not awaited; `knowledge-carry-job.ts` says why.
+if (cfg.auth.knowledgeCarry) {
+  runKnowledgeCarry(wiring, cfg, secrets, [
+    migrations,
+    api.deployment,
+    api.service,
+    publicSourceFetcher.deployment,
+    publicSourceFetcher.service,
+    frontend.deployment,
+    bffJobs.deployment,
+    ingestWorker.deployment,
+  ]);
+}
 
 // Chat tier scale-out (ADR-0080) — KEDA moves the chat StatefulSet between its
 // floor and ceiling on the fleet's running turns. Only with affinity off. The

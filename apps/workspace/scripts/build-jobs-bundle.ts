@@ -54,7 +54,14 @@ declare const Bun: {
 }
 
 const UI_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const ENTRY = path.join(UI_ROOT, 'bff/jobs-queue/slice-entry.ts')
+/**
+ * Each entry and the file it becomes: the job pod's slice, and the promotion's carry of knowledge releases
+ * (`scripts/knowledge-carry.ts`, ADR-0181), which needs the same shims and runs from the same image.
+ */
+const ENTRIES = [
+  { entry: path.join(UI_ROOT, 'bff/jobs-queue/slice-entry.ts'), naming: 'slice.mjs' },
+  { entry: path.join(UI_ROOT, 'scripts/knowledge-carry.ts'), naming: 'knowledge-carry.mjs' },
+] as const
 /** Packages inlined rather than imported, each for the reason in the header. */
 const INLINED_PACKAGES = /^@workos-inc\/authkit-nextjs$/
 
@@ -68,14 +75,14 @@ const nextHostShims: BunPlugin = {
   },
 }
 
-async function buildJobsBundle(outdir: string): Promise<string> {
+async function buildJobsBundle(outdir: string, entry: string, naming: string): Promise<string> {
   const result = await Bun.build({
-    entrypoints: [ENTRY],
+    entrypoints: [entry],
     target: 'node',
     format: 'esm',
     packages: 'external',
     outdir,
-    naming: 'slice.mjs',
+    naming,
     define: { 'process.env.NODE_ENV': '"production"' },
     plugins: [nextHostShims],
     throw: false,
@@ -89,5 +96,7 @@ async function buildJobsBundle(outdir: string): Promise<string> {
 
 const flag = process.argv.indexOf('--outdir')
 const outdir = path.resolve(flag > 0 ? process.argv[flag + 1] : path.join(UI_ROOT, 'dist-jobs'))
-const file = await buildJobsBundle(outdir)
-console.log(`[jobs-bundle] wrote ${path.relative(process.cwd(), file)} (${(statSync(file).size / 1e6).toFixed(1)} MB)`)
+for (const { entry, naming } of ENTRIES) {
+  const file = await buildJobsBundle(outdir, entry, naming)
+  console.log(`[jobs-bundle] wrote ${path.relative(process.cwd(), file)} (${(statSync(file).size / 1e6).toFixed(1)} MB)`)
+}
