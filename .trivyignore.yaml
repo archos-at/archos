@@ -59,25 +59,12 @@ vulnerabilities:
   # under `go version -m`, and a local trivy 0.61.1 scan of that digest with
   # this file EMPTY reports no fixable HIGH/CRITICAL. The three boxes are gone.
   #
-  # 2026-10-28: go-jose/v4 4.1.5 (CVE-2026-116587, published 2026-10-26) drew
-  # one HIGH against 0.163.2, and the newest release, 0.164.0
-  # (`sha256:340c9ca6…`), still carries 4.1.5 (local trivy 0.61.1 scan with this
-  # file EMPTY). go-jose 4.1.6 is out, but 0.165.0 exists only as a nightly, so
-  # there is nothing released to move to. Boxed for the 14-day maximum.
-  - id: CVE-2026-116587
-    expired_at: 2026-11-11
-    statement: |
-      github.com/go-jose/go-jose/v4 4.1.5 (GHSA-mgcc-cww5-fp2q) in the
-      otelcol-contrib binary — CPU-cubic validation of crafted RSA parameters
-      when parsing a JWK from an untrusted source. Fixed in 4.1.6.
-      Not exploitable here: the library is compiled into contrib but nothing in
-      our collector parses a JWK. `collector-config.ts` enables a single
-      extension, `health_check`; no OIDC, OAuth2 or bearer-token authenticator
-      is configured, so there is no JWKS fetch and no JOSE parsing on any path,
-      authenticated or not. The OIDC flow that gates the dashboards runs in
-      Envoy Gateway, not in the collector.
-      Drop as soon as a release ships go-jose >= 4.1.6 (0.165.0 is the first
-      expected); bump the pin and delete this entry rather than extending it.
+  # 2026-10-28: go-jose/v4 4.1.5 (CVE-2026-116587) drew one HIGH against 0.163.2
+  # and was boxed to 2026-11-11, waiting for 0.165.0. Its expiry turned the
+  # 2026-11-14 promotion red; the pin moved to 0.165.0 (`sha256:e40d61f1…`), whose
+  # amd64 binary reads go1.27.3, go-jose v4.1.6 and x/net v0.62.0 under
+  # `go version -m` (which also clears CVE-2026-78661 against x/net v0.61.0). The
+  # box is gone; this block is empty again.
 
   # ── Langfuse web/worker images (ADR-0044) ─────────────────────────────────
   #
@@ -116,7 +103,7 @@ vulnerabilities:
   # collector, the BFF, the backend tiers, the purger and the scheduler. There
   # is no unauthenticated surface.
   - id: CVE-2026-40345
-    expired_at: 2026-11-09
+    expired_at: 2026-11-28
     statement: |
       deepmerge-ts 7.1.5 (GHSA-ggr8-5vv4-36mx) — stack exhaustion when BOTH
       merged objects reference themselves at the same key path. A denial of
@@ -150,6 +137,13 @@ vulnerabilities:
       month because the exit is a Prisma major, then Langfuse adopting it.
       Still present in 4.68.0, read from a scan of its digests on 2026-10-22:
       the same three copies, under `prisma` and `@prisma/config` 6.19.3.
+
+      Extended on 2026-11-14, when its expiry of 2026-11-09 turned the
+      promotion red and the pin moved 4.74.0 -> 4.80.0: the reasoning above is
+      structural (the CLI runs before the server, no request reaches it), and
+      Langfuse has not announced a move off Prisma 6. Not re-verified against
+      the 4.80.0 layers: the promotion's trivy run is the check, and an entry no
+      finding matches costs nothing.
 
       Drop as soon as a Langfuse image ships `@prisma/config` >= 8 (deepmerge-ts
       >= 8.0.0).

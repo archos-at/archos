@@ -364,7 +364,9 @@ export function loadLangfuse(
     // package manifests and build info by a local trivy scan, not from
     // release notes. 4.68.0 also turns on project API key permissions by
     // default (API_AUTH_MIGRATION=enforce); keys without a role assignment are
-    // backfilled with their legacy role on first use. It moved 4.71.0 -> 4.74.0 on 2026-11-03 because both 4.71.0 images
+    // backfilled with their legacy role on first use. It moved 4.74.0 -> 4.80.0 on 2026-11-14
+    // because the promotion's trivy found undici, sqlite, brace-expansion and deepmerge-ts
+    // advisories in the 4.74.0 images. It moved 4.71.0 -> 4.74.0 on 2026-11-03 because both 4.71.0 images
     // bundled follow-redirects 1.16.1 (CVE-2026-116689, HIGH, fixed 1.16.2) and
     // dd-trace 5.109.0 (CVE-2026-116693), which kept develop's trivy gate red;
     // a local trivy 0.61.1 scan of the 4.74.0 digests finds neither. It moved 4.68.0 -> 4.71.0
@@ -377,10 +379,10 @@ export function loadLangfuse(
     // next/og RCE (GHSA-vcvr-r3jv-pc5j) no 3.x release fixes.
     webImage:
       cfg.get("langfuseWebImage") ??
-      "ghcr.io/langfuse/langfuse@sha256:f409386b80aa7a77d15b16cf250118d05dab0f4535174f2d4a310ebcf1d7bfc1",
+      "ghcr.io/langfuse/langfuse@sha256:0814758db3db8e923f733be3884e7d7a9e3afd60568d874a610d78aae47476c5",
     workerImage:
       cfg.get("langfuseWorkerImage") ??
-      "ghcr.io/langfuse/langfuse-worker@sha256:d9cf97c0ae7da19f9c4c417d4740d8b3cefc5151722772638f4c17c4b5b67ead",
+      "ghcr.io/langfuse/langfuse-worker@sha256:da9f618dd784219aa6508ab6941c4a89c4ef6fb429fb1734c4163df3baa8f1ca",
     clickhouseImage:
       cfg.get("clickhouseImage") ??
       "clickhouse/clickhouse-server@sha256:1c0b76ac42e16b4eeb0be84013c67269b660701971d29bab9ad0d01b0ba6c10d",
