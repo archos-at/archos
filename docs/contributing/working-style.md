@@ -349,6 +349,44 @@ Say what the agent is for, what a good answer is and which rails hold, give it
 well-described tools, and leave the thinking to it. A rule earns its place by
 the reason it states, once, where it applies.
 
+## Context earns its place
+
+Source: Jina Yoon, "Read this before deleting your AGENTS.md", PostHog
+newsletter, 2026-08-31 (<https://posthog.com/newsletter/fix-your-agents>). Its
+thesis: models got better, so context that once filled a gap now gets in their
+way, and the work has moved from adding context to subtracting it. Its figures
+are PostHog's own and unverified. The practices below are the ones we adopt.
+
+**Every line names the failure it prevents.** That holds for a line in
+`AGENTS.md`, a scoped guide, a skill or a prompt. If you cannot name the
+failure, delete the line. The cases in this file are that name for the root
+rules; a rule whose case no longer happens is a candidate for deletion, not a
+fixture. Run the audit when the model generation moves (the same trigger as the
+[three-month rule](#prompting-advice-has-a-three-month-shelf-life)). After a
+Claude Code upgrade, `/doctor` does the mechanical part (unused plugins and
+skills, token cost per file). It cannot tell whether a line is still true.
+
+**A line about state outside the code goes stale without a diff.** PostHog's
+case: their `AGENTS.md` said every merge goes through the merge queue. The queue
+was paused for a day and the line was not updated, so agents followed wrong
+instructions for 21 hours. The queue lived in a GitHub setting, so no code check
+could see it. Ours: the `grid-app-authz-catalog` crash in
+[gotchas.md](gotchas.md), where WorkOS still held a permission the catalog had
+dropped, and CI could not see the remote state. So a line about a GitHub
+setting, a WorkOS environment, a Langfuse project or a cluster says where that
+state lives, or which check reads it. It does not state the state as fact.
+
+**Every mistake leaves a test for the context.** Code gets a regression test.
+Context gets a case: the [correction ratchet](correction-ratchet.md), an entry
+in [gotchas.md](gotchas.md), a case in this file, and for a prompt the golden
+run. When you rewrite or delete a line, re-check the case that produced it.
+
+**Ask the agent what its context got wrong, then verify.** The closing
+checklist in [definition-of-done.md](definition-of-done.md#the-closing-checklist)
+asks which guides and skills the work used, and which line misled it or was
+missing. That report is a cheap bug report, but it is not a fact. Reproduce it
+before you change the context it blames.
+
 ## A rejection names its premise
 
 An ADR's rejected option is only as durable as the reason it was rejected for.

@@ -156,6 +156,8 @@ evidence or by "not verified because …":
 - UI evidence: <PR attachment, quoted copy | n/a because …>
 - Docs updated: <files | none needed because …>
 - What we learned: <each fact found while working, re-checked in code, and the file it went to | none, because …>
+- Context used: <guides and skills read; any line that was wrong, stale or missing, and what changed | none misled>
+- Product signal (product changes only): <the usage or user evidence behind building it on (VISION.md "Staying necessary" 5–6), or "a bet to try, unmeasured" | n/a, no product change>
 - Independent verification: <who or what re-checked which claims>
 - Committed and pushed: <commit hashes, branch>
 ```

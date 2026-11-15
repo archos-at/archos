@@ -112,6 +112,13 @@ its date; the consultant that gathers it runs on the strongest model. Say what
 the agent is for and give it tools; do not script how it thinks.
 [`working-style.md`](docs/contributing/working-style.md#prompting-advice-has-a-three-month-shelf-life).
 
+**Context earns its place.** Every line of a guide, skill or prompt names the
+failure it prevents. A line that cannot is deleted. A line about state outside
+the code (a GitHub setting, a WorkOS environment) names where that state lives
+or which check reads it, instead of stating it as fact. Report the context that
+misled you or was missing.
+[`working-style.md`](docs/contributing/working-style.md#context-earns-its-place).
+
 **Question the rules, including these.** A rule here records a decision someone
 made with what they knew then. When one blocks the better result, or a new
 standard makes it wrong, say so and change the rule in the same change, with the

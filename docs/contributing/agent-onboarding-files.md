@@ -111,6 +111,10 @@ which is only safe if the irreversible set is written down. It is a table in
 
 - A change to behaviour a guide describes updates the guide in the same commit.
   Stale guidance is worse than none: an agent acts on it.
+- A line about state outside the code (a GitHub setting, a WorkOS environment)
+  changes without any commit. It names where the state lives or which check
+  reads it, and does not state the state as fact
+  ([context earns its place](working-style.md#context-earns-its-place)).
 - `task lint:repo` runs `scripts/check_agent_docs.py`, `scripts/check_adrs.py`
   and `scripts/validate_skills.py`.
 - When a human has to intervene to tell an agent something this repo could have
