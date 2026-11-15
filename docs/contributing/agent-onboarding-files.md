@@ -129,7 +129,11 @@ which is only safe if the irreversible set is written down. It is a table in
   reads it, and does not state the state as fact
   ([context earns its place](working-style.md#context-earns-its-place)).
 - `task lint:repo` runs `scripts/check_agent_docs.py`, `scripts/check_adrs.py`
-  and `scripts/validate_skills.py`.
+  and `scripts/validate_skills.py`, and `scripts/check_doc_paths.py` on every
+  commit: a path in a code span of a guide must name a tracked file, and the
+  docs under `docs/architecture/` and `docs/contributing/` may not gain a dead
+  one (`ci/doc_paths_baseline.json`, shrink-only). A rename that kills a path
+  fails the commit that renamed.
 - When a human has to intervene to tell an agent something this repo could have
   said, that is a failure signal, and the fix belongs in one of these files
   before the task continues. See

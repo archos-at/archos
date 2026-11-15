@@ -169,6 +169,7 @@ backend:
   - 'docs/adr/README.md'
   - 'docs/architecture/agent-capabilities.md'
   - 'docs/architecture/north-star-answers.md'
+  - 'docs/architecture/where-is-what.md'
   - 'docs/audit/qdrant-gates-2026-10.md'
   - 'docs/observability/langfuse.md'
   - 'docs/technical-reference/answer-feedback-export.md'
