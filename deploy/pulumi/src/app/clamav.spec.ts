@@ -20,7 +20,7 @@ const NAMESPACE = objectName("namespace", LEGACY_PROJECT);
  *   - a readiness probe on PING alone stays green on week-old signatures;
  *   - a scanner any pod may call, or one only the frontend may call while the
  *     bff-jobs pool scans what arrives;
- *   - Compose and Pulumi running different images or files (deploy/AGENTS.md);
+ *   - Compose and Pulumi running different images or files (deploy/README.md, "Rules for changes");
  *   - the BFF and the probe disagreeing on how old is too old.
  */
 

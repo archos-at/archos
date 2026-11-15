@@ -34,7 +34,7 @@ _MAX_OUTLINE_LINES = 80
 _OUTLINE_DEPTHS = (1, 2)
 
 #: The one line that says what the Gliederung is and what it is not. English, like everything an
-#: agent reads (AGENTS.md), and it names no tool: three agents read it, each with its own reader.
+#: agent reads (working-style.md), and it names no tool: three agents read it, each with its own reader.
 _OUTLINE_INSTRUCTION = (
     "Open a listed Punkt by its number. The Gliederung is an index, not evidence: only the passages above "
     "carry a Citation."

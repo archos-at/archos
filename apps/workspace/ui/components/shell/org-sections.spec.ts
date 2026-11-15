@@ -5,7 +5,7 @@ import { projectIdFromPathname } from './org-sections'
  * The scope decision, in isolation from the rail that renders it. It is one
  * function and it decides which of two navigations the reader gets, so it is
  * worth more than the incidental coverage a mounted component gives it (see
- * AGENTS.md on logic that lives in a render function).
+ * working-style.md on logic that lives in a render function).
  */
 describe('projectIdFromPathname', () => {
   test('reads the id out of any page inside a project', () => {

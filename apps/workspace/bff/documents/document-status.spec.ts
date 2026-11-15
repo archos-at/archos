@@ -10,7 +10,7 @@
  * ever failed when a writer invented a value: the badge fell back to a neutral
  * chip, the poller's in-flight set silently disagreed with the badge's table by
  * two members, and migration 0063 added a twelfth value to a set nobody owned.
- * That is the "correlated substrate debt" failure `AGENTS.md` names — a shared
+ * That is the "correlated substrate debt" failure `code-conventions.md` names — a shared
  * vocabulary with no owner and no test.
  *
  * This spec is the owner. It reads the WRITERS' own source and fails when one

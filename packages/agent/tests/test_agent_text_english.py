@@ -1,4 +1,4 @@
-"""Every description the model reads from a bound tool is English (AGENTS.md, "Industry standard first").
+"""Every description the model reads from a bound tool is English (working-style.md, "Industry standard first").
 
 Tool names, descriptions and parameter descriptions are read by the model on
 every call, and by outside agents over MCP. German is for people (i18n) and for

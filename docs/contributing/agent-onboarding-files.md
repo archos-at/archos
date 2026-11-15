@@ -65,7 +65,7 @@ task. The scoped files are cheap and precise. Sort by reach, not by importance.
 A rule that reaches one directory costs every session something when it sits at
 the root. Move it down. This is why the UI's authorization and card obligations
 live in `apps/workspace/AGENTS.md` and the pytest path trap lives in
-`packages/agent/src/agent/AGENTS.md` and `tests/AGENTS.md`, rather than all of them at the
+`packages/agent/src/agent/AGENTS.md`, rather than all of them at the
 root where they started.
 
 ## Writing them
@@ -98,9 +98,22 @@ installed by `task agents:setup`. The three levers that matter most here:
 
 Keep each file short enough to stay read. Adherence falls off well before a file
 gets long, and the root one competes with the actual task for the same window.
-**Treat 200 lines as the root guide's ceiling**, which is Claude Code's own
-guidance, and pay for a new rule by deleting a stale or duplicated one rather than by
-growing the file. The service guides run 30–95 lines and have room.
+**The root guide names only what is unique to an agent, in about 100 lines at
+most**: setup, pointers, the scoped-guides caveat, the agent-behaviour rules, the
+one-way doors and the obligations only review catches. General contributor rules
+live in [working-style.md](working-style.md), and the obligations a check enforces
+in [obligations.md](obligations.md). Pay for a new root line by deleting one.
+
+**A guide is not documentation.** A scoped guide is a title, one line on what the
+directory is, one-line invariants an agent would get wrong there (each naming
+the test or file that holds it) and "before you change X, read Y" pointers. How
+it works, why, tables and history belong in `docs/` and are linked. A guide with
+nothing agent-unique left is deleted with its bridge; the invariants that remain
+go to the parent guide or the module docstring the agent opens anyway.
+`scripts/check_agent_docs.py` holds this as a ratchet: no guide may grow past
+its entry in `ci/agent_docs_baseline.json`, and a new guide fails until
+`--update` records it in a reviewed diff. The audit of 2026-11-15 took the
+guides from 15 files and 1,559 lines to 8 files and about 240.
 
 One thing belongs at the root and nowhere else: **the list of one-way doors.**
 "Finish the task" tells an agent not to stop for permission on reversible work,

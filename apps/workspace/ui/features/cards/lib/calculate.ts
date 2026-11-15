@@ -17,7 +17,7 @@
  * would put a confident wrong number on the card.
  *
  * A pure module rather than logic inside the component, for the reason
- * AGENTS.md gives: the same assertion costs 1.3ms here and 172ms through a
+ * working-style.md gives: the same assertion costs 1.3ms here and 172ms through a
  * mounted tree, and the arithmetic is the part that must be tested hardest.
  */
 

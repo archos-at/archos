@@ -62,7 +62,7 @@ SERVER_TOOLS = {
     "report_missing": "report-missing-operation",
 }
 
-# Everything the model reads from these tools is English, one word per concept (AGENTS.md, "Industry
+# Everything the model reads from these tools is English, one word per concept (working-style.md, "Industry
 # standard first"; the terms are in docs/glossary.md, "Agent surface and standard terms"). The model
 # answers the person in their language; it does not quote these sentences.
 

@@ -7,14 +7,15 @@ holds the depth behind it.
 
 | Page | What it covers |
 |---|---|
-| [working-style.md](working-style.md) | The cases behind each working-style rule in `AGENTS.md`: what it cost before it was written down |
+| [working-style.md](working-style.md) | Every working-style rule, with the case behind it: what it cost before it was written down |
+| [obligations.md](obligations.md) | What every change must do, and the check (or review) that fails it; the four gates outside `task verify` |
 | [ci.md](ci.md) | What CI is for, how a run decides what to run, how images reach a deploy, and why each rule exists |
 | [ci-north-star.md](ci-north-star.md) | Where CI is going: the measured baseline (merge to staging, red develop, cost), what each change is expected to save (to be measured), the next slices ranked, and the settings only an owner can change |
 | [definition-of-done.md](definition-of-done.md) | The bar a change clears before anyone calls it done: the baseline, what to show per kind of change, the revert-check, the closing checklist |
 | [testing-and-verification.md](testing-and-verification.md) | `task verify` as the merge gate, which task to run while iterating, and the traps the task list cannot tell you about |
 | [local-stack.md](local-stack.md) | The whole app on one machine with a real signed-in session and no Docker or WorkOS account (`task local:up`): what runs, the users, a browser session, what a chat turn needs, what is left out, troubleshooting |
 | [naming.md](naming.md) | How to name anything: the explain test, no brand in a name, English only, casing per family, one word per concept, renaming a stored or external name, terms under review |
-| [code-conventions.md](code-conventions.md) | House rules with a history: the `any` ban, coercing raw `sql<T>` results, where a shared helper belongs, the capability doctrine |
+| [code-conventions.md](code-conventions.md) | House rules with a history: the `any` ban, coercing raw `sql<T>` results, where a shared helper belongs, the capability doctrine, the rules that span services |
 | [release-notes.md](release-notes.md) | reno mechanics, what makes a note customer copy, publishing and the translation cache |
 | [gotchas.md](gotchas.md) | Known failures indexed by the symptom you arrive with. Read it before debugging a surprise |
 | [agent-onboarding-files.md](agent-onboarding-files.md) | What `AGENTS.md` and its `CLAUDE.md` bridge are for, how each one loads, and which rules belong at the root versus in a service |

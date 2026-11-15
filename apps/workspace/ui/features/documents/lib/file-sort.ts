@@ -3,7 +3,7 @@
  *
  * Pure and locale-aware, and deliberately not inside the component: sorting is
  * logic, and logic in a render function can only be tested by mounting a React
- * tree (see the note on `InputArea.spec.tsx` in AGENTS.md).
+ * tree (see the note on `InputArea.spec.tsx` in working-style.md).
  */
 
 import type { FileItem } from '../components/project-file-workspace'

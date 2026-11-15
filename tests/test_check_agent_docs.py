@@ -59,3 +59,35 @@ def test_every_tracked_markdown_file_is_checked_but_the_vendored_one(checker):
     files = {"README.md", "docs/a.md", "src/x.py", *checker.LINKS_NOT_CHECKED}
 
     assert [p.as_posix() for p in checker.markdown_files(files)] == ["README.md", "docs/a.md"]
+
+
+def growth_errors(checker, tmp_path, monkeypatch, baseline: dict[str, int], counts: dict[str, int]) -> list[str]:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "ci").mkdir(exist_ok=True)
+    (tmp_path / "ci" / "agent_docs_baseline.json").write_text(__import__("json").dumps(baseline))
+    errors: list[str] = []
+    checker.check_growth(counts, errors)
+    return errors
+
+
+def test_a_guide_may_shrink_but_never_grow(checker, tmp_path, monkeypatch):
+    assert growth_errors(checker, tmp_path, monkeypatch, {"AGENTS.md": 80}, {"AGENTS.md": 70}) == []
+
+    errors = growth_errors(checker, tmp_path, monkeypatch, {"AGENTS.md": 80}, {"AGENTS.md": 81})
+
+    assert errors and "baseline 80" in errors[0]
+
+
+def test_a_new_guide_is_refused_until_the_baseline_names_it(checker, tmp_path, monkeypatch):
+    errors = growth_errors(checker, tmp_path, monkeypatch, {"AGENTS.md": 80}, {"AGENTS.md": 80, "x/AGENTS.md": 5})
+
+    assert errors and "a new guide" in errors[0]
+
+
+def test_a_guide_deleted_but_still_tracked_is_reported_not_crashed(checker, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    errors: list[str] = []
+
+    checker.check_bridge(Path("gone/AGENTS.md"), {"gone/AGENTS.md", "gone/CLAUDE.md"}, errors)
+
+    assert errors and "deleted but still tracked" in errors[0]

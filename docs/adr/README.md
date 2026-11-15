@@ -18,8 +18,6 @@ decision is superseded rather than rewritten. Their status is metadata, not the
 decision: since 2026-10 every record, old or new, carries it as frontmatter
 `status:` and nowhere else, and `scripts/check_adrs.py` refuses any other form.
 
-Working in here: [`AGENTS.md`](AGENTS.md).
-
 ## Why ADRs
 
 Piloti is a small team rapidly evolving a workspace for planning offices, built on
@@ -48,6 +46,13 @@ python3 scripts/check_adrs.py           # what `task lint:repo` runs
 An accepted ADR is superseded, not rewritten; clarifications and typo fixes are
 fine. Fill in **Confirmation** before accepting: the gate that keeps the decision
 true, or an explicit statement that nothing enforces it yet.
+
+One decision per record: "and we will also" is almost always a second ADR. A
+rejected option names the premise it rests on, as a fact that can turn false (a
+version, a measurement, a property of one tool), so a later reader re-checks the
+premise rather than re-arguing the option. ADR-0046 and ADR-0127 each rejected an
+option on a premise that later stopped holding
+([the case](../contributing/working-style.md#a-rejection-names-its-premise)).
 
 ## Status legend
 

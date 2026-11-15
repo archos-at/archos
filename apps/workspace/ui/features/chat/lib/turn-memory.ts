@@ -28,7 +28,7 @@
  *
  * A pure module with its own fast spec, not logic inside the render function —
  * `ui/features/chat/lib/` is where this codebase puts the part that can be
- * tested in a millisecond instead of a mount (AGENTS.md).
+ * tested in a millisecond instead of a mount (working-style.md, "Fix causes, not symptoms").
  *
  * **A PERSONAL note is never on the message** (ADR-0180): other people read a
  * shared conversation's messages. The agent stores it with the id of the

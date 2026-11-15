@@ -1,8 +1,9 @@
 # Working style
 
-The rules in [`AGENTS.md`](../../AGENTS.md) are the short form. This is the
-long form: the cases that produced each one, kept out of always-loaded context
-because a case teaches once and then costs on every turn.
+How we work. [`AGENTS.md`](../../AGENTS.md) carries a one-line form of the few
+rules about an agent's own behaviour; every rule is here in full, with the case
+that produced it, kept out of always-loaded context because a case teaches once
+and then costs on every turn.
 
 ## Value driven
 
@@ -154,7 +155,7 @@ A dependency is not free, and this repo pays for the ones it has: a 21 KB
 advisories on the default branch. So "buy" is not licence to add a package for
 something a function would do.
 
-The two rules meet at scale. "The best part is no part" ([Scope](../../AGENTS.md#scope))
+The two rules meet at scale. "The best part is no part" ([Scope](#scope))
 decides whether the thing should exist. This rule decides who writes it once the
 answer is yes. For genuinely small, genuinely local things, neither buying nor
 building is the answer. Deleting the requirement is.
@@ -262,6 +263,13 @@ surprises you, or you correct yourself twice for one reason:
 [`correction-ratchet.md`](correction-ratchet.md).
 
 ## Everything you learn is written down
+
+Every fact about this system that you had to find out, because no doc told you,
+lands in the repo in the same change: what you read in code, what a failure
+taught you, and every finding of a subagent, scout or consultant you ran (their
+reports die with the session). Re-check it in the code first. Write it where the
+next agent will already be looking (the doc for that area, the scoped
+`AGENTS.md`, the gotchas register, the ADR, the glossary), never in a new note.
 
 Reworking the project mail inbox (PR #831) in October 2026 began with eleven
 scouts and thirteen consultants reading the code for a day. Their reports turned
@@ -412,10 +420,16 @@ documents ([ADR-0133](../adr/0133-piloti-reads-the-estate-through-standard-files
   filesystem tools served by our own backend. Because the reasons were written
   as facts about that tool, the re-check took one paragraph.
 
-The rule lives in [`docs/adr/AGENTS.md`](../adr/AGENTS.md) and in the
+The rule lives in [`docs/adr/README.md`](../adr/README.md#process) and in the
 template's comments.
 
 ## Cost a move before you build it
+
+Before moving a thing onto another mechanism, or converting it to a pattern,
+read the code and write down four answers: what exists and how many lines would
+go, what replaces it and what that costs, what behaviour changes or is lost, and
+the net. Build only what clears the bar the user set. An inventory row that says
+"an engine feature could do this" is a lead, and a scout's "verified" is too.
 
 On 11 November 2026 an audit asked which of our own sweeps, leases and clocks
 the workflow engine could take over
@@ -451,6 +465,10 @@ already existed
 
 ## Dead here is not dead in production
 
+Before you remove a table, column, route or variable, check it against what
+production runs (`git fetch origin prod`, then `git grep` on `FETCH_HEAD`), not
+only against your branch.
+
 The same day a migration dropped `bff_job_lane_turns`. A scout had proven the
 table dead: no reader and no writer anywhere on the branch. Production was two
 weeks and a whole workflow engine behind `develop`, and its running release
@@ -469,3 +487,42 @@ The wider lesson is the gap itself. Thirty-six migrations and one engine apart,
 every removal on `develop` is a guess about production, and every promotion is
 a single large step. Promoting in small steps, often, is what makes the check
 above cheap.
+
+## Industry standard first
+
+Where a published standard or the dominant convention covers the problem, use it
+and its vocabulary: MCP for agents, A2A for agent-to-agent work, OAuth 2.1 and
+the RFCs behind it for delegation, OpenAPI for HTTP contracts, the vendor's own
+product (a WorkOS feature) before our own. Look the standard up before you
+design; a name we invent for a thing the standard already names is a
+translation every agent and new colleague pays for. Deviate only with the reason
+written in an ADR. Anything an agent reads (tool names, descriptions, errors,
+cards over the wire) is English, with one word per concept; German is for
+people, through i18n, and for domain data. How to name a thing:
+[`naming.md`](naming.md).
+
+## Agents can act in every tool we choose
+
+A tool we adopt (CMS, CRM, tracker, analytics, an infrastructure service) lets an
+agent read, create, edit, publish and query in it through the vendor's official
+MCP server, or at least a complete, documented API with scoped tokens. Its
+configuration is code an agent can change by PR, and an agent's edits have a
+draft or review step and a revision history to roll back from. Record the check
+in the tool's ADR; the checklist is in [`ai-native-tooling.md`](ai-native-tooling.md).
+
+## Question the rules, including these
+
+A rule records a decision someone made with what they knew then. When one blocks
+the better result, or a new standard makes it wrong, say so and change the rule
+in the same change, with the reason. Keep the code straight rather than
+contorting it around the rule, and never break the rule silently.
+
+## Scope
+
+Fix errors you meet, including ones that pre-date your change. "It was already
+broken" leaves it broken; when a fix is genuinely out of scope, say so loudly in
+the PR.
+
+Question necessity first, then simplify. The best part is no part: ask whether
+existing machinery already covers it, and finish with a pass that tries to
+delete. Reduce complexity, never features. That pass is part of done.
