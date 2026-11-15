@@ -152,6 +152,7 @@ backend:
   - 'apps/workspace/ui/features/layout/components/InputArea.tsx'
   - 'apps/workspace/workers/job-queue.js'
   - 'apps/workspace/workers/jobs/index.js'
+  - 'ci/agent_docs_baseline.json'
   - 'ci/brand_names_baseline.json'
   - 'ci/english_names_baseline_py.json'
   - 'ci/package_surface_baseline.json'

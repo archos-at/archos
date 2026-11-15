@@ -101,7 +101,7 @@ other caller is a way past every route's `authz`, and `acting-session.spec.ts`
 fails it. [`agent-surface.md`](../architecture/agent-surface.md#the-acting-session).
 
 **The product's name (the root obligation) comes from `bff/brand.ts` here.**
-`PRODUCT_NAME` reads `shared/brand/identity.json`, the synced copy of
+`PRODUCT_NAME` reads `apps/workspace/shared/brand/identity.json`, the synced copy of
 `packages/brand/identity.json`; `withProductName`, beside it, fills a dictionary's
 `{productName}`, and `i18n/product-name.spec.ts` fails a string that spells the name.
 
