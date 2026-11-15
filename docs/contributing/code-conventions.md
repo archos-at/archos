@@ -40,9 +40,11 @@ was over when the check arrived, at its size then:
 - One **in the baseline** may not grow past its recorded count. Adding to a
   giant means taking the same lines out of it, or moving the part you touch
   into a module of its own first.
-- When one **shrinks**, the check fails until the baseline follows: run
-  `.venv/bin/python scripts/check_file_size.py --update`, which lowers and
-  removes entries and never raises or adds one. A split stays split.
+- When one **shrinks**, the check passes and notes the slack. Lock the gain in
+  with `task baselines:tighten` (every ratchet's `--update`, which lowers and
+  removes entries and never raises or adds one), in the same PR or a later one.
+  Until then the slack could be spent again; that is the price of not failing a
+  good change.
 - A **move or rename** re-keys entries, so the baseline conflicts or reports
   the old path as gone and the new one as new. Regenerate it with
   `--rebaseline` and check its diff shows only the move.

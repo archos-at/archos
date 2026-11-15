@@ -93,7 +93,8 @@ def test_a_new_hit_fails_and_the_baseline_only_moves_down(checker, repo, capsys)
     assert "src/jobs.py: 2 brand hit(s), baseline 1" in capsys.readouterr().err
 
     _add(repo, "src/jobs.py", "LIMIT = os.environ['MAX_JOBS']\n")
-    assert checker.main([]) == 1
+    assert checker.main([]) == 0  # a shrink passes, with a note
+    assert "can be lowered" in capsys.readouterr().out
     assert checker.main(["--update"]) == 0
     assert json.loads((repo / "ci" / "brand_names_baseline.json").read_text()) == {}
 
