@@ -71,9 +71,7 @@ Third-party skills sit in the same manifest, pinned to a commit and locked in
 |---|---|---|
 | `unslop` | automatically, on any writing | This repo carries a lot of prose |
 | `writing-for-agents` | automatically, when you touch a skill, `AGENTS.md` or `CLAUDE.md` | The rules `AGENTS.md` is now written to |
-| `typescript-best-practices` | automatically, on any `.ts`/`.tsx` | `apps/workspace` is most of the surface area |
 | `how` | automatically, on "how does X work" and placement questions | Four layers can own a feature here, so "which layer" recurs |
-| `why` | automatically, on "why does X work this way", rationale, postmortems | The question `docs/adr/` exists to answer. `how` reads the code, `why` reconstructs the forces from history, issues and docs |
 | `technical-writing` | by name | Human-facing prose: docs, RFCs, PR bodies. `writing-for-agents` covers what an agent consumes |
 | `interrogate` | by name | Adversarial multi-model review of a diff |
 | `blast-radius` | by name | Changes whose danger sits outside the diff |
@@ -82,6 +80,7 @@ Third-party skills sit in the same manifest, pinned to a commit and locked in
 | `codebase-design` | by name, and by the skill above | The architecture vocabulary the report is written in |
 | `grilling` | by name, and by the skill above | The decision loop once a candidate is picked |
 | `domain-modeling` | by name, and by the skill above | Keeps a `CONTEXT.md` glossary current as terms sharpen |
+| `modern-web-guidance` | automatically, on HTML, CSS and client-side JS work | Native platform APIs over legacy patterns and polyfills; evals by the Chrome, Edge, Firefox and MDN teams. It runs `npx modern-web-guidance@latest`, the one unpinned piece (see `apm.yml`) |
 | `frontend-design` | automatically, when building or reshaping UI | Anthropic's design skill: aesthetic direction, typography, choices that do not read as templated |
 | `emil-design-eng` | automatically, on UI polish and motion work | The bar for interface craft: easing, duration, origin, press feedback. The one skill kept from its repo |
 
@@ -91,11 +90,13 @@ calls. It also reads and maintains the root [`CONTEXT.md`](../../CONTEXT.md),
 the domain glossary; the engineering vocabulary is in
 [`docs/glossary.md`](../glossary.md).
 
-Eight are from [pstack](https://github.com/cursor/plugins/tree/main/pstack),
-picked out of its 44, and five from
+Six are from [pstack](https://github.com/cursor/plugins/tree/main/pstack),
+picked out of its 44 (`typescript-best-practices` and `why` were removed on
+2026-11-15), and five from
 [mattpocock/skills](https://github.com/mattpocock/skills).
 One is from [emilkowalski/skills](https://github.com/emilkowalski/skills) and
-one from [anthropics/skills](https://github.com/anthropics/skills). The other
+one from [anthropics/skills](https://github.com/anthropics/skills), and
+`modern-web-guidance` from [GoogleChrome/modern-web-guidance](https://github.com/GoogleChrome/modern-web-guidance). The other
 twelve Emil Kowalski skills were removed on 2026-11-15: most fired on their own,
 so each cost its listing on every turn for work this repo rarely does, and
 `emil-design-eng` already carries the polish and motion bar. Where either disagrees with the motion
@@ -104,6 +105,20 @@ the design language wins until it is changed, and changing it is a decision
 recorded there, not a drift in one component.
 `apm install cursor/plugins/pstack` takes the whole plugin in one dependency if
 you want the rest; the cost is context load from the ones that fire on their own.
+
+### Updating them
+
+Every pin is a commit, so an update is a reviewed diff: move the commit in
+`apm.yml`, run `uvx --from apm-cli==<APM_VERSION> apm install` (not `--frozen`)
+to re-lock, then `task agents:audit`. `agent-browser`'s skill is written for one
+CLI release; move `AGENT_BROWSER_VERSION` in `Taskfile.yml` to the version in the
+skill commit's `package.json`, and run `task agents:browser`.
+
+On 2026-11-15 every skill moved to its upstream's latest commit, and the
+agent-browser CLI from 0.27.0 to 0.43.0, except the four
+`improve-codebase-architecture` skills: upstream renamed their glossary from
+`CONTEXT.md` to GLOSSARY.md, so they stay at `6654f6b` until that rename is
+made here as one change (`apm.yml` says why).
 
 ### Deliberately not taken
 
@@ -157,7 +172,7 @@ repositories, use `bash archos/scripts/cloud-setup.sh --with-skills` (see
 | Piece | Runs | Does |
 |---|---|---|
 | [`scripts/cloud-setup.sh`](../../scripts/cloud-setup.sh) | once per environment snapshot, as root, before Claude starts | Installs go-task and `agent-browser` (one `npm i -g`, pinned), installs `uv` if missing, warms the `apm` CLI cache, reports `gh`. Needs no secrets |
-| `.claude/hooks/session-start.sh` | every `startup` and `resume` session (matcher `startup\|resume`, timeout 540 s), only when `CLAUDE_CODE_REMOTE=true` | Mirrors `task setup`: venv, the git hooks (`pre-commit install`, when `.git/hooks/pre-commit` is not pre-commit's), the four bun installs, `apm install --frozen` (17 skills into `.claude/skills` and `.agents/skills`), and, if missing, the pinned `agent-browser`. Each step records a hash of its lockfile and skips itself when it and its output are unchanged, so a warm start takes about a second |
+| `.claude/hooks/session-start.sh` | every `startup` and `resume` session (matcher `startup\|resume`, timeout 540 s), only when `CLAUDE_CODE_REMOTE=true` | Mirrors `task setup`: venv, the git hooks (`pre-commit install`, when `.git/hooks/pre-commit` is not pre-commit's), the four bun installs, `apm install --frozen` (16 skills into `.claude/skills` and `.agents/skills`), and, if missing, the pinned `agent-browser`. Each step records a hash of its lockfile and skips itself when it and its output are unchanged, so a warm start takes about a second |
 
 The pins live in one place: `APM_VERSION` and `AGENT_BROWSER_VERSION` in
 `Taskfile.yml`, the go-task version in `.github/actions/setup-task`. Both
@@ -200,7 +215,7 @@ that path exists and you have configured no Chrome of your own
 ```bash
 agent-browser --version          # the AGENT_BROWSER_VERSION pin
 agent-browser doctor             # or: task agents:browser
-ls .claude/skills | wc -l        # 17
+ls .claude/skills | wc -l        # 16
 ```
 
 `task agents:setup` does the same on a developer machine (apm skills, then
