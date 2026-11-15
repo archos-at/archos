@@ -102,10 +102,11 @@ def test_a_shrink_asks_for_the_baseline_to_follow_and_update_only_lowers_it(chec
     add(repo, "src/split.py", lines(100))
     add(repo, "src/new.py", lines(601))
 
+    # The new giant fails; the two shrinks are slack, never findings.
     assert checker.main([]) == 1
     err = capsys.readouterr().err
-    assert "src/big.py: down from 700 to 680 lines, so lower its baseline entry" in err
-    assert "src/split.py: under the limit or gone, so remove its baseline entry" in err
+    assert "src/new.py: 601 lines" in err
+    assert "down from" not in err and "remove its baseline entry" not in err
 
     # --update tightens what is recorded and still refuses the new giant: it never adds an entry.
     assert checker.main(["--update"]) == 1

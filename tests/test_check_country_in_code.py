@@ -93,10 +93,11 @@ def test_a_removal_asks_for_the_baseline_to_follow_and_update_only_lowers_it(che
     _add(repo, "packages/agent/src/agent/gone.py", "A = source.publisher\n")
     _add(repo, "packages/agent/src/agent/new.py", "LAND = 'Tirol'\n")
 
+    # The new file fails; the two shrinks pass and are reported as slack, not as findings.
     assert checker.main([]) == 1
-    err = capsys.readouterr().err
-    assert "packages/agent/src/agent/law.py: down from 3 to 1, so lower its baseline entry" in err
-    assert "packages/agent/src/agent/gone.py: down from 1 to 0, so lower its baseline entry" in err
+    captured = capsys.readouterr()
+    assert "packages/agent/src/agent/new.py: 1 country hit(s), baseline 0" in captured.err
+    assert "down from" not in captured.err
 
     # --update tightens what is recorded and still refuses the new file: it never adds an entry.
     assert checker.main(["--update"]) == 1

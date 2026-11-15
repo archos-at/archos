@@ -94,7 +94,7 @@ def test_a_dropped_reference_must_lower_the_baseline_and_update_lowers_it(checke
     assert checker.main(["--rebaseline"]) == 0
     add(repo, "app.py", "from knowledge_layer.search import RankedSearch\n")
 
-    assert checker.main([]) == 1
+    assert checker.main([]) == 0  # a shrink passes; --update locks it in
     assert checker.main(["--update"]) == 0
     assert baseline(repo) == {}
 

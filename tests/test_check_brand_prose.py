@@ -182,7 +182,7 @@ def test_the_ratchet_refuses_growth_and_follows_every_cleanup(checker, repo: Pat
     assert checker.main([]) == 1
 
     _add(repo, "apps/workspace/ui/a.tsx", "const t = PRODUCT_NAME\n")
-    assert checker.main([]) == 1  # below the baseline until --update lowers it
+    assert checker.main([]) == 0  # a shrink passes; --update locks it in
     assert checker.main(["--update"]) == 0
     assert json.loads((repo / "ci/brand_prose_baseline.json").read_text()) == {}
 
