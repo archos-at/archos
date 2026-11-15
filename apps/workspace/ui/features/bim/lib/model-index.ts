@@ -8,7 +8,7 @@
  * the whole job of this module.
  *
  * Kept free of React and of the viewer so it can be tested as a function of its
- * inputs (see `AGENTS.md` on logic living in modules rather than in a render
+ * inputs (see `working-style.md` on logic living in modules rather than in a render
  * function).
  */
 

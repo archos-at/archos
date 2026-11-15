@@ -9,7 +9,7 @@
  * an index says the file has Fassungen, not what it is. The folder brief once
  * announced „Planstände“ for every file whose name carried an index, contracts
  * and Gutachten included, and the product owner made it a rule (CONTEXT.md,
- * „Fassung“; AGENTS.md, „Name a file“). This spec is that rule's ratchet for
+ * „Fassung“; docs/contributing/obligations.md, „Name a file“). This spec is that rule's ratchet for
  * the namespaces that talk about files.
  *
  * What stays allowed: a Dokumentart that IS a drawing type („Lageplan“,

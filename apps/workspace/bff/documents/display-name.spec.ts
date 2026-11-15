@@ -9,7 +9,7 @@
  * rename endpoint will accept, and both the dialog and the service call them —
  * so a change here is a change to the product's behaviour in two tiers at once.
  * Logic in a module, spec'd in milliseconds (see the note on `InputArea.spec`
- * in AGENTS.md).
+ * in working-style.md, "Fix causes, not symptoms").
  */
 
 import { describe, expect, it } from 'vitest'

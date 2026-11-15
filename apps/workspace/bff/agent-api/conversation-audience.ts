@@ -111,7 +111,7 @@ export async function conversationAudienceOf(principal: AgentPrincipal): Promise
 
 /**
  * The sentences the model relays for a refused read. English, whatever the
- * person's locale: an agent reads them (AGENTS.md, "Industry standard first").
+ * person's locale: an agent reads them (working-style.md, "Industry standard first").
  */
 export const READ_REFUSALS = {
   shared:

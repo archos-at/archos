@@ -373,7 +373,7 @@ jobs:
             . ci/git_auth.sh
             task release:lint
           fi
-      # AGENTS.md: a change a customer can notice ships with its note. The
+      # docs/contributing/obligations.md: a change a customer can notice ships with its note. The
       # escape hatch is the `no-release-note` label, read from the PR as it is
       # NOW rather than from the event payload: a re-run replays the payload, so
       # a label added after the push used to need another commit. Add the

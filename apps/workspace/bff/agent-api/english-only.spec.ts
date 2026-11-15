@@ -4,7 +4,7 @@
  */
 /**
  * Everything an agent reads from Piloti's MCP server is English, one word per
- * concept (AGENTS.md, "Industry standard first"; the words are in
+ * concept (working-style.md, "Industry standard first"; the words are in
  * `docs/glossary.md`, "Agent surface and standard terms"). German is for people,
  * through i18n, and for domain data.
  *

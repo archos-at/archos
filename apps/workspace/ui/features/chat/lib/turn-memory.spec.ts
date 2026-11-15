@@ -13,7 +13,7 @@
  *
  * A node-environment spec over a pure module, deliberately: this is the logic,
  * and logic that lives in a render function costs 172ms a case to test instead
- * of one (AGENTS.md).
+ * of one (working-style.md, "Fix causes, not symptoms").
  */
 import { describe, expect, it } from 'vitest'
 import type { AnswerCard } from '@/shared/cards/schemas'

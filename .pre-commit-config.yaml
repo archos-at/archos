@@ -152,15 +152,17 @@ repos:
         types: [text]
 
       - id: doc-paths
-        name: the concept index points at files that exist
-        # docs/architecture/where-is-what.md is only worth reading while its
-        # paths resolve, and they sit in code spans, so markdown-link-check
-        # never looks at them. A rename turns a row into the grep the index
-        # exists to remove, with nothing local objecting.
+        name: paths in the concept index, the AGENTS.md guides and the docs exist
+        # Paths in code spans are invisible to markdown-link-check, so a rename
+        # leaves a guide pointing at nothing. The concept index and every
+        # AGENTS.md are held to zero dead paths; docs/architecture and
+        # docs/contributing to ci/doc_paths_baseline.json, which only shrinks.
+        # Always run: a rename in code is what kills a doc path, so the commit
+        # that renames is the one to fail. It reads `git ls-files`, under a second.
         entry: python3 scripts/check_doc_paths.py
         language: system
         pass_filenames: false
-        files: ^docs/architecture/where-is-what\.md$|^scripts/check_doc_paths\.py$
+        always_run: true
 
       - id: english-names
         name: no Python file gains a German identifier

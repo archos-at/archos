@@ -56,7 +56,7 @@ ANSWER_MESSAGE_HEADER = "X-Answer-Message-Id"
 REQUEST_TIMEOUT_SECONDS = 30
 
 #: How a tool-level error (``isError``) starts, so the model reads it as one. English, like everything
-#: the model reads from the workspace (AGENTS.md, "Industry standard first"); it words it for the reader.
+#: the model reads from the workspace (working-style.md, "Industry standard first"); it words it for the reader.
 ERROR_PREFIX = "Error: "
 
 

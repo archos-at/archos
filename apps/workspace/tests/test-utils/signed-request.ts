@@ -4,7 +4,7 @@
  * signature by `http-message-signatures`, the `Content-Digest` dictionary by
  * `structured-headers`. A spec that verifies these with `@/lib/internal-auth`
  * therefore checks our verifier against an implementation we did not write,
- * which is the point of buying the library (AGENTS.md, "Buy, don't build").
+ * which is the point of buying the library (working-style.md, "Buy, don't build").
  *
  * Every knob a refusal spec needs is here: the key, the times, the covered
  * components, and the body sent apart from the body signed.

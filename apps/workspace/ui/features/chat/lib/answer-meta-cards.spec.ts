@@ -8,7 +8,7 @@
  *
  * A pure module spec, deliberately: this is comparison logic, and logic that
  * lives in a render function costs a mount per case instead of a millisecond
- * (AGENTS.md).
+ * (working-style.md, "Fix causes, not symptoms").
  */
 
 import { describe, expect, test } from 'vitest'

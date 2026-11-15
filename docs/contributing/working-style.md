@@ -1,8 +1,9 @@
 # Working style
 
-The rules in [`AGENTS.md`](../../AGENTS.md) are the short form. This is the
-long form: the cases that produced each one, kept out of always-loaded context
-because a case teaches once and then costs on every turn.
+How we work. [`AGENTS.md`](../../AGENTS.md) carries a one-line form of the few
+rules about an agent's own behaviour; every rule is here in full, with the case
+that produced it, kept out of always-loaded context because a case teaches once
+and then costs on every turn.
 
 ## Value driven
 
@@ -154,7 +155,7 @@ A dependency is not free, and this repo pays for the ones it has: a 21 KB
 advisories on the default branch. So "buy" is not licence to add a package for
 something a function would do.
 
-The two rules meet at scale. "The best part is no part" ([Scope](../../AGENTS.md#scope))
+The two rules meet at scale. "The best part is no part" ([Scope](#scope))
 decides whether the thing should exist. This rule decides who writes it once the
 answer is yes. For genuinely small, genuinely local things, neither buying nor
 building is the answer. Deleting the requirement is.
@@ -263,6 +264,13 @@ surprises you, or you correct yourself twice for one reason:
 
 ## Everything you learn is written down
 
+Every fact about this system that you had to find out, because no doc told you,
+lands in the repo in the same change: what you read in code, what a failure
+taught you, and every finding of a subagent, scout or consultant you ran (their
+reports die with the session). Re-check it in the code first. Write it where the
+next agent will already be looking (the doc for that area, the scoped
+`AGENTS.md`, the gotchas register, the ADR, the glossary), never in a new note.
+
 Reworking the project mail inbox (PR #831) in October 2026 began with eleven
 scouts and thirteen consultants reading the code for a day. Their reports turned
 up dozens of facts no doc held: an operation description that named the wrong
@@ -349,6 +357,44 @@ Say what the agent is for, what a good answer is and which rails hold, give it
 well-described tools, and leave the thinking to it. A rule earns its place by
 the reason it states, once, where it applies.
 
+## Context earns its place
+
+Source: Jina Yoon, "Read this before deleting your AGENTS.md", PostHog
+newsletter, 2026-08-31 (<https://posthog.com/newsletter/fix-your-agents>). Its
+thesis: models got better, so context that once filled a gap now gets in their
+way, and the work has moved from adding context to subtracting it. Its figures
+are PostHog's own and unverified. The practices below are the ones we adopt.
+
+**Every line names the failure it prevents.** That holds for a line in
+`AGENTS.md`, a scoped guide, a skill or a prompt. If you cannot name the
+failure, delete the line. The cases in this file are that name for the root
+rules; a rule whose case no longer happens is a candidate for deletion, not a
+fixture. Run the audit when the model generation moves (the same trigger as the
+[three-month rule](#prompting-advice-has-a-three-month-shelf-life)). After a
+Claude Code upgrade, `/doctor` does the mechanical part (unused plugins and
+skills, token cost per file). It cannot tell whether a line is still true.
+
+**A line about state outside the code goes stale without a diff.** PostHog's
+case: their `AGENTS.md` said every merge goes through the merge queue. The queue
+was paused for a day and the line was not updated, so agents followed wrong
+instructions for 21 hours. The queue lived in a GitHub setting, so no code check
+could see it. Ours: the `grid-app-authz-catalog` crash in
+[gotchas.md](gotchas.md), where WorkOS still held a permission the catalog had
+dropped, and CI could not see the remote state. So a line about a GitHub
+setting, a WorkOS environment, a Langfuse project or a cluster says where that
+state lives, or which check reads it. It does not state the state as fact.
+
+**Every mistake leaves a test for the context.** Code gets a regression test.
+Context gets a case: the [correction ratchet](correction-ratchet.md), an entry
+in [gotchas.md](gotchas.md), a case in this file, and for a prompt the golden
+run. When you rewrite or delete a line, re-check the case that produced it.
+
+**Ask the agent what its context got wrong, then verify.** The closing
+checklist in [definition-of-done.md](definition-of-done.md#the-closing-checklist)
+asks which guides and skills the work used, and which line misled it or was
+missing. That report is a cheap bug report, but it is not a fact. Reproduce it
+before you change the context it blames.
+
 ## A rejection names its premise
 
 An ADR's rejected option is only as durable as the reason it was rejected for.
@@ -374,10 +420,16 @@ documents ([ADR-0133](../adr/0133-piloti-reads-the-estate-through-standard-files
   filesystem tools served by our own backend. Because the reasons were written
   as facts about that tool, the re-check took one paragraph.
 
-The rule lives in [`docs/adr/AGENTS.md`](../adr/AGENTS.md) and in the
+The rule lives in [`docs/adr/README.md`](../adr/README.md#process) and in the
 template's comments.
 
 ## Cost a move before you build it
+
+Before moving a thing onto another mechanism, or converting it to a pattern,
+read the code and write down four answers: what exists and how many lines would
+go, what replaces it and what that costs, what behaviour changes or is lost, and
+the net. Build only what clears the bar the user set. An inventory row that says
+"an engine feature could do this" is a lead, and a scout's "verified" is too.
 
 On 11 November 2026 an audit asked which of our own sweeps, leases and clocks
 the workflow engine could take over
@@ -413,6 +465,10 @@ already existed
 
 ## Dead here is not dead in production
 
+Before you remove a table, column, route or variable, check it against what
+production runs (`git fetch origin prod`, then `git grep` on `FETCH_HEAD`), not
+only against your branch.
+
 The same day a migration dropped `bff_job_lane_turns`. A scout had proven the
 table dead: no reader and no writer anywhere on the branch. Production was two
 weeks and a whole workflow engine behind `develop`, and its running release
@@ -431,3 +487,42 @@ The wider lesson is the gap itself. Thirty-six migrations and one engine apart,
 every removal on `develop` is a guess about production, and every promotion is
 a single large step. Promoting in small steps, often, is what makes the check
 above cheap.
+
+## Industry standard first
+
+Where a published standard or the dominant convention covers the problem, use it
+and its vocabulary: MCP for agents, A2A for agent-to-agent work, OAuth 2.1 and
+the RFCs behind it for delegation, OpenAPI for HTTP contracts, the vendor's own
+product (a WorkOS feature) before our own. Look the standard up before you
+design; a name we invent for a thing the standard already names is a
+translation every agent and new colleague pays for. Deviate only with the reason
+written in an ADR. Anything an agent reads (tool names, descriptions, errors,
+cards over the wire) is English, with one word per concept; German is for
+people, through i18n, and for domain data. How to name a thing:
+[`naming.md`](naming.md).
+
+## Agents can act in every tool we choose
+
+A tool we adopt (CMS, CRM, tracker, analytics, an infrastructure service) lets an
+agent read, create, edit, publish and query in it through the vendor's official
+MCP server, or at least a complete, documented API with scoped tokens. Its
+configuration is code an agent can change by PR, and an agent's edits have a
+draft or review step and a revision history to roll back from. Record the check
+in the tool's ADR; the checklist is in [`ai-native-tooling.md`](ai-native-tooling.md).
+
+## Question the rules, including these
+
+A rule records a decision someone made with what they knew then. When one blocks
+the better result, or a new standard makes it wrong, say so and change the rule
+in the same change, with the reason. Keep the code straight rather than
+contorting it around the rule, and never break the rule silently.
+
+## Scope
+
+Fix errors you meet, including ones that pre-date your change. "It was already
+broken" leaves it broken; when a fix is genuinely out of scope, say so loudly in
+the PR.
+
+Question necessity first, then simplify. The best part is no part: ask whether
+existing machinery already covers it, and finish with a pass that tries to
+delete. Reduce complexity, never features. That pass is part of done.

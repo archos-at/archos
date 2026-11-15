@@ -3,7 +3,7 @@
  */
 
 /**
- * No new German identifier in the UI (AGENTS.md: every name in code is English,
+ * No new German identifier in the UI (naming.md: every name in code is English,
  * domain words included). The Python half is `tests/test_english_names.py`; both
  * read the stems in `ci/german_stems.json`.
  *

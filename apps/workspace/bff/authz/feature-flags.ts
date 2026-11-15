@@ -107,7 +107,7 @@ export const FEATURE_FLAGS = {
    * Note there is deliberately NO paired capability gate: the feature works with
    * the shared cache tier absent (live updates degrade to polling, spec RT-3), so
    * it has no infrastructure dependency to derive a capability from — per the
-   * capability doctrine in AGENTS.md.
+   * capability doctrine in docs/contributing/code-conventions.md.
    */
   collaboration: 'collaboration',
   /**
@@ -120,7 +120,7 @@ export const FEATURE_FLAGS = {
    * Like `collaboration`, there is deliberately NO paired capability gate.
    * Extraction runs in the BFF process with `@ifc-lite/parser` and the viewer
    * runs in the browser, so the feature has no infrastructure dependency to
-   * derive a capability from — per the capability doctrine in AGENTS.md. The
+   * derive a capability from — per the capability doctrine in docs/contributing/code-conventions.md. The
    * viewer's WebGPU requirement is a per-BROWSER fact, detected at render time
    * and degraded to the data explorer, not a deployment capability.
    */

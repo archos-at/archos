@@ -9,7 +9,7 @@
  * These are the assertions that would catch the failure the card exists to make
  * impossible — a Rechenweg whose printed answer does not follow from its own
  * operands. They run against the pure module rather than through a mounted
- * component for the reason AGENTS.md gives: the arithmetic is the part that must
+ * component for the reason working-style.md gives: the arithmetic is the part that must
  * be tested hardest, and logic in a module costs 1.3ms per test where the same
  * assertion through a React tree costs 172ms.
  */

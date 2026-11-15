@@ -46,7 +46,7 @@ function effectiveEnv(file: string, name: string): Record<string, string> {
 
 /**
  * The Compose files and the Pulumi program deploy the same four processes of one
- * image (ADR-0082), and `deploy/AGENTS.md` makes keeping them equal the author's
+ * image (ADR-0082), and `deploy/README.md` ("Rules for changes") makes keeping them equal the author's
  * job. Nothing else does: a Compose file that still points the frontend at the chat
  * service for HTTP, or has no tier to claim ingestion, runs clean until a reader
  * uploads a file. Both are read here as source, like the Python they configure.

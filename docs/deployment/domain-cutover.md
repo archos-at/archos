@@ -73,7 +73,7 @@ NEW_DEV="dev.$NEW"
 
 The values to set on switch day, per stack. Keys are written without the project's
 namespace, as `pulumi config set <key>` takes them in `deploy/pulumi`. Never touch a `secure:`
-value by hand (`deploy/AGENTS.md`); set secrets with `pulumi config set --secret` or ESC.
+value by hand (`deploy/README.md`); set secrets with `pulumi config set --secret` or ESC.
 
 ### Prod (`deploy/pulumi/Pulumi.prod.yaml`)
 

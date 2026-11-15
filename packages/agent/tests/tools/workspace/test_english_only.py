@@ -1,4 +1,4 @@
-"""Everything Piloti's workspace client tells the model is English (AGENTS.md, "Industry standard first").
+"""Everything Piloti's workspace client tells the model is English (working-style.md, "Industry standard first").
 
 The workspace tools are the in-product half of the agent surface (ADR-0122): their descriptions,
 their refusals, the truncation note and the error prefix are what the model reads, the same

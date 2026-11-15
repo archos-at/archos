@@ -243,3 +243,45 @@ suggestions off for a whole deployment. It is still a variable, documented in
 [`environment-variables.md`](../deployment/environment-variables.md), and
 becomes a flag the next time filing suggestions are touched. Registering a flag:
 [`workos-provisioning.md`](../deployment/workos-provisioning.md).
+
+## Rules that span services
+
+**One coarse `SourceKind` drives all rendering** (`building_law | office |
+project | web | measurement`), defined in
+`packages/agent/src/agent/common/source_kinds.py`. Add a kind there only: the
+`vocabularies` pre-commit hook (`scripts/generate_vocabularies.py`) generates
+the UI's `SOURCE_KINDS` and `SHELVES` into
+`apps/workspace/shared/vocabularies.generated.ts`, and
+`apps/workspace/bff/source-kinds.ts` holds what the UI makes of each kind. The
+fine `norm_registry` lanes are a sub-label within a kind, and the lane-to-kind
+table is still a mirror, held by `test_collection_scope_parity.py`. `doc_class`
+is human-set and beats every filename guess.
+
+**Correlated debt in shared code belongs in the change that tripped over it.**
+YAGNI forbids unused features, not known defects on the path you are walking. If
+B needs A to be generic and A is not, lift A here as its own commits. The test:
+would you work around it, switch on your type, or leave a descriptor field
+unread? Then it is correlated. The register:
+[`adding-a-shareable-resource-type.md`](../architecture/adding-a-shareable-resource-type.md).
+
+**A workspace primitive is one HTTP API with a typed client**
+([ADR-0055](../adr/0055-api-first-workspace-primitives.md)). The UI, the agent's
+tools, tasks and any later integration are equal clients of it; no service
+function is reached from a second path, and no contract is written twice.
+
+**The agent door offers what only we have** (ADR-0122 and its amendment). One
+MCP server at `/api/mcp` is the agent surface; Claude, Cursor and our own agent
+are clients of it, and the UI is another. Each tool is an operation in
+`apps/workspace/bff/agent-api/catalog/` that names a route the UI already calls;
+the route stays the gate, so authz, rate limit and body schema apply unchanged.
+Writes need the person's yes. The door offers the office's workspace (its data
+and the actions on it), our domain knowledge (the legal corpus, BIM/IFC analysis
+of the office's models) and our agent itself (`agent-ask-*`). It does not offer
+what a calling agent already has or what is how our agent works: a service we
+only proxy (web search, geocoding), product configuration (models, keys,
+budgets, screening and retention policies, settings), model work whose result is
+no office artifact, a person's own screen state. Such an operation stays
+catalogued with `withheld: { category, reason }`; deleting the line offers it
+again. The operator console is for a separate platform server, never the office
+door. A new capability is a route plus an operation, not a Python tool.
+[`agent-surface.md`](../architecture/agent-surface.md).

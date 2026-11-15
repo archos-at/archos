@@ -62,7 +62,7 @@ export type ConfinedAction = ConversationConfinedError['action']
  * caller names no locale. The tools relay the error to the model.
  *
  * Still German, and knowingly against the rule that anything an agent reads is
- * English (AGENTS.md, "Industry standard first"): the internal routes are
+ * English (working-style.md, "Industry standard first"): the internal routes are
  * Piloti's native tools' doors, which the core-agent wave moves to English, and
  * two person-facing paths (a memory proposal applied by a person, a background
  * run with no reader) fall back to this constant without saying who reads. Flip
