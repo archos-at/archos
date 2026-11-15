@@ -109,25 +109,21 @@ dependencies:
     - vercel-labs/agent-browser/skills/agent-browser#aff6125c023b810ea3f2e5deec5379e9a4270bdc
     - vercel-labs/before-and-after/skill#8306d34f459b6704e08e6adb5829fcddb0dc3557
 
-    # Interface craft, from Emil Kowalski (Vercel, Linear): motion, polish and
-    # the small details that decide whether the UI feels finished. `apps/workspace`
-    # already ships `motion` and `sonner`, and is a mobile-first PWA, which is
-    # why those three skills are in. `animate-expo` and `write-swift` are not:
-    # there is no React Native or Swift here. `review-animations`,
-    # `pick-ui-library` and `prototype` run only when asked for by name.
+    # Interface design. `frontend-design` is Anthropic's own skill for building
+    # new UI or reshaping an existing one: aesthetic direction, typography,
+    # choices that do not read as templated defaults. Where it disagrees with
+    # docs/design/design-language.md, the design language wins.
+    - anthropics/skills/skills/frontend-design#1780c5e5a552fd4d1c9d6a7b0cab26b0c2bef064
+
+    # Interface craft, from Emil Kowalski (Vercel, Linear). `emil-design-eng` is
+    # the one skill kept from that repo: it carries the polish and motion bar
+    # (easing, duration, origin, press feedback) in one place. The other twelve
+    # (animate, the four *-animation(s) skills, animation-performance,
+    # animation-vocabulary, apple-design, break-ui, mobile-native, ask-sonner,
+    # pick-ui-library, prototype) were removed on 2026-11-15: most fired on
+    # their own and each cost its listing on every turn for work this repo
+    # rarely does.
     - emilkowalski/skills/skills/emil-design-eng#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/animate#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/review-animations#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/improve-animations#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/find-animation-opportunities#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/animation-performance#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/animation-vocabulary#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/apple-design#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/break-ui#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/mobile-native#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/ask-sonner#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/pick-ui-library#2d228630ba1446365f614a108cb8252f1feda202
-    - emilkowalski/skills/skills/prototype#2d228630ba1446365f614a108cb8252f1feda202
   mcp: []
 
 includes: auto
