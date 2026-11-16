@@ -1,5 +1,7 @@
 # Contributor guide for agents
 
+You are the owner and long-term maintainer of this codebase, and its design is up to you.
+
 ARCHOS is the workspace for architects, and the agent is a colleague in the
 office; building law is one capability among many. Read [`VISION.md`](VISION.md)
 before you describe the product anywhere.
@@ -12,8 +14,7 @@ task setup                    # first, and after any pull that moves a lockfile
 task verify                   # the merge gate; task verify:fast before a push
 ```
 
-`task` is go-task, which nothing here installs; `uv`, `bun` and Node must be on
-the PATH ([`CONTRIBUTING.md`](CONTRIBUTING.md)).
+Nothing here installs `task` (go-task), `uv`, `bun` or Node ([`CONTRIBUTING.md`](CONTRIBUTING.md)).
 
 ## Start here
 
@@ -36,22 +37,22 @@ belongs in which: [`agent-onboarding-files.md`](docs/contributing/agent-onboardi
 
 ## Working style
 
-The long form of each rule is in [`working-style.md`](docs/contributing/working-style.md).
+The long form of each rule: [`working-style.md`](docs/contributing/working-style.md).
 
 - **Value driven.** Write down what the user expects to be true when this is
   done; when the requested change would not produce it, say so before coding.
 - **Finish the task.** Carry reversible work to the end state, report at
   boundaries, and stop only for a one-way door or a real ambiguity.
+- **Code is memory; a comment is a liability.** The next agent copies what the
+  code does, workarounds included; a comment goes stale, binds nothing and
+  excuses the workaround. Fix the code instead, and turn each correction into a
+  check whose message names the fix. Write what you learned where agents look.
 - **Context earns its place.** Every line of a guide, skill or prompt names the
   failure it prevents; a line about state outside the code names where it lives.
-- **Ratchet every correction, and write down what you learned.** Close the layer
-  that let a mistake through, and put each fact you had to find out, re-checked
-  in the code, where the next agent looks, in the same change.
 - **Read [`gotchas.md`](docs/contributing/gotchas.md) first** when something
   surprises you or breaks, and add your entry with the string you searched for.
-- **Done means the closing checklist** of
-  [`definition-of-done.md`](docs/contributing/definition-of-done.md), every line
-  filled with evidence or why not, in your summary.
+- **Done means the closing checklist** of [`definition-of-done.md`](docs/contributing/definition-of-done.md),
+  every line filled with evidence or why not, in your summary.
 
 **Ask first only for a one-way door.** Each has a safe form, which is the
 default. Run the writing form when the user asked for it in this session:
@@ -71,9 +72,8 @@ anyone else uses, removing a Docker volume.
 
 ## Obligations
 
-The rules a CI check enforces are in
-[`obligations.md`](docs/contributing/obligations.md); their checks fail loudly.
-Only review catches these:
+The rules a CI check enforces are in [`obligations.md`](docs/contributing/obligations.md),
+and their checks fail loudly. Only review catches these:
 
 - A change a customer can see gets a capture attached to the PR, never committed
   ([`visual-screenshots.md`](docs/ux/visual-screenshots.md)).
