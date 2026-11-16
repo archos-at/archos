@@ -86,6 +86,30 @@ function purge(path) {
   return remove.size
 }
 
-let total = 0
-for (const path of process.argv.slice(2)) total += purge(path)
-console.log(`purged ${total} comment line(s) in ${process.argv.length - 2} file(s)`)
+function proseCommentLines(path) {
+  const text = readFileSync(path, 'utf8')
+  const kind = path.endsWith('x') ? ts.ScriptKind.TSX : isPlainJs(path) ? ts.ScriptKind.JS : ts.ScriptKind.TS
+  const sourceFile = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, kind)
+  const lines = new Set()
+  for (const { pos, end } of commentRanges(sourceFile)) {
+    if (DIRECTIVE.test(text.slice(pos, end))) continue
+    const before = text.lastIndexOf('\n', pos - 1) + 1
+    const after = text.indexOf('\n', end)
+    if (text.slice(before, pos).trim() || text.slice(end, after === -1 ? text.length : after).trim()) continue
+    const first = text.slice(0, pos).split('\n').length
+    const last = text.slice(0, end).split('\n').length
+    for (let n = first; n <= last; n++) lines.add(n)
+  }
+  return lines.size
+}
+
+const args = process.argv.slice(2)
+if (args[0] === '--count') {
+  const counts = {}
+  for (const path of args.slice(1)) counts[path] = proseCommentLines(path)
+  console.log(JSON.stringify(counts))
+} else {
+  let total = 0
+  for (const path of args) total += purge(path)
+  console.log(`purged ${total} comment line(s) in ${args.length} file(s)`)
+}

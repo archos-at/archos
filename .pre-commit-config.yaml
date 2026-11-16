@@ -204,7 +204,7 @@ repos:
         name: no source file gains a comment line past its baseline (three are free)
         # A comment goes stale, binds nothing, and gives an agent room to justify
         # a workaround the next agent copies: code-conventions.md#comments.
-        # The staged files only, so a commit pays milliseconds, not the 14 s a
+        # The staged files only, so a commit pays milliseconds, not the 25 s a
         # full scan takes; CI's --all-files run passes every file.
         entry: .venv/bin/python scripts/check_comments.py
         language: system

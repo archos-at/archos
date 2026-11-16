@@ -70,3 +70,16 @@ def test_named_paths_check_only_those_files(checker, repo):
     _add(repo, "src/clean.ts", "export const d = 1\n")
     assert checker.main(["src/clean.ts"]) == 0
     assert checker.main(["src/big.ts"]) == 1
+
+
+def test_comment_markers_inside_a_template_literal_are_not_comments(checker, repo):
+    _add(repo, "src/t.ts", "export const example = `\n// first\n// second\n// third\n// fourth\n`\n")
+    assert checker.main([]) == 0
+
+
+def test_a_jsdoc_type_block_counts_as_a_whole(checker, repo):
+    text = (
+        "/**\n * @typedef {Object} Options\n * @property {string} name\n * @property {number} timeout\n */\nexport {}\n"
+    )
+    _add(repo, "src/o.js", text)
+    assert checker.main([]) == 0

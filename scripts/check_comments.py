@@ -60,10 +60,25 @@ def prose_comment_count(path: str, source: str) -> int:
     return sum(1 for number in comment_lines(path, source) if not DIRECTIVE.search(rows[number - 1]))
 
 
+def _script_counts(root: Path, paths: list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for start in range(0, len(paths), 400):
+        batch = paths[start : start + 400]
+        out = subprocess.run(
+            ["node", str(Path(__file__).with_name("purge_comments.mjs")), "--count", *batch],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        counts.update(json.loads(out))
+    return counts
+
+
 def measure(root: Path, paths: list[str]) -> dict[str, int]:
-    counts = {}
-    for path in paths:
-        counts[path] = prose_comment_count(path, (root / path).read_text(encoding="utf-8", errors="replace"))
+    python = [path for path in paths if path.endswith(".py")]
+    counts = {p: prose_comment_count(p, (root / p).read_text(encoding="utf-8", errors="replace")) for p in python}
+    counts.update(_script_counts(root, [path for path in paths if not path.endswith(".py")]))
     return counts
 
 
