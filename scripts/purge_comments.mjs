@@ -38,6 +38,7 @@ function removableLines(path, text, ranges) {
   }
   const lines = text.split('\n')
   const remove = new Set()
+  const groups = []
   for (const { pos, end } of ranges) {
     const body = text.slice(pos, end)
     if (DIRECTIVE.test(body)) continue
@@ -48,20 +49,22 @@ function removableLines(path, text, ranges) {
     const lastEnd = last + 1 < lineStarts.length ? lineStarts[last + 1] - 1 : text.length
     if (text.slice(end, lastEnd).trim()) continue
     for (let n = first; n <= last; n++) remove.add(n)
+    groups.push([first, last])
   }
-  return { lines, remove }
+  return { lines, remove, groups }
 }
 
-function keepSoleBlockContent(lines, remove) {
+function keepSoleBlockContent(lines, remove, groups) {
   const kept = (n) => !remove.has(n) && lines[n].trim() !== ''
-  for (const n of [...remove].sort((a, b) => a - b)) {
-    let prev = n - 1
+  for (const [first, last] of groups) {
+    if (!remove.has(first)) continue
+    let prev = first - 1
     while (prev >= 0 && !kept(prev)) prev--
-    let next = n + 1
+    let next = last + 1
     while (next < lines.length && !kept(next)) next++
     const opens = prev >= 0 && /[{(]\s*$/.test(lines[prev])
     const closes = next < lines.length && /^\s*[})]/.test(lines[next])
-    if (opens && closes) remove.delete(n)
+    if (opens && closes) for (let n = first; n <= last; n++) remove.delete(n)
   }
 }
 
@@ -69,8 +72,8 @@ function purge(path) {
   const text = readFileSync(path, 'utf8')
   const kind = path.endsWith('x') ? ts.ScriptKind.TSX : isPlainJs(path) ? ts.ScriptKind.JS : ts.ScriptKind.TS
   const sourceFile = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, kind)
-  const { lines, remove } = removableLines(path, text, commentRanges(sourceFile))
-  keepSoleBlockContent(lines, remove)
+  const { lines, remove, groups } = removableLines(path, text, commentRanges(sourceFile))
+  keepSoleBlockContent(lines, remove, groups)
   if (!remove.size) return 0
   const out = []
   for (let n = 0; n < lines.length; n++) {

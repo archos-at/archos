@@ -25,6 +25,10 @@ def _docstring_spans(tree: ast.Module) -> list[tuple[int, int, bool, int]]:
             continue
         if not isinstance(first.value.value, str):
             continue
+        shares_line = not isinstance(node, ast.Module) and first.lineno == node.lineno
+        followed = len(body) > 1 and body[1].lineno == first.end_lineno
+        if shares_line or followed:
+            continue
         sole = len(body) == 1 and not isinstance(node, ast.Module)
         spans.append((first.lineno, first.end_lineno or first.lineno, sole, first.col_offset))
     return spans
