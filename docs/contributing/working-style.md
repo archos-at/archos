@@ -287,6 +287,11 @@ So, here:
   number with its date, a vendor bug with its link, a legal or contractual
   constraint. Short, and never "why this workaround is acceptable".
 - Deleting a comment that restates the code is a cleanup, not a loss.
+- **Needing to explain how code works is an architectural fault.** If a reader
+  needs prose to follow what a module does, the names, the boundaries or the
+  data shapes are wrong: rethink the design until the code reads on its own,
+  rather than documenting around it. What a person must know about why it is
+  built this way goes in an ADR.
 
 **Say who owns the code.** The root `AGENTS.md` opens with the
 guide's sentence: you are the owner and long-term maintainer of this codebase,

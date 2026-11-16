@@ -44,9 +44,9 @@ The long form of each rule: [`working-style.md`](docs/contributing/working-style
 - **Finish the task.** Carry reversible work to the end state, report at
   boundaries, and stop only for a one-way door or a real ambiguity.
 - **Code is memory; a comment is a liability.** The next agent copies what the
-  code does, workarounds included; a comment goes stale, binds nothing and
-  excuses the workaround. Fix the code instead, and turn each correction into a
-  check whose message names the fix. Write what you learned where agents look.
+  code does, workarounds included; a comment goes stale and excuses them. If you
+  need to document how code works, treat it as an architectural fault and
+  rethink how you built it. Turn each correction into a check that names the fix.
 - **Context earns its place.** Every line of a guide, skill or prompt names the
   failure it prevents; a line about state outside the code names where it lives.
 - **Read [`gotchas.md`](docs/contributing/gotchas.md) first** when something
