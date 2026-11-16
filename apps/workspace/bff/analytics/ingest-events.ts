@@ -39,6 +39,7 @@
  * the lag the settle push (`/api/internal/ingest/settled`) exists to remove.
  */
 import { INGEST_STAGES, type IngestReading, type IngestTiming } from '@/lib/documents/ingest-timing'
+import { parseIngestFailureCategory } from '@/lib/documents/retry-policy'
 import { SCREENING_DETECTORS } from '@/lib/upload-screening/policy'
 import { captureServer, getPosthogServer } from './posthog-server'
 
@@ -177,6 +178,17 @@ const durationSince = (updatedAt: Date | string | null | undefined, now: number)
   return Number.isFinite(written) ? Math.max(0, now - written) : undefined
 }
 
+/**
+ * What names a failure's exception: the message's prefix, else the stored category.
+ * An encrypted or empty PDF has no prefix but is `deterministic`, so it does not
+ * share one `unknown` issue with every other cause.
+ */
+export const failureReasonOf = (ingest: Pick<FinishedIngest, 'errorMessage' | 'failureCategory'>): string => {
+  const reason = errorReasonOf(ingest.errorMessage)
+  if (reason && reason !== 'unknown') return reason
+  return parseIngestFailureCategory(ingest.failureCategory) ?? 'unknown'
+}
+
 /** The error-tracking budget per reason: a bulk upload that fails 109 times is five issues' worth, the event counts the rest. */
 const FAILURE_CAPTURE_BURST = 5
 const FAILURE_CAPTURE_WINDOW_MS = 5 * 60_000
@@ -200,7 +212,7 @@ class IngestFailedError extends Error {
 const captureIngestFailure = (organizationId: string, ingest: FinishedIngest, now: number): void => {
   const posthog = getPosthogServer()
   if (!posthog) return
-  const reason = errorReasonOf(ingest.errorMessage) ?? 'unknown'
+  const reason = failureReasonOf(ingest)
   const window = failureWindows.get(reason)
   if (!window || now - window.startedAt >= FAILURE_CAPTURE_WINDOW_MS) failureWindows.set(reason, { startedAt: now, count: 1 })
   else if (++window.count > FAILURE_CAPTURE_BURST) return

@@ -12,6 +12,7 @@ import {
   announceIngestStarted,
   announceIngestsFinished,
   errorReasonOf,
+  failureReasonOf,
   fileTypeOf,
   resetIngestFailureLimiterForTests,
   type FinishedIngest,
@@ -277,6 +278,16 @@ describe('errorReasonOf', () => {
   })
 })
 
+describe('failureReasonOf', () => {
+  it('takes the prefix, else the stored category, else unknown', () => {
+    expect(failureReasonOf({ errorMessage: 'interrupted: lost', failureCategory: 'transient' })).toBe('interrupted')
+    expect(failureReasonOf({ errorMessage: 'PDF is encrypted', failureCategory: 'deterministic' })).toBe('deterministic')
+    expect(failureReasonOf({ errorMessage: 'PDF is encrypted', failureCategory: 'Meier GmbH' })).toBe('unknown')
+    expect(failureReasonOf({ errorMessage: 'PDF is encrypted', failureCategory: null })).toBe('unknown')
+    expect(failureReasonOf({ errorMessage: null, failureCategory: undefined })).toBe('unknown')
+  })
+})
+
 describe('a failed ingest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -311,6 +322,21 @@ describe('a failed ingest', () => {
     const [error, , properties] = captureException.mock.calls[0] as unknown as [Error, unknown, Record<string, unknown>]
     expect(error.message).toBe('document ingest failed: interrupted')
     expect(properties).toMatchObject({ organization_id: 'org-1', document_id: 'doc-1', error_reason: 'interrupted' })
+  })
+
+  it('names an exception without a prefix by its category, and keeps the event reason as it was', () => {
+    announceIngestsFinished(
+      'org-1',
+      [{ ...failed, errorMessage: 'Meier GmbH.pdf is encrypted', failureCategory: 'deterministic', retryable: false }],
+      'read',
+      1_000
+    )
+
+    expect(propertiesOf(0)).toMatchObject({ error_reason: 'unknown', error_category: 'deterministic' })
+    const [error, , properties] = captureException.mock.calls[0] as unknown as [Error, unknown, Record<string, unknown>]
+    expect(error.message).toBe('document ingest failed: deterministic')
+    expect(properties).toMatchObject({ error_reason: 'deterministic', error_category: 'deterministic' })
+    expect(JSON.stringify(captureException.mock.calls)).not.toContain('Meier')
   })
 
   it('spends five exceptions per reason in a window, and still sends every event', () => {
