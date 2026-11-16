@@ -14,7 +14,7 @@ from check_comments import DIRECTIVE  # noqa: E402
 BEHAVIOUR = ("__doc__", "@tool", "from_function", "FunctionInfo")
 
 
-def _docstring_spans(tree: ast.Module) -> list[tuple[int, int, bool, int]]:
+def _docstring_spans(tree: ast.Module, lines: list[str]) -> list[tuple[int, int, bool, int]]:
     spans = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
@@ -25,12 +25,13 @@ def _docstring_spans(tree: ast.Module) -> list[tuple[int, int, bool, int]]:
             continue
         if not isinstance(first.value.value, str):
             continue
-        shares_line = not isinstance(node, ast.Module) and first.lineno == node.lineno
-        followed = len(body) > 1 and body[1].lineno == first.end_lineno
-        if shares_line or followed:
+        end = first.end_lineno or first.lineno
+        before = lines[first.lineno - 1][: first.col_offset]
+        after = lines[end - 1][first.end_col_offset or 0 :]
+        if before.strip() or after.strip():
             continue
         sole = len(body) == 1 and not isinstance(node, ast.Module)
-        spans.append((first.lineno, first.end_lineno or first.lineno, sole, first.col_offset))
+        spans.append((first.lineno, end, sole, first.col_offset))
     return spans
 
 
@@ -50,14 +51,14 @@ def purge(path: Path) -> int:
     source = path.read_text(encoding="utf-8")
     if any(marker in source for marker in BEHAVIOUR):
         return 0
+    lines = source.split("\n")
     try:
         tree = ast.parse(source)
         remove = _comment_lines(source)
     except SyntaxError, tokenize.TokenError, IndentationError:
         return 0
-    lines = source.split("\n")
     replace: dict[int, str] = {}
-    for start, end, sole, col in _docstring_spans(tree):
+    for start, end, sole, col in _docstring_spans(tree, lines):
         remove.update(range(start, end + 1))
         if sole:
             replace[start] = " " * col + "..."
