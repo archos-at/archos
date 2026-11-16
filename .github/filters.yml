@@ -154,6 +154,7 @@ backend:
   - 'apps/workspace/workers/jobs/index.js'
   - 'ci/agent_docs_baseline.json'
   - 'ci/brand_names_baseline.json'
+  - 'ci/comment_baseline.json'
   - 'ci/english_names_baseline_py.json'
   - 'ci/package_surface_baseline.json'
   - 'ci/size_baseline.json'

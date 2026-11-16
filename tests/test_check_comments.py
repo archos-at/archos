@@ -1,0 +1,72 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture
+def checker():
+    spec = importlib.util.spec_from_file_location("check_comments", ROOT / "scripts" / "check_comments.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture
+def repo(tmp_path, monkeypatch):
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "ci").mkdir()
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+def _add(repo: Path, path: str, text: str) -> None:
+    target = repo / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    subprocess.run(["git", "add", path], cwd=repo, check=True)
+
+
+def test_three_lines_are_free_and_the_fourth_fails(checker, repo):
+    _add(repo, "src/a.ts", "// one\n// two\n// three\nexport const a = 1\n")
+    assert checker.main([]) == 0
+
+    _add(repo, "src/a.ts", "// one\n// two\n// three\n// four\nexport const a = 1\n")
+    assert checker.main([]) == 1
+
+
+def test_a_file_over_the_allowance_may_shrink_but_not_grow(checker, repo):
+    _add(repo, "src/b.py", '"""Doc."""\n# a\n# b\n# c\n# d\nX = 1\n')
+    assert checker.main(["--rebaseline"]) == 0
+    assert json.loads((repo / "ci/comment_baseline.json").read_text()) == {"src/b.py": 5}
+
+    _add(repo, "src/b.py", '"""Doc."""\n# a\n# b\n# c\n# d\n# e\nX = 1\n')
+    assert checker.main([]) == 1
+
+    _add(repo, "src/b.py", '"""Doc."""\n# a\n# b\n# c\nX = 1\n')
+    assert checker.main([]) == 0
+    assert checker.main(["--update"]) == 0
+    assert json.loads((repo / "ci/comment_baseline.json").read_text()) == {"src/b.py": 4}
+
+
+def test_lines_a_tool_reads_do_not_count(checker, repo):
+    text = (
+        "// eslint-disable-next-line\n// @ts-expect-error x\n/** @type {number} */\n"
+        "// @vitest-environment node\nexport const c = 1\n"
+    )
+    _add(repo, "src/c.ts", text)
+    assert checker.main([]) == 0
+
+
+def test_named_paths_check_only_those_files(checker, repo):
+    _add(repo, "src/big.ts", "// 1\n// 2\n// 3\n// 4\n// 5\nexport {}\n")
+    _add(repo, "src/clean.ts", "export const d = 1\n")
+    assert checker.main(["src/clean.ts"]) == 0
+    assert checker.main(["src/big.ts"]) == 1

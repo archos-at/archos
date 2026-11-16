@@ -63,6 +63,34 @@ choice: generated files (the card schemas' `src/shared/cards/generated.ts`,
 specs, fixtures and test helpers, migrations, and copy (the i18n dictionaries,
 the site's `src/data/` and `src/i18n/`). The list is `EXCLUDED` in the script.
 
+## Comments
+
+Write code that needs no comment. A comment goes stale without a diff, no check
+reads it, and it gives an agent a place to justify a workaround that the next
+agent then copies ([the rule and its sources](working-style.md#code-is-memory-a-comment-is-a-liability)).
+Fix the code instead: a clearer name, a smaller function, a type, or a check
+whose message names the rule.
+
+- **Three lines per file are free**: room for a one-line contract, a dated
+  measurement, a vendor bug with its link, or a legal constraint. Never a
+  paragraph, never "why this workaround is acceptable", never history ("used
+  to …"), never a pointer to a doc by name that will move.
+- **A file already over three may not grow.** A new comment there is paid for
+  by deleting another. A shrink passes; `task baselines:tighten` locks it in.
+- **Lines a tool reads do not count**: lint and type suppressions (`noqa`,
+  `eslint-disable`, `@ts-expect-error`), test-environment pragmas, JSDoc types
+  in plain JavaScript, bundler hints, `@disk-inputs`.
+- A design rationale longer than a line belongs in an ADR or the area's doc,
+  linked from the code only if the code would mislead without it.
+
+The check is `scripts/check_comments.py` against `ci/comment_baseline.json`,
+run by the `comments` pre-commit hook on the files you commit and by CI's
+**Repo checks** job on all of them. It counts what
+`scripts/check_file_size.py`'s `comment_lines` counts: lines that hold only a
+comment, and Python docstrings. On 2026-11-16, when it arrived, the tree held
+323,379 such lines in 7,452 files over the allowance; the audit that removes
+them is planned in the brand-free sweep.
+
 ## No brand names
 
 No code or infrastructure name carries a brand, and the product's name is copy
